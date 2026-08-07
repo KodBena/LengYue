@@ -1,17 +1,456 @@
 {
+ "fullGameMoves": [
+  [
+   "B",
+   "R16"
+  ],
+  [
+   "W",
+   "D16"
+  ],
+  [
+   "B",
+   "D3"
+  ],
+  [
+   "W",
+   "Q4"
+  ],
+  [
+   "B",
+   "O17"
+  ],
+  [
+   "W",
+   "D5"
+  ],
+  [
+   "B",
+   "C5"
+  ],
+  [
+   "W",
+   "C6"
+  ],
+  [
+   "B",
+   "C4"
+  ],
+  [
+   "W",
+   "D6"
+  ],
+  [
+   "B",
+   "F3"
+  ],
+  [
+   "W",
+   "Q16"
+  ],
+  [
+   "B",
+   "Q17"
+  ],
+  [
+   "W",
+   "R15"
+  ],
+  [
+   "B",
+   "S16"
+  ],
+  [
+   "W",
+   "Q15"
+  ],
+  [
+   "B",
+   "P16"
+  ],
+  [
+   "W",
+   "P15"
+  ],
+  [
+   "B",
+   "O15"
+  ],
+  [
+   "W",
+   "O14"
+  ],
+  [
+   "B",
+   "N15"
+  ],
+  [
+   "W",
+   "N14"
+  ],
+  [
+   "B",
+   "S15"
+  ],
+  [
+   "W",
+   "M15"
+  ],
+  [
+   "B",
+   "P14"
+  ],
+  [
+   "W",
+   "P13"
+  ],
+  [
+   "B",
+   "Q14"
+  ],
+  [
+   "W",
+   "K14"
+  ],
+  [
+   "B",
+   "Q13"
+  ],
+  [
+   "W",
+   "C14"
+  ],
+  [
+   "B",
+   "R6"
+  ],
+  [
+   "W",
+   "R5"
+  ],
+  [
+   "B",
+   "Q6"
+  ],
+  [
+   "W",
+   "O4"
+  ],
+  [
+   "B",
+   "D11"
+  ],
+  [
+   "W",
+   "F10"
+  ],
+  [
+   "B",
+   "D13"
+  ],
+  [
+   "W",
+   "B12"
+  ],
+  [
+   "B",
+   "F13"
+  ],
+  [
+   "W",
+   "F16"
+  ],
+  [
+   "B",
+   "J13"
+  ],
+  [
+   "W",
+   "G5"
+  ],
+  [
+   "B",
+   "H11"
+  ],
+  [
+   "W",
+   "H15"
+  ],
+  [
+   "B",
+   "P2"
+  ],
+  [
+   "W",
+   "R8"
+  ],
+  [
+   "B",
+   "R3"
+  ],
+  [
+   "W",
+   "S5"
+  ],
+  [
+   "B",
+   "O3"
+  ],
+  [
+   "W",
+   "N4"
+  ],
+  [
+   "B",
+   "N3"
+  ],
+  [
+   "W",
+   "P4"
+  ],
+  [
+   "B",
+   "M4"
+  ],
+  [
+   "W",
+   "M5"
+  ],
+  [
+   "B",
+   "L4"
+  ],
+  [
+   "W",
+   "Q2"
+  ],
+  [
+   "B",
+   "R2"
+  ],
+  [
+   "W",
+   "Q10"
+  ],
+  [
+   "B",
+   "L5"
+  ],
+  [
+   "W",
+   "M6"
+  ],
+  [
+   "B",
+   "L6"
+  ],
+  [
+   "W",
+   "M7"
+  ],
+  [
+   "B",
+   "E10"
+  ],
+  [
+   "W",
+   "F8"
+  ],
+  [
+   "B",
+   "E9"
+  ],
+  [
+   "W",
+   "G10"
+  ],
+  [
+   "B",
+   "E8"
+  ],
+  [
+   "W",
+   "G7"
+  ],
+  [
+   "B",
+   "G4"
+  ],
+  [
+   "W",
+   "G12"
+  ],
+  [
+   "B",
+   "F12"
+  ],
+  [
+   "W",
+   "H5"
+  ],
+  [
+   "B",
+   "L7"
+  ],
+  [
+   "W",
+   "J4"
+  ],
+  [
+   "B",
+   "H4"
+  ],
+  [
+   "W",
+   "H13"
+  ],
+  [
+   "B",
+   "B8"
+  ],
+  [
+   "W",
+   "B7"
+  ],
+  [
+   "B",
+   "H8"
+  ],
+  [
+   "W",
+   "G8"
+  ],
+  [
+   "B",
+   "C8"
+  ],
+  [
+   "W",
+   "B5"
+  ],
+  [
+   "B",
+   "B4"
+  ],
+  [
+   "W",
+   "C10"
+  ],
+  [
+   "B",
+   "A5"
+  ],
+  [
+   "W",
+   "B6"
+  ],
+  [
+   "B",
+   "G13"
+  ],
+  [
+   "W",
+   "H14"
+  ],
+  [
+   "B",
+   "G11"
+  ],
+  [
+   "W",
+   "J9"
+  ],
+  [
+   "B",
+   "F11"
+  ],
+  [
+   "W",
+   "L8"
+  ],
+  [
+   "B",
+   "J10"
+  ],
+  [
+   "W",
+   "K8"
+  ],
+  [
+   "B",
+   "J3"
+  ],
+  [
+   "W",
+   "E4"
+  ],
+  [
+   "B",
+   "E3"
+  ],
+  [
+   "W",
+   "M17"
+  ],
+  [
+   "B",
+   "C17"
+  ],
+  [
+   "W",
+   "C16"
+  ],
+  [
+   "B",
+   "D18"
+  ],
+  [
+   "W",
+   "B18"
+  ],
+  [
+   "B",
+   "M14"
+  ],
+  [
+   "W",
+   "M13"
+  ],
+  [
+   "B",
+   "L14"
+  ],
+  [
+   "W",
+   "L13"
+  ],
+  [
+   "B",
+   "L15"
+  ],
+  [
+   "W",
+   "M16"
+  ],
+  [
+   "B",
+   "P12"
+  ],
+  [
+   "W",
+   "L16"
+  ]
+ ],
  "provenance": {
-  "gameRawId": 24221,
-  "localUserOrdinal": 22846,
-  "black": "Go Seigen",
-  "white": "Fujisawa Hosai",
-  "date": "1971-05-26",
-  "result": "W+0.5",
-  "position": 117,
-  "rules": "japanese",
-  "komi": 5.5,
+  "origin": "synthetic-self-play (no external game record; ledger row 735)",
   "model": "b11c768h12nbt3tflrs",
-  "maxVisits": 4000,
-  "proxyVersion": "1.17.1",
+  "selfPlayVisitsPerMove": 300,
+  "analysisVisits": 4000,
+  "rules": "tromp-taylor",
+  "komi": 7.5,
+  "selection": "max visit-distribution entropy over turns 90..110",
+  "selectedTurn": 95,
+  "entropyBits": 3.0528,
   "capturedAt": "2026-08-07"
  },
  "moves": [
@@ -21,199 +460,23 @@
   ],
   [
    "W",
-   "C4"
-  ],
-  [
-   "B",
-   "Q3"
-  ],
-  [
-   "W",
-   "D17"
-  ],
-  [
-   "B",
-   "P16"
-  ],
-  [
-   "W",
-   "E4"
-  ],
-  [
-   "B",
-   "D15"
-  ],
-  [
-   "W",
-   "Q5"
-  ],
-  [
-   "B",
-   "R5"
-  ],
-  [
-   "W",
-   "R6"
-  ],
-  [
-   "B",
-   "R4"
-  ],
-  [
-   "W",
-   "C15"
-  ],
-  [
-   "B",
    "D16"
   ],
   [
-   "W",
-   "C16"
-  ],
-  [
    "B",
-   "E17"
-  ],
-  [
-   "W",
-   "C14"
-  ],
-  [
-   "B",
-   "D14"
-  ],
-  [
-   "W",
-   "D13"
-  ],
-  [
-   "B",
-   "C17"
-  ],
-  [
-   "W",
-   "D18"
-  ],
-  [
-   "B",
-   "B17"
-  ],
-  [
-   "W",
-   "E18"
-  ],
-  [
-   "B",
-   "C13"
-  ],
-  [
-   "W",
-   "E13"
-  ],
-  [
-   "B",
-   "F16"
-  ],
-  [
-   "W",
-   "F17"
-  ],
-  [
-   "B",
-   "E16"
-  ],
-  [
-   "W",
-   "G16"
-  ],
-  [
-   "B",
-   "G17"
-  ],
-  [
-   "W",
-   "F18"
-  ],
-  [
-   "B",
-   "B16"
-  ],
-  [
-   "W",
-   "C12"
-  ],
-  [
-   "B",
-   "B13"
-  ],
-  [
-   "W",
-   "H17"
-  ],
-  [
-   "B",
-   "Q6"
-  ],
-  [
-   "W",
-   "R7"
-  ],
-  [
-   "B",
-   "Q9"
-  ],
-  [
-   "W",
-   "P6"
-  ],
-  [
-   "B",
-   "Q7"
-  ],
-  [
-   "W",
-   "Q8"
-  ],
-  [
-   "B",
-   "P7"
-  ],
-  [
-   "W",
-   "P8"
-  ],
-  [
-   "B",
-   "O7"
-  ],
-  [
-   "W",
-   "R9"
-  ],
-  [
-   "B",
-   "K4"
-  ],
-  [
-   "W",
-   "H3"
-  ],
-  [
-   "B",
-   "O8"
-  ],
-  [
-   "W",
-   "P9"
-  ],
-  [
-   "B",
-   "C3"
-  ],
-  [
-   "W",
    "D3"
+  ],
+  [
+   "W",
+   "Q4"
+  ],
+  [
+   "B",
+   "O17"
+  ],
+  [
+   "W",
+   "D5"
   ],
   [
    "B",
@@ -221,87 +484,15 @@
   ],
   [
    "W",
-   "B4"
+   "C6"
   ],
   [
    "B",
-   "D5"
+   "C4"
   ],
   [
    "W",
-   "D4"
-  ],
-  [
-   "B",
-   "D8"
-  ],
-  [
-   "W",
-   "M4"
-  ],
-  [
-   "B",
-   "J3"
-  ],
-  [
-   "W",
-   "P4"
-  ],
-  [
-   "B",
-   "P3"
-  ],
-  [
-   "W",
-   "M6"
-  ],
-  [
-   "B",
-   "N5"
-  ],
-  [
-   "W",
-   "M5"
-  ],
-  [
-   "B",
-   "H4"
-  ],
-  [
-   "W",
-   "G3"
-  ],
-  [
-   "B",
-   "O4"
-  ],
-  [
-   "W",
-   "J6"
-  ],
-  [
-   "B",
-   "G4"
-  ],
-  [
-   "W",
-   "J5"
-  ],
-  [
-   "B",
-   "J4"
-  ],
-  [
-   "W",
-   "F6"
-  ],
-  [
-   "B",
-   "G6"
-  ],
-  [
-   "W",
-   "G7"
+   "D6"
   ],
   [
    "B",
@@ -309,171 +500,27 @@
   ],
   [
    "W",
-   "C10"
-  ],
-  [
-   "B",
-   "F7"
-  ],
-  [
-   "W",
-   "E6"
-  ],
-  [
-   "B",
-   "H7"
-  ],
-  [
-   "W",
-   "G8"
-  ],
-  [
-   "B",
-   "H6"
-  ],
-  [
-   "W",
-   "L8"
-  ],
-  [
-   "B",
-   "G10"
-  ],
-  [
-   "W",
-   "F9"
-  ],
-  [
-   "B",
-   "B12"
-  ],
-  [
-   "W",
-   "H8"
-  ],
-  [
-   "B",
-   "C11"
-  ],
-  [
-   "W",
-   "F15"
-  ],
-  [
-   "B",
-   "B14"
-  ],
-  [
-   "W",
-   "N17"
-  ],
-  [
-   "B",
-   "R12"
-  ],
-  [
-   "W",
-   "O15"
-  ],
-  [
-   "B",
-   "O9"
-  ],
-  [
-   "W",
-   "J7"
-  ],
-  [
-   "B",
-   "D10"
-  ],
-  [
-   "W",
-   "F2"
-  ],
-  [
-   "B",
-   "F4"
-  ],
-  [
-   "W",
-   "G2"
-  ],
-  [
-   "B",
-   "E5"
-  ],
-  [
-   "W",
-   "D7"
-  ],
-  [
-   "B",
-   "E2"
-  ],
-  [
-   "W",
-   "D2"
-  ],
-  [
-   "B",
-   "F5"
-  ],
-  [
-   "W",
-   "E8"
-  ],
-  [
-   "B",
-   "C9"
-  ],
-  [
-   "W",
-   "C7"
-  ],
-  [
-   "B",
-   "M2"
-  ],
-  [
-   "W",
-   "R14"
-  ],
-  [
-   "B",
-   "O16"
-  ],
-  [
-   "W",
-   "N16"
-  ],
-  [
-   "B",
-   "N15"
-  ],
-  [
-   "W",
-   "O14"
-  ],
-  [
-   "B",
-   "M15"
-  ],
-  [
-   "W",
    "Q16"
   ],
   [
    "B",
-   "Q15"
-  ],
-  [
-   "W",
    "Q17"
   ],
   [
+   "W",
+   "R15"
+  ],
+  [
    "B",
-   "Q14"
+   "S16"
+  ],
+  [
+   "W",
+   "Q15"
+  ],
+  [
+   "B",
+   "P16"
   ],
   [
    "W",
@@ -481,3234 +528,1699 @@
   ],
   [
    "B",
-   "O13"
+   "O15"
+  ],
+  [
+   "W",
+   "O14"
+  ],
+  [
+   "B",
+   "N15"
+  ],
+  [
+   "W",
+   "N14"
+  ],
+  [
+   "B",
+   "S15"
+  ],
+  [
+   "W",
+   "M15"
+  ],
+  [
+   "B",
+   "P14"
+  ],
+  [
+   "W",
+   "P13"
+  ],
+  [
+   "B",
+   "Q14"
+  ],
+  [
+   "W",
+   "K14"
+  ],
+  [
+   "B",
+   "Q13"
+  ],
+  [
+   "W",
+   "C14"
+  ],
+  [
+   "B",
+   "R6"
+  ],
+  [
+   "W",
+   "R5"
+  ],
+  [
+   "B",
+   "Q6"
+  ],
+  [
+   "W",
+   "O4"
+  ],
+  [
+   "B",
+   "D11"
+  ],
+  [
+   "W",
+   "F10"
+  ],
+  [
+   "B",
+   "D13"
+  ],
+  [
+   "W",
+   "B12"
+  ],
+  [
+   "B",
+   "F13"
+  ],
+  [
+   "W",
+   "F16"
+  ],
+  [
+   "B",
+   "J13"
+  ],
+  [
+   "W",
+   "G5"
+  ],
+  [
+   "B",
+   "H11"
+  ],
+  [
+   "W",
+   "H15"
+  ],
+  [
+   "B",
+   "P2"
+  ],
+  [
+   "W",
+   "R8"
+  ],
+  [
+   "B",
+   "R3"
+  ],
+  [
+   "W",
+   "S5"
+  ],
+  [
+   "B",
+   "O3"
+  ],
+  [
+   "W",
+   "N4"
+  ],
+  [
+   "B",
+   "N3"
+  ],
+  [
+   "W",
+   "P4"
+  ],
+  [
+   "B",
+   "M4"
+  ],
+  [
+   "W",
+   "M5"
+  ],
+  [
+   "B",
+   "L4"
+  ],
+  [
+   "W",
+   "Q2"
+  ],
+  [
+   "B",
+   "R2"
+  ],
+  [
+   "W",
+   "Q10"
+  ],
+  [
+   "B",
+   "L5"
+  ],
+  [
+   "W",
+   "M6"
+  ],
+  [
+   "B",
+   "L6"
+  ],
+  [
+   "W",
+   "M7"
+  ],
+  [
+   "B",
+   "E10"
+  ],
+  [
+   "W",
+   "F8"
+  ],
+  [
+   "B",
+   "E9"
+  ],
+  [
+   "W",
+   "G10"
+  ],
+  [
+   "B",
+   "E8"
+  ],
+  [
+   "W",
+   "G7"
+  ],
+  [
+   "B",
+   "G4"
+  ],
+  [
+   "W",
+   "G12"
+  ],
+  [
+   "B",
+   "F12"
+  ],
+  [
+   "W",
+   "H5"
+  ],
+  [
+   "B",
+   "L7"
+  ],
+  [
+   "W",
+   "J4"
+  ],
+  [
+   "B",
+   "H4"
+  ],
+  [
+   "W",
+   "H13"
+  ],
+  [
+   "B",
+   "B8"
+  ],
+  [
+   "W",
+   "B7"
+  ],
+  [
+   "B",
+   "H8"
+  ],
+  [
+   "W",
+   "G8"
+  ],
+  [
+   "B",
+   "C8"
+  ],
+  [
+   "W",
+   "B5"
+  ],
+  [
+   "B",
+   "B4"
+  ],
+  [
+   "W",
+   "C10"
+  ],
+  [
+   "B",
+   "A5"
+  ],
+  [
+   "W",
+   "B6"
+  ],
+  [
+   "B",
+   "G13"
+  ],
+  [
+   "W",
+   "H14"
+  ],
+  [
+   "B",
+   "G11"
+  ],
+  [
+   "W",
+   "J9"
+  ],
+  [
+   "B",
+   "F11"
+  ],
+  [
+   "W",
+   "L8"
+  ],
+  [
+   "B",
+   "J10"
+  ],
+  [
+   "W",
+   "K8"
+  ],
+  [
+   "B",
+   "J3"
   ]
  ],
  "analysis": {
-  "id": "swz-demo-22846-117",
+  "id": "deep",
   "isDuringSearch": false,
-  "turnNumber": 117,
+  "turnNumber": 95,
   "moveInfos": [
    {
-    "clusterId": 0,
-    "edgeVisits": 3860,
-    "edgeWeight": 4626.82392,
-    "lcb": 0.901559635,
-    "move": "N14",
+    "clusterId": 2,
+    "edgeVisits": 651,
+    "edgeWeight": 701.033808,
+    "lcb": 0.447211836,
+    "move": "D14",
     "order": 0,
-    "playSelectionValue": 4626.82392,
-    "prior": 0.899904191,
+    "playSelectionValue": 1720.36276,
+    "prior": 0.0687410012,
     "pv": [
-     "N14",
-     "M13",
-     "Q13",
-     "R15",
-     "M14",
-     "L14",
-     "L15",
-     "Q10",
-     "P10",
-     "Q11",
-     "N11",
-     "R17",
-     "Q18",
-     "N10",
-     "S10",
-     "S11"
+     "D14",
+     "L17",
+     "L18",
+     "C17",
+     "D18",
+     "M16",
+     "E4",
+     "E3",
+     "K17",
+     "F15",
+     "N16",
+     "O16",
+     "L16",
+     "D17",
+     "E17"
     ],
-    "scoreLead": 4.53691587,
-    "scoreMean": 4.53691587,
-    "scoreSelfplay": 5.67005029,
-    "scoreStdev": 9.45507996,
-    "utility": 0.834835042,
-    "utilityLcb": 0.819332082,
-    "visits": 3860,
-    "weight": 4626.82392,
-    "winrate": 0.907096406
+    "scoreLead": -0.325307085,
+    "scoreMean": -0.325307085,
+    "scoreSelfplay": -0.927780179,
+    "scoreStdev": 13.982139,
+    "utility": -0.109309403,
+    "utilityLcb": -0.140867951,
+    "visits": 651,
+    "weight": 701.033808,
+    "winrate": 0.458482746
+   },
+   {
+    "clusterId": 0,
+    "edgeVisits": 1137,
+    "edgeWeight": 1109.92857,
+    "lcb": 0.448918331,
+    "move": "L10",
+    "order": 1,
+    "playSelectionValue": 1109.92857,
+    "prior": 0.0597522035,
+    "pv": [
+     "L10",
+     "C17",
+     "C16",
+     "L11",
+     "K10",
+     "L17",
+     "M16",
+     "M18",
+     "S13",
+     "R14",
+     "H12",
+     "H9",
+     "E4"
+    ],
+    "scoreLead": -0.47301901,
+    "scoreMean": -0.47301901,
+    "scoreSelfplay": -0.891656904,
+    "scoreStdev": 13.1628834,
+    "utility": -0.115337568,
+    "utilityLcb": -0.143583149,
+    "visits": 1137,
+    "weight": 1109.92857,
+    "winrate": 0.459006038
    },
    {
     "clusterId": 1,
-    "edgeVisits": 32,
-    "edgeWeight": 33.1199816,
-    "lcb": 0.723210504,
-    "move": "P17",
-    "order": 1,
-    "playSelectionValue": 16.0,
-    "prior": 0.0614658184,
-    "pv": [
-     "P17",
-     "J9",
-     "H5",
-     "Q10",
-     "P10",
-     "R10",
-     "O10",
-     "N13",
-     "N9"
-    ],
-    "scoreLead": 2.28013732,
-    "scoreMean": 2.28013732,
-    "scoreSelfplay": 2.78911075,
-    "scoreStdev": 9.67909481,
-    "utility": 0.527252904,
-    "utilityLcb": 0.412476332,
-    "visits": 32,
-    "weight": 33.1199816,
-    "winrate": 0.764202137
-   },
-   {
-    "clusterId": 2,
-    "edgeVisits": 9,
-    "edgeWeight": 8.00124227,
-    "lcb": 0.636692454,
-    "move": "J2",
+    "edgeVisits": 763,
+    "edgeWeight": 765.282652,
+    "lcb": 0.429765802,
+    "move": "E4",
     "order": 2,
-    "playSelectionValue": 3.0,
-    "prior": 0.0199810732,
+    "playSelectionValue": 615.0,
+    "prior": 0.259805113,
     "pv": [
-     "J2",
-     "K2",
-     "N14",
-     "M13",
-     "R15"
+     "E4",
+     "E3",
+     "D14",
+     "L17",
+     "L18",
+     "E18",
+     "H12",
+     "L10",
+     "D17",
+     "K18",
+     "K17"
     ],
-    "scoreLead": 2.66351381,
-    "scoreMean": 2.66351381,
-    "scoreSelfplay": 2.40100349,
-    "scoreStdev": 9.81705433,
-    "utility": 0.399037206,
-    "utilityLcb": 0.164530375,
-    "visits": 9,
-    "weight": 8.00124227,
-    "winrate": 0.720444894
+    "scoreLead": -0.533490623,
+    "scoreMean": -0.533490623,
+    "scoreSelfplay": -1.12939224,
+    "scoreStdev": 14.1754469,
+    "utility": -0.141239442,
+    "utilityLcb": -0.176410264,
+    "visits": 763,
+    "weight": 765.282652,
+    "winrate": 0.44232681
    },
    {
     "clusterId": 3,
-    "edgeVisits": 6,
-    "edgeWeight": 5.44522968,
-    "lcb": 0.62597827,
-    "move": "L3",
+    "edgeVisits": 340,
+    "edgeWeight": 344.268236,
+    "lcb": 0.402594049,
+    "move": "H12",
     "order": 3,
-    "playSelectionValue": 2.0,
-    "prior": 0.0140080275,
+    "playSelectionValue": 233.0,
+    "prior": 0.295436084,
     "pv": [
-     "L3",
-     "K2",
-     "N14",
-     "M13",
-     "L2"
+     "H12",
+     "L10",
+     "M9",
+     "J12",
+     "H10",
+     "L17",
+     "C12",
+     "D12",
+     "L16",
+     "K17",
+     "C9"
     ],
-    "scoreLead": 2.54545249,
-    "scoreMean": 2.54545249,
-    "scoreSelfplay": 2.34846132,
-    "scoreStdev": 10.1123771,
-    "utility": 0.391212935,
-    "utilityLcb": 0.15306278,
-    "visits": 6,
-    "weight": 5.44522968,
-    "winrate": 0.711031897
+    "scoreLead": -0.565799051,
+    "scoreMean": -0.565799051,
+    "scoreSelfplay": -1.4349231,
+    "scoreStdev": 15.269938,
+    "utility": -0.200431849,
+    "utilityLcb": -0.244272195,
+    "visits": 340,
+    "weight": 344.268236,
+    "winrate": 0.418251315
    },
    {
-    "clusterId": 15,
-    "edgeVisits": 1,
-    "edgeWeight": 2.32096947,
-    "lcb": -1.23235896,
-    "move": "P13",
+    "clusterId": 4,
+    "edgeVisits": 276,
+    "edgeWeight": 253.819695,
+    "lcb": 0.406109527,
+    "move": "M17",
     "order": 4,
-    "playSelectionValue": 0.0,
-    "prior": 0.00133908913,
+    "playSelectionValue": 91.0,
+    "prior": 0.0797037184,
     "pv": [
-     "P13"
+     "M17",
+     "C17",
+     "C16",
+     "D18",
+     "F18",
+     "E17",
+     "E16",
+     "F17",
+     "G18",
+     "B16",
+     "B18"
     ],
-    "scoreLead": -15.6841736,
-    "scoreMean": -15.6841736,
-    "scoreSelfplay": -14.9911032,
-    "scoreStdev": 10.9795777,
-    "utility": -1.14440706,
-    "utilityLcb": -4.64440708,
-    "visits": 1,
-    "weight": 2.32096947,
-    "winrate": 0.0176410414
+    "scoreLead": -0.581297168,
+    "scoreMean": -0.581297168,
+    "scoreSelfplay": -1.32918114,
+    "scoreStdev": 13.933902,
+    "utility": -0.173010712,
+    "utilityLcb": -0.240410774,
+    "visits": 276,
+    "weight": 253.819695,
+    "winrate": 0.430180978
    },
    {
-    "clusterId": 14,
-    "edgeVisits": 1,
-    "edgeWeight": 1.06963956,
-    "lcb": -0.597573555,
-    "move": "O17",
+    "clusterId": 5,
+    "edgeVisits": 206,
+    "edgeWeight": 238.836888,
+    "lcb": 0.404225343,
+    "move": "H10",
     "order": 5,
-    "playSelectionValue": 0.0,
-    "prior": 0.00116738176,
+    "playSelectionValue": 83.0,
+    "prior": 0.104035325,
     "pv": [
-     "O17"
+     "H10",
+     "K10",
+     "M10",
+     "L17",
+     "K18",
+     "M16",
+     "D14",
+     "F15",
+     "H12",
+     "J12",
+     "E15"
     ],
-    "scoreLead": 1.6197809,
-    "scoreMean": 1.6197809,
-    "scoreSelfplay": 1.5756402,
-    "scoreStdev": 9.64276273,
-    "utility": 0.282950668,
-    "utilityLcb": -3.21704935,
-    "visits": 1,
-    "weight": 1.06963956,
-    "winrate": 0.652426451
-   },
-   {
-    "clusterId": 13,
-    "edgeVisits": 1,
-    "edgeWeight": 0.458351774,
-    "lcb": -0.815857491,
-    "move": "N3",
-    "order": 6,
-    "playSelectionValue": 0.0,
-    "prior": 0.000645167311,
-    "pv": [
-     "N3"
-    ],
-    "scoreLead": -1.57710493,
-    "scoreMean": -1.57710493,
-    "scoreSelfplay": 0.678979635,
-    "scoreStdev": 13.1120437,
-    "utility": -0.16040448,
-    "utilityLcb": -3.6604045,
-    "visits": 1,
-    "weight": 0.458351774,
-    "winrate": 0.434142515
-   },
-   {
-    "clusterId": 12,
-    "edgeVisits": 1,
-    "edgeWeight": 0.605869338,
-    "lcb": -0.755492381,
-    "move": "M3",
-    "order": 7,
-    "playSelectionValue": 0.0,
-    "prior": 0.000247002201,
-    "pv": [
-     "M3"
-    ],
-    "scoreLead": -0.364073336,
-    "scoreMean": -0.364073336,
-    "scoreSelfplay": -0.904055715,
-    "scoreStdev": 11.5838902,
-    "utility": -0.0585661,
-    "utilityLcb": -3.55856612,
-    "visits": 1,
-    "weight": 0.605869338,
-    "winrate": 0.494507626
-   },
-   {
-    "clusterId": 11,
-    "edgeVisits": 1,
-    "edgeWeight": 0.671305241,
-    "lcb": -0.804746455,
-    "move": "L2",
-    "order": 8,
-    "playSelectionValue": 0.0,
-    "prior": 0.00020876099,
-    "pv": [
-     "L2"
-    ],
-    "scoreLead": -0.659513056,
-    "scoreMean": -0.659513056,
-    "scoreSelfplay": -1.68560028,
-    "scoreStdev": 10.6044953,
-    "utility": -0.167318196,
-    "utilityLcb": -3.66731821,
-    "visits": 1,
-    "weight": 0.671305241,
-    "winrate": 0.445253551
-   },
-   {
-    "clusterId": 10,
-    "edgeVisits": 1,
-    "edgeWeight": 0.532708813,
-    "lcb": -0.865175835,
-    "move": "N2",
-    "order": 9,
-    "playSelectionValue": 0.0,
-    "prior": 0.000199340808,
-    "pv": [
-     "N2"
-    ],
-    "scoreLead": -2.00430226,
-    "scoreMean": -2.00430226,
-    "scoreSelfplay": -1.51528406,
-    "scoreStdev": 12.1765593,
-    "utility": -0.283491616,
-    "utilityLcb": -3.78349163,
-    "visits": 1,
-    "weight": 0.532708813,
-    "winrate": 0.384824172
-   },
-   {
-    "clusterId": 9,
-    "edgeVisits": 1,
-    "edgeWeight": 0.657386839,
-    "lcb": -0.808443612,
-    "move": "K2",
-    "order": 10,
-    "playSelectionValue": 0.0,
-    "prior": 0.000189691695,
-    "pv": [
-     "K2"
-    ],
-    "scoreLead": -0.674041271,
-    "scoreMean": -0.674041271,
-    "scoreSelfplay": -1.43451881,
-    "scoreStdev": 10.7347301,
-    "utility": -0.171697134,
-    "utilityLcb": -3.67169715,
-    "visits": 1,
-    "weight": 0.657386839,
-    "winrate": 0.441556394
+    "scoreLead": -0.681944506,
+    "scoreMean": -0.681944506,
+    "scoreSelfplay": -1.26305088,
+    "scoreStdev": 13.727745,
+    "utility": -0.198724427,
+    "utilityLcb": -0.255118452,
+    "visits": 206,
+    "weight": 238.836888,
+    "winrate": 0.424366066
    },
    {
     "clusterId": 8,
-    "edgeVisits": 1,
-    "edgeWeight": 1.05839508,
-    "lcb": -1.17173618,
-    "move": "E14",
-    "order": 11,
-    "playSelectionValue": 0.0,
-    "prior": 5.62622736e-05,
+    "edgeVisits": 82,
+    "edgeWeight": 90.2004212,
+    "lcb": 0.376079528,
+    "move": "J5",
+    "order": 6,
+    "playSelectionValue": 35.0,
+    "prior": 0.0719791651,
     "pv": [
-     "E14"
+     "J5",
+     "L10",
+     "K3",
+     "K4",
+     "H3",
+     "J2",
+     "F4",
+     "G3",
+     "E4",
+     "E3",
+     "M17",
+     "C17",
+     "D17",
+     "D18"
     ],
-    "scoreLead": -6.04392338,
-    "scoreMean": -6.04392338,
-    "scoreSelfplay": -6.74104643,
-    "scoreStdev": 10.1131208,
-    "utility": -0.955675997,
-    "utilityLcb": -4.45567602,
-    "visits": 1,
-    "weight": 1.05839508,
-    "winrate": 0.0782638267
+    "scoreLead": -0.875711729,
+    "scoreMean": -0.875711729,
+    "scoreSelfplay": -1.50298082,
+    "scoreStdev": 12.5814795,
+    "utility": -0.255058049,
+    "utilityLcb": -0.33578094,
+    "visits": 82,
+    "weight": 90.2004212,
+    "winrate": 0.404909132
    },
    {
     "clusterId": 7,
-    "edgeVisits": 1,
-    "edgeWeight": 0.747240982,
-    "lcb": -1.18283799,
-    "move": "N4",
-    "order": 12,
-    "playSelectionValue": 0.0,
-    "prior": 4.07252701e-05,
+    "edgeVisits": 128,
+    "edgeWeight": 145.987761,
+    "lcb": 0.413791946,
+    "move": "P12",
+    "order": 7,
+    "playSelectionValue": 29.0,
+    "prior": 0.02418405,
     "pv": [
-     "N4"
+     "P12",
+     "L10",
+     "M9",
+     "L17",
+     "D14",
+     "H17",
+     "M17",
+     "F18",
+     "H12",
+     "J12",
+     "E4",
+     "E3"
     ],
-    "scoreLead": -9.23993683,
-    "scoreMean": -9.23993683,
-    "scoreSelfplay": -7.2871418,
-    "scoreStdev": 11.8071418,
-    "utility": -0.977936303,
-    "utilityLcb": -4.47793632,
-    "visits": 1,
-    "weight": 0.747240982,
-    "winrate": 0.0671620145
+    "scoreLead": -0.347539563,
+    "scoreMean": -0.347539563,
+    "scoreSelfplay": -1.08633255,
+    "scoreStdev": 14.2622547,
+    "utility": -0.169491664,
+    "utilityLcb": -0.24234351,
+    "visits": 128,
+    "weight": 145.987761,
+    "winrate": 0.439810463
+   },
+   {
+    "clusterId": 12,
+    "edgeVisits": 29,
+    "edgeWeight": 32.2296769,
+    "lcb": 0.383345249,
+    "move": "K10",
+    "order": 8,
+    "playSelectionValue": 6.0,
+    "prior": 0.00739173638,
+    "pv": [
+     "K10",
+     "K11",
+     "L10",
+     "C17",
+     "C16",
+     "M14",
+     "M13",
+     "L14"
+    ],
+    "scoreLead": -0.654103156,
+    "scoreMean": -0.654103156,
+    "scoreSelfplay": -1.39443812,
+    "scoreStdev": 11.9966471,
+    "utility": -0.190411336,
+    "utilityLcb": -0.260484593,
+    "visits": 29,
+    "weight": 32.2296769,
+    "winrate": 0.408371412
+   },
+   {
+    "clusterId": 9,
+    "edgeVisits": 72,
+    "edgeWeight": 81.7911095,
+    "lcb": 0.412025083,
+    "move": "P3",
+    "order": 9,
+    "playSelectionValue": 5.0,
+    "prior": 0.00448000245,
+    "pv": [
+     "P3",
+     "O2",
+     "H12",
+     "L10",
+     "M9",
+     "J12",
+     "E4",
+     "E3",
+     "M17",
+     "C17",
+     "D17",
+     "D18",
+     "E18"
+    ],
+    "scoreLead": -0.404406178,
+    "scoreMean": -0.404406178,
+    "scoreSelfplay": -1.0665745,
+    "scoreStdev": 14.3011311,
+    "utility": -0.170497099,
+    "utilityLcb": -0.253101906,
+    "visits": 72,
+    "weight": 81.7911095,
+    "winrate": 0.4415268
+   },
+   {
+    "clusterId": 6,
+    "edgeVisits": 204,
+    "edgeWeight": 225.146857,
+    "lcb": 0.432124556,
+    "move": "H3",
+    "order": 10,
+    "playSelectionValue": 2.0,
+    "prior": 0.000416719238,
+    "pv": [
+     "H3",
+     "K4",
+     "E4",
+     "E3",
+     "M17",
+     "C17",
+     "D17",
+     "D18",
+     "E18"
+    ],
+    "scoreLead": -0.393677389,
+    "scoreMean": -0.393677389,
+    "scoreSelfplay": -0.901667444,
+    "scoreStdev": 13.5153362,
+    "utility": -0.125777407,
+    "utilityLcb": -0.192204954,
+    "visits": 204,
+    "weight": 225.146857,
+    "winrate": 0.455848681
+   },
+   {
+    "clusterId": 10,
+    "edgeVisits": 56,
+    "edgeWeight": 66.2619888,
+    "lcb": 0.401719992,
+    "move": "M10",
+    "order": 11,
+    "playSelectionValue": 2.0,
+    "prior": 0.00240495871,
+    "pv": [
+     "M10",
+     "L17",
+     "H12",
+     "J12",
+     "K11",
+     "H9",
+     "E4",
+     "E3"
+    ],
+    "scoreLead": -0.52009213,
+    "scoreMean": -0.52009213,
+    "scoreSelfplay": -1.1701128,
+    "scoreStdev": 12.9219877,
+    "utility": -0.177716986,
+    "utilityLcb": -0.270302014,
+    "visits": 56,
+    "weight": 66.2619888,
+    "winrate": 0.434786073
+   },
+   {
+    "clusterId": 11,
+    "edgeVisits": 44,
+    "edgeWeight": 49.5140956,
+    "lcb": 0.407602548,
+    "move": "Q3",
+    "order": 12,
+    "playSelectionValue": 1.0,
+    "prior": 0.00148805126,
+    "pv": [
+     "Q3",
+     "Q1",
+     "H12",
+     "L10",
+     "E4",
+     "E3",
+     "M9",
+     "J12",
+     "M17",
+     "C17",
+     "D17",
+     "D18",
+     "E18",
+     "B18"
+    ],
+    "scoreLead": -0.36263493,
+    "scoreMean": -0.36263493,
+    "scoreSelfplay": -1.10076613,
+    "scoreStdev": 14.9435102,
+    "utility": -0.168667975,
+    "utilityLcb": -0.262440486,
+    "visits": 44,
+    "weight": 49.5140956,
+    "winrate": 0.441092731
+   },
+   {
+    "clusterId": 13,
+    "edgeVisits": 6,
+    "edgeWeight": 6.87179335,
+    "lcb": 0.310014858,
+    "move": "N16",
+    "order": 13,
+    "playSelectionValue": 1.0,
+    "prior": 0.00275001023,
+    "pv": [
+     "N16",
+     "R14",
+     "E4",
+     "E3"
+    ],
+    "scoreLead": -0.65296227,
+    "scoreMean": -0.65296227,
+    "scoreSelfplay": -1.62428534,
+    "scoreStdev": 13.5619989,
+    "utility": -0.294962923,
+    "utilityLcb": -0.571742925,
+    "visits": 6,
+    "weight": 6.87179335,
+    "winrate": 0.408864859
+   },
+   {
+    "clusterId": 14,
+    "edgeVisits": 3,
+    "edgeWeight": 4.25491237,
+    "lcb": 0.0776738532,
+    "move": "B9",
+    "order": 14,
+    "playSelectionValue": 1.0,
+    "prior": 0.00355813443,
+    "pv": [
+     "B9",
+     "L17"
+    ],
+    "scoreLead": -0.998352916,
+    "scoreMean": -0.998352916,
+    "scoreSelfplay": -2.22454721,
+    "scoreStdev": 12.692639,
+    "utility": -0.345904807,
+    "utilityLcb": -1.08565608,
+    "visits": 3,
+    "weight": 4.25491237,
+    "winrate": 0.341870738
+   },
+   {
+    "clusterId": 15,
+    "edgeVisits": 3,
+    "edgeWeight": 2.77087639,
+    "lcb": 0.0259759415,
+    "move": "F4",
+    "order": 15,
+    "playSelectionValue": 0.0,
+    "prior": 0.0035038928,
+    "pv": [
+     "F4",
+     "E4",
+     "F5"
+    ],
+    "scoreLead": -1.57681517,
+    "scoreMean": -1.57681517,
+    "scoreSelfplay": -1.84661071,
+    "scoreStdev": 12.8093931,
+    "utility": -0.364053972,
+    "utilityLcb": -1.24802216,
+    "visits": 3,
+    "weight": 2.77087639,
+    "winrate": 0.341678864
    },
    {
     "clusterId": 16,
-    "edgeVisits": 1,
-    "edgeWeight": 0.672802732,
-    "lcb": -1.10069083,
-    "move": "K1",
-    "order": 13,
+    "edgeVisits": 3,
+    "edgeWeight": 3.39267578,
+    "lcb": 0.126295503,
+    "move": "L17",
+    "order": 16,
     "playSelectionValue": 0.0,
-    "prior": 2.25297645e-05,
+    "prior": 0.000759970048,
     "pv": [
-     "K1"
+     "L17",
+     "C17",
+     "C16"
     ],
-    "scoreLead": -5.90778875,
-    "scoreMean": -5.90778875,
-    "scoreSelfplay": -5.15729809,
-    "scoreStdev": 10.8609807,
-    "utility": -0.795480601,
-    "utilityLcb": -4.29548062,
-    "visits": 1,
-    "weight": 0.672802732,
-    "winrate": 0.149309181
+    "scoreLead": -0.616505428,
+    "scoreMean": -0.616505428,
+    "scoreSelfplay": -1.91729745,
+    "scoreStdev": 13.2334104,
+    "utility": -0.281444416,
+    "utilityLcb": -1.02718534,
+    "visits": 3,
+    "weight": 3.39267578,
+    "winrate": 0.392631546
    },
    {
     "clusterId": 17,
-    "edgeVisits": 1,
-    "edgeWeight": 0.770282159,
-    "lcb": -1.17696629,
-    "move": "O3",
-    "order": 14,
+    "edgeVisits": 3,
+    "edgeWeight": 3.70201507,
+    "lcb": 0.131175335,
+    "move": "D8",
+    "order": 17,
     "playSelectionValue": 0.0,
-    "prior": 2.05661399e-05,
+    "prior": 0.000401933852,
     "pv": [
-     "O3"
+     "D8",
+     "D9",
+     "H12"
     ],
-    "scoreLead": -9.05894947,
-    "scoreMean": -9.05894947,
-    "scoreSelfplay": -6.81967831,
-    "scoreStdev": 11.6314154,
-    "utility": -0.962276659,
-    "utilityLcb": -4.46227668,
-    "visits": 1,
-    "weight": 0.770282159,
-    "winrate": 0.0730337165
+    "scoreLead": -0.565995264,
+    "scoreMean": -0.565995264,
+    "scoreSelfplay": -1.62851623,
+    "scoreStdev": 13.4028624,
+    "utility": -0.251125548,
+    "utilityLcb": -1.02250151,
+    "visits": 3,
+    "weight": 3.70201507,
+    "winrate": 0.406666749
    },
    {
     "clusterId": 18,
-    "edgeVisits": 1,
-    "edgeWeight": 0.791442076,
-    "lcb": -1.20144889,
-    "move": "L1",
-    "order": 15,
+    "edgeVisits": 2,
+    "edgeWeight": 2.38121197,
+    "lcb": -0.238764116,
+    "move": "C12",
+    "order": 18,
     "playSelectionValue": 0.0,
-    "prior": 1.96380515e-05,
+    "prior": 0.00253405748,
     "pv": [
-     "L1"
+     "C12",
+     "H12"
     ],
-    "scoreLead": -13.9240713,
-    "scoreMean": -13.9240713,
-    "scoreSelfplay": -8.13892174,
-    "scoreStdev": 12.0029034,
-    "utility": -1.02250054,
-    "utilityLcb": -4.52250056,
-    "visits": 1,
-    "weight": 0.791442076,
-    "winrate": 0.048551118
+    "scoreLead": -1.47943361,
+    "scoreMean": -1.47943361,
+    "scoreSelfplay": -3.05664051,
+    "scoreStdev": 13.3171492,
+    "utility": -0.477461178,
+    "utilityLcb": -1.97187233,
+    "visits": 2,
+    "weight": 2.38121197,
+    "winrate": 0.294954151
    },
    {
     "clusterId": 19,
-    "edgeVisits": 1,
-    "edgeWeight": 1.20074923,
-    "lcb": -1.17393086,
-    "move": "E15",
-    "order": 16,
+    "edgeVisits": 2,
+    "edgeWeight": 1.67398314,
+    "lcb": -0.246840606,
+    "move": "K3",
+    "order": 19,
     "playSelectionValue": 0.0,
-    "prior": 1.74131565e-05,
+    "prior": 0.00176601717,
     "pv": [
-     "E15"
+     "K3",
+     "J5"
     ],
-    "scoreLead": -6.20587778,
-    "scoreMean": -6.20587778,
-    "scoreSelfplay": -7.01047373,
-    "scoreStdev": 9.85984866,
-    "utility": -0.963514922,
-    "utilityLcb": -4.46351494,
-    "visits": 1,
-    "weight": 1.20074923,
-    "winrate": 0.0760691501
+    "scoreLead": -1.89072284,
+    "scoreMean": -1.89072284,
+    "scoreSelfplay": -1.91768891,
+    "scoreStdev": 12.9376821,
+    "utility": -0.437106242,
+    "utilityLcb": -2.03027891,
+    "visits": 2,
+    "weight": 1.67398314,
+    "winrate": 0.322149633
    },
    {
     "clusterId": 20,
-    "edgeVisits": 1,
-    "edgeWeight": 0.793435001,
-    "lcb": -1.16401242,
-    "move": "K3",
-    "order": 17,
+    "edgeVisits": 2,
+    "edgeWeight": 1.87706426,
+    "lcb": -0.151665511,
+    "move": "L18",
+    "order": 20,
     "playSelectionValue": 0.0,
-    "prior": 1.4688093e-05,
+    "prior": 0.000316852791,
     "pv": [
-     "K3"
+     "L18",
+     "H9"
     ],
-    "scoreLead": -9.43811989,
-    "scoreMean": -9.43811989,
-    "scoreSelfplay": -5.8977437,
-    "scoreStdev": 10.8241845,
-    "utility": -0.929702084,
-    "utilityLcb": -4.4297021,
-    "visits": 1,
-    "weight": 0.793435001,
-    "winrate": 0.0859875865
+    "scoreLead": -1.31007961,
+    "scoreMean": -1.31007961,
+    "scoreSelfplay": -2.29592764,
+    "scoreStdev": 13.4740583,
+    "utility": -0.26432,
+    "utilityLcb": -1.76476697,
+    "visits": 2,
+    "weight": 1.87706426,
+    "winrate": 0.384208406
    },
    {
     "clusterId": 21,
     "edgeVisits": 1,
-    "edgeWeight": 0.784566183,
-    "lcb": -1.20386701,
-    "move": "M1",
-    "order": 18,
-    "playSelectionValue": 0.0,
-    "prior": 1.45475033e-05,
-    "pv": [
-     "M1"
-    ],
-    "scoreLead": -14.3234358,
-    "scoreMean": -14.3234358,
-    "scoreSelfplay": -8.82651234,
-    "scoreStdev": 12.3404972,
-    "utility": -1.03251748,
-    "utilityLcb": -4.5325175,
-    "visits": 1,
-    "weight": 0.784566183,
-    "winrate": 0.0461330004
-   },
-   {
-    "clusterId": 22,
-    "edgeVisits": 1,
-    "edgeWeight": 0.624392129,
-    "lcb": -1.13195396,
-    "move": "O2",
-    "order": 19,
-    "playSelectionValue": 0.0,
-    "prior": 1.26055766e-05,
-    "pv": [
-     "O2"
-    ],
-    "scoreLead": -9.67801857,
-    "scoreMean": -9.67801857,
-    "scoreSelfplay": -5.16265297,
-    "scoreStdev": 12.5630575,
-    "utility": -0.853478287,
-    "utilityLcb": -4.3534783,
-    "visits": 1,
-    "weight": 0.624392129,
-    "winrate": 0.118046049
-   },
-   {
-    "clusterId": 23,
-    "edgeVisits": 1,
-    "edgeWeight": 2.0861004,
-    "lcb": -1.21427497,
-    "move": "R15",
-    "order": 20,
-    "playSelectionValue": 0.0,
-    "prior": 9.23172047e-06,
-    "pv": [
-     "R15"
-    ],
-    "scoreLead": -6.62232924,
-    "scoreMean": -6.62232924,
-    "scoreSelfplay": -7.67284441,
-    "scoreStdev": 9.00767371,
-    "utility": -1.05337556,
-    "utilityLcb": -4.55337557,
-    "visits": 1,
-    "weight": 2.0861004,
-    "winrate": 0.0357250348
-   },
-   {
-    "clusterId": 24,
-    "edgeVisits": 1,
-    "edgeWeight": 2.62290175,
-    "lcb": -1.23165481,
-    "move": "Q13",
+    "edgeWeight": 1.23114065,
+    "lcb": -0.860145873,
+    "move": "C13",
     "order": 21,
     "playSelectionValue": 0.0,
-    "prior": 8.38127471e-06,
-    "pv": [
-     "Q13"
-    ],
-    "scoreLead": -10.0190868,
-    "scoreMean": -10.0190868,
-    "scoreSelfplay": -10.2322178,
-    "scoreStdev": 8.99098472,
-    "utility": -1.11182985,
-    "utilityLcb": -4.61182987,
-    "visits": 1,
-    "weight": 2.62290175,
-    "winrate": 0.0183451977
-   },
-   {
-    "clusterId": 25,
-    "edgeVisits": 1,
-    "edgeWeight": 2.63058209,
-    "lcb": -1.22470041,
-    "move": "D11",
-    "order": 22,
-    "playSelectionValue": 0.0,
-    "prior": 8.18910667e-06,
-    "pv": [
-     "D11"
-    ],
-    "scoreLead": -11.1076546,
-    "scoreMean": -11.1076546,
-    "scoreSelfplay": -12.0777903,
-    "scoreStdev": 9.68878907,
-    "utility": -1.11118125,
-    "utilityLcb": -4.61118127,
-    "visits": 1,
-    "weight": 2.63058209,
-    "winrate": 0.0252995975
-   },
-   {
-    "clusterId": 26,
-    "edgeVisits": 1,
-    "edgeWeight": 2.38048245,
-    "lcb": -1.22092766,
-    "move": "B11",
-    "order": 23,
-    "playSelectionValue": 0.0,
-    "prior": 8.17054843e-06,
-    "pv": [
-     "B11"
-    ],
-    "scoreLead": -10.6805582,
-    "scoreMean": -10.6805582,
-    "scoreSelfplay": -11.3053026,
-    "scoreStdev": 9.51608965,
-    "utility": -1.09783866,
-    "utilityLcb": -4.59783868,
-    "visits": 1,
-    "weight": 2.38048245,
-    "winrate": 0.0290723415
-   },
-   {
-    "clusterId": 27,
-    "edgeVisits": 1,
-    "edgeWeight": 2.71593964,
-    "lcb": -1.23027408,
-    "move": "Q10",
-    "order": 24,
-    "playSelectionValue": 0.0,
-    "prior": 6.60986871e-06,
-    "pv": [
-     "Q10"
-    ],
-    "scoreLead": -9.62944794,
-    "scoreMean": -9.62944794,
-    "scoreSelfplay": -9.90247345,
-    "scoreStdev": 8.41708654,
-    "utility": -1.10805375,
-    "utilityLcb": -4.60805376,
-    "visits": 1,
-    "weight": 2.71593964,
-    "winrate": 0.0197259216
-   },
-   {
-    "clusterId": 42,
-    "edgeVisits": 1,
-    "edgeWeight": 2.83149831,
-    "lcb": -1.22678452,
-    "move": "S11",
-    "order": 25,
-    "playSelectionValue": 0.0,
-    "prior": 6.07964648e-06,
-    "pv": [
-     "S11"
-    ],
-    "scoreLead": -9.12449265,
-    "scoreMean": -9.12449265,
-    "scoreSelfplay": -9.33424282,
-    "scoreStdev": 8.54893014,
-    "utility": -1.09551172,
-    "utilityLcb": -4.59551174,
-    "visits": 1,
-    "weight": 2.83149831,
-    "winrate": 0.0232154848
-   },
-   {
-    "clusterId": 85,
-    "edgeVisits": 1,
-    "edgeWeight": 0.670300331,
-    "lcb": -1.14008073,
-    "move": "J1",
-    "order": 26,
-    "playSelectionValue": 0.0,
-    "prior": 5.66111157e-06,
-    "pv": [
-     "J1"
-    ],
-    "scoreLead": -9.28164768,
-    "scoreMean": -9.28164768,
-    "scoreSelfplay": -5.53734922,
-    "scoreStdev": 11.3074762,
-    "utility": -0.876857588,
-    "utilityLcb": -4.37685761,
-    "visits": 1,
-    "weight": 0.670300331,
-    "winrate": 0.109919272
-   },
-   {
-    "clusterId": 86,
-    "edgeVisits": 1,
-    "edgeWeight": 2.05309246,
-    "lcb": -1.23039959,
-    "move": "E3",
-    "order": 27,
-    "playSelectionValue": 0.0,
-    "prior": 5.66031304e-06,
-    "pv": [
-     "E3"
-    ],
-    "scoreLead": -14.8047724,
-    "scoreMean": -14.8047724,
-    "scoreSelfplay": -13.7118769,
-    "scoreStdev": 10.5350931,
-    "utility": -1.13254581,
-    "utilityLcb": -4.63254583,
-    "visits": 1,
-    "weight": 2.05309246,
-    "winrate": 0.0196004212
-   },
-   {
-    "clusterId": 87,
-    "edgeVisits": 1,
-    "edgeWeight": 1.3650304,
-    "lcb": -1.2257617,
-    "move": "H1",
-    "order": 28,
-    "playSelectionValue": 0.0,
-    "prior": 5.24439292e-06,
-    "pv": [
-     "H1"
-    ],
-    "scoreLead": -15.7595797,
-    "scoreMean": -15.7595797,
-    "scoreSelfplay": -12.3361731,
-    "scoreStdev": 11.3756527,
-    "utility": -1.1095757,
-    "utilityLcb": -4.60957572,
-    "visits": 1,
-    "weight": 1.3650304,
-    "winrate": 0.0242383033
-   },
-   {
-    "clusterId": 6,
-    "edgeVisits": 1,
-    "edgeWeight": 3.07072832,
-    "lcb": -1.23046714,
-    "move": "O10",
-    "order": 29,
-    "playSelectionValue": 0.0,
-    "prior": 5.21730999e-06,
-    "pv": [
-     "O10"
-    ],
-    "scoreLead": -10.9330969,
-    "scoreMean": -10.9330969,
-    "scoreSelfplay": -11.3205166,
-    "scoreStdev": 8.91763525,
-    "utility": -1.11904312,
-    "utilityLcb": -4.61904313,
-    "visits": 1,
-    "weight": 3.07072832,
-    "winrate": 0.0195328668
-   },
-   {
-    "clusterId": 4,
-    "edgeVisits": 1,
-    "edgeWeight": 0.58778187,
-    "lcb": -1.18393131,
-    "move": "L4",
-    "order": 30,
-    "playSelectionValue": 0.0,
-    "prior": 5.09239453e-06,
-    "pv": [
-     "L4"
-    ],
-    "scoreLead": -15.4403028,
-    "scoreMean": -15.4403028,
-    "scoreSelfplay": -5.01659203,
-    "scoreStdev": 12.4133737,
-    "utility": -0.95638493,
-    "utilityLcb": -4.45638495,
-    "visits": 1,
-    "weight": 0.58778187,
-    "winrate": 0.0660686977
-   },
-   {
-    "clusterId": 5,
-    "edgeVisits": 1,
-    "edgeWeight": 1.74267651,
-    "lcb": -1.21431398,
-    "move": "O5",
-    "order": 31,
-    "playSelectionValue": 0.0,
-    "prior": 4.78115271e-06,
-    "pv": [
-     "O5"
-    ],
-    "scoreLead": -9.96245766,
-    "scoreMean": -9.96245766,
-    "scoreSelfplay": -9.14507675,
-    "scoreStdev": 9.64128827,
-    "utility": -1.06526072,
-    "utilityLcb": -4.56526074,
-    "visits": 1,
-    "weight": 1.74267651,
-    "winrate": 0.035686031
-   },
-   {
-    "clusterId": 55,
-    "edgeVisits": 1,
-    "edgeWeight": 1.12855602,
-    "lcb": -1.21394196,
-    "move": "N1",
-    "order": 32,
-    "playSelectionValue": 0.0,
-    "prior": 4.52888071e-06,
-    "pv": [
-     "N1"
-    ],
-    "scoreLead": -15.2867785,
-    "scoreMean": -15.2867785,
-    "scoreSelfplay": -10.8319426,
-    "scoreStdev": 11.9680519,
-    "utility": -1.0714502,
-    "utilityLcb": -4.57145022,
-    "visits": 1,
-    "weight": 1.12855602,
-    "winrate": 0.0360580496
-   },
-   {
-    "clusterId": 54,
-    "edgeVisits": 1,
-    "edgeWeight": 3.18902109,
-    "lcb": -1.23587695,
-    "move": "H2",
-    "order": 33,
-    "playSelectionValue": 0.0,
-    "prior": 4.28576504e-06,
-    "pv": [
-     "H2"
-    ],
-    "scoreLead": -20.1836967,
-    "scoreMean": -20.1836967,
-    "scoreSelfplay": -18.9363079,
-    "scoreStdev": 11.3074642,
-    "utility": -1.17654058,
-    "utilityLcb": -4.67654059,
-    "visits": 1,
-    "weight": 3.18902109,
-    "winrate": 0.0141230575
-   },
-   {
-    "clusterId": 53,
-    "edgeVisits": 1,
-    "edgeWeight": 2.9497338,
-    "lcb": -1.22629938,
-    "move": "R13",
-    "order": 34,
-    "playSelectionValue": 0.0,
-    "prior": 3.94384369e-06,
-    "pv": [
-     "R13"
-    ],
-    "scoreLead": -9.91212845,
-    "scoreMean": -9.91212845,
-    "scoreSelfplay": -10.1085358,
-    "scoreStdev": 9.07295412,
-    "utility": -1.0997624,
-    "utilityLcb": -4.59976241,
-    "visits": 1,
-    "weight": 2.9497338,
-    "winrate": 0.0237006256
-   },
-   {
-    "clusterId": 52,
-    "edgeVisits": 1,
-    "edgeWeight": 3.63282511,
-    "lcb": -1.2357042,
-    "move": "N13",
-    "order": 35,
-    "playSelectionValue": 0.0,
-    "prior": 3.77857623e-06,
-    "pv": [
-     "N13"
-    ],
-    "scoreLead": -17.743185,
-    "scoreMean": -17.743185,
-    "scoreSelfplay": -17.4614468,
-    "scoreStdev": 10.6401507,
-    "utility": -1.16907358,
-    "utilityLcb": -4.6690736,
-    "visits": 1,
-    "weight": 3.63282511,
-    "winrate": 0.0142958085
-   },
-   {
-    "clusterId": 51,
-    "edgeVisits": 1,
-    "edgeWeight": 2.71562557,
-    "lcb": -1.22560315,
-    "move": "R17",
-    "order": 36,
-    "playSelectionValue": 0.0,
-    "prior": 3.59374008e-06,
-    "pv": [
-     "R17"
-    ],
-    "scoreLead": -8.72919178,
-    "scoreMean": -8.72919178,
-    "scoreSelfplay": -9.22653675,
-    "scoreStdev": 9.10940611,
-    "utility": -1.0903423,
-    "utilityLcb": -4.59034232,
-    "visits": 1,
-    "weight": 2.71562557,
-    "winrate": 0.0243968563
-   },
-   {
-    "clusterId": 50,
-    "edgeVisits": 1,
-    "edgeWeight": 3.20446819,
-    "lcb": -1.23630051,
-    "move": "P14",
-    "order": 37,
-    "playSelectionValue": 0.0,
-    "prior": 3.36549169e-06,
-    "pv": [
-     "P14"
-    ],
-    "scoreLead": -20.6209984,
-    "scoreMean": -20.6209984,
-    "scoreSelfplay": -20.2091541,
-    "scoreStdev": 11.7588377,
-    "utility": -1.18348951,
-    "utilityLcb": -4.68348952,
-    "visits": 1,
-    "weight": 3.20446819,
-    "winrate": 0.0136994943
-   },
-   {
-    "clusterId": 49,
-    "edgeVisits": 1,
-    "edgeWeight": 2.74545435,
-    "lcb": -1.22656082,
-    "move": "N6",
-    "order": 38,
-    "playSelectionValue": 0.0,
-    "prior": 3.23317431e-06,
-    "pv": [
-     "N6"
-    ],
-    "scoreLead": -11.3967752,
-    "scoreMean": -11.3967752,
-    "scoreSelfplay": -11.4052763,
-    "scoreStdev": 9.84802243,
-    "utility": -1.10883328,
-    "utilityLcb": -4.6088333,
-    "visits": 1,
-    "weight": 2.74545435,
-    "winrate": 0.0234391876
-   },
-   {
-    "clusterId": 48,
-    "edgeVisits": 1,
-    "edgeWeight": 3.23950189,
-    "lcb": -1.22934334,
-    "move": "S12",
-    "order": 39,
-    "playSelectionValue": 0.0,
-    "prior": 2.96123744e-06,
-    "pv": [
-     "S12"
-    ],
-    "scoreLead": -10.5613451,
-    "scoreMean": -10.5613451,
-    "scoreSelfplay": -10.5806894,
-    "scoreStdev": 8.80925804,
-    "utility": -1.11085343,
-    "utilityLcb": -4.61085345,
-    "visits": 1,
-    "weight": 3.23950189,
-    "winrate": 0.0206566695
-   },
-   {
-    "clusterId": 47,
-    "edgeVisits": 1,
-    "edgeWeight": 3.08564161,
-    "lcb": -1.22878331,
-    "move": "O6",
-    "order": 40,
-    "playSelectionValue": 0.0,
-    "prior": 2.88898468e-06,
-    "pv": [
-     "O6"
-    ],
-    "scoreLead": -11.9082556,
-    "scoreMean": -11.9082556,
-    "scoreSelfplay": -11.8885937,
-    "scoreStdev": 9.52719609,
-    "utility": -1.1183322,
-    "utilityLcb": -4.61833222,
-    "visits": 1,
-    "weight": 3.08564161,
-    "winrate": 0.0212166999
-   },
-   {
-    "clusterId": 46,
-    "edgeVisits": 1,
-    "edgeWeight": 3.43245131,
-    "lcb": -1.23141469,
-    "move": "E11",
-    "order": 41,
-    "playSelectionValue": 0.0,
-    "prior": 2.73947262e-06,
-    "pv": [
-     "E11"
-    ],
-    "scoreLead": -13.6739607,
-    "scoreMean": -13.6739607,
-    "scoreSelfplay": -13.9103336,
-    "scoreStdev": 9.85537786,
-    "utility": -1.13835057,
-    "utilityLcb": -4.63835059,
-    "visits": 1,
-    "weight": 3.43245131,
-    "winrate": 0.018585315
-   },
-   {
-    "clusterId": 45,
-    "edgeVisits": 1,
-    "edgeWeight": 3.3152859,
-    "lcb": -1.23039448,
-    "move": "R11",
-    "order": 42,
-    "playSelectionValue": 0.0,
-    "prior": 2.73813794e-06,
-    "pv": [
-     "R11"
-    ],
-    "scoreLead": -10.5810413,
-    "scoreMean": -10.5810413,
-    "scoreSelfplay": -10.755331,
-    "scoreStdev": 8.75868585,
-    "utility": -1.11462924,
-    "utilityLcb": -4.61462926,
-    "visits": 1,
-    "weight": 3.3152859,
-    "winrate": 0.0196055267
-   },
-   {
-    "clusterId": 44,
-    "edgeVisits": 1,
-    "edgeWeight": 2.85438741,
-    "lcb": -1.22963111,
-    "move": "Q11",
-    "order": 43,
-    "playSelectionValue": 0.0,
-    "prior": 2.72969555e-06,
-    "pv": [
-     "Q11"
-    ],
-    "scoreLead": -10.6083832,
-    "scoreMean": -10.6083832,
-    "scoreSelfplay": -10.7832775,
-    "scoreStdev": 8.8423589,
-    "utility": -1.11306612,
-    "utilityLcb": -4.61306613,
-    "visits": 1,
-    "weight": 2.85438741,
-    "winrate": 0.0203688964
-   },
-   {
-    "clusterId": 43,
-    "edgeVisits": 1,
-    "edgeWeight": 3.30107415,
-    "lcb": -1.2305062,
-    "move": "S5",
-    "order": 44,
-    "playSelectionValue": 0.0,
-    "prior": 2.38599705e-06,
-    "pv": [
-     "S5"
-    ],
-    "scoreLead": -11.4883604,
-    "scoreMean": -11.4883604,
-    "scoreSelfplay": -11.7369938,
-    "scoreStdev": 9.20016808,
-    "utility": -1.1216259,
-    "utilityLcb": -4.62162592,
-    "visits": 1,
-    "weight": 3.30107415,
-    "winrate": 0.0194938015
-   },
-   {
-    "clusterId": 28,
-    "edgeVisits": 1,
-    "edgeWeight": 2.87609486,
-    "lcb": -1.22646147,
-    "move": "Q12",
-    "order": 45,
-    "playSelectionValue": 0.0,
-    "prior": 2.33363016e-06,
-    "pv": [
-     "Q12"
-    ],
-    "scoreLead": -9.89482594,
-    "scoreMean": -9.89482594,
-    "scoreSelfplay": -9.76811123,
-    "scoreStdev": 8.85585318,
-    "utility": -1.09777915,
-    "utilityLcb": -4.59777916,
-    "visits": 1,
-    "weight": 2.87609486,
-    "winrate": 0.0235385317
-   },
-   {
-    "clusterId": 41,
-    "edgeVisits": 1,
-    "edgeWeight": 3.09850113,
-    "lcb": -1.23122574,
-    "move": "P10",
-    "order": 46,
-    "playSelectionValue": 0.0,
-    "prior": 2.22171911e-06,
-    "pv": [
-     "P10"
-    ],
-    "scoreLead": -11.3219843,
-    "scoreMean": -11.3219843,
-    "scoreSelfplay": -11.6297512,
-    "scoreStdev": 8.99985169,
-    "utility": -1.12285512,
-    "utilityLcb": -4.62285514,
-    "visits": 1,
-    "weight": 3.09850113,
-    "winrate": 0.0187742664
-   },
-   {
-    "clusterId": 40,
-    "edgeVisits": 1,
-    "edgeWeight": 3.06982707,
-    "lcb": -1.23445165,
-    "move": "E1",
-    "order": 47,
-    "playSelectionValue": 0.0,
-    "prior": 2.18657169e-06,
-    "pv": [
-     "E1"
-    ],
-    "scoreLead": -17.8269577,
-    "scoreMean": -17.8269577,
-    "scoreSelfplay": -17.0606079,
-    "scoreStdev": 10.7946526,
-    "utility": -1.16345485,
-    "utilityLcb": -4.66345487,
-    "visits": 1,
-    "weight": 3.06982707,
-    "winrate": 0.0155483554
-   },
-   {
-    "clusterId": 39,
-    "edgeVisits": 1,
-    "edgeWeight": 3.04865843,
-    "lcb": -1.23053058,
-    "move": "P11",
-    "order": 48,
-    "playSelectionValue": 0.0,
-    "prior": 2.11700535e-06,
-    "pv": [
-     "P11"
-    ],
-    "scoreLead": -12.2324152,
-    "scoreMean": -12.2324152,
-    "scoreSelfplay": -12.3387594,
-    "scoreStdev": 9.71953555,
-    "utility": -1.12484282,
-    "utilityLcb": -4.62484284,
-    "visits": 1,
-    "weight": 3.04865843,
-    "winrate": 0.0194694269
-   },
-   {
-    "clusterId": 38,
-    "edgeVisits": 1,
-    "edgeWeight": 3.33424365,
-    "lcb": -1.23088433,
-    "move": "S13",
-    "order": 49,
-    "playSelectionValue": 0.0,
-    "prior": 2.11081215e-06,
-    "pv": [
-     "S13"
-    ],
-    "scoreLead": -12.125864,
-    "scoreMean": -12.125864,
-    "scoreSelfplay": -12.0101547,
-    "scoreStdev": 9.55607059,
-    "utility": -1.12343602,
-    "utilityLcb": -4.62343604,
-    "visits": 1,
-    "weight": 3.33424365,
-    "winrate": 0.019115679
-   },
-   {
-    "clusterId": 37,
-    "edgeVisits": 1,
-    "edgeWeight": 3.25128927,
-    "lcb": -1.23257914,
-    "move": "M12",
-    "order": 50,
-    "playSelectionValue": 0.0,
-    "prior": 2.07895937e-06,
-    "pv": [
-     "M12"
-    ],
-    "scoreLead": -14.1751804,
-    "scoreMean": -14.1751804,
-    "scoreSelfplay": -13.6518068,
-    "scoreStdev": 9.76996604,
-    "utility": -1.13903388,
-    "utilityLcb": -4.6390339,
-    "visits": 1,
-    "weight": 3.25128927,
-    "winrate": 0.0174208637
-   },
-   {
-    "clusterId": 36,
-    "edgeVisits": 1,
-    "edgeWeight": 3.76447332,
-    "lcb": -1.23364452,
-    "move": "B10",
-    "order": 51,
-    "playSelectionValue": 0.0,
-    "prior": 2.04567618e-06,
-    "pv": [
-     "B10"
-    ],
-    "scoreLead": -15.3905277,
-    "scoreMean": -15.3905277,
-    "scoreSelfplay": -15.4544687,
-    "scoreStdev": 10.1964515,
-    "utility": -1.15288291,
-    "utilityLcb": -4.65288292,
-    "visits": 1,
-    "weight": 3.76447332,
-    "winrate": 0.0163554838
-   },
-   {
-    "clusterId": 35,
-    "edgeVisits": 1,
-    "edgeWeight": 3.2811179,
-    "lcb": -1.23310337,
-    "move": "H5",
-    "order": 52,
-    "playSelectionValue": 0.0,
-    "prior": 1.91497315e-06,
-    "pv": [
-     "H5"
-    ],
-    "scoreLead": -15.3640862,
-    "scoreMean": -15.3640862,
-    "scoreSelfplay": -15.0764008,
-    "scoreStdev": 9.93434983,
-    "utility": -1.15000374,
-    "utilityLcb": -4.65000375,
-    "visits": 1,
-    "weight": 3.2811179,
-    "winrate": 0.0168966334
-   },
-   {
-    "clusterId": 34,
-    "edgeVisits": 1,
-    "edgeWeight": 2.69541897,
-    "lcb": -1.2320876,
-    "move": "O1",
-    "order": 53,
-    "playSelectionValue": 0.0,
-    "prior": 1.90789319e-06,
-    "pv": [
-     "O1"
-    ],
-    "scoreLead": -19.1155872,
-    "scoreMean": -19.1155872,
-    "scoreSelfplay": -16.8705177,
-    "scoreStdev": 11.4892334,
-    "utility": -1.15518552,
-    "utilityLcb": -4.65518553,
-    "visits": 1,
-    "weight": 2.69541897,
-    "winrate": 0.0179124102
-   },
-   {
-    "clusterId": 33,
-    "edgeVisits": 1,
-    "edgeWeight": 3.65482677,
-    "lcb": -1.23312634,
-    "move": "G15",
-    "order": 54,
-    "playSelectionValue": 0.0,
-    "prior": 1.90274909e-06,
-    "pv": [
-     "G15"
-    ],
-    "scoreLead": -14.6854763,
-    "scoreMean": -14.6854763,
-    "scoreSelfplay": -14.8506145,
-    "scoreStdev": 9.91282748,
-    "utility": -1.14849275,
-    "utilityLcb": -4.64849276,
-    "visits": 1,
-    "weight": 3.65482677,
-    "winrate": 0.0168736614
-   },
-   {
-    "clusterId": 32,
-    "edgeVisits": 1,
-    "edgeWeight": 3.88780174,
-    "lcb": -1.23460507,
-    "move": "G14",
-    "order": 55,
-    "playSelectionValue": 0.0,
-    "prior": 1.88967465e-06,
-    "pv": [
-     "G14"
-    ],
-    "scoreLead": -15.8255758,
-    "scoreMean": -15.8255758,
-    "scoreSelfplay": -15.9156752,
-    "scoreStdev": 9.95316179,
-    "utility": -1.15880449,
-    "utilityLcb": -4.65880451,
-    "visits": 1,
-    "weight": 3.88780174,
-    "winrate": 0.01539494
-   },
-   {
-    "clusterId": 31,
-    "edgeVisits": 1,
-    "edgeWeight": 3.59912559,
-    "lcb": -1.23622575,
-    "move": "P2",
-    "order": 56,
-    "playSelectionValue": 0.0,
-    "prior": 1.87893033e-06,
-    "pv": [
-     "P2"
-    ],
-    "scoreLead": -20.5437908,
-    "scoreMean": -20.5437908,
-    "scoreSelfplay": -19.5663223,
-    "scoreStdev": 11.1594475,
-    "utility": -1.18144464,
-    "utilityLcb": -4.68144465,
-    "visits": 1,
-    "weight": 3.59912559,
-    "winrate": 0.0137742572
-   },
-   {
-    "clusterId": 30,
-    "edgeVisits": 1,
-    "edgeWeight": 3.44204899,
-    "lcb": -1.23215598,
-    "move": "N10",
-    "order": 57,
-    "playSelectionValue": 0.0,
-    "prior": 1.87301396e-06,
-    "pv": [
-     "N10"
-    ],
-    "scoreLead": -12.3261328,
-    "scoreMean": -12.3261328,
-    "scoreSelfplay": -12.3266001,
-    "scoreStdev": 8.94741713,
-    "utility": -1.1305572,
-    "utilityLcb": -4.63055721,
-    "visits": 1,
-    "weight": 3.44204899,
-    "winrate": 0.0178440232
-   },
-   {
-    "clusterId": 29,
-    "edgeVisits": 1,
-    "edgeWeight": 3.47743261,
-    "lcb": -1.23357698,
-    "move": "M13",
-    "order": 58,
-    "playSelectionValue": 0.0,
-    "prior": 1.86326315e-06,
-    "pv": [
-     "M13"
-    ],
-    "scoreLead": -15.9691458,
-    "scoreMean": -15.9691458,
-    "scoreSelfplay": -15.5285149,
-    "scoreStdev": 10.3040148,
-    "utility": -1.1529135,
-    "utilityLcb": -4.65291352,
-    "visits": 1,
-    "weight": 3.47743261,
-    "winrate": 0.0164230308
-   },
-   {
-    "clusterId": 88,
-    "edgeVisits": 1,
-    "edgeWeight": 3.42315217,
-    "lcb": -1.23431078,
-    "move": "O12",
-    "order": 59,
-    "playSelectionValue": 0.0,
-    "prior": 1.82763063e-06,
-    "pv": [
-     "O12"
-    ],
-    "scoreLead": -14.550168,
-    "scoreMean": -14.550168,
-    "scoreSelfplay": -14.5538235,
-    "scoreStdev": 10.0430533,
-    "utility": -1.14828668,
-    "utilityLcb": -4.64828669,
-    "visits": 1,
-    "weight": 3.42315217,
-    "winrate": 0.0156892259
-   },
-   {
-    "clusterId": 89,
-    "edgeVisits": 1,
-    "edgeWeight": 3.27579735,
-    "lcb": -1.23293352,
-    "move": "N12",
-    "order": 60,
-    "playSelectionValue": 0.0,
-    "prior": 1.80868926e-06,
-    "pv": [
-     "N12"
-    ],
-    "scoreLead": -14.2547112,
-    "scoreMean": -14.2547112,
-    "scoreSelfplay": -13.7278662,
-    "scoreStdev": 9.85848535,
-    "utility": -1.14001794,
-    "utilityLcb": -4.64001796,
-    "visits": 1,
-    "weight": 3.27579735,
-    "winrate": 0.0170664899
-   },
-   {
-    "clusterId": 90,
-    "edgeVisits": 1,
-    "edgeWeight": 3.77213873,
-    "lcb": -1.2329639,
-    "move": "L16",
-    "order": 61,
-    "playSelectionValue": 0.0,
-    "prior": 1.79519077e-06,
-    "pv": [
-     "L16"
-    ],
-    "scoreLead": -12.7298307,
-    "scoreMean": -12.7298307,
-    "scoreSelfplay": -13.0259533,
-    "scoreStdev": 9.42634467,
-    "utility": -1.13612504,
-    "utilityLcb": -4.63612505,
-    "visits": 1,
-    "weight": 3.77213873,
-    "winrate": 0.0170361036
-   },
-   {
-    "clusterId": 91,
-    "edgeVisits": 1,
-    "edgeWeight": 4.02033654,
-    "lcb": -1.23663968,
-    "move": "A7",
-    "order": 62,
-    "playSelectionValue": 0.0,
-    "prior": 1.7856936e-06,
-    "pv": [
-     "A7"
-    ],
-    "scoreLead": -18.4383678,
-    "scoreMean": -18.4383678,
-    "scoreSelfplay": -18.1970367,
-    "scoreStdev": 10.5422702,
-    "utility": -1.17590175,
-    "utilityLcb": -4.67590177,
-    "visits": 1,
-    "weight": 4.02033654,
-    "winrate": 0.0133603248
-   },
-   {
-    "clusterId": 92,
-    "edgeVisits": 1,
-    "edgeWeight": 3.88475876,
-    "lcb": -1.23468907,
-    "move": "S6",
-    "order": 63,
-    "playSelectionValue": 0.0,
-    "prior": 1.78388609e-06,
-    "pv": [
-     "S6"
-    ],
-    "scoreLead": -14.7320223,
-    "scoreMean": -14.7320223,
-    "scoreSelfplay": -14.7962389,
-    "scoreStdev": 9.9135574,
-    "utility": -1.15122313,
-    "utilityLcb": -4.65122315,
-    "visits": 1,
-    "weight": 3.88475876,
-    "winrate": 0.0153109347
-   },
-   {
-    "clusterId": 93,
-    "edgeVisits": 1,
-    "edgeWeight": 3.82566034,
-    "lcb": -1.23444232,
-    "move": "S7",
-    "order": 64,
-    "playSelectionValue": 0.0,
-    "prior": 1.7770127e-06,
-    "pv": [
-     "S7"
-    ],
-    "scoreLead": -14.4685736,
-    "scoreMean": -14.4685736,
-    "scoreSelfplay": -14.520257,
-    "scoreStdev": 9.93808945,
-    "utility": -1.14865544,
-    "utilityLcb": -4.64865546,
-    "visits": 1,
-    "weight": 3.82566034,
-    "winrate": 0.0155576891
-   },
-   {
-    "clusterId": 94,
-    "edgeVisits": 1,
-    "edgeWeight": 3.9231612,
-    "lcb": -1.23522539,
-    "move": "T14",
-    "order": 65,
-    "playSelectionValue": 0.0,
-    "prior": 1.76046854e-06,
-    "pv": [
-     "T14"
-    ],
-    "scoreLead": -16.2227669,
-    "scoreMean": -16.2227669,
-    "scoreSelfplay": -16.0499172,
-    "scoreStdev": 10.3620913,
-    "utility": -1.15963659,
-    "utilityLcb": -4.65963661,
-    "visits": 1,
-    "weight": 3.9231612,
-    "winrate": 0.0147746122
-   },
-   {
-    "clusterId": 95,
-    "edgeVisits": 1,
-    "edgeWeight": 3.79705004,
-    "lcb": -1.23732338,
-    "move": "F1",
-    "order": 66,
-    "playSelectionValue": 0.0,
-    "prior": 1.75962759e-06,
-    "pv": [
-     "F1"
-    ],
-    "scoreLead": -20.518465,
-    "scoreMean": -20.518465,
-    "scoreSelfplay": -19.8533115,
-    "scoreStdev": 10.9510664,
-    "utility": -1.18592965,
-    "utilityLcb": -4.68592967,
-    "visits": 1,
-    "weight": 3.79705004,
-    "winrate": 0.0126766306
-   },
-   {
-    "clusterId": 96,
-    "edgeVisits": 1,
-    "edgeWeight": 3.25106139,
-    "lcb": -1.23097109,
-    "move": "S10",
-    "order": 67,
-    "playSelectionValue": 0.0,
-    "prior": 1.75322884e-06,
-    "pv": [
-     "S10"
-    ],
-    "scoreLead": -10.8136148,
-    "scoreMean": -10.8136148,
-    "scoreSelfplay": -10.9228783,
-    "scoreStdev": 8.62737536,
-    "utility": -1.11763354,
-    "utilityLcb": -4.61763356,
-    "visits": 1,
-    "weight": 3.25106139,
-    "winrate": 0.0190289179
-   },
-   {
-    "clusterId": 97,
-    "edgeVisits": 1,
-    "edgeWeight": 4.22656269,
-    "lcb": -1.23914589,
-    "move": "B3",
-    "order": 68,
-    "playSelectionValue": 0.0,
-    "prior": 1.7421836e-06,
-    "pv": [
-     "B3"
-    ],
-    "scoreLead": -21.1845131,
-    "scoreMean": -21.1845131,
-    "scoreSelfplay": -20.7878017,
-    "scoreStdev": 10.7665968,
-    "utility": -1.19539009,
-    "utilityLcb": -4.69539011,
-    "visits": 1,
-    "weight": 4.22656269,
-    "winrate": 0.0108541157
-   },
-   {
-    "clusterId": 84,
-    "edgeVisits": 1,
-    "edgeWeight": 3.9639929,
-    "lcb": -1.23552292,
-    "move": "T13",
-    "order": 69,
-    "playSelectionValue": 0.0,
-    "prior": 1.73633487e-06,
-    "pv": [
-     "T13"
-    ],
-    "scoreLead": -16.1739311,
-    "scoreMean": -16.1739311,
-    "scoreSelfplay": -15.9836397,
-    "scoreStdev": 10.3143882,
-    "utility": -1.15993693,
-    "utilityLcb": -4.65993695,
-    "visits": 1,
-    "weight": 3.9639929,
-    "winrate": 0.0144770816
-   },
-   {
-    "clusterId": 99,
-    "edgeVisits": 1,
-    "edgeWeight": 3.74382754,
-    "lcb": -1.23413036,
-    "move": "P18",
-    "order": 70,
-    "playSelectionValue": 0.0,
-    "prior": 1.72342084e-06,
-    "pv": [
-     "P18"
-    ],
-    "scoreLead": -12.9202223,
-    "scoreMean": -12.9202223,
-    "scoreSelfplay": -12.989768,
-    "scoreStdev": 9.72728706,
-    "utility": -1.1371885,
-    "utilityLcb": -4.63718852,
-    "visits": 1,
-    "weight": 3.74382754,
-    "winrate": 0.0158696417
-   },
-   {
-    "clusterId": 100,
-    "edgeVisits": 1,
-    "edgeWeight": 3.19365682,
-    "lcb": -1.23163232,
-    "move": "M11",
-    "order": 71,
-    "playSelectionValue": 0.0,
-    "prior": 1.71636464e-06,
-    "pv": [
-     "M11"
-    ],
-    "scoreLead": -12.8740644,
-    "scoreMean": -12.8740644,
-    "scoreSelfplay": -12.5328636,
-    "scoreStdev": 9.37034754,
-    "utility": -1.12975052,
-    "utilityLcb": -4.62975053,
-    "visits": 1,
-    "weight": 3.19365682,
-    "winrate": 0.0183676817
-   },
-   {
-    "clusterId": 101,
-    "edgeVisits": 1,
-    "edgeWeight": 4.26352752,
-    "lcb": -1.23860851,
-    "move": "K7",
-    "order": 72,
-    "playSelectionValue": 0.0,
-    "prior": 1.70749308e-06,
-    "pv": [
-     "K7"
-    ],
-    "scoreLead": -20.26231,
-    "scoreMean": -20.26231,
-    "scoreSelfplay": -20.0912685,
-    "scoreStdev": 10.5770886,
-    "utility": -1.19096254,
-    "utilityLcb": -4.69096256,
-    "visits": 1,
-    "weight": 4.26352752,
-    "winrate": 0.011391494
-   },
-   {
-    "clusterId": 102,
-    "edgeVisits": 1,
-    "edgeWeight": 4.31001251,
-    "lcb": -1.23905492,
-    "move": "K6",
-    "order": 73,
-    "playSelectionValue": 0.0,
-    "prior": 1.70332123e-06,
-    "pv": [
-     "K6"
-    ],
-    "scoreLead": -20.7612953,
-    "scoreMean": -20.7612953,
-    "scoreSelfplay": -20.5918808,
-    "scoreStdev": 10.7000347,
-    "utility": -1.19431745,
-    "utilityLcb": -4.69431746,
-    "visits": 1,
-    "weight": 4.31001251,
-    "winrate": 0.0109450901
-   },
-   {
-    "clusterId": 103,
-    "edgeVisits": 1,
-    "edgeWeight": 4.20241644,
-    "lcb": -1.23842715,
-    "move": "L5",
-    "order": 74,
-    "playSelectionValue": 0.0,
-    "prior": 1.69969292e-06,
-    "pv": [
-     "L5"
-    ],
-    "scoreLead": -20.9497108,
-    "scoreMean": -20.9497108,
-    "scoreSelfplay": -20.6079884,
-    "scoreStdev": 10.8684017,
-    "utility": -1.19266584,
-    "utilityLcb": -4.69266586,
-    "visits": 1,
-    "weight": 4.20241644,
-    "winrate": 0.0115728551
-   },
-   {
-    "clusterId": 104,
-    "edgeVisits": 1,
-    "edgeWeight": 3.86634536,
-    "lcb": -1.23622971,
-    "move": "P5",
-    "order": 75,
-    "playSelectionValue": 0.0,
-    "prior": 1.6942779e-06,
-    "pv": [
-     "P5"
-    ],
-    "scoreLead": -18.6726551,
-    "scoreMean": -18.6726551,
-    "scoreSelfplay": -18.0495567,
-    "scoreStdev": 11.0248051,
-    "utility": -1.17263098,
-    "utilityLcb": -4.67263099,
-    "visits": 1,
-    "weight": 3.86634536,
-    "winrate": 0.0137702934
-   },
-   {
-    "clusterId": 105,
-    "edgeVisits": 1,
-    "edgeWeight": 3.89083875,
-    "lcb": -1.23511961,
-    "move": "T12",
-    "order": 76,
-    "playSelectionValue": 0.0,
-    "prior": 1.69425039e-06,
-    "pv": [
-     "T12"
-    ],
-    "scoreLead": -15.6054554,
-    "scoreMean": -15.6054554,
-    "scoreSelfplay": -15.4230213,
-    "scoreStdev": 10.0898995,
-    "utility": -1.15596206,
-    "utilityLcb": -4.65596208,
-    "visits": 1,
-    "weight": 3.89083875,
-    "winrate": 0.0148803918
-   },
-   {
-    "clusterId": 106,
-    "edgeVisits": 1,
-    "edgeWeight": 2.44262101,
-    "lcb": -1.22052479,
-    "move": "S16",
-    "order": 77,
-    "playSelectionValue": 0.0,
-    "prior": 1.69414864e-06,
-    "pv": [
-     "S16"
-    ],
-    "scoreLead": -8.90010548,
-    "scoreMean": -8.90010548,
-    "scoreSelfplay": -8.94894028,
-    "scoreStdev": 9.15997105,
-    "utility": -1.0774549,
-    "utilityLcb": -4.57745492,
-    "visits": 1,
-    "weight": 2.44262101,
-    "winrate": 0.0294752186
-   },
-   {
-    "clusterId": 107,
-    "edgeVisits": 1,
-    "edgeWeight": 3.97384608,
-    "lcb": -1.23592933,
-    "move": "R8",
-    "order": 78,
-    "playSelectionValue": 0.0,
-    "prior": 1.69275654e-06,
-    "pv": [
-     "R8"
-    ],
-    "scoreLead": -16.1515846,
-    "scoreMean": -16.1515846,
-    "scoreSelfplay": -16.0902882,
-    "scoreStdev": 9.96648724,
-    "utility": -1.16258796,
-    "utilityLcb": -4.66258798,
-    "visits": 1,
-    "weight": 3.97384608,
-    "winrate": 0.0140706752
-   },
-   {
-    "clusterId": 108,
-    "edgeVisits": 1,
-    "edgeWeight": 4.15024065,
-    "lcb": -1.23792132,
-    "move": "L6",
-    "order": 79,
-    "playSelectionValue": 0.0,
-    "prior": 1.69093494e-06,
-    "pv": [
-     "L6"
-    ],
-    "scoreLead": -19.7994442,
-    "scoreMean": -19.7994442,
-    "scoreSelfplay": -19.5353127,
-    "scoreStdev": 10.5536166,
-    "utility": -1.1864703,
-    "utilityLcb": -4.68647031,
-    "visits": 1,
-    "weight": 4.15024065,
-    "winrate": 0.0120786862
-   },
-   {
-    "clusterId": 109,
-    "edgeVisits": 1,
-    "edgeWeight": 3.80051182,
-    "lcb": -1.23489711,
-    "move": "S9",
-    "order": 80,
-    "playSelectionValue": 0.0,
-    "prior": 1.67844496e-06,
-    "pv": [
-     "S9"
-    ],
-    "scoreLead": -14.2282104,
-    "scoreMean": -14.2282104,
-    "scoreSelfplay": -14.13167,
-    "scoreStdev": 9.55503428,
-    "utility": -1.14794421,
-    "utilityLcb": -4.64794423,
-    "visits": 1,
-    "weight": 3.80051182,
-    "winrate": 0.0151028936
-   },
-   {
-    "clusterId": 110,
-    "edgeVisits": 1,
-    "edgeWeight": 3.66237615,
-    "lcb": -1.23383465,
-    "move": "H11",
-    "order": 81,
-    "playSelectionValue": 0.0,
-    "prior": 1.6770432e-06,
-    "pv": [
-     "H11"
-    ],
-    "scoreLead": -15.749567,
-    "scoreMean": -15.749567,
-    "scoreSelfplay": -15.6260509,
-    "scoreStdev": 10.1198654,
-    "utility": -1.15470872,
-    "utilityLcb": -4.65470874,
-    "visits": 1,
-    "weight": 3.66237615,
-    "winrate": 0.0161653571
-   },
-   {
-    "clusterId": 70,
-    "edgeVisits": 1,
-    "edgeWeight": 3.80211225,
-    "lcb": -1.23459653,
-    "move": "N8",
-    "order": 82,
-    "playSelectionValue": 0.0,
-    "prior": 1.67635096e-06,
-    "pv": [
-     "N8"
-    ],
-    "scoreLead": -15.9521971,
-    "scoreMean": -15.9521971,
-    "scoreSelfplay": -15.9124365,
-    "scoreStdev": 10.1646416,
-    "utility": -1.15808319,
-    "utilityLcb": -4.65808321,
-    "visits": 1,
-    "weight": 3.80211225,
-    "winrate": 0.0154034747
-   },
-   {
-    "clusterId": 57,
-    "edgeVisits": 1,
-    "edgeWeight": 3.89160968,
-    "lcb": -1.23616431,
-    "move": "H9",
-    "order": 83,
-    "playSelectionValue": 0.0,
-    "prior": 1.67100063e-06,
-    "pv": [
-     "H9"
-    ],
-    "scoreLead": -18.589365,
-    "scoreMean": -18.589365,
-    "scoreSelfplay": -18.0841789,
-    "scoreStdev": 10.4068399,
-    "utility": -1.17465655,
-    "utilityLcb": -4.67465657,
-    "visits": 1,
-    "weight": 3.89160968,
-    "winrate": 0.0138356965
-   },
-   {
-    "clusterId": 58,
-    "edgeVisits": 1,
-    "edgeWeight": 4.43999552,
-    "lcb": -1.23939422,
-    "move": "B19",
-    "order": 84,
-    "playSelectionValue": 0.0,
-    "prior": 1.66928521e-06,
-    "pv": [
-     "B19"
-    ],
-    "scoreLead": -20.1281261,
-    "scoreMean": -20.1281261,
-    "scoreSelfplay": -20.1551666,
-    "scoreStdev": 10.6621408,
-    "utility": -1.19264793,
-    "utilityLcb": -4.69264794,
-    "visits": 1,
-    "weight": 4.43999552,
-    "winrate": 0.0106057911
-   },
-   {
-    "clusterId": 59,
-    "edgeVisits": 1,
-    "edgeWeight": 4.17067185,
-    "lcb": -1.2372555,
-    "move": "F13",
-    "order": 85,
-    "playSelectionValue": 0.0,
-    "prior": 1.66570396e-06,
-    "pv": [
-     "F13"
-    ],
-    "scoreLead": -18.7272892,
-    "scoreMean": -18.7272892,
-    "scoreSelfplay": -18.7049904,
-    "scoreStdev": 10.6401839,
-    "utility": -1.17993679,
-    "utilityLcb": -4.67993681,
-    "visits": 1,
-    "weight": 4.17067185,
-    "winrate": 0.012744511
-   },
-   {
-    "clusterId": 60,
-    "edgeVisits": 1,
-    "edgeWeight": 4.28777989,
-    "lcb": -1.24009673,
-    "move": "G1",
-    "order": 86,
-    "playSelectionValue": 0.0,
-    "prior": 1.66108464e-06,
-    "pv": [
-     "G1"
-    ],
-    "scoreLead": -22.6116409,
-    "scoreMean": -22.6116409,
-    "scoreSelfplay": -22.1978645,
-    "scoreStdev": 11.0738097,
-    "utility": -1.2039736,
-    "utilityLcb": -4.70397362,
-    "visits": 1,
-    "weight": 4.28777989,
-    "winrate": 0.00990327867
-   },
-   {
-    "clusterId": 61,
-    "edgeVisits": 1,
-    "edgeWeight": 4.14413569,
-    "lcb": -1.23702472,
-    "move": "J17",
-    "order": 87,
-    "playSelectionValue": 0.0,
-    "prior": 1.65770598e-06,
-    "pv": [
-     "J17"
-    ],
-    "scoreLead": -16.8175697,
-    "scoreMean": -16.8175697,
-    "scoreSelfplay": -16.7287693,
-    "scoreStdev": 9.88614038,
-    "utility": -1.16931613,
-    "utilityLcb": -4.66931615,
-    "visits": 1,
-    "weight": 4.14413569,
-    "winrate": 0.0129752858
-   },
-   {
-    "clusterId": 62,
-    "edgeVisits": 1,
-    "edgeWeight": 3.83882992,
-    "lcb": -1.23477425,
-    "move": "S18",
-    "order": 88,
-    "playSelectionValue": 0.0,
-    "prior": 1.64461267e-06,
-    "pv": [
-     "S18"
-    ],
-    "scoreLead": -14.2419634,
-    "scoreMean": -14.2419634,
-    "scoreSelfplay": -13.9958973,
-    "scoreStdev": 9.39896302,
-    "utility": -1.14719367,
-    "utilityLcb": -4.64719369,
-    "visits": 1,
-    "weight": 3.83882992,
-    "winrate": 0.0152257555
-   },
-   {
-    "clusterId": 63,
-    "edgeVisits": 1,
-    "edgeWeight": 3.96084518,
-    "lcb": -1.23582837,
-    "move": "T5",
-    "order": 89,
-    "playSelectionValue": 0.0,
-    "prior": 1.64011419e-06,
-    "pv": [
-     "T5"
-    ],
-    "scoreLead": -16.4806652,
-    "scoreMean": -16.4806652,
-    "scoreSelfplay": -16.3335915,
-    "scoreStdev": 10.499088,
-    "utility": -1.16232483,
-    "utilityLcb": -4.66232485,
-    "visits": 1,
-    "weight": 3.96084518,
-    "winrate": 0.014171632
-   },
-   {
-    "clusterId": 64,
-    "edgeVisits": 1,
-    "edgeWeight": 3.46219449,
-    "lcb": -1.23303396,
-    "move": "N11",
-    "order": 90,
-    "playSelectionValue": 0.0,
-    "prior": 1.63311415e-06,
-    "pv": [
-     "N11"
-    ],
-    "scoreLead": -13.2872782,
-    "scoreMean": -13.2872782,
-    "scoreSelfplay": -13.262188,
-    "scoreStdev": 9.3124274,
-    "utility": -1.1384502,
-    "utilityLcb": -4.63845022,
-    "visits": 1,
-    "weight": 3.46219449,
-    "winrate": 0.0169660421
-   },
-   {
-    "clusterId": 65,
-    "edgeVisits": 1,
-    "edgeWeight": 4.17806359,
-    "lcb": -1.23751937,
-    "move": "T18",
-    "order": 91,
-    "playSelectionValue": 0.0,
-    "prior": 1.63277605e-06,
-    "pv": [
-     "T18"
-    ],
-    "scoreLead": -17.3129902,
-    "scoreMean": -17.3129902,
-    "scoreSelfplay": -16.9095821,
-    "scoreStdev": 9.80206441,
-    "utility": -1.17174306,
-    "utilityLcb": -4.67174308,
-    "visits": 1,
-    "weight": 4.17806359,
-    "winrate": 0.0124806412
-   },
-   {
-    "clusterId": 66,
-    "edgeVisits": 1,
-    "edgeWeight": 3.87957713,
-    "lcb": -1.23612881,
-    "move": "B6",
-    "order": 92,
-    "playSelectionValue": 0.0,
-    "prior": 1.62655169e-06,
-    "pv": [
-     "B6"
-    ],
-    "scoreLead": -17.9703941,
-    "scoreMean": -17.9703941,
-    "scoreSelfplay": -17.6653633,
-    "scoreStdev": 10.2186396,
-    "utility": -1.1725216,
-    "utilityLcb": -4.67252162,
-    "visits": 1,
-    "weight": 3.87957713,
-    "winrate": 0.0138712004
-   },
-   {
-    "clusterId": 67,
-    "edgeVisits": 1,
-    "edgeWeight": 3.83040149,
-    "lcb": -1.23458476,
-    "move": "B9",
-    "order": 93,
-    "playSelectionValue": 0.0,
-    "prior": 1.62635786e-06,
-    "pv": [
-     "B9"
-    ],
-    "scoreLead": -15.7960949,
-    "scoreMean": -15.7960949,
-    "scoreSelfplay": -15.764864,
-    "scoreStdev": 10.2075975,
-    "utility": -1.15689174,
-    "utilityLcb": -4.65689176,
-    "visits": 1,
-    "weight": 3.83040149,
-    "winrate": 0.0154152452
-   },
-   {
-    "clusterId": 68,
-    "edgeVisits": 1,
-    "edgeWeight": 3.8051334,
-    "lcb": -1.23419165,
-    "move": "H14",
-    "order": 94,
-    "playSelectionValue": 0.0,
-    "prior": 1.62020729e-06,
-    "pv": [
-     "H14"
-    ],
-    "scoreLead": -15.3629456,
-    "scoreMean": -15.3629456,
-    "scoreSelfplay": -15.4361229,
-    "scoreStdev": 9.994101,
-    "utility": -1.15451024,
-    "utilityLcb": -4.65451026,
-    "visits": 1,
-    "weight": 3.8051334,
-    "winrate": 0.0158083607
-   },
-   {
-    "clusterId": 69,
-    "edgeVisits": 1,
-    "edgeWeight": 4.27148187,
-    "lcb": -1.23818227,
-    "move": "A9",
-    "order": 95,
-    "playSelectionValue": 0.0,
-    "prior": 1.61758726e-06,
-    "pv": [
-     "A9"
-    ],
-    "scoreLead": -19.3032894,
-    "scoreMean": -19.3032894,
-    "scoreSelfplay": -19.2467861,
-    "scoreStdev": 10.697745,
-    "utility": -1.18486014,
-    "utilityLcb": -4.68486016,
-    "visits": 1,
-    "weight": 4.27148187,
-    "winrate": 0.0118177342
-   },
-   {
-    "clusterId": 56,
-    "edgeVisits": 1,
-    "edgeWeight": 4.05587145,
-    "lcb": -1.23647623,
-    "move": "T17",
-    "order": 96,
-    "playSelectionValue": 0.0,
-    "prior": 1.61455114e-06,
-    "pv": [
-     "T17"
-    ],
-    "scoreLead": -17.1532249,
-    "scoreMean": -17.1532249,
-    "scoreSelfplay": -16.8957863,
-    "scoreStdev": 10.303165,
-    "utility": -1.16799956,
-    "utilityLcb": -4.66799958,
-    "visits": 1,
-    "weight": 4.05587145,
-    "winrate": 0.0135237807
-   },
-   {
-    "clusterId": 71,
-    "edgeVisits": 1,
-    "edgeWeight": 4.27895448,
-    "lcb": -1.23823492,
-    "move": "G9",
-    "order": 97,
-    "playSelectionValue": 0.0,
-    "prior": 1.61364449e-06,
-    "pv": [
-     "G9"
-    ],
-    "scoreLead": -19.9332867,
-    "scoreMean": -19.9332867,
-    "scoreSelfplay": -19.8514175,
-    "scoreStdev": 10.6110369,
-    "utility": -1.18875067,
-    "utilityLcb": -4.68875068,
-    "visits": 1,
-    "weight": 4.27895448,
-    "winrate": 0.0117650875
-   },
-   {
-    "clusterId": 72,
-    "edgeVisits": 1,
-    "edgeWeight": 3.69318367,
-    "lcb": -1.23386006,
-    "move": "S4",
-    "order": 98,
-    "playSelectionValue": 0.0,
-    "prior": 1.60975424e-06,
-    "pv": [
-     "S4"
-    ],
-    "scoreLead": -13.8057098,
-    "scoreMean": -13.8057098,
-    "scoreSelfplay": -13.653882,
-    "scoreStdev": 9.31297204,
-    "utility": -1.14310162,
-    "utilityLcb": -4.64310164,
-    "visits": 1,
-    "weight": 3.69318367,
-    "winrate": 0.0161399487
-   },
-   {
-    "clusterId": 73,
-    "edgeVisits": 1,
-    "edgeWeight": 4.25229995,
-    "lcb": -1.23846867,
-    "move": "T3",
-    "order": 99,
-    "playSelectionValue": 0.0,
-    "prior": 1.60592697e-06,
-    "pv": [
-     "T3"
-    ],
-    "scoreLead": -19.3636799,
-    "scoreMean": -19.3636799,
-    "scoreSelfplay": -19.2183762,
-    "scoreStdev": 10.8765824,
-    "utility": -1.18472254,
-    "utilityLcb": -4.68472256,
-    "visits": 1,
-    "weight": 4.25229995,
-    "winrate": 0.0115313348
-   },
-   {
-    "clusterId": 74,
-    "edgeVisits": 1,
-    "edgeWeight": 3.6884781,
-    "lcb": -1.23489712,
-    "move": "B5",
-    "order": 100,
-    "playSelectionValue": 0.0,
-    "prior": 1.60537422e-06,
-    "pv": [
-     "B5"
-    ],
-    "scoreLead": -16.6490154,
-    "scoreMean": -16.6490154,
-    "scoreSelfplay": -16.3811474,
-    "scoreStdev": 10.1032446,
-    "utility": -1.16204627,
-    "utilityLcb": -4.66204629,
-    "visits": 1,
-    "weight": 3.6884781,
-    "winrate": 0.0151028866
-   },
-   {
-    "clusterId": 75,
-    "edgeVisits": 1,
-    "edgeWeight": 3.96043791,
-    "lcb": -1.23551579,
-    "move": "T4",
-    "order": 101,
-    "playSelectionValue": 0.0,
-    "prior": 1.60326283e-06,
-    "pv": [
-     "T4"
-    ],
-    "scoreLead": -15.9500771,
-    "scoreMean": -15.9500771,
-    "scoreSelfplay": -15.8153391,
-    "scoreStdev": 10.3630193,
-    "utility": -1.15860273,
-    "utilityLcb": -4.65860274,
-    "visits": 1,
-    "weight": 3.96043791,
-    "winrate": 0.0144842165
-   },
-   {
-    "clusterId": 76,
-    "edgeVisits": 1,
-    "edgeWeight": 4.10626031,
-    "lcb": -1.2366566,
-    "move": "T7",
-    "order": 102,
-    "playSelectionValue": 0.0,
-    "prior": 1.59856654e-06,
-    "pv": [
-     "T7"
-    ],
-    "scoreLead": -16.8385067,
-    "scoreMean": -16.8385067,
-    "scoreSelfplay": -16.8798923,
-    "scoreStdev": 10.2675893,
-    "utility": -1.168368,
-    "utilityLcb": -4.66836802,
-    "visits": 1,
-    "weight": 4.10626031,
-    "winrate": 0.0133434022
-   },
-   {
-    "clusterId": 77,
-    "edgeVisits": 1,
-    "edgeWeight": 3.59915655,
-    "lcb": -1.23281009,
-    "move": "N9",
-    "order": 103,
-    "playSelectionValue": 0.0,
-    "prior": 1.5976841e-06,
-    "pv": [
-     "N9"
-    ],
-    "scoreLead": -12.8971939,
-    "scoreMean": -12.8971939,
-    "scoreSelfplay": -12.8490772,
-    "scoreStdev": 8.97720246,
-    "utility": -1.13591634,
-    "utilityLcb": -4.63591636,
-    "visits": 1,
-    "weight": 3.59915655,
-    "winrate": 0.0171899125
-   },
-   {
-    "clusterId": 78,
-    "edgeVisits": 1,
-    "edgeWeight": 3.68497677,
-    "lcb": -1.23352053,
-    "move": "F10",
-    "order": 104,
-    "playSelectionValue": 0.0,
-    "prior": 1.59689341e-06,
-    "pv": [
-     "F10"
-    ],
-    "scoreLead": -15.4849253,
-    "scoreMean": -15.4849253,
-    "scoreSelfplay": -15.550993,
-    "scoreStdev": 9.99049495,
-    "utility": -1.15397883,
-    "utilityLcb": -4.65397884,
-    "visits": 1,
-    "weight": 3.68497677,
-    "winrate": 0.0164794745
-   },
-   {
-    "clusterId": 79,
-    "edgeVisits": 1,
-    "edgeWeight": 3.92326534,
-    "lcb": -1.23566219,
-    "move": "T11",
-    "order": 105,
-    "playSelectionValue": 0.0,
-    "prior": 1.5934462e-06,
-    "pv": [
-     "T11"
-    ],
-    "scoreLead": -15.9613285,
-    "scoreMean": -15.9613285,
-    "scoreSelfplay": -15.7618237,
-    "scoreStdev": 10.0651096,
-    "utility": -1.15948722,
-    "utilityLcb": -4.65948724,
-    "visits": 1,
-    "weight": 3.92326534,
-    "winrate": 0.01433782
-   },
-   {
-    "clusterId": 80,
-    "edgeVisits": 1,
-    "edgeWeight": 3.86119826,
-    "lcb": -1.23585342,
-    "move": "O18",
-    "order": 106,
-    "playSelectionValue": 0.0,
-    "prior": 1.59068441e-06,
-    "pv": [
-     "O18"
-    ],
-    "scoreLead": -15.4311094,
-    "scoreMean": -15.4311094,
-    "scoreSelfplay": -15.3489246,
-    "scoreStdev": 10.5298092,
-    "utility": -1.15547013,
-    "utilityLcb": -4.65547015,
-    "visits": 1,
-    "weight": 3.86119826,
-    "winrate": 0.0141465836
-   },
-   {
-    "clusterId": 81,
-    "edgeVisits": 1,
-    "edgeWeight": 4.26279183,
-    "lcb": -1.2383325,
-    "move": "H18",
-    "order": 107,
-    "playSelectionValue": 0.0,
-    "prior": 1.59031435e-06,
-    "pv": [
-     "H18"
-    ],
-    "scoreLead": -18.6726227,
-    "scoreMean": -18.6726227,
-    "scoreSelfplay": -18.5161362,
-    "scoreStdev": 10.2139059,
-    "utility": -1.18221921,
-    "utilityLcb": -4.68221923,
-    "visits": 1,
-    "weight": 4.26279183,
-    "winrate": 0.0116675021
-   },
-   {
-    "clusterId": 82,
-    "edgeVisits": 1,
-    "edgeWeight": 3.56072085,
-    "lcb": -1.23340974,
-    "move": "J10",
-    "order": 108,
-    "playSelectionValue": 0.0,
-    "prior": 1.5901262e-06,
-    "pv": [
-     "J10"
-    ],
-    "scoreLead": -15.1926432,
-    "scoreMean": -15.1926432,
-    "scoreSelfplay": -14.9514112,
-    "scoreStdev": 9.8307583,
-    "utility": -1.15005661,
-    "utilityLcb": -4.65005662,
-    "visits": 1,
-    "weight": 3.56072085,
-    "winrate": 0.0165902684
-   },
-   {
-    "clusterId": 83,
-    "edgeVisits": 1,
-    "edgeWeight": 3.76490625,
-    "lcb": -1.23462071,
-    "move": "Q18",
-    "order": 109,
-    "playSelectionValue": 0.0,
-    "prior": 1.58802129e-06,
-    "pv": [
-     "Q18"
-    ],
-    "scoreLead": -13.833334,
-    "scoreMean": -13.833334,
-    "scoreSelfplay": -13.8290405,
-    "scoreStdev": 9.86234183,
-    "utility": -1.14413344,
-    "utilityLcb": -4.64413346,
-    "visits": 1,
-    "weight": 3.76490625,
-    "winrate": 0.0153792962
-   },
-   {
-    "clusterId": 98,
-    "edgeVisits": 1,
-    "edgeWeight": 4.43393219,
-    "lcb": -1.24016913,
-    "move": "T2",
-    "order": 110,
-    "playSelectionValue": 0.0,
-    "prior": 1.58341948e-06,
-    "pv": [
-     "T2"
-    ],
-    "scoreLead": -20.9754162,
-    "scoreMean": -20.9754162,
-    "scoreSelfplay": -20.8446865,
-    "scoreStdev": 10.9514931,
-    "utility": -1.19722344,
-    "utilityLcb": -4.69722345,
-    "visits": 1,
-    "weight": 4.43393219,
-    "winrate": 0.0098308716
+    "prior": 0.000272760255,
+    "pv": [
+     "C13"
+    ],
+    "scoreLead": -0.544250309,
+    "scoreMean": -0.544250309,
+    "scoreSelfplay": -1.83219171,
+    "scoreStdev": 13.4610874,
+    "utility": -0.243028954,
+    "utilityLcb": -3.74302897,
+    "visits": 1,
+    "weight": 1.23114065,
+    "winrate": 0.389854133
    }
   ],
   "ownership": [
-   -0.52495,
-   -0.285363,
-   0.081685,
-   0.367397,
-   0.695162,
-   0.910845,
-   0.924627,
-   0.901305,
-   0.831275,
-   0.774024,
-   0.760347,
-   0.779346,
-   0.785254,
-   0.751236,
-   0.653399,
-   0.567564,
-   0.499716,
-   -0.025683,
-   -0.227818,
-   -0.736967,
-   -0.524995,
-   -0.091965,
-   0.969422,
-   0.972558,
-   0.972001,
-   0.958035,
-   0.916892,
-   0.829133,
-   0.759682,
-   0.776775,
-   0.821307,
-   0.882255,
-   0.804668,
-   0.671656,
-   0.703433,
-   -0.540615,
-   -0.194093,
-   -0.507446,
-   -0.877063,
-   -0.993569,
-   -0.993688,
-   0.975284,
-   -0.964604,
-   0.97248,
-   0.923975,
-   0.975924,
-   0.706665,
-   0.687499,
-   0.727408,
-   0.849896,
-   0.985186,
-   0.884834,
-   0.787331,
-   0.795116,
-   -0.836113,
-   -0.693659,
-   -0.641333,
-   -0.969814,
-   -0.994798,
-   -0.957838,
-   -0.96306,
-   -0.962022,
-   -0.959381,
-   0.953316,
-   0.846725,
-   0.461578,
-   0.50775,
-   0.662896,
-   0.922796,
-   0.985234,
-   0.770669,
-   0.761108,
-   0.797575,
-   -0.871036,
-   -0.800044,
-   -0.740908,
-   -0.981023,
-   -0.979085,
-   -0.95588,
-   -0.962085,
-   -0.294684,
-   0.424477,
-   0.076515,
-   0.204002,
-   0.22757,
-   0.182896,
-   0.868333,
-   0.832713,
-   0.881213,
-   0.974754,
-   0.974497,
-   -0.880119,
-   -0.853692,
-   -0.809018,
-   -0.772918,
-   -0.985481,
-   -0.998953,
-   -0.955079,
-   -0.964275,
-   0.496137,
-   0.141425,
-   0.196699,
-   0.115516,
-   0.052574,
-   0.083373,
-   -0.169096,
-   0.949713,
-   0.976973,
-   0.975643,
-   -0.040748,
-   -0.883603,
-   -0.701309,
-   -0.770257,
-   -0.744749,
-   -0.983093,
-   -0.999197,
-   -0.99897,
-   0.700038,
-   0.711803,
-   0.234017,
-   0.143221,
-   0.056609,
-   0.007844,
-   -0.050519,
-   0.011474,
-   -0.486089,
-   0.167294,
-   -0.812346,
-   -0.567878,
-   -0.334377,
-   -0.764767,
-   -0.747391,
-   -0.648174,
-   -0.94683,
-   -0.998972,
-   -0.229732,
-   -0.20968,
-   0.226728,
-   0.107683,
-   0.080529,
-   0.058147,
-   0.0096,
-   -0.010145,
-   -0.037378,
-   -0.030739,
-   -0.132827,
-   -0.30177,
-   -0.622706,
-   -0.410909,
-   -0.901822,
-   -0.493606,
-   -0.382773,
-   -0.878372,
-   -0.884602,
-   -0.946537,
-   -0.203071,
-   0.320003,
-   0.054326,
-   -0.022182,
-   0.050096,
-   0.008408,
-   -0.000502,
-   0.022554,
-   0.01202,
-   0.369163,
-   -0.032683,
-   0.574955,
-   -0.570099,
-   -0.027675,
-   -0.107578,
-   -0.016476,
-   -0.665015,
-   -0.740769,
-   -0.699717,
-   -0.894734,
-   -0.089998,
-   0.020498,
-   -0.515459,
-   0.017289,
-   -0.005406,
-   -0.059801,
-   -0.030047,
-   -0.021876,
-   -0.604327,
-   0.113102,
-   0.651785,
-   -0.600446,
-   0.363874,
-   0.389798,
-   0.305732,
-   -0.370321,
-   -0.486382,
-   -0.895755,
-   -0.352831,
-   0.286875,
-   0.970777,
-   0.307936,
-   0.29212,
-   0.0417,
-   -0.256503,
-   0.050409,
-   -0.105335,
-   -0.362023,
-   -0.94338,
-   0.760429,
-   -0.585267,
-   0.784287,
-   0.582758,
-   0.463152,
-   0.038415,
-   0.036515,
-   0.463547,
-   -0.488787,
-   0.974528,
-   0.954149,
-   0.9818,
-   0.981664,
-   0.782542,
-   0.169934,
-   0.82596,
-   0.172867,
-   -0.2049,
-   -0.944745,
-   0.758714,
-   0.780474,
-   0.747612,
-   0.555065,
-   0.502424,
-   0.140452,
-   0.469063,
-   0.971524,
-   0.973503,
-   0.944011,
-   0.92819,
-   0.981926,
-   -0.753057,
-   0.961778,
-   0.562548,
-   0.501334,
-   0.266892,
-   0.012733,
-   -0.945742,
-   -0.948996,
-   -0.950001,
-   0.780643,
-   0.623065,
-   0.321718,
-   -0.008197,
-   0.165168,
-   0.003297,
-   -0.295798,
-   0.950644,
-   0.94566,
-   -0.762454,
-   -0.748712,
-   0.958725,
-   0.59017,
-   0.599967,
-   0.927354,
-   0.34967,
-   -0.534842,
-   -0.442745,
-   -0.947,
-   0.774328,
-   0.178986,
-   0.185267,
-   -0.011446,
-   -0.354272,
-   -0.899082,
-   -0.898082,
-   -0.897463,
-   -0.903825,
-   -0.747733,
-   0.541924,
-   0.955479,
-   -0.298756,
-   0.18795,
-   0.927874,
-   -0.559854,
-   -0.460426,
-   -0.761688,
-   -0.718094,
-   -0.993045,
-   -0.060971,
-   -0.167893,
-   0.340607,
-   0.975666,
-   0.978254,
-   0.976004,
-   0.974108,
-   -0.904374,
-   -0.902381,
-   -0.902708,
-   -0.902018,
-   -0.900359,
-   0.073141,
-   0.919816,
-   0.515636,
-   -0.768377,
-   -0.640717,
-   -0.941723,
-   -0.992246,
-   -0.934047,
-   -0.572123,
-   0.806447,
-   0.917207,
-   0.91102,
-   0.975551,
-   -0.522026,
-   -0.902984,
-   0.815285,
-   0.803594,
-   -0.898151,
-   -0.630785,
-   0.162678,
-   -0.057568,
-   0.379054,
-   -0.098263,
-   -0.994589,
-   -0.994969,
-   -0.946151,
-   -0.901176,
-   -0.819194,
-   0.892314,
-   0.894688,
-   0.934853,
-   0.975847,
-   -0.518251,
-   0.820635,
-   0.811344,
-   0.168873,
-   0.132616,
-   -0.738912,
-   -0.225442,
-   -0.871488,
-   -0.464334,
-   -0.720323,
-   -0.870833,
-   -0.941089,
-   -0.922773,
-   -0.898527,
-   -0.865147,
-   0.908016,
-   0.913187,
-   0.924817,
-   0.879988,
-   0.86207,
-   0.741841,
-   0.355305,
-   0.000195,
-   -0.165506,
-   -0.500248,
-   -0.704424,
-   -0.711653,
-   -0.681427,
-   -0.71028,
-   -0.828253,
-   -0.865592,
-   -0.886284,
-   -0.898845,
-   -0.886762
+   0.478376,
+   0.479695,
+   0.480979,
+   0.533216,
+   0.600731,
+   0.619551,
+   0.591359,
+   0.52511,
+   0.430262,
+   0.302401,
+   0.096719,
+   -0.110532,
+   -0.380893,
+   -0.552559,
+   -0.739893,
+   -0.79595,
+   -0.893949,
+   -0.923408,
+   -0.946137,
+   0.511517,
+   0.474853,
+   0.483167,
+   0.531725,
+   0.675927,
+   0.679229,
+   0.613321,
+   0.556755,
+   0.48797,
+   0.360645,
+   0.192152,
+   -0.200272,
+   -0.403492,
+   -0.738406,
+   -0.830238,
+   -0.922829,
+   -0.933459,
+   -0.952058,
+   -0.963971,
+   0.550737,
+   0.548987,
+   0.442034,
+   0.714864,
+   0.605838,
+   0.620575,
+   0.560362,
+   0.50448,
+   0.487858,
+   0.39832,
+   -0.257815,
+   0.061386,
+   -0.344718,
+   -0.971081,
+   -0.920742,
+   -0.991434,
+   -0.973729,
+   -0.972719,
+   -0.978212,
+   0.66719,
+   0.651778,
+   0.78049,
+   0.954309,
+   0.641636,
+   0.913819,
+   0.451887,
+   0.526834,
+   0.323329,
+   0.170191,
+   0.085562,
+   0.029044,
+   -0.035262,
+   -0.626663,
+   -0.974631,
+   -0.878342,
+   -0.994472,
+   -0.99472,
+   -0.974591,
+   0.772172,
+   0.796553,
+   0.76243,
+   0.428292,
+   0.249993,
+   -0.22718,
+   0.135201,
+   0.937048,
+   0.502716,
+   0.39729,
+   0.269814,
+   0.62701,
+   -0.913645,
+   -0.939745,
+   -0.847091,
+   -0.876831,
+   -0.875765,
+   -0.995549,
+   -0.896804,
+   0.828808,
+   0.876757,
+   0.952594,
+   0.465272,
+   -0.125656,
+   -0.294478,
+   -0.014389,
+   0.936486,
+   0.147199,
+   0.814137,
+   0.262765,
+   0.254396,
+   0.586419,
+   0.58272,
+   -0.940675,
+   -0.946088,
+   -0.901692,
+   -0.761244,
+   -0.73235,
+   0.824468,
+   0.812712,
+   -0.125343,
+   -0.797634,
+   -0.420684,
+   -0.922047,
+   -0.912278,
+   0.940002,
+   -0.446343,
+   0.116448,
+   0.074405,
+   0.186774,
+   0.14899,
+   0.052721,
+   0.213142,
+   -0.938601,
+   -0.492472,
+   -0.356392,
+   -0.483163,
+   0.725573,
+   0.889757,
+   0.19741,
+   -0.533383,
+   -0.696872,
+   -0.923219,
+   0.475057,
+   0.515702,
+   -0.218992,
+   -0.05539,
+   -0.009256,
+   0.025495,
+   0.106359,
+   0.074544,
+   -0.089132,
+   -0.270717,
+   -0.028359,
+   -0.144481,
+   -0.223576,
+   0.542539,
+   0.614052,
+   -0.131225,
+   -0.904527,
+   -0.89143,
+   -0.92326,
+   -0.924734,
+   -0.922592,
+   -0.574604,
+   -0.275284,
+   -0.278534,
+   0.154853,
+   0.103049,
+   0.197671,
+   0.121857,
+   0.247387,
+   0.159869,
+   0.112583,
+   0.045659,
+   0.283095,
+   0.302338,
+   0.695965,
+   -0.342416,
+   -0.919639,
+   0.836058,
+   0.841474,
+   0.26288,
+   -0.775871,
+   0.100479,
+   0.37865,
+   0.327748,
+   0.291089,
+   0.300614,
+   0.36468,
+   0.889946,
+   0.523007,
+   0.335381,
+   0.297262,
+   -0.290858,
+   -0.003272,
+   -0.281756,
+   -0.630118,
+   -0.922797,
+   -0.398522,
+   0.686037,
+   0.059196,
+   0.625319,
+   0.312868,
+   0.471511,
+   0.539212,
+   0.468335,
+   0.483834,
+   0.585661,
+   0.656926,
+   0.642898,
+   0.588588,
+   0.530408,
+   -0.242133,
+   -0.827857,
+   -0.836074,
+   -0.525224,
+   -0.918294,
+   0.919165,
+   0.922597,
+   -0.091404,
+   0.225598,
+   0.95396,
+   0.951787,
+   0.682091,
+   0.574398,
+   0.612329,
+   0.68231,
+   0.709352,
+   0.904694,
+   0.755511,
+   0.678758,
+   0.323988,
+   0.878858,
+   0.137745,
+   0.073888,
+   -0.193165,
+   0.279648,
+   0.92631,
+   0.30617,
+   0.329158,
+   0.135121,
+   -0.947937,
+   0.939102,
+   0.687112,
+   0.712381,
+   0.772342,
+   0.73771,
+   0.760189,
+   0.802255,
+   0.748938,
+   0.661304,
+   0.882923,
+   0.884459,
+   0.8875,
+   0.289427,
+   0.477131,
+   0.666699,
+   0.461808,
+   0.272371,
+   -0.216706,
+   -0.959083,
+   0.943004,
+   0.801421,
+   0.720446,
+   0.756291,
+   0.626896,
+   0.618738,
+   0.760464,
+   0.777679,
+   -0.761858,
+   0.893434,
+   -0.952794,
+   0.890399,
+   0.623755,
+   0.521137,
+   0.925506,
+   0.928642,
+   0.459455,
+   -0.149588,
+   -0.957342,
+   0.941055,
+   0.889237,
+   0.844037,
+   0.825351,
+   0.858704,
+   0.955515,
+   0.954471,
+   0.496425,
+   -0.763631,
+   -0.950545,
+   -0.95638,
+   0.013783,
+   0.691809,
+   0.089682,
+   -0.941212,
+   -0.939298,
+   0.445222,
+   -0.54953,
+   -0.95878,
+   -0.958495,
+   0.962143,
+   0.964195,
+   0.960094,
+   0.964486,
+   -0.164555,
+   -0.259032,
+   0.276965,
+   -0.869123,
+   -0.927254,
+   -0.950767,
+   -0.974536,
+   -0.792062,
+   -0.964721,
+   -0.912881,
+   -0.880982,
+   -0.918527,
+   -0.786982,
+   -0.851071,
+   -0.922278,
+   -0.94571,
+   -0.949639,
+   0.589574,
+   0.575348,
+   -0.829223,
+   -0.376599,
+   -0.18961,
+   -0.906913,
+   -0.932232,
+   -0.951341,
+   -0.958342,
+   -0.949498,
+   -0.926416,
+   -0.912296,
+   -0.879989,
+   -0.869614,
+   -0.838732,
+   -0.857813,
+   -0.88529,
+   -0.914166,
+   -0.896024,
+   -0.917031,
+   0.61678,
+   -0.84153,
+   -0.603394,
+   -0.293822,
+   -0.9272,
+   -0.938865,
+   -0.94493,
+   -0.946125,
+   -0.934889,
+   -0.916011,
+   -0.890378,
+   -0.869293,
+   -0.853769,
+   -0.843268,
+   -0.853622,
+   -0.87756,
+   -0.891099,
+   -0.885876,
+   -0.853505,
+   -0.835651,
+   -0.798149,
+   -0.607604,
+   -0.429244
   ],
   "policy": [
-   1.23123289e-06,
-   1.66928521e-06,
-   1.52781308e-06,
-   1.1900878e-06,
-   1.20886239e-06,
-   1.35283813e-06,
-   1.17980096e-06,
-   1.21524761e-06,
-   1.33301558e-06,
-   1.39652752e-06,
-   1.39594567e-06,
-   1.35620712e-06,
-   1.37477014e-06,
-   1.45645276e-06,
-   1.5062036e-06,
-   1.53844837e-06,
-   1.4779954e-06,
-   1.54756299e-06,
-   1.37526717e-06,
-   1.22467611e-06,
-   1.456625e-06,
-   1.52176665e-06,
+   2.94012284e-06,
+   4.11323754e-06,
+   3.65511482e-06,
+   4.58270506e-06,
+   4.7974886e-06,
+   4.25887629e-06,
+   3.80712072e-06,
+   3.61250045e-06,
+   3.80864958e-06,
+   4.03568129e-06,
+   4.57565238e-06,
+   4.21397817e-06,
+   4.50802281e-06,
+   3.49845823e-06,
+   3.87819819e-06,
+   3.55350016e-06,
+   3.48359958e-06,
+   3.19319929e-06,
+   3.12948168e-06,
+   4.05890205e-06,
+   6.29953729e-06,
+   7.39538791e-06,
+   1.56562746e-05,
+   3.04760724e-05,
+   3.53425457e-05,
+   1.22333267e-05,
+   1.12354419e-05,
+   1.68080605e-05,
+   5.113101e-05,
+   0.000316852791,
+   0.000164470912,
+   2.37275217e-05,
+   5.03795263e-06,
+   3.97645363e-06,
+   3.81934706e-06,
+   3.83100223e-06,
+   3.5612693e-06,
+   3.031902e-06,
+   3.77516358e-06,
+   6.390002e-06,
+   1.65422534e-05,
+   3.4997247e-05,
+   5.81406166e-05,
+   1.34946486e-05,
+   8.7779199e-06,
+   8.67182462e-06,
+   1.11771969e-05,
+   4.54797264e-05,
+   0.000759970048,
+   0.0797037184,
+   0.00015734027,
+   -1.0,
+   4.22460107e-06,
+   -1.0,
+   3.95548477e-06,
+   3.83322094e-06,
+   3.56247847e-06,
+   3.8249932e-06,
+   7.45679608e-06,
+   3.12118827e-05,
+   -1.0,
+   1.09006332e-05,
+   -1.0,
+   4.76179321e-06,
+   4.88896239e-06,
+   5.21457196e-06,
+   6.18223157e-06,
+   1.53344172e-05,
+   0.000114994538,
+   0.00275001023,
+   4.62860862e-06,
+   -1.0,
+   -1.0,
+   -1.0,
+   -1.0,
+   3.56797614e-06,
+   4.02502292e-06,
+   1.17562522e-05,
+   7.82836141e-05,
+   0.000213045685,
+   3.62448009e-05,
+   9.13989243e-06,
+   4.41224529e-06,
+   -1.0,
+   3.60030458e-06,
+   4.4829294e-06,
+   6.04799379e-06,
+   -1.0,
+   -1.0,
+   -1.0,
+   -1.0,
+   -1.0,
+   -1.0,
+   -1.0,
+   3.84548321e-06,
+   4.0491127e-06,
+   8.5211359e-06,
+   -1.0,
+   0.0687410012,
+   0.000123360776,
+   6.46041281e-06,
+   4.23483471e-06,
    -1.0,
+   3.49540346e-06,
    -1.0,
+   5.52972733e-06,
+   1.49005346e-05,
    -1.0,
-   1.40996065e-06,
-   1.59031435e-06,
-   1.11944144e-06,
-   1.3862425e-06,
-   1.40722022e-06,
-   1.45905528e-06,
-   1.48519155e-06,
-   1.59068441e-06,
-   1.72342084e-06,
-   1.58802129e-06,
-   1.34165509e-06,
-   1.64461267e-06,
-   1.63277605e-06,
-   1.29630178e-06,
    -1.0,
    -1.0,
    -1.0,
+   8.18042281e-06,
+   4.45564729e-06,
+   4.73705813e-06,
+   3.57841736e-06,
+   8.17753698e-06,
+   0.000272760255,
    -1.0,
+   4.30243426e-06,
    -1.0,
    -1.0,
    -1.0,
-   1.65770598e-06,
-   1.4785677e-06,
-   1.57153636e-06,
-   1.37262168e-06,
    -1.0,
-   0.00116738176,
-   0.0614658184,
+   6.85528175e-06,
+   6.22258995e-06,
+   1.86392626e-05,
+   4.97690917e-06,
+   7.53044742e-06,
    -1.0,
-   3.59374008e-06,
-   1.55176747e-06,
-   1.61455114e-06,
-   1.39302915e-06,
    -1.0,
+   4.74637363e-06,
+   2.9389721e-05,
+   4.74718809e-06,
+   3.51177255e-06,
    -1.0,
+   0.00253405748,
+   6.97418955e-06,
+   3.98211932e-06,
    -1.0,
    -1.0,
+   0.295436084,
+   7.08987682e-06,
+   1.12947337e-05,
+   4.3164182e-05,
+   1.82029889e-05,
+   2.58603905e-05,
+   1.28063393e-05,
+   0.02418405,
+   2.51693291e-05,
+   0.000124056605,
+   7.31648925e-06,
+   4.55709642e-06,
+   3.66761515e-06,
+   6.54191126e-06,
+   8.17346299e-05,
    -1.0,
+   3.97558915e-06,
    -1.0,
-   1.31522586e-06,
-   1.50022993e-06,
-   1.48975778e-06,
-   1.79519077e-06,
-   1.45649449e-06,
    -1.0,
    -1.0,
+   6.81295069e-06,
+   7.06868086e-05,
+   0.000128252897,
+   0.000219893191,
+   4.98251502e-05,
+   7.97551111e-05,
+   3.7771857e-05,
+   9.79468132e-06,
+   5.17461631e-05,
+   1.28166876e-05,
+   4.6495702e-06,
+   1.1018109e-05,
+   9.86177292e-06,
    -1.0,
+   5.53926475e-06,
    -1.0,
    -1.0,
-   1.69414864e-06,
-   1.57221837e-06,
-   1.19869571e-06,
-   1.55992382e-06,
    -1.0,
+   0.104035325,
    -1.0,
-   1.74131565e-05,
+   0.00739173638,
+   0.0597522035,
+   0.00240495871,
+   6.94532719e-05,
+   1.51593376e-05,
+   6.2693548e-06,
    -1.0,
-   1.90274909e-06,
-   1.5177983e-06,
-   1.30575131e-06,
-   1.43501893e-06,
-   1.39697772e-06,
+   6.33965146e-06,
+   6.82181235e-06,
+   4.20268452e-06,
+   7.08750349e-06,
+   0.00355813443,
+   6.89169901e-05,
+   6.63162382e-06,
    -1.0,
+   3.41369673e-06,
+   4.03311151e-06,
+   1.61440348e-05,
    -1.0,
+   4.92927575e-06,
+   6.54170526e-06,
+   6.43101521e-05,
+   1.45727681e-05,
+   7.59964223e-06,
+   5.19370224e-06,
+   4.37175959e-06,
+   4.07943844e-06,
+   4.496374e-06,
+   3.82562439e-06,
+   1.52744742e-05,
    -1.0,
    -1.0,
+   0.000401933852,
    -1.0,
-   9.23172047e-06,
-   1.38124631e-06,
-   1.5172468e-06,
-   1.41383578e-06,
    -1.0,
    -1.0,
    -1.0,
-   5.62622736e-05,
-   1.35328594e-06,
-   1.88967465e-06,
-   1.62020729e-06,
-   1.30228045e-06,
-   1.29050068e-06,
-   1.36492133e-06,
-   1.17525303e-06,
-   0.899904191,
-   -1.0,
-   3.36549169e-06,
-   -1.0,
-   -1.0,
-   1.51455072e-06,
-   1.76046854e-06,
-   1.37437951e-06,
-   -1.0,
-   -1.0,
-   -1.0,
-   -1.0,
-   1.66570396e-06,
-   1.41420128e-06,
-   1.50611311e-06,
-   1.30338128e-06,
-   1.25733459e-06,
-   1.57702073e-06,
-   1.86326315e-06,
-   3.77857623e-06,
-   -1.0,
-   0.00133908913,
-   8.38127471e-06,
-   3.94384369e-06,
-   2.11081215e-06,
-   1.73633487e-06,
-   1.45402544e-06,
-   -1.0,
-   -1.0,
-   1.49811387e-06,
-   1.53066571e-06,
-   1.476747e-06,
-   1.2857123e-06,
-   1.37606344e-06,
-   1.50985647e-06,
-   1.48993399e-06,
-   1.47742878e-06,
-   2.07895937e-06,
-   1.80868926e-06,
-   1.82763063e-06,
-   1.3273592e-06,
-   2.33363016e-06,
+   5.33517868e-06,
    -1.0,
-   2.96123744e-06,
-   1.69425039e-06,
-   1.48864149e-06,
-   8.17054843e-06,
    -1.0,
-   8.18910667e-06,
-   2.73947262e-06,
-   1.4080257e-06,
-   1.56272756e-06,
-   1.6770432e-06,
-   1.49249388e-06,
-   1.26506961e-06,
-   1.51513007e-06,
-   1.71636464e-06,
-   1.63311415e-06,
-   1.5258197e-06,
-   2.11700535e-06,
-   2.72969555e-06,
-   2.73813794e-06,
-   6.07964648e-06,
-   1.5934462e-06,
-   1.58077307e-06,
-   2.04567618e-06,
+   5.68223641e-06,
+   4.67247128e-06,
+   4.71463591e-06,
+   4.49319305e-06,
+   4.28743078e-06,
    -1.0,
+   3.73578155e-06,
+   4.6726318e-06,
+   3.72769955e-06,
    -1.0,
-   1.28932959e-06,
-   1.59689341e-06,
+   4.70721398e-06,
+   0.000165230726,
+   0.000162807817,
+   3.24993448e-06,
    -1.0,
-   1.54095335e-06,
-   1.5901262e-06,
-   1.33752599e-06,
-   1.38511007e-06,
-   1.45226829e-06,
-   1.87301396e-06,
-   5.21730999e-06,
-   2.22171911e-06,
-   6.60986871e-06,
-   1.47390074e-06,
-   1.75322884e-06,
-   1.5124881e-06,
-   1.61758726e-06,
-   1.62635786e-06,
+   5.94601761e-06,
+   1.24968028e-05,
+   1.35799455e-05,
    -1.0,
-   1.26396253e-06,
-   1.52076564e-06,
    -1.0,
-   1.61364449e-06,
-   1.67100063e-06,
-   1.27768897e-06,
-   1.09348457e-06,
-   1.31099694e-06,
-   1.34795346e-06,
-   1.5976841e-06,
+   3.29440218e-06,
+   3.94187509e-06,
+   3.80808683e-06,
+   3.61040975e-06,
+   3.4843074e-06,
+   4.31411536e-06,
+   4.01128136e-06,
+   4.85409964e-06,
    -1.0,
    -1.0,
    -1.0,
+   4.56951238e-06,
+   6.68470693e-06,
+   3.33434173e-06,
+   3.6362394e-06,
+   9.37666118e-05,
+   6.30294471e-06,
    -1.0,
-   1.67844496e-06,
-   1.50440053e-06,
-   1.51255438e-06,
-   1.56159831e-06,
-   1.3611309e-06,
    -1.0,
+   3.86952752e-06,
+   4.05234596e-06,
+   3.61040293e-06,
    -1.0,
-   1.3917504e-06,
    -1.0,
+   4.35492757e-06,
+   4.27915484e-06,
    -1.0,
-   1.45160641e-06,
-   1.37900361e-06,
    -1.0,
-   1.54139286e-06,
-   1.67635096e-06,
    -1.0,
    -1.0,
+   4.44096895e-06,
+   1.66059363e-05,
    -1.0,
-   1.69275654e-06,
-   1.24539349e-06,
-   1.39141196e-06,
-   1.7856936e-06,
-   1.42995066e-06,
    -1.0,
+   0.0719791651,
+   4.71148996e-06,
    -1.0,
-   1.40717589e-06,
    -1.0,
+   3.50331948e-06,
+   3.85595285e-06,
+   3.57775207e-06,
+   3.07193295e-06,
    -1.0,
    -1.0,
+   4.15172553e-06,
+   3.41737746e-06,
    -1.0,
-   1.70749308e-06,
-   1.5299695e-06,
-   1.33235733e-06,
-   1.56455428e-06,
    -1.0,
+   8.18209664e-05,
+   0.259805113,
+   0.0035038928,
    -1.0,
    -1.0,
    -1.0,
-   1.7770127e-06,
-   1.59856654e-06,
-   1.38768303e-06,
-   1.62655169e-06,
-   1.36844562e-06,
-   1.53526935e-06,
+   4.66244928e-05,
    -1.0,
    -1.0,
    -1.0,
    -1.0,
    -1.0,
-   1.70332123e-06,
-   1.69093494e-06,
    -1.0,
-   3.23317431e-06,
-   2.88898468e-06,
+   5.32642935e-06,
+   4.69275437e-06,
+   4.52902577e-06,
+   6.24129916e-06,
+   5.23404287e-06,
+   5.5530536e-06,
    -1.0,
+   3.61917118e-05,
    -1.0,
+   5.07405821e-06,
+   0.000416719238,
    -1.0,
-   1.78388609e-06,
-   1.39796134e-06,
-   1.3226105e-06,
-   1.60537422e-06,
+   0.00176601717,
+   8.57712348e-06,
+   8.02569339e-05,
    -1.0,
    -1.0,
+   0.00448000245,
+   0.00148805126,
    -1.0,
+   6.56045404e-06,
+   4.05087803e-06,
+   4.22098856e-06,
+   5.18091929e-06,
+   6.82414202e-06,
+   5.59245609e-06,
+   6.00194107e-06,
+   6.1465239e-06,
+   5.62764944e-06,
+   5.14696831e-06,
+   7.3438996e-06,
+   6.50732682e-06,
+   8.05683158e-06,
+   1.53793208e-05,
+   7.53570612e-06,
+   3.6065263e-05,
    -1.0,
-   1.3982667e-06,
-   1.91497315e-06,
    -1.0,
-   1.50117444e-06,
-   1.69969292e-06,
    -1.0,
-   -1.0,
-   4.78115271e-06,
-   1.6942779e-06,
-   -1.0,
-   -1.0,
-   2.38599705e-06,
-   1.64011419e-06,
-   1.52343512e-06,
-   -1.0,
-   -1.0,
-   -1.0,
-   -1.0,
-   -1.0,
-   -1.0,
-   -1.0,
-   -1.0,
-   -1.0,
-   5.09239453e-06,
-   -1.0,
-   4.07252701e-05,
-   -1.0,
-   -1.0,
-   1.17002151e-06,
-   -1.0,
-   1.60975424e-06,
-   1.60326283e-06,
-   1.26278542e-06,
-   1.7421836e-06,
-   -1.0,
-   -1.0,
-   5.66031304e-06,
-   -1.0,
-   -1.0,
-   -1.0,
-   -1.0,
-   1.4688093e-05,
-   0.0140080275,
-   0.000247002201,
-   0.000645167311,
-   2.05661399e-05,
-   -1.0,
-   -1.0,
-   1.47908531e-06,
-   1.50671508e-06,
-   1.60592697e-06,
-   1.47880314e-06,
-   1.36105041e-06,
-   1.51810525e-06,
-   -1.0,
-   -1.0,
-   -1.0,
-   -1.0,
-   4.28576504e-06,
-   0.0199810732,
-   0.000189691695,
-   0.00020876099,
-   -1.0,
-   0.000199340808,
-   1.26055766e-05,
-   1.87893033e-06,
-   1.46057835e-06,
-   1.39813062e-06,
-   1.46579293e-06,
-   1.58341948e-06,
-   1.4004205e-06,
-   1.47967501e-06,
-   1.09409484e-06,
-   1.3487944e-06,
-   2.18657169e-06,
-   1.75962759e-06,
-   1.66108464e-06,
-   5.24439292e-06,
-   5.66111157e-06,
-   2.25297645e-05,
-   1.96380515e-05,
-   1.45475033e-05,
-   4.52888071e-06,
-   1.90789319e-06,
-   1.38759162e-06,
-   1.28161855e-06,
-   1.33938079e-06,
-   1.36883727e-06,
-   1.37138261e-06,
-   9.44856652e-07
+   4.77478488e-06,
+   4.79878372e-06,
+   3.30205808e-06,
+   4.03303829e-06,
+   4.40989425e-06,
+   4.28082831e-06,
+   4.24882728e-06,
+   3.97957592e-06,
+   3.72801605e-06,
+   3.70028852e-06,
+   4.1187609e-06,
+   3.8957578e-06,
+   4.10255461e-06,
+   4.20899369e-06,
+   4.63230936e-06,
+   4.30099863e-06,
+   7.0897886e-06,
+   4.77075264e-06,
+   5.27430893e-06,
+   4.4814974e-06,
+   3.41706777e-06,
+   4.63421793e-06
   ],
   "rootInfo": {
    "currentPlayer": "W",
-   "rawLead": 4.28727341,
-   "rawNoResultProb": 0.000530090765,
-   "rawScoreSelfplay": 4.93610716,
-   "rawScoreSelfplayStdev": 9.67356078,
-   "rawStScoreError": 1.42781365,
-   "rawStWrError": 0.0685238391,
-   "rawVarTimeLeft": 11.0604725,
-   "rawWinrate": 0.883895487,
-   "scoreLead": 4.52701284,
-   "scoreSelfplay": 5.65638914,
-   "scoreStdev": 9.45857704,
-   "symHash": "04A5FB6BC84854C6D7433CCF196B42BB",
-   "thisHash": "04A5FB6BC84854C6D7433CCF196B42BB",
-   "utility": 0.833290529,
-   "visits": 4015,
-   "weight": 4685.294093534334,
-   "winrate": 0.906393273
+   "rawLead": 0.322326422,
+   "rawNoResultProb": 0.0,
+   "rawScoreSelfplay": 0.481049776,
+   "rawScoreSelfplayStdev": 14.126769,
+   "rawStScoreError": 1.14401031,
+   "rawStWrError": 0.0710257441,
+   "rawVarTimeLeft": 24.7576752,
+   "rawWinrate": 0.5753728,
+   "scoreLead": -0.470617356,
+   "scoreSelfplay": -1.02903707,
+   "scoreStdev": 13.8020121,
+   "symHash": "312845FAD7F16E7490A9E959B7676111",
+   "thisHash": "D83E9C33FBB59401416F55EF05CBEA44",
+   "utility": -0.132867538,
+   "visits": 4014,
+   "weight": 4110.5906573807,
+   "winrate": 0.449220193
   }
  }
 }
