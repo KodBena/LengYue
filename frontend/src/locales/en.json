@@ -700,7 +700,8 @@
   "wizard.demoBoard.slidersLegend":       "Display sliders",
 
   "wizard.step.pvAnimation.title":        "Principal-variation display",
-  "wizard.step.pvAnimation.description":  "When you hover a move suggestion, its follow-up sequence (principal variation) can be revealed a few different ways. Cycle through the modes below to see which you prefer — the same setting applies wherever a PV is shown, including on the demo board above.",
+  "wizard.step.pvAnimation.description":  "When you hover a move suggestion, its follow-up sequence (principal variation) can be revealed a few different ways. Pick a mode below to preview it — the same setting applies wherever a PV is shown, including on the demo board above.",
+  "wizard.pvAnimation.modeLabel":         "Animation style",
   "wizard.pvAnimation.mode.instant":          "Instant",
   "wizard.pvAnimation.mode.instant.settings": "All PV stones fade in together.",
   "wizard.pvAnimation.mode.sequential":          "Sequential",

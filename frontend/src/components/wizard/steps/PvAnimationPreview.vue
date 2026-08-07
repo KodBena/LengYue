@@ -7,17 +7,31 @@
  * The ANIMATED half of the wizard's PV-display step, isolated into its
  * own leaf per ADR-0010's render-locality corollary (commission row
  * 748/749 defect 5): `displayStones` re-renders on every animation
- * frame and the auto-advance interval writes `mode` every few seconds
- * — with both read in the parent step's template, every tick re-ran
- * the whole step's render and Vue's <select> value-sync reset the
- * annotation dropdown mid-interaction (the UI #1 model-select flicker
- * class, different tick source, same cure: the high-frequency reads
- * live HERE, the parent renders this leaf once and never re-renders
- * on animation state). EngineModelSelect.vue is the worked precedent.
+ * frame, and if a mode/annotation `<select>` were read in the same
+ * template, every tick would re-run the whole step's render and
+ * Vue's <select> value-sync would reset an open dropdown mid-
+ * interaction (the UI #1 model-select flicker class, different tick
+ * source, same cure: the high-frequency reads live HERE, the parent
+ * renders this leaf once and never re-renders on animation state).
+ * EngineModelSelect.vue is the worked precedent.
+ *
+ * Commission row 795: the mode was previously chosen by a ‹/›
+ * button pair here, auto-advancing every AUTO_ADVANCE_MS on a
+ * setInterval — both jarring (commissioner verbatim) and, worse, a
+ * hazard for this leaf's own render-locality contract: an interval
+ * that WRITES `mode` on its own schedule is exactly the kind of
+ * high-frequency state this leaf isolation was built to keep out of
+ * a template that also renders a `<select>`. The mode picker (a
+ * `<select>`) now lives in the PARENT (`WizardStepPvAnimation.vue`),
+ * alongside the annotation `<select>` it already hosts safely,
+ * because the parent's template reads no animation-frame state —
+ * see that file's header for why co-locating the two selects there
+ * is the isolation-preserving placement. This leaf only READS the
+ * mode (to know when to restart the preview) and never renders it.
  */
-import { computed, onMounted, onUnmounted, watch } from 'vue';
+import { computed, onUnmounted, watch } from 'vue';
 import { usePvAnimation, type PvMode, type PvMove } from '../../../composables/board/use-pv-animation';
-import { store, touchSession } from '../../../store';
+import { store } from '../../../store';
 
 const props = defineProps<{
   /** Getter, not a reactive array read in the PARENT's render — the
@@ -25,16 +39,14 @@ const props = defineProps<{
   getPvMoves: () => PvMove[];
 }>();
 
-const PV_MODES: readonly PvMode[] = ['instant', 'sequential', 'window'];
-const AUTO_ADVANCE_MS = 4000;
-
 const { startPv, stopPv, displayStones } = usePvAnimation(() => store.session.ui.pvAnimation);
 
-const mode = computed<PvMode>({
-  get: () => store.session.ui.pvAnimation.mode,
-  set: (v) => { store.session.ui.pvAnimation.mode = v; touchSession(); },
-});
-const modeIndex = computed(() => PV_MODES.indexOf(mode.value));
+// Read-only here — the mode is SET by the parent's <select> (writing
+// `store.session.ui.pvAnimation.mode`, the same cell `usePvAnimation`'s
+// `getConfig` already watches above). This leaf only reads it to know
+// when to restart the preview animation; it never renders it, so a
+// mode change re-runs this computed but not any `<select>`'s render.
+const mode = computed<PvMode>(() => store.session.ui.pvAnimation.mode);
 const showNumbers = computed(() => store.session.ui.pvAnimation.annotation !== 'none');
 const pvMoves = computed(() => props.getPvMoves());
 
@@ -43,41 +55,18 @@ function replay(): void {
   startPv(pvMoves.value);
 }
 
-function goToMode(index: number): void {
-  const wrapped = ((index % PV_MODES.length) + PV_MODES.length) % PV_MODES.length;
-  mode.value = PV_MODES[wrapped];
-}
-function nextMode(): void { goToMode(modeIndex.value + 1); }
-function prevMode(): void { goToMode(modeIndex.value - 1); }
-
 // Restart whenever the mode or the PV (numbering base included)
 // changes — a mode switch with no restart would let the OLD mode's
 // schedule finish out.
 watch([mode, pvMoves], () => replay(), { immediate: true });
 
-let autoAdvanceTimer: ReturnType<typeof setInterval> | null = null;
-onMounted(() => {
-  // Production-only animation interval — never awaited by a test
-  // (tests drive `nextMode`/`prevMode` directly under fake timers).
-  autoAdvanceTimer = setInterval(nextMode, AUTO_ADVANCE_MS);
-});
 onUnmounted(() => {
-  if (autoAdvanceTimer !== null) clearInterval(autoAdvanceTimer);
   stopPv();
 });
 </script>
 
 <template>
   <div class="pv-animation-preview">
-    <div class="mode-switcher">
-      <button type="button" class="nav-btn" @click="prevMode">‹</button>
-      <div class="mode-label">
-        <span class="mode-name">{{ $t(`wizard.pvAnimation.mode.${mode}`) }}</span>
-        <span class="mode-settings">{{ $t(`wizard.pvAnimation.mode.${mode}.settings`) }}</span>
-      </div>
-      <button type="button" class="nav-btn" @click="nextMode">›</button>
-    </div>
-
     <div class="pv-preview" aria-live="polite">
       <span
         v-for="s in displayStones"
@@ -95,15 +84,6 @@ onUnmounted(() => {
 
 <style scoped>
 .pv-animation-preview { display: flex; flex-direction: column; gap: var(--space-default); }
-
-.mode-switcher { display: flex; align-items: center; gap: var(--space-default); justify-content: center; }
-.nav-btn {
-  width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border-3);
-  background: var(--surface-0); color: var(--text-0); font-size: var(--text-heading); cursor: pointer; /* surface-0 per rows 681/742 */
-}
-.mode-label { display: flex; flex-direction: column; align-items: center; min-width: 220px; }
-.mode-name { color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase; font-weight: bold; }
-.mode-settings { color: var(--text-2); font-size: var(--text-emphasis); text-align: center; }
 
 .pv-preview {
   display: flex; gap: var(--space-tight); flex-wrap: wrap; justify-content: center;
