@@ -67,6 +67,10 @@ import {
   useResizablePanel,
   MIN_BOARD_PX,
   RESIZER_WIDTH_PX,
+  WRAPPER_MIN_WIDTH_PX,
+  CONTROL_PANEL_MIN_WIDTH_PX,
+  TREE_PANEL_MIN_WIDTH_PX,
+  freshTreeControlWrapperFloorPx,
 } from '../../src/composables/chrome/useResizablePanel';
 
 // The row `useResizablePanel`'s onMounted hook measures. Stubbing its
@@ -205,4 +209,67 @@ describe('ui-5-3 live regression (2026-08-07): cold-load gate vs the row observe
     const panel = withSetup(() => useResizablePanel());
     expect(panel.effectiveTreeControlRegionWidthPx.value).toBeUndefined();
   });
+});
+
+/**
+ * ledger row 802 — "the SPA is barely usable" at a fresh-profile first
+ * paint on a common-width viewport (commissioner-witnessed clipping of
+ * the Cards tab header and action buttons at ~1920, root-caused live at
+ * a 1366×768 first paint — see useResizablePanel.ts's
+ * freshTreeControlWrapperFloorPx doc for the exact mechanism: the
+ * `flex: '1 1 0'` branch App.vue binds when
+ * `effectiveTreeControlRegionWidthPx` is undefined (never dragged, no
+ * persisted save to restore) previously had no width floor, so
+ * #control-panel could be allocated less than its own content needs and
+ * overflow past the wrapper — and past the viewport, since nothing
+ * clips or scrolls horizontally. `freshTreeControlWrapperMinWidthPx`
+ * (bound as this branch's CSS `min-width`) is the fix; these tests pin
+ * its value and the viewport-fit arithmetic it guarantees.
+ */
+describe('fresh-profile first-paint floor (ledger row 802): the flex-fill branch never leaves the control panel narrower than its own content', () => {
+  it('freshTreeControlWrapperFloorPx mirrors WRAPPER_MIN_WIDTH_PX when the tree panel is also expanded', () => {
+    expect(freshTreeControlWrapperFloorPx(true)).toBe(WRAPPER_MIN_WIDTH_PX);
+    // Sanity: the floor is exactly the sum of what's actually rendered
+    // inside the wrapper on this paint — tree + inner resizer + control
+    // — never a magic number independently drifting from those three.
+    expect(freshTreeControlWrapperFloorPx(true)).toBe(
+      TREE_PANEL_MIN_WIDTH_PX + RESIZER_WIDTH_PX + CONTROL_PANEL_MIN_WIDTH_PX,
+    );
+  });
+
+  it('freshTreeControlWrapperFloorPx drops to CONTROL_PANEL_MIN_WIDTH_PX alone when the tree panel is collapsed (no over-reservation for a hidden tree panel)', () => {
+    expect(freshTreeControlWrapperFloorPx(false)).toBe(CONTROL_PANEL_MIN_WIDTH_PX);
+    expect(freshTreeControlWrapperFloorPx(false)).toBeLessThan(freshTreeControlWrapperFloorPx(true));
+  });
+
+  it('the composable exposes the floor reactively off store.session.ui.treeExpanded', () => {
+    store.session.ui.treeExpanded = true;
+    const panel = withSetup(() => useResizablePanel());
+    expect(panel.freshTreeControlWrapperMinWidthPx.value).toBe(WRAPPER_MIN_WIDTH_PX);
+
+    store.session.ui.treeExpanded = false;
+    expect(panel.freshTreeControlWrapperMinWidthPx.value).toBe(CONTROL_PANEL_MIN_WIDTH_PX);
+  });
+
+  // The load-bearing claim: at a fresh-profile first paint (no dragged
+  // or restored width — the flex-fill branch), #control-panel's own
+  // right edge can never exceed the row's right edge at any of the
+  // commission's required widths (1366 / 1920 / 2560), because the CSS
+  // `min-width` floor this test pins forces the browser's flex
+  // allocation to give the wrapper at least enough room for its own
+  // content BEFORE #board-column's flex-fill share is computed — the
+  // two together always exactly fill the row with no overflow. Encoded
+  // here as the arithmetic invariant browser flexbox guarantees once
+  // the floor is applied: floor + outer resizer + MIN_BOARD_PX must fit
+  // under the narrowest required viewport, so #board-column is never
+  // squeezed into negative/overflowing territory even before the row's
+  // own chrome (sidebar, toolbar padding) is subtracted.
+  it.each([1366, 1920, 2560])(
+    'a %dpx viewport leaves #board-column at least MIN_BOARD_PX after reserving the fresh-paint floor',
+    (viewportWidthPx) => {
+      const floorPx = freshTreeControlWrapperFloorPx(true); // worst case: tree also expanded
+      const boardRoomPx = viewportWidthPx - floorPx - RESIZER_WIDTH_PX;
+      expect(boardRoomPx).toBeGreaterThanOrEqual(MIN_BOARD_PX);
+    },
+  );
 });

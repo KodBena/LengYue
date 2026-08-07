@@ -255,6 +255,39 @@ export function computeTreeControlRegionWidthPx(
  * keeps its `flex: 1 1 0` default (App.vue) unchanged — fresh installs
  * are unaffected by this clamp.
  */
+/**
+ * Fresh-profile / never-dragged floor for `#tree-control-wrapper`
+ * (App.vue's `flex: '1 1 0'` branch — `effectiveTreeControlRegionWidthPx
+ * === undefined`, i.e. `session.ui.treeControlRegionWidthPx` has never
+ * been set by a drag or a restored save). That branch previously carried
+ * NO width floor of its own: the wrapper's CSS `min-width: 0` (needed so
+ * the drag/restore branches above can shrink it to an explicit px width
+ * smaller than its content) also applies here, where there is no
+ * explicit width — so on a first paint whose available row space (after
+ * `#board-column`'s flex-fill share) is narrower than the wrapper's
+ * actual content floor, `#control-panel` overflows past the wrapper's
+ * own box and off the viewport's right edge. Witnessed live at a
+ * 1366×768 first paint: `#control-panel`'s rendered right edge sat
+ * ~53px past the 1366px viewport (commissioner-witnessed clipped Cards
+ * tab header + half-offscreen action buttons at ~1920 window widths
+ * that weren't fully maximized/full-1920, ledger row 802).
+ *
+ * The floor mirrors exactly what IS visible inside the wrapper on this
+ * paint — `WRAPPER_MIN_WIDTH_PX` (tree + inner resizer + control) when
+ * the tree panel is also expanded, or just `CONTROL_PANEL_MIN_WIDTH_PX`
+ * when the tree is collapsed and the wrapper holds only the control
+ * panel — so a tree-collapsed first paint doesn't reserve room for a
+ * tree panel that isn't rendered (over-clamping regression). This is a
+ * DEFAULT/floor fix only: once the user drags either bar, or a saved
+ * width restores, `effectiveTreeControlRegionWidthPx` takes over via the
+ * explicit-width branch above (already floored at `WRAPPER_MIN_WIDTH_PX`
+ * by `computeTreeControlRegionWidthPx` / `sanitizeTreeControlRegionWidthPx`),
+ * and this floor no longer applies.
+ */
+export function freshTreeControlWrapperFloorPx(treeExpanded: boolean): number {
+  return treeExpanded ? WRAPPER_MIN_WIDTH_PX : CONTROL_PANEL_MIN_WIDTH_PX;
+}
+
 export function sanitizeTreeControlRegionWidthPx(
   rawWidthPx: number | undefined,
   rowWidthPx: number,
@@ -470,5 +503,17 @@ export function useResizablePanel() {
     return sanitizeTreeControlRegionWidthPx(raw, rowWidthPx.value);
   });
 
-  return { startResizeInner, startResizeOuter, effectiveTreeControlRegionWidthPx };
+  // Fresh-profile floor for the flex-fill branch (see
+  // `freshTreeControlWrapperFloorPx`'s doc above) — recomputed off
+  // `treeExpanded` so a tree-collapsed first paint doesn't over-reserve.
+  const freshTreeControlWrapperMinWidthPx = computed(() =>
+    freshTreeControlWrapperFloorPx(store.session.ui.treeExpanded),
+  );
+
+  return {
+    startResizeInner,
+    startResizeOuter,
+    effectiveTreeControlRegionWidthPx,
+    freshTreeControlWrapperMinWidthPx,
+  };
 }

@@ -271,7 +271,12 @@ const {
   handleLoadLibraryGameInNewBoard,
 } = useDirtyBoardGuard(confirmLoadModalRef);
 
-const { startResizeInner, startResizeOuter, effectiveTreeControlRegionWidthPx } = useResizablePanel();
+const {
+  startResizeInner,
+  startResizeOuter,
+  effectiveTreeControlRegionWidthPx,
+  freshTreeControlWrapperMinWidthPx,
+} = useResizablePanel();
 
 // Defect 6 (ui-fix-56), preserved as a documented, minor cosmetic
 // nicety under the nested-splitter geometry (ledger rows 391/414) —
@@ -562,13 +567,27 @@ const activeTab = computed<string>({
              stale/migrated/garbage) can never squeeze #board-column
              below MIN_BOARD_PX ("board restored minimized" after
              upgrading). See useResizablePanel.ts's header for the
-             full rationale. -->
+             full rationale.
+
+             fresh-profile floor (ledger row 802): the flex-fill branch
+             below (never dragged, nothing to restore) previously had no
+             width floor of its own — #tree-control-wrapper's CSS
+             `min-width: 0` (needed so the two branches above can shrink
+             it to an explicit px) applies here too, so on a first paint
+             whose flex-share came out narrower than the wrapper's own
+             content (tree + inner resizer + control-panel's floor),
+             #control-panel overflowed past the wrapper and off the
+             viewport's right edge (witnessed at a 1366×768 first paint —
+             see useResizablePanel.ts's freshTreeControlWrapperFloorPx
+             doc). `freshTreeControlWrapperMinWidthPx` supplies that
+             floor, recomputed off treeExpanded so a tree-collapsed first
+             paint doesn't over-reserve room for a hidden tree panel. -->
         <div
           id="tree-control-wrapper"
           :style="store.session.ui.controlsExpanded && effectiveTreeControlRegionWidthPx !== undefined
             ? { flex: '0 0 auto', width: effectiveTreeControlRegionWidthPx + 'px' }
             : store.session.ui.controlsExpanded
-              ? { flex: '1 1 0' }
+              ? { flex: '1 1 0', minWidth: freshTreeControlWrapperMinWidthPx + 'px' }
               : {}"
         >
           <!-- resizer-rearch charter amendment + maintainer constraint
