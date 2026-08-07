@@ -5,8 +5,8 @@ viewport width was reported barely usable — the right control panel's
 content clipped off the right edge of the screen (Cards tab header cut
 mid-word, action buttons half off-screen), witnessed by the
 commissioner on a VM. Branch: `worktree-agent-a5ec195e6e6239656`.
-Final commit: `<see `git log -1` at close — recorded below after
-commit>`.
+Final commit: `16bfe877` ("fix(frontend): floor the tree+control
+wrapper's flex-fill width on a fresh-profile first paint").
 
 ## Worktree currency (first action, per dispatch instructions)
 
