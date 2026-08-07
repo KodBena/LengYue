@@ -158,6 +158,38 @@ the engine today — that's purely a browser-to-engine connection — so
 this mapping isn't on the critical path of a normal request; it's
 forward-wiring for troubleshooting.
 
+### Sharing one engine process across multiple clients
+
+KataProxy itself can start and own a KataGo process (its LEAF role;
+see `proxy/README.md`), but if you want one host-side, CUDA-bound
+KataGo process shared by more than one client at a time — the
+dockerized backend/SPA *and* KataProxy, or several KataProxy
+instances — `backend/scripts/katago_ws_shim.py` is a small,
+dependency-minimal (stdlib + `websockets`) operator script for
+exactly that. It launches `katago analysis` as a subprocess and
+re-exposes it as a WebSocket server, namespacing each connected
+client's query IDs so concurrent clients never collide inside the
+one shared engine:
+
+```bash
+python backend/scripts/katago_ws_shim.py \
+    --katago-path /path/to/katago \
+    --model /path/to/model.bin.gz \
+    --config /path/to/analysis.cfg
+    # --host / --port default to 127.0.0.1:1242; see --help,
+    # or the KATAGO_PATH / KATAGO_MODEL / KATAGO_CONFIG /
+    # KATAGO_WS_HOST / KATAGO_WS_PORT env vars, for the rest.
+```
+
+KataProxy can chain to it: point KataProxy's own upstream engine URL
+at `ws://<shim-host>:<shim-port>`, the same way it would point at a
+bare KataGo process. Per this codebase's fail-loudly tenet
+(ADR-0002), if the katago subprocess dies, the shim does not keep
+serving a dead engine — it logs the failure, drops connected
+clients, and exits non-zero rather than degrading silently; restart
+it deliberately (or under a process supervisor) rather than relying
+on it to self-heal.
+
 ## How the frontend finds the backend
 
 The frontend is a Vue single-page app; it doesn't read environment
