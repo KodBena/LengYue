@@ -35,7 +35,7 @@ COPY . .
 # values; docker-compose.yml overrides them to match the ports it
 # actually publishes.
 ARG VITE_API_BASE_URL=http://localhost:8764
-ARG VITE_KATAGO_WS_URL=ws://127.0.0.1:41948
+ARG VITE_KATAGO_WS_URL=ws://127.0.0.1:1242
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL} \
     VITE_KATAGO_WS_URL=${VITE_KATAGO_WS_URL}
 

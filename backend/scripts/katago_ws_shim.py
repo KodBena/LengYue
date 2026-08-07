@@ -41,6 +41,13 @@ Usage
         --model /path/to/model.bin.gz \\
         --config /path/to/analysis.cfg
 
+    # 1242 is the canonical port: every packaging this app ships (Docker's
+    # ENGINE_WS_URL default, the Tauri desktop shell's upstream default,
+    # and the plain-dev SPA's compiled-in default) already assumes a shim
+    # or engine listening here, so running with defaults gets a working
+    # stack with zero configuration elsewhere. It's the one port a user
+    # should ever need to type — only if they move it.
+    #
     # Custom bind address/port (defaults: 127.0.0.1:1242):
     python backend/scripts/katago_ws_shim.py \\
         --katago-path ./katago --model ./model.bin.gz --config ./analysis.cfg \\

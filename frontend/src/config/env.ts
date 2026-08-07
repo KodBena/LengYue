@@ -74,9 +74,15 @@ export const API_BASE_URL: string =
  * takes precedence over both — the same override shape as
  * `API_BASE_URL` above. This is what makes a fresh Tauri profile's
  * unconfigured engine setting point at the LOCAL proxy (which the user
- * then points at their own analysis engine via
- * `LENGYUE_PROXY_UPSTREAM`, a Rust-side OS env var — NOT this one)
- * rather than at `ws://127.0.0.1:41948` directly.
+ * then points at their own analysis engine via a Rust-side OS env var
+ * — NOT this one) rather than at `ws://127.0.0.1:1242` directly.
+ *
+ * The fallback below, 1242, is the KataGo WS shim's own default port
+ * (`backend/scripts/katago_ws_shim.py`) — the single user-facing port
+ * this app converges on across every packaging (Docker's
+ * `ENGINE_WS_URL` default, the Tauri upstream default, and this
+ * plain-dev fallback). Run the shim with its defaults and this
+ * default just works.
  *
  * Override via VITE_KATAGO_WS_URL in `.env` or the build environment
  * (non-Tauri contexts only — the Tauri override always wins when
@@ -85,4 +91,4 @@ export const API_BASE_URL: string =
 export const KATAGO_WS_URL: string =
   typeof window !== 'undefined' && window.__LENGYUE_PROXY_PORT__ !== undefined
     ? `ws://127.0.0.1:${window.__LENGYUE_PROXY_PORT__}`
-    : (import.meta.env.VITE_KATAGO_WS_URL ?? 'ws://127.0.0.1:41948');
+    : (import.meta.env.VITE_KATAGO_WS_URL ?? 'ws://127.0.0.1:1242');

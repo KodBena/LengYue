@@ -76,7 +76,7 @@ function onEscape(): void {
 .engine-uri { display: flex; align-items: center; gap: var(--space-tight); min-width: 0; }
 .uri-lbl { color: var(--border-3); font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-default); flex-shrink: 0; }
 /* magic-literal: 220px max-width — compact address-bar sizing that
-   comfortably fits `ws://127.0.0.1:41948`-shaped values while leaving
+   comfortably fits `ws://127.0.0.1:1242`-shaped values while leaving
    room for the rest of the toolbar cluster; overflow ellipses rather
    than pushing neighbouring chrome. */
 .uri-display {

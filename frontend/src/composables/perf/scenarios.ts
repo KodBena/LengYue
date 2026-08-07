@@ -75,7 +75,7 @@ const DEFAULT_VISITS = 1000;
 
 // magic-literal: default proxy WS URL — the SELECTOR role on :1235 (the
 // dev-resources convention; see reference_dev_resources / umbrella CLAUDE.md).
-// The env default (config/env.ts KATAGO_WS_URL → :41948) is the wrong target
+// The env default (config/env.ts KATAGO_WS_URL → :1242) is the wrong target
 // for a fresh capture context, so analysis scenarios pin the SELECTOR here.
 // 127.0.0.1 is correct on-VM (the harness runs here); connectEngine applies it
 // TRANSIENTLY via analysisService.connect() and never persists it, so a
