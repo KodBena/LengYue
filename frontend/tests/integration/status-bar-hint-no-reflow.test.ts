@@ -1,34 +1,59 @@
 /**
  * tests/integration/status-bar-hint-no-reflow.test.ts
  *
- * Geometry-stability regression guard for ledger row 811: hovering a
- * move suggestion publishes a "Ctrl+click to paste PV" hint
- * (`useTransientHint`) that `StatusBar.vue` renders. Before the fix,
- * that hint was an ordinary flex-flow sibling in `.status-right`
- * (`v-if="hint"` with no special positioning) — mounting it widened
- * the row, squeezed `.caps` (no `white-space: nowrap`) into wrapping
- * onto two lines, grew the bar's `min-height`, and because the board
- * square derives its size from the bar's remaining height budget, the
- * ENTIRE BOARD visibly resized on hover-enter and snapped back on
- * hover-leave.
+ * Geometry-stability regression guard for ledger row 811 / commission
+ * row 837. `StatusBar.vue`'s "Ctrl+click to paste PV" hint
+ * (`useTransientHint`) went through two defective mechanisms before
+ * this one:
  *
- * jsdom performs no real layout (no box metrics), so this guard can't
- * assert on pixels. It pins the structural invariant that makes reflow
- * impossible instead: `.transient-hint` is `position: absolute`, which
- * removes it from `.status-right`'s flex-width computation regardless
- * of its content or presence. Vitest's jsdom environment runs with
- * `css: false` (`vite.config.ts`), so component `<style>` blocks are
- * not auto-injected into the test DOM; this test reads `StatusBar.vue`'s
- * own `<style scoped>` block off disk and installs it as a real
- * stylesheet before mounting, so `getComputedStyle` reflects the
- * project's actual, current CSS — not a hand-copied duplicate that
- * could drift from the source of truth.
+ *   1. An ordinary `v-if`-inserted flex sibling in `.status-right` —
+ *      mounting it widened the row, squeezed `.caps` into wrapping
+ *      onto two lines, grew the bar's `min-height`, and because the
+ *      board square derives its size from the bar's remaining height
+ *      budget, the ENTIRE BOARD resized on every hover-enter/leave.
+ *   2. `position: absolute; bottom: 100%` (anchored on `.status-right
+ *      { position: relative }`) stopped the reflow by taking the hint
+ *      out of flow entirely — but then floated it OVER the board's
+ *      bottom-right corner, occluding board content, and let an
+ *      ancestor clip long text mid-word into an illegible
+ *      "Ctrl+cli…" box.
  *
- * Verified red-without-fix / green-with-fix (see the dispatch report,
- * `.claude/dispatch-reports/pv-hint-no-reflow.md`): reverting the
- * `.transient-hint` rule to its pre-fix form (no `position`) makes the
- * `position === 'absolute'` assertion below fail; the current source
- * passes it.
+ * The current mechanism is a PERMANENTLY-PRESENT in-flow flex slot:
+ * always rendered (no `v-if`), with empty text when no hint is
+ * active, `flex: 1 1 0; min-width: 0; overflow: hidden; text-
+ * overflow: ellipsis; white-space: nowrap`. Because the element never
+ * mounts/unmounts, the bar's geometry cannot change between
+ * hint-active and hint-inactive states — reflow is impossible by
+ * construction. Being in-flow (never `position: absolute`) also makes
+ * occlusion of the board impossible: the slot can only ever displace
+ * its own flex siblings inside the bar. And ellipsis-on-overflow means
+ * a long hint is clipped at a whole-line boundary, never mid-word.
+ *
+ * This test pins the NEW invariant, not the old (superseded)
+ * `position: absolute` one:
+ *
+ *   - `.transient-hint` exists in the DOM in BOTH the hint-active and
+ *     hint-inactive states — i.e. it is structurally always rendered,
+ *     not conditionally inserted/removed by `v-if`.
+ *   - It carries the flex/overflow/ellipsis declarations that make
+ *     reflow and mid-word clipping impossible.
+ *   - It is never `position: absolute` (regression guard against the
+ *     second defective mechanism recurring).
+ *
+ * jsdom performs no real layout (no box metrics), so this guard
+ * cannot assert on pixels; it asserts on the computed-style
+ * declarations that make the geometry argument sound. Vitest's jsdom
+ * environment runs with `css: false` (`vite.config.ts`), so component
+ * `<style>` blocks are not auto-injected into the test DOM; this test
+ * reads `StatusBar.vue`'s own `<style scoped>` block off disk and
+ * installs it as a real stylesheet before mounting, so
+ * `getComputedStyle` reflects the project's actual, current CSS — not
+ * a hand-copied duplicate that could drift from the source of truth.
+ *
+ * Verified red-without-fix / green-with-fix against a scratch revert
+ * of the CSS (not `git stash`, which is banned) — see the dispatch
+ * report, `.claude/dispatch-reports/pv-hint-in-flow-slot.md`, for the
+ * exact failure observed.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -81,7 +106,7 @@ function boardWithMetadata(): { board: BoardState; metadata: { blackName: string
   };
 }
 
-describe('StatusBar — PV-paste hint does not reflow the bar (ledger row 811)', () => {
+describe('StatusBar — PV-paste hint is a permanent in-flow slot (ledger row 811 / commission row 837)', () => {
   let wrapper: VueWrapper | null = null;
   const { setHint, clearHint } = useTransientHint();
 
@@ -95,17 +120,43 @@ describe('StatusBar — PV-paste hint does not reflow the bar (ledger row 811)',
     clearHint();
   });
 
-  it('renders no .transient-hint element when no hint is published', () => {
+  it('renders .transient-hint even when no hint is published — it is NOT v-if-inserted', () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
 
-    expect(wrapper.find('.transient-hint').exists()).toBe(false);
+    // The structural invariant: the element exists whether or not a
+    // hint is active. The pre-this-fix mechanisms (`v-if="hint"`) would
+    // fail this assertion — that is the exact regression this guards.
+    const hintEl = wrapper.find('.transient-hint');
+    expect(hintEl.exists()).toBe(true);
+    expect(hintEl.text()).toBe('');
   });
 
-  it('positions the hint out of flow (position: absolute) so mounting it cannot widen .status-right', async () => {
+  it('renders the same .transient-hint element (with text) once a hint is published', async () => {
+    const { board, metadata } = boardWithMetadata();
+    wrapper = mount(StatusBar, {
+      props: { board, metadata, canPass: true },
+      global: { plugins: [i18n] },
+    });
+
+    const beforeCount = wrapper.findAll('.transient-hint').length;
+    expect(beforeCount).toBe(1);
+
+    setHint('Ctrl+click to paste PV');
+    await nextTick();
+
+    const hintEl = wrapper.find('.transient-hint');
+    expect(hintEl.exists()).toBe(true);
+    expect(hintEl.text()).toBe('Ctrl+click to paste PV');
+    // Still exactly one — mounting a hint never inserts/removes the
+    // element, it only changes its text content.
+    expect(wrapper.findAll('.transient-hint').length).toBe(1);
+  });
+
+  it('is an in-flow flexible slot: flex 1 1 0, min-width 0, ellipsis overflow, never absolutely positioned', async () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
       props: { board, metadata, canPass: true },
@@ -116,26 +167,31 @@ describe('StatusBar — PV-paste hint does not reflow the bar (ledger row 811)',
     await nextTick();
 
     const hintEl = wrapper.find('.transient-hint');
-    expect(hintEl.exists()).toBe(true);
-
-    // The load-bearing assertion: `position: absolute` takes the hint
-    // out of `.status-right`'s flex-flow entirely, so its presence
-    // cannot change the row's own width — the mechanism that produced
-    // the .caps wrap-and-board-resize bug this guard exists to prevent.
     const computed = getComputedStyle(hintEl.element);
-    expect(computed.position).toBe('absolute');
+
+    // In-flow, not the out-of-flow escape hatch the second defective
+    // mechanism used (which is what let it float over the board).
+    expect(computed.position).not.toBe('absolute');
+
+    // The flex/overflow declarations that make reflow-on-mount and
+    // mid-word clipping impossible.
+    expect(computed.flexGrow).toBe('1');
+    expect(computed.flexShrink).toBe('1');
+    expect(computed.minWidth).toBe('0px');
+    expect(computed.overflow).toBe('hidden');
+    expect(computed.textOverflow).toBe('ellipsis');
+    expect(computed.whiteSpace).toBe('nowrap');
   });
 
-  it('.status-right establishes the positioning context the hint anchors against', () => {
+  it('.caps cannot wrap in either state (white-space: nowrap)', () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
 
-    const statusRight = wrapper.find('.status-right');
-    expect(statusRight.exists()).toBe(true);
-    const computed = getComputedStyle(statusRight.element);
-    expect(computed.position).toBe('relative');
+    const caps = wrapper.find('.caps');
+    expect(caps.exists()).toBe(true);
+    expect(getComputedStyle(caps.element).whiteSpace).toBe('nowrap');
   });
 });

@@ -155,9 +155,12 @@ const gameStatus = computed(() =>
         />
       </span>
     </div>
+    <!-- Permanently-present in-flow slot (commission row 837): always
+         rendered — never `v-if`-inserted/removed — so its presence in
+         the layout never toggles. Empty text when no hint is active. -->
+    <span class="transient-hint">{{ hint }}</span>
     <div class="status-right">
       <span v-if="gameStatus.kind === 'ended-by-pass'" class="game-end-badge">{{ $t('statusBar.gameEndedByPass') }}</span>
-      <span v-if="hint" class="transient-hint">{{ hint }}</span>
       <button
         class="pass-btn"
         :disabled="props.canPass === false"
@@ -200,12 +203,7 @@ const gameStatus = computed(() =>
 }
 
 .status-left  { display: flex; gap: var(--space-medium); align-items: center; }
-/* `position: relative` anchors `.transient-hint` below (see that
-   rule's comment) — the hint is positioned absolutely against THIS
-   box so its mount/unmount never changes `.status-right`'s own flex
-   width, which is exactly the geometry bug this anchor exists to
-   prevent (ledger row 811). */
-.status-right { display: flex; gap: var(--space-medium); align-items: center; position: relative; }
+.status-right { display: flex; gap: var(--space-medium); align-items: center; }
 
 .move-badge {
   background: var(--accent-primary);
@@ -315,7 +313,13 @@ const gameStatus = computed(() =>
   -moz-appearance: textfield;
 }
 
-.caps { font-family: monospace; color: var(--text-2); font-size: var(--text-body); }
+/* `white-space: nowrap`: the permanent `.transient-hint` slot (below)
+   already absorbs the bar's free space via `flex: 1 1 0`, so `.caps`
+   should never need to wrap — but pin it explicitly so a future long
+   capture count (or a narrower viewport) can't wrap this block onto a
+   second line and grow the bar's `min-height` (the original ledger
+   row 811 reflow mechanism). */
+.caps { font-family: monospace; color: var(--text-2); font-size: var(--text-body); white-space: nowrap; }
 
 /* Pass affordance — always-visible board-chrome control per genre
    convention (Sabaki/KaTrain/OGS survey, design-engine-features.md
@@ -380,44 +384,58 @@ const gameStatus = computed(() =>
 .move-numbers-btn.active { color: var(--accent-primary); }
 
 /* Transient hint surface — populated by `useTransientHint` from
-   hover-driven affordances (e.g. the PV-paste discoverability
-   text on move-suggestion hover). Distinct anchor from the
-   permanent status vocabulary so it reads as ephemeral.
+   hover-driven affordances (e.g. the PV-paste discoverability text on
+   move-suggestion hover). Distinct styling (italic, muted) from the
+   permanent status vocabulary so it reads as ephemeral. Empty text
+   when no hint is active, not `v-if`-removed — see the template.
 
-   `position: absolute` (ledger row 811 fix): mounting/unmounting
-   this span used to be an ordinary flex-flow insertion into
-   `.status-right`, which widened the row on hover-enter and
-   squeezed `.caps` (no `white-space: nowrap` there) into wrapping
-   onto two lines — the status bar's `min-height` then grew to fit
-   the wrapped line, and because the board square derives its size
-   from the bar's remaining height budget, the ENTIRE BOARD resized
-   on every hover-enter/leave. Taking the hint out of flow entirely
-   removes it from `.status-right`'s width computation altogether —
-   the row's rendered width, the bar's height, and every neighbor's
-   position are now byte-for-byte identical whether the hint is
-   mounted or not. Floats just above the bar (`bottom: 100%`) rather
-   than inline with it, so it never overlaps the row's own controls;
-   `pointer-events: none` keeps it from intercepting hover/click on
-   whatever it floats over. Opaque `--surface-2` background (matches
-   the bar itself) rather than transparent, since it now floats over
-   the board rather than sitting inside the bar's own backdrop — a
-   diffuse/transparent tooltip here would be illegible against board
-   content, which is the case the standing no-transparent-backdrop
-   rule is about; this is a small opaque label, not an overlay
-   backdrop. */
+   Commission row 837, third mechanism, superseding two defective
+   priors: (1) an ordinary `v-if`-inserted flex sibling in
+   `.status-right` widened the row on mount, squeezed `.caps` (no
+   `white-space: nowrap` at the time) into wrapping onto two lines,
+   and grew the bar's `min-height` — because the board square derives
+   its size from the bar's remaining height budget, the ENTIRE BOARD
+   resized on every hover-enter/leave (ledger row 811, first pass).
+   (2) `position: absolute; bottom: 100%` took the hint out of flow to
+   stop the reflow, but then floated it OVER the board's bottom-right
+   corner (occluding edge coordinates) and let an ancestor clip long
+   text mid-word into an illegible "Ctrl+cli…" box (ledger row 811,
+   second pass; screenshots ~/occluded.png, ~/occluded2.png).
+
+   This slot is a PERMANENT in-flow flex child, always present in the
+   layout regardless of hint state, occupying the bar's existing dead
+   gap between the komi field (`.status-left`) and the Pass button
+   (`.status-right`). Because it never mounts/unmounts, the bar's
+   geometry is byte-for-byte identical whether a hint is active or
+   not — reflow is impossible by construction, not by an out-of-flow
+   escape hatch. Being in-flow (not `position: absolute`) also makes
+   occlusion of board content impossible: it can only ever displace
+   its own flex siblings within the bar, never overlay the board.
+   `flex: 1 1 0` lets it claim exactly the bar's spare width; `min-
+   width: 0` overrides the flexbox default `min-width: auto`, which
+   would otherwise refuse to shrink the item below its text's natural
+   width and force the row to overflow instead of the text eliding;
+   `overflow: hidden` + `text-overflow: ellipsis` + `white-space:
+   nowrap` clip an over-long hint to a trailing ellipsis at a whole-
+   line boundary — never mid-word, and never by wrapping. */
 .transient-hint {
-  position: absolute;
-  left: 0;
-  bottom: 100%;
-  margin-bottom: var(--space-tight);
-  padding: 1px 6px;
-  background: var(--surface-2);
-  border: 1px solid var(--border-3);
-  border-radius: var(--radius-default);
+  /* Longhand, not the `flex: 1 1 0` shorthand: jsdom's CSSOM (the
+     substrate the geometry regression test in
+     `status-bar-hint-no-reflow.test.ts` reads via `getComputedStyle`)
+     does not expand that shorthand into its longhand computed values
+     the way a real browser does — `flex-grow` read back as `0`
+     despite the shorthand setting it to `1`. Real browsers apply the
+     shorthand identically either way; longhand is the form that is
+     legible to both. */
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--text-2);
   font-style: italic;
   font-size: var(--text-body);
-  white-space: nowrap;
-  pointer-events: none;
 }
 </style>
