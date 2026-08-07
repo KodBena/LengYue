@@ -9,10 +9,12 @@ import { useI18n } from 'vue-i18n';
 import { store, pushSystemMessage } from '../../store';
 import { useMinting } from '../../composables/review/useMinting';
 import { useModalKeyboard } from '../../composables/useModalKeyboard';
+import { useAppDialogs } from '../../composables/useAppDialogs';
 import type { BoardId, CardCreatePayload } from '../../types';
 import { INTERACTION_DISMISS_DELAY_MS } from '../../lib/timing';
 
 const { t } = useI18n();
+const dialogs = useAppDialogs();
 const {
   prepareDraft,
   calibrateKomiOnDraft,
@@ -316,9 +318,16 @@ async function submit() {
     if (calibrationPending) {
       pushSystemMessage('error', t('mint.komiCalibration.failed', { err: String(err) }));
     }
-    // Native alert wraps the English `${err}` per the (a) backend-error
-    // pass-through approach (see frontend/docs/i18n.md).
-    alert(t('mint.alert.failed', { err: String(err) }));
+    // Sanctioned in-app alert (ADR-0019 S14) wraps the English `${err}`
+    // per the (a) backend-error pass-through approach (see
+    // frontend/docs/i18n.md). C8: the message names the remediation
+    // (retry Mint Card) — the modal stays open on failure so that next
+    // action is reachable without navigating anywhere. Not awaited: the
+    // dialog is non-blocking, unlike the native alert() it replaces.
+    void dialogs.alert({
+      title: t('mint.alert.failed', { err: String(err) }),
+      message: t('mint.alert.failedRemediation'),
+    });
   } finally {
     isLoading.value = false;
   }

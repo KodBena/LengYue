@@ -42,8 +42,10 @@ import { useI18n } from 'vue-i18n';
 import type { ReviewCard, CardMetadataPatch } from '../types';
 import { store } from '../store';
 import { INTERACTION_DISMISS_DELAY_MS } from '../lib/timing';
+import { useAppDialogs } from '../composables/useAppDialogs';
 
 const { t } = useI18n();
+const dialogs = useAppDialogs();
 
 const props = defineProps<{
   card: ReviewCard;
@@ -203,11 +205,12 @@ function toggleSuspended(): void {
   emit('patch', { suspended: !props.card.suspended });
 }
 
-function resetPriorStandalone(): void {
-  // window.confirm() is the minimal-touch destructive-confirm
-  // affordance; if the panel grows enough to warrant a custom
-  // modal, that's a follow-up.
-  if (!window.confirm(t('cardMetadata.resetPriorStandaloneConfirm'))) return;
+async function resetPriorStandalone(): Promise<void> {
+  const ok = await dialogs.confirm({
+    message: t('cardMetadata.resetPriorStandaloneConfirm'),
+    danger: true,
+  });
+  if (!ok) return;
   emit('patch', { resetPrior: true });
 }
 </script>

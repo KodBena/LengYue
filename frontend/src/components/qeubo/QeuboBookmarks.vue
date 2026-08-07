@@ -10,9 +10,11 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQeubo, paramNameForKnobId } from '../../composables/useQeubo';
 import { pushSystemMessage, store } from '../../store';
+import { useAppDialogs } from '../../composables/useAppDialogs';
 import type { KnobId, QeuboBookmark } from '../../types';
 
 const { t } = useI18n();
+const dialogs = useAppDialogs();
 const q = useQeubo();
 
 const bookmarks = computed<QeuboBookmark[]>(() => {
@@ -57,8 +59,8 @@ function trimZeros(s: string): string {
   return s.replace(/\.?0+$/, '') || '0';
 }
 
-function onNewFromCurrent(): void {
-  const name = window.prompt(t('qeubo.prompt.bookmarkName'));
+async function onNewFromCurrent(): Promise<void> {
+  const name = await dialogs.prompt({ message: t('qeubo.prompt.bookmarkName') });
   if (name === null) return;
   try {
     q.pinCurrent(name);
@@ -74,8 +76,8 @@ function onApply(b: QeuboBookmark): void {
   pushSystemMessage('info', t('qeuboBookmarks.systemMessage.applied', { name: b.name }));
 }
 
-function onRename(b: QeuboBookmark): void {
-  const next = window.prompt(t('qeuboBookmarks.prompt.newName'), b.name);
+async function onRename(b: QeuboBookmark): Promise<void> {
+  const next = await dialogs.prompt({ message: t('qeuboBookmarks.prompt.newName'), defaultValue: b.name });
   if (next === null) return;
   try {
     q.renameBookmark(b.id, next);
@@ -85,8 +87,12 @@ function onRename(b: QeuboBookmark): void {
   }
 }
 
-function onDelete(b: QeuboBookmark): void {
-  if (!window.confirm(t('qeuboBookmarks.confirm.delete', { name: b.name }))) return;
+async function onDelete(b: QeuboBookmark): Promise<void> {
+  const ok = await dialogs.confirm({
+    message: t('qeuboBookmarks.confirm.delete', { name: b.name }),
+    danger: true,
+  });
+  if (!ok) return;
   q.deleteBookmark(b.id);
 }
 </script>

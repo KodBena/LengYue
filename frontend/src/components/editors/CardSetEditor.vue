@@ -15,8 +15,10 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView } from '@codemirror/view';
 import { parse, format, validate } from '../../lib/dsl-harness';
 import HyperparameterPanel from './HyperparameterPanel.vue';
+import { useAppDialogs } from '../../composables/useAppDialogs';
 
 const { t } = useI18n();
+const dialogs = useAppDialogs();
 
 const props = defineProps<{
   cardSets: Record<string, CardSet>;
@@ -73,11 +75,14 @@ function select(id: string) {
   selectedId.value = id;
 }
 
-function addCardSet() {
-  const name = prompt(t('cardSet.prompt.deckName'));
+async function addCardSet() {
+  const name = await dialogs.prompt({ message: t('cardSet.prompt.deckName') });
   if (!name) return;
   const id = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-  if (props.cardSets[id]) return alert(t('cardSet.alert.idExists'));
+  if (props.cardSets[id]) {
+    void dialogs.alert({ message: t('cardSet.alert.idExists') });
+    return;
+  }
 
   const next = getClone();
   next[id] = {
@@ -99,9 +104,13 @@ function addCardSet() {
   select(id);
 }
 
-function deleteCardSet() {
+async function deleteCardSet() {
   if (!selectedId.value) return;
-  if (!confirm(t('cardSet.confirm.deleteDeck', { id: selectedId.value }))) return;
+  const ok = await dialogs.confirm({
+    message: t('cardSet.confirm.deleteDeck', { id: selectedId.value }),
+    danger: true,
+  });
+  if (!ok) return;
 
   const next = getClone();
   delete next[selectedId.value];

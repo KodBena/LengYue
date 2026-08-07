@@ -16,9 +16,11 @@ import { mutateProfile } from '../../store/profile-owner';
 import { ledger } from '../../state/analysis-ledger';
 import { useAnalysisPersistence } from '../../composables/analysis/useAnalysisPersistence';
 import type { AnalysisBundleStorageError } from '../../services/analysis-bundle';
+import { useAppDialogs } from '../../composables/useAppDialogs';
 import AnalysisDashboard from '../charts/AnalysisDashboard.vue';
 
 const { t } = useI18n();
+const dialogs = useAppDialogs();
 const props = defineProps<{ boardId: BoardId; }>();
 const persist = useAnalysisPersistence(() => props.boardId);
 const palettes = computed(() => store.profile.settings.engine.katago.analysis_env.palettes);
@@ -196,7 +198,8 @@ async function onSave() {
 }
 
 async function onDiscard() {
-  if (!confirm(t('analysis.persist.confirmDiscard'))) return;
+  const ok = await dialogs.confirm({ message: t('analysis.persist.confirmDiscard'), danger: true });
+  if (!ok) return;
   try {
     await persist.discard();
     lastError.value = null;
@@ -205,19 +208,19 @@ async function onDiscard() {
   }
 }
 
-function purgeLedger() {
-  if (confirm(t('analysis.confirmPurge'))) {
-    persist.stopAnalysis();
-    // The ledger no longer reaches up into the store to derive the
-    // board's node list (the up-edge `analysis-ledger → store` was an
-    // import cycle); the caller hands it the nodes directly. A missing
-    // board yields an empty array, a no-op purge.
-    const board = store.boards.find(b => b.id === props.boardId);
-    // `board.nodes` keys are NodeIds — re-brand the Object.keys string[]
-    // widening (matches the cast the old purgeBoard carried internally).
-    const nodeIds = (board ? Object.keys(board.nodes) : []) as NodeId[];
-    ledger.purgeNodes(nodeIds);
-  }
+async function purgeLedger() {
+  const ok = await dialogs.confirm({ message: t('analysis.confirmPurge'), danger: true });
+  if (!ok) return;
+  persist.stopAnalysis();
+  // The ledger no longer reaches up into the store to derive the
+  // board's node list (the up-edge `analysis-ledger → store` was an
+  // import cycle); the caller hands it the nodes directly. A missing
+  // board yields an empty array, a no-op purge.
+  const board = store.boards.find(b => b.id === props.boardId);
+  // `board.nodes` keys are NodeIds — re-brand the Object.keys string[]
+  // widening (matches the cast the old purgeBoard carried internally).
+  const nodeIds = (board ? Object.keys(board.nodes) : []) as NodeId[];
+  ledger.purgeNodes(nodeIds);
 }
 </script>
 
@@ -244,17 +247,15 @@ function purgeLedger() {
       </div>
     </div>
 
-    <!-- Move-filter slider relocated to the cross-domain knob
-         registry editor (knob-registry Phase 3b + 6 sweep). The
-         eventual home is a toolbar-hover quick-access surface; this
-         stub points users at the current location in the interim. -->
+    <!-- Move-filter threshold lives in the cross-domain knob registry
+         editor (knob-registry Phase 3b + 6 sweep); this badge mirrors
+         the live value read-only (ADR-0019 S3/S16). -->
     <div class="analysis-config-box move-filter-box">
       <div class="settings-row">
         <label class="label-with-value">
           <span>{{ $t('analysis.moveFilter') }}</span>
           <span class="value-badge">{{ (store.session.ui.moveFilterThreshold * 100).toFixed(0) }}%</span>
         </label>
-        <p class="hint">{{ $t('analysis.moveFilter.movedNotice') }}</p>
       </div>
     </div>
 
