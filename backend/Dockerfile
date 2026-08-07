@@ -55,6 +55,10 @@ WORKDIR /app
 # and *.db out of the build context (backend/.gitignore already treats
 # these as local-only; .dockerignore mirrors that list for the same
 # reason: none of it belongs baked into an image or a build layer).
+# backend/resources_data/ — shipped, read-only, tracked-in-git assets
+# such as visit_distribution.json — is deliberately NOT excluded and
+# travels with this COPY like any other source file; see
+# backend/resources_data/README.md.
 COPY . .
 
 # /app/data is where the named volume (see docker-compose.yml) mounts:
@@ -62,7 +66,9 @@ COPY . .
 # container recreation. Created and chowned before the volume mount so
 # a *fresh* named volume inherits correct ownership (Docker seeds a new
 # local-driver volume from the image directory's contents/permissions
-# on first mount).
+# on first mount). This directory holds ONLY that per-installation
+# mutable state — never a shipped resource, which would be shadowed by
+# the volume mount at container start (ledger rows 806/807).
 RUN mkdir -p /app/data && chown -R appuser:appuser /app
 
 ENV PYTHONUNBUFFERED=1 \

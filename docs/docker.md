@@ -95,6 +95,18 @@ volume (and everything in it) stays on disk, ready for the next
 volumes too) destroys it — that flag is intentionally not the
 default.
 
+This volume holds only *your* per-installation state. Read-only
+assets the application ships with (e.g. the suggestion-color
+calibration data served at `GET /resources/visit-distribution`) live
+in `backend/resources_data/` instead — tracked in git, baked into the
+image by the normal `COPY . .` build step, and never touched by the
+volume mount. The two used to be co-located under `backend/data/`,
+which meant `.dockerignore`'s exclusion of that mutable directory (to
+keep a developer's live `cards.db` out of images) silently swept the
+shipped resource out too, and the `/app/data` volume mount would have
+shadowed it even if it had been copied — see
+`backend/resources_data/README.md` for the fix.
+
 **To back up**, copy the file straight out of the volume:
 
 ```bash
