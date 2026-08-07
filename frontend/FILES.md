@@ -109,6 +109,7 @@ frontend/src/
 │   │   ├── EngineModelSelect.vue      [B1]  Toolbar MODEL-identity slot (SELECTOR `<select>` / LEAF static label + tooltip); self-sources model-selection state only, isolated from ToolbarEngineMetrics's metrics-tick re-renders so a live tick can't reassert the select's DOM and kill hover.
 │   │   ├── EngineQueueTooltip.vue     [B1]  Toolbar badge + hover panel listing in-flight KataGo queries with ETA.
 │   │   ├── FloatingThumbnail.vue      [B3]  Cursor-anchored floating board preview (sole host: TreeWidget's variation hover). Synchronous show/hide gate; content derives from a host-supplied `() => BoardSnapshot` accessor rendered via MiniBoard (the ChartPreviewBox accessor contract); seam-level stranding backstops (80px anchor radius / scroll / blur). Re-banded B1→B3 when the v-html SVG-string sink became the BoardSnapshot projection (render-lifecycle consolidation).
+│   │   ├── HandicapPanel.vue          [B2]  N-stone handicap sub-panel revealed inside SetupToolPalette.vue (wiki Mechanics #4): click-to-apply grid over useHandicap.availableCounts, disabled/empty state when the active board's size has no handicap table. Dismissal rides the parent palette's own ESC/outside-click listener.
 │   │   ├── LocalePicker.vue           [B1]  Top-nav locale picker (flag + native name).
 │   │   ├── RootErrorBoundary.vue      [B1]  Catches descendant errors, logs via ADR-0002, renders fallback.
 │   │   ├── SetupToolPalette.vue       [B2]  Setup toolkit (ledger rows 603/604): click-toggled toolbar palette (NOT hover — same shape as LocalePicker) offering BLACK/WHITE setup stone + TRIANGLE tools. Closing (re-click / ESC / outside-click) always deselects via useSetupTools.closePalette.
@@ -220,6 +221,7 @@ frontend/src/
 │   │   ├── useKnownPositionNodes.ts   [B2]  card-position-annotations Stage B: `activeBoardKnownPositionNodeIds` — cache ∩ known-positions Set for the active board, precomputed at the composition layer (mirrors usePlayVsEngine's activeBoardGameHeadIds); no network I/O in the computed itself.
 │   │   ├── usePlayVsEngine.ts         [B3]  Play-vs-engine game-session lifecycle on `BoardState.games`: start (with the engine-turn kick via the injected responder), end, and the green-ring heads set. Extracted from App.vue 2026-06-11.
 │   │   ├── use-pv-animation.ts        [B3]  PV stone-sequence animation (window / instant / sequential modes).
+│   │   ├── useHandicap.ts             [B2]  Handicap affordance (wiki Mechanics #4): module-scope panel-open state (released on resetWorkspace) + selectHandicap(n) — wraps engine/handicap.ts's applyHandicap, writes through updateBoardState (same channel as useSetupTools), invalidates the root thumbnail snapshot, turns HandicapOnStartedGameError into a pushSystemMessage warning.
 │   │   ├── useSetupTools.ts           [B2]  Setup toolkit (ledger rows 603/604): SetupTool selection state (module-scope, released on resetWorkspace) + applyToolAt(x,y) — dispatches to logic.ts's applySetup/applyMarkup, writes through updateBoardState (allowlisted, non-user-move), invalidates the affected thumbnail snapshot(s).
 │   │   └── useVariationPath.ts        [B2]  Full active game-line root → leaf.
 │   │
@@ -288,15 +290,16 @@ frontend/src/
 │   ├── board-geometry.ts              [B3]  SSOT for board rendering geometry (pad/cell/stoneR/toSVG, gridLines) + the BoardSnapshot position primitive; shared by renderBoardToSvg (string) and the Vue board components so projections can't drift.
 │   ├── board-renderer.ts              [B3]  Pure SVG Go board rendering → string (v-html / ECharts-innerHTML sinks); geometry from board-geometry.
 │   ├── constants.ts                   [B3]  Board geometry, stone-radius ratio, label-band width, etc.
+│   ├── handicap.ts                    [B3]  Handicap-stone placement tables (19×19 N=2-9, 13×13 N=2-5, 9×9 N=2-4; GNU-Go-convention hoshi progression) + applyHandicap — places root AB stones via logic.ts's applySetup, sets turn/PL[W]/HA[n]/default KM. Refuses (HandicapOnStartedGameError) once the root has children.
 │   ├── helper.ts                      [B1]  Piecewise cubic Hermite interpolation (pure math).
 │   ├── navigator.ts                   [B3]  LCA-based game-tree traversal with setup-stone + capture tracking. (Maintainer-adjudicated target 2026-06-12: B2 — generic LCA traversal; the tag stays B3 as structural fact while the Go replay — stones/ko/captures/SGF setup-coord decode — is inlined in navigateTo. Tags record fact, not aspiration; lib/keybindings.ts precedent.)
 │   ├── rules.ts                       [B3]  Pure Go rules engine (legality, captures, ko).
 │   ├── rulesets.ts                    [B3]  The four ruling-mandated named rulesets (AGA/Chinese/Japanese/Tromp-Taylor): RulesetName, total case-insensitive normalizeRuleset (sole RulesetName construction site), and rulesetToWireName (display name → KataGo wire spelling, single home).
-│   ├── sgf-loader.ts                  [B3]  SGF parser → GameNode forest.
+│   ├── sgf-loader.ts                  [B3]  SGF parser → GameNode forest. Root turn seeded from getInitialPlayer (PL[W] override for a handicap board; defaults 'B').
 │   ├── sgf-writer.ts                  [B3]  GameNode forest → SGF serialisation.
 │   ├── suggestion-colors.ts           [B3]  Pure colour utilities for move-suggestion overlays.
 │   ├── tree.ts                        [B2]  Generic grid-based tree layout + tree-graph transforms.
-│   ├── util.ts                        [B3]  Board / SGF coord helpers; active-variation traversal; game-name resolution ladder; getRulesetResolution (RU-property accessor, parallel to getKomi/getBoardSize); collectSubtreeIds (BFS subtree walk — the setup toolkit's thumbnail-invalidation obligation). (Domain-free generateUUID / updateRegistry re-homed to lib/utils.ts 2026-06-10.)
+│   ├── util.ts                        [B3]  Board / SGF coord helpers; active-variation traversal; game-name resolution ladder; getRulesetResolution (RU-property accessor, parallel to getKomi/getBoardSize); getInitialPlayer (PL-property accessor — root player-to-move, handicap-aware); collectSubtreeIds (BFS subtree walk — the setup toolkit's thumbnail-invalidation obligation). (Domain-free generateUUID / updateRegistry re-homed to lib/utils.ts 2026-06-10.)
 │   │
 │   ├── analysis/
 │   │   ├── clustering.ts              [B3]  Pure transposition-grouping utilities.

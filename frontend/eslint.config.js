@@ -1222,6 +1222,13 @@ export default [
             // convention: setup mode is orthogonal to game-flow state).
             'src/composables/board/useSetupTools.ts':
               'setup-toolkit edit (setup stone / markup toggle) — not a user MOVE, no grading applies',
+            // The handicap affordance (wiki Mechanics #4) writes root-node
+            // setup stones (AB) via the same applySetup substrate as the
+            // setup toolkit above, plus HA/PL/KM root properties — a
+            // pre-game board-setup action, not a user MOVE; same rationale
+            // as useSetupTools.ts immediately above.
+            'src/composables/board/useHandicap.ts':
+              'handicap placement (root AB setup stones + HA/PL/KM via applyHandicap) — not a user MOVE, no grading applies',
           },
         },
       ],

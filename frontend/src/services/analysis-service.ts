@@ -39,7 +39,7 @@ import {
   type GameNode,
 } from '../types';
 import { asQueryId } from './query-id';
-import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones, getRulesetResolution, pathHasMidTreeSetup } from '../engine/util';
+import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones, getInitialPlayer, getRulesetResolution, pathHasMidTreeSetup } from '../engine/util';
 import { rulesetToWireName } from '../engine/rulesets';
 import { rootToCurrentPrefix } from '../engine/navigator';
 import { store, mutateBoard, setSelectedModel } from '../store';
@@ -695,6 +695,15 @@ export class AnalysisService {
     const { moves, turnIndexAtTreeIndex, turnToNodeId } = buildMovesAndTurnIndex(board.nodes, pathUpToEnd);
 
     const initialStones = getInitialStones(board);
+    // A handicap board's root turn-0 position (before any move) is
+    // described entirely by `initialStones` — `moves` carries no entry
+    // to hang a colour off. KataGo's wire `initialPlayer` field is the
+    // only way to tell it who moves first there; omitted (KataGo's own
+    // 'B' default) unless the root explicitly says otherwise (`PL[W]`,
+    // written by `engine/handicap.ts::applyHandicap`). See
+    // `getInitialPlayer`'s doc comment (`engine/util.ts`) for the full
+    // rationale.
+    const initialPlayer = getInitialPlayer(board);
     this.warnIfMidTreeSetupDropped(boardId, board.nodes, pathUpToEnd);
 
     // Unique + sorted: a moveless tree index repeats its predecessor's
@@ -830,6 +839,7 @@ export class AnalysisService {
       id: queryId,
       moves,
       ...(initialStones.length ? { initialStones } : {}),
+      ...(initialPlayer === 'W' ? { initialPlayer } : {}),
       rules: rulesetToWireName(rulesetResolution.name),
       boardXSize: size,
       boardYSize: size,
@@ -978,6 +988,8 @@ export class AnalysisService {
     turnToNodeId.set(moves.length, board.currentNodeId);
 
     const initialStones = getInitialStones(board);
+    // See analyzeRange above for the rationale — same wire gap, same fix.
+    const initialPlayer = getInitialPlayer(board);
 
     const queryId = asQueryId(`${mode}-${boardId}-${Date.now()}`);
     // See analyzeRange above for the configOverride-vs-live rationale.
@@ -1068,6 +1080,7 @@ export class AnalysisService {
       id: queryId,
       moves,
       ...(initialStones.length ? { initialStones } : {}),
+      ...(initialPlayer === 'W' ? { initialPlayer } : {}),
       rules: rulesetToWireName(rulesetResolution.name),
       boardXSize: size,
       boardYSize: size,

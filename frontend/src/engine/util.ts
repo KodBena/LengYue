@@ -196,6 +196,30 @@ export function getKomi(state: BoardState): number {
 }
 
 /**
+ * Extracts the player to move BEFORE any move has been played, from
+ * the SGF root node's `PL` property. Defaults to 'B' — the ordinary
+ * "Black moves first" convention every non-handicap board carries — for
+ * a missing, empty, or unrecognized `PL` value; only an exact `PL[W]`
+ * flips the default. `engine/handicap.ts::applyHandicap` is the write
+ * side of this property (handicap hands the first move to White);
+ * `loadSgf` reads it to seed `BoardState.turn` correctly for a
+ * reloaded handicap game, and the analysis query builder
+ * (`services/analysis-service.ts`) reads it to tell KataGo who is to
+ * move at the position `initialStones` describes when the query's
+ * `moves` list is empty (turn 0 has no move to carry a colour, so the
+ * wire's `initialPlayer` field is the only way to say it) — parallel
+ * in shape to `getKomi` / `getRulesetResolution` above, all three
+ * root-level scalar facts read directly off the SGF properties rather
+ * than off `BoardState.turn`, which only tracks the CURSOR's turn and
+ * is not itself the root-level fact for a board navigated away from
+ * the root.
+ */
+export function getInitialPlayer(state: BoardState): StoneColor {
+  const pl = state.nodes[state.rootNodeId]?.properties['PL']?.[0];
+  return pl === 'W' ? 'W' : 'B';
+}
+
+/**
  * Extracts the ruleset from the SGF root node's `RU` property, parallel
  * in shape to `getKomi` / `getBoardSize` but returning the
  * `RulesetResolution` record (an effective `RulesetName` plus a
