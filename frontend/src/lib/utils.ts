@@ -49,7 +49,17 @@ export function isObject(item: any): boolean {
  * (`RegistryEditor.vue` calls this at each branch row).
  */
 export function isRegistryGroupDefaultCollapsed(key: string): boolean {
-  return key === 'knobs' || key === 'analysis_env';
+  // knobs / analysis_env: almost never edited raw (maintainer wiki line).
+  // pvAnimation / forestNav / cardTreeNav: commissioner directive
+  // 2026-08-07 (commission row 748) — always start collapsed on entering
+  // Session (UI).
+  return (
+    key === 'knobs' ||
+    key === 'analysis_env' ||
+    key === 'pvAnimation' ||
+    key === 'forestNav' ||
+    key === 'cardTreeNav'
+  );
 }
 
 /**

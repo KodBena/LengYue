@@ -39,6 +39,7 @@
   "settings.section.sessionUI":           "Session (UI)",
   "settings.button.forcePersistence":     "Force Persistence",
   "settings.button.rerunWizard":          "Re-run setup wizard",
+  "settings.label.theme":                 "Theme:",
 
   "other.section.knobRegistry":           "Knob Registry",
   "other.section.gradientCalibration":    "Gradient Calibration",

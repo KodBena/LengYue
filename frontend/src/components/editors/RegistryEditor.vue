@@ -378,13 +378,14 @@ function isModified(key: string, value: any) {
 
 .branch-content { padding-left: var(--space-medium); border-left: 1px solid var(--surface-3); margin-left: var(--space-tight); }
 
-/* theme-exception: .expression-input's #fbbf24 text matches the
-   .modified-dot indicator above — same Tailwind amber-400, marking
-   asteval expressions visually distinct from non-expression scalar
-   inputs. Same substrate gap as the indicator. */
+/* Expression inputs read in normal text tokens (commission row 748:
+   the amber-400 text was unreadable against surface-0 on the cluster
+   theme — orange on pink); the .modified-dot indicator alone carries
+   the asteval-expression distinctness now. Border was a
+   surface-token-as-border inversion (rows 681/742). */
 .expression-input {
   width: 100%; min-height: 50px; padding: var(--space-default); line-height: 1.4;
-  color: #fbbf24; background: var(--surface-0); border: 1px solid var(--surface-3); resize: vertical;
+  color: var(--text-0); background: var(--surface-0); border: 1px solid var(--border-2); resize: vertical;
 }
 
 .symbol-ref-box { display: flex; align-items: center; width: 100%; gap: var(--space-default); }

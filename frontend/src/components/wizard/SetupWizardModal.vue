@@ -95,7 +95,7 @@ useModalKeyboard(modalContentRef, computed(() => true), wizard.finish);
 }
 
 .wizard-card {
-  background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-default);
+  background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); /* surface-0 per rows 681/742; was surface-2 = page-bg pink on cluster */
   padding: var(--space-loose); width: 640px; max-width: 92vw; max-height: 88vh; overflow-y: auto;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
   display: flex; flex-direction: column; gap: var(--space-medium);
@@ -119,6 +119,6 @@ useModalKeyboard(modalContentRef, computed(() => true), wizard.finish);
   border: 1px solid transparent; border-radius: var(--radius-default); cursor: pointer;
 }
 .btn:disabled { cursor: not-allowed; opacity: var(--alpha-disabled); }
-.btn-secondary { background: var(--border-2); border-color: var(--border-3); color: var(--text-1); }
-.btn-primary { background: var(--accent-primary); border-color: var(--accent-primary); color: var(--text-0); font-weight: bold; }
+.btn-secondary { background: var(--surface-0); border-color: var(--border-2); color: var(--text-1); /* rows 681/742: surface bg + border edge */ }
+.btn-primary { background: var(--surface-0); border-color: var(--border-2); color: var(--accent-primary); font-weight: bold; /* standard SPA button shape (rows 609/681): NOT an accent-filled slab — commissioner directive 2026-08-07 */ }
 </style>
