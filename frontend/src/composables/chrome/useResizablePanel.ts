@@ -259,7 +259,13 @@ export function sanitizeTreeControlRegionWidthPx(
   rawWidthPx: number | undefined,
   rowWidthPx: number,
 ): number | undefined {
-  if (rawWidthPx === undefined) return undefined;
+  // Non-finite (NaN/±Infinity) persisted values — reachable via
+  // updateFromRemote's unvalidated deepMerge — would NaN-poison the
+  // Math.min/max clamp below and reach App.vue's :style as an invalid
+  // CSS length: the exact minimized-board symptom this clamp exists to
+  // close (review BLOCKER, ui-5-3-restore-clamp-review.md finding 1).
+  // Treated as never-dragged: the flex default is the safe layout.
+  if (rawWidthPx === undefined || !Number.isFinite(rawWidthPx)) return undefined;
   const maxRegionWidthPx = Math.max(
     WRAPPER_MIN_WIDTH_PX,
     Math.round(rowWidthPx - MIN_BOARD_PX - RESIZER_WIDTH_PX),

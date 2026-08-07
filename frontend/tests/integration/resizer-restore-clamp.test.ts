@@ -143,4 +143,27 @@ describe('ui-5-3: hydrating a wide-viewport width on a narrow one always leaves 
 
     expect(panel.effectiveTreeControlRegionWidthPx.value).toBe(500);
   });
+
+  // Review BLOCKER (ui-5-3-restore-clamp-review.md finding 1): a
+  // non-finite persisted value — reachable via updateFromRemote's
+  // unvalidated deepMerge — must not NaN-poison the clamp and reach
+  // App.vue's :style as an invalid CSS length (the exact minimized-board
+  // symptom). Treated as never-dragged: flex-fill default.
+  it('a NaN persisted value falls back to the flex-fill default instead of NaN-poisoning the clamp', () => {
+    store.session.ui.treeControlRegionWidthPx = Number.NaN;
+
+    mountSplitWorkspace(1024);
+    const panel = withSetup(() => useResizablePanel());
+
+    expect(panel.effectiveTreeControlRegionWidthPx.value).toBeUndefined();
+  });
+
+  it('an Infinity persisted value likewise falls back to the flex-fill default', () => {
+    store.session.ui.treeControlRegionWidthPx = Number.POSITIVE_INFINITY;
+
+    mountSplitWorkspace(1024);
+    const panel = withSetup(() => useResizablePanel());
+
+    expect(panel.effectiveTreeControlRegionWidthPx.value).toBeUndefined();
+  });
 });
