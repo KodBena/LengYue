@@ -13,8 +13,7 @@ orchestrator should copy/merge it to the shared path when merging this
 branch.
 
 Branch: `worktree-agent-a257595794d199e4f`
-Commit: work is staged/uncommitted at time of writing this report; see
-"Commit" section at the end for the actual sha once committed.
+Commit: `d7ac9521191eb217659c2d6b5df7e197151e5dbc`
 Ledger design: rows 690+699 (ratified).
 
 This report is written for a reader who has never used Tauri. If you
