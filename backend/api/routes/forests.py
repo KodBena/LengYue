@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from api.dependencies import get_current_user_id, get_pipeline_executor
 from domain.auth import UserId
 from domain.card import CardWithRecall
-from domain.errors import InvalidInputError
+from domain.errors import InvalidInputError, NotFoundError
 from domain.pipeline import PipelineExecutor
 from domain.pipeline_dsl import ForestQuery
 
@@ -41,10 +41,23 @@ async def query_forest(
     the only remaining runtime PipelineDSLError path (the nested-
     filter case from pre-32a is now a parse-time error thanks to the
     BaseSelection vs Selection split in domain/pipeline_dsl.py).
+
+    macro-public-id-tokens: `query.game_source_ordinals` threads to
+    executor.run(), which resolves each ordinal server-side, within
+    this user's tenancy, to root card ids before building the
+    selection pool. An ordinal that doesn't resolve (unknown, or
+    belongs to a different tenant) raises GameSourceNotFoundError —
+    caught below via the NotFoundError axis and mapped to 404, the
+    same 404-not-403 collapse every other tenant-scoped lookup uses.
     """
     try:
         return await executor.run(
-            query.context_ids, query.pipeline, user_id=user_id
+            query.context_ids,
+            query.pipeline,
+            user_id=user_id,
+            game_source_ordinals=query.game_source_ordinals,
         )
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except InvalidInputError as e:
         raise HTTPException(status_code=422, detail=str(e))

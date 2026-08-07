@@ -16,6 +16,7 @@ Three-axis structure:
     ├── ResourceLimitError         "the request would exceed a resource limit"
     │   ├── BundleTooLargeError
     │   ├── BatchTooLargeError
+    │   ├── PositionHashBatchTooLargeError
     │   └── UserQuotaExceededError
     └── UnknownSchemeError         "a stored row carries an unrecognised codec scheme"
 
@@ -50,6 +51,30 @@ class NotFoundError(DomainError):
 
 class CardNotFoundError(NotFoundError):
     """The card with the given id was not found (or not owned by the caller)."""
+
+
+class GameSourceNotFoundError(NotFoundError):
+    """
+    A `game_source` display-ordinal token does not resolve for the
+    requesting user — either no game_source carries that ordinal at
+    all, or it belongs to a different tenant. The two cases are
+    indistinguishable from the caller's perspective by construction
+    (the resolution query fuses the ordinal and user_id predicates
+    into one WHERE clause, same 404-not-403 pattern as every other
+    tenant-scoped lookup — see docs/notes/tenancy.md).
+
+    Raised by `LineageRepositoryPort.resolve_game_source_root_card_ids`
+    (macro-public-id-tokens: restoring the Cards-tab `${gameSourceId}`
+    macro after browse-leak-fix removed its raw-id source). The route
+    maps this to 404.
+    """
+
+    def __init__(self, *, ordinal: int):
+        self.ordinal = ordinal
+        super().__init__(
+            f"game_source with display_ordinal={ordinal} not found "
+            f"for this user"
+        )
 
 
 class ResourceNotFoundError(NotFoundError):
@@ -159,6 +184,35 @@ class BatchTooLargeError(ResourceLimitError):
         self.maximum = maximum
         super().__init__(
             f"import batch exceeds per-request cap "
+            f"(received={received}, maximum={maximum})"
+        )
+
+
+class PositionHashBatchTooLargeError(ResourceLimitError):
+    """A `POST /positions/hash-batch` request exceeds the configured
+    per-request cap.
+
+    Raised by the route handler when
+    `len(raw_contents) > config.POSITIONS_HASH_BATCH_MAX`. Card-
+    position-annotations Stage B (`.claude/dispatch-reports/
+    card-position-annotations-design.md` §5) — the batch endpoint that
+    lets the SPA hash every currently-rendered tree node in one round
+    trip; the cap bounds worst-case per-request parse/normalize cost
+    the same way `BatchTooLargeError` bounds library-import batches.
+    The route projects this to 413 with body
+    `{kind: "position_hash_batch_too_large", detail, received, maximum}`.
+
+    Unlike `BatchTooLargeError` (library import, which persists rows),
+    this endpoint is stateless — a caller with a larger tree simply
+    issues more than one batch call; there is no retry-idempotency
+    concern to document.
+    """
+
+    def __init__(self, *, received: int, maximum: int):
+        self.received = received
+        self.maximum = maximum
+        super().__init__(
+            f"position hash batch exceeds per-request cap "
             f"(received={received}, maximum={maximum})"
         )
 

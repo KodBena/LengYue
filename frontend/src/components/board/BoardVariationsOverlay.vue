@@ -65,7 +65,8 @@ import {
 } from '../../engine/constants';
 import { themeColor, type ChromeAnchor } from '../../utils/theme-color';
 import { useMoveSuggestions } from '../../composables/board/use-move-suggestions';
-import type { BoardState, GameNode } from '../../types';
+import { deriveVariationMarkers } from '../../composables/board/board-variations-markers';
+import type { BoardState } from '../../types';
 
 const props = defineProps<{
   state: BoardState;
@@ -76,6 +77,18 @@ const props = defineProps<{
   // set. Drives the letters-mode → circles fallback at suggestion
   // intersections (see file header "Overlap with MoveSuggestions").
   showMoveSuggestions: boolean;
+  // True while a PV (principal-variation) hover preview is active
+  // (`BoardWidget`'s `pvHoverActive`, bound from `MoveSuggestions`'s
+  // `pv-preview-active` emit). The dashed visited-move / next-move
+  // rings describe the *real* game tree's visited state, which
+  // competes with the hypothetical PV overlay the user is reading
+  // during a hover preview — the same reasoning `BoardWidget`
+  // already applies to suppress its move-number labels during a PV
+  // hover. Consumed at the top of `markers` (below) rather than at
+  // the mount site so the overlay stays mounted and re-evaluates
+  // cheaply instead of unmounting/remounting on every hover
+  // transition.
+  suppressed: boolean;
 }>();
 
 // Intersection set of currently-rendered move-suggestion discs,
@@ -153,122 +166,24 @@ const LETTER_LABEL_COLOR = '#000';
 // letter sits alone on the wood texture without a ring backing.
 const LETTER_FONT_SIZE_RATIO = 1.2;
 
-// A marker can carry a ring, a letter, or both — the four
-// (mode × active/variation) combinations differ on which fields
-// are populated:
-//   active in either mode      → ring only.
-//   variation in 'circles'     → ring only.
-//   variation in 'letters'     → letter only.
-//   variation in 'off'         → no marker emitted.
-// The template branches on `ring !== null` and `label !== null`
-// independently; both being null means the iteration was filtered
-// out earlier.
-interface Marker {
-  readonly x: number;
-  readonly y: number;
-  readonly key: string;
-  readonly ring: { readonly stroke: string; readonly opacity: number } | null;
-  readonly label: { readonly text: string; readonly color: string; readonly opacity: number } | null;
-}
-
-const markers = computed<Marker[]>(() => {
-  const node: GameNode | undefined = props.state.nodes[props.state.currentNodeId];
-  if (!node || node.children.length === 0) return [];
-
-  const out: Marker[] = [];
-  let variationIdx = 0;
-
-  for (let i = 0; i < node.children.length; i++) {
-    const child = props.state.nodes[node.children[i]];
-    // Defensive: a child reference without a node, or a child whose
-    // move is null (root only) / a pass, has no board position.
-    if (!child || !child.move || child.move.type !== 'place') continue;
-
-    const isActive = i === node.activeChildIndex;
-    const x = child.move.x;
-    const y = child.move.y;
-
-    if (isActive) {
-      if (!props.showActiveNextMove) continue;
-      // Active next move on the active path — light-gray dashed
-      // ring. No label, even in 'letters' mode (A is reserved for
-      // the first non-active sibling per the spec).
-      // magic-literal: 0.7 opacity — visible against the wood
-      // texture without competing with stones.
-      out.push({
-        x, y,
-        key: `active-${x}-${y}`,
-        ring: {
-          stroke:  themeColor(ACTIVE_TINT_ANCHOR),
-          opacity: 0.7,
-        },
-        label: null,
-      });
-    } else {
-      if (props.variationsMode === 'off') continue;
-      const letter = String.fromCharCode(0x41 /* 'A' */ + variationIdx);
-      if (props.variationsMode === 'circles') {
-        // 'circles' mode: gray dashed ring, no letter.
-        // magic-literal: 0.7 opacity — same as the active marker
-        // since both are gray rings; the lighter / darker tint
-        // distinguishes them, not opacity.
-        out.push({
-          x, y,
-          key: `variation-${x}-${y}`,
-          ring: {
-            stroke:  themeColor(VARIATION_TINT_ANCHOR),
-            opacity: 0.7,
-          },
-          label: null,
-        });
-      } else {
-        // 'letters' mode. Two sub-cases:
-        //
-        //   - Overlap with a MoveSuggestion at this intersection
-        //     → fall back to the 'circles' marker (gray dashed
-        //     ring), per the file header's "Overlap with
-        //     MoveSuggestions" note. The letter is silently
-        //     dropped at this intersection only; `variationIdx`
-        //     advances so the remaining letters stay in
-        //     declaration order, leaving a visible gap that the
-        //     suggestion disc fills in.
-        //   - No overlap → black letter label only, no ring.
-        //     Reads as the SGF-style A/B/C convention — high
-        //     contrast on the wood texture.
-        //
-        // magic-literal: 0.9 letter opacity — slightly louder than
-        // the gray rings since the letter is the sole carrier of
-        // the variation identity in this sub-case.
-        const overlapsSuggestion = suggestionPoints.value.has(`${x},${y}`);
-        if (overlapsSuggestion) {
-          out.push({
-            x, y,
-            key: `variation-${x}-${y}`,
-            ring: {
-              stroke:  themeColor(VARIATION_TINT_ANCHOR),
-              opacity: 0.7,
-            },
-            label: null,
-          });
-        } else {
-          out.push({
-            x, y,
-            key: `variation-${x}-${y}`,
-            ring: null,
-            label: {
-              text:    letter,
-              color:   LETTER_LABEL_COLOR,
-              opacity: 0.9,
-            },
-          });
-        }
-      }
-      variationIdx++;
-    }
-  }
-
-  return out;
-});
+// Marker derivation itself (the mode × active/variation branching,
+// the letters→circles suggestion-overlap fallback, and the
+// PV-hover-preview suppression gate) lives in the pure
+// `deriveVariationMarkers` function so it's unit-testable without
+// mounting this component. `suppressed` (see prop doc above) is
+// consulted first, inside that function — checked here at the top
+// of this computed, not at the SFC's mount site, so the overlay
+// stays mounted across a hover transition instead of
+// unmounting/remounting.
+const markers = computed(() => deriveVariationMarkers(props.state, {
+  variationsMode: props.variationsMode,
+  showActiveNextMove: props.showActiveNextMove,
+  suggestionPoints: suggestionPoints.value,
+  suppressed: props.suppressed,
+  ringStroke: themeColor(VARIATION_TINT_ANCHOR),
+  activeRingStroke: themeColor(ACTIVE_TINT_ANCHOR),
+  labelColor: LETTER_LABEL_COLOR,
+}));
 </script>
 
 <template>

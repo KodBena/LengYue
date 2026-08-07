@@ -197,6 +197,19 @@ class Settings(BaseSettings):
     # virtual-scrolling above the cap is the SPA's concern.
     SGF_LIBRARY_LIST_LIMIT_MAX: int = 500
 
+    # POSITIONS_HASH_BATCH_MAX: maximum number of `raw_content` entries
+    # accepted in a single `POST /positions/hash-batch` request
+    # (card-position-annotations Stage B). Bounds server-side memory
+    # and parse time during the per-item normalize pass. A caller with
+    # a larger currently-rendered tree issues more than one batch call
+    # — the endpoint is stateless, so there is no cross-call ordering
+    # or idempotency concern to preserve. 200 (ledger assumption row
+    # 534, `.claude/dispatch-reports/card-position-annotations-design.md`
+    # §5): the design doc names no numeric cap; 200 keeps a viewport-
+    # driven fetch burst well within one round trip while bounding
+    # worst-case payload/parse cost.
+    POSITIONS_HASH_BATCH_MAX: int = 200
+
     model_config = SettingsConfigDict(env_file=".env")
 
     @model_validator(mode="after")

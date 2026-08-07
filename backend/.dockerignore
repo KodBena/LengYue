@@ -1,0 +1,24 @@
+# backend/.dockerignore
+#
+# Keeps the Docker build context to source only. Mirrors backend/.gitignore
+# (venv, __pycache__, local db/secret files) plus Docker/VCS metadata that
+# has no reason to enter an image layer. cards.db and .jwt_secret are
+# explicitly excluded so a developer's live local database/secret can
+# never be baked into an image — the ratified design (ledger row 690)
+# requires a fresh named volume, never a copy of live data.
+venv/
+__pycache__/
+**/__pycache__/
+data/
+*.db
+!samples/*.db
+.jwt_secret
+.ebisu_secret_key
+.git/
+.gitignore
+.dockerignore
+Dockerfile
+.env
+.pytest_cache/
+.mypy_cache/
+*.pyc

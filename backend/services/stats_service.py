@@ -20,7 +20,7 @@ Two use-case methods, mirroring the previous StatsEngine:
 
   - compute_forest_summaries: the interesting one. Takes the flat
     ForestMemberRow stream from the repository and aggregates it by
-    root_card_id into wire-shape ForestStats. Recall is computed
+    root_card_public_id into wire-shape ForestStats. Recall is computed
     per card via compute_current_recall_from_prior (the lower-level
     variant added in item 32a to support DTOs thinner than a full
     Card). Results are sorted by total_cards descending — consistent
@@ -37,6 +37,7 @@ need to revisit the aggregation.
 """
 from datetime import datetime, timezone
 from typing import List, Optional
+from uuid import UUID
 
 from domain.auth import UserId
 from domain.card import compute_current_recall_from_prior
@@ -58,14 +59,14 @@ class _ForestStatBuilder:
     def __init__(
         self,
         *,
-        root_card_id: int,
-        game_source_id: int,
+        root_card_public_id: UUID,
+        game_source_display_ordinal: int,
         description: Optional[str],
         player_white: Optional[str],
         player_black: Optional[str],
     ):
-        self.root_card_id = root_card_id
-        self.game_source_id = game_source_id
+        self.root_card_public_id = root_card_public_id
+        self.game_source_display_ordinal = game_source_display_ordinal
         self.description = description
         self.player_white = player_white
         self.player_black = player_black
@@ -85,8 +86,8 @@ class _ForestStatBuilder:
             else 0.0
         )
         return ForestStat(
-            root_card_id=self.root_card_id,
-            game_source_id=self.game_source_id,
+            root_card_public_id=self.root_card_public_id,
+            game_source_display_ordinal=self.game_source_display_ordinal,
             description=self.description,
             player_white=self.player_white,
             player_black=self.player_black,
@@ -135,7 +136,7 @@ class StatsService:
         Aggregation pipeline:
           1. Fetch flat (card × forest) rows from the repository,
              restricted to this user's cards.
-          2. Group by root_card_id, computing per-card recall on the
+          2. Group by root_card_public_id, computing per-card recall on the
              fly via compute_current_recall_from_prior.
           3. Finalize averages and collect into ForestStat DTOs.
           4. Sort by total_cards descending — largest forests first,
@@ -150,12 +151,12 @@ class StatsService:
         rows = await self.repository.fetch_forest_members(user_id=user_id)
         now = datetime.now(timezone.utc)
 
-        builders: dict[int, _ForestStatBuilder] = {}
+        builders: dict[UUID, _ForestStatBuilder] = {}
         for row in rows:
-            if row.root_card_id not in builders:
-                builders[row.root_card_id] = _ForestStatBuilder(
-                    root_card_id=row.root_card_id,
-                    game_source_id=row.game_source_id,
+            if row.root_card_public_id not in builders:
+                builders[row.root_card_public_id] = _ForestStatBuilder(
+                    root_card_public_id=row.root_card_public_id,
+                    game_source_display_ordinal=row.game_source_display_ordinal,
                     description=row.description,
                     player_white=row.player_white,
                     player_black=row.player_black,
@@ -171,7 +172,7 @@ class StatsService:
                 time_unit_seconds=self.time_unit,
             )
 
-            builders[row.root_card_id].add_card(
+            builders[row.root_card_public_id].add_card(
                 num_reviews=row.num_reviews,
                 recall=recall,
             )

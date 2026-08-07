@@ -315,6 +315,11 @@ export const defaultSettings = {
   // mirrored onto vue-i18n by useAppBootstrap's watch on this field.
   appearance:  {
     theme: 'cluster',
+    // Opt-in high-contrast text override for the cluster theme. Default
+    // off — OFF state must render identically to today. See
+    // `AppSettings.appearance.highContrastText` in `schema.ts` for the
+    // full rationale. Schema 62 → 63 backfills `false`.
+    highContrastText: false,
     // MiniBoard thumbnail renderer (analysis preview boards + heatmap preview).
     // 'svg' (default) preserves the pre-split declarative SVG; 'canvas' is the
     // ADR-0010 canvas variant (lighter paint/jank). User-selectable in the
@@ -499,10 +504,17 @@ export const defaultSettings = {
   // Default Analysis-tab layout (see AppSettings.analysisTabs). Four tabs
   // over the panel registry, Basic first (most-used). The Settings editor
   // (Phase 3) lets users re-tab; migration 54 → 55 backfills this shape on
-  // legacy persisted blobs. Tab ids are branded via the trailing
-  // `as unknown as AppSettings` cast; panelIds use the PANEL_ID SSOT.
+  // legacy persisted blobs (migration 61 → 62 adds intervalSummary to an
+  // already-backfilled Basic tab — see that migration's comment). Tab ids
+  // are branded via the trailing `as unknown as AppSettings` cast; panelIds
+  // use the PANEL_ID SSOT.
+  //
+  // intervalSummary leads Basic (wiki Wanted feature #6): the summary
+  // analysis over the set interval is the number a Multiresolution-panel
+  // hover surfaces today, but that panel is a separate tab and may not even
+  // be enabled — this makes the same numbers visible by default without it.
   analysisTabs: [
-    { id: 'basic', label: 'Basic', panelIds: [PANEL_ID.scoreLead, PANEL_ID.mergedDelta] },
+    { id: 'basic', label: 'Basic', panelIds: [PANEL_ID.intervalSummary, PANEL_ID.scoreLead, PANEL_ID.mergedDelta] },
     { id: 'distributions', label: 'Distributions', panelIds: [PANEL_ID.deltaDistribution, PANEL_ID.mistakeGap] },
     { id: 'stability', label: 'Stability', panelIds: [PANEL_ID.stability, PANEL_ID.stabilityCrossCorrelation] },
     { id: 'multiresolution', label: 'Multiresolution', panelIds: [PANEL_ID.multiresolutionInterval] },
@@ -637,7 +649,10 @@ export const defaultSessionUI: UISession = {
   // would rather have. Users can re-enable via the Session (UI)
   // registry.
   systemLogExpanded: false,
-  controlPanelWidth: 340,
+  // controlPanelWidthPx intentionally omitted: undefined is the
+  // documented default (schema.ts) — no drag has happened yet, so
+  // #control-panel renders at its natural flex fill. See
+  // useResizablePanel.ts.
   moveFilterThreshold: 0.05,
   moveFilterExpression: 'move.order === 0 || (move.visits / root.visits) >= ui.threshold',
   analysisLayout: 'horizontal',
@@ -680,7 +695,14 @@ export const defaultSessionUI: UISession = {
   // → `[3]` so existing users land on whichever value they were last
   // editing.
   cardsContextIds: [3],
+  // macro-public-id-tokens (schema-version 66): no game_source
+  // ordinal tokens pending resolution by default.
+  cardsContextGameSourceOrdinals: [],
   qeuboToolbarView: 'applied',
+  // Delta-analysis panel's view cycle. 'shared' preserves the
+  // pre-feature, only-ever-existed view — see the field's doc comment
+  // in schema.ts. Schema-version 64 introduces the field.
+  deltaViewMode: 'shared',
   // Board-variations overlay rendering posture. Default 'circles' is
   // the common GUI default per the user's framing (Lizzie / Sabaki /
   // KaTrain idiom): variations as stroke-only colored rings (so they
@@ -725,6 +747,12 @@ export const defaultSessionUI: UISession = {
   // field; the migration backfills existing blobs with the same
   // empty default.
   cardTreeNav: {},
+  // Board-overlay delta+visits annotation — off by default, matching
+  // showStoneMoveNumbers' posture: an opt-in overlay a user turns on via
+  // the Session (UI) registry once they know it exists, rather than
+  // surprising every board with new on-stone chrome. Schema-version 69
+  // introduces the field.
+  moveDeltaAnnotation: 'off',
 };
 
 export const DEFAULTS = {

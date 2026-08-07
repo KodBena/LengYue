@@ -6,7 +6,8 @@
  * moved to `lib/utils.ts` 2026-06-10 — this module is [B3].)
  * License: Public Domain (The Unlicense)
  */
-import type { Move, StoneColor, BoardState, NodeId, RootToLeafPath } from '../types';
+import type { Move, StoneColor, BoardState, NodeId, GameNode, RootToLeafPath } from '../types';
+import { normalizeRuleset, type RulesetResolution } from './rulesets';
 
 /**
  * Thrown when an inbound SGF coordinate is malformed — a character
@@ -131,6 +132,30 @@ export function getActiveVariationPath(board: BoardState): RootToLeafPath {
   return path as RootToLeafPath;
 }
 
+/**
+ * Every NodeId in `nodeId`'s subtree, inclusive of `nodeId` itself —
+ * a plain BFS over `children`. Minted for the setup-toolkit's
+ * thumbnail-invalidation obligation: `applySetup` (`src/logic.ts`)
+ * mutates the CURRENT node's stone projection, and every descendant's
+ * cached thumbnail snapshot is a replay that starts from that
+ * projection, so all of them go stale together (contrast
+ * `applyMarkup`, whose mutation has no board-state carry-forward and
+ * therefore invalidates only the one node it touched — no subtree
+ * walk needed there).
+ */
+export function collectSubtreeIds(nodes: Record<NodeId, GameNode>, nodeId: NodeId): NodeId[] {
+  const out: NodeId[] = [];
+  const queue: NodeId[] = [nodeId];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    const node = nodes[id];
+    if (!node) continue;
+    out.push(id);
+    queue.push(...node.children);
+  }
+  return out;
+}
+
 const GTP_ALPHABET = "ABCDEFGHJKLMNOPQRSTUVWXYZ".split("");
 
 export function toGtp(x: number, y: number): string {
@@ -168,6 +193,46 @@ export function getKomi(state: BoardState): number {
   const kmStr = state.nodes[state.rootNodeId]?.properties['KM']?.[0];
   const km = parseFloat(kmStr ?? '6.5');
   return isNaN(km) ? 6.5 : km;
+}
+
+/**
+ * Extracts the player to move BEFORE any move has been played, from
+ * the SGF root node's `PL` property. Defaults to 'B' — the ordinary
+ * "Black moves first" convention every non-handicap board carries — for
+ * a missing, empty, or unrecognized `PL` value; only an exact `PL[W]`
+ * flips the default. `engine/handicap.ts::applyHandicap` is the write
+ * side of this property (handicap hands the first move to White);
+ * `loadSgf` reads it to seed `BoardState.turn` correctly for a
+ * reloaded handicap game, and the analysis query builder
+ * (`services/analysis-service.ts`) reads it to tell KataGo who is to
+ * move at the position `initialStones` describes when the query's
+ * `moves` list is empty (turn 0 has no move to carry a colour, so the
+ * wire's `initialPlayer` field is the only way to say it) — parallel
+ * in shape to `getKomi` / `getRulesetResolution` above, all three
+ * root-level scalar facts read directly off the SGF properties rather
+ * than off `BoardState.turn`, which only tracks the CURSOR's turn and
+ * is not itself the root-level fact for a board navigated away from
+ * the root.
+ */
+export function getInitialPlayer(state: BoardState): StoneColor {
+  const pl = state.nodes[state.rootNodeId]?.properties['PL']?.[0];
+  return pl === 'W' ? 'W' : 'B';
+}
+
+/**
+ * Extracts the ruleset from the SGF root node's `RU` property, parallel
+ * in shape to `getKomi` / `getBoardSize` but returning the
+ * `RulesetResolution` record (an effective `RulesetName` plus a
+ * `source` provenance tag) rather than a bare string — per the
+ * live-testing adjudication superseding the original ruleset ruling
+ * (`.claude/dispatch-reports/ruleset-default-wedge-fix.md`), a missing
+ * or unrecognized `RU` defaults to Tromp-Taylor (`source: 'defaulted'`)
+ * rather than refusing; a recognized `RU` resolves with `source: 'ru'`.
+ * See `normalizeRuleset` in `engine/rulesets.ts` for the full contract.
+ */
+export function getRulesetResolution(state: BoardState): RulesetResolution {
+  const raw = state.nodes[state.rootNodeId]?.properties['RU']?.[0];
+  return normalizeRuleset(raw);
 }
 
 /**
@@ -231,6 +296,90 @@ export function getInitialStones(state: BoardState): [StoneColor, string][] {
   collect(rootNode.properties.AW, 'W');
 
   return result;
+}
+
+/**
+ * True iff any NON-ROOT node on `path` carries a setup property (`AB`/
+ * `AW`/`AE`). `getInitialStones` above (and `analyzeRange` /
+ * `analyzeActiveNode` in `src/services/analysis-service.ts`) only ever
+ * project the ROOT's own AB/AW into KataGo's `initialStones` — that is
+ * wire-protocol-correct for handicap/problem setups, but a mid-tree
+ * setup edit (the setup toolkit, ledger rows 603/604, can place one on
+ * ANY current node — not just root) is silently absent from BOTH
+ * `initialStones` (root-only) and `moves` (`buildMovesAndTurnIndex`
+ * only ever collects `node.move`, treating a setup-only node exactly
+ * like any other moveless node): KataGo's analysis-engine protocol has
+ * no wire primitive for "insert a stone mid-sequence with no move,"
+ * so the analyzed position silently diverges from the board the user
+ * is looking at. This predicate is the query-construction-time
+ * detection that lets a caller surface that divergence loudly
+ * (ADR-0002) rather than ship a silently-wrong analysis — see the
+ * mid-tree-setup system-message notice at both `analyzeRange` and
+ * `analyzeActiveNode` call sites.
+ *
+ * `path[0]` (root) is always excluded — root AB/AW is the
+ * wire-correct, already-handled case.
+ */
+export function pathHasMidTreeSetup(nodes: Record<NodeId, GameNode>, path: readonly NodeId[]): boolean {
+  for (let i = 1; i < path.length; i++) {
+    const node = nodes[path[i]];
+    if (!node) continue;
+    if (
+      (node.properties.AB && node.properties.AB.length > 0)
+      || (node.properties.AW && node.properties.AW.length > 0)
+      || (node.properties.AE && node.properties.AE.length > 0)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Game-end signal (pass-support design, PASS SUPPORT §"Game-end
+ * signal"): a STATUS-ONLY read of "did the active path just end in
+ * two consecutive passes?" — no persistent state, no scoring/territory
+ * (explicitly out of scope, maintainer-ratified). A discriminated
+ * union per `frontend/CLAUDE.md`'s branded-types/DU convention, not a
+ * boolean, so a future third status (e.g. resignation) is additive
+ * rather than a breaking boolean-to-enum migration.
+ *
+ * Evaluated positionally against whatever `path` names — typically
+ * root→current (`getPath`), so navigating away from the two-pass
+ * position (or into a branch that doesn't end in two passes) reverts
+ * the signal, matching "branch switching resets correctly along the
+ * active path" from the design's acceptance criteria. A moveless node
+ * (e.g. an SGF's trailing `TW`/`TB` scoring node) sitting after the
+ * two passes reads back to 'in-progress' at ITS position — the signal
+ * is about the position named by `path`'s last element, not a
+ * whole-tree property.
+ */
+export type GameStatus =
+  | { kind: 'in-progress' }
+  | { kind: 'ended-by-pass'; lastMoveColor: StoneColor };
+
+export function getGameEndStatus(
+  nodes: Record<NodeId, GameNode>,
+  path: readonly NodeId[],
+): GameStatus {
+  if (path.length === 0) return { kind: 'in-progress' };
+  // The CURRENT position is judged as-is: a moveless node (setup-only,
+  // trailing scoring node) is not a pass, so the game reads in-progress
+  // at its own position — deliberately NOT skipped (see doc above).
+  const lastMove = nodes[path[path.length - 1]]?.move;
+  if (!lastMove || lastMove.type !== 'pass') return { kind: 'in-progress' };
+  // Walk backward for the PREVIOUS move, skipping (not counting) moveless
+  // nodes: a mid-tree setup node between two passes must not mask the
+  // pass-pass ending (review fix, pass-support-review.md — witnessed
+  // against the externally-authored-SGF shape sgf-loader produces).
+  for (let i = path.length - 2; i >= 0; i--) {
+    const m = nodes[path[i]]?.move;
+    if (m == null) continue;
+    return m.type === 'pass'
+      ? { kind: 'ended-by-pass', lastMoveColor: lastMove.color }
+      : { kind: 'in-progress' };
+  }
+  return { kind: 'in-progress' };
 }
 
 /**

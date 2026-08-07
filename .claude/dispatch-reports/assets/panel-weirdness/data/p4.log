@@ -1,0 +1,7 @@
+== INITIAL == {"move":"MOVE 87","turn":"W-to-play","caps":"B: 0 · W: 0"} ring {"cx":42,"cy":2106,"disp":""}
+GEO0 {"row":{"x":168,"w":3672,"h":2128},"board":{"x":168,"w":900,"h":2128},"tree":{"x":1068,"w":140,"h":2128},"panel":{"x":1212,"w":2628,"h":2128},"resizerX":1208,"boardSvg":{"w":892,"h":2100},"justify":"normal","panelFlex":"flex: 1 1 0px; min-width: 220px;","boardTargetPx":"--board-target-px: 900px;"}
+after Home: {"move":"MOVE 0","turn":"B-to-play","caps":"B: 0 · W: 0"}
+87 wait fail
+after 87x ArrowDown: {"move":"MOVE 10","turn":"B-to-play","caps":"B: 0 · W: 0"} ring {"cx":18,"cy":258,"disp":""}
+tree nodes near depth 85-90 (cy): [{"cx":18,"cy":210,"fill":"#eee","stroke":"#0b001b"},{"cx":18,"cy":234,"fill":"var(--tree-node-black-fill, #111)","stroke":"#0b001b"},{"cx":18,"cy":258,"fill":"#eee","stroke":"#0b001b"},{"cx":18,"cy":282,"fill":"var(--tree-node-black-fill, #111)","stroke":"#0b001b"},{"cx":18,"cy":306,"fill":"#eee","stroke":"#0b001b"}]
+CONSOLE [{"t":"error","text":"Failed to load resource: the server responded with a status of 503 (Service Unavailable)"}]

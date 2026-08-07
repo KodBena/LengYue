@@ -52,7 +52,7 @@ file; the header in the source has the nuance.
 ```
 frontend/src/
 ├── App.vue                            [B3]  Root SFC. Orchestrator hosting tabs, board, modals; wires composables.
-├── logic.ts                           [B3]  applyGoMove — Go-rule board mutation with dedup-or-descend on the tree.
+├── logic.ts                           [B3]  applyGoMove — Go-rule board mutation with dedup-or-descend on the tree. Also applySetup (toggle-on-repeat AB/AW/AE setup stone on the current node) and applyMarkup (TR triangle toggle) — the setup toolkit's data layer, ledger rows 603/604.
 ├── main.ts                            [B1]  Vue app bootstrap (createApp, install i18n, mount #app).
 ├── types.ts                           [B3]  Barrel over the per-domain type modules (`types/*` + `store/schema.ts`; 2026-06-10 split). Re-exports span all three bands, so the hub tags for the highest band it re-exports; it declares nothing itself, and three runtime values (BUNDLE_COMPRESSION_SCHEMES, QeuboError, CardTreeOverflowError) pass through, making it a runtime module.
 ├── style.css                          [B1]  Empty stub; theme lives in chrome substrate variables.
@@ -66,15 +66,18 @@ frontend/src/
 │   ├── KeybindingRow.vue              [B1]  Per-action row in the Keybindings view — idle/capture/conflict state machine + Edit/Reset/Unbind buttons. (Machinery domain-free; imports the [B3] catalog only to supply findActionByKey's registry argument.)
 │   ├── KeybindingsView.vue            [B1]  Keybindings sub-tab: per-domain registry list + Reset-all + reserved-keys disclosure. (Machinery domain-free; walks the injected [B3] catalog and assumes its closed {nav, display, engine} domain-prefix set.)
 │   ├── KnobRegistryEditor.vue         [B1]  Cross-domain knob-registry editor — lists every scalar knob, grouped by domain (Phase 3b).
-│   ├── ReviewSessionPanel.vue         [B3]  In-session SR controls: status, counter, intermission chart, hint visibility.
+│   ├── PerQueryOverridesConfig.vue    [B1]  "Other" tab: freeform JSON textarea for the session-ephemeral blanket per-query override (`state/per-query-overrides.ts`), RegistryEditor expression-input idiom.
+│   ├── ReviewSessionPanel.vue         [B3]  In-session SR controls: status, counter, intermission chart, hint visibility, deck-repeat back/forward + Retry.
 │   ├── SettingsTab.vue                [B1]  Settings tab surface: Session (UI) / Analysis Environment / Card Sets / Advanced Registry / Analysis / Keybindings sub-tabs via TabWidget. (Retagged B2→B1 2026-06-12, maintainer adjudication: generic settings chrome; the B2/B3 contamination — the editors, profile-owner, the in-template engine.katago.analysis_env path — may be structural necessity, possibly dissolved by config-schema-projections; those edges are annotated exceptions, named-and-owned.)
+│   ├── VisitsLerpConfig.vue           [B1]  "Other" tab: a/b numeric inputs for the session-ephemeral visits-LERP override (`state/visits-lerp.ts`), CardMetadataPanel field idiom + reset button.
 │   │
 │   ├── board/                                Go-board surface. Renderers + overlays.
-│   │   ├── BoardDisplay.vue           [B3]  Stateless SVG Go board with stone gradients, hoshi, last-move ring, move-number text.
+│   │   ├── BoardDeltaAnnotation.vue   [B3]  Wiki Wanted #7/#7.1: single-label overlay for the just-played move's ledger delta + child visit count (or per-player-framed score delta); self-sources via useMoveDeltaAnnotation, renders nothing when the ledger has no delta for the node.
+│   │   ├── BoardDisplay.vue           [B3]  Stateless SVG Go board with stone gradients, hoshi, last-move ring, move-number text, and setup-toolkit triangle marks (`triangles` prop, current node only).
 │   │   ├── BoardHeatmapOverlay.vue    [B3]  Stateless per-intersection heatmap (ownership / liveness / dots).
 │   │   ├── BoardTab.vue               [B3]  Tab row in the board-list rail (label, close, canvas analysis-depth rugplot drawn imperatively off the render path).
 │   │   ├── BoardVariationsOverlay.vue [B3]  Sibling-variation rings + active-next-move hint on the board.
-│   │   ├── BoardWidget.vue            [B3]  Hosts BoardDisplay + overlays + MoveSuggestions; computes derived view-model.
+│   │   ├── BoardWidget.vue            [B3]  Hosts BoardDisplay + overlays + MoveSuggestions; computes derived view-model. Board clicks route through useSetupTools.applyToolAt first (setup-toolkit edit) and only fall back to the normal `move` emit when no tool is armed.
 │   │   ├── MiniBoard.vue             [B3]  Renderer dispatcher — mounts MiniBoardSvg or MiniBoardCanvas per `appearance.miniBoardRenderer` (v-if; only the chosen path mounts, so neither affects the other's perf). Used by ChartPreviewBox + heatmap preview.
 │   │   ├── MiniBoardCanvas.vue       [B3]  Canvas renderer (opt-in) — imperative draw off a watch, ResizeObserver-cached dims, stones blitted from the shared sprite store (thumbnail-render-resources owns wood + sprites; ADR-0010 canvas rule). No render fn on the nav hot path.
 │   │   ├── MiniBoardSvg.vue          [B3]  SVG renderer (default) — memoised grid + per-stone v-memo; the carried-over pre-split MiniBoard body, parity-tested against a frozen reference (MiniBoardSvg.parity.test.ts).
@@ -93,7 +96,8 @@ frontend/src/
 │   │   ├── ChartPreviewBox.vue        [B3]  Isolated leaf rendering a panel's hover/position thumbnail (MiniBoard) via a `() => BoardSnapshot` accessor — keeps the per-nav preview update off the chart host's render.
 │   │   ├── ColorDebugStrip.vue        [B1]  Dual-track gradient-calibration debug strip.
 │   │   ├── HeatmapChart.vue           [B1]  Stateless generic ECharts heatmap renderer; emits cell-click / cell-hover / cell-leave (no tooltip — the host renders any preview).
-│   │   ├── MergedDeltaPanel.vue       [B3]  Both-players delta chart on a parity-interleaved x-axis.
+│   │   ├── MergedDeltaPanel.vue       [B3]  Both-players delta chart on a parity-interleaved x-axis; shared/black/white view-cycle button disambiguates click-to-navigate.
+│   │   ├── IntervalSummaryPanel.vue   [B3]  Compact per-colour summary table for the current analysis interval (Basic tab, on by default); looks the value up in useTriangularHeatmap's own matrix — no parallel recompute.
 │   │   ├── ScoreLeadPanel.vue         [B3]  ScoreLead chart panel.
 │   │   ├── DistributionChart.vue      [B1]  Generic histogram/KDE primitive (variant-dispatched ECharts mount).
 │   │   ├── DeltaDistributionPanel.vue [B3]  Per-colour delta-KDE panel (injects AnalysisContext; wraps DistributionChart).
@@ -103,15 +107,19 @@ frontend/src/
 │   │   └── StabilityPanel.vue         [B3]  Per-position stability metric over the variation path; extractor-selectable.
 │   │
 │   ├── chrome/                              Application shell. Generic UI primitives.
+│   │   ├── EngineModelSelect.vue      [B1]  Toolbar MODEL-identity slot (SELECTOR `<select>` / LEAF static label + tooltip); self-sources model-selection state only, isolated from ToolbarEngineMetrics's metrics-tick re-renders so a live tick can't reassert the select's DOM and kill hover.
 │   │   ├── EngineQueueTooltip.vue     [B1]  Toolbar badge + hover panel listing in-flight KataGo queries with ETA.
 │   │   ├── FloatingThumbnail.vue      [B3]  Cursor-anchored floating board preview (sole host: TreeWidget's variation hover). Synchronous show/hide gate; content derives from a host-supplied `() => BoardSnapshot` accessor rendered via MiniBoard (the ChartPreviewBox accessor contract); seam-level stranding backstops (80px anchor radius / scroll / blur). Re-banded B1→B3 when the v-html SVG-string sink became the BoardSnapshot projection (render-lifecycle consolidation).
+│   │   ├── HandicapPanel.vue          [B2]  N-stone handicap sub-panel revealed inside SetupToolPalette.vue (wiki Mechanics #4): click-to-apply grid over useHandicap.availableCounts, disabled/empty state when the active board's size has no handicap table. Dismissal rides the parent palette's own ESC/outside-click listener.
 │   │   ├── LocalePicker.vue           [B1]  Top-nav locale picker (flag + native name).
 │   │   ├── RootErrorBoundary.vue      [B1]  Catches descendant errors, logs via ADR-0002, renders fallback.
+│   │   ├── SetupToolPalette.vue       [B2]  Setup toolkit (ledger rows 603/604): click-toggled toolbar palette (NOT hover — same shape as LocalePicker) offering BLACK/WHITE setup stone + TRIANGLE tools. Closing (re-click / ESC / outside-click) always deselects via useSetupTools.closePalette.
 │   │   ├── SidebarWidget.vue          [B3]  Board rail: BoardTab thumb-list, docked MiniBoard hover preview, SGF load/save emits, new-board affordance, dev jank-test toggle. (Retagged B1→B3 2026-06-12, maintainer adjudication: not B1 — the rail exists to host Go-board surfaces; SGF vocabulary and the BoardSnapshot preview are in-file.)
 │   │   ├── SystemLogPanel.vue         [B1]  Always-visible system log bar with idle row.
 │   │   ├── TabWidget.vue              [B1]  Controlled tabbed navigation.
 │   │   ├── Toolbar.vue                [B3]  Application toolbar shell (title, buttons, popover mounts). Reads only `isConnected`; telemetry lives in ToolbarEngineMetrics so the shell doesn't re-render per packet.
-│   │   ├── ToolbarEngineMetrics.vue   [B3]  Live engine-telemetry strip leaf (version/model/winrate/scoreLead/PPS/latency/watchdog + queue tooltip); self-sources the per-packet/per-tick reads, extracted out of Toolbar (render-coupling fix).
+│   │   ├── ToolbarEngineMetrics.vue   [B3]  Live engine-telemetry strip leaf (version/winrate/scoreLead/PPS/latency/watchdog + queue tooltip + mounts EngineModelSelect); self-sources the per-packet/per-tick reads, extracted out of Toolbar (render-coupling fix). MODEL slot moved to EngineModelSelect.vue (2026-08-06) so this leaf's own 1Hz tick re-render can't reach the select's DOM.
+│   │   ├── ToolbarEngineUri.vue       [B3]  Compact click-to-edit engine WebSocket URI, sat in the toolbar's engine cluster (ledger slug toolbar-engine-uri). Renders unconditionally (not gated on isConnected); logic lives in useEngineUriEditor — this leaf is chrome only.
 │   │   ├── ToolbarSliderPopover.vue   [B1]  Toolbar badge + hover popover: compact priority-ordered list of every scalar knob (quick-access surface for the knob registry).
 │   │   └── UserBadge.vue              [B1]  Auth-identity badge; opens LoginModal on click.
 │   │
@@ -160,7 +168,11 @@ frontend/src/
 │   ├── useAutoPopoverPerf.ts          [B1]  Dev-only: toggles a target popover open/closed at ~2/s (via useHoverPopover's force hook), emitting popover:open/close marks tagged with queue state — for the popover-toggle-cost measurement.
 │   ├── useAutoSaveAnalyses.ts         [B3]  Auto-save policy for the [experimental] analysis-persistence feature: watches each board's `dirtyVersion` on analysisPersistenceService and trailing-debounces a `save(boardId)`, gated on `engine.katago.analysisStorageEnabled && analysisAutoSave`. B3 via the analysis-bundle / persistence-service imports and the KataGo storage toggles.
 │   ├── useEngineControls.ts           [B3]  Engine connect / disconnect / toggle lifecycle.
-│   ├── useNavigation.ts               [B2]  Headless navigation within the game tree (next/prev/parent/child).
+│   ├── useEngineModelSelection.ts     [B3]  SELECTOR-mode model-selection actions over `setSelectedModel`: cycle through `availableModels` (wrapping, skipping unhealthy) and swap to the last-active selection. Backs the `engine.cycleModel` / `engine.swapLastActiveModel` keybindings.
+│   ├── useEngineUriEditor.ts          [B3]  Toolbar-and-Settings-shared editor state for `engine.katago.url` (ledger slug toolbar-engine-uri): draft/commit/cancel over the SAME store cell the Settings tab's Advanced Registry editor writes (mutateProfile), validated by lib/ws-url.ts, cycling connect/disconnect (useEngineControls) on a changed commit while connected.
+│   ├── useMintDialogSignal.ts         [B1]  Module-scoped "open the mint dialog" request counter (`requestMintDialog()` / `mintDialogRequestCount`), same shape as `captureMode` / `anyModalOpen`. Closes the gap the hotkeys-batch build report left PROPOSED-ONLY: the `card.mint` keybinding (module-scope, no component ref) bumps the counter; App.vue watches it and calls its own `triggerMint()`.
+│   ├── useModalKeyboard.ts            [B1]  Shared modal keyboard/focus mechanism (ADR-0019 S5 fix): Escape→close, Tab/Shift+Tab focus trap, initial focus, focus restoration; exports `anyModalOpen` for useUserIORegistry's global-hotkey suppression while a modal is open. Wired into all 7 src/components/modals/*.vue files.
+│   ├── useNavigation.ts               [B2]  Headless navigation within the game tree (next/prev/parent/child/toggle-main-line).
 │   ├── useQeubo.ts                    [B1]  qEUBO experiment state machine + audition + verdict.
 │   ├── useQueryTelemetry.ts           [B1]  Singleton in-flight KataGo query queue + per-model visits/sec ETA.
 │   ├── useScopedScroll.ts             [B1]  Wheel-event scoped scroll (board + tree both consume).
@@ -171,23 +183,27 @@ frontend/src/
 │   ├── useUserIORegistry.ts           [B2]  Hardware-event → domain-verb adapter (keyboard nav, suggestion toggle, …).
 │   │
 │   ├── analysis/                             KataGo-derived view models and chart wiring.
+│   │   ├── branch-range-key.ts        [B2]  Sole factory for the `BranchRangeKey` brand — the branch-stem identity (decision-node choices only) analysis-range memory is keyed by (`useAnalysisTimeline`, Candidate C).
 │   │   ├── useAnalysisContext.ts      [B3]  Per-board analysis context (projection + derived) shared to panels via provide/inject.
 │   │   ├── useAnalysisTabs.ts         [B3]  Analysis-tab state: persisted tab list (AppSettings.analysisTabs) + ephemeral active-tab selection. No component imports (resolution is the dashboard's job).
 │   │   ├── useAnalysisProjection.ts   [B3]  Projects raw board + analysis ledger to UI-ready view model.
 │   │   ├── useAnalysisPersistence.ts  [B2]  Effectful boundary for AnalysisControls' save/discard + reactive summary/auto-save-error + stopBoardAnalysis; keeps the analysisPersistenceService/analysisService imports out of the component.
-│   │   ├── useAnalysisTimeline.ts     [B3]  Owns the chart selection range + visit-vector from the ledger.
+│   │   ├── useAnalysisTimeline.ts     [B3]  Owns the per-branch-stem chart selection range (keyed by `BranchRangeKey`, uncapped) + visit-vector from the ledger.
 │   │   ├── useChartNavigation.ts      [B3]  Pure black-box click-navigation handler for analysis charts (hover-preview is owned panel-side).
+│   │   ├── useDeltaViewMode.ts        [B3]  MergedDeltaPanel's three-mode view cycle (shared/black/white) + the seriesForMode projection both the render and the click-dispatch path read through.
 │   │   ├── useEChartsForestRender.ts  [B2]  Per-tree ECharts lifecycle (init, dispose, resize) for card-tree forests.
 │   │   ├── enriched-accumulator.ts    [B3]  Pure incremental derivation of the enriched series (patchNode O(1) vs full O(N) rebuild); last-path-order delta arbitration. Equivalence-tested.
 │   │   ├── useEnrichedData.ts         [B3]  Reactive enriched series — shallowRef driven by structural watch (rebuild) + ledger changed-key signal (incremental patch); no per-frame O(N) re-derive.
+│   │   ├── useIntervalSummary.ts      [B3]  Per-colour summary row for the current selectionRange; projects the ply range onto each colour's local move-range (useTriangularHeatmap's own `plyRangeToColorMoveRange`) and looks the cell up in its matrix — shared kernel, not a recompute.
 │   │   ├── useMistakeFinder.ts        [B3]  Calculated property: per-move mistake severity + un-punished red-flag.
 │   │   ├── useStabilityCrossCorrelations.ts [B3] Pairwise Pearson over the extractor and metric axes of stability series.
 │   │   ├── useStabilityMetrics.ts     [B3]  Per-move stability fractions from the trajectory store for a chosen extractor + metric.
 │   │   ├── useTimelineLogic.ts        [B2]  Contiguous-segment calc + selection range + debounced updates.
-│   │   ├── useTriangularHeatmap.ts    [B3]  Extracts proxy-side triangular heatmap from the ledger for a path.
+│   │   ├── useTriangularHeatmap.ts    [B3]  Extracts proxy-side triangular heatmap from the ledger for a path; sole authority for the PlyIndex ↔ ColorMoveIndex conversion (colorMoveToPly + its reverse plyRangeToColorMoveRange).
 │   │   └── wait-for-analysis.ts       [B3]  Primitive: wait for a specific KataGo packet (with timeout, abort).
 │   │
 │   ├── auth-app/                             Auth + app cold-start.
+│   │   ├── contrast-text-attribute.ts [B1]  Pure DOM mutation: mirrors `appearance.highContrastText` onto `<html data-contrast-text="on">` (removed, not `"off"`, when false). Pulled out of useAppBootstrap's watcher so the OFF-state-unchanged guarantee is unit-testable standalone.
 │   │   ├── useAppBootstrap.ts         [B3]  Cold-start wiring: auth → sync hydrate → domain inits → tag fetch. Band-mixed by role (imports analysis-service, qEUBO, the keybindings catalog); tagged like App.vue — wiring, not a B1 substrate.
 │   │   ├── useAuth.ts                 [B1]  AuthState SSOT; wraps api-client auth methods; JWT synchronisation.
 │   │   ├── useMetadata.ts             [B3]  SGF root properties → UI metadata (gameName ladder, players, dates).
@@ -195,17 +211,23 @@ frontend/src/
 │   │
 │   ├── board/                                Board-surface composables. Mostly B3.
 │   │   ├── autonomous-srs.ts          [B3]  Policy/Driver/Recorder abstractions for the autonomous SRS loop.
+│   │   ├── board-variations-markers.ts [B2]  Pure derivation of BoardVariationsOverlay's dashed sibling/next-move markers (incl. the PV-hover `suppressed` gate); extracted 2026-08-06.
 │   │   ├── engine-move-delta-reconcile.ts [B3]  Shared surgical-merge helper for engine-move-delta consumers: reconciles an EngineDelta into the store and gates cursor advance on user-tracking.
 │   │   ├── suggestion-color-calibration.ts [B3] Domain init for the suggestion-color gradient: hue-shift watcher + fire-and-forget visit-distribution fetch (via getResource<T>); called once from useAppBootstrap.
 │   │   ├── useActivePath.ts           [B2]  NodeId lineage root → current node.
-│   │   ├── useBoardMoveRouting.ts     [B3]  Grading-integrity gate for both board-mutation entry points (click-to-play + paste-PV): AWAITING_MOVE routes to the review session's graded handler, transient SR states refuse mutation, free play (with the game-head engine trigger) is IDLE/FINISHED-only. Extracted from App.vue 2026-06-11.
+│   │   ├── useBoardMoveRouting.ts     [B3]  Grading-integrity gate for board-mutation entry points (click-to-play, pass, paste-PV): AWAITING_MOVE routes to the review session's graded handler (processUserMove / processUserPass), transient SR states refuse mutation, REVIEWED (a restored deck-repeat snapshot) refuses outright, free play (with the game-head engine trigger) is IDLE/FINISHED-only. Extracted from App.vue 2026-06-11; `handlePass` added for pass-support (2026-08-06).
 │   │   ├── useDirtyBoardGuard.ts      [B3]  Dirty-board guard: confirm-load modal + dirty-board policy for cards AND library games; delegates the SGF load to sgf/loadIntoBoard (swallow-and-log over the fail-loud primitive).
 │   │   ├── useEngineResponder.ts      [B3]  "Play vs engine" trigger: `fireAndAdvanceHead(boardId, gameStartNodeId)` queries the engine at the board's current position and advances the game's single green-ring head; invoked from useBoardMoveRouting when the user plays from a head.
 │   │   ├── useFollowMePonder.ts       [B3]  "Follow Me" ponder watcher: re-issues the active board's ponder query on same-board navigation (board switches excluded). App.vue's former direct analysis-service watcher, relocated to the composable layer 2026-06-11.
+│   │   ├── useMoveDeltaAnnotation.ts  [B3]  Wiki Wanted #7/#7.1: per-node delta+visits derivation for the board overlay, reused unmodified from the same `useEnrichedData`/`enriched-accumulator` authority MergedDeltaPanel charts against — no separate delta formula. Returns null (absence) when the ledger lacks the node's delta.
 │   │   ├── use-move-suggestions.ts    [B3]  Refined intensity-mapping for KataGo move suggestions.
+│   │   ├── usePassSignal.ts           [B1]  Module-scoped "play a pass" request counter (`requestPass()` / `passRequestCount`), same shape as useMintDialogSignal.ts. Closes the same module-scope-has-no-component-instance gap: the `board.pass` keybinding bumps the counter; App.vue watches it and calls its own `handlePass()` (from useBoardMoveRouting).
 │   │   ├── usePlayFromPosition.ts     [B3]  "Engine plays from here" — looped applyGoMove against a KataGo URL.
+│   │   ├── useKnownPositionNodes.ts   [B2]  card-position-annotations Stage B: `activeBoardKnownPositionNodeIds` — cache ∩ known-positions Set for the active board, precomputed at the composition layer (mirrors usePlayVsEngine's activeBoardGameHeadIds); no network I/O in the computed itself.
 │   │   ├── usePlayVsEngine.ts         [B3]  Play-vs-engine game-session lifecycle on `BoardState.games`: start (with the engine-turn kick via the injected responder), end, and the green-ring heads set. Extracted from App.vue 2026-06-11.
 │   │   ├── use-pv-animation.ts        [B3]  PV stone-sequence animation (window / instant / sequential modes).
+│   │   ├── useHandicap.ts             [B2]  Handicap affordance (wiki Mechanics #4): module-scope panel-open state (released on resetWorkspace) + selectHandicap(n) — wraps engine/handicap.ts's applyHandicap, writes through updateBoardState (same channel as useSetupTools), invalidates the root thumbnail snapshot, turns HandicapOnStartedGameError into a pushSystemMessage warning.
+│   │   ├── useSetupTools.ts           [B2]  Setup toolkit (ledger rows 603/604): SetupTool selection state (module-scope, released on resetWorkspace) + applyToolAt(x,y) — dispatches to logic.ts's applySetup/applyMarkup, writes through updateBoardState (allowlisted, non-user-move), invalidates the affected thumbnail snapshot(s).
 │   │   └── useVariationPath.ts        [B2]  Full active game-line root → leaf.
 │   │
 │   ├── cards/                                Card-tree exploration state.
@@ -218,6 +240,8 @@ frontend/src/
 │   │   ├── useLearnPath.ts            [B2]  "Learn this path" (wiki #8): `explore()` grows the board's live tree (spine-first, deviations recurse as their own subtree) from EXISTING ledger analysis, registering pre-mint markers — mints NOTHING; `confirmMint()` is the explicit, caller-driven batch mint with existing-card dedup. A position lacking analysis is a reported frontier, never silently truncated.
 │   │   ├── useCardMetadata.ts         [B2]  Effectful boundary for card-metadata edits (updateCardMetadata); shared by ReviewSessionPanel + ForestDirectory, which splice the returned card into their own state.
 │   │   ├── useCardTreeProjection.ts   [B2]  Pure projection: forest + active-set + manual-expand → role-annotated render forest.
+│   │   ├── useKnownPositions.ts       [B1]  Fetch/mutation API over the known-positions state module: the mint-time duplicate-position check (POST /positions/hash + lookup) and append-on-mint; state owned by state/known-positions.ts.
+│   │   ├── useNodePositionHashes.ts   [B2]  card-position-annotations Stage B: viewport-driven, debounced (150ms) batch fill of the node-position-hashes cache via POST /positions/hash-batch; failure surfaces one non-blocking notice, never a stale/partial cache write. Called from TreeWidget's own nodeList watcher.
 │   │   ├── useTags.ts                 [B1]  The single chokepoint for the client-side tag dictionary (`store.knownTags`, the autocomplete source): every tag-write path routes its resulting tag set through `learnTags` so the dictionary stays coherent with the cards. A flat label-set SSOT — domain-free (a non-Go flashcard fork keeps it unchanged).
 │   │   ├── thumbnail-render-resources.ts [B3]  Owner of the shared thumbnail render resources: the BoardSnapshot cache (reactive Map) + warmed-path guard, the wood texture, the stone-sprite store (SpriteKey-keyed) — plus the invalidation surface (O4 board purge, O9 identity purge, the caller-less applySetup node-invalidation hook).
 │   │   ├── usePreviewSnapshot.ts      [B3]  The cured hover-preview quartet, single-sourced: a synchronously-written `previewNode` gate + fire-and-forget cache warm + `getSnapshotSync` accessor (so a late resolve fills but never resurrects). Full quartet for gate-owning panels (ScoreLead/MergedDelta); `warmSnapshotAccessor` sub-unit for hosts whose gate lives elsewhere (TreeWidget → FloatingThumbnail).
@@ -227,14 +251,17 @@ frontend/src/
 │   │   ├── useHoverPopover.ts         [B1]  Hover-intent open/close primitive (open ref + mouseenter/mouseleave + 150 ms close-grace timer) shared by toolbar popovers.
 │   │   ├── useLocale.ts               [B1]  Locale read/write through GlobalStore + supported-locale registry.
 │   │   ├── usePopoverEdgeClamp.ts     [B1]  Viewport-edge clamp for hover popovers (setPopoverEl function-ref + xShift) — translateX shifts the rendered popover inward when its CSS anchor would push it off-screen.
-│   │   └── useResizablePanel.ts       [B2]  Horizontal resize-bar between tree and control panels.
+│   │   ├── useDeferredContainerBreakpoint.ts [B1]  Defers a control-panel-hosted component's discrete responsive breakpoint commit to resizer-drag release (with hysteresis), so a `@container`-style reorg never fires mid-gesture.
+│   │   ├── useResizablePanel.ts       [B2]  Nested-splitter resize bars (OUTER: board↔tree+control wrapper; INNER: tree↔control panel), each owning one independently-persisted pane width.
+│   │   └── useVirtualList.ts          [B1]  Fixed-height vertical virtual-list windower (visible slice + top/bottom spacer pad + scrollToIndex); rAF-coalesced scroll + ResizeObserver, released on unmount. Virtualizes the SidebarWidget board-tab rail (was ~185k DOM nodes at 230 boards).
 │   │
 │   ├── forest/                               Forest / game-tree expansion + navigation.
 │   │   ├── useForestBrowsePolicy.ts   [B2]  Forest-Directory selection → fetch-behaviour dispatcher.
 │   │   ├── useForestStats.ts          [B2]  Effectful boundary for the Browse forest's data source (getForestStats); ForestDirectory reads its roots through this rather than the backend singleton.
 │   │   ├── useForestNavigation.ts     [B2]  Tree-shaping for the file-manager-style navigator (games → roots).
 │   │   ├── useTreeExpansion.ts        [B2]  Variation-hiding expansion state; enforces "current-always-visible" invariant.
-│   │   └── useTreeLayout.ts           [B2]  Pluggable tree-layout composable (watchEffect-driven).
+│   │   ├── useTreeLayout.ts           [B2]  Pluggable tree-layout composable (watchEffect-driven).
+│   │   └── tree-review-marker.ts      [B2]  Pure `isReviewStartNode` derivation for TreeWidget's review-start marker ring (sourced from `useReviewSession.startingNodeId`, zero I/O).
 │   │
 │   ├── library/                              SGF library surface composables.
 │   │   ├── useLibraryImport.ts        [B3]  File picker / directory picker / drag-drop with webkitGetAsEntry walk + chunked upload with progress.
@@ -259,7 +286,7 @@ frontend/src/
 │   │   ├── blind-mode-prefs.ts        [B3]  Snapshot/restore owner for the session-UI prefs blind mode flips (showMoveSuggestions, treeExpanded): generic snapshot core + the review session's supplied key list. B3 via its store import and its consumer's vocabulary; the snapshot mechanism is band-agnostic in character (fork: lift the factory, re-supply keys).
 │   │   ├── useMinting.ts              [B3]  Mint flashcards from boards (Go-board → backend mint payload). `calibrateKomiOnDraft` runs the opt-in mint-time komi calibration and rewrites the draft SGF's `KM`.
 │   │   ├── useKomiCalibration.ts      [B3]  One-shot bounded evaluation for mint-time komi calibration: shared fresh-eval primitives → analyze the minted position → computeEvenKomi. Fails loudly (no silent uncalibrated fallback).
-│   │   └── useReviewSession.ts        [B3]  SR-session state machine: AWAITING_MOVE / INTERMISSION / FINISHED. Band-mixed (the ADR-0003 Revisit-#3 canary): the SR orchestration is game-class-portable; the per-move delta scoring is extracted to engine/analysis/review-scoring.ts — the first of ~4 Go seams named (sgf.parse in loadCard, applyGoMove, gtpToBoard follow-through remain inline), so the [B3] tag reflects the residue, not the whole.
+│   │   └── useReviewSession.ts        [B3]  SR-session state machine: AWAITING_MOVE / INTERMISSION / FINISHED / REVIEWED (deck-repeat: goBack/goForward/jumpTo/retryCard over a module-scope per-visit snapshot map, visitSnapshots). Band-mixed (the ADR-0003 Revisit-#3 canary): the SR orchestration is game-class-portable; the per-move delta scoring is extracted to engine/analysis/review-scoring.ts — the first of ~4 Go seams named (sgf.parse in loadCard, applyGoMove, gtpToBoard follow-through remain inline), so the [B3] tag reflects the residue, not the whole.
 │   │
 │   └── sgf/                                  SGF I/O.
 │       ├── loadIntoBoard.ts           [B2]  loadSgfIntoBoard — parse + overwrite an existing board + navigate-to-leaf. The bare load primitive (fail-loud); useDirtyBoardGuard wraps it with the confirm-modal, the perf context calls it directly.
@@ -271,14 +298,16 @@ frontend/src/
 │   ├── board-geometry.ts              [B3]  SSOT for board rendering geometry (pad/cell/stoneR/toSVG, gridLines) + the BoardSnapshot position primitive; shared by renderBoardToSvg (string) and the Vue board components so projections can't drift.
 │   ├── board-renderer.ts              [B3]  Pure SVG Go board rendering → string (v-html / ECharts-innerHTML sinks); geometry from board-geometry.
 │   ├── constants.ts                   [B3]  Board geometry, stone-radius ratio, label-band width, etc.
+│   ├── handicap.ts                    [B3]  Handicap-stone placement tables (19×19 N=2-9, 13×13 N=2-5, 9×9 N=2-4; GNU-Go-convention hoshi progression) + applyHandicap — places root AB stones via logic.ts's applySetup, sets turn/PL[W]/HA[n]/default KM. Refuses (HandicapOnStartedGameError) once the root has children.
 │   ├── helper.ts                      [B1]  Piecewise cubic Hermite interpolation (pure math).
 │   ├── navigator.ts                   [B3]  LCA-based game-tree traversal with setup-stone + capture tracking. (Maintainer-adjudicated target 2026-06-12: B2 — generic LCA traversal; the tag stays B3 as structural fact while the Go replay — stones/ko/captures/SGF setup-coord decode — is inlined in navigateTo. Tags record fact, not aspiration; lib/keybindings.ts precedent.)
 │   ├── rules.ts                       [B3]  Pure Go rules engine (legality, captures, ko).
-│   ├── sgf-loader.ts                  [B3]  SGF parser → GameNode forest.
+│   ├── rulesets.ts                    [B3]  The four ruling-mandated named rulesets (AGA/Chinese/Japanese/Tromp-Taylor): RulesetName, total case-insensitive normalizeRuleset (sole RulesetName construction site), and rulesetToWireName (display name → KataGo wire spelling, single home).
+│   ├── sgf-loader.ts                  [B3]  SGF parser → GameNode forest. Root turn seeded from getInitialPlayer (PL[W] override for a handicap board; defaults 'B').
 │   ├── sgf-writer.ts                  [B3]  GameNode forest → SGF serialisation.
 │   ├── suggestion-colors.ts           [B3]  Pure colour utilities for move-suggestion overlays.
 │   ├── tree.ts                        [B2]  Generic grid-based tree layout + tree-graph transforms.
-│   ├── util.ts                        [B3]  Board / SGF coord helpers; active-variation traversal; game-name resolution ladder. (Domain-free generateUUID / updateRegistry re-homed to lib/utils.ts 2026-06-10.)
+│   ├── util.ts                        [B3]  Board / SGF coord helpers; active-variation traversal; game-name resolution ladder; getRulesetResolution (RU-property accessor, parallel to getKomi/getBoardSize); getInitialPlayer (PL-property accessor — root player-to-move, handicap-aware); collectSubtreeIds (BFS subtree walk — the setup toolkit's thumbnail-invalidation obligation). (Domain-free generateUUID / updateRegistry re-homed to lib/utils.ts 2026-06-10.)
 │   │
 │   ├── analysis/
 │   │   ├── clustering.ts              [B3]  Pure transposition-grouping utilities.
@@ -292,7 +321,7 @@ frontend/src/
 │       ├── fresh-eval.ts              [B3]  Shared one-shot-eval primitives (connectFresh + awaitFinalPacket) for callers running a fresh KataGo eval off the analysisService singleton; telemetry injected via optional hooks. Consumed by usePlayFromPosition (engine self-play / match) and useKomiCalibration.
 │       ├── katago-client.ts           [B3]  WebSocket transport for KataGo analysis engine.
 │       ├── komi-calibration.ts         [B3]  Pure mint-time even-komi arithmetic: normalise scoreLead to Black-positive (via winrate-framing) → add to evalKomi → round-to-half → clamp [-150, 150].
-│       ├── query-routing.ts           [B3]  The SELECTOR-routing seam: `RoutedAnalysisQuery` brand + `finalizeAnalysisRouting`, the sole place an analysis query's `model` leg is decided (`subscribe` accepts only the brand; the cast is lint-fenced outside this file). Born of the 2026-06-12 missing-`model` incident.
+│       ├── query-routing.ts           [B3]  The SELECTOR-routing seam: `RoutedAnalysisQuery` brand + `finalizeAnalysisRouting`, the sole place an analysis query's `model` leg is decided (`subscribe` accepts only the brand; the cast is lint-fenced outside this file). Born of the 2026-06-12 missing-`model` incident. Also the ONE merge point for the session-ephemeral per-query JSON override (`state/per-query-overrides.ts`) — every builder already passes through here, so the merge rides the same choke point rather than a second remembered call.
 │       ├── subscribe-narrowing.type-test.ts [B3]  Compile-time regression artifact: asserts `subscribe<Q>`'s callback receives `ResponseFor<Q>` (forcing the error-variant discriminant) and that un-routed analysis queries are un-subscribable (the query-routing seam). No runtime exports; type-checked by `vue-tsc -b`.
 │       ├── types.ts                   [B3]  SSOT for KataGo wire types + enrichment envelope.
 │       ├── version-probe.ts           [B3]  Pure parsers for `query_version` + `query_models` (SELECTOR-aware).
@@ -305,7 +334,7 @@ frontend/src/
 │   │   └── quantization.ts            [B3]  Q4 ownership + Q8-factored policy primitives for the lossy leaf.
 │   ├── analysis-bundle.ts             [B3]  Pure projection ledger ↔ wire bundle.
 │   ├── analysis-persistence-service.ts [B3] HTTP boundary for analysis-bundle persistence (save/restore/discard).
-│   ├── analysis-service.ts            [B3]  Bridges KataGo turns to the ledger nodes.
+│   ├── analysis-service.ts            [B3]  Bridges KataGo turns to the ledger nodes. Also warnIfMidTreeSetupDropped: fires a once-per-board system-message notice (analyzeRange/analyzeActiveNode) when the queried path carries a non-root setup stone KataGo's wire protocol has no way to represent (ledger row 622).
 │   ├── api-client.ts                  [B1]  Pure REST client; JWT injection; zero-friction local auth.
 │   ├── backend-service.ts             [B2]  ACL for the backend; wire snake_case → domain camelCase with branded ids.
 │   ├── engine-connection.ts           [B3]  Owner module for the store.engine subtree — analysis-provider connection lifecycle (connect / disconnect-reset / info / selection / metrics). B3: writes the engine slice of the [B3] store hub and speaks the engine band's types (EngineInfo), though named for the problem class — store.engine + this owner replace wholesale for a fork's analysis provider.
@@ -319,10 +348,14 @@ frontend/src/
 ├── state/                                   Reactive-state modules: analysis-domain stores read directly by display leaves (ADR-0010 read-locality). Not effectful singletons; the component→services boundary lint does not police this directory (relocated from services/ 2026-06-11, item reactive-state-modules-relocation).
 │   ├── analysis-config.ts             [B3]  Palette compile + ledger hash. Sole factory for the `RawKey` / `EnrichedKey` brands (`deriveAnalysisKeys`); reactive `activeAnalysisKeys` over the qEUBO audition overlay.
 │   ├── analysis-ledger.ts             [B3]  Provenance-stratified merged-packet store: raw store keyed by `RawKey`, enrichment store keyed by `EnrichedKey`. Per-node version refs (pull consumers) + `onLedgerFlush` changed-key signal (incremental push consumers).
-│   └── stability-trajectory-store.ts  [B3]  Per-(`RawKey`, `ExtractorId`, nodeId) trajectory store fed by analysis-service preview ingestion.
+│   ├── known-positions.ts             [B1]  Per-user reactive `ContentHash -> CardId` map (card-position-annotations Stage A); populated incidentally via BackendService.mapToReviewCard, first-seen-wins on write, purged on identity flip.
+│   ├── node-position-hashes.ts        [B2]  Per-node reactive `NodeId -> ContentHash` cache (card-position-annotations Stage B); mirrors thumbnail-render-resources.ts's invalidation shape (purge-on-board-close, purge-on-identity-flip). Filled by composables/cards/useNodePositionHashes.ts.
+│   ├── per-query-overrides.ts         [B1]  Session-ephemeral blanket JSON override merged into every outgoing analysis query's `overrideSettings` at the `finalizeAnalysisRouting` choke point (wiki wanted-feature 2, ledger rows 510/511). Not persisted — module-scope only.
+│   ├── stability-trajectory-store.ts  [B3]  Per-(`RawKey`, `ExtractorId`, nodeId) trajectory store fed by analysis-service preview ingestion.
+│   └── visits-lerp.ts                 [B1]  Session-ephemeral a/b LERP override (`effective = a*x + b`) on a card's specific visit count, applied in `useReviewSession.ts::processUserMove` (wiki wanted-feature 3, ledger rows 503/504). Not persisted — module-scope only.
 │
 ├── store/                                   Single GlobalStore singleton + mutators + migrations.
-│   ├── archived-migrations.ts         [B1]  Aged-out schema migrations (1→2 .. 57→58) lifted out under the rolling-archive cadence to keep migrations.ts scoped to the latest two; preserved for the framework's contiguity invariant. Post-retrofit bodies call witnessedContainer (imported from migration-witness.ts).
+│   ├── archived-migrations.ts         [B1]  Aged-out schema migrations (1→2 .. 59→60) lifted out under the rolling-archive cadence to keep migrations.ts scoped to the latest two; preserved for the framework's contiguity invariant. Post-retrofit bodies call witnessedContainer (imported from migration-witness.ts).
 │   ├── board-factory.ts               [B3]  Pure factory functions for board state construction.
 │   ├── defaults.ts                    [B3]  Initial GlobalStore constants (board defaults dominate; some B1 too).
 │   ├── index.ts                       [B3]  Central reactive store; createBoard / closeBoard / resetWorkspace.
@@ -357,6 +390,7 @@ frontend/src/
 │   └── qeubo.ts                       [B1]  qEUBO calibration domain: experiment / status / pair / best projections, QeuboError (runtime class), QeuboBookmark.
 │
 ├── utils/                                   Small DOM / chrome helpers.
+│   ├── contrast-ratio.ts              [B1]  Pure WCAG 2.1 relative-luminance / contrast-ratio math over `#rrggbb` hex strings. Backs the high-contrast-text token choices in theme.css's `[data-theme="cluster"][data-contrast-text="on"]` block with a machine-checked test rather than hand-computed-and-trusted ratios.
 │   ├── context-id-macros.ts           [B2]  `${a,b}` macro expansion for the Cards-tab context-id field.
 │   ├── modifier-key.ts                [B1]  Platform-aware modifier-click detection (Cmd vs Ctrl, middle-button).
 │   └── theme-color.ts                 [B1]  Runtime CSS-variable accessor for ECharts adapter configs.
@@ -371,7 +405,8 @@ frontend/src/
 │   ├── stability-trajectory.ts        [B1]  Generic change-point-compressed V-axis trajectory + log-V-weighted stable-fraction.
 │   ├── timing.ts                      [B1]  Complete application-timing catalog: every authored time literal (coalescing windows, interaction-dismiss grace, display durations, render retries, micro-scheduling, perf-harness cadences, engine-session timing) as individually-named, independently-tunable constants — the auditable tuning surface. (Structurally B1 — imports nothing domain-specific — though §7 catalogs engine-coupled, band-2/3 timing *values*.)
 │   ├── unhandled-rejection-backstop.ts [B1] Window `unhandledrejection` backstop factory (`createRejectionBackstop`): de-dups escaped async rejections to the system-message surface (level 4) + console (level 5), keyed on reason-message with a distinct-reason cap so a storm can't wipe the 50-slot log (enrichment-merge latch precedent). Dependency-free; real sinks + the `window` listener wired in `main.ts`.
-│   └── utils.ts                       [B1]  Domain-free helpers: debounce; isObject + deepMerge (hydration default-backfill); generateUUID (RFC4122 v4); updateRegistry (silent-create deep path-write — deliberately NOT knobs.ts's fail-loud walkers; co-located, never merged). (lib/ vs utils/ merger flagged separately.)
+│   ├── utils.ts                       [B1]  Domain-free helpers: debounce; isObject + deepMerge (hydration default-backfill); generateUUID (RFC4122 v4); updateRegistry (silent-create deep path-write — deliberately NOT knobs.ts's fail-loud walkers; co-located, never merged). (lib/ vs utils/ merger flagged separately.)
+│   └── ws-url.ts                      [B1]  `validateEngineUri`: ws:// / wss:// URI validation (URL-constructor-based). Domain-free — shared by useEngineUriEditor.ts and available for any future editor of engine.katago.url.
 │
 └── config/
     └── env.ts                         [B1]  Centralised reader for Vite environment variables.

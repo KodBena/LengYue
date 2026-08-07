@@ -139,6 +139,13 @@ export function useEChartsForestRender<P>(): ForestChartHandle<P> {
         trigger: 'item',
         triggerOn: 'mousemove',
         backgroundColor: themeColor('--surface-0'),
+        // Chrome, not data-series (disclosed, contrast-tokens-review.md (4)):
+        // a tooltip-box border encodes no data. Reads
+        // '--accent-primary' directly (not the chart-series-locked
+        // canonical) so it inherits the high-contrast override like any
+        // other chrome accent use; the guard test
+        // (tests/unit/chart-accent-primary-lock.test.ts) allowlists this
+        // exact line.
         borderColor: themeColor('--accent-primary'),
         textStyle: { color: themeColor('--text-1'), fontSize: 11 },
         enterable: true,

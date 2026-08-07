@@ -377,6 +377,44 @@ def test_forest_query_empty_pipeline_fails():
         ForestQuery(context_ids=[1], pipeline=[])
 
 
+# ─── macro-public-id-tokens: game_source_ordinals ─────────────────────────────
+
+
+def test_forest_query_game_source_ordinals_alone_satisfies_nonempty():
+    """
+    context_ids may be empty as long as game_source_ordinals is
+    non-empty — the widened grammar's whole point (a macro-only
+    query with no bare literal card ids typed alongside it).
+    """
+    q = ForestQuery(
+        context_ids=[],
+        game_source_ordinals=[5],
+        pipeline=[SelectStage(selection=DescendantSelection())],
+    )
+    assert q.context_ids == []
+    assert q.game_source_ordinals == [5]
+
+
+def test_forest_query_both_context_sources_empty_fails():
+    with pytest.raises(ValidationError, match="context_ids"):
+        ForestQuery(
+            context_ids=[],
+            game_source_ordinals=[],
+            pipeline=[SelectStage(selection=DescendantSelection())],
+        )
+
+
+def test_forest_query_game_source_ordinals_defaults_to_empty():
+    """A request that omits game_source_ordinals entirely (every
+    caller before this pass) still validates — the field is additive,
+    not a breaking change to the existing context_ids-only shape."""
+    q = ForestQuery(
+        context_ids=[1],
+        pipeline=[SelectStage(selection=DescendantSelection())],
+    )
+    assert q.game_source_ordinals == []
+
+
 # ─── pipeline_adapter (TypeAdapter export) ────────────────────────────────────
 
 

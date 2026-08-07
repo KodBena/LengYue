@@ -25,10 +25,19 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime, timezone
+from itertools import count
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# Per-user-id-enumeration design: card.display_ordinal,
+# card.public_id, and game_source.display_ordinal are NOT NULL. This
+# module's seeding helpers aren't exercising that feature, so a
+# process-wide monotonic counter (trivially per-user-unique too) is
+# sufficient — the exact ordinal values aren't under test here.
+_ordinal = count(1)
 
 from db.schema import (
     card,
@@ -78,7 +87,11 @@ async def _seed_game_source(
     description: str,
     player_white: str = "W",
     player_black: str = "B",
-) -> int:
+) -> tuple[int, int]:
+    """Returns (internal id, display_ordinal) — browse-leak-fix: the
+    ordinal is now the wire identity `fetch_forest_members` surfaces,
+    so tests need it alongside the internal id used to link cards."""
+    ordinal = next(_ordinal)
     res = await session.execute(
         insert(game_source)
         .values(
@@ -87,16 +100,22 @@ async def _seed_game_source(
             description=description,
             player_white=player_white,
             player_black=player_black,
+            client_game_id=uuid4(),
+            display_ordinal=ordinal,
         )
         .returning(game_source.c.id)
     )
-    return int(res.scalar())
+    return int(res.scalar()), ordinal
 
 
 async def _seed_card(
     session: AsyncSession, *, user_id: int, position_id: int,
     num_reviews: int = 0,
-) -> int:
+) -> tuple[int, "UUID"]:
+    """Returns (internal id, public_id) — browse-leak-fix: public_id
+    is now the wire identity `fetch_forest_members` surfaces for a
+    forest's root card."""
+    public_id = uuid4()
     res = await session.execute(
         insert(card)
         .values(
@@ -107,10 +126,12 @@ async def _seed_card(
             user_id=user_id,
             num_reviews=num_reviews,
             normalized_position_id=position_id,
+            public_id=public_id,
+            display_ordinal=next(_ordinal),
         )
         .returning(card.c.id)
     )
-    return int(res.scalar())
+    return int(res.scalar()), public_id
 
 
 async def _link_root(
@@ -159,8 +180,8 @@ async def test_fetch_tag_usage_returns_count_and_name_per_tag(async_session):
     session = async_session
     await _seed_user(session, user_id=ALICE)
     pos_id = await _seed_position(session, content="(;a)")
-    c1 = await _seed_card(session, user_id=ALICE, position_id=pos_id)
-    c2 = await _seed_card(session, user_id=ALICE, position_id=pos_id)
+    c1, _ = await _seed_card(session, user_id=ALICE, position_id=pos_id)
+    c2, _ = await _seed_card(session, user_id=ALICE, position_id=pos_id)
     attack = await _seed_tag(session, name="attack")
     defense = await _seed_tag(session, name="defense")
     await _seed_card_tag(session, card_id=c1, tag_id=attack)
@@ -199,7 +220,7 @@ async def test_fetch_tag_usage_does_not_leak_other_tenants_counts(async_session)
     await _seed_user(session, user_id=ALICE)
     await _seed_user(session, user_id=BOB)
     pos_id = await _seed_position(session, content="(;a)")
-    bobs_card = await _seed_card(session, user_id=BOB, position_id=pos_id)
+    bobs_card, _ = await _seed_card(session, user_id=BOB, position_id=pos_id)
     bobs_tag = await _seed_tag(session, name="bobsecret")
     await _seed_card_tag(session, card_id=bobs_card, tag_id=bobs_tag)
 
@@ -219,7 +240,7 @@ async def test_fetch_tag_usage_orders_by_count_desc(async_session):
     await _seed_user(session, user_id=ALICE)
     pos_id = await _seed_position(session, content="(;a)")
     cards = [
-        await _seed_card(session, user_id=ALICE, position_id=pos_id)
+        (await _seed_card(session, user_id=ALICE, position_id=pos_id))[0]
         for _ in range(3)
     ]
     rare = await _seed_tag(session, name="rare")
@@ -249,12 +270,12 @@ async def test_fetch_forest_members_yields_one_row_per_card_in_forest(
     session = async_session
     await _seed_user(session, user_id=ALICE)
     pos_id = await _seed_position(session, content="(;a)")
-    gs_id = await _seed_game_source(
+    gs_id, gs_ordinal = await _seed_game_source(
         session, position_id=pos_id, user_id=ALICE, description="forest-1",
     )
-    root = await _seed_card(session, user_id=ALICE, position_id=pos_id)
-    branch = await _seed_card(session, user_id=ALICE, position_id=pos_id)
-    leaf = await _seed_card(session, user_id=ALICE, position_id=pos_id)
+    root, root_public_id = await _seed_card(session, user_id=ALICE, position_id=pos_id)
+    branch, _ = await _seed_card(session, user_id=ALICE, position_id=pos_id)
+    leaf, _ = await _seed_card(session, user_id=ALICE, position_id=pos_id)
     await _link_root(session, card_id=root, game_source_id=gs_id)
     await _link_branch(session, card_id=branch, parent_card_id=root)
     await _link_branch(session, card_id=leaf, parent_card_id=branch)
@@ -263,8 +284,8 @@ async def test_fetch_forest_members_yields_one_row_per_card_in_forest(
     rows = await repo.fetch_forest_members(user_id=ALICE)
 
     assert len(rows) == 3
-    assert {r.root_card_id for r in rows} == {root}
-    assert {r.game_source_id for r in rows} == {gs_id}
+    assert {r.root_card_public_id for r in rows} == {root_public_id}
+    assert {r.game_source_display_ordinal for r in rows} == {gs_ordinal}
     assert {r.description for r in rows} == {"forest-1"}
 
 
@@ -275,20 +296,20 @@ async def test_fetch_forest_members_two_forests_distinct_root_card_ids(
     await _seed_user(session, user_id=ALICE)
     pos_a = await _seed_position(session, content="(;a)")
     pos_b = await _seed_position(session, content="(;b)")
-    gs_a = await _seed_game_source(
+    gs_a, _ = await _seed_game_source(
         session, position_id=pos_a, user_id=ALICE, description="A",
     )
-    gs_b = await _seed_game_source(
+    gs_b, _ = await _seed_game_source(
         session, position_id=pos_b, user_id=ALICE, description="B",
     )
-    root_a = await _seed_card(session, user_id=ALICE, position_id=pos_a)
-    root_b = await _seed_card(session, user_id=ALICE, position_id=pos_b)
+    root_a, root_a_public_id = await _seed_card(session, user_id=ALICE, position_id=pos_a)
+    root_b, root_b_public_id = await _seed_card(session, user_id=ALICE, position_id=pos_b)
     await _link_root(session, card_id=root_a, game_source_id=gs_a)
     await _link_root(session, card_id=root_b, game_source_id=gs_b)
 
     repo = StatsRepository(session)
     rows = await repo.fetch_forest_members(user_id=ALICE)
-    assert {r.root_card_id for r in rows} == {root_a, root_b}
+    assert {r.root_card_public_id for r in rows} == {root_a_public_id, root_b_public_id}
 
 
 async def test_fetch_forest_members_excludes_cross_tenant_forests(
@@ -302,10 +323,10 @@ async def test_fetch_forest_members_excludes_cross_tenant_forests(
     await _seed_user(session, user_id=ALICE)
     await _seed_user(session, user_id=BOB)
     pos = await _seed_position(session, content="(;a)")
-    bob_gs = await _seed_game_source(
+    bob_gs, _ = await _seed_game_source(
         session, position_id=pos, user_id=BOB, description="bobs-forest",
     )
-    bob_root = await _seed_card(session, user_id=BOB, position_id=pos)
+    bob_root, _ = await _seed_card(session, user_id=BOB, position_id=pos)
     await _link_root(session, card_id=bob_root, game_source_id=bob_gs)
 
     repo = StatsRepository(session)
@@ -324,10 +345,10 @@ async def test_fetch_forest_members_preserves_card_state_fields(async_session):
     session = async_session
     await _seed_user(session, user_id=ALICE)
     pos = await _seed_position(session, content="(;a)")
-    gs = await _seed_game_source(
+    gs, _ = await _seed_game_source(
         session, position_id=pos, user_id=ALICE, description="A",
     )
-    cid = await _seed_card(
+    cid, _ = await _seed_card(
         session, user_id=ALICE, position_id=pos, num_reviews=7,
     )
     await _link_root(session, card_id=cid, game_source_id=gs)

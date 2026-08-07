@@ -11,6 +11,10 @@
   "app.chrome.toggleControls":            "コントロールパネルの表示切替",
   "app.chrome.gameTreePanelHeader":       "棋譜ツリー",
 
+  "app.workspace.loading":                "ワークスペースを読み込み中…",
+  "app.workspace.loadFailed":             "ワークスペースの読み込みに失敗しました。変更や損失はありません。",
+  "app.workspace.retry":                  "再試行",
+
   "localePicker.tooltip":                 "インターフェース言語を変更",
   "localePicker.machineTranslatedNotice": "* 機械翻訳です — 貢献歓迎",
   "localePicker.machineTranslatedTooltip": "この翻訳は機械生成です。母語話者によるレビュー待ちです。GitHub での貢献を歓迎します。",
@@ -49,9 +53,10 @@
   "cards.decks.selectDeck":               "デッキ選択:",
   "cards.decks.contextIds":               "コンテキスト ID:",
   "cards.decks.contextIdsPlaceholder":    "例: 3, 4, {0}",
-  "cards.decks.contextIdsTooltip":        "デッキパイプラインに供給するルートカード ID(カンマ区切り)。{0}(または {1})を使うと、ゲームソース ID をその全ルートカード ID に展開します — クライアント側で読み込み済みのフォレスト統計から解決されます。",
-  "cards.decks.expandsTo":                "→ 展開先: {ids}",
+  "cards.decks.contextIdsTooltip":        "デッキパイプラインに供給するルートカード ID(カンマ区切り)。{0}(または {1})にゲームの表示 ID を使うと、その全ルートカードが含まれます — パイプライン実行時にサーバー側で解決されます。",
+  "cards.decks.expandsTo":                "→ 送信内容: {ids}",
   "cards.decks.expandsToEmpty":           "(空)",
+  "cards.decks.expandsToGameTag":         "ゲーム {ordinal}",
   "cards.decks.startReview":              "復習セッション開始",
   "cards.decks.startReviewTooltip":       "パイプラインを実行し、マッチしたカードに対して即座に復習セッションを開始します。",
   "cards.decks.runPipeline":              "パイプライン実行",

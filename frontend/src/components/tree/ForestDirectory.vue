@@ -12,9 +12,10 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { store, activeBoard, pushSystemMessage } from '../../store';
+import { store, activeBoard, pushSystemMessage, touchSession } from '../../store';
+import { useDeferredContainerBreakpoint } from '../../composables/chrome/useDeferredContainerBreakpoint';
 import type { BoardId, CardId, CardMetadataPatch, ForestStat, ReviewCard } from '../../types';
 import { useCardTreeData } from '../../composables/cards/useCardTreeData';
 import { useCardMetadata } from '../../composables/cards/useCardMetadata';
@@ -213,10 +214,16 @@ async function runDeck(): Promise<void> {
   if (collected === 'cancelled') return;
   const values: HyperparamValues = collected === 'skipped' ? {} : collected;
   // Single ephemeral context (schema-version 16): the deck is a pure
-  // strategy, the context lives on `cardsContextIds`. The matched-cards
-  // return value is unused here — this codepath is browse-only,
-  // distinct from the start-review-session flow that consumes it.
-  await tree.runPipeline(deck, store.session.ui.cardsContextIds, values);
+  // strategy, the context lives on `cardsContextIds` /
+  // `cardsContextGameSourceOrdinals`. The matched-cards return value
+  // is unused here — this codepath is browse-only, distinct from the
+  // start-review-session flow that consumes it.
+  await tree.runPipeline(
+    deck,
+    store.session.ui.cardsContextIds,
+    values,
+    store.session.ui.cardsContextGameSourceOrdinals,
+  );
 }
 
 /**
@@ -238,7 +245,12 @@ async function startReviewFromConfig(): Promise<void> {
   const collected = await collectHyperparameters(deck);
   if (collected === 'cancelled') return;
   const values: HyperparamValues = collected === 'skipped' ? {} : collected;
-  const matched = await tree.runPipeline(deck, store.session.ui.cardsContextIds, values);
+  const matched = await tree.runPipeline(
+    deck,
+    store.session.ui.cardsContextIds,
+    values,
+    store.session.ui.cardsContextGameSourceOrdinals,
+  );
   if (matched.length > 0) {
     await reviewSession.startSession(matched);
   }
@@ -262,25 +274,66 @@ const contextIdInput = ref(store.session.ui.cardsContextIds.join(', '));
 // shows their literal typing rather than the parsed form).
 const hasContextIdMacro = computed(() => /\$\{/.test(contextIdInput.value));
 
+// macro-public-id-tokens: the hint can no longer show the FINAL
+// resolved root card ids (resolution is server-side now, not a
+// client-side lookup) — it shows what will actually be SENT: the
+// literal card ids plus each recognized game_source ordinal, tagged
+// so it's clear which is which. `t('cards.decks.expandsToGameTag')`
+// (e.g. "game N") disambiguates a bare number typed outside a macro
+// from a resolved-at-request-time game token.
+const expandsToDisplay = computed(() => {
+  const parts = [
+    ...store.session.ui.cardsContextIds.map(id => String(id)),
+    ...store.session.ui.cardsContextGameSourceOrdinals.map(
+      ordinal => t('cards.decks.expandsToGameTag', { ordinal }),
+    ),
+  ];
+  return parts.length > 0 ? parts.join(', ') : t('cards.decks.expandsToEmpty');
+});
+
+// macro-public-id-tokens (ledger rows 456/498/500): restores the
+// `${gameSourceId}` macro that browse-leak-fix broke. The macro
+// expander no longer resolves a token to a raw root card id itself
+// (`ForestStat` has none to give it) — it just recognizes which
+// typed macro tokens are known `gameSourceDisplayOrdinal` values and
+// hands both the literal card ids and the recognized ordinals to
+// `/forests/query` unresolved; the backend resolves each ordinal to
+// its game_source's root card id(s) server-side, within this user's
+// tenancy (`PipelineExecutor.run`'s `game_source_ordinals` param).
+// The SPA never sees or handles a raw root-card PK for this purpose.
+const warnedUnknownMacroTokens = new Set<number>();
+
 function updateContextIds(val: string): void {
   // Preserve the user's literal typing in the local ref.
   contextIdInput.value = val;
-  // Pre-expand `${gameSourceId, ...}` macros to the corresponding
-  // root card ids, then mirror CardSetEditor's parser: split on
-  // comma, parse, drop NaN. Resolution uses the same `roots` ref
-  // that drives the navigator — no backend round-trip needed.
-  const expanded = expandContextIdMacros(val, (gameSourceId) =>
-    roots.value
-      // Brand-strip GameSourceId/CardId → raw number to compare against the
-      // numeric macro arg / build the numeric context-id list; documented
-      // debt, IDENTIFIERS.md erosion (b) (maintainer-directed re-brand helper).
-      .filter(s => (s.gameSourceId as unknown as number) === gameSourceId)
-      .map(s => s.rootCardId as unknown as number), // same brand-strip, erosion (b)
+  const expanded = expandContextIdMacros(val, (gameSourceDisplayOrdinal) =>
+    roots.value.some(
+      // Brand-strip GameDisplayOrdinal -> raw number to compare against the
+      // macro's parsed-int token; documented debt, IDENTIFIERS.md erosion
+      // (b) (maintainer-directed re-brand-helper fix, not done here).
+      s => (s.gameSourceDisplayOrdinal as unknown as number) === gameSourceDisplayOrdinal,
+    ),
   );
-  store.session.ui.cardsContextIds = expanded
-    .split(',')
-    .map(s => parseInt(s.trim(), 10))
-    .filter(n => !isNaN(n));
+  // A token inside `${...}` that doesn't match any of the user's own
+  // known game sources is still the ADR-0002 UI-input-validation
+  // exception (silently drop from the request), but warned once per
+  // distinct value so a typo doesn't look like an unexplained no-op.
+  for (const token of expanded.unknownGameSourceOrdinalTokens) {
+    if (!warnedUnknownMacroTokens.has(token)) {
+      warnedUnknownMacroTokens.add(token);
+      console.warn(
+        `[ForestDirectory] \${${token}} does not match any of your ` +
+        'game sources — dropped from the query. Check the Browse tab ' +
+        'for the game source\'s actual display id.',
+      );
+    }
+  }
+  store.session.ui.cardsContextIds = [...expanded.cardIds];
+  store.session.ui.cardsContextGameSourceOrdinals = [...expanded.gameSourceOrdinals];
+  // Persisted `session.ui` fields — bump the session counter SyncService
+  // keys persistence on (it no longer deep-watches `store.session`; see
+  // `sessionVersion` in `store/index.ts`).
+  touchSession();
 }
 
 function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }): void {
@@ -341,19 +394,45 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
     cardMetadataSaving.value = false;
   }
 }
+
+// resizer-rearch charter amendment (deferred-reorg mechanism, ledger
+// row 391): the row↔column reflow below used to be a pure CSS
+// `@container (max-width: 479px)` query (iter-17, see the template
+// comment). That's exactly the class of "discrete responsiveness
+// reorganization" the amendment names — this panel is hosted inside
+// #control-panel (the Cards tab), so a resizer drag sweeps this
+// wrapper's width continuously through 479px, and the CQ used to flip
+// the layout mid-gesture. Converted to a ResizeObserver-driven class
+// via useDeferredContainerBreakpoint, which freezes the reorg while
+// EITHER resizer bar is dragging and commits once, with hysteresis,
+// on release. See that composable's header for the full mechanism.
+const forestCqWrapperEl = ref<HTMLElement | null>(null);
+const {
+  committed: forestNarrow,
+  observe: observeForestWidth,
+  stop: stopForestWidthObserver,
+} = useDeferredContainerBreakpoint(479);
+
+onMounted(() => {
+  if (forestCqWrapperEl.value) observeForestWidth(forestCqWrapperEl.value);
+});
+// ADR-0010 imperative-escape step 4: the ResizeObserver lives outside
+// Vue's reactivity graph and must be released, or every mounted
+// ForestDirectory leaks an observer for the component's lifetime.
+onUnmounted(() => {
+  stopForestWidthObserver();
+});
 </script>
 
 <template>
-  <!-- Container-query wrapper (iter-17). The CQ container must be
-       an ancestor — not the queried element itself. iter-16 placed
-       `container-type` on `.forest-container` and tried to style
-       `.forest-container { flex-direction: column }` inside its own
-       `@container` block, which never matches (you can't query an
-       element from its own descendants). The wrapper moves the
-       container-type up one level so `.forest-container` and its
-       children become proper descendants. -->
-  <div class="forest-cq-wrapper">
-  <div class="forest-container">
+  <!-- Was a container-query wrapper (iter-17); converted to a
+       ResizeObserver-driven class (resizer-rearch charter amendment,
+       ledger row 391) — see the script's forestNarrow comment for
+       why. The wrapper element is kept as the ResizeObserver's
+       target (same ancestor-not-self reasoning iter-17 established:
+       `.forest-container` cannot observe/react to its own width). -->
+  <div class="forest-cq-wrapper" ref="forestCqWrapperEl">
+  <div class="forest-container" :class="{ 'forest-narrow-stack': forestNarrow }">
 
     <!-- LEFT PANEL: Navigation — Decks / Browse via the shared TabWidget -->
     <div class="left-panel">
@@ -381,7 +460,7 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
                 :title="$t('cards.decks.contextIdsTooltip', ['${N}', '${N, M, ...}'])"
               />
               <p v-if="hasContextIdMacro" class="macro-hint">
-                {{ $t('cards.decks.expandsTo', { ids: store.session.ui.cardsContextIds.join(', ') || $t('cards.decks.expandsToEmpty') }) }}
+                {{ $t('cards.decks.expandsTo', { ids: expandsToDisplay }) }}
               </p>
 
               <button
@@ -483,35 +562,44 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
 </template>
 
 <style scoped>
-/* Container-query wrapper (iter-17 correction of iter-16). The CQ
-   container is the wrapper `.forest-cq-wrapper`; `.forest-container`
-   is its descendant. Threshold 479 px is content-derived (left-panel
+/* Was a `@container` query (iter-17 correction of iter-16); converted
+   to a ResizeObserver-driven `.forest-narrow-stack` class
+   (resizer-rearch charter amendment, ledger row 391 — see the
+   script's forestNarrow comment for why: a live `@container` flips
+   mid-drag, which is exactly the "discrete reorganization during a
+   continuous gesture" the amendment forbids). `.forest-cq-wrapper`
+   is kept as the ResizeObserver's target (an ancestor of
+   `.forest-container`, not the styled element itself — the
+   ancestor-not-self lesson iter-17 originally paid for still applies
+   to a ResizeObserver target the same way it applied to a CQ
+   container). Threshold 479 px is content-derived (left-panel
    natural width 280 + tree-panel min-width ≈200 = 480), not viewport-
    derived — a user widening the control panel above ~480 px gets the
    side-by-side layout regardless of the actual viewport. */
-.forest-cq-wrapper { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; container-type: inline-size; }
+.forest-cq-wrapper { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; }
 .forest-container { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; overflow: hidden; background: var(--surface-0); }
 .left-panel { width: 280px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--surface-3); flex-shrink: 0; }
 
-/* magic-literal: 479px CQ threshold — derived, not arbitrary. The
-   side-by-side layout needs `.left-panel`'s natural width (280px,
-   set immediately above) plus `.tree-panel`'s usable minimum
-   (~200px, the threshold below which the lineage explorer's
-   ECharts forest renders unintelligibly). 280 + 200 = 480; the
-   query fires below that. If the left-panel's natural width or the
-   tree-panel's usable floor changes, this threshold needs to track
-   them. */
-@container (max-width: 479px) {
-  .forest-container { flex-direction: column; }
-  /* magic-literal: 40% max-height on stacked left-panel — leaves
-     ~60% for the tree-panel below. Picked so the lineage explorer
-     gets the larger share (it's the visualization the user came to
-     this tab for); left-panel is navigation + form chrome and 40%
-     of a ~700px stacked container is ~280px, enough for the
-     deck-selector form to render without internal scroll in the
-     common case. Soft cap — if left-panel content is shorter than
-     40%, it sizes to content. */
-  .left-panel { width: 100%; max-height: 40%; border-right: none; border-bottom: 1px solid var(--surface-3); flex-shrink: 1; }
+/* magic-literal: 479px threshold (useDeferredContainerBreakpoint call
+   site in the script) — derived, not arbitrary. The side-by-side
+   layout needs `.left-panel`'s natural width (280px, set immediately
+   above) plus `.tree-panel`'s usable minimum (~200px, the threshold
+   below which the lineage explorer's ECharts forest renders
+   unintelligibly). 280 + 200 = 480; the reorg fires below that. If
+   the left-panel's natural width or the tree-panel's usable floor
+   changes, this threshold needs to track them. */
+.forest-container.forest-narrow-stack {
+  flex-direction: column;
+}
+/* magic-literal: 40% max-height on stacked left-panel — leaves ~60%
+   for the tree-panel below. Picked so the lineage explorer gets the
+   larger share (it's the visualization the user came to this tab
+   for); left-panel is navigation + form chrome and 40% of a ~700px
+   stacked container is ~280px, enough for the deck-selector form to
+   render without internal scroll in the common case. Soft cap — if
+   left-panel content is shorter than 40%, it sizes to content. */
+.forest-container.forest-narrow-stack .left-panel {
+  width: 100%; max-height: 40%; border-right: none; border-bottom: 1px solid var(--surface-3); flex-shrink: 1;
 }
 .panel-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-tight) var(--space-default); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); font-size: var(--text-emphasis); text-transform: uppercase; color: var(--text-0); letter-spacing: var(--tracking-default); flex-shrink: 0; }
 .decks-view, .browse-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }

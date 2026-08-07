@@ -32,6 +32,7 @@ import type {
   CardCreatePayload,
   CardLineageTree,
   CardMetadataPatch,
+  ContentHash,
   ResolveRootsResult,
   ReviewCard,
 } from '../../src/types';
@@ -45,6 +46,14 @@ export const fakeBackendService = {
   resolveRoots: vi.fn<(cardIds: CardId[]) => Promise<ResolveRootsResult>>(),
   fetchTreeByRoot: vi.fn<(rootCardId: CardId, maxNodes?: number) => Promise<CardLineageTree>>(),
   fetchCard: vi.fn<(cardId: CardId) => Promise<ReviewCard>>(),
+  // card-position-annotations Stage A: the stateless hash lookup
+  // (`POST /positions/hash`) — exercised by useMinting/useKnownPositions'
+  // mint-time duplicate check.
+  hashPosition: vi.fn<(rawContent: string) => Promise<ContentHash>>(),
+  // card-position-annotations Stage B: the batched hash lookup
+  // (`POST /positions/hash-batch`) — exercised by
+  // useNodePositionHashes' viewport-driven tree-node cache fill.
+  hashPositionsBatch: vi.fn<(rawContents: string[]) => Promise<ContentHash[]>>(),
 };
 
 export function resetFakeBackendService(): void {
@@ -54,4 +63,6 @@ export function resetFakeBackendService(): void {
   fakeBackendService.resolveRoots.mockReset();
   fakeBackendService.fetchTreeByRoot.mockReset();
   fakeBackendService.fetchCard.mockReset();
+  fakeBackendService.hashPosition.mockReset();
+  fakeBackendService.hashPositionsBatch.mockReset();
 }

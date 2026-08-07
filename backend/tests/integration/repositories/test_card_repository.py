@@ -30,11 +30,16 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime, timezone
+from itertools import count
 from uuid import uuid4
 
 import pytest
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# Per-user-id-enumeration design: see test_stats_repository.py's
+# identical comment.
+_ordinal = count(1)
 
 from db.schema import (
     card,
@@ -92,6 +97,8 @@ async def _seed_card(
             t=1.0,
             user_id=user_id,
             normalized_position_id=position_id,
+            public_id=uuid4(),
+            display_ordinal=next(_ordinal),
         )
         .returning(card.c.id)
     )
@@ -301,7 +308,12 @@ async def test_insert_game_source_stamps_user_id(async_session):
     assert row.user_id == int(ALICE)
     assert row.player_white == "Alice"
     assert row.player_black == "Eve"
-    assert row.client_game_id is None  # Insert path is dedup-exempt.
+    # Per-user-id-enumeration design (closing the client_game_id-may-
+    # be-None exception): this path now always mints a fresh UUID,
+    # even though it's not dedup-aware (get_or_create_game_source_by_
+    # client_id is the dedup-aware path).
+    assert row.client_game_id is not None
+    assert row.display_ordinal == 1
 
 
 async def test_get_or_create_game_source_by_client_id_creates_on_miss(

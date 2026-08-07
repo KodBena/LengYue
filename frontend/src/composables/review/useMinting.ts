@@ -12,9 +12,15 @@ import { compileAnalysisConfig, compileEngineOverrides } from '../../state/analy
 import { useMetadata } from '../auth-app/useMetadata';
 import { learnTags } from '../cards/useTags';
 import { useKomiCalibration } from './useKomiCalibration';
+import { useKnownPositions } from '../cards/useKnownPositions';
 import type { KomiCalibrationResult } from '../../engine/katago/komi-calibration';
-import { computed } from 'vue';
-import type { BoardId, CardCreatePayload, GameMetadataPayload } from '../../types';
+import { computed, ref } from 'vue';
+import type { BoardId, CardCreatePayload, CardId, GameMetadataPayload } from '../../types';
+
+/** `duplicateCheckStatus` states for the mint-dialog duplicate warning
+ * (card-position-annotations Stage A, C6 posture: a lookup in flight
+ * renders as "checking", never as a silent "no duplicate"). */
+export type DuplicateCheckStatus = 'idle' | 'checking' | 'checked';
 
 /**
  * Compiles the `grading_parameter` blob shared by every card-create
@@ -68,6 +74,37 @@ export function compileMintGradingParameter(): Record<string, any> {
 }
 
 export function useMinting() {
+  const { checkForDuplicate, rememberMintedCard } = useKnownPositions();
+
+  // Duplicate-check state for the currently-open draft. Reset by the
+  // caller (`MintCardModal.open`) on each new draft; `checkDuplicate`
+  // below is the sole writer.
+  const duplicateCheckStatus = ref<DuplicateCheckStatus>('idle');
+  const duplicateCardId = ref<CardId | null>(null);
+
+  /**
+   * Resolve `rawContent`'s content_hash via the stateless backend
+   * endpoint and look it up against the caller's known positions.
+   * Fire-and-await from the modal AFTER it has already opened with the
+   * draft — the check must never block the draft from appearing (design
+   * §4: "not a hard block", the user may proceed deliberately while the
+   * check is still in flight or has found nothing).
+   */
+  async function checkDuplicate(rawContent: string): Promise<void> {
+    duplicateCheckStatus.value = 'checking';
+    duplicateCardId.value = null;
+    try {
+      duplicateCardId.value = await checkForDuplicate(rawContent);
+    } finally {
+      duplicateCheckStatus.value = 'checked';
+    }
+  }
+
+  /** Reset duplicate-check state — called when a fresh draft opens. */
+  function resetDuplicateCheck(): void {
+    duplicateCheckStatus.value = 'idle';
+    duplicateCardId.value = null;
+  }
 
   /**
    * Reads the current board state and user settings, and constructs
@@ -203,12 +240,33 @@ export function useMinting() {
     // path does the same via useCardMetadata — see useTags.ts).
     learnTags(payload.tags);
 
+    // card-position-annotations Stage A: record the just-minted card in
+    // known-positions immediately, so it's recognised as a duplicate on
+    // a subsequent mint attempt this session without waiting on a
+    // re-fetch to route it through `mapToReviewCard`. Best-effort — a
+    // failure here must not fail the mint itself (the card was already
+    // created successfully above); logged, not rethrown.
+    try {
+      // Brand mint: `createCard` returns the wire's raw `card_id: number`
+      // (see BackendService.createCard); CardId's brand is phantom, so
+      // this is the standard boundary re-brand, same pattern as
+      // `prepareDraft`'s `parent_card_id as unknown as number` strip
+      // above (just the inverse direction).
+      await rememberMintedCard(payload.raw_content, newCardId as unknown as CardId);
+    } catch (err) {
+      console.warn('[useMinting] rememberMintedCard failed (non-fatal):', err);
+    }
+
     return newCardId;
   }
 
   return {
     prepareDraft,
     calibrateKomiOnDraft,
-    commitMint
+    commitMint,
+    checkDuplicate,
+    resetDuplicateCheck,
+    duplicateCheckStatus,
+    duplicateCardId,
   };
 }
