@@ -57,6 +57,12 @@ export const fakeBackendService = {
   // (`POST /positions/hash-batch`) — exercised by
   // useNodePositionHashes' viewport-driven tree-node cache fill.
   hashPositionsBatch: vi.fn<(rawContents: string[]) => Promise<ContentHash[]>>(),
+  // Known-positions boot-time hydrate: the bulk `(content_hash,
+  // card_id)` fetch (`GET /cards/hashes`) — exercised by
+  // useAppBootstrap's auth-flip-in watcher via
+  // useKnownPositions.hydrateKnownPositions.
+  fetchKnownPositionHashes:
+    vi.fn<() => Promise<Array<{ contentHash: ContentHash; cardId: CardId }>>>(),
 };
 
 export function resetFakeBackendService(): void {
@@ -68,4 +74,5 @@ export function resetFakeBackendService(): void {
   fakeBackendService.fetchCard.mockReset();
   fakeBackendService.hashPosition.mockReset();
   fakeBackendService.hashPositionsBatch.mockReset();
+  fakeBackendService.fetchKnownPositionHashes.mockReset();
 }

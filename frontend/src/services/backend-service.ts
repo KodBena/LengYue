@@ -46,6 +46,25 @@ type TagStatWire = components['schemas']['TagStat'];
 type PositionHashResponseWire = components['schemas']['PositionHashResponse'];
 type PositionHashBatchResponseWire = components['schemas']['PositionHashBatchResponse'];
 
+// TEMPORARY hand-written wire type, not a `components['schemas'][...]`
+// alias like its siblings above. `npm run gen:api` could not be run in
+// this environment to regenerate `src/types/backend.ts` against the new
+// backend endpoint (`GET /cards/hashes` — see
+// `.claude/dispatch-reports/known-positions-boot-hydrate.md`'s report
+// for the reproduced blocker: the local throwaway backend's Alembic
+// bootstrap hangs against a fresh SQLite file, unrelated to this
+// change). This shape is hand-verified against `backend/schemas/
+// card.py::CardHashEntry` field-for-field. Replace with
+// `components['schemas']['CardHashEntry']` (deleting this alias) the
+// next time `gen:api` runs successfully — per `frontend/CLAUDE.md`,
+// the generated file itself is never hand-edited; this is the
+// explicitly-sanctioned fallback of adding the wire type alongside the
+// other hand-written aliases instead.
+type CardHashEntryWire = {
+  content_hash: string;
+  card_id: number;
+};
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
@@ -293,6 +312,35 @@ export class BackendService {
       { raw_contents: rawContents },
     );
     return raw.content_hashes as ContentHash[]; // ACL Band-2 brand mint
+  }
+
+  /**
+   * Known-positions boot-time hydrate (see
+   * `.claude/dispatch-reports/card-position-annotations-design.md`
+   * §3, "Recommend (b)"). Bulk-fetches every `(content_hash, card_id)`
+   * pair for the caller's own cards via `GET /cards/hashes`, so
+   * `useKnownPositions.hydrateKnownPositions` can populate the
+   * `known-positions` state module's `ContentHash -> CardId` map
+   * completely at auth-readiness, rather than leaving it to fill
+   * only incidentally as `mapToReviewCard` happens to see cards
+   * during ordinary navigation (today's gap: the game-tree
+   * known-position rings and the mint-dialog duplicate warning are
+   * empty after a fresh SPA start until the user browses).
+   *
+   * Does NOT itself write to the known-positions state module —
+   * unlike `mapToReviewCard`'s incidental population, this is a
+   * plain fetch-and-map; the composable decides how the pairs feed
+   * `recordKnownPosition` (first-seen-wins, per that module's file
+   * header).
+   */
+  public async fetchKnownPositionHashes(): Promise<
+    Array<{ contentHash: ContentHash; cardId: CardId }>
+  > {
+    const raw = await api.request<CardHashEntryWire[]>('GET', '/cards/hashes');
+    return raw.map(entry => ({
+      contentHash: entry.content_hash as ContentHash, // ACL Band-2 brand mint
+      cardId: entry.card_id as CardId, // ACL Band-2 brand mint
+    }));
   }
 
   public async getTags(): Promise<TagStat[]> {
