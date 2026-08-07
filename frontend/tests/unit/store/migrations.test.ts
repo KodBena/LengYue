@@ -3183,3 +3183,51 @@ describe('68 → 69: backfill session.ui.moveDeltaAnnotation', () => {
     expect(out.session.ui.moveDeltaAnnotation).toBe('off');
   });
 });
+
+describe('69 → 70: backfill profile.settings.onboarding.completed = true (setup-wizard first-run flag)', () => {
+  // A blob reaching this migration necessarily predates the wizard —
+  // backfilling `true` is what keeps an EXISTING user from seeing the
+  // wizard pop up. A genuinely fresh profile never walks this
+  // migration; it seeds `completed: false` directly via `defaults.ts`.
+  function blobWithProfileSettings(): any {
+    return { profile: { settings: { appearance: { theme: 'dark' } } } };
+  }
+
+  it('backfills onboarding.completed = true when the leaf is absent', () => {
+    const out = step(69)(blobWithProfileSettings());
+    expect(out.profile.settings.onboarding).toEqual({ completed: true });
+  });
+
+  it('preserves a pre-existing boolean completed value (idempotent, both directions)', () => {
+    const blobTrue = blobWithProfileSettings();
+    blobTrue.profile.settings.onboarding = { completed: true };
+    expect(step(69)(blobTrue).profile.settings.onboarding.completed).toBe(true);
+
+    const blobFalse = blobWithProfileSettings();
+    blobFalse.profile.settings.onboarding = { completed: false };
+    expect(step(69)(blobFalse).profile.settings.onboarding.completed).toBe(false);
+  });
+
+  it('replaces a non-boolean completed value with the default true', () => {
+    const blob = blobWithProfileSettings();
+    blob.profile.settings.onboarding = { completed: 'nope' };
+    const out = step(69)(blob);
+    expect(out.profile.settings.onboarding.completed).toBe(true);
+  });
+
+  it('is a no-op when the profile.settings container is absent (partial blob)', () => {
+    const blob: any = { profile: {} };
+    const out = step(69)(blob);
+    expect(out.profile.settings).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v69 blob reaches CURRENT with onboarding.completed backfilled', () => {
+    const blob: any = {
+      schemaVersion: 69,
+      profile: { settings: { appearance: { theme: 'dark' } } },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.profile.settings.onboarding.completed).toBe(true);
+  });
+});

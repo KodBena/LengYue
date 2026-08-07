@@ -170,6 +170,39 @@ export function toGtp(x: number, y: number): string {
 }
 
 /**
+ * Inverse of `toGtp` — parses a GTP/KataGo wire coordinate
+ * (`KataCoord`, e.g. `"Q16"`) into 0-indexed board `{x, y}`, or
+ * `null` for `"pass"`. Case-insensitive on the column letter (KataGo
+ * emits uppercase; tolerate lowercase defensively). Throws (ADR-0002
+ * fail-loudly) on a coordinate outside `[0, boardSize)` or a column
+ * letter not in the GTP alphabet (`"I"` is skipped, same as
+ * `toGtp`'s encode side) — a malformed coordinate is a data-integrity
+ * problem the caller needs to know about, not a value to silently
+ * clamp or drop.
+ */
+export function fromGtp(coord: string, boardSize: number): { x: number; y: number } | null {
+  if (coord.toLowerCase() === 'pass') return null;
+
+  const col = coord[0]?.toUpperCase();
+  const x = GTP_ALPHABET.indexOf(col ?? '');
+  if (x < 0 || x >= boardSize) {
+    throw new Error(`[util.ts:fromGtp] Unrecognized or out-of-range GTP column in coordinate "${coord}".`);
+  }
+
+  const rowStr = coord.slice(1);
+  const row = parseInt(rowStr, 10);
+  if (!Number.isFinite(row) || rowStr === '') {
+    throw new Error(`[util.ts:fromGtp] Unrecognized GTP row in coordinate "${coord}".`);
+  }
+  const y = row - 1;
+  if (y < 0 || y >= boardSize) {
+    throw new Error(`[util.ts:fromGtp] GTP row out of range in coordinate "${coord}" for board size ${boardSize}.`);
+  }
+
+  return { x, y };
+}
+
+/**
  * Converts a `Move` to the wire-coordinate string KataGo's analysis
  * engine accepts: a GTP coordinate for placed stones, or the literal
  * `"pass"` for passes. The pass branch is load-bearing — without it,

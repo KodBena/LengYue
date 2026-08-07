@@ -38,6 +38,7 @@
   "settings.section.advancedRegistry":    "Advanced Registry",
   "settings.section.sessionUI":           "Session (UI)",
   "settings.button.forcePersistence":     "Force Persistence",
+  "settings.button.rerunWizard":          "Re-run setup wizard",
 
   "other.section.knobRegistry":           "Knob Registry",
   "other.section.gradientCalibration":    "Gradient Calibration",
@@ -665,5 +666,56 @@
   "cardTree.header.unknownPlayer":        "?",
   "cardTree.header.versus":               "{black} vs {white}",
   "cardTree.header.counts":               "{rendered} rendered · {total} total",
-  "cardTree.header.countsWithActive":     "{rendered} rendered · {total} total · {active} active"
+  "cardTree.header.countsWithActive":     "{rendered} rendered · {total} total · {active} active",
+
+  "wizard.stepIndicator.ariaLabel":       "Setup wizard steps",
+  "wizard.button.back":                   "Back",
+  "wizard.button.next":                   "Next",
+  "wizard.button.skip":                   "Skip",
+  "wizard.button.finish":                 "Finish",
+  "wizard.button.close":                  "Close",
+
+  "wizard.step.theme.title":              "Choose a theme",
+  "wizard.step.theme.description":        "Pick whichever reads better on your screen — there's no default we recommend.",
+  "wizard.theme.dark":                    "Dark",
+  "wizard.theme.cluster":                 "Light",
+
+  "wizard.step.engineUri.title":          "Engine connection",
+  "wizard.step.engineUri.description":    "This is the address the app connects to for KataGo analysis. The default works for a KataGo instance running on this machine — change it if yours runs elsewhere.",
+  "wizard.engineUri.label":               "Engine WebSocket URI",
+  "wizard.engineUri.hint":                "Example: ws://127.0.0.1:41948 — you can change this anytime from the toolbar or Settings.",
+
+  "wizard.step.palette.title":            "Default palette",
+  "wizard.step.palette.description":      "The palette controls how move quality is summarized across the board and charts. You can switch anytime.",
+
+  "wizard.step.demoBoard.title":          "Try the analysis overlays",
+  "wizard.step.demoBoard.description":    "This is an open middle-game position with a pre-computed analysis — no engine connection needed. Toggle the overlays and sliders below and watch the board update.",
+  "wizard.demoBoard.loadError":           "The demo board could not be loaded: {message}",
+  "wizard.demoBoard.provenance":          "Self-play by {model}, move {turn} — analysed at {visits} visits",
+  "wizard.demoBoard.togglesLegend":       "Display toggles",
+  "wizard.demoBoard.toggle.moveSuggestions":     "Move suggestions",
+  "wizard.demoBoard.toggle.liveness":            "Liveness markers",
+  "wizard.demoBoard.toggle.ownershipContinuous": "Continuous ownership fill",
+  "wizard.demoBoard.slidersLegend":       "Display sliders",
+
+  "wizard.step.pvAnimation.title":        "Principal-variation display",
+  "wizard.step.pvAnimation.description":  "When you hover a move suggestion, its follow-up sequence (principal variation) can be revealed a few different ways. Cycle through the modes below to see which you prefer — the same setting applies wherever a PV is shown, including on the demo board above.",
+  "wizard.pvAnimation.mode.instant":          "Instant",
+  "wizard.pvAnimation.mode.instant.settings": "All PV stones fade in together.",
+  "wizard.pvAnimation.mode.sequential":          "Sequential",
+  "wizard.pvAnimation.mode.sequential.settings": "Stones fade in one by one (stepDelayMs between each).",
+  "wizard.pvAnimation.mode.window":              "Sliding window",
+  "wizard.pvAnimation.mode.window.settings":     "Each stone fades in, holds (windowDurationMs), then fades out (fadeDurationMs).",
+  "wizard.pvAnimation.noPreview":         "No preview available for this demo position.",
+  "wizard.pvAnimation.annotationLabel":   "Move numbering",
+  "wizard.pvAnimation.annotation.none":        "Off",
+  "wizard.pvAnimation.annotation.from1":       "From 1",
+  "wizard.pvAnimation.annotation.fromCurrent": "From current move",
+
+  "wizard.step.sgfImport.title":          "Import your games (optional)",
+  "wizard.step.sgfImport.description":    "If you have SGF files on this device, you can import them into your library now — or skip this and do it later from the Library tab.",
+
+  "wizard.step.finish.title":             "You're all set",
+  "wizard.step.finish.description":       "Here's what you configured. Everything is saved and also visible in Settings.",
+  "wizard.finish.hint":                   "You can re-run this wizard anytime from Settings → Session (UI)."
 }

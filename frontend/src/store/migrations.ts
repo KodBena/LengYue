@@ -128,7 +128,7 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 69;
+export const CURRENT_SCHEMA_VERSION = 70;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -156,37 +156,6 @@ export const CURRENT_SCHEMA_VERSION = 69;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 67 → 68: insert the `interval-summary` panel id (wiki Wanted feature
-  // #6, `PANEL_ID.intervalSummary`) at the front of the persisted 'basic'
-  // analysisTab's `panelIds`, so the on-by-default placement in
-  // `defaults.ts` also reaches users who already have a persisted
-  // `analysisTabs` array from migration 54 → 55 (a fresh-install default
-  // change alone does not reach an existing blob — the same reason 55 → 56
-  // through 61 stayed additive per-leaf backfills rather than re-defaulting
-  // whole containers).
-  //
-  // Scoped to the tab literally id'd 'basic' — a user who renamed or
-  // deleted that tab in the Phase-3 Settings editor keeps their layout
-  // untouched; this migration only ever adds a panel id, never removes or
-  // reorders the others in that tab.
-  //
-  // Idempotent: a 'basic' tab whose panelIds already contains
-  // 'interval-summary' is left unchanged (guards a blob that was already
-  // migrated, or one a forward-compat client already wrote the id onto).
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const settings = out.profile?.settings;
-    if (settings && typeof settings === 'object' && Array.isArray(settings.analysisTabs)) {
-      for (const tab of settings.analysisTabs) {
-        if (!tab || typeof tab !== 'object' || tab.id !== 'basic') continue;
-        if (!Array.isArray(tab.panelIds)) continue;
-        if (!tab.panelIds.includes('interval-summary')) {
-          tab.panelIds = ['interval-summary', ...tab.panelIds];
-        }
-      }
-    }
-    return out;
-  },
   // 68 → 69: backfill `session.ui.moveDeltaAnnotation` (string enum
   // 'off' | 'deltaVisits' | 'perPlayer', default 'off') — the new
   // board-overlay toggle for the just-played move's delta + visit-count
@@ -219,6 +188,38 @@ export const migrations: Migration[] = [
       const valid = ['off', 'deltaVisits', 'perPlayer'];
       if (typeof u.moveDeltaAnnotation !== 'string' || !valid.includes(u.moveDeltaAnnotation)) {
         u.moveDeltaAnnotation = 'off';
+      }
+    }
+    return out;
+  },
+  // 69 → 70: backfill `profile.settings.onboarding.completed = true`
+  // (ledger slug swz-setup-wizard) — the first-run setup wizard's
+  // "has this profile already been onboarded" flag. A blob reaching
+  // this migration necessarily existed before the wizard shipped, so
+  // it is by definition not a fresh profile; backfilling `true` here
+  // is what keeps an existing user from seeing the wizard pop up
+  // unbidden on their next load. A genuinely fresh profile never
+  // walks this migration — `defaultAppSettings()` seeds
+  // `onboarding.completed: false` directly (see `defaults.ts`), which
+  // is the wizard's actual trigger condition (`useSetupWizard.ts`).
+  //
+  // Container witnessed against the runtime shape: `profile.settings`
+  // exists from v1, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version.
+  //
+  // Idempotent: a pre-existing boolean `completed` value (true or
+  // false) is preserved unchanged; only a missing / wrong-typed leaf
+  // is backfilled to `true`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = witnessedContainer(out, 'profile.settings');
+    if (settings) {
+      const s = settings as { onboarding?: unknown };
+      const existing = s.onboarding && typeof s.onboarding === 'object'
+        ? (s.onboarding as { completed?: unknown })
+        : undefined;
+      if (!existing || typeof existing.completed !== 'boolean') {
+        s.onboarding = { completed: true };
       }
     }
     return out;

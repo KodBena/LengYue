@@ -619,6 +619,21 @@ export interface AppSettings {
    * this; the dashboard renders only the active tab.
    */
   analysisTabs: AnalysisTab[];
+  /**
+   * First-run setup wizard state (ledger slug swz-setup-wizard). A
+   * fresh profile seeds `completed: false` (`defaults.ts`), which is
+   * the wizard's actual trigger — `useSetupWizard.ts` shows the
+   * wizard whenever this is `false` and marks it `true` on finish or
+   * skip. Migration 69 → 70 backfills `true` for every blob that
+   * predates the wizard, so an existing user never sees it pop up
+   * unbidden. Re-runnable from Settings without resetting this flag
+   * (a module-scope request signal drives that path, mirroring
+   * `useMintDialogSignal`'s shape) — `completed` only ever tracks
+   * "has this profile seen the wizard once", not "is it open now".
+   */
+  onboarding: {
+    completed: boolean;
+  };
 }
 
 export interface UISession {
