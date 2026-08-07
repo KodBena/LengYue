@@ -150,6 +150,17 @@ class Settings(BaseSettings):
     # spec-compliant when allow_credentials=False (set in main.py).
     CORS_ALLOW_ORIGINS: List[str] = ["*"]
 
+    # HOST / PORT: consumed by main.py's `if __name__ == "__main__"` entry
+    # point (the frozen-executable / Tauri-sidecar launch path — the local
+    # dev workflow uses `fastapi dev main.py --host ... --port ...`
+    # instead, per backend/README.md, and doesn't read these). The Tauri
+    # desktop shell (`frontend/src-tauri/src/lib.rs`) picks a free local
+    # port at app start and sets PORT via this env var before spawning the
+    # sidecar, so the default here only matters for a bare `python main.py`
+    # invocation outside Tauri.
+    HOST: str = "127.0.0.1"
+    PORT: int = 8764
+
     # ----- Analysis persistence -----
     # The cross/analysis-persistence arc adds server-side persistence for
     # KataGo analysis bundles per BoardId. The codec envelope is opaque

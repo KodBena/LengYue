@@ -191,4 +191,22 @@ async def health_check():
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="127.0.0.1", port=8764, reload=True)
+    # This is the frozen-executable / Tauri-sidecar entry point (the local
+    # dev workflow runs `fastapi dev main.py` instead — see
+    # backend/README.md — which doesn't go through this branch).
+    # `reload=False`: a PyInstaller-frozen onefile executable has no
+    # source tree to watch, and uvicorn's reloader spawns a subprocess
+    # that assumes a `python`-invocable script, which a frozen binary
+    # isn't. HOST/PORT are read from config so the Tauri desktop shell can
+    # bind the sidecar to the OS-assigned free port it picked at app start
+    # (see frontend/src-tauri/src/lib.rs).
+    # The app OBJECT is passed directly rather than the "main:app" import
+    # string: the string form re-imports the module by name for
+    # reload/multi-worker support, which assumes a `main` module is
+    # importable by that name — true for `python main.py` from source, but
+    # not guaranteed for a PyInstaller-frozen entry script (frozen builds
+    # commonly expose the entry script as `__main__`, not `main`). Passing
+    # `app` directly skips that re-import path entirely; since reload=False
+    # and no `workers` argument is given (single process), nothing here
+    # needs the import-string form.
+    uvicorn.run(app, host=config.HOST, port=config.PORT, reload=False)
