@@ -128,5 +128,4 @@ on them, or extract a shared non-render-count mount helper.
 
 Branch: `worktree-agent-a4d0f99c8072247dc` (fast-forwarded onto `next`
 at `0590832e` before this work's commit — see "Base-branch note" above).
-Commit sha: see the commit created immediately after this report in the
-same session (`git log -1 --format=%H` on this branch).
+Commit sha: `916e983c03cc6f68a062bef6a7900916e5f8bb95`.
