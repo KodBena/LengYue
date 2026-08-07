@@ -112,6 +112,7 @@ frontend/src/
 │   │   ├── TabWidget.vue              [B1]  Controlled tabbed navigation.
 │   │   ├── Toolbar.vue                [B3]  Application toolbar shell (title, buttons, popover mounts). Reads only `isConnected`; telemetry lives in ToolbarEngineMetrics so the shell doesn't re-render per packet.
 │   │   ├── ToolbarEngineMetrics.vue   [B3]  Live engine-telemetry strip leaf (version/model/winrate/scoreLead/PPS/latency/watchdog + queue tooltip); self-sources the per-packet/per-tick reads, extracted out of Toolbar (render-coupling fix).
+│   │   ├── ToolbarEngineUri.vue       [B3]  Compact click-to-edit engine WebSocket URI, sat in the toolbar's engine cluster (ledger slug toolbar-engine-uri). Renders unconditionally (not gated on isConnected); logic lives in useEngineUriEditor — this leaf is chrome only.
 │   │   ├── ToolbarSliderPopover.vue   [B1]  Toolbar badge + hover popover: compact priority-ordered list of every scalar knob (quick-access surface for the knob registry).
 │   │   └── UserBadge.vue              [B1]  Auth-identity badge; opens LoginModal on click.
 │   │
@@ -159,6 +160,7 @@ frontend/src/
 │   ├── useAutoPopoverPerf.ts          [B1]  Dev-only: toggles a target popover open/closed at ~2/s (via useHoverPopover's force hook), emitting popover:open/close marks tagged with queue state — for the popover-toggle-cost measurement.
 │   ├── useAutoSaveAnalyses.ts         [B3]  Auto-save policy for the [experimental] analysis-persistence feature: watches each board's `dirtyVersion` on analysisPersistenceService and trailing-debounces a `save(boardId)`, gated on `engine.katago.analysisStorageEnabled && analysisAutoSave`. B3 via the analysis-bundle / persistence-service imports and the KataGo storage toggles.
 │   ├── useEngineControls.ts           [B3]  Engine connect / disconnect / toggle lifecycle.
+│   ├── useEngineUriEditor.ts          [B3]  Toolbar-and-Settings-shared editor state for `engine.katago.url` (ledger slug toolbar-engine-uri): draft/commit/cancel over the SAME store cell the Settings tab's Advanced Registry editor writes (mutateProfile), validated by lib/ws-url.ts, cycling connect/disconnect (useEngineControls) on a changed commit while connected.
 │   ├── useNavigation.ts               [B2]  Headless navigation within the game tree (next/prev/parent/child).
 │   ├── useQeubo.ts                    [B1]  qEUBO experiment state machine + audition + verdict.
 │   ├── useQueryTelemetry.ts           [B1]  Singleton in-flight KataGo query queue + per-model visits/sec ETA.
@@ -367,7 +369,8 @@ frontend/src/
 │   ├── stability-trajectory.ts        [B1]  Generic change-point-compressed V-axis trajectory + log-V-weighted stable-fraction.
 │   ├── timing.ts                      [B1]  Complete application-timing catalog: every authored time literal (coalescing windows, interaction-dismiss grace, display durations, render retries, micro-scheduling, perf-harness cadences, engine-session timing) as individually-named, independently-tunable constants — the auditable tuning surface. (Structurally B1 — imports nothing domain-specific — though §7 catalogs engine-coupled, band-2/3 timing *values*.)
 │   ├── unhandled-rejection-backstop.ts [B1] Window `unhandledrejection` backstop factory (`createRejectionBackstop`): de-dups escaped async rejections to the system-message surface (level 4) + console (level 5), keyed on reason-message with a distinct-reason cap so a storm can't wipe the 50-slot log (enrichment-merge latch precedent). Dependency-free; real sinks + the `window` listener wired in `main.ts`.
-│   └── utils.ts                       [B1]  Domain-free helpers: debounce; isObject + deepMerge (hydration default-backfill); generateUUID (RFC4122 v4); updateRegistry (silent-create deep path-write — deliberately NOT knobs.ts's fail-loud walkers; co-located, never merged). (lib/ vs utils/ merger flagged separately.)
+│   ├── utils.ts                       [B1]  Domain-free helpers: debounce; isObject + deepMerge (hydration default-backfill); generateUUID (RFC4122 v4); updateRegistry (silent-create deep path-write — deliberately NOT knobs.ts's fail-loud walkers; co-located, never merged). (lib/ vs utils/ merger flagged separately.)
+│   └── ws-url.ts                      [B1]  `validateEngineUri`: ws:// / wss:// URI validation (URL-constructor-based). Domain-free — shared by useEngineUriEditor.ts and available for any future editor of engine.katago.url.
 │
 └── config/
     └── env.ts                         [B1]  Centralised reader for Vite environment variables.
