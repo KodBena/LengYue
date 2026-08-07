@@ -251,6 +251,7 @@
   "keybindings.action.boardPass.description":                  "Play a pass on the active board.",
 
   "keybindings.section.nav":                                   "Navigation",
+  "keybindings.section.board":                                 "Board",
   "keybindings.section.display":                               "Display",
   "keybindings.section.engine":                                "Engine",
   "keybindings.section.review":                                "Review session",

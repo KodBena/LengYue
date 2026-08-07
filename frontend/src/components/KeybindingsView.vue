@@ -4,7 +4,7 @@
  *
  * The Keybindings sub-tab of the Settings surface. Walks
  * KEYBINDINGS_REGISTRY, groups actions by domain prefix
- * (`nav` / `display` / `engine` / `review` / `card`) in plan-sketch
+ * (`nav` / `board` / `display` / `engine` / `review` / `card`) in plan-sketch
  * order, and
  * delegates each row's render + edit affordance to
  * KeybindingRow. Phase 4 of the archived plan
@@ -28,16 +28,16 @@ import {
 
 const { t } = useI18n();
 
-const KNOWN_DOMAINS = ['nav', 'display', 'engine', 'review', 'card'] as const;
+const KNOWN_DOMAINS = ['nav', 'board', 'display', 'engine', 'review', 'card'] as const;
 type Domain = (typeof KNOWN_DOMAINS)[number];
 
 const grouped = computed<ReadonlyArray<readonly [Domain, ReadonlyArray<KeybindingActionDecl>]>>(() => {
-  const groups: Record<Domain, KeybindingActionDecl[]> = { nav: [], display: [], engine: [], review: [], card: [] };
+  const groups: Record<Domain, KeybindingActionDecl[]> = { nav: [], board: [], display: [], engine: [], review: [], card: [] };
   for (const action of KEYBINDINGS_REGISTRY) {
     const prefix = action.id.split('.')[0];
-    if (prefix !== 'nav' && prefix !== 'display' && prefix !== 'engine' && prefix !== 'review' && prefix !== 'card') {
+    if (prefix !== 'nav' && prefix !== 'board' && prefix !== 'display' && prefix !== 'engine' && prefix !== 'review' && prefix !== 'card') {
       // ADR-0002: KeybindingsView's grouped render assumes the closed
-      // {nav, display, engine, review, card} domain set. A new prefix
+      // {nav, board, display, engine, review, card} domain set. A new prefix
       // means the KNOWN_DOMAINS list and the i18n
       // `keybindings.section.<domain>` catalog entries need extending
       // in the same change.
