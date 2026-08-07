@@ -5,7 +5,7 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-06-12: migrations 1 → 2 through 58 → 59 (58
+ * Scope as of 2026-08-07: migrations 1 → 2 through 59 → 60 (59
  * entries). The first eight covered pre-v1.0.0 schema evolution;
  * the rest are the v1.0.x – v1.1.x active cycle, archived in
  * per-PR rolling fashion under the same archive contract.
@@ -2470,6 +2470,59 @@ export const archivedMigrations: Migration[] = [
         typeof sel === 'object' && sel !== null && !('kind' in (sel as object));
       if (!alreadyPerBoard) {
         (nav as { selection: unknown }).selection = {};
+      }
+    }
+    return out;
+  },
+  // 59 → 60: re-apply the two backfills the archived 45 → 46 and
+  // 46 → 47 bodies were meant to perform but silently no-oped on. Both
+  // walked `out.settings?.…` instead of `out.profile?.settings?.…` —
+  // the exact 47 → 48 wrong-path class, but never themselves corrected
+  // — so `adaptiveReevaluate.valueBinding` (string, default '') and
+  // `appearance.moveSuggestionsFadeMs` (number, default 60) were never
+  // written onto persisted blobs. The defect was masked at runtime by
+  // `updateFromRemote`'s deepMerge against defaults (which is why no
+  // user-visible symptom surfaced); the composition test
+  // (`tests/integration/migration-store-roundtrip.test.ts`) surfaced
+  // both as `[silent-no-op]` defaults-only keys on 2026-06-10. Found by
+  // PR #370 (item `migration-leaf-assertion-and-composition-test`);
+  // corrective item `archived-migration-wrong-path-corrective`.
+  //
+  // Archived bodies are frozen (append-only invariant), so the fix is a
+  // NEW migration with the CORRECT paths via `witnessedContainer` — a
+  // typo here fails loudly at the runtime-shape witness instead of
+  // no-oping and stamping the version. Both containers are witnessed
+  // (`profile.settings.engine.katago.adaptiveReevaluate` exists from the
+  // 29 → 30 seed; `profile.settings.appearance` is present from v1), and
+  // the blob-side resolution keeps the prior bodies' inline
+  // non-null-object tolerance: a partial / legacy blob whose container is
+  // absent no-ops exactly as the broken bodies intended.
+  //
+  // Idempotent: a pre-existing string `valueBinding` / numeric
+  // `moveSuggestionsFadeMs` is preserved unchanged (a hand-edited or
+  // forward-compat blob keeps its value); only a missing / wrong-typed
+  // leaf is backfilled to the default. The two new display-domain
+  // animation KnobDecls the 46 → 47 body deliberately declined to inject
+  // are NOT re-applied here — that body's choice to defer to the
+  // defaults-side seed for fresh profiles is correct and remains the
+  // `[no-backfill]` posture pinned in the composition test.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const adaptive = witnessedContainer(
+      out,
+      'profile.settings.engine.katago.adaptiveReevaluate',
+    );
+    if (adaptive) {
+      const a = adaptive as { valueBinding?: unknown };
+      if (typeof a.valueBinding !== 'string') {
+        a.valueBinding = '';
+      }
+    }
+    const appearance = witnessedContainer(out, 'profile.settings.appearance');
+    if (appearance) {
+      const ap = appearance as { moveSuggestionsFadeMs?: unknown };
+      if (typeof ap.moveSuggestionsFadeMs !== 'number') {
+        ap.moveSuggestionsFadeMs = 60;
       }
     }
     return out;

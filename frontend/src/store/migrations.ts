@@ -128,7 +128,7 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 61;
+export const CURRENT_SCHEMA_VERSION = 62;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -156,59 +156,6 @@ export const CURRENT_SCHEMA_VERSION = 61;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 59 → 60: re-apply the two backfills the archived 45 → 46 and
-  // 46 → 47 bodies were meant to perform but silently no-oped on. Both
-  // walked `out.settings?.…` instead of `out.profile?.settings?.…` —
-  // the exact 47 → 48 wrong-path class, but never themselves corrected
-  // — so `adaptiveReevaluate.valueBinding` (string, default '') and
-  // `appearance.moveSuggestionsFadeMs` (number, default 60) were never
-  // written onto persisted blobs. The defect was masked at runtime by
-  // `updateFromRemote`'s deepMerge against defaults (which is why no
-  // user-visible symptom surfaced); the composition test
-  // (`tests/integration/migration-store-roundtrip.test.ts`) surfaced
-  // both as `[silent-no-op]` defaults-only keys on 2026-06-10. Found by
-  // PR #370 (item `migration-leaf-assertion-and-composition-test`);
-  // corrective item `archived-migration-wrong-path-corrective`.
-  //
-  // Archived bodies are frozen (append-only invariant), so the fix is a
-  // NEW migration with the CORRECT paths via `witnessedContainer` — a
-  // typo here fails loudly at the runtime-shape witness instead of
-  // no-oping and stamping the version. Both containers are witnessed
-  // (`profile.settings.engine.katago.adaptiveReevaluate` exists from the
-  // 29 → 30 seed; `profile.settings.appearance` is present from v1), and
-  // the blob-side resolution keeps the prior bodies' inline
-  // non-null-object tolerance: a partial / legacy blob whose container is
-  // absent no-ops exactly as the broken bodies intended.
-  //
-  // Idempotent: a pre-existing string `valueBinding` / numeric
-  // `moveSuggestionsFadeMs` is preserved unchanged (a hand-edited or
-  // forward-compat blob keeps its value); only a missing / wrong-typed
-  // leaf is backfilled to the default. The two new display-domain
-  // animation KnobDecls the 46 → 47 body deliberately declined to inject
-  // are NOT re-applied here — that body's choice to defer to the
-  // defaults-side seed for fresh profiles is correct and remains the
-  // `[no-backfill]` posture pinned in the composition test.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const adaptive = witnessedContainer(
-      out,
-      'profile.settings.engine.katago.adaptiveReevaluate',
-    );
-    if (adaptive) {
-      const a = adaptive as { valueBinding?: unknown };
-      if (typeof a.valueBinding !== 'string') {
-        a.valueBinding = '';
-      }
-    }
-    const appearance = witnessedContainer(out, 'profile.settings.appearance');
-    if (appearance) {
-      const ap = appearance as { moveSuggestionsFadeMs?: unknown };
-      if (typeof ap.moveSuggestionsFadeMs !== 'number') {
-        ap.moveSuggestionsFadeMs = 60;
-      }
-    }
-    return out;
-  },
   // 60 → 61: backfill `profile.settings.engine.katago.calibrationVisits`
   // (number, default 1000) — the new default visit budget for the opt-in
   // mint-time komi-calibration feature. The leaf is read by
@@ -237,6 +184,37 @@ export const migrations: Migration[] = [
       const k = katago as { calibrationVisits?: unknown };
       if (typeof k.calibrationVisits !== 'number') {
         k.calibrationVisits = 1000;
+      }
+    }
+    return out;
+  },
+  // 61 → 62: insert the `interval-summary` panel id (wiki Wanted feature
+  // #6, `PANEL_ID.intervalSummary`) at the front of the persisted 'basic'
+  // analysisTab's `panelIds`, so the on-by-default placement in
+  // `defaults.ts` also reaches users who already have a persisted
+  // `analysisTabs` array from migration 54 → 55 (a fresh-install default
+  // change alone does not reach an existing blob — the same reason 55 → 56
+  // through 61 stayed additive per-leaf backfills rather than re-defaulting
+  // whole containers).
+  //
+  // Scoped to the tab literally id'd 'basic' — a user who renamed or
+  // deleted that tab in the Phase-3 Settings editor keeps their layout
+  // untouched; this migration only ever adds a panel id, never removes or
+  // reorders the others in that tab.
+  //
+  // Idempotent: a 'basic' tab whose panelIds already contains
+  // 'interval-summary' is left unchanged (guards a blob that was already
+  // migrated, or one a forward-compat client already wrote the id onto).
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = out.profile?.settings;
+    if (settings && typeof settings === 'object' && Array.isArray(settings.analysisTabs)) {
+      for (const tab of settings.analysisTabs) {
+        if (!tab || typeof tab !== 'object' || tab.id !== 'basic') continue;
+        if (!Array.isArray(tab.panelIds)) continue;
+        if (!tab.panelIds.includes('interval-summary')) {
+          tab.panelIds = ['interval-summary', ...tab.panelIds];
+        }
       }
     }
     return out;

@@ -499,10 +499,17 @@ export const defaultSettings = {
   // Default Analysis-tab layout (see AppSettings.analysisTabs). Four tabs
   // over the panel registry, Basic first (most-used). The Settings editor
   // (Phase 3) lets users re-tab; migration 54 → 55 backfills this shape on
-  // legacy persisted blobs. Tab ids are branded via the trailing
-  // `as unknown as AppSettings` cast; panelIds use the PANEL_ID SSOT.
+  // legacy persisted blobs (migration 61 → 62 adds intervalSummary to an
+  // already-backfilled Basic tab — see that migration's comment). Tab ids
+  // are branded via the trailing `as unknown as AppSettings` cast; panelIds
+  // use the PANEL_ID SSOT.
+  //
+  // intervalSummary leads Basic (wiki Wanted feature #6): the summary
+  // analysis over the set interval is the number a Multiresolution-panel
+  // hover surfaces today, but that panel is a separate tab and may not even
+  // be enabled — this makes the same numbers visible by default without it.
   analysisTabs: [
-    { id: 'basic', label: 'Basic', panelIds: [PANEL_ID.scoreLead, PANEL_ID.mergedDelta] },
+    { id: 'basic', label: 'Basic', panelIds: [PANEL_ID.intervalSummary, PANEL_ID.scoreLead, PANEL_ID.mergedDelta] },
     { id: 'distributions', label: 'Distributions', panelIds: [PANEL_ID.deltaDistribution, PANEL_ID.mistakeGap] },
     { id: 'stability', label: 'Stability', panelIds: [PANEL_ID.stability, PANEL_ID.stabilityCrossCorrelation] },
     { id: 'multiresolution', label: 'Multiresolution', panelIds: [PANEL_ID.multiresolutionInterval] },
