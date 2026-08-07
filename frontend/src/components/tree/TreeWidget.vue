@@ -80,6 +80,18 @@ const props = withDefaults(
     // distinct color, so a card's start position reads at a glance
     // the same way a play/match session head does.
     reviewStartNodeId?: NodeId | null;
+    // "Learn this path" (wiki #8, ledger row 718 amendment #2 — PRE-MINT
+    // MARKERS): NodeIds the exploration walk has flagged as "would be
+    // added on mint all" — every pending deviation position that isn't
+    // already an existing card. Owned by `learn-path-pending-markers.ts`
+    // (module-scope, since `LearnPathModal` and this widget are siblings
+    // under App.vue, not parent/child); populated live as the walk
+    // grows the tree, cleared after mint or on discard. Renders a
+    // dashed blue ring, same colour family as the solid active-node
+    // ring but visually distinct (dashed, outermost radius — see the
+    // ring-radius stack note by known-position-ring in the template
+    // below) so it reads as "pending", not "current" or "game head".
+    pendingMintIds?: ReadonlySet<NodeId>;
   }>(),
   { orientation: 'vertical' },
 );
@@ -305,6 +317,7 @@ const nodeList = computed(() => {
     isGameHead: boolean;
     isKnownPosition: boolean;
     isReviewStart: boolean;
+    isPendingMint: boolean;
   }> = [];
 
   layout.value.positions.forEach((pos, id) => {
@@ -337,6 +350,7 @@ const nodeList = computed(() => {
       isGameHead: !!props.gameHeadIds?.has(id),
       isKnownPosition: !!props.knownPositionNodeIds?.has(id),
       isReviewStart: isReviewStartNode(id, props.reviewStartNodeId),
+      isPendingMint: !!props.pendingMintIds?.has(id),
     });
   });
   return items;
@@ -419,7 +433,7 @@ const edges = computed(() => {
         <g
           v-for="item in nodeList"
           :key="item.id"
-          v-memo="[item.isGameHead, item.isKnownPosition, item.isReviewStart, item.move?.color, item.move?.type, item.isBranching, item.isExpanded, item.px, item.py]"
+          v-memo="[item.isGameHead, item.isKnownPosition, item.isReviewStart, item.isPendingMint, item.move?.color, item.move?.type, item.isBranching, item.isExpanded, item.px, item.py]"
         >
           <!-- Known-position marker (card-position-annotations Stage B).
                RADIUS NOTE (review REJECT finding 2,
@@ -469,6 +483,26 @@ const edges = computed(() => {
                above for the NODE_R+7 collision this ring's radius was
                already occupying and how it was resolved at merge. -->
           <circle v-if="item.isReviewStart" :cx="item.px" :cy="item.py" :r="NODE_R + 7" class="review-start-ring" stroke-width="1.5" />
+          <!-- "Learn this path" pre-mint marker (ledger row 718, radius
+               reconciled per fresh-context review "wf8-learn-this-path-
+               review.md" REQUIRED finding). Dashed, same accent-primary
+               blue as the (solid) active-ring, but colour alone would
+               collide with nothing here (accent-primary is distinct from
+               the known-position/review-start rings' accent-secondary
+               orange) — the actual collision was RADIUS: this ring
+               originally shared NODE_R+7 with review-start-ring, which
+               would fully occlude one under the other on a node that is
+               simultaneously a review-start AND a pending-mint candidate.
+               Moved one radius past known-position-ring's own NODE_R+9
+               (the same "move outward" resolution known-position-ring's
+               own comment above documents for ITS NODE_R+7 collision) so
+               the full concentric stack — active +3, game-head +5,
+               review-start +7, known-position +9, pending-mint +11 — stays
+               visually distinct even when every marker on a node is lit
+               at once. "This node would be added if you click mint-all";
+               cleared on mint or discard. See
+               `learn-path-pending-markers.ts`. -->
+          <circle v-if="item.isPendingMint" :cx="item.px" :cy="item.py" :r="NODE_R + 11" class="pending-mint-ring" stroke-width="1.5" stroke-dasharray="2,1" />
           <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
           <!-- Pass-node glyph — the actual distinguishing signal for a
                pass (per ADR-0019 appendix C18, no color-only meaning):
@@ -502,6 +536,7 @@ const edges = computed(() => {
 .game-head-ring { fill: color-mix(in srgb, var(--state-success) 15%, transparent); stroke: var(--state-success); }
 .known-position-ring { fill: none; stroke: var(--accent-secondary); }
 .review-start-ring { fill: color-mix(in srgb, var(--accent-secondary) 15%, transparent); stroke: var(--accent-secondary); }
+.pending-mint-ring { fill: none; stroke: var(--accent-primary); }
 .node-circle { cursor: pointer; transition: filter var(--duration-default); }
 .node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px var(--accent-primary)); }
 /* Pass-node glyph — 6px against a NODE_R=5 (10px-diameter) circle;

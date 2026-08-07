@@ -157,17 +157,11 @@ wherever the last step landed.
 
 **UI / marker precedent (honesty note).** The row-718 dispatch named "the dashed known-position
 ring and the review-start ring implementations in the tree rendering" as the pattern to follow.
-An Explore agent did a full read of `TreeWidget.vue` (394 lines) plus a repo-wide grep for every
-spelling variant of both names — **neither exists in this codebase.** `TreeWidget.vue` has exactly
-two existing rings: a solid active-node ring (imperative-escape pattern, `NODE_R+3`) and a solid
-green game-head ring (`ReadonlySet<NodeId>` prop, `NODE_R+5`). Per ADR-0002 this is surfaced rather
-than silently substituted: the new pre-mint marker follows the **game-head-ring shape** (closest
-actual precedent — a `ReadonlySet<NodeId>` prop, `pendingMintIds`, membership-tested per node) at
-`NODE_R+7` (outermost, so it coexists with both existing rings), styled with `stroke-dasharray`
-(matching the file's one existing dashed element, the toggle-leader connector) and
-`var(--accent-primary)` (the same blue the solid active-ring already uses) — "same colour family,
-visually distinct via dash + outermost radius" is the literal reading of row 718's own phrasing,
-applied to the precedent that actually exists rather than the one named but absent.
+An Explore agent did a full read of `TreeWidget.vue` (394 lines, at the time) plus a repo-wide
+grep for every spelling variant of both names — **neither existed on this branch's base at the
+time.** They have since landed on `next` (see the FIX ROUND section below, which reconciles
+against the real merged code) — this paragraph is kept as the honest record of what was actually
+checked at build time, not retroactively rewritten to look prescient.
 
 **Deferred, button-gated batch mint (row 708 → amended by row 718).** `useLearnPath()` exposes
 `explore()` (runs the walk above, mints nothing, returns a `LearnPathExploration` — pending/
@@ -205,7 +199,7 @@ ordering, and the `existingContent` dedup snapshot fetched once at `explore()` s
 dedicated determinism test asserts on shape (ply/rank/move/skip-reasons/frontier-plyDepths), never
 concrete ids, for exactly this reason.
 
-## Acceptance criteria — evidentiary status (current, post-rework)
+## Acceptance criteria — evidentiary status (post-rework, pre-fix-round; see FIX ROUND for current)
 
 The original dispatch's acceptance bar was written against v1's shape (single-phase, mint-during-
 walk). Each item is re-verified against the reworked semantics; where the reworked shape changed
@@ -221,8 +215,7 @@ walk). Each item is re-verified against the reworked semantics; where the rework
    frontiers}` shape by ply/rank/parent/reason AND that exactly one `createCard` call happened
    (the sole non-spine, non-existing deviation). Companion determinism test
    (`useLearnPath.runLearnPath`) reruns the same fixture twice and asserts shape-equality
-   (ply/rank/move/skip-reasons/frontier-plyDepths — never concrete `CardId`s). Passed:
-   `vitest run useLearnPath learn-path-policy` → 15 passed, 0 failed.
+   (ply/rank/move/skip-reasons/frontier-plyDepths — never concrete `CardId`s).
 2. **Unanalyzed frontier fails loudly with partial-result report (test).** WITNESSED, same test:
    the fixture deliberately has NO recorded analysis at either deviation's own subtree root (P9,
    Q16); asserted `result.frontiers` contains both, each resolved to its correct real parent
@@ -235,46 +228,17 @@ walk). Each item is re-verified against the reworked semantics; where the rework
    during `explore()` (its frontier is present in the result, resolved to the *existing* card's
    id as parent) — the skip doesn't truncate exploration, matching v1's behavior, now proven
    across the explore/confirm split.
-4. **`npm run build` exit 0.** WITNESSED. `nice -n 19 env NODE_OPTIONS=--max-old-space-size=2048
-   VITEST_MAX_THREADS=2 VITEST_MAX_FORKS=2 npm run build` → clean `vue-tsc -b` typecheck, 1086
-   modules transformed, `dist/` produced.
-5. **`npm run test:run` exit 0.** WITNESSED. Same memory-capped invocation: **83 test files
-   passed, 3 skipped (86 total); 1116 tests passed, 4 skipped (1120 total)**. The 3 skipped
-   files / 4 skipped tests are pre-existing (not touched by this change).
-6. **Backend suite exit 0 if backend touched.** UNEXERCISED — not applicable. No backend file
+4. **`npm run build` exit 0 / `npm run test:run` exit 0.** WITNESSED at the time (pre-fix-round,
+   against the stale base); re-verified post-fix-round against merged `next` — see FIX ROUND.
+5. **Backend suite exit 0 if backend touched.** UNEXERCISED — not applicable. No backend file
    touched by either the v1 build or this rework.
 
-**New tests this rework requires (per the coordinator's explicit list), all WITNESSED:**
-- **Live-growth step order, spine-first.** `useLearnPath.explore` → `"grows the tree live (spine
-  fully before deviations) and mints NOTHING"`. A custom `yieldStep` records the just-inserted
-  node's move coordinates on every call; asserts the exact sequence `[D4, C17, Q3, P9, Q16]` — the
-  full 3-ply spine grows and is awaited to completion BEFORE either deviation appears, and `pass`
-  (unplayable) produces no growth step at all. Also asserts `createCard` was never called during
-  `explore()`.
-- **Pending-marker set = deviation set minus existing-card positions.** Same test: after
-  `explore()`, `getPendingMintNodeIds(boardId)` has size 1, containing exactly P9's `NodeId` (the
-  one non-existing deviation) — Q16 (dedup-existing) is confirmed absent from the marker set.
-- **Mint-all triggers exactly one batch call, nothing before it.** `useLearnPath.confirmMint` →
-  the acceptance test above asserts `createCard` is uncalled after `explore()` and called exactly
-  once after `confirmMint()` (matching the fixture's single genuinely-new deviation).
-- **Markers clear post-mint / post-discard.** Same test asserts `getPendingMintNodeIds(boardId)
-  .size === 0` after `confirmMint` resolves; a second test
-  (`"discardExploration clears the markers without minting anything"`) asserts the same after an
-  explicit discard, with `createCard` never called.
-- **Ranking ascending + stable-on-ties.** `tests/unit/composables/learn-path-policy.test.ts` (new,
-  Tier-1 pure-logic, 8 tests): ascending-by-`order` regardless of input array order; ties at equal
-  `order` break by original array position (both a direct assertion and a repeated-call stability
-  check); `topK` slicing; empty-input handling; rank-1-is-always-spine / isCardEligible /
-  shouldRecurse-at-depth-budget.
-
-**Additional non-required checks run:** `eslint` against every touched/added file — 0 errors after
-two fixes surfaced by the linter itself and corrected in this rework: an unclassified
-`updateBoardState` call site (added to `eslint.config.js`'s `board-mutation-entry-point` allowlist
-with a one-line reason — `useLearnPath.ts`'s walk plays its own candidate moves to grow the tree
-for inspection, not a user move, the same class as the engine-responder / match-cursor / SGF-load
-entries already there) and two unjustified `as` casts (one given an adjacent-comment justification,
-the other eliminated entirely in favor of discriminated-union narrowing on `ParentRef.resolved`,
-which is sound typing rather than a cast).
+**Tests this rework added (per the coordinator's explicit list):**
+- Live-growth step order, spine-first; pre-mint marker set = deviations minus existing; mint-all
+  triggers exactly one batch call and nothing before it; markers clear post-mint/post-discard
+  (`tests/integration/useLearnPath.test.ts`).
+- Ranking ascending + stable-on-ties, `topK` slicing, empty-input, role/recursion decisions
+  (`tests/unit/composables/learn-path-policy.test.ts`, 8 tests).
 
 ## Other tests carried over from the v1 build (still passing, semantics adapted)
 
@@ -284,23 +248,141 @@ which is sound typing rather than a cast).
 - **Precondition tests** (×2) — a board with no `sourceCardId` and a board whose cursor isn't at
   its own root each reject with `LearnPathPreconditionError` from `explore()`.
 
+## FIX ROUND (post fresh-context review — MERGE-WITH-FIXES verdict, `.claude/dispatch-reports/wf8-learn-this-path-review.md`)
+
+The review (branch `018135ff`, merge-base `3378806f`) confirmed the walk/policy/mint semantics
+against rows 706-708/718 with a red-then-green witness on the ranking comparator, and found the
+delivery clean on all three gates run against that stale base. It also found one BLOCKER, one
+REQUIRED-at-compose-time item, and one advisory (upgraded to required by the coordinator). All
+three are addressed in this round, on top of a merge of current `next` (which the coordinator
+confirmed — correcting the review's own note — already carries the Stage-B known-position ring,
+the review-start ring, and the load-gate/nested-splitter restructure of `App.vue`).
+
+### 1. BLOCKER — stale `boardIndex` cross-board corruption (fixed)
+
+**The bug, as witnessed by the reviewer:** `explore()` resolved `store.boards.findIndex(...)`
+**once**, up front, and threaded that raw array index through every `updateBoardState(boardIndex,
+...)` call across the walk's `await yieldStep()` checkpoints — including the final cursor-restore
+write. `closeBoard` splices `store.boards`, shifting every later board's index; closing an
+earlier board mid-walk left every subsequent write landing on whatever board now occupied the
+stale slot. The reviewer's own scratch test showed a foreign board's `currentNodeId` silently
+overwritten with a dangling node id from the walk's board — cross-board data corruption with no
+error, a direct ADR-0002 violation.
+
+**The fix:** `explore()` no longer resolves or threads a `boardIndex` at all. Every live-tree
+write site (`updateBoardState`'s two call sites — the per-step commit inside `walk()`, and the
+cursor-restore after the walk completes) now resolves the board **fresh, by `BoardId`**,
+immediately before the write:
+
+```ts
+function writeLiveBoard(boardId: BoardId, nextState: BoardState): boolean {
+  const index = store.boards.findIndex(b => b.id === boardId);
+  if (index === -1) return false; // the board is gone — see the abort guard below
+  updateBoardState(index, nextState);
+  return true;
+}
+```
+
+This mirrors `learn-path-pending-markers.ts`'s own by-`BoardId` keying, which the reviewer
+correctly named as the pattern to follow. On top of the id-not-index fix, `explore()` also now
+**aborts the walk** (stops recursing, keeps whatever partial `LearnPathExploration` it has
+collected so far — same partial-progress posture as a frontier) the moment `writeLiveBoard`
+reports the anchor board is gone, rather than continuing to compute moves against a board that no
+longer exists. This closes both the specific case the reviewer named (the anchor board itself
+closed mid-walk) and the wider one they found (*any* earlier board closing mid-walk, which the
+by-id fix alone already fully closes since there's no longer a shared stale index to corrupt).
+
+**Regression test added** (`tests/integration/useLearnPath.test.ts`,
+`"closing an unrelated earlier board mid-walk does not corrupt it"`): three boards — A (closed
+mid-walk via a `yieldStep` side effect on its first invocation), B (the walk's anchor), C (an
+unrelated board, pre-moved so its `currentNodeId`/`stones` are distinguishable from B's root).
+Asserts C's `currentNodeId` and `stones` are byte-identical before and after the walk — the
+reviewer's exact scenario, reproduced as a committed test rather than a scratch script.
+
+### 2. REQUIRED — ring collision at `NODE_R+7` (fixed, against the REAL merged `next`)
+
+Per the coordinator's correction, `next` was merged into this branch first (see "Base and merge"
+below) so the ring-composition fix is against the actual landed code, not the review's own
+snapshot of an unmerged branch. Read `TreeWidget.vue` on `next` in full before touching it: it
+carries FOUR rings pre-merge (active `+3` solid, game-head `+5` solid, review-start `+7` solid
+`--accent-secondary`, known-position `+9` dashed `--accent-secondary`) — this branch's
+`pending-mint-ring` collided with review-start at the shared `+7`.
+
+**Fix:** moved `pending-mint-ring` to `NODE_R+11` — one past known-position's `+9` — so the full
+concentric stack (active `+3` → game-head `+5` → review-start `+7` → known-position `+9` →
+pending-mint `+11`) stays visually distinct even when every marker on a node is lit at once.
+Color-wise there was never a collision to begin with: `--accent-primary` (cyan, the pending-mint
+and active-ring color) is a distinct token from `--accent-secondary` (orange, the known-position
+and review-start color) — verified by reading `theme.css`'s token definitions directly, not
+assumed.
+
+The merge itself (see "Base and merge" below) already produced the textual union of: the `props`
+interface (`pendingMintIds` alongside `knownPositionNodeIds` / `reviewStartNodeId`), the
+`nodeList` computed's per-item object (`isPendingMint` alongside `isKnownPosition` /
+`isReviewStart`), and the `.pending-mint-ring` / `.known-position-ring` / `.review-start-ring`
+CSS classes (additive, no name collision). The **v-memo key array** — the reviewer's specific
+worry, since a naive line-level merge could silently drop one side's key — was checked by hand
+against the post-merge file and now reads:
+`[item.isGameHead, item.isKnownPosition, item.isReviewStart, item.isPendingMint, item.move?.color, item.move?.type, item.isBranching, item.isExpanded, item.px, item.py]`
+— the full union of both branches' keys, confirmed present token-by-token, not merely
+compile-clean.
+
+### 3. FIX (upgraded from advisory) — orphaned walk on backdrop close during `'exploring'`
+
+**The bug:** `LearnPathModal.vue`'s backdrop `@mousedown.self="close"` had no phase guard (unlike
+the footer's "Close" button, `:disabled` during `'exploring'`/`'minting'`). A backdrop click while
+`phase === 'exploring'` called `close()` while `exploration.value` was still `null` (the walk
+hadn't resolved yet) — the discard branch was skipped, `isOpen` went false, but the in-flight
+`explore()` promise kept running unaffected by `isOpen`, continuing to mutate the board and add
+pre-mint markers on a modal the user believed they'd closed.
+
+**The fix:** the backdrop's `@mousedown.self` now calls the SAME guarded `close()` the footer
+button already uses — `close()` itself now checks `phase.value` and, when it's `'exploring'` or
+`'minting'`, does not tear down the modal state; it's a no-op (the backdrop click is absorbed,
+same as the footer button being disabled). This guarantees a discard path always exists: a user
+who wants to abandon an in-flight exploration waits for it to resolve into `'explored'` (a matter
+of a few `requestAnimationFrame` ticks per step in practice) and then either clicks "Discard" or
+the now-functional backdrop/Close. The exploration itself still isn't cancellable mid-flight
+(cooperative cancellation of `explore()` while it's running is a larger change — threading an
+abort signal through the recursive `walk()` — named as follow-on scope, not built here); the fix
+closes the specific "orphaned walk with no discard path" failure the coordinator flagged, not the
+separate (smaller) question of interrupting a walk already in progress.
+
+**Test added** (`tests/integration/... ` — see below): backdrop mousedown during `'exploring'`
+does not close the modal (phase stays `'exploring'`) and does not call `discardExploration`
+prematurely; once `explore()` resolves, the SAME backdrop click closes normally and discards.
+
+### Base and merge
+
+`next` (tip `0719dbdd` at merge time) was merged into this branch. Five files conflicted:
+`eslint.config.js`, `App.vue`, `TreeWidget.vue`, `useMinting.ts`, `tests/fakes/backend-service.ts`
+— all textual unions (both sides' additions kept; `App.vue`'s conflict was the larger
+nested-splitter/cold-load-gate restructure moving `TreeWidget` inside `#tree-control-wrapper`,
+resolved by keeping `next`'s structure and adding this branch's `@open-learn-path` /
+`:pending-mint-ids` bindings at their new locations rather than reintroducing the old flat
+layout). No conflict in `useLearnPath.ts`, `learn-path-policy.ts`, or
+`learn-path-pending-markers.ts` themselves — those files are net-new on this branch and untouched
+on `next`.
+
+### Gates (post-fix, post-merge, memory-capped — WITNESSED)
+
+- `nice -n 19 env NODE_OPTIONS=--max-old-space-size=2048 VITEST_MAX_THREADS=2 VITEST_MAX_FORKS=2 npm run build` — **exit 0**. `vue-tsc -b && vite build`, 1142 modules transformed, `dist/` produced. Two real typecheck errors surfaced and were fixed during this round (not a pre-existing break): `RootGroup`/`CardLineageTree` on `next` carry the browse-leak-fix (ledger rows 417/423) per-user display-id rename — `rootCardId`/`gameSourceId` became `rootCardPublicId: CardPublicId`/`gameSourceDisplayOrdinal: GameDisplayOrdinal`, and `fetchTreeByRoot` now takes the public id, not the raw `CardId`. `useLearnPath.ts`'s `loadExistingDescendantContent` (and the test fixtures/fakes that stub it) updated accordingly.
+- Same env, `npm run test:run` — **exit 0. 138 test files passed, 3 skipped (141 total); 1724 tests passed, 4 skipped (1728 total)**, 202s. Matches the coordinator's "~1700+" expectation (up from 1116 pre-merge — `next`'s intervening feature branches, e.g. Docker packaging, setup-stones toolkit, pass support, card-position-annotations Stage B, brought their own suites). Includes the 3 new regression tests this round adds: the cross-board corruption test, and the two `LearnPathModal-backdrop-guard.test.ts` cases.
+- `nice -n 19 npx eslint .` (full project, not just touched files) — **0 errors, 0 warnings** on the whole tree. `nice -n 19 npx eslint <touched files>` also run separately — 0 errors (3 expected "ignored by pattern" warnings on `tests/**` files, the repo's standard test-tree lint exclusion).
+
 ## Notes for the reviewer / orchestrator
 
-- This worktree's branch base (`3378806f`) is behind current `next` (`0d6d12f6` as of the v1
-  build; further ahead by now) — `next` advanced via other concurrent builders' merges after this
-  worktree was cut, not because this branch is stale relative to its own starting point. No
-  rebase attempted here; per the established pattern (ledger row 697), the reviewer reviews this
-  diff on its own base and any renumbering is the orchestrator's merge act.
-- This session ran `./autoharn led -f useMinting.ts decision "..."` (ledger row 700, v1 build) and
-  a rework-summary `./autoharn led decision "..."` (ledger row 733, this rework) to satisfy the
-  worktree's pre-tool-use change-gate hook and to keep the ledger current — the worktree had no
-  `autoharn`/`deployment.json` (both untracked in the parent checkout, so not present in a fresh
-  worktree by default); both were copied in from `/home/bork/w/omega` so the shared ledger was
-  reachable. This is infrastructure the session needed to make any source edit at all, not a
-  design decision about the feature — noted here for completeness, not as a design row.
+- This session ran `./autoharn led -f useMinting.ts decision "..."` (ledger row 700, v1 build), a
+  rework-summary decision (ledger row 733), and a fix-round decision (see the final ledger row
+  cited in the closing summary) to satisfy the worktree's pre-tool-use change-gate hook and keep
+  the ledger current — the worktree had no `autoharn`/`deployment.json` (both untracked in the
+  parent checkout); both were copied in from `/home/bork/w/omega` so the shared ledger was
+  reachable. Infrastructure the session needed to make any source edit, not a design decision
+  about the feature.
 - The row-718 dispatch's naming of "the dashed known-position ring and the review-start ring" as
-  the precedent to follow does not match anything findable in this codebase (full-file read of
-  `TreeWidget.vue` plus a repo-wide grep for every spelling variant, done via a dedicated research
-  pass) — surfaced per ADR-0002 rather than silently building against an assumed precedent; see
-  the DESIGN section's "UI / marker precedent" paragraph for what was actually built instead and
-  why it's the closest faithful analog.
+  the precedent to follow did not match anything findable in this codebase AT BUILD TIME (full-file
+  read of `TreeWidget.vue` plus a repo-wide grep, done via a dedicated research pass) — surfaced
+  per ADR-0002 rather than silently building against an assumed precedent. Both rings have since
+  landed on `next` (merged in this fix round), so the "honesty note" in the DESIGN section above is
+  kept as the accurate record of what was checked when, not retroactively erased now that the
+  precedent exists.

@@ -1215,6 +1215,13 @@ export default [
             // parsed SGF, not a user move.
             'src/composables/sgf/loadIntoBoard.ts':
               'SGF-load primitive — replaces a board from parsed SGF (dirty-guarded at callers), not a user move',
+            // "Learn this path" (wiki #8, ledger rows 706-708/718) explore()
+            // plays the walk's own palette-ranked candidate moves to grow
+            // the board's tree live for inspection, and restores the
+            // cursor to the anchor when done — a programmatic exploration
+            // pass, not a user click/paste move; no grading applies to it.
+            'src/composables/cards/useLearnPath.ts':
+              'Learn-this-path exploration walk — plays its own candidate moves to grow the tree for inspection, not a user move',
             // The setup toolkit (ledger rows 603/604) writes SGF setup
             // properties (AB/AW/TR) on the current node — an editor action
             // with no capture logic and no turn consumption, deliberately

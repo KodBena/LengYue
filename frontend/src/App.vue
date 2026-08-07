@@ -57,6 +57,8 @@ import AnalysisControls from './components/editors/AnalysisControls.vue';
 import Toolbar          from './components/chrome/Toolbar.vue';
 import StatusBar        from './components/board/StatusBar.vue';
 import MintCardModal    from './components/modals/MintCardModal.vue';
+import LearnPathModal   from './components/modals/LearnPathModal.vue';
+import { getPendingMintNodeIds } from './composables/cards/learn-path-pending-markers';
 import ConfirmLoadModal from './components/modals/ConfirmLoadModal.vue';
 import EngineMatchModal from './components/modals/EngineMatchModal.vue';
 import PlayEngineModal  from './components/modals/PlayEngineModal.vue';
@@ -83,6 +85,14 @@ const metadata           = useMetadata(activeBoard);
 const auth               = useAuth();
 
 const activeBoardId = computed<BoardId | null>(() => activeBoard.value?.id ?? null);
+// "Learn this path" pre-mint markers (ledger row 718) — reads the
+// module-scope registry `LearnPathModal` writes to via `useLearnPath`;
+// see `learn-path-pending-markers.ts` for why this lives at module
+// scope rather than as a prop threaded from the modal (siblings, not
+// parent/child).
+const activeBoardPendingMintIds = computed(() =>
+  activeBoardId.value ? getPendingMintNodeIds(activeBoardId.value) : undefined,
+);
 
 // Identity key for the control panel. Remounts the Cards / Library tabs
 // when the logged-in identity changes, so user B never sees user A's
@@ -93,6 +103,7 @@ const activeBoardId = computed<BoardId | null>(() => activeBoard.value?.id ?? nu
 const controlPanelIdentityKey = computed(() => workspaceIdentityKey(auth.state.value));
 const reviewSession = useReviewSession(activeBoardId);
 const mintModalRef = vueRef<InstanceType<typeof MintCardModal> | null>(null);
+const learnPathModalRef = vueRef<InstanceType<typeof LearnPathModal> | null>(null);
 const matchModalRef = vueRef<InstanceType<typeof EngineMatchModal> | null>(null);
 const playModalRef  = vueRef<InstanceType<typeof PlayEngineModal>  | null>(null);
 
@@ -176,6 +187,16 @@ useFollowMePonder();
 function triggerMint() {
   if (activeBoardId.value) {
     mintModalRef.value?.open(activeBoardId.value);
+  }
+}
+
+// "Learn this path" (wiki #8) — mirrors triggerMint's pattern. The
+// modal's own `open()` doesn't need the precondition (loaded-card-at-
+// root) checked here; useLearnPath.runLearnPath surfaces a failed
+// precondition as a reported error inside the modal.
+function triggerLearnPath() {
+  if (activeBoardId.value) {
+    learnPathModalRef.value?.open(activeBoardId.value);
   }
 }
 
@@ -340,6 +361,7 @@ const activeTab = computed<string>({
   <RootErrorBoundary>
   <div id="main-area">
     <MintCardModal ref="mintModalRef" />
+    <LearnPathModal ref="learnPathModalRef" />
     <ConfirmLoadModal ref="confirmLoadModalRef" />
     <EngineMatchModal ref="matchModalRef" @start-match="handleStartMatch" />
     <PlayEngineModal
@@ -381,6 +403,7 @@ const activeTab = computed<string>({
             @open-match="triggerMatch"
             @stop-match="handleStopMatch"
             @open-play="triggerPlay"
+            @open-learn-path="triggerLearnPath"
             style="flex: 1; border-bottom: none;"
           />
 
@@ -543,6 +566,7 @@ const activeTab = computed<string>({
               :game-head-ids="activeBoardGameHeadIds"
               :known-position-node-ids="activeBoardKnownPositionNodeIds"
               :review-start-node-id="reviewSession.startingNodeId.value"
+              :pending-mint-ids="activeBoardPendingMintIds"
               @select-node="handleNodeSelect"
             />
           </div>

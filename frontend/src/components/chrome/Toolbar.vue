@@ -55,6 +55,7 @@ const emit = defineEmits<{
   (e: 'open-match'):   void;
   (e: 'stop-match'):   void;
   (e: 'open-play'):    void;
+  (e: 'open-learn-path'): void;
 }>();
 
 // isConnected is destructured from useEngineControls() above (RB-1).
@@ -133,6 +134,12 @@ function onMatchClick() {
 
     <div class="engine-controls">
       <button class="toolbar-btn highlight-btn" @click="emit('mint-card')">{{ $t('toolbar.mintCard') }}</button>
+      <!-- "Learn this path" (wiki #8) — opens LearnPathModal, which
+           self-gates on the loaded-card-at-root precondition
+           (useLearnPath.ts) and reports its own error rather than this
+           button disabling ahead of time; every board state is a valid
+           click target, the modal explains a failed precondition. -->
+      <button class="toolbar-btn" @click="emit('open-learn-path')">{{ $t('toolbar.learnPath') }}</button>
       <!-- PLAY opens the manage-games-on-this-board modal. Single
            surface for both "start new game vs engine" and "end an
            existing game" — see `PlayEngineModal.vue` for the
