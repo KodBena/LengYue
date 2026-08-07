@@ -41,7 +41,7 @@ vi.mock('../../src/services/backend-service', async () => {
   return { backendService: fakeBackendService };
 });
 
-import { store, addBoard } from '../../src/store';
+import { store, addBoard, closeBoard } from '../../src/store';
 import { createInitialBoard } from '../../src/store/board-factory';
 import { applyGoMove } from '../../src/logic';
 import { serializeActivePath } from '../../src/engine/sgf-writer';
@@ -54,11 +54,15 @@ import {
 } from '../../src/composables/cards/useLearnPath';
 import { getPendingMintNodeIds } from '../../src/composables/cards/learn-path-pending-markers';
 import { fakeBackendService, resetFakeBackendService } from '../fakes/backend-service';
-import type { BoardId, BoardState, CardId, CardLineageTree, GameSourceId, NodeId, RawAnalysis, ReviewCard } from '../../src/types';
+import type { BoardId, BoardState, CardId, CardLineageTree, CardPublicId, GameDisplayOrdinal, NodeId, RawAnalysis, ReviewCard } from '../../src/types';
 
 const ANCHOR_CARD_ID = 1000 as CardId;
 const EXISTING_Q16_CARD_ID = 1001 as CardId;
-const GAME_SOURCE_ID = 5000 as GameSourceId;
+// Browse-leak-fix (ledger rows 417/423): resolveRoots/fetchTreeByRoot
+// speak per-user display ids, not raw CardId/GameSourceId — see
+// useLearnPath.ts's loadExistingDescendantContent for the read path.
+const ANCHOR_ROOT_PUBLIC_ID = 'card-pub-1000' as CardPublicId;
+const GAME_DISPLAY_ORDINAL = 5000 as GameDisplayOrdinal;
 
 // A yield hook that resolves on a microtask, not a real
 // requestAnimationFrame — fast and deterministic for tests, and
@@ -152,12 +156,12 @@ function buildAnchorBoard() {
 
 function mockDedupFakes(existingContent: readonly { cardId: CardId; sgf: string }[]) {
   fakeBackendService.resolveRoots.mockResolvedValue({
-    roots: [{ rootCardId: ANCHOR_CARD_ID, gameSourceId: GAME_SOURCE_ID, cardIdsInTree: [ANCHOR_CARD_ID] }],
+    roots: [{ rootCardPublicId: ANCHOR_ROOT_PUBLIC_ID, gameSourceDisplayOrdinal: GAME_DISPLAY_ORDINAL, cardIdsInTree: [ANCHOR_CARD_ID] }],
     unmatchedCardIds: [],
   });
   fakeBackendService.fetchTreeByRoot.mockResolvedValue({
-    rootCardId: ANCHOR_CARD_ID,
-    gameSourceId: GAME_SOURCE_ID,
+    rootCardPublicId: ANCHOR_ROOT_PUBLIC_ID,
+    gameSourceDisplayOrdinal: GAME_DISPLAY_ORDINAL,
     tree: { id: ANCHOR_CARD_ID, children: existingContent.map(e => ({ id: e.cardId, children: [] })) },
   } satisfies CardLineageTree);
   fakeBackendService.fetchCard.mockImplementation(async (id: CardId) => {
@@ -241,6 +245,63 @@ describe('useLearnPath.explore — spine-first walk, live growth, no minting', (
     expect(finalBoard.currentNodeId).toBe(board.rootNodeId);
     expect(finalBoard.nodes[nodeIds.p9NodeId]).toBeDefined();
     expect(finalBoard.nodes[nodeIds.c17NodeId]).toBeDefined();
+  });
+});
+
+describe('useLearnPath.explore — board-identity safety (fresh-context review BLOCKER)', () => {
+  it('closing an unrelated earlier board mid-walk does not corrupt it', async () => {
+    // Reviewer's exact scenario: Board A (index 0, unrelated) -> Board B
+    // (index 1, the walk's anchor) -> Board C (index 2, unrelated,
+    // pre-moved so its currentNodeId/stones are distinguishable from B's
+    // root). A `boardIndex` resolved once and threaded across yields
+    // would, after A closes and splices the array, write B's data into
+    // whatever now occupies A's old slot — which, after the splice, is
+    // the board that WAS at index 1 (B itself shifts to index 0; C shifts
+    // to index 1). The fix re-resolves by BoardId at every write, so this
+    // must be a no-op for both A (gone) and C (untouched).
+    const boardA = createInitialBoard();
+    const { board: boardB, moves, nodeIds } = buildAnchorBoard();
+    boardB.sourceCardId = ANCHOR_CARD_ID;
+    const boardCBase = createInitialBoard();
+    const boardC = applyGoMove(boardCBase, 10, 10)!; // pre-moved, distinguishable
+    boardC.sourceCardId = undefined; // irrelevant to this board; just needs to be untouched
+
+    addBoard(boardA);
+    addBoard(boardB);
+    addBoard(boardC);
+    const boardIdB = boardB.id as BoardId;
+    const boardIdC = boardC.id as BoardId;
+    const cSnapshotBefore = {
+      currentNodeId: boardC.currentNodeId,
+      stones: { ...boardC.stones },
+    };
+
+    seedLedger(boardB, nodeIds, moves);
+    mockDedupFakes([]);
+
+    let calls = 0;
+    const yieldStep = async () => {
+      calls++;
+      if (calls === 1) {
+        // Close A (the earlier, unrelated board) on the walk's very
+        // first yield checkpoint — exactly the reviewer's repro.
+        closeBoard(boardA.id as BoardId);
+      }
+      await Promise.resolve();
+    };
+
+    const { explore } = useLearnPath();
+    // Must not throw, and must not corrupt C.
+    await explore({ boardId: boardIdB, depth: 3, topK: 2, tag: 'taisha', yieldStep });
+
+    const liveC = store.boards.find(b => b.id === boardIdC)!;
+    expect(liveC).toBeDefined();
+    expect(liveC.currentNodeId).toBe(cSnapshotBefore.currentNodeId);
+    expect(liveC.stones).toEqual(cSnapshotBefore.stones);
+
+    // A is genuinely gone (closeBoard did its job — this isn't testing
+    // closeBoard itself, just confirming the premise).
+    expect(store.boards.find(b => b.id === (boardA.id as BoardId))).toBeUndefined();
   });
 });
 

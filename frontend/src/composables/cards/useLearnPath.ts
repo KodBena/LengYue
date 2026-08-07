@@ -117,6 +117,24 @@
  * require tracking and safely deleting them (a node another concurrent
  * action might have started depending on), which is out of v1 scope.
  *
+ * ── Board-identity safety (fresh-context review finding, fixed) ──────
+ * `walk()` spans many `await yieldStep()` checkpoints — real time in
+ * production (one `requestAnimationFrame` per step), during which the
+ * user can close ANY board. `store.boards` is a plain array and
+ * `closeBoard` splices it, so an array INDEX resolved once up front and
+ * threaded across those checkpoints goes stale the moment an earlier
+ * board closes — every subsequent write would land on whatever board
+ * now occupies that slot (cross-board corruption, witnessed in review).
+ * `writeLiveBoard()` below re-resolves `store.boards.findIndex(...)` by
+ * `BoardId` at EVERY write site, never carries an index across an
+ * `await`, and reports back whether the write landed. `walk()` treats a
+ * missed write (the anchor board itself is gone) as an abort signal —
+ * the walk stops recursing/looping and returns whatever partial
+ * `LearnPathExploration` it had collected, the same partial-progress
+ * posture as a frontier. This mirrors `learn-path-pending-markers.ts`'s
+ * own by-`BoardId` keying (that module was never subject to this bug —
+ * only the direct `updateBoardState` call sites were).
+ *
  * ── Ranking metric — the commissioner's clarification (row 706), and
  * the finding that produced it ───────────────────────────────────────
  * `RawAnalysis.moveInfos` — the ONLY per-sibling-candidate ranking the
@@ -317,6 +335,20 @@ function defaultYieldStep(): Promise<void> {
   return new Promise(resolve => requestAnimationFrame(() => resolve()));
 }
 
+/**
+ * Writes `nextState` to `boardId`'s live board slot, re-resolving the
+ * array index fresh (never carried across an `await`). Returns `false`
+ * — without writing anything — if the board is gone (closed mid-walk);
+ * `explore()`'s `walk()` treats that as an abort signal. See the
+ * module header's "Board-identity safety" section.
+ */
+function writeLiveBoard(boardId: BoardId, nextState: BoardState): boolean {
+  const index = store.boards.findIndex(b => b.id === boardId);
+  if (index === -1) return false;
+  updateBoardState(index, nextState);
+  return true;
+}
+
 /** DFS for a node matching `cardId` within a `CardLineageNode` tree. */
 function findLineageNode(node: CardLineageNode, cardId: CardId): CardLineageNode | null {
   if (node.id === cardId) return node;
@@ -357,12 +389,16 @@ export function useLearnPath() {
         `(resolve-roots reported it unmatched); refusing to seed without existing-card dedup coverage.`,
       );
     }
-    const tree = await backendService.fetchTreeByRoot(group.rootCardId);
+    // Browse-leak-fix (ledger rows 417/423): `fetchTreeByRoot` takes the
+    // per-user display id (`CardPublicId`), not the raw `CardId` — the
+    // tree BODY still speaks raw `CardId` per node (`CardLineageNode.id`),
+    // only the root-lookup argument changed shape.
+    const tree = await backendService.fetchTreeByRoot(group.rootCardPublicId);
     const anchorNode = findLineageNode(tree.tree, anchorCardId);
     if (!anchorNode) {
       throw new LearnPathError(
         `Learn this path: anchor card ${anchorCardId} was not found in its own resolved tree ` +
-        `(root ${group.rootCardId}) — the lineage read is inconsistent with resolve-roots.`,
+        `(root ${group.rootCardPublicId}) — the lineage read is inconsistent with resolve-roots.`,
       );
     }
     const descendantIds: CardId[] = [];
@@ -401,8 +437,7 @@ export function useLearnPath() {
     const tag = params.tag.trim();
     if (!tag) throw new LearnPathError('Learn this path: a context tag is required.');
 
-    const boardIndex = store.boards.findIndex(b => b.id === params.boardId);
-    const board = boardIndex === -1 ? undefined : store.boards[boardIndex];
+    const board = store.boards.find(b => b.id === params.boardId);
     if (!board) throw new LearnPathError(`Learn this path: board ${params.boardId} not found.`);
     if (board.sourceCardId === undefined) {
       throw new LearnPathPreconditionError(
@@ -440,8 +475,15 @@ export function useLearnPath() {
     const pendingFrontiers: PendingFrontier[] = [];
     const pendingUnplayable: PendingUnplayable[] = [];
     let nextPlaceholder = 0;
+    // Set the moment `writeLiveBoard` reports the anchor board is gone
+    // (closed mid-walk, by the user or anything else). Checked at the
+    // top of every loop/recursion so the walk stops promptly rather
+    // than continuing to compute moves against a board that no longer
+    // exists — see the module header's "Board-identity safety" section.
+    let aborted = false;
 
     async function walk(state: BoardState, plyDepth: number, parentRef: ParentRef): Promise<void> {
+      if (aborted) return;
       const raw = ledger.getRaw(rawKey, state.currentNodeId);
       if (!raw || !raw.moveInfos || raw.moveInfos.length === 0) {
         pendingFrontiers.push({ parentRef, plyDepth, nodeId: state.currentNodeId });
@@ -458,6 +500,7 @@ export function useLearnPath() {
       // (deviations). This ordering IS the "trunk drawn first, then
       // branches" live-growth guarantee; no separate scheduling needed.
       for (const candidate of ranked) {
+        if (aborted) break;
         const { info, rank, role } = candidate;
         const nextPlyDepth = plyDepth + 1;
         const coords = gtpToBoard(info.move);
@@ -475,9 +518,15 @@ export function useLearnPath() {
         }
         const move: LearnPathMove = { x: coords.x, y: coords.y, color: state.turn };
 
-        // Live tree growth: commit into the reactive board, then yield
-        // a paint checkpoint (row 708 LIVE EXPLORATION).
-        updateBoardState(boardIndex, nextState);
+        // Live tree growth: commit into the reactive board (re-resolved
+        // by BoardId, never a carried-over index — see writeLiveBoard's
+        // own doc comment), then yield a paint checkpoint (row 708 LIVE
+        // EXPLORATION). A missed write means the board is gone: abort
+        // rather than keep computing moves against it.
+        if (!writeLiveBoard(params.boardId, nextState)) {
+          aborted = true;
+          break;
+        }
         await yieldStep();
 
         const eligible = policy.isCardEligible(role);
@@ -517,9 +566,14 @@ export function useLearnPath() {
     await walk(board, 0, { resolved: true, cardId: anchorCardId });
 
     // Restore the user's cursor; the grown `nodes` persist (see header).
-    const grownBoard = store.boards[boardIndex];
-    if (grownBoard) {
-      updateBoardState(boardIndex, { ...grownBoard, ...anchorCursor });
+    // Re-resolves by BoardId (one-time, not carried across an `await`) —
+    // a no-op if the board is gone (the `aborted` path above already
+    // covers that; this is just the final write's own safety, not a
+    // duplicate of the abort logic).
+    const finalIndex = store.boards.findIndex(b => b.id === params.boardId);
+    if (finalIndex !== -1) {
+      const grownBoard = store.boards[finalIndex];
+      updateBoardState(finalIndex, { ...grownBoard, ...anchorCursor });
     }
 
     const existingCount = pendingSeeds.reduce(

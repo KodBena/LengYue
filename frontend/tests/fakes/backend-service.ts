@@ -32,6 +32,7 @@ import type {
   CardCreatePayload,
   CardLineageTree,
   CardMetadataPatch,
+  CardPublicId,
   ContentHash,
   ResolveRootsResult,
   ReviewCard,
@@ -43,8 +44,10 @@ export const fakeBackendService = {
   updateCardMetadata: vi.fn<(cardId: CardId, patch: CardMetadataPatch) => Promise<ReviewCard>>(),
   // useLearnPath's dedup-coverage read path (frontend/CLAUDE.md fakes
   // discipline: added when useLearnPath.test.ts started exercising it).
+  // Browse-leak-fix (ledger rows 417/423): fetchTreeByRoot takes the
+  // per-user display id, not the raw CardId.
   resolveRoots: vi.fn<(cardIds: CardId[]) => Promise<ResolveRootsResult>>(),
-  fetchTreeByRoot: vi.fn<(rootCardId: CardId, maxNodes?: number) => Promise<CardLineageTree>>(),
+  fetchTreeByRoot: vi.fn<(rootCardPublicId: CardPublicId, maxNodes?: number) => Promise<CardLineageTree>>(),
   fetchCard: vi.fn<(cardId: CardId) => Promise<ReviewCard>>(),
   // card-position-annotations Stage A: the stateless hash lookup
   // (`POST /positions/hash`) — exercised by useMinting/useKnownPositions'

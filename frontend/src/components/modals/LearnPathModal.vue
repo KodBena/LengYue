@@ -52,6 +52,21 @@ defineExpose({
 });
 
 function close() {
+  // Guard, mirroring the footer "Close" button's own `:disabled`
+  // (fresh-context review finding, upgraded to required): a walk in
+  // flight (`explore()` mid-run, or `confirmMint()` mid-run) is a
+  // pending Promise that `isOpen`/`phase` cannot cancel — it keeps
+  // mutating the board and adding pre-mint markers regardless of
+  // whether the modal is visible. Without this guard the BACKDROP
+  // click (unlike the footer button) had no phase check at all, so it
+  // could tear down `exploration.value`/`phase.value` out from under
+  // the in-flight promise, orphaning the walk with no discard path
+  // reachable through the UI once it eventually resolved. No-op here
+  // (same as the footer button rendering disabled): the user waits for
+  // the phase to land on 'explored' (a few paint-checkpoint ticks) and
+  // then Close/backdrop/Discard all work normally.
+  if (phase.value === 'exploring' || phase.value === 'minting') return;
+
   // A closed-without-confirming exploration's markers are a discard —
   // the grown tree nodes stay (documented limitation, useLearnPath.ts
   // header), but the "would be added" markers shouldn't linger once

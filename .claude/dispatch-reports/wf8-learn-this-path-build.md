@@ -364,13 +364,11 @@ layout). No conflict in `useLearnPath.ts`, `learn-path-policy.ts`, or
 `learn-path-pending-markers.ts` themselves — those files are net-new on this branch and untouched
 on `next`.
 
-### Gates (post-fix, post-merge, memory-capped)
+### Gates (post-fix, post-merge, memory-capped — WITNESSED)
 
-- `nice -n 19 env NODE_OPTIONS=--max-old-space-size=2048 VITEST_MAX_THREADS=2 VITEST_MAX_FORKS=2 npm run build` — see final summary for exit code and module count.
-- Same env, `npm run test:run` — see final summary for pass/skip counts (expected to jump from
-  1116 to ~1700+ per the coordinator's note, since `next`'s merge brings in every test file the
-  intervening feature branches added).
-- `eslint .` — see final summary.
+- `nice -n 19 env NODE_OPTIONS=--max-old-space-size=2048 VITEST_MAX_THREADS=2 VITEST_MAX_FORKS=2 npm run build` — **exit 0**. `vue-tsc -b && vite build`, 1142 modules transformed, `dist/` produced. Two real typecheck errors surfaced and were fixed during this round (not a pre-existing break): `RootGroup`/`CardLineageTree` on `next` carry the browse-leak-fix (ledger rows 417/423) per-user display-id rename — `rootCardId`/`gameSourceId` became `rootCardPublicId: CardPublicId`/`gameSourceDisplayOrdinal: GameDisplayOrdinal`, and `fetchTreeByRoot` now takes the public id, not the raw `CardId`. `useLearnPath.ts`'s `loadExistingDescendantContent` (and the test fixtures/fakes that stub it) updated accordingly.
+- Same env, `npm run test:run` — **exit 0. 138 test files passed, 3 skipped (141 total); 1724 tests passed, 4 skipped (1728 total)**, 202s. Matches the coordinator's "~1700+" expectation (up from 1116 pre-merge — `next`'s intervening feature branches, e.g. Docker packaging, setup-stones toolkit, pass support, card-position-annotations Stage B, brought their own suites). Includes the 3 new regression tests this round adds: the cross-board corruption test, and the two `LearnPathModal-backdrop-guard.test.ts` cases.
+- `nice -n 19 npx eslint .` (full project, not just touched files) — **0 errors, 0 warnings** on the whole tree. `nice -n 19 npx eslint <touched files>` also run separately — 0 errors (3 expected "ignored by pattern" warnings on `tests/**` files, the repo's standard test-tree lint exclusion).
 
 ## Notes for the reviewer / orchestrator
 
