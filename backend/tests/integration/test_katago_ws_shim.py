@@ -246,3 +246,240 @@ async def test_cancellation_terminates_child_process_reliably(fake_engine_path, 
     # time the cancelled task has actually finished, the child is confirmed dead —
     # no polling/sleeping needed to observe this.
     assert process.returncode is not None
+
+
+# --- mDNS advertising -------------------------------------------------------
+#
+# `zeroconf` is an optional dependency (see the module docstring): these tests
+# never require the real package or real multicast traffic. Absence is
+# exercised by monkeypatching the module's own `_ZEROCONF_AVAILABLE` flag;
+# presence is exercised by monkeypatching `ServiceInfo` / `AsyncZeroconf` with
+# small in-memory fakes that record calls instead of touching the network.
+# Both are equally valid because katago_ws_shim resolves the real import once
+# at module load and branches on those module-level names at call time — never
+# re-importing lazily — so patching the names is exactly what "swap the
+# optional dependency" means for this module.
+
+
+class _FakeServiceInfo:
+    def __init__(self, type_, name, port=None, properties=None, parsed_addresses=None, server=None):
+        self.type = type_
+        self.name = name
+        self.port = port
+        self.properties = properties
+        self.parsed_addresses = parsed_addresses
+        self.server = server
+
+
+class _FakeAsyncZeroconf:
+    """Records register/unregister/close calls; never touches a socket."""
+
+    instances: list["_FakeAsyncZeroconf"] = []
+
+    def __init__(self, *args, **kwargs):
+        self.registered: list[_FakeServiceInfo] = []
+        self.unregistered: list[_FakeServiceInfo] = []
+        self.closed = False
+        _FakeAsyncZeroconf.instances.append(self)
+
+    async def async_register_service(self, info):
+        self.registered.append(info)
+
+    async def async_unregister_service(self, info):
+        self.unregistered.append(info)
+
+    async def async_close(self):
+        self.closed = True
+
+
+@pytest.fixture
+def fake_zeroconf(monkeypatch):
+    """Install the fake zeroconf stack as if the optional package were present."""
+    _FakeAsyncZeroconf.instances = []
+    monkeypatch.setattr(katago_ws_shim, "_ZEROCONF_AVAILABLE", True)
+    monkeypatch.setattr(katago_ws_shim, "ServiceInfo", _FakeServiceInfo)
+    monkeypatch.setattr(katago_ws_shim, "AsyncZeroconf", _FakeAsyncZeroconf)
+    return _FakeAsyncZeroconf
+
+
+@pytest.fixture
+def _mdns_logger_enabled(monkeypatch):
+    """Guard against a session-order footgun unrelated to mDNS itself:
+    ``test_alembic_bootstrap.py`` (collected earlier in the suite, by
+    filename) triggers Alembic's ``env.py``, which calls
+    ``logging.config.fileConfig(...)`` with its default
+    ``disable_existing_loggers=True``. That sets ``.disabled = True`` on
+    every logger that already existed at that point — including this
+    module's ``logger``, created at import time — for the rest of the
+    process. It's orthogonal to level filtering, so pytest's own
+    ``caplog.at_level`` recovery (which only handles ``logging.disable()``,
+    the global manager-level cutoff) doesn't undo it. Force it back on for
+    the duration of each caplog-dependent test below, regardless of what
+    ran earlier in the session."""
+    monkeypatch.setattr(katago_ws_shim.logger, "disabled", False)
+
+
+@pytest.fixture
+def advertisable_host(monkeypatch):
+    """Make address-resolution treat the shim's bind host as LAN-advertisable.
+
+    Tests that exercise the registration/deregistration *wiring* still need
+    the real WebSocket server bound to a real, connectable loopback address
+    (SCRATCH_HOST) — they can't bind to an arbitrary non-loopback IP just to
+    satisfy the "is this address honest to advertise" check. So this
+    monkeypatches `_mdns_advertise_addresses` itself, decoupling "does
+    registration wire up correctly" (this fixture) from "is a loopback bind
+    correctly skipped" (covered separately, unpatched, against the real
+    127.0.0.1 default).
+    """
+    monkeypatch.setattr(
+        katago_ws_shim, "_mdns_advertise_addresses", lambda host: ["203.0.113.5"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_mdns_disabled_when_zeroconf_not_installed_serves_normally(
+    fake_engine_path, tmp_path, monkeypatch, caplog, _mdns_logger_enabled
+):
+    """With zeroconf ABSENT, the shim serves normally and logs one clear line."""
+    monkeypatch.setattr(katago_ws_shim, "_ZEROCONF_AVAILABLE", False)
+    args = make_args(fake_engine_path, tmp_path, port=SCRATCH_PORT + 5)
+    hooks: dict = {}
+    with caplog.at_level("INFO", logger="katago_ws_shim"):
+        task = await _start_serve(args, hooks)
+        try:
+            assert hooks["mdns"] is None
+            # Core serving is unaffected: a normal round trip still works.
+            async with websockets.connect(f"ws://{SCRATCH_HOST}:{SCRATCH_PORT + 5}") as ws:
+                await ws.send(json.dumps({"id": "q1", "payload": "hello"}))
+                reply = json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+                assert reply["id"] == "q1"
+                assert reply["echo"] == "hello"
+        finally:
+            await _stop_serve(task)
+
+    assert any(
+        "mDNS advertising disabled: zeroconf not installed" in r.message for r in caplog.records
+    )
+
+
+@pytest.mark.asyncio
+async def test_mdns_registers_and_deregisters_with_fake_zeroconf(
+    fake_engine_path, tmp_path, fake_zeroconf, advertisable_host
+):
+    """With a fake zeroconf stack injected, registration happens with the right
+    service type/port while bound to an advertisable host, and deregistration
+    happens on shutdown."""
+    args = make_args(fake_engine_path, tmp_path, port=SCRATCH_PORT + 6)
+    hooks: dict = {}
+    task = await _start_serve(args, hooks)
+    try:
+        handle = hooks["mdns"]
+        assert handle is not None
+        assert len(fake_zeroconf.instances) == 1
+        azc = fake_zeroconf.instances[0]
+        assert len(azc.registered) == 1
+        info = azc.registered[0]
+        assert info.type == katago_ws_shim.MDNS_SERVICE_TYPE
+        assert info.port == SCRATCH_PORT + 6
+        assert info.parsed_addresses == ["203.0.113.5"]
+        assert info.properties["role"] == "leaf"
+        assert azc.unregistered == []
+        assert not azc.closed
+    finally:
+        await _stop_serve(task)
+
+    assert azc.unregistered == [info]
+    assert azc.closed
+
+
+@pytest.mark.asyncio
+async def test_mdns_includes_model_basename_not_full_path(
+    fake_engine_path, tmp_path, fake_zeroconf, advertisable_host
+):
+    """The TXT payload carries the model's basename, never its full path."""
+    args = make_args(fake_engine_path, tmp_path, port=SCRATCH_PORT + 7)
+    model_dir = tmp_path / "some" / "deep" / "secret-looking" / "path"
+    model_dir.mkdir(parents=True)
+    model_path = model_dir / "b18c384nbt.bin.gz"
+    model_path.write_bytes(b"")
+    args.model = str(model_path)
+    hooks: dict = {}
+    task = await _start_serve(args, hooks)
+    try:
+        azc = fake_zeroconf.instances[0]
+        info = azc.registered[0]
+        assert info.properties["model"] == "b18c384nbt.bin.gz"
+        assert str(model_dir) not in "".join(f"{k}={v}" for k, v in info.properties.items())
+    finally:
+        await _stop_serve(task)
+
+
+@pytest.mark.asyncio
+async def test_mdns_skipped_on_loopback_bind(
+    fake_engine_path, tmp_path, fake_zeroconf, caplog, _mdns_logger_enabled
+):
+    """Bound to the default loopback address, advertising is skipped (it would
+    be a lie: no other machine could reach it) and the reason is logged."""
+    args = make_args(fake_engine_path, tmp_path, port=SCRATCH_PORT + 8)
+    assert args.host == SCRATCH_HOST == "127.0.0.1"  # the shim's own default
+    hooks: dict = {}
+    with caplog.at_level("INFO", logger="katago_ws_shim"):
+        task = await _start_serve(args, hooks)
+        try:
+            assert hooks["mdns"] is None
+            assert fake_zeroconf.instances == []
+        finally:
+            await _stop_serve(task)
+
+    assert any("mDNS advertising skipped" in r.message for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_mdns_disabled_by_flag_even_with_zeroconf_present(
+    fake_engine_path, tmp_path, fake_zeroconf, advertisable_host, caplog, _mdns_logger_enabled
+):
+    """--no-mdns disables advertising outright, even with zeroconf importable
+    and bound to an advertisable address."""
+    args = make_args(fake_engine_path, tmp_path, port=SCRATCH_PORT + 9)
+    args.no_mdns = True
+    hooks: dict = {}
+    with caplog.at_level("INFO", logger="katago_ws_shim"):
+        task = await _start_serve(args, hooks)
+        try:
+            assert hooks["mdns"] is None
+            assert fake_zeroconf.instances == []
+        finally:
+            await _stop_serve(task)
+
+    assert any("mDNS advertising disabled (--no-mdns)" in r.message for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_mdns_registration_failure_is_caught_and_serves_normally(
+    fake_engine_path, tmp_path, fake_zeroconf, advertisable_host, monkeypatch, caplog,
+    _mdns_logger_enabled,
+):
+    """A registration failure at runtime (e.g. the local mDNS stack absent or
+    broken, even though `zeroconf` itself imports fine) is caught, logged once,
+    and never turns into a serving failure — no retry, no crash."""
+
+    class _ExplodingAsyncZeroconf(fake_zeroconf):
+        async def async_register_service(self, info):
+            raise OSError("no multicast interface available")
+
+    monkeypatch.setattr(katago_ws_shim, "AsyncZeroconf", _ExplodingAsyncZeroconf)
+    args = make_args(fake_engine_path, tmp_path, port=SCRATCH_PORT + 10)
+    hooks: dict = {}
+    with caplog.at_level("INFO", logger="katago_ws_shim"):
+        task = await _start_serve(args, hooks)
+        try:
+            assert hooks["mdns"] is None
+            async with websockets.connect(f"ws://{SCRATCH_HOST}:{SCRATCH_PORT + 10}") as ws:
+                await ws.send(json.dumps({"id": "q1", "payload": "hello"}))
+                reply = json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+                assert reply["echo"] == "hello"
+        finally:
+            await _stop_serve(task)
+
+    assert any("mDNS advertising failed to register" in r.message for r in caplog.records)

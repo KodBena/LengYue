@@ -54,7 +54,9 @@ You provide that upstream:
   `backend/scripts/katago_ws_shim.py` — launches `katago analysis` as
   a subprocess and re-exposes it as a WebSocket server multiple
   clients can share. Run it with `--help` for the full option list
-  (katago path/model/config, bind host/port).
+  (katago path/model/config, bind host/port); with the optional
+  `zeroconf` package installed (`pip install zeroconf`) it can also
+  advertise itself on the LAN via mDNS for autodiscovery.
 
 Run the shim with its defaults and every packaging (Docker, desktop,
 plain dev) finds it with no further configuration — its default port,
