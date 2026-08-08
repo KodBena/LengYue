@@ -1,9 +1,13 @@
 # tauri-upstream-setting — in-app proxy-upstream setting for the Tauri desktop package (ledger rows 860-862)
 
 Branch: `worktree-agent-a8a22b5a272513ce9`
-Commit: recorded at the end of this report (see §8), after the commit
-that carries this report — not hardcoded here, matching the kataproxy-tauri
-report's own stated reasoning for why a hardcoded sha would go stale.
+Commit: `a5b362a4` ("feat(tauri): make the KataProxy upstream engine
+location settable in-app") — this report's own text lands IN that
+commit (see §8), so unlike the kataproxy-tauri report's stated reason
+for leaving its sha unhardcoded (the report there was committed
+alongside the code, then referenced afterward), this report is written
+knowing its own commit sha because the sha is recorded here in a
+follow-up edit after `git commit` ran, not predicted in advance.
 
 Worktree provenance disclosure: this session's worktree HEAD started at
 `3378806f`, both behind AND diverged from the shared repo's `next`
