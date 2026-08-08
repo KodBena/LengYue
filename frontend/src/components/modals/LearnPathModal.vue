@@ -11,7 +11,7 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { pushSystemMessage } from '../../store';
 import {
@@ -20,6 +20,7 @@ import {
   type LearnPathExploration,
   type LearnPathResult,
 } from '../../composables/cards/useLearnPath';
+import { getAnalyzingNodeId } from '../../composables/cards/learn-path-progress';
 import type { BoardId } from '../../types';
 
 const { t } = useI18n();
@@ -38,6 +39,17 @@ const tag = ref('');
 const exploration = ref<LearnPathExploration | null>(null);
 const result = ref<LearnPathResult | null>(null);
 const errorMessage = ref<string | null>(null);
+
+// On-demand-analysis progress (commission ledger row 881, ADR-0002/C6
+// progress honesty): while `phase === 'exploring'`, this distinguishes
+// "quietly stepping through already-recorded positions" from "blocked
+// waiting on the engine" — the tree-growth checkpoint alone doesn't
+// tell the two apart. Reads the same module-scope registry TreeWidget's
+// analyzing-ring reads (`learn-path-progress.ts`), reactive since it's
+// a `reactive(Map)` read inside a computed.
+const isAnalyzing = computed(() =>
+  boardId.value !== null && getAnalyzingNodeId(boardId.value) !== null,
+);
 
 defineExpose({
   open(id: BoardId) {
@@ -169,7 +181,8 @@ async function runMintAll() {
 
         <p v-if="errorMessage" class="error-box">{{ errorMessage }}</p>
 
-        <p v-if="phase === 'exploring'" class="hint">{{ $t('learnPath.status.exploring') }}</p>
+        <p v-if="phase === 'exploring' && isAnalyzing" class="hint">{{ $t('learnPath.status.analyzing') }}</p>
+        <p v-else-if="phase === 'exploring'" class="hint">{{ $t('learnPath.status.exploring') }}</p>
 
         <!-- Explored, not yet minted: the tree has grown live in the
              viewer (with dashed blue pre-mint markers on the deviation

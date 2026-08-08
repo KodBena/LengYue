@@ -53,16 +53,116 @@
  *     via `LearnPathPolicy` is the accepted v1 policy surface — no
  *     DSL. The seam (below) stays for a future one to plug into.
  *
- * The three ratified constraints from row 660 that predate this
+ * Two of the three ratified constraints from row 660 that predate this
  * restructure still hold:
  *
- *   1. Candidates come from EXISTING analysis already in the ledger —
- *      no new engine queries. A position lacking analysis is a
- *      FRONTIER: reported, never silently truncated (ADR-0002).
- *   2. The context tag is user-supplied, applied via the existing
+ *   1. The context tag is user-supplied, applied via the existing
  *      card-create wire's `tags` field — no tag-DSL changes.
- *   3. Seeded cards mint through the EXISTING mint path
+ *   2. Seeded cards mint through the EXISTING mint path
  *      (`useMinting().commitMint`).
+ *
+ * The THIRD — "candidates come from EXISTING analysis already in the
+ * ledger; no new engine queries; a position lacking analysis is a
+ * FRONTIER" — is REPEALED by commission ledger row 881 (see "On-demand
+ * analysis" below). It was an executor-authored restriction that was
+ * never itself ratified by the commissioner; row 881 explicitly names
+ * it as such and directs the walk to drive the engine instead. This is
+ * the FOURTH unratified de-scope in this feature's history — row 881
+ * treats scope with maximal care accordingly. FRONTIER now means a
+ * GENUINE engine refusal (the query construction fails synchronously,
+ * or the wait times out) at a position the walk DID ask about — never
+ * "we never asked."
+ *
+ * ── On-demand analysis (commission row 881) ───────────────────────────
+ * A visited position with no recorded analysis in the ledger is no
+ * longer an automatic frontier: `walk()` requests analysis for it
+ * through the app's EXISTING one-shot engine-query machinery
+ * (`analysisService.analyzeActiveNode(boardId, 'analyze', visits)` —
+ * the same one-shot "deep-analyze-this-node" method the codebase
+ * already has; never a parallel/bespoke engine client), then awaits
+ * the SAME ledger entry (`rawKey`, `nodeId`, `turnNumber`) the walk's
+ * own `ledger.getRaw` read already consults — `waitForAnalysis`
+ * (`composables/analysis/wait-for-analysis.ts`), the same primitive
+ * `useReviewSession.processUserTurn` uses to await a graded move's
+ * analysis. Only once the wait settles does the walk rank
+ * `moveInfos` and continue descending — the existing ranking law
+ * (row 706) is unchanged; it now sometimes runs against a packet that
+ * just landed instead of one already in the ledger.
+ *
+ * **Visit-count governance (the card-visit-count override machinery
+ * does NOT apply here — finding, not an assumption).** The review
+ * session's per-card visit budget
+ * (`ReviewSessionData.visitsOverride` / `ReviewCard.defaultVisits`,
+ * `useReviewSession.ts`'s `effectiveVisits`) is keyed to an EXISTING
+ * minted card. The positions this walk queries on demand are, by
+ * construction, positions with NO card yet (a carded position already
+ * has recorded analysis from whatever query minted it, or is
+ * unreachable — walk never re-queries a carded node) — there is no
+ * override to bypass or to silently apply. The visit count used is
+ * `store.profile.settings.minting.defaultVisits` — the SAME
+ * profile-level setting `compileMintGradingParameter` bakes into
+ * `grading_parameter.data.default_visits` for every card this walk (or
+ * any other mint path) creates. Querying at that value means the walk
+ * evaluates each position at exactly the visit budget the resulting
+ * card will itself carry once minted — not a bypass of the override
+ * machinery, since the override machinery has nothing to override yet
+ * at an unminted position.
+ *
+ * **Pacing (engineering choice inside the ratified scope, not a scope
+ * choice — rejected alternatives named).** One in-flight on-demand
+ * query at a time: the walk is depth-first and already strictly
+ * sequential (row 707's spine-before-deviations ordering depends on
+ * it), so a second concurrent query would race the SAME sequential
+ * ordering guarantee the live-growth feature already promises.
+ * Rejected: sibling-batch prefetch (fire every sibling candidate's
+ * analysis query up front, before ranking any of them) — candidates
+ * are read from `moveInfos` on the JUST-ANALYZED PARENT position, so
+ * "prefetch the children" would mean firing queries for positions
+ * whose very existence as *ranked* candidates isn't known until the
+ * parent's own analysis (which may itself be on-demand) has already
+ * landed; batching would only apply once ranking is known, i.e. after
+ * this same sequential wait already happened once per node — no
+ * actual parallelism opportunity the current per-node walk shape
+ * exposes. Rejected: a walk-wide analysis queue draining independently
+ * of tree growth — would decouple "which node is being analyzed" from
+ * "which node the live tree cursor is on," breaking the "user watches
+ * the tree grow in real time as results land" requirement (the
+ * cursor/growth and the analysis wait are the SAME await in this
+ * design, by construction).
+ *
+ * **Cancellation.** `learnPathAborts` (module-scope, `BoardId`-keyed,
+ * mirroring `useReviewSession.ts`'s `pendingAnalysisAborts`) holds an
+ * `AbortController` per in-flight walk. A board-close or
+ * workspace-reset teardown handler (registered below) aborts it, which
+ * `waitForAnalysis` observes as `AnalysisWaitError('aborted')` — the
+ * walk treats this exactly like the existing board-identity-safety
+ * abort path (`aborted = true`, stop recursing, return the partial
+ * result) rather than recording a spurious frontier. The in-flight
+ * engine query itself is released via `analysisService.stopQuery` in a
+ * `finally` regardless of how the wait settles (result, refusal,
+ * timeout, or abort) — no orphaned query survives past the walk step
+ * that issued it, and since the walk is strictly sequential (see
+ * "Pacing" above) at most ONE query is ever outstanding to begin with.
+ *
+ * **Progress honesty (ADR-0002/C6).** `learn-path-progress.ts`'s
+ * `setAnalyzingNode` / `clearAnalyzingNode` mark the node currently
+ * awaited so `TreeWidget` can render a distinct "analyzing" ring and
+ * `LearnPathModal` a distinct status line — the walk's existing
+ * live-growth checkpoint alone doesn't distinguish "quietly stepping
+ * through recorded positions" from "blocked waiting on the engine";
+ * this registry is the honest signal for the difference. No wall-clock
+ * fakery — the marker reflects a real in-flight query, cleared the
+ * instant it settles.
+ *
+ * **Precondition (genuinely-impossible input, not a de-scope).** An
+ * engine connection must exist before the walk starts — checked
+ * synchronously in `explore()` alongside the depth/topK/tag checks,
+ * before `resolveAnchor` or any tree mutation, and raised as a
+ * `LearnPathPreconditionError` exactly like those. A mid-walk
+ * disconnect is NOT this precondition — it surfaces as a genuine
+ * per-position frontier (the query construction refuses) or, if the
+ * disconnect races the wait itself, whatever `waitForAnalysis` observes
+ * (typically a timeout).
  *
  * ── Policy seam (orchestrator, type-driven; ratified row 718) ────────
  * The ranking/role/recursion decisions above are NOT hardcoded in the
@@ -253,22 +353,34 @@
  */
 import { store, updateBoardState } from '../../store';
 import { backendService } from '../../services/backend-service';
+import { analysisService } from '../../services/analysis-service';
 import { ledger } from '../../state/analysis-ledger';
 import { activeAnalysisKeys } from '../../state/analysis-config';
 import { serializeActivePath } from '../../engine/sgf-writer';
+import { getPath } from '../../engine/navigator';
 import { applyGoMove } from '../../logic';
 import { gtpToBoard } from '../board/use-move-suggestions';
 import { compileMintGradingParameter, useMinting } from '../review/useMinting';
 import { useKnownPositions } from './useKnownPositions';
+import { waitForAnalysis, AnalysisWaitError } from '../analysis/wait-for-analysis';
+import { KATAGO_ANALYSIS_TIMEOUT_MS } from '../../lib/timing';
 import { spineFirstPolicy, type LearnPathPolicy, type LearnPathPolicyConfig } from './learn-path-policy';
 import { addPendingMintMarker, clearPendingMintMarkers } from './learn-path-pending-markers';
+import { setAnalyzingNode, clearAnalyzingNode } from './learn-path-progress';
+import {
+  registerBoardCloseHandler,
+  registerWorkspaceResetHandler,
+} from '../../store/teardown-registry';
+import type { RawAnalysis } from '../../engine/katago/types';
 import type {
   BoardId,
   BoardState,
   CardId,
   CardLineageNode,
   CardCreatePayload,
+  GameNode,
   NodeId,
+  RawKey,
   StoneColor,
 } from '../../types';
 
@@ -428,6 +540,109 @@ function writeLiveBoard(boardId: BoardId, nextState: BoardState): boolean {
   return true;
 }
 
+/**
+ * Per-board in-flight-walk abort controllers (module-scope, mirroring
+ * `useReviewSession.ts`'s `pendingAnalysisAborts`). `explore()` sets an
+ * entry before its first on-demand query can fire and clears it in a
+ * `finally` when the walk ends; the two teardown handlers below fire
+ * `.abort()` on board-close / workspace-reset so a pending on-demand
+ * engine query never outlives the board it was analyzing for. See the
+ * module header's "On-demand analysis" → "Cancellation" section.
+ */
+const learnPathAborts = new Map<BoardId, AbortController>();
+
+registerBoardCloseHandler({
+  label: 'learn-path:abort-query',
+  // Aborts the closing board's in-flight on-demand analysis wait, if
+  // any. `waitForAnalysis` observes this as `AnalysisWaitError('aborted')`;
+  // `walk()` treats it as the same abort signal `writeLiveBoard`'s
+  // stale-board detection already produces, not a frontier.
+  run: (boardId) => {
+    learnPathAborts.get(boardId)?.abort();
+    learnPathAborts.delete(boardId);
+  },
+});
+registerWorkspaceResetHandler({
+  label: 'learn-path:abort-query-all',
+  run: () => {
+    for (const controller of learnPathAborts.values()) controller.abort();
+    learnPathAborts.clear();
+  },
+});
+
+/**
+ * Real-move count along root→`nodeId` — the KataGo wire "turn number"
+ * `analysisService.analyzeActiveNode` computes internally for its
+ * single-turn query (see `analysis-service.ts`'s
+ * `buildMovesAndTurnIndex` docstring for the turn-index-vs-tree-index
+ * distinction this mirrors: they coincide only when every node from
+ * root to `nodeId` carries a real move). Every node this walk visits
+ * was reached by `applyGoMove` (a real move), but an ancestor ABOVE the
+ * anchor — reachable since anchor resolution now generalizes to any
+ * cursor position (row 832) — could in principle be moveless, so the
+ * count is walked explicitly rather than assumed equal to the walk's
+ * own `plyDepth` (which counts plies from the ANCHOR, not from root).
+ * Used only to make `waitForAnalysis`'s `turnNumber` argument match the
+ * packet the on-demand query for this exact node will produce.
+ */
+function countRealMoves(nodes: Record<NodeId, GameNode>, nodeId: NodeId): number {
+  const path = getPath(nodes, nodeId);
+  return path.reduce((n, id) => n + (nodes[id]?.move ? 1 : 0), 0);
+}
+
+/** Outcome of a single on-demand analysis request — see `requestOnDemandAnalysis`. */
+type OnDemandAnalysisResult =
+  | { readonly kind: 'ok'; readonly raw: RawAnalysis }
+  | { readonly kind: 'refused' }
+  | { readonly kind: 'timeout' }
+  | { readonly kind: 'aborted' };
+
+/**
+ * Requests analysis for `nodeId` (the walk's live board cursor is
+ * already sitting there by construction — see `walk()`'s call site)
+ * through the EXISTING one-shot engine-query machinery
+ * (`analysisService.analyzeActiveNode`, mode `'analyze'` — never a
+ * parallel/bespoke client), then awaits the SAME ledger entry the
+ * walk's own `ledger.getRaw` read consults. Always releases the
+ * engine-side query bookkeeping (`stopQuery`) in a `finally`,
+ * regardless of how the wait settles — mirrors
+ * `useReviewSession.processUserTurn`'s own
+ * request/wait/release shape. See the module header's "On-demand
+ * analysis" section for the full design (visit-count governance,
+ * pacing, cancellation).
+ */
+async function requestOnDemandAnalysis(
+  boardId: BoardId,
+  nodeId: NodeId,
+  turnNumber: number,
+  rawKey: RawKey,
+  visits: number,
+  signal: AbortSignal,
+): Promise<OnDemandAnalysisResult> {
+  if (signal.aborted) return { kind: 'aborted' };
+  const queryId = analysisService.analyzeActiveNode(boardId, 'analyze', visits);
+  if (queryId === null) {
+    // Synchronous refusal — the engine disconnected between the
+    // upfront precondition check and this call, or the board itself
+    // is gone. A genuine engine refusal, never "we never asked."
+    return { kind: 'refused' };
+  }
+  try {
+    const raw = await waitForAnalysis(rawKey, nodeId, turnNumber, {
+      timeoutMs: KATAGO_ANALYSIS_TIMEOUT_MS,
+      signal,
+    });
+    return { kind: 'ok', raw };
+  } catch (err) {
+    if (err instanceof AnalysisWaitError) {
+      return err.reason === 'aborted' ? { kind: 'aborted' } : { kind: 'timeout' };
+    }
+    throw err; // unexpected — propagate (ADR-0002)
+  } finally {
+    analysisService.stopQuery(queryId);
+  }
+}
+
 /** DFS for a node matching `cardId` within a `CardLineageNode` tree. */
 function findLineageNode(node: CardLineageNode, cardId: CardId): CardLineageNode | null {
   if (node.id === cardId) return node;
@@ -558,6 +773,18 @@ export function useLearnPath() {
     const board = store.boards.find(b => b.id === params.boardId);
     if (!board) throw new LearnPathPreconditionError(`Learn this path: board ${params.boardId} not found.`);
 
+    // On-demand analysis (commission row 881) means the walk may need
+    // to issue engine queries — refuse loudly, before any tree
+    // mutation or anchor mint, if there's no engine to ask. Genuinely-
+    // impossible-input class, same as the depth/topK/tag checks above,
+    // not a de-scope: a mid-walk disconnect is a DIFFERENT case (a
+    // per-position frontier or wait-timeout), handled where it happens.
+    if (store.engine.status !== 'connected') {
+      throw new LearnPathPreconditionError(
+        'Learn this path: connect to the engine first — the walk may need to analyze positions on demand.',
+      );
+    }
+
     const anchorCardId = await resolveAnchor(params.boardId, tag);
     const policy = params.policy ?? spineFirstPolicy;
     const config: LearnPathPolicyConfig = { depth: params.depth, topK: params.topK };
@@ -583,16 +810,54 @@ export function useLearnPath() {
     const pendingUnplayable: PendingUnplayable[] = [];
     let nextPlaceholder = 0;
     // Set the moment `writeLiveBoard` reports the anchor board is gone
-    // (closed mid-walk, by the user or anything else). Checked at the
-    // top of every loop/recursion so the walk stops promptly rather
-    // than continuing to compute moves against a board that no longer
-    // exists — see the module header's "Board-identity safety" section.
+    // (closed mid-walk, by the user or anything else), OR the moment an
+    // on-demand analysis wait observes an abort (board-close/workspace-
+    // reset — see `learnPathAborts` below). Checked at the top of every
+    // loop/recursion so the walk stops promptly rather than continuing
+    // to compute moves against a board that no longer exists — see the
+    // module header's "Board-identity safety" and "On-demand analysis"
+    // → "Cancellation" sections.
     let aborted = false;
+
+    // On-demand analysis: the visit budget (module header's "On-demand
+    // analysis" → visit-count governance finding) and the cancellation
+    // handle, both captured once for the whole walk (never re-read
+    // per-position — the walk is one logical operation).
+    const onDemandVisits = store.profile.settings.minting.defaultVisits;
+    const walkAbort = new AbortController();
+    learnPathAborts.set(params.boardId, walkAbort);
 
     async function walk(state: BoardState, plyDepth: number, parentRef: ParentRef): Promise<void> {
       if (aborted) return;
-      const raw = ledger.getRaw(rawKey, state.currentNodeId);
-      if (!raw || !raw.moveInfos || raw.moveInfos.length === 0) {
+      let raw = ledger.getRaw(rawKey, state.currentNodeId);
+      if (!raw) {
+        // No recorded analysis yet — request it on demand (commission
+        // row 881) rather than treating the absence itself as a
+        // frontier. See the module header's "On-demand analysis"
+        // section.
+        setAnalyzingNode(params.boardId, state.currentNodeId);
+        const turnNumber = countRealMoves(state.nodes, state.currentNodeId);
+        const outcome = await requestOnDemandAnalysis(
+          params.boardId, state.currentNodeId, turnNumber, rawKey, onDemandVisits, walkAbort.signal,
+        );
+        clearAnalyzingNode(params.boardId);
+        if (outcome.kind === 'aborted') {
+          aborted = true;
+          return;
+        }
+        if (outcome.kind === 'ok') {
+          raw = outcome.raw;
+        } else {
+          // 'refused' (engine declined the query outright) or 'timeout'
+          // (no response within KATAGO_ANALYSIS_TIMEOUT_MS) — a GENUINE
+          // engine refusal at a position the walk DID ask about, never
+          // "we never asked." Reported, never silently truncated
+          // (ADR-0002).
+          pendingFrontiers.push({ parentRef, plyDepth, nodeId: state.currentNodeId });
+          return;
+        }
+      }
+      if (!raw.moveInfos || raw.moveInfos.length === 0) {
         pendingFrontiers.push({ parentRef, plyDepth, nodeId: state.currentNodeId });
         return;
       }
@@ -670,7 +935,20 @@ export function useLearnPath() {
       }
     }
 
-    await walk(board, 0, { resolved: true, cardId: anchorCardId });
+    try {
+      await walk(board, 0, { resolved: true, cardId: anchorCardId });
+    } finally {
+      // Release this walk's abort-controller slot (only if it's still
+      // ours — a later `explore()` call on the same board may already
+      // have replaced it) and clear any lingering "analyzing" marker as
+      // a safety net (the normal path already clears it around every
+      // `requestOnDemandAnalysis` call; this covers an unexpected throw
+      // mid-wait). See "On-demand analysis" → "Cancellation" above.
+      if (learnPathAborts.get(params.boardId) === walkAbort) {
+        learnPathAborts.delete(params.boardId);
+      }
+      clearAnalyzingNode(params.boardId);
+    }
 
     // Restore the user's cursor; the grown `nodes` persist (see header).
     // Re-resolves by BoardId (one-time, not carried across an `await`) —
