@@ -245,21 +245,31 @@ pub fn run() {
             // --- Proxy sidecar (KataProxy, RELAY role) ---
             //
             // The upstream analysis engine's WebSocket URL. Resolved via
-            // `proxy_settings::resolve_effective_upstream` — precedence
-            // `ENGINE_WS_URL` env var > the in-app-settable stored value
-            // (`proxy_settings.rs`'s JSON file in the app-data dir) >
-            // `proxy_settings::DEFAULT_PROXY_UPSTREAM`. The stored value
-            // is read directly from disk here rather than via IPC/invoke
-            // because the `setup` hook runs BEFORE any window or webview
-            // exists — there is no round-trip available yet to ask the
-            // SPA; reading the same JSON file `get_proxy_upstream_setting`
-            // reads later keeps this a single source of truth rather than
-            // two. Read-only here: a setting saved mid-session via
-            // `set_proxy_upstream_setting` takes effect on the NEXT
-            // launch, not this one (see that command's doc comment for
-            // why a live respawn was rejected).
+            // `proxy_settings::resolve_effective_upstream_for_launch` —
+            // precedence `ENGINE_WS_URL` env var > the in-app-settable
+            // stored value (`proxy_settings.rs`'s JSON file in the
+            // app-data dir) > `proxy_settings::DEFAULT_PROXY_UPSTREAM`.
+            // The stored value is read directly from disk here rather
+            // than via IPC/invoke because the `setup` hook runs BEFORE
+            // any window or webview exists — there is no round-trip
+            // available yet to ask the SPA; reading the same JSON file
+            // `get_proxy_upstream_setting` reads later keeps this a
+            // single source of truth rather than two. Read-only here: a
+            // setting saved mid-session via `set_proxy_upstream_setting`
+            // takes effect on the NEXT launch, not this one (see that
+            // command's doc comment for why a live respawn was
+            // rejected).
+            //
+            // INFALLIBLE by construction (fresh-context review blocker
+            // 1): a corrupted `proxy-settings.json` must never abort
+            // app launch — `resolve_effective_upstream_for_launch`
+            // degrades to "treat the stored value as unset" and logs
+            // loudly, rather than this call site propagating an `Err`
+            // via `?` into `.build().expect(...)`, which would panic
+            // the WHOLE APP (no window ever opens) over a recoverable
+            // settings-file problem. See that function's doc comment.
             let (proxy_upstream, _stored, _env_override_active) =
-                proxy_settings::resolve_effective_upstream(&handle)?;
+                proxy_settings::resolve_effective_upstream_for_launch(&handle);
 
             let proxy_port =
                 pick_free_port().map_err(|e| format!("could not pick a free port for the proxy sidecar: {e}"))?;

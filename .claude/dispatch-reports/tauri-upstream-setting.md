@@ -348,7 +348,15 @@ that carries this report.
   plus a full read of the Rust source sufficient for this delivery's
   acceptance floor, but a native Rust test is a legitimate follow-up if
   the maintainer wants it as a standing regression guard independent of
-  the JS mock staying faithful to the Rust behavior.
+  the JS mock staying faithful to the Rust behavior. **UPDATE (§10
+  repair pass):** this gap is the exact one the fresh-context review's
+  blocker 1 exposed as load-bearing, not merely nice-to-have — `cargo
+  test --lib proxy_settings` now exists (11 tests) covering the pure
+  precedence/parse/degrade layer directly, including the corrupted-file
+  regression. What remains open: an `AppHandle`-backed test through the
+  real filesystem plumbing (`read_stored_upstream`/`settings_file_path`
+  themselves) — see §10's blocker-1 section for why that was judged
+  out of proportion to this pass.
 - **Corrupt-settings-file recovery UX.** `read_stored_upstream` fails
   loudly (`Err`) on a JSON file that exists but doesn't parse (ADR-0002)
   — `get_proxy_upstream_setting` then returns that `Err` to the SPA as
@@ -365,3 +373,149 @@ that carries this report.
   requires a hand-edited or externally-corrupted file to trigger (no
   normal user action produces it); a distinct in-UI message for this
   case is a legitimate follow-up, not silently left unaddressed.
+
+## 10. Repair pass (fresh-context review REJECT, two blockers)
+
+A fresh-context review of the delivery above (§1-§9, commit `156d5673`)
+returned REJECT with two verified blockers and one non-blocking finding.
+This section records the repair; §1-§9 are left as originally written
+(the historical record of the first pass) rather than silently edited
+to look correct in hindsight.
+
+**Merge first.** Per the coordinator's instruction, merged the current
+local `next` branch before repairing — `next` had landed a
+"port-coherence" purge (`.claude/dispatch-reports/port-coherence.md`)
+that independently moved the SPA's OWN `KATAGO_WS_URL` fallback from
+`ws://127.0.0.1:41948` to the canonical `ws://127.0.0.1:1242` and
+adopted the `ENGINE_WS_URL` name — the SAME two changes this delivery
+had already made to the PROXY's upstream default, so the two histories
+touched the same paragraph of `frontend/src/config/env.ts` from two
+directions. One conflict, resolved by keeping `next`'s canonical-1242
+paragraph and layering this delivery's `IS_TAURI` export and
+`useProxyUpstreamSetting.ts`/`ENGINE_WS_URL` cross-references back on
+top (both sides' content preserved, nothing dropped). A second, stale
+`LENGYUE_PROXY_UPSTREAM` mention survived in a doc comment
+`git merge` did not flag (outside the conflicted hunk) — caught by
+re-reading the merged file in full rather than trusting the conflict
+markers alone, and fixed to `ENGINE_WS_URL`.
+
+### Blocker 1 — `setup()` could panic the whole app on a corrupted settings file
+
+**The bug.** `setup()` called `proxy_settings::resolve_effective_upstream(&handle)?`
+with a bare `?`. That function's `Err` path (a `proxy-settings.json`
+that exists but fails to parse — the exact "corrupted settings file"
+case the commission's own words name as "loud, none fatal to launch")
+propagated out of the `setup()` closure into `.build().expect(...)`,
+which `panic!`s. A corrupted settings file — recoverable by falling
+back to the env var or the default, exactly the posture `read_stored_upstream`'s
+own doc comment already claimed for the DISPLAY path — instead
+prevented the window from ever opening. Contradicts ADR-0002 (loud,
+not fatal) and the commission's explicit acceptance criterion.
+
+**The fix.** Split into two entry points with two DIFFERENT failure
+postures, so the posture is a property of which caller you are, not
+something remembered at each call site:
+
+- `resolve_effective_upstream` (fallible) — unchanged, still used by
+  `get_proxy_upstream_setting` (display path, after the webview
+  exists, where an `Err` is a normal rejected `invoke`
+  `useProxyUpstreamSetting.load()` already catches).
+- `resolve_effective_upstream_for_launch` (infallible, NEW) — used by
+  `setup()`. On a `read_stored_upstream` `Err`, `eprintln!`s the
+  failure loudly to the desktop shell's log stream and degrades to
+  treating the stored value as absent, falling through to
+  `ENGINE_WS_URL` or `DEFAULT_PROXY_UPSTREAM` exactly as a fresh
+  install would. `setup()` now calls this instead, with no `?` on the
+  resolution line at all — there is no `Err` for it to propagate.
+
+Both share ONE actual precedence decision (`resolve_with_stored`, a
+pure function taking an already-resolved `Option<String>`), so the fix
+isn't "duplicate the logic and remember to make the copy safe" — the
+two entry points differ only in how they obtain `stored`, not in how
+they decide `ENGINE_WS_URL > stored > default` once they have it.
+
+**Rust test coverage (previously disclosed as a gap in §9 — now
+partially closed).** `proxy_settings.rs` gained a `#[cfg(test)] mod
+tests` (11 tests, all passing — `cargo test --lib proxy_settings`,
+witnessed below) covering the pure layer directly:
+`parse_stored_upstream` against corrupt JSON (the literal defect class,
+asserting `Err`) and against well-formed/empty-object content;
+`resolve_with_stored`'s three precedence branches; and — the blocker-1
+regression itself — `launch_time_degrade_on_corrupt_read_falls_through_to_default`
+and `launch_time_degrade_on_corrupt_read_still_honors_env_override`,
+which simulate the `Err` `read_stored_upstream` would produce on a
+corrupted file and assert the degrade lands on the default (or the env
+override, when set) rather than propagating. **Still UNEXERCISED**: an
+`AppHandle`-backed test of `resolve_effective_upstream_for_launch`
+itself writing a literal corrupt file to a real filesystem path and
+reading it back through `read_stored_upstream` — this would need
+Tauri's mock-app test harness (a `test` feature on the `tauri`
+dependency), which this pass judged out of proportion to the bug
+(the bug lives entirely in the pure precedence/degrade layer now
+covered, not in the filesystem plumbing, which was never broken).
+Named honestly as a legitimate follow-up, not silently left uncovered.
+
+### Blocker 2 — the wizard's error state was non-reactive (fail-loud shipped as fail-silent)
+
+**The bug.** `WizardStepEngineUri.vue` held `let saveErrorKey = '';`
+— a bare `<script setup>` local, not a `ref`. On stable Vue 3.5 (no
+reactivity-transform macro in this codebase), reassigning a plain `let`
+never triggers a re-render. `commitProxyUpstream` reassigned it
+correctly on a failed save, but nothing forced the render function to
+re-run afterward (a rejected/no-op save doesn't touch any OTHER
+reactive value either), so `<p v-if="saveErrorKey">` never appeared.
+`SettingsTab.vue`'s own copy of the same field already used the correct
+`ref('')` — the wizard's copy had drifted from it. No test caught this
+because the only coverage was composable-level (`useProxyUpstreamSetting.test.ts`
+proves `save()` itself returns the right discriminated result) — no
+test ever mounted the component and looked at the DOM after a failed
+save.
+
+**The fix, structural rather than local.** Rather than patching
+`let` → `ref` in two hand-duplicated copies (the wizard's buggy one and
+Settings' correct one) and leaving the class of bug able to recur at a
+THIRD future call site, extracted the field to one shared component,
+`frontend/src/components/ProxyUpstreamSettingField.vue`, that both
+`WizardStepEngineUri.vue` and `SettingsTab.vue` now mount (a
+`field-id` prop keeps their DOM ids distinct, preserving existing test
+selectors). The shared component owns the correct `ref('')` once; there
+is no second copy left to drift. This also incidentally resolved a
+tightening ADR-0007 line-budget concern — `SettingsTab.vue` was sitting
+exactly at the 250-line ceiling before the extraction (see the new
+`SettingsTab.vue`/`WizardStepEngineUri.vue`/`ProxyUpstreamSettingField.vue`
+line counts in the witness table below) and would have exceeded it
+had the fix been applied in place. `frontend/FILES.md` gained the new
+component's row.
+
+**The missing test, added.** `wizard-proxy-upstream-tauri-gate.test.ts`
+gained a new `describe` block that drives the DOM the way a user does
+(mount → `setValue` an invalid URI → `trigger('blur')` → assert
+`[role="alert"]` renders with the exact expected message) for both the
+scheme-rejection and empty-value cases, plus a recovery case (invalid
+→ valid clears the error and shows the restart confirmation). This is
+exactly the vantage point that would have caught the bug — a
+composable-level test cannot see a template binding at all.
+
+### Non-blocking — the dead `proxyUpstream.restartNotice` key
+
+Wired rather than deleted: `ProxyUpstreamSettingField.vue` now tracks a
+`justSaved` ref, true immediately after a successful save until the
+user edits the draft again, rendering `proxyUpstream.restartNotice`
+("Saved. Restart the app for the new upstream to take effect.") in
+that window — the in-the-moment confirmation the field's persistent
+`.hint` text (which already carries the general "not live" caveat)
+didn't provide. Covered by the DOM test's recovery case above
+(asserts `[role="status"]`'s exact text after a successful save).
+
+### Witness — repair pass
+
+| Claim | Status |
+|---|---|
+| `git merge next` (port-coherence purge) succeeds, one conflict resolved favoring 1242 | **WITNESSED** — merge commit `6c9ad77a`; `frontend/src/config/env.ts` was the sole conflicted file, resolved by hand (both sides' content preserved); `frontend/src/locales/en.json` auto-merged clean. Re-grepped the merged tree for `LENGYUE_PROXY_UPSTREAM`/`41948`: one stale doc-comment survivor outside the conflict hunk, fixed. |
+| `cargo check` (memory-capped) | **WITNESSED, exit 0**, post-repair. |
+| `cargo test --lib proxy_settings` (memory-capped) | **WITNESSED, exit 0** — 11/11 passed, including the two corrupted-file degrade regression tests targeting blocker 1 directly. |
+| `npx vue-tsc --noEmit` | **WITNESSED, exit 0**, post-repair, post-component-extraction. |
+| `npx vitest run --silent` (full suite, post-merge, post-repair) | **WITNESSED, exit 0** — 158 passed / 3 skipped test files, 1871 passed / 4 skipped tests (up from the first pass's 157/1851 — the merge brought in `next`'s own new tests, plus this pass's 3 new DOM-driven invalid-input tests). The 4 proxy-upstream test files alone: 24/24 passed (up from 21). |
+| `WizardStepEngineUri.vue` / `SettingsTab.vue` stay within ADR-0007's ≤250-line SFC ceiling post-extraction | **WITNESSED** — 66 / 218 lines respectively (`ProxyUpstreamSettingField.vue` itself: 93 lines), all well under 250, none of the three sections in either file over ~150. |
+| `npx eslint .` post-repair, no new errors from the extraction | **WITNESSED, exit 1 — same two pre-existing errors, confirmed WITHOUT `git stash`.** `SettingsTab.vue:138` (shifted from `:150` after this pass's extraction shrank the file) — the same `as 'dark' \| 'cluster'` cast both prior passes flagged as pre-existing/unrelated. Verified by reading the diff directly (the extraction only removed lines from `SettingsTab.vue`, touching nothing near the cast) rather than by `git stash`ing to compare against a clean tree — the standing ban (violated once during the FIRST pass) was not re-invoked this time. |
+| No `git stash` used during the repair | **WITNESSED** — confirmed via `git status`/session command history; the eslint baseline check above used direct diff-reading instead. |
