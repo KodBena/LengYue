@@ -41,6 +41,20 @@ vi.mock('../../src/services/backend-service', async () => {
   return { backendService: fakeBackendService };
 });
 
+// Commission ledger row 881 (the walk drives the engine for an
+// unanalyzed position): `useLearnPath.ts` now calls
+// `analysisService.analyzeActiveNode` for the on-demand path, so the
+// engine-query machinery needs a fake here too — same pattern as
+// `useReviewSession.test.ts`. `waitForAnalysis` and the `ledger` it
+// reads are left REAL (not mocked): tests simulate "the engine
+// answered" by having the fake's `analyzeActiveNode` implementation
+// write the response into the real ledger, exactly like the real
+// wire path would via `onAnalysisUpdate`.
+vi.mock('../../src/services/analysis-service', async () => {
+  const { fakeAnalysisService } = await import('../fakes/analysis-service');
+  return { analysisService: fakeAnalysisService };
+});
+
 import { store, addBoard, closeBoard } from '../../src/store';
 import { createInitialBoard } from '../../src/store/board-factory';
 import { applyGoMove } from '../../src/logic';
@@ -54,8 +68,10 @@ import {
 } from '../../src/composables/cards/useLearnPath';
 import { getPendingMintNodeIds } from '../../src/composables/cards/learn-path-pending-markers';
 import { fakeBackendService, resetFakeBackendService } from '../fakes/backend-service';
+import { fakeAnalysisService, resetFakeAnalysisService, FAKE_QUERY_ID } from '../fakes/analysis-service';
 import { recordKnownPosition, purgeKnownPositions } from '../../src/state/known-positions';
-import type { BoardId, BoardState, CardCreatePayload, CardId, CardLineageTree, CardPublicId, ContentHash, GameDisplayOrdinal, NodeId, RawAnalysis, ReviewCard } from '../../src/types';
+import en from '../../src/locales/en.json';
+import type { BoardId, BoardState, CardCreatePayload, CardId, CardLineageTree, CardPublicId, ContentHash, GameDisplayOrdinal, NodeId, QueryId, RawAnalysis, ReviewCard } from '../../src/types';
 
 const ANCHOR_CARD_ID = 1000 as CardId;
 const EXISTING_Q16_CARD_ID = 1001 as CardId;
@@ -212,6 +228,23 @@ beforeEach(() => {
   ledger.purgeAll();
   store.boards.length = 0;
   store.activeBoardIndex = 0;
+
+  resetFakeAnalysisService();
+  // Precondition (commission row 881): `explore()` now refuses upfront
+  // when the engine isn't connected. Every pre-existing test in this
+  // file predates that check and doesn't care about it, so the default
+  // here is 'connected'; the dedicated precondition test below
+  // overrides to 'disconnected'.
+  store.engine.status = 'connected';
+  // Default for every PRE-EXISTING test in this file (written before
+  // on-demand analysis existed): a position with no recorded analysis
+  // is a synchronous engine REFUSAL, not a stall. This reproduces the
+  // old "missing analysis = frontier" behavior exactly (same outcome,
+  // same synchronous timing, no real engine round-trip) for every
+  // fixture below that never seeded analysis for a given node on
+  // purpose. The dedicated on-demand-analysis describe block further
+  // down overrides this per-test to exercise the 'ok' / abort paths.
+  fakeAnalysisService.analyzeActiveNode.mockImplementation(() => null);
 });
 
 function seedLedger(board: BoardState, nodeIds: { d4NodeId: NodeId; c17NodeId: NodeId; p9NodeId: NodeId }, moves: ReturnType<typeof buildAnchorBoard>['moves']) {
@@ -675,5 +708,199 @@ describe('useLearnPath.explore — generalized anchor resolution (commission row
     const finalBoard = store.boards.find(b => b.id === boardId)!;
     expect(finalBoard.currentNodeId).toBe(board.rootNodeId);
     expect(finalBoard.nodes[nodeIds.p9NodeId]).toBeDefined();
+  });
+});
+
+/**
+ * On-demand analysis (commission ledger row 881): the walk DRIVES the
+ * engine for a visited position with no recorded analysis, rather than
+ * treating the absence itself as a frontier. This block's fixture is
+ * deliberately minimal (a fresh root-anchored board, `depth: 1, topK: 1`
+ * — a single spine step, no carding) so each test isolates exactly one
+ * on-demand outcome without the multi-branch bookkeeping the acceptance
+ * fixture above needs for its own (unrelated) assertions.
+ *
+ * `analyzeActiveNode`'s single query in every test below targets the
+ * board's ROOT (plyDepth 0, `turnNumber` 0 — no moves played yet), so
+ * the synthetic `RawAnalysis` fixtures below all use `turnNumber: 0`.
+ */
+describe('useLearnPath.explore — on-demand analysis (commission row 881)', () => {
+  function buildRootOnlyBoard() {
+    const board = createInitialBoard();
+    board.sourceCardId = ANCHOR_CARD_ID;
+    seedAnchorKnownPosition(board, ANCHOR_CARD_ID);
+    return board;
+  }
+
+  it('(a) requests analysis for an unanalyzed position and proceeds when the result lands', async () => {
+    const board = buildRootOnlyBoard();
+    addBoard(board);
+    const boardId = board.id as BoardId;
+    mockDedupFakes([]);
+
+    // The fake IS the "engine": its analyzeActiveNode implementation
+    // writes the response into the real ledger — exactly what the
+    // production wire path (onAnalysisUpdate) would do — before
+    // returning the queryId. Because this happens synchronously and
+    // BEFORE `waitForAnalysis`'s own synchronous initial ledger check,
+    // the wait resolves immediately without ever needing its watcher —
+    // deterministic, no fake timers required.
+    fakeAnalysisService.analyzeActiveNode.mockImplementation((bId, mode, visits) => {
+      expect(bId).toBe(boardId);
+      expect(mode).toBe('analyze');
+      // Visit-count governance finding (module header): the on-demand
+      // query uses the SAME profile setting every newly-minted card's
+      // own `default_visits` is baked from — not the review session's
+      // per-card override machinery (there's no card here yet to hold
+      // one).
+      expect(visits).toBe(store.profile.settings.minting.defaultVisits);
+      ledger.recordRaw(activeAnalysisKeys.value.rawKey, board.rootNodeId, rawWithMoves([
+        { move: 'D4', order: 0 },
+      ]));
+      return FAKE_QUERY_ID as QueryId;
+    });
+
+    const { explore } = useLearnPath();
+    const exploration = await explore({ boardId, depth: 1, topK: 1, tag: 'ondemand', yieldStep: microtaskYield });
+
+    expect(fakeAnalysisService.analyzeActiveNode).toHaveBeenCalledTimes(1);
+    // The engine query is released once the wait settles — no orphaned
+    // query survives the walk step that issued it.
+    expect(fakeAnalysisService.stopQuery).toHaveBeenCalledWith(FAKE_QUERY_ID);
+
+    // The walk proceeded past the on-demand result: D4 is the spine
+    // (rank 1), so no card, no frontier, no unplayable — the tree grew
+    // by exactly the one move.
+    expect(exploration.pendingSeedCount).toBe(0);
+    expect(exploration.frontierCount).toBe(0);
+    expect(exploration.unplayableCount).toBe(0);
+
+    const finalBoard = store.boards.find(b => b.id === boardId)!;
+    // Cursor restored to the anchor root; the D4 child persists.
+    expect(finalBoard.currentNodeId).toBe(board.rootNodeId);
+    const d4NodeId = finalBoard.nodes[board.rootNodeId].children[0];
+    expect(finalBoard.nodes[d4NodeId]).toBeDefined();
+    expect(finalBoard.nodes[d4NodeId].move).toMatchObject({ type: 'place', x: 3, y: 3 });
+  });
+
+  it('(b) a genuine engine refusal at a position yields a frontier stop, not a mint', async () => {
+    const board = buildRootOnlyBoard();
+    addBoard(board);
+    const boardId = board.id as BoardId;
+    mockDedupFakes([]);
+
+    // Global beforeEach default: analyzeActiveNode -> null (a
+    // synchronous refusal). Explicit here for readability.
+    fakeAnalysisService.analyzeActiveNode.mockImplementation(() => null);
+
+    const { explore } = useLearnPath();
+    const exploration = await explore({ boardId, depth: 1, topK: 1, tag: 'refused', yieldStep: microtaskYield });
+
+    expect(fakeAnalysisService.analyzeActiveNode).toHaveBeenCalledTimes(1);
+    // A refusal never mints a query to begin with — nothing to release.
+    expect(fakeAnalysisService.stopQuery).not.toHaveBeenCalled();
+
+    expect(exploration.frontierCount).toBe(1);
+    expect(exploration._pending.frontiers).toEqual([
+      { parentRef: { resolved: true, cardId: ANCHOR_CARD_ID }, plyDepth: 0, nodeId: board.rootNodeId },
+    ]);
+    expect(exploration.pendingSeedCount).toBe(0);
+    expect(fakeBackendService.createCard).not.toHaveBeenCalled();
+
+    // The reworded locale string now names the true cause — "the
+    // engine refused" — never "no recorded analysis" (that framing
+    // implied a gap the walk itself created, which row 881 closes).
+    expect((en as Record<string, string>)['learnPath.explore.frontiers']).toMatch(/engine refused/i);
+    expect((en as Record<string, string>)['learnPath.result.frontiers']).toMatch(/engine refused/i);
+  });
+
+  it('(c) refuses to start when the engine is not connected, before any tree mutation', async () => {
+    const board = buildRootOnlyBoard();
+    addBoard(board);
+    const boardId = board.id as BoardId;
+    const boardSnapshotBefore = { ...board };
+    mockDedupFakes([]);
+
+    store.engine.status = 'disconnected';
+
+    const { explore } = useLearnPath();
+    await expect(explore({ boardId, depth: 1, topK: 1, tag: 'nc', yieldStep: microtaskYield }))
+      .rejects.toThrow(LearnPathPreconditionError);
+
+    // No tree mutation, no anchor resolution, no engine query.
+    expect(fakeBackendService.createCard).not.toHaveBeenCalled();
+    expect(fakeAnalysisService.analyzeActiveNode).not.toHaveBeenCalled();
+    const finalBoard = store.boards.find(b => b.id === boardId)!;
+    expect(finalBoard.currentNodeId).toBe(boardSnapshotBefore.currentNodeId);
+    expect(Object.keys(finalBoard.nodes)).toEqual(Object.keys(boardSnapshotBefore.nodes));
+  });
+
+  it('(d) cancellation (board close) mid-query aborts cleanly — no orphaned query, no spurious frontier', async () => {
+    const board = buildRootOnlyBoard();
+    addBoard(board);
+    const boardId = board.id as BoardId;
+    mockDedupFakes([]);
+
+    // Simulates the user closing the board WHILE the on-demand query is
+    // in flight: the fake never answers (no ledger write), and instead
+    // closes the board synchronously from inside the query call —
+    // exactly the moment a real close could land between the query
+    // firing and its response. `closeBoard` runs the
+    // `learn-path:abort-query` teardown handler registered by
+    // `useLearnPath.ts`, which aborts the walk's AbortController; by
+    // the time `waitForAnalysis` constructs its Promise (immediately
+    // after this mock returns), the signal is already aborted, so it
+    // rejects deterministically without any timer or watcher ever
+    // firing.
+    fakeAnalysisService.analyzeActiveNode.mockImplementation(() => {
+      closeBoard(boardId);
+      return FAKE_QUERY_ID as QueryId;
+    });
+
+    const { explore } = useLearnPath();
+    // Must not throw and must not hang.
+    const exploration = await explore({ boardId, depth: 1, topK: 1, tag: 'cancel', yieldStep: microtaskYield });
+
+    // The in-flight query is still released even though the wait was
+    // aborted rather than settled — no orphaned query against the
+    // engine.
+    expect(fakeAnalysisService.stopQuery).toHaveBeenCalledWith(FAKE_QUERY_ID);
+
+    // An abort is NOT a frontier — the walk stopped because the board
+    // is gone, not because the engine refused.
+    expect(exploration.frontierCount).toBe(0);
+    expect(exploration.pendingSeedCount).toBe(0);
+
+    expect(store.boards.find(b => b.id === boardId)).toBeUndefined();
+  });
+
+  it('(e) legacy behavior: every position pre-analyzed never touches the engine — byte-identical to the pre-881 walk', async () => {
+    const board = buildRootOnlyBoard();
+    addBoard(board);
+    const boardId = board.id as BoardId;
+    mockDedupFakes([]);
+
+    // Every position the walk will visit already has recorded analysis
+    // — this is the pre-881 world exactly. analyzeActiveNode must never
+    // be reached.
+    ledger.recordRaw(activeAnalysisKeys.value.rawKey, board.rootNodeId, rawWithMoves([
+      { move: 'D4', order: 0 },
+    ]));
+    fakeAnalysisService.analyzeActiveNode.mockImplementation(() => {
+      throw new Error('on-demand analysis must not fire when the position is already analyzed');
+    });
+
+    const { explore } = useLearnPath();
+    const exploration = await explore({ boardId, depth: 1, topK: 1, tag: 'legacy', yieldStep: microtaskYield });
+
+    expect(fakeAnalysisService.analyzeActiveNode).not.toHaveBeenCalled();
+    expect(exploration.pendingSeedCount).toBe(0);
+    expect(exploration.frontierCount).toBe(0);
+    expect(exploration.unplayableCount).toBe(0);
+
+    const finalBoard = store.boards.find(b => b.id === boardId)!;
+    const d4NodeId = finalBoard.nodes[board.rootNodeId].children[0];
+    expect(finalBoard.nodes[d4NodeId]).toBeDefined();
+    expect(finalBoard.currentNodeId).toBe(board.rootNodeId);
   });
 });

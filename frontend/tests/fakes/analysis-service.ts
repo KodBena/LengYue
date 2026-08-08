@@ -19,7 +19,7 @@
  */
 
 import { vi } from 'vitest';
-import type { BoardId, NodeId } from '../../src/types';
+import type { BoardId, NodeId, QueryId } from '../../src/types';
 
 /**
  * Sentinel queryId returned by `analyzeRange` after each
@@ -58,7 +58,15 @@ export const fakeAnalysisService = {
   // resetFakeAnalysisService.
   isPondering: vi.fn<(boardId: BoardId) => boolean>(),
   stopPonderOnBoard: vi.fn<(boardId: BoardId) => void>(),
-  analyzeActiveNode: vi.fn<(boardId: BoardId, mode: 'ponder' | 'analyze') => void>(),
+  // Return type widened to the real `QueryId | null` (commission ledger
+  // row 881 — `useLearnPath.ts`'s on-demand-analysis path is the first
+  // consumer that reads this return value; every prior caller
+  // (ponder toggles) ignored it, which is why the declared type had
+  // drifted to `void`). `visits` and the two override params are on
+  // the real signature too but no fake consumer passes the latter two
+  // yet, so they're omitted here per "keep the fake's surface strictly
+  // to what's actually exercised" (tests/CLAUDE.md).
+  analyzeActiveNode: vi.fn<(boardId: BoardId, mode: 'ponder' | 'analyze', visits?: number) => QueryId | null>(),
   // Connection lifecycle. Exercised by `useEngineControls` (the
   // toolbar CONNECT/DISCONNECT button) and by
   // `useEngineUriEditor` (the toolbar URI editor's reconnect-on-
@@ -87,6 +95,13 @@ export function resetFakeAnalysisService(): void {
   fakeAnalysisService.isPondering.mockReturnValue(false);
   fakeAnalysisService.stopPonderOnBoard.mockReset();
   fakeAnalysisService.analyzeActiveNode.mockReset();
+  // Re-arm the default return (mockReset clears it) — mirrors
+  // analyzeRange's own re-arm above. Ponder callers ignore the return
+  // value entirely; `useLearnPath`'s on-demand path treats `null` as a
+  // synchronous engine refusal, so a non-null default lets the common
+  // "engine answers" case exercise naturally. Tests that want a
+  // refusal override with `.mockReturnValueOnce(null)`.
+  fakeAnalysisService.analyzeActiveNode.mockReturnValue(FAKE_QUERY_ID as QueryId);
   fakeAnalysisService.connect.mockReset();
   fakeAnalysisService.disconnect.mockReset();
 }

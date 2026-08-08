@@ -60,6 +60,7 @@ import StatusBar        from './components/board/StatusBar.vue';
 import MintCardModal    from './components/modals/MintCardModal.vue';
 import LearnPathModal   from './components/modals/LearnPathModal.vue';
 import { getPendingMintNodeIds } from './composables/cards/learn-path-pending-markers';
+import { getAnalyzingNodeId } from './composables/cards/learn-path-progress';
 import ConfirmLoadModal from './components/modals/ConfirmLoadModal.vue';
 import EngineMatchModal from './components/modals/EngineMatchModal.vue';
 import PlayEngineModal  from './components/modals/PlayEngineModal.vue';
@@ -96,6 +97,13 @@ const activeBoardId = computed<BoardId | null>(() => activeBoard.value?.id ?? nu
 // parent/child).
 const activeBoardPendingMintIds = computed(() =>
   activeBoardId.value ? getPendingMintNodeIds(activeBoardId.value) : undefined,
+);
+// "Learn this path" on-demand-analysis progress marker (commission
+// ledger row 881) — same module-scope-registry-read shape as
+// `activeBoardPendingMintIds` above, for the same sibling-not-parent
+// reason (see `learn-path-progress.ts`'s header).
+const activeBoardAnalyzingNodeId = computed(() =>
+  activeBoardId.value ? getAnalyzingNodeId(activeBoardId.value) : null,
 );
 
 // Identity key for the control panel. Remounts the Cards / Library tabs
@@ -632,6 +640,7 @@ const activeTab = computed<string>({
               :known-position-node-ids="activeBoardKnownPositionNodeIds"
               :review-start-node-id="reviewSession.startingNodeId.value"
               :pending-mint-ids="activeBoardPendingMintIds"
+              :analyzing-node-id="activeBoardAnalyzingNodeId"
               @select-node="handleNodeSelect"
             />
           </div>

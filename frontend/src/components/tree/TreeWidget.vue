@@ -92,6 +92,16 @@ const props = withDefaults(
     // ring-radius stack note by known-position-ring in the template
     // below) so it reads as "pending", not "current" or "game head".
     pendingMintIds?: ReadonlySet<NodeId>;
+    // "Learn this path" on-demand analysis progress (commission ledger
+    // row 881, ADR-0002/C6 progress honesty): the single NodeId the
+    // walk is currently awaiting an engine query for, or `null`/
+    // `undefined` when nothing is in flight. Sourced from
+    // `learn-path-progress.ts` (module-scope, same sibling-not-parent
+    // reason as `pendingMintIds` above). At most one node per board can
+    // be "analyzing" at a time — the walk issues one in-flight query
+    // at a time by construction — so a nullable single id, not a Set,
+    // matching `reviewStartNodeId`'s own shape for the same reason.
+    analyzingNodeId?: NodeId | null;
   }>(),
   { orientation: 'vertical' },
 );
@@ -342,6 +352,7 @@ const nodeList = computed(() => {
     isKnownPosition: boolean;
     isReviewStart: boolean;
     isPendingMint: boolean;
+    isAnalyzing: boolean;
   }> = [];
 
   layout.value.positions.forEach((pos, id) => {
@@ -375,6 +386,7 @@ const nodeList = computed(() => {
       isKnownPosition: !!props.knownPositionNodeIds?.has(id),
       isReviewStart: isReviewStartNode(id, props.reviewStartNodeId),
       isPendingMint: !!props.pendingMintIds?.has(id),
+      isAnalyzing: props.analyzingNodeId != null && props.analyzingNodeId === id,
     });
   });
   return items;
@@ -457,7 +469,7 @@ const edges = computed(() => {
         <g
           v-for="item in nodeList"
           :key="item.id"
-          v-memo="[item.isGameHead, item.isKnownPosition, item.isReviewStart, item.isPendingMint, item.move?.color, item.move?.type, item.isBranching, item.isExpanded, item.px, item.py]"
+          v-memo="[item.isGameHead, item.isKnownPosition, item.isReviewStart, item.isPendingMint, item.isAnalyzing, item.move?.color, item.move?.type, item.isBranching, item.isExpanded, item.px, item.py]"
         >
           <!-- Known-position marker (card-position-annotations Stage B).
                RADIUS NOTE (review REJECT finding 2,
@@ -527,6 +539,26 @@ const edges = computed(() => {
                cleared on mint or discard. See
                `learn-path-pending-markers.ts`. -->
           <circle v-if="item.isPendingMint" :cx="item.px" :cy="item.py" :r="NODE_R + 11" class="pending-mint-ring" stroke-width="1.5" stroke-dasharray="2,1" />
+          <!-- "Learn this path" on-demand-analysis marker (commission
+               ledger row 881, ADR-0002/C6 progress honesty): this node
+               is the ONE position the walk is currently blocked
+               awaiting an engine query for. One radius further out
+               than pending-mint-ring's NODE_R+11 (same "move outward"
+               resolution the rings above this comment already use for
+               their own collisions), so the full concentric stack —
+               active +3, game-head +5, review-start +7, known-position
+               +9, pending-mint +11, analyzing +13 — stays distinct even
+               when every marker on a node is lit at once. Tightest
+               dash of the family (distinguishable from pending-mint's
+               "2,1" by pattern, not colour alone, per ADR-0019/C18) —
+               `--state-attention` (the same "needs your attention /
+               in-progress" accent the modal's error/status boxes use)
+               keeps it visually distinct from both accent colours
+               already in the stack. Cleared the instant the query
+               settles (`learn-path-progress.ts`); at most one node per
+               board carries this ring at a time (the walk issues one
+               in-flight query at a time by construction). -->
+          <circle v-if="item.isAnalyzing" :cx="item.px" :cy="item.py" :r="NODE_R + 13" class="analyzing-ring" stroke-width="1.5" stroke-dasharray="1,1" />
           <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
           <!-- Pass-node glyph — the actual distinguishing signal for a
                pass (per ADR-0019 appendix C18, no color-only meaning):
@@ -565,6 +597,7 @@ const edges = computed(() => {
 .known-position-ring { fill: none; stroke: var(--accent-secondary); }
 .review-start-ring { fill: color-mix(in srgb, var(--accent-secondary) 15%, transparent); stroke: var(--accent-secondary); }
 .pending-mint-ring { fill: none; stroke: var(--accent-primary); }
+.analyzing-ring { fill: none; stroke: var(--state-attention); }
 .node-circle { cursor: pointer; transition: filter var(--duration-default); }
 .node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px var(--accent-primary)); }
 /* Pass-node glyph — 6px against a NODE_R=5 (10px-diameter) circle;
