@@ -64,7 +64,7 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue';
+import { onBeforeUnmount, watch } from 'vue';
 import { useSetupTools, type SetupTool } from '../../composables/board/useSetupTools';
 import { useHandicap } from '../../composables/board/useHandicap';
 import { anyModalOpen } from '../../composables/useModalKeyboard';
@@ -72,8 +72,6 @@ import HandicapPanel from './HandicapPanel.vue';
 
 const { activeTool, paletteOpen, selectTool, togglePalette, closePalette } = useSetupTools();
 const { panelOpen: handicapPanelOpen, togglePanel: toggleHandicapPanel, closePanel: closeHandicapPanel } = useHandicap();
-
-const rootRef = ref<HTMLElement | null>(null);
 
 // ESC dismiss ONLY — see the header's STICKY MODE note for why there
 // is no outside-click dismiss. The palette is NOT a modal (it doesn't
@@ -121,7 +119,7 @@ const TOOLS: ReadonlyArray<{ id: SetupTool; labelKey: string; swatch: 'black' | 
 </script>
 
 <template>
-  <div ref="rootRef" class="setup-toolkit" :class="{ open: paletteOpen }">
+  <div class="setup-toolkit" :class="{ open: paletteOpen }">
     <button
       type="button"
       class="setup-trigger"
