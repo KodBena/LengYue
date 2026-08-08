@@ -39,8 +39,9 @@ declare global {
      * Set only under the Tauri desktop build (added alongside the
      * KataProxy sidecar — see `src-tauri/src/lib.rs`'s module docs).
      * The LOCAL bundled proxy's OS-assigned port; the proxy's own
-     * upstream (the actual analysis engine) is configured separately,
-     * on the Rust side, via `LENGYUE_PROXY_UPSTREAM`.
+     * upstream (the actual analysis engine) is settable in-app
+     * (`useProxyUpstreamSetting.ts`) or overridden via the `ENGINE_WS_URL`
+     * OS env var, both resolved Rust-side in `proxy_settings.rs`.
      */
     __LENGYUE_PROXY_PORT__?: number;
   }
@@ -73,9 +74,11 @@ export const API_BASE_URL: string =
  * `src-tauri/src/lib.rs`), the bundled local proxy's OS-assigned port
  * takes precedence over both — the same override shape as
  * `API_BASE_URL` above. This is what makes a fresh Tauri profile's
- * unconfigured engine setting point at the LOCAL proxy (which the user
- * then points at their own analysis engine via a Rust-side OS env var
- * — NOT this one) rather than at `ws://127.0.0.1:1242` directly.
+ * unconfigured engine setting point at the LOCAL proxy, which in turn
+ * points at the user's own analysis engine via the upstream setting
+ * `useProxyUpstreamSetting.ts` reads/writes (wizard + Settings; Rust-side
+ * home is `src-tauri/src/proxy_settings.rs`), or the `ENGINE_WS_URL`
+ * power-user OS env-var override — NOT this Vite variable.
  *
  * The fallback below, 1242, is the KataGo WS shim's own default port
  * (`backend/scripts/katago_ws_shim.py`) — the single user-facing port
@@ -92,3 +95,17 @@ export const KATAGO_WS_URL: string =
   typeof window !== 'undefined' && window.__LENGYUE_PROXY_PORT__ !== undefined
     ? `ws://127.0.0.1:${window.__LENGYUE_PROXY_PORT__}`
     : (import.meta.env.VITE_KATAGO_WS_URL ?? 'ws://127.0.0.1:1242');
+
+/**
+ * True only under the Tauri desktop shell. Same detection idiom as
+ * `KATAGO_WS_URL`/`API_BASE_URL` above — `window.__LENGYUE_PROXY_PORT__`
+ * is set exclusively by `src-tauri/src/lib.rs`'s `initialization_script`,
+ * so its presence is a reliable "am I running under Tauri" signal without
+ * a separate flag to keep in sync. Gates the in-app proxy-upstream
+ * setting (`useProxyUpstreamSetting.ts`): the underlying Tauri commands
+ * only exist in a Tauri build, and the wizard/Settings fields that call
+ * them must not render — nor the composable attempt an `invoke` — in a
+ * web/docker build, where the control would do nothing.
+ */
+export const IS_TAURI: boolean =
+  typeof window !== 'undefined' && window.__LENGYUE_PROXY_PORT__ !== undefined;

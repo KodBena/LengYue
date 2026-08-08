@@ -45,6 +45,7 @@ import { updateProfileAt } from '../store/profile-owner';
 import { updateRegistry } from '../lib/utils';
 import { cancelCapture } from '../lib/keybindings-capture';
 import { openSetupWizard } from '../composables/useSetupWizardSignal';
+import ProxyUpstreamSettingField from './ProxyUpstreamSettingField.vue';
 
 const { t } = useI18n();
 
@@ -140,6 +141,11 @@ function setTheme(theme: 'dark' | 'cluster'): void {
             <option value="dark">{{ $t('wizard.theme.dark') }}</option>
           </select>
         </div>
+        <!-- Desktop-only: bundled-proxy upstream (ledger rows 860-862).
+             Same cell — and the SAME shared field component —
+             WizardStepEngineUri.vue mounts (one rendering, one home;
+             see ProxyUpstreamSettingField.vue's header). -->
+        <ProxyUpstreamSettingField field-id="settings-proxy-upstream" class="proxy-upstream-row" />
         <div class="registry-container" style="margin-top: var(--space-medium);">
           <RegistryEditor :registry="store.session.ui" :defaults="DEFAULTS.session" @update="handleSessionUpdate"/>
         </div>
@@ -202,4 +208,11 @@ function setTheme(theme: 'dark' | 'cluster'): void {
   background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2);
   border-radius: var(--radius-default); padding: 2px var(--space-tight); font-family: inherit;
 }
+/* Desktop-only proxy-upstream field (ledger rows 860-862). The field's
+   own label/input/message styling lives in ProxyUpstreamSettingField.vue
+   (scoped there — a parent's `<style scoped>` cannot reach INTO a child
+   component's template, only its root element); this rule only
+   positions that child's root within Session's layout, same family as
+   .theme-row above. */
+.proxy-upstream-row { margin-top: var(--space-medium); max-width: 32rem; }
 </style>
