@@ -1,13 +1,11 @@
 # tauri-upstream-setting — in-app proxy-upstream setting for the Tauri desktop package (ledger rows 860-862)
 
 Branch: `worktree-agent-a8a22b5a272513ce9`
-Commit: `a5b362a4` ("feat(tauri): make the KataProxy upstream engine
-location settable in-app") — this report's own text lands IN that
-commit (see §8), so unlike the kataproxy-tauri report's stated reason
-for leaving its sha unhardcoded (the report there was committed
-alongside the code, then referenced afterward), this report is written
-knowing its own commit sha because the sha is recorded here in a
-follow-up edit after `git commit` ran, not predicted in advance.
+Commit: `86f02fec` ("fix(tauri): repair two review blockers in the
+proxy-upstream setting") — the repair pass's own commit (§10). The
+original delivery landed at `a5b362a4` / `156d5673` (sha-recording
+follow-up); the merge that reconciled `next` before the repair landed
+at `6c9ad77a`.
 
 Worktree provenance disclosure: this session's worktree HEAD started at
 `3378806f`, both behind AND diverged from the shared repo's `next`
