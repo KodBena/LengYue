@@ -94,20 +94,31 @@ docker+CUDA rationale the umbrella's Docker packaging applies: the
 analysis engine is GPU/machine-specific and the proxy is designed to
 chain to it (or to another proxy) arbitrarily, so it is never bundled.
 The desktop shell runs the sidecar in KataProxy's `RELAY` role and
-points it at the upstream WebSocket location named by the
-`LENGYUE_PROXY_UPSTREAM` OS environment variable (set it before
-launching the app; falls back to `ws://127.0.0.1:41948` — the same
-zero-config default LengYue has always used, i.e. "a LEAF/KataGo you
-run locally"). This is deliberately an OS env var rather than an
-in-app setting: the sidecar spawns before any window or webview
-exists, so there's no IPC path yet for Rust to ask the SPA for a
-stored preference. Required defaults per the commission (ledger rows
-820/822), both wired at spawn time in `src-tauri/src/lib.rs` and
-requiring no user action: an 8192-entry analysis replay cache
-(`PROXY_HUB_CACHE_MAX`; KataProxy's own hard default is 1024) and the
-transposition detector enabled (no config flag for this — it engages
-automatically whenever the bundled native `go_transposition` extension
-is importable, which the freeze step guarantees).
+points it at an upstream WebSocket location the user provides
+**in-app** (ledger rows 860-862) — the Engine connection wizard step
+and Settings → Session both carry an "Analysis engine upstream" field
+(`useProxyUpstreamSetting.ts`; persisted Rust-side as a plain JSON file
+by `src-tauri/src/proxy_settings.rs`, since the sidecar spawns before
+any window or webview exists and there's no IPC path yet at that point
+for Rust to ask the SPA for a stored value — the file is the
+authoritative home both sides read). Precedence: the `ENGINE_WS_URL` OS
+environment variable (a power-user override, the SAME name Docker's
+compose-level upstream knob already uses) beats the stored in-app
+value, which beats the zero-config default `ws://127.0.0.1:1242` — the
+websocket-leaf shim's own default port
+(`backend/scripts/katago_ws_shim.py`), so a user running the shim
+exactly as documented needs to change nothing. **A saved in-app value
+takes effect on the next app launch, not live** — Settings/the wizard
+say so plainly rather than implying an immediate reconnect; see
+`set_proxy_upstream_setting`'s doc comment in `proxy_settings.rs` for
+why a live sidecar respawn was rejected. Required defaults per the
+commission (ledger rows 820/822), both wired at spawn time in
+`src-tauri/src/lib.rs` and requiring no user action: an 8192-entry
+analysis replay cache (`PROXY_HUB_CACHE_MAX`; KataProxy's own hard
+default is 1024) and the transposition detector enabled (no config
+flag for this — it engages automatically whenever the bundled native
+`go_transposition` extension is importable, which the freeze step
+guarantees).
 
 The SPA's engine-URI setting (`settings.engine.katago.url`) is
 unchanged in shape; only its *unconfigured-default* resolution changes

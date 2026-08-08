@@ -35,11 +35,21 @@
 //! under the Tauri build specifically, per the commission's "SPA should
 //! point at the local proxy by default" requirement.
 //!
-//! The proxy's own upstream (the actual analysis engine) is read from
-//! the `LENGYUE_PROXY_UPSTREAM` OS environment variable, falling back to
-//! `ws://127.0.0.1:41948` (the same zero-config default LengYue has
-//! always used) when unset — see `spawn_proxy_sidecar`'s doc comment for
-//! why this is an OS env var rather than an in-app profile setting.
+//! The proxy's own upstream (the actual analysis engine) is settable
+//! IN-APP (ledger rows 860-862, `proxy_settings.rs`) — a desktop user
+//! has no way to set an OS environment variable, so the wizard/Settings
+//! field there is the primary path. Precedence: the `ENGINE_WS_URL` OS
+//! env var (power-user override, same name Docker's compose-level
+//! upstream knob already uses) beats the stored in-app setting, which
+//! beats `proxy_settings::DEFAULT_PROXY_UPSTREAM`
+//! (`ws://127.0.0.1:1242`, the websocket-leaf shim's own default port).
+//! See `proxy_settings::resolve_effective_upstream`, the sole place this
+//! order is decided — this `setup()` hook and the
+//! `get_proxy_upstream_setting` command both call it rather than each
+//! re-deriving the order. A change to the stored setting takes effect on
+//! next launch only (see `proxy_settings::set_proxy_upstream_setting`'s
+//! doc comment for the live-respawn alternative and why it was
+//! rejected).
 //!
 //! Per-user data (the backend sidecar's `cards.db` and JWT signing-key
 //! file) lives under Tauri's resolved app-data directory, which on Linux
@@ -53,6 +63,8 @@
 //!
 //! License: Public Domain (The Unlicense)
 
+mod proxy_settings;
+
 use std::net::{TcpListener, TcpStream};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -60,15 +72,6 @@ use std::time::Duration;
 use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
-
-/// Default upstream analysis-engine WebSocket URL when
-/// `LENGYUE_PROXY_UPSTREAM` is unset — the same zero-config default
-/// LengYue has always shipped (`frontend/.env.example`'s
-/// `VITE_KATAGO_WS_URL`), i.e. "a LEAF/KataGo the user runs locally on
-/// the historical port". Kept identical so a user who was already
-/// running a local engine before this sidecar existed sees no behavior
-/// change merely from upgrading to a build that bundles the proxy.
-const DEFAULT_PROXY_UPSTREAM: &str = "ws://127.0.0.1:41948";
 
 /// Holds a spawned sidecar's child-process handle so the app-exit
 /// handler can kill it. `None` before spawn and after a successful kill
@@ -169,6 +172,10 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .manage(SidecarHandle(Mutex::new(None)))
         .manage(ProxySidecarHandle(Mutex::new(None)))
+        .invoke_handler(tauri::generate_handler![
+            proxy_settings::get_proxy_upstream_setting,
+            proxy_settings::set_proxy_upstream_setting,
+        ])
         .setup(|app| {
             let handle = app.handle().clone();
 
@@ -237,25 +244,22 @@ pub fn run() {
 
             // --- Proxy sidecar (KataProxy, RELAY role) ---
             //
-            // The upstream analysis engine's WebSocket URL. Read from an
-            // OS environment variable rather than the app's persisted
-            // profile settings (`store.profile.settings.engine.katago.url`
-            // in the frontend, backed by the backend's SQLite DB): the
-            // `setup` hook runs BEFORE any window or webview exists, so
-            // there is no IPC round-trip available yet to ask the SPA for
-            // its stored setting, and having Rust read the backend's
-            // database directly would couple the desktop shell to the
-            // backend's schema for a single string it doesn't otherwise
-            // need to know about. An OS env var is the honest minimum
-            // that lets a user override the upstream (set it in their
-            // shell, a desktop-launcher `.desktop` file's `Exec=env
-            // LENGYUE_PROXY_UPSTREAM=... lengyue`, or a wrapper script)
-            // without any new IPC surface; a richer "reconfigure and
-            // restart the sidecar from an in-app setting" flow is a
-            // follow-up the setup-instruction-surface sibling item (per
-            // the commission) can build on top of this.
-            let proxy_upstream = std::env::var("LENGYUE_PROXY_UPSTREAM")
-                .unwrap_or_else(|_| DEFAULT_PROXY_UPSTREAM.to_string());
+            // The upstream analysis engine's WebSocket URL. Resolved via
+            // `proxy_settings::resolve_effective_upstream` — precedence
+            // `ENGINE_WS_URL` env var > the in-app-settable stored value
+            // (`proxy_settings.rs`'s JSON file in the app-data dir) >
+            // `proxy_settings::DEFAULT_PROXY_UPSTREAM`. The stored value
+            // is read directly from disk here rather than via IPC/invoke
+            // because the `setup` hook runs BEFORE any window or webview
+            // exists — there is no round-trip available yet to ask the
+            // SPA; reading the same JSON file `get_proxy_upstream_setting`
+            // reads later keeps this a single source of truth rather than
+            // two. Read-only here: a setting saved mid-session via
+            // `set_proxy_upstream_setting` takes effect on the NEXT
+            // launch, not this one (see that command's doc comment for
+            // why a live respawn was rejected).
+            let (proxy_upstream, _stored, _env_override_active) =
+                proxy_settings::resolve_effective_upstream(&handle)?;
 
             let proxy_port =
                 pick_free_port().map_err(|e| format!("could not pick a free port for the proxy sidecar: {e}"))?;
@@ -289,7 +293,7 @@ pub fn run() {
             // Same forwarding posture as the backend sidecar (ADR-0002,
             // fail loudly): a `[proxy]`-prefixed line per event, so a
             // startup or upstream-connect failure (e.g. the log line
-            // KataProxy emits when LENGYUE_PROXY_UPSTREAM points nowhere
+            // KataProxy emits when the resolved upstream points nowhere
             // reachable) is visible without attaching a debugger.
             tauri::async_runtime::spawn(async move {
                 use tauri_plugin_shell::process::CommandEvent;

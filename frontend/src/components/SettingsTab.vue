@@ -45,6 +45,19 @@ import { updateProfileAt } from '../store/profile-owner';
 import { updateRegistry } from '../lib/utils';
 import { cancelCapture } from '../lib/keybindings-capture';
 import { openSetupWizard } from '../composables/useSetupWizardSignal';
+import { useProxyUpstreamSetting } from '../composables/useProxyUpstreamSetting';
+
+// Desktop-only proxy-upstream field (ledger rows 860-862). Same
+// composable the wizard's WizardStepEngineUri step mounts — ADR-0012
+// one-cell-one-home; `isTauri` gates rendering below so a web/docker
+// build never shows (or invokes for) this control.
+const proxyUpstream = useProxyUpstreamSetting();
+proxyUpstream.load();
+const proxyUpstreamErrorKey = ref('');
+async function commitProxyUpstream(): Promise<void> {
+  const result = await proxyUpstream.save();
+  proxyUpstreamErrorKey.value = result.ok ? '' : result.errorKey;
+}
 
 const { t } = useI18n();
 
@@ -140,6 +153,26 @@ function setTheme(theme: 'dark' | 'cluster'): void {
             <option value="dark">{{ $t('wizard.theme.dark') }}</option>
           </select>
         </div>
+        <!-- Desktop-only: bundled-proxy upstream (ledger rows 860-862).
+             Same cell WizardStepEngineUri.vue's proxy-upstream field
+             writes, through the SAME composable. -->
+        <div v-if="proxyUpstream.isTauri" class="proxy-upstream-row">
+          <label for="settings-proxy-upstream">{{ $t('proxyUpstream.label') }}</label>
+          <input
+            id="settings-proxy-upstream"
+            v-model="proxyUpstream.draft.value"
+            type="text"
+            spellcheck="false"
+            :placeholder="$t('proxyUpstream.placeholder')"
+            @keydown.enter="commitProxyUpstream()"
+            @blur="commitProxyUpstream()"
+          />
+          <p v-if="proxyUpstreamErrorKey" class="proxy-upstream-msg proxy-upstream-error" role="alert">{{ $t(proxyUpstreamErrorKey) }}</p>
+          <p v-else-if="proxyUpstream.info.value?.envOverrideActive" class="proxy-upstream-msg">
+            {{ $t('proxyUpstream.envOverrideNotice', { value: proxyUpstream.info.value.effective }) }}
+          </p>
+          <p v-else class="proxy-upstream-msg">{{ $t('proxyUpstream.hint') }}</p>
+        </div>
         <div class="registry-container" style="margin-top: var(--space-medium);">
           <RegistryEditor :registry="store.session.ui" :defaults="DEFAULTS.session" @update="handleSessionUpdate"/>
         </div>
@@ -202,4 +235,16 @@ function setTheme(theme: 'dark' | 'cluster'): void {
   background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2);
   border-radius: var(--radius-default); padding: 2px var(--space-tight); font-family: inherit;
 }
+/* Desktop-only proxy-upstream field (ledger rows 860-862) — same
+   layout family as .theme-row above. */
+.proxy-upstream-row { display: flex; flex-direction: column; gap: var(--space-tight); margin-top: var(--space-medium); max-width: 32rem; }
+.proxy-upstream-row label { color: var(--text-1); font-size: var(--text-emphasis); }
+.proxy-upstream-row input {
+  background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
+  padding: var(--space-default); font-size: var(--text-emphasis); font-family: monospace;
+  border-radius: var(--radius-default); outline: none; width: 100%; box-sizing: border-box;
+}
+.proxy-upstream-row input:focus { border-color: var(--accent-primary); }
+.proxy-upstream-msg { color: var(--text-2); font-size: var(--text-emphasis); margin: 0; }
+.proxy-upstream-msg.proxy-upstream-error { color: var(--state-error); }
 </style>
