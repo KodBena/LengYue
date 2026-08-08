@@ -25,7 +25,7 @@ separate — submissions tighten, emissions stay permissive until
 commit-3b.
 """
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -131,6 +131,106 @@ class CardCreateResponse(BaseModel):
     card_id: int
     public_id: UUID
     display_ordinal: int
+
+
+class ParentRefCardId(BaseModel):
+    """
+    One shape of ``POST /cards/batch``'s ``parent_ref``: the new
+    card is a branch off an EXISTING card the caller owns (or is
+    minting into for the first time via this same batch's tenancy
+    boundary — an existing card by definition already belongs to
+    some tenant).
+
+    Tenancy: ``card_id`` is resolved against the same tenant-aware
+    read Port ``CardService.create_card``'s parent-ownership
+    precheck uses (item 14). A ``card_id`` that doesn't exist, or
+    belongs to a different tenant, surfaces as the same
+    ``CardNotFoundError`` -> 404 collapse (docs/notes/tenancy.md).
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    card_id: int
+
+
+class ParentRefBatchIndex(BaseModel):
+    """
+    The other shape of ``POST /cards/batch``'s ``parent_ref``: the
+    new card is a branch off an EARLIER member of this same batch.
+
+    ``batch_index`` must satisfy ``0 <= batch_index < <this item's
+    own index>`` — a forward reference (including the self-reference
+    ``batch_index == own index``) is rejected with 422
+    (``BatchIndexReferenceError``) naming both indices, per the
+    ratified contract (ledger rows 884/885/886): a card cannot be a
+    child of a card that hasn't been minted yet by this same
+    request.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    batch_index: int = Field(ge=0)
+
+
+ParentRef = Union[ParentRefCardId, ParentRefBatchIndex]
+
+
+class BatchCardItem(CardBase):
+    """
+    One member of a ``POST /cards/batch`` request. Same field shape
+    as ``CardCreate`` except ``parent_card_id`` is replaced by
+    ``parent_ref`` — a discriminated-by-shape union of "an existing
+    card" (``{"card_id": ...}``) or "an earlier batch member"
+    (``{"batch_index": ...}``) — so one wire shape covers both
+    lineage sources the batch needs to express. ``parent_ref: null``
+    together with ``game_metadata`` set mints a root, exactly as
+    ``CardCreate``'s ``parent_card_id: null`` + ``game_metadata``
+    does for the single-item endpoint.
+    """
+    raw_content: str = Field(
+        description=(
+            "The raw domain content (SGF for Go, PGN for Chess, etc.). "
+            "Normalized canonically by the configured PositionNormalizer "
+            "before storage."
+        ),
+    )
+    tags: List[str] = []
+
+    parent_ref: Optional[ParentRef] = None
+    game_metadata: Optional[GameSourceCreate] = None
+
+    @model_validator(mode="after")
+    def check_source_mutually_exclusive(self) -> "BatchCardItem":
+        has_parent = self.parent_ref is not None
+        has_game = bool(self.game_metadata)
+        if has_parent == has_game:
+            raise ValueError(
+                "Lineage violation: Must provide exactly one of "
+                "'parent_ref' (for branches) or 'game_metadata' (for roots)."
+            )
+        return self
+
+
+class CardBatchCreateRequest(BaseModel):
+    """
+    Request body shape for ``POST /cards/batch``. ``cards`` is an
+    ordered list; each member's ``parent_ref.batch_index`` (when
+    present) refers to this list's own indices.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    cards: List[BatchCardItem]
+
+
+class CardBatchCreateResponse(BaseModel):
+    """
+    Response body shape for ``POST /cards/batch``: the minted
+    ``card_id``s, in request order. Per the ratified contract, this
+    is deliberately the thin ``{"card_ids": [...]}`` shape — no
+    per-member ``public_id`` / ``display_ordinal`` widening (unlike
+    ``CardCreateResponse``); a caller that needs those follows up
+    with ``GET /cards/{card_id}`` per id, same as any other
+    already-known card id.
+    """
+    card_ids: List[int]
 
 
 class GradingParameterData(BaseModel):

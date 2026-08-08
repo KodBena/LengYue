@@ -124,6 +124,15 @@ GLOBAL_SEQUENCE_ALLOWLIST: Dict[Tuple[str, str], str] = {
         "that didn't resolve to an owned root — same reference-role "
         "reasoning as ResolvedRoot.card_ids_in_tree above."
     ),
+    ("CardBatchCreateResponse", "card_ids"): (
+        "named exception: array of raw card PKs, in request order, kept "
+        "for the same reason as CardCreateResponse.card_id above — the "
+        "ratified POST /cards/batch wire contract (ledger rows "
+        "884/885/886) is deliberately the thin `{card_ids: [...]}` "
+        "shape (no per-member public_id/display_ordinal widening), so "
+        "the caller addresses GET /cards/{card_id} per id for anything "
+        "beyond the raw PK. Same addressing-not-display role."
+    ),
     ("CardHashEntry", "card_id"): (
         "named exception: raw card PK, the addressing value the SPA's "
         "known-positions boot-time hydrate needs to populate its "
