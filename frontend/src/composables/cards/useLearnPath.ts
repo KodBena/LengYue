@@ -789,7 +789,12 @@ export function useLearnPath() {
     const policy = params.policy ?? spineFirstPolicy;
     const config: LearnPathPolicyConfig = { depth: params.depth, topK: params.topK };
     const yieldStep = params.yieldStep ?? defaultYieldStep;
-    const rawKey = activeAnalysisKeys.value.rawKey;
+    // NOT captured here (fresh-context review MEDIUM finding, fixed): a
+    // walk spans many `await` checkpoints, during which the user can
+    // change the active model/palette/overrides. `rawKey` is re-derived
+    // from `activeAnalysisKeys.value` fresh at the top of every `walk()`
+    // step instead — see the module header note near that read for the
+    // full rationale.
 
     const existingContent = await loadExistingDescendantContent(anchorCardId);
 
@@ -829,6 +834,18 @@ export function useLearnPath() {
 
     async function walk(state: BoardState, plyDepth: number, parentRef: ParentRef): Promise<void> {
       if (aborted) return;
+      // Fresh-context review MEDIUM finding, fixed: re-derived at the top
+      // of every step rather than captured once for the whole `explore()`
+      // call. `analysisService.analyzeActiveNode` (inside
+      // `requestOnDemandAnalysis` below) derives its own key from LIVE
+      // settings at the moment it fires; a `rawKey` captured once at walk
+      // start would drift the instant a mid-walk model/palette/overrides
+      // change landed, stranding `waitForAnalysis` on a key the engine's
+      // response will never match — silently riding the 30s timeout and
+      // misreporting a live engine as having refused. Reading it fresh
+      // here keeps the expected key and the fired query's actual key in
+      // lockstep at every step.
+      const rawKey = activeAnalysisKeys.value.rawKey;
       let raw = ledger.getRaw(rawKey, state.currentNodeId);
       if (!raw) {
         // No recorded analysis yet — request it on demand (commission
@@ -871,6 +888,27 @@ export function useLearnPath() {
       // fully recursed into and AWAITED — before index 1..K-1
       // (deviations). This ordering IS the "trunk drawn first, then
       // branches" live-growth guarantee; no separate scheduling needed.
+      //
+      // Tree-integrity fix (commission-witnessed "variations are
+      // eradicated" defect): `writeLiveBoard`/`updateBoardState` REPLACE
+      // the board's entire `nodes` map on every write (never a merge —
+      // see `updateBoardState`'s own doc comment). `applyGoMove` builds
+      // its returned `nodes` map as a spread of ITS INPUT state's own
+      // `nodes` plus one new child. Every candidate in this loop is a
+      // sibling move from the SAME parent position, so if each call below
+      // spread from the ORIGINAL `state` captured at this `walk()`
+      // invocation's entry, every candidate after the first would
+      // overwrite the live board with a snapshot that predates
+      // everything the prior candidates (and their own recursion) just
+      // grew — silently deleting it. `parentState` is refreshed with the
+      // live board's current `nodes` after each candidate (write +
+      // optional recursion) settles, so the next sibling's own write
+      // builds on top of everything grown so far rather than clobbering
+      // it. Only `nodes` is refreshed — `stones`/`captures`/`turn`/
+      // `koPoint`/`currentNodeId` stay `parentState`'s own throughout the
+      // loop, since every candidate is evaluated as an alternative from
+      // the SAME parent position, never accumulating a sibling's move.
+      let parentState = state;
       for (const candidate of ranked) {
         if (aborted) break;
         const { info, rank, role } = candidate;
@@ -881,14 +919,14 @@ export function useLearnPath() {
           pendingUnplayable.push({ parentRef, plyDepth: nextPlyDepth, rank });
           continue;
         }
-        const nextState = applyGoMove(state, coords.x, coords.y);
+        const nextState = applyGoMove(parentState, coords.x, coords.y);
         if (!nextState) {
           // Defensive: a move the search engine reported should always
           // be legal against this exact position.
           pendingUnplayable.push({ parentRef, plyDepth: nextPlyDepth, rank });
           continue;
         }
-        const move: LearnPathMove = { x: coords.x, y: coords.y, color: state.turn };
+        const move: LearnPathMove = { x: coords.x, y: coords.y, color: parentState.turn };
 
         // Live tree growth: commit into the reactive board (re-resolved
         // by BoardId, never a carried-over index — see writeLiveBoard's
@@ -932,6 +970,19 @@ export function useLearnPath() {
         if (policy.shouldRecurse(role, nextPlyDepth, config)) {
           await walk(nextState, nextPlyDepth, childParentRef);
         }
+
+        // Refresh before the next sibling (see the tree-integrity note
+        // above) — re-resolved by BoardId per the board-identity-safety
+        // discipline (`writeLiveBoard`'s own doc comment): a missed
+        // resolution means the board is gone, which is an abort, not a
+        // stale-nodes continuation.
+        if (aborted) break;
+        const liveBoard = store.boards.find(b => b.id === params.boardId);
+        if (!liveBoard) {
+          aborted = true;
+          break;
+        }
+        parentState = { ...parentState, nodes: liveBoard.nodes };
       }
     }
 
