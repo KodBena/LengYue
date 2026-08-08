@@ -1,7 +1,7 @@
 # Dispatch report — Learn Path tree-integrity fixes (commission ledger row 911)
 
 Branch: `worktree-agent-a406c0cf5d874f45f`
-Commit: (recorded below, after commit)
+Commit: `53a1e9a9`
 
 ## Worktree staleness disclosure
 
