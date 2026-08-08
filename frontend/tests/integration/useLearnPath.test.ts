@@ -55,9 +55,10 @@ vi.mock('../../src/services/analysis-service', async () => {
   return { analysisService: fakeAnalysisService };
 });
 
-import { store, addBoard, closeBoard } from '../../src/store';
+import { store, addBoard, closeBoard, mutateBoard } from '../../src/store';
 import { createInitialBoard } from '../../src/store/board-factory';
 import { applyGoMove } from '../../src/logic';
+import { navigateTo } from '../../src/engine/navigator';
 import { serializeActivePath } from '../../src/engine/sgf-writer';
 import { ledger } from '../../src/state/analysis-ledger';
 import { activeAnalysisKeys } from '../../src/state/analysis-config';
@@ -902,5 +903,201 @@ describe('useLearnPath.explore — on-demand analysis (commission row 881)', () 
     const d4NodeId = finalBoard.nodes[board.rootNodeId].children[0];
     expect(finalBoard.nodes[d4NodeId]).toBeDefined();
     expect(finalBoard.currentNodeId).toBe(board.rootNodeId);
+  });
+});
+
+/**
+ * Tree-integrity repro (commission ledger row 911, defect #2 —
+ * "VARIATIONS ARE ERADICATED"). `buildAnchorBoard()` above can't exercise
+ * this: it pre-builds the WHOLE fixture tree up front, so every
+ * `applyGoMove` the walk makes inside it lands on `logic.ts`'s
+ * existing-child-reuse branch — which never shrinks `nodes` (the reused
+ * child was already present in whatever stale snapshot a sibling write
+ * spreads from). The defect only shows when the walk mints GENUINELY NEW
+ * nodes across more than one candidate at the same node — exactly what a
+ * live exploration into unexplored territory does.
+ *
+ * Fixture: a board with ONE pre-existing user variation off root
+ * (unrelated to anything the engine will suggest — stands in for "the
+ * user's own existing branches", which the commission's wording names
+ * explicitly as a thing that must survive), then a two-level walk
+ * (depth 2, topK 2) into entirely fresh coordinates. Root's ledger entry
+ * is seeded directly (its NodeId is known); the deeper node's analysis
+ * arrives via the same on-demand path exercised in the "on-demand
+ * analysis" block above, since a freshly-minted child's NodeId can't be
+ * predicted ahead of time.
+ */
+describe('useLearnPath.explore — tree integrity (commission row 911, "variations are eradicated")', () => {
+  const D4 = { move: 'D4', x: 3, y: 3 };
+  const Q16 = { move: 'Q16', x: 15, y: 15 };
+  const C17 = { move: 'C17', x: 2, y: 16 };
+  const P9 = { move: 'P9', x: 14, y: 8 };
+  // The user's own pre-existing variation off root — disjoint from every
+  // coordinate the engine will suggest below.
+  const USER_VARIATION = { move: 'K10', x: 9, y: 9 };
+
+  function findChildByMove(nodes: BoardState['nodes'], parentId: NodeId, x: number, y: number): NodeId {
+    const parent = nodes[parentId];
+    const found = parent.children.find(id => {
+      const m = nodes[id]?.move;
+      return m?.type === 'place' && m.x === x && m.y === y;
+    });
+    if (!found) throw new Error(`no child of ${parentId} at (${x},${y}) — nodes: ${JSON.stringify(Object.keys(nodes))}`);
+    return found;
+  }
+
+  it('grows a dense tree: nothing explored, and no pre-existing variation, is ever deleted', async () => {
+    const base = createInitialBoard();
+    base.sourceCardId = ANCHOR_CARD_ID;
+    // The user's own pre-existing branch, played BEFORE explore() ever
+    // runs — must still be there afterward, byte-for-byte.
+    const board = applyGoMove(base, USER_VARIATION.x, USER_VARIATION.y)!;
+    board.currentNodeId = board.rootNodeId; // cursor back at root — explore starts from root
+    seedAnchorKnownPosition(board, ANCHOR_CARD_ID);
+    addBoard(board);
+    const boardId = board.id as BoardId;
+    const userVariationNodeId = board.nodes[board.rootNodeId].children[0];
+
+    mockDedupFakes([]);
+
+    // Root: seeded directly — its NodeId (the board's own rootNodeId) is
+    // known ahead of time.
+    ledger.recordRaw(activeAnalysisKeys.value.rawKey, board.rootNodeId, rawWithMoves([
+      { move: D4.move, order: 0 }, // spine
+      { move: Q16.move, order: 1 }, // deviation
+    ]));
+
+    // D4's own analysis arrives on demand (its NodeId isn't known until
+    // the walk mints it) — identified by which move led to the node
+    // currently being analyzed. Q16 gets an empty response (a frontier;
+    // this test only needs D4's subtree to exercise the multi-candidate
+    // sibling-overwrite shape).
+    fakeAnalysisService.analyzeActiveNode.mockImplementation((bId: BoardId) => {
+      const live = store.boards.find(b => b.id === bId)!;
+      const node = live.nodes[live.currentNodeId];
+      const atMove = node.move && node.move.type === 'place' ? { x: node.move.x, y: node.move.y } : null;
+      // `waitForAnalysis` matches on `(nodeId, turnNumber)` — the raw
+      // packet's own `turnNumber` field must equal `countRealMoves`'s
+      // result at this node (both D4's and Q16's own positions are one
+      // real move from root: `turnNumber` 1) or the wait never resolves
+      // and rides the real 30s timeout instead of the deterministic
+      // microtask path this test needs.
+      const raw = atMove && atMove.x === D4.x && atMove.y === D4.y
+        ? rawWithMoves([{ move: C17.move, order: 0 }, { move: P9.move, order: 1 }])
+        : rawWithMoves([]); // Q16 (and anything else): frontier, no further growth.
+      raw.turnNumber = 1;
+      ledger.recordRaw(activeAnalysisKeys.value.rawKey, live.currentNodeId, raw);
+      return FAKE_QUERY_ID as QueryId;
+    });
+
+    const { explore } = useLearnPath();
+    const exploration = await explore({ boardId, depth: 2, topK: 2, tag: 'dense', yieldStep: microtaskYield });
+
+    const finalBoard = store.boards.find(b => b.id === boardId)!;
+
+    // The user's pre-existing variation survives untouched.
+    expect(finalBoard.nodes[userVariationNodeId]).toBeDefined();
+    expect(finalBoard.nodes[userVariationNodeId].move).toMatchObject({ x: USER_VARIATION.x, y: USER_VARIATION.y });
+
+    // Every explored node survives: D4 (spine), Q16 (deviation, sibling
+    // of D4 at root), and D4's own C17 (spine) / P9 (deviation) children.
+    // Prior to the fix, Q16's write (the SECOND candidate processed at
+    // root) replaced the board's entire `nodes` map with a snapshot
+    // spread from root's STALE pre-walk state — deleting D4's whole
+    // subtree (D4, C17, P9) even though it had just been grown live.
+    const d4NodeId = findChildByMove(finalBoard.nodes, finalBoard.rootNodeId, D4.x, D4.y);
+    const q16NodeId = findChildByMove(finalBoard.nodes, finalBoard.rootNodeId, Q16.x, Q16.y);
+    const c17NodeId = findChildByMove(finalBoard.nodes, d4NodeId, C17.x, C17.y);
+    const p9NodeId = findChildByMove(finalBoard.nodes, d4NodeId, P9.x, P9.y);
+    expect(finalBoard.nodes[d4NodeId]).toBeDefined();
+    expect(finalBoard.nodes[q16NodeId]).toBeDefined();
+    expect(finalBoard.nodes[c17NodeId]).toBeDefined();
+    expect(finalBoard.nodes[p9NodeId]).toBeDefined();
+
+    // Root has exactly its three children (user variation, D4, Q16) —
+    // "dense", not sparse/deleted.
+    expect(finalBoard.nodes[finalBoard.rootNodeId].children).toHaveLength(3);
+    expect(finalBoard.nodes[d4NodeId].children).toHaveLength(2);
+
+    // Sanity: the exploration did find the deviations it claims to.
+    expect(exploration.pendingSeedCount).toBe(2); // Q16, P9
+
+    // Defect #1 corollary ("you can't check out the variations"): every
+    // surviving explored node must still be navigable via the SAME
+    // click-to-navigate path App.vue's `handleNodeSelect` uses
+    // (`mutateBoard` + `navigateTo`) — this was unreachable before the
+    // fix for any node a later sibling's write had already deleted.
+    for (const target of [userVariationNodeId, d4NodeId, q16NodeId, c17NodeId, p9NodeId]) {
+      expect(() => mutateBoard(boardId, draft => navigateTo(draft, target))).not.toThrow();
+      expect(store.boards.find(b => b.id === boardId)!.currentNodeId).toBe(target);
+    }
+  });
+});
+
+/**
+ * Fresh-context review MEDIUM finding, fixed (commission's "also in
+ * scope"): `rawKey` used to be captured once at `explore()`'s start;
+ * `analysisService.analyzeActiveNode` derives its own key from LIVE
+ * settings at the moment it fires. A mid-walk model change used to strand
+ * the SECOND on-demand wait on the stale key the fake never writes under
+ * — this test drives exactly that sequence and pins that the walk still
+ * proceeds instead of riding the 30s timeout.
+ */
+describe('useLearnPath.explore — rawKey re-derived per query (fresh-context review MEDIUM)', () => {
+  it('a model change between two on-demand queries does not strand the second wait on a stale key', async () => {
+    const board = createInitialBoard();
+    board.sourceCardId = ANCHOR_CARD_ID;
+    seedAnchorKnownPosition(board, ANCHOR_CARD_ID);
+    addBoard(board);
+    const boardId = board.id as BoardId;
+    mockDedupFakes([]);
+    store.engine.selectedModel = 'model-a';
+
+    let queryCount = 0;
+    // The fake IS the engine: it always records under whatever `rawKey`
+    // is CURRENT at the moment it fires — exactly like the real wire path
+    // (`onAnalysisUpdate`) would, since the outgoing query itself carries
+    // the live model. If the walk asks `waitForAnalysis` to watch a
+    // STALE key, this write lands in a bucket nothing is watching and the
+    // wait times out instead of resolving.
+    fakeAnalysisService.analyzeActiveNode.mockImplementation((bId: BoardId) => {
+      queryCount++;
+      const live = store.boards.find(b => b.id === bId)!;
+      // `waitForAnalysis` matches on `(nodeId, turnNumber)` — the root
+      // query is 0 real moves in (turnNumber 0, `rawWithMoves`'s
+      // default); the second query is at D4, one real move in.
+      const raw = queryCount === 1
+        ? rawWithMoves([{ move: 'D4', order: 0 }]) // root: single spine step
+        : { ...rawWithMoves([]), turnNumber: 1 }; // D4's own position: frontier, ends the walk
+      ledger.recordRaw(activeAnalysisKeys.value.rawKey, live.currentNodeId, raw);
+      return FAKE_QUERY_ID as QueryId;
+    });
+
+    // Mid-walk settings change: fires between the root query settling
+    // (which grows the D4 child and yields) and the D4-position query
+    // being issued — the exact window the review named.
+    const yieldStep = async () => {
+      if (queryCount === 1) store.engine.selectedModel = 'model-b';
+      await Promise.resolve();
+    };
+
+    const { explore } = useLearnPath();
+    const exploration = await explore({ boardId, depth: 2, topK: 1, tag: 'keydrift', yieldStep });
+
+    // Both queries fired and both were released — neither stranded on a
+    // timeout (a timeout still resolves `walk()`, but only after riding
+    // the real `KATAGO_ANALYSIS_TIMEOUT_MS` clock, which this test does
+    // not fake — a hang here would time out the test itself).
+    expect(queryCount).toBe(2);
+    expect(fakeAnalysisService.stopQuery).toHaveBeenCalledTimes(2);
+
+    // D4's position resolved as a genuine frontier (the engine answered
+    // with no candidates), not a stale-key timeout being misreported as
+    // a refusal at the WRONG node — the tree still grew past root.
+    expect(exploration.frontierCount).toBe(1);
+    const finalBoard = store.boards.find(b => b.id === boardId)!;
+    const d4NodeId = finalBoard.nodes[board.rootNodeId].children[0];
+    expect(finalBoard.nodes[d4NodeId]).toBeDefined();
+    expect(exploration._pending.frontiers[0].nodeId).toBe(d4NodeId);
   });
 });
