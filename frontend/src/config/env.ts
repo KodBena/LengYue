@@ -39,8 +39,9 @@ declare global {
      * Set only under the Tauri desktop build (added alongside the
      * KataProxy sidecar — see `src-tauri/src/lib.rs`'s module docs).
      * The LOCAL bundled proxy's OS-assigned port; the proxy's own
-     * upstream (the actual analysis engine) is configured separately,
-     * on the Rust side, via `LENGYUE_PROXY_UPSTREAM`.
+     * upstream (the actual analysis engine) is settable in-app
+     * (`useProxyUpstreamSetting.ts`) or overridden via the `ENGINE_WS_URL`
+     * OS env var, both resolved Rust-side in `proxy_settings.rs`.
      */
     __LENGYUE_PROXY_PORT__?: number;
   }
@@ -79,6 +80,13 @@ export const API_BASE_URL: string =
  * home is `src-tauri/src/proxy_settings.rs`), or the `ENGINE_WS_URL`
  * power-user OS env-var override — NOT this Vite variable.
  *
+ * The fallback below, 1242, is the KataGo WS shim's own default port
+ * (`backend/scripts/katago_ws_shim.py`) — the single user-facing port
+ * this app converges on across every packaging (Docker's
+ * `ENGINE_WS_URL` default, the Tauri upstream default, and this
+ * plain-dev fallback). Run the shim with its defaults and this
+ * default just works.
+ *
  * Override via VITE_KATAGO_WS_URL in `.env` or the build environment
  * (non-Tauri contexts only — the Tauri override always wins when
  * present).
@@ -86,7 +94,7 @@ export const API_BASE_URL: string =
 export const KATAGO_WS_URL: string =
   typeof window !== 'undefined' && window.__LENGYUE_PROXY_PORT__ !== undefined
     ? `ws://127.0.0.1:${window.__LENGYUE_PROXY_PORT__}`
-    : (import.meta.env.VITE_KATAGO_WS_URL ?? 'ws://127.0.0.1:41948');
+    : (import.meta.env.VITE_KATAGO_WS_URL ?? 'ws://127.0.0.1:1242');
 
 /**
  * True only under the Tauri desktop shell. Same detection idiom as

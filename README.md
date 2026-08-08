@@ -54,11 +54,16 @@ You provide that upstream:
   `backend/scripts/katago_ws_shim.py` — launches `katago analysis` as
   a subprocess and re-exposes it as a WebSocket server multiple
   clients can share. Run it with `--help` for the full option list
-  (katago path/model/config, bind host/port).
+  (katago path/model/config, bind host/port); with the optional
+  `zeroconf` package installed (`pip install zeroconf`) it can also
+  advertise itself on the LAN via mDNS for autodiscovery.
 
-Where you point KataProxy at that upstream differs by packaging —
-Docker's `ENGINE_WS_URL`, the desktop app's proxy-upstream setting,
-or a bare-metal engine URI — see
+Run the shim with its defaults and every packaging (Docker, desktop,
+plain dev) finds it with no further configuration — its default port,
+1242, is the one port you'd ever need to type, and only if you move
+it. Where you point KataProxy at a different upstream differs by
+packaging — Docker's `ENGINE_WS_URL`, the desktop app's proxy-upstream
+setting, or a bare-metal engine URI — see
 **[docs/docker.md](docs/docker.md)** ("The KataProxy service") and
 `frontend/README.md` ("Desktop app (Tauri v2)") for the exact knob
 per deployment.

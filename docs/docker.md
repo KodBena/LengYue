@@ -4,6 +4,26 @@ This page is written for a reader with **zero Docker context** — it
 explains not just the commands but what they do and why, so you can
 operate this deployment even if you've never used Docker before.
 
+## Every port, in one table
+
+Across every way this app runs, there is exactly **one** port a user
+should ever need to think about: the KataGo WS shim's, if they move it
+off its default. Everything else is fixed packaging plumbing.
+
+| Deployment shape | Port(s) | Who needs to care |
+|---|---|---|
+| Plain dev — Vite dev server (`npm run dev`) | 5173 (or 5174 if 5173 is taken) | Nobody |
+| Plain dev — Vite preview (`npm run preview`) | 4173 | Nobody |
+| Plain dev — backend (`fastapi dev`) | 8764 | Nobody |
+| Docker — frontend / backend / proxy (published) | 19080 / 19081 / 19082 | Nobody — fixed, collision-avoiding defaults; see "Why ports 19080/19081/19082" below |
+| Tauri desktop — backend/proxy sidecars | OS-assigned, injected into the webview at start | Nobody — no port is ever typed |
+| **KataGo WS shim / leaf** (`backend/scripts/katago_ws_shim.py`) | **1242** | **The user — only if they move it off the default** |
+
+Run the shim with its defaults and every packaging above finds it with
+no configuration. See "The KataProxy service" below for how Docker and
+Tauri each reach it, and `backend/scripts/katago_ws_shim.py --help` for
+the shim's own options.
+
 ## What Docker gives you here (and what it doesn't)
 
 Docker packages the **backend** (FastAPI service), **frontend**
@@ -61,9 +81,13 @@ starts them. Subsequent runs skip the build unless source changed.
 Open **http://localhost:19080** in a browser. That's the SPA. It
 talks to the backend at **http://localhost:19081** and, for board
 analysis, to the proxy at **ws://localhost:19082** (see "The
-KataProxy service"). Board analysis will fail loudly until you set
-`ENGINE_WS_URL` to a real engine (again, see below) — everything
-else works without it.
+KataProxy service"). The proxy's upstream, `ENGINE_WS_URL`, defaults
+to the KataGo WS shim's own default port (1242) on the Docker host —
+run `backend/scripts/katago_ws_shim.py` with its defaults there and
+board analysis works with no configuration. Until something is
+listening at that address, board analysis fails loudly (see "What
+happens with no upstream configured") — everything else works
+regardless.
 
 Stop everything with Ctrl-C, or from another shell:
 
@@ -169,7 +193,7 @@ the proxy" below.
 variable at the compose level:
 
 ```bash
-ENGINE_WS_URL=ws://192.168.1.50:41948 docker compose up --build
+ENGINE_WS_URL=ws://192.168.1.50:1242 docker compose up --build
 ```
 
 This feeds `UPSTREAM_URLS` inside the proxy container (KataProxy's
@@ -182,10 +206,18 @@ the frontend if you also want the browser's *default* proxy target
 to change, but that's about `KATAPROXY_PORT`, not `ENGINE_WS_URL` —
 see below.)
 
-Three shapes `ENGINE_WS_URL` typically takes:
+**Left unset, `ENGINE_WS_URL` defaults to
+`ws://host.docker.internal:1242`** — the KataGo WS shim's own default
+port (`backend/scripts/katago_ws_shim.py`), reached on your host via
+the same `host.docker.internal` mapping described below. Run the shim
+with its defaults on the Docker host and this is a working,
+zero-configuration stack. If nothing is listening there yet, see
+"What happens with no upstream configured" below.
 
-- **An engine on the same host as Docker** (the common case if you
-  followed the host-side WebSocket shim setup below):
+Two further shapes `ENGINE_WS_URL` can take when you're not using the
+shim's default:
+
+- **A different port on the same host as Docker**:
   `ws://host.docker.internal:<port>`. `docker-compose.yml` maps
   `host.docker.internal` to your host machine *inside* the proxy
   container (`extra_hosts: host.docker.internal:host-gateway`) for
@@ -193,11 +225,8 @@ Three shapes `ENGINE_WS_URL` typically takes:
   means "this container," not your host, so it would silently point
   the proxy at itself.
 - **An engine on another machine on your LAN**: its real address,
-  e.g. `ws://192.168.1.50:41948`. No `host.docker.internal` needed —
+  e.g. `ws://192.168.1.50:1242`. No `host.docker.internal` needed —
   ordinary network reachability from wherever Docker runs.
-- **Left unset (the default)**: see "What happens with no upstream
-  configured" below. The stack still starts; analysis doesn't work
-  until you set this.
 
 ### Sharing one engine process across multiple clients
 
@@ -229,7 +258,11 @@ bare KataGo process. Per this codebase's fail-loudly tenet
 serving a dead engine — it logs the failure, drops connected
 clients, and exits non-zero rather than degrading silently; restart
 it deliberately (or under a process supervisor) rather than relying
-on it to self-heal.
+on it to self-heal. With the optional `zeroconf` package installed
+(`pip install zeroconf`, not part of `backend/requirements.txt`) the
+shim also advertises itself on the LAN as `_katago-ws._tcp.local.`
+for autodiscovery — see `--help` for the details and the `--no-mdns`
+opt-out.
 
 ### What happens with no upstream configured
 
@@ -240,19 +273,28 @@ right role for "the engine is provided by the operator," see
 refuses to construct without at least one upstream URL
 (`router.py`: `raise ValueError("RELAY role requires at least one
 UPSTREAM_URL")`) — this is KataProxy's own ADR-0002-style fail-loud
-behavior, not something this image adds.
+behavior, not something this image adds. Because `ENGINE_WS_URL`
+defaults to `ws://host.docker.internal:1242` (see above) rather than
+empty, `UPSTREAM_URLS` is never actually empty in this stack's
+default configuration — so this particular `ValueError` is not the
+behavior you'll see leaving `ENGINE_WS_URL` unset today. It would
+still fire if you explicitly set `ENGINE_WS_URL=` (empty) yourself.
 
-Witnessed behavior with `ENGINE_WS_URL` unset: `docker compose up`
-still brings up backend and frontend cleanly; the `proxy` container
-crashes on that `ValueError`, and — because
-`restart: unless-stopped` is the same policy every service in this
-stack uses — Docker restarts it, which crashes again, in a loop
-visible in `docker compose ps` (status cycles through `Restarting`)
-and in `docker compose logs proxy`. This is loud, not silent: the
-error is the same one an operator would see running KataProxy
-bare-metal with no `UPSTREAM_URLS` set. It is not a hang and it does
-not corrupt anything — set `ENGINE_WS_URL` and `docker compose up
-proxy` (or restart the whole stack) to recover.
+**"Unset" now means "assumes the shim is at its default,"** not
+"restart loop." What you'll actually observe with `ENGINE_WS_URL`
+left unset and no KataGo WS shim running yet on the Docker host:
+`docker compose up` brings up backend and frontend cleanly, and the
+`proxy` container reaches `Up` and *stays* `Up` — it does not crash
+or restart. `docker compose logs proxy` shows a connect failure
+(`event=upstream_disconnect ... cause="connect_failed: ..."`) logged
+loudly each time a client query needs the upstream, and the proxy
+returns a "no connected upstreams" error to that query, rather than
+hanging. Start `backend/scripts/katago_ws_shim.py` with its defaults
+on the Docker host and the very next query succeeds with no restart
+needed. This is the same code path KataProxy uses for any
+syntactically-valid-but-unreachable upstream — see the kataproxy-docker
+dispatch report (`.claude/dispatch-reports/kataproxy-docker.md`,
+witness item 4) for the underlying evidence this section is built on.
 
 ### Replay cache and the transposition detector
 
@@ -368,10 +410,16 @@ scaling/restart of the two tiers for no offsetting benefit here.
   actually-published port — open the browser devtools Network tab
   and see what host:port the failing request targeted. Rebuild the
   frontend image if you changed `BACKEND_PORT` without rebuilding.
-- **Proxy container keeps restarting**: expected with no
-  `ENGINE_WS_URL` set — see "What happens with no upstream
-  configured" above. `docker compose logs proxy` will show
-  `RELAY role requires at least one UPSTREAM_URL`.
+- **Proxy container keeps restarting**: not the expected behavior for
+  an unset `ENGINE_WS_URL` (that now defaults to
+  `ws://host.docker.internal:1242` and the proxy stays up — see "What
+  happens with no upstream configured" above). A genuine restart loop
+  means `UPSTREAM_URLS` ended up truly empty — e.g. `ENGINE_WS_URL=`
+  set explicitly to an empty string. `docker compose logs proxy` will
+  show `RELAY role requires at least one UPSTREAM_URL` in that case.
+  If the proxy is up but analysis fails, that's the "no upstream
+  reachable yet" case instead — start the KataGo WS shim on the
+  Docker host, or check `ENGINE_WS_URL`.
 - **Board analysis fails even with `ENGINE_WS_URL` set**: confirm the
   URL is reachable *from inside the proxy container*, not just from
   your host — `docker compose exec proxy python -c "import

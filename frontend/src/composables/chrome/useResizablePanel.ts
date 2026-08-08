@@ -133,6 +133,47 @@
  * dragged) still means `undefined` out — fresh installs, which have
  * no persisted value to sanitize, are unaffected.
  *
+ * ── Board-column width cap: don't strand width the board can't use
+ *    (commission row 848, "space should not be wasted") ─────────────
+ * `#board-column` is a HEIGHT-bound square (App.vue's `#board-square`:
+ * `height: 100%; aspect-ratio: 1/1`) — its rendered width is capped at
+ * the row's own height (`#split-workspace`'s live height, the exact
+ * same element the width clamp above already observes), never wider,
+ * regardless of how much ROW width `#board-column`'s `flex: 1 1 auto`
+ * would otherwise let it claim. Left uncapped, the NO-EXPLICIT-WIDTH
+ * flex-fill branch (App.vue: `#tree-control-wrapper`'s `flex: '1 1
+ * 0'`, engaged whenever `treeControlRegionWidthPx` has never been
+ * dragged/restored) splits free row space between the two flex-grow
+ * parties by their grow factor alone — `#board-column` claims its
+ * "share" even past the point its own square can render into it,
+ * which becomes dead centered margin around the square (`#board-
+ * square`'s `align-self: center`), while `#control-panel` starves at
+ * its floor. `boardColumnMaxWidthPx` (returned below) is a `max-width`
+ * cap so the standard CSS flex algorithm freezes `#board-column` at
+ * its actual usable width once it hits that ceiling and hands the
+ * REMAINING free space to `#tree-control-wrapper`'s own `flex-grow`
+ * instead — no JS-computed complement, no second writer for either
+ * pane's width, same "let native flexbox redistribute past a frozen
+ * item" mechanism the rest of this file relies on, just applied to
+ * the OUTER pair instead of the inner one.
+ *
+ * Deliberately governs ONLY the flex-fill branch — see
+ * `boardColumnMaxWidthPx`'s own doc for why an explicit (dragged or
+ * restored) `treeControlRegionWidthPx` already leaves `#board-column`
+ * with exactly the row's remaining share and needs no additional cap.
+ * `rowHeightPx` reuses the SAME `#split-workspace` ResizeObserver the
+ * width clamp above already maintains (one observer, two dimensions
+ * off one `getBoundingClientRect()` read, per the imperative-escape
+ * discipline's "measured once on resize, never on the hot path").
+ * `computeBoardColumnMaxWidthPx` is a pure function so the cap is
+ * unit-testable without mounting anything, matching
+ * `sanitizeTreeControlRegionWidthPx`'s shape. When the board is
+ * WIDTH-bound instead (a tall/narrow viewport, or the row is narrower
+ * than its own height) the cap is simply non-binding — `rowHeightPx`
+ * exceeds the available row width, so `#board-column` never reaches
+ * it and keeps claiming freed space exactly as before; the un-height-
+ * bound case is unchanged by construction, not by a separate branch.
+ *
  * License: Public Domain (The Unlicense).
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -306,6 +347,23 @@ export function sanitizeTreeControlRegionWidthPx(
   return computeTreeControlRegionWidthPx(rawWidthPx, 0, maxRegionWidthPx);
 }
 
+/**
+ * Board-column width cap (see this file's header, "Board-column width
+ * cap"). `#board-square`'s width is derived from its own HEIGHT
+ * (`height: 100%; aspect-ratio: 1/1`), and its height is `#board-
+ * column`'s own height, which is `#split-workspace`'s (the row's) live
+ * height — so the row's height IS the board's usable-width ceiling.
+ * `rowHeightPx <= 0` (not yet measured) returns `undefined` — the
+ * "don't cap before we know" default that mirrors
+ * `sanitizeTreeControlRegionWidthPx`'s own not-yet-measured branch in
+ * `effectiveTreeControlRegionWidthPx`, so a pre-measurement render
+ * doesn't spuriously squeeze `#board-column` to its floor.
+ */
+export function computeBoardColumnMaxWidthPx(rowHeightPx: number): number | undefined {
+  if (!Number.isFinite(rowHeightPx) || rowHeightPx <= 0) return undefined;
+  return Math.max(MIN_BOARD_PX, Math.round(rowHeightPx));
+}
+
 export function useResizablePanel() {
   // ── INNER bar: tree panel (inside #tree-control-wrapper) ─────────
   let treeDragOriginPx = 0;
@@ -432,21 +490,28 @@ export function useResizablePanel() {
     stopResizeOuter();
   });
 
-  // ── Restore-time board-visibility clamp (ui-5-3) ──────────────────
-  // See this file's header, "Restore-time board-visibility clamp",
-  // for the full rationale. `rowWidthPx` is `#split-workspace`'s own
-  // live width — independent of how its children (board / wrapper)
-  // currently divide it, so measuring it is never circular with the
-  // clamp derived from it. ResizeObserver-cached geometry per
-  // `frontend/CLAUDE.md`'s imperative-escape pattern: measured once on
-  // mount, refreshed only on an actual resize of the row, released on
-  // unmount.
+  // ── Restore-time board-visibility clamp (ui-5-3) + board-column
+  //    width-cap geometry (commission row 848) ───────────────────────
+  // See this file's header, "Restore-time board-visibility clamp" and
+  // "Board-column width cap", for the full rationale of each. Both
+  // read off the SAME element — `rowWidthPx` / `rowHeightPx` are
+  // `#split-workspace`'s own live width/height, independent of how its
+  // children (board / wrapper) currently divide the row, so measuring
+  // either is never circular with a clamp derived from it. ResizeObserver-
+  // cached geometry per `frontend/CLAUDE.md`'s imperative-escape pattern:
+  // both dimensions read off ONE `getBoundingClientRect()` call, measured
+  // once on mount, refreshed only on an actual resize of the row, released
+  // on unmount.
   const rowWidthPx = ref(0);
+  const rowHeightPx = ref(0);
   let rowObserver: ResizeObserver | null = null;
 
-  function measureRowWidth() {
+  function measureRowDims() {
     const row = document.getElementById('split-workspace');
-    if (row) rowWidthPx.value = Math.round(row.getBoundingClientRect().width);
+    if (!row) return;
+    const rect = row.getBoundingClientRect();
+    rowWidthPx.value = Math.round(rect.width);
+    rowHeightPx.value = Math.round(rect.height);
   }
 
   // Attach the observer to #split-workspace if it exists NOW; returns
@@ -460,9 +525,9 @@ export function useResizablePanel() {
   function attachRowObserver(): boolean {
     const row = document.getElementById('split-workspace');
     if (!row) return false;
-    rowWidthPx.value = Math.round(row.getBoundingClientRect().width);
+    measureRowDims();
     if (typeof ResizeObserver !== 'undefined' && rowObserver === null) {
-      rowObserver = new ResizeObserver(measureRowWidth);
+      rowObserver = new ResizeObserver(measureRowDims);
       rowObserver.observe(row);
     }
     return true;
@@ -510,10 +575,28 @@ export function useResizablePanel() {
     freshTreeControlWrapperFloorPx(store.session.ui.treeExpanded),
   );
 
+  // Board-column width cap (see this file's header, "Board-column
+  // width cap", commission row 848). Governs ONLY the NO-EXPLICIT-
+  // WIDTH flex-fill branch — `controlsExpanded` false means there is
+  // no competing `#tree-control-wrapper` flex-grow party to hand slack
+  // to (the wrapper isn't rendered), and
+  // `effectiveTreeControlRegionWidthPx !== undefined` means the OUTER
+  // bar's own drag/restore already gives the wrapper an explicit
+  // width, leaving `#board-column` with exactly the row's remaining
+  // share — nothing left to cap. `undefined` in either case means "no
+  // max-width style", i.e. App.vue falls back to the pre-existing
+  // uncapped `flex: 1 1 auto` behaviour.
+  const boardColumnMaxWidthPx = computed(() => {
+    if (!store.session.ui.controlsExpanded) return undefined;
+    if (effectiveTreeControlRegionWidthPx.value !== undefined) return undefined;
+    return computeBoardColumnMaxWidthPx(rowHeightPx.value);
+  });
+
   return {
     startResizeInner,
     startResizeOuter,
     effectiveTreeControlRegionWidthPx,
     freshTreeControlWrapperMinWidthPx,
+    boardColumnMaxWidthPx,
   };
 }

@@ -14,7 +14,7 @@ export const NIL_UUID = '00000000-0000-0000-0000-000000000000';
 export const defaultSettings = {
   engine: {
     katago: {
-      url: 'ws://127.0.0.1:41948',
+      url: 'ws://127.0.0.1:1242',
       // Proxy replay-cache flags. All three default `false` — preserves
       // the pre-surfacing behaviour where the analyze* call sites either
       // hard-coded these (`analyzeRange`'s `cache: false, lookup_cache:

@@ -74,12 +74,15 @@ import {
 } from '../../src/composables/chrome/useResizablePanel';
 
 // The row `useResizablePanel`'s onMounted hook measures. Stubbing its
-// rendered width is how this test controls "the current viewport".
-function mountSplitWorkspace(widthPx: number): HTMLDivElement {
+// rendered width (and, for the board-column width-cap tests below,
+// height) is how this test controls "the current viewport". `heightPx`
+// defaults to 0 (unmeasured) so every pre-existing call site — none of
+// which cares about height — is unaffected.
+function mountSplitWorkspace(widthPx: number, heightPx = 0): HTMLDivElement {
   const row = document.createElement('div');
   row.id = 'split-workspace';
   row.getBoundingClientRect = () =>
-    ({ width: widthPx, height: 0, top: 0, left: 0, right: widthPx, bottom: 0, x: 0, y: 0, toJSON() {} }) as DOMRect;
+    ({ width: widthPx, height: heightPx, top: 0, left: 0, right: widthPx, bottom: heightPx, x: 0, y: 0, toJSON() {} }) as DOMRect;
   document.body.appendChild(row);
   return row;
 }
@@ -272,4 +275,91 @@ describe('fresh-profile first-paint floor (ledger row 802): the flex-fill branch
       expect(boardRoomPx).toBeGreaterThanOrEqual(MIN_BOARD_PX);
     },
   );
+});
+
+/**
+ * commission row 848 ("space should not be wasted"): a HEIGHT-bound
+ * `#board-column` (the square is `height: 100%; aspect-ratio: 1/1`)
+ * must not claim row WIDTH past what its own square can render into —
+ * the excess became dead centered margin around the square while
+ * `#tree-control-wrapper` starved at its floor. `boardColumnMaxWidthPx`
+ * (returned by `useResizablePanel`) is the reactive cap App.vue binds
+ * as `#board-column`'s `:style` `max-width`; `computeBoardColumnMaxWidthPx`
+ * (tested at the pure-function tier in `tests/unit/composables/chrome/
+ * useResizablePanel.test.ts`) is the arithmetic behind it. These tests
+ * drive the SAME geometry inputs the composable actually reads
+ * (`#split-workspace`'s live width/height via `mountSplitWorkspace`,
+ * exactly as the ui-5-3 tests above do for width alone) — not the
+ * browser's actual flex distribution, which jsdom does not compute; the
+ * composable-level claim proven here is "the cap is (a) present and
+ * strictly tighter than an even flex-fill split in the height-bound
+ * case, freeing slack a browser's flexbox will hand to the wrapper" and
+ * "(b) absent/non-binding in the width-bound and explicit-width cases."
+ */
+describe('board-column width cap (commission row 848): height-bound vs width-bound', () => {
+  it('RED (documents the pre-fix symptom): with no cap, a height-bound board-column would keep claiming an even flex-fill share past what its own square can use', () => {
+    const rowWidthPx = 2400;
+    const rowHeightPx = 900; // height-bound: the square can use at most 900px
+    // Pre-fix, #board-column (`flex: 1 1 auto`) and #tree-control-wrapper
+    // (`flex: 1 1 0`) split free row space evenly (both grow-factor 1);
+    // the naive share is well past what the height-bound square needs.
+    const naiveUncappedSharePx = (rowWidthPx - RESIZER_WIDTH_PX) / 2;
+    expect(naiveUncappedSharePx).toBeGreaterThan(rowHeightPx);
+  });
+
+  it('GREEN: height-bound case — boardColumnMaxWidthPx caps #board-column at the row height, strictly below the even flex-fill share, freeing slack for #tree-control-wrapper to grow past its own floor', () => {
+    const rowWidthPx = 2400;
+    const rowHeightPx = 900;
+    mountSplitWorkspace(rowWidthPx, rowHeightPx);
+    const panel = withSetup(() => useResizablePanel());
+
+    expect(store.session.ui.controlsExpanded).toBe(true); // default; the cap only governs this branch
+    expect(panel.effectiveTreeControlRegionWidthPx.value).toBeUndefined(); // never dragged: flex-fill branch
+
+    const cappedPx = panel.boardColumnMaxWidthPx.value;
+    expect(cappedPx).toBe(rowHeightPx);
+
+    const naiveUncappedSharePx = (rowWidthPx - RESIZER_WIDTH_PX) / 2;
+    expect(cappedPx as number).toBeLessThan(naiveUncappedSharePx);
+
+    // The room this frees for #tree-control-wrapper (row width minus the
+    // capped board-column minus the resizer bar) clears its own floor —
+    // "the slack flowed", the acceptance criterion in composable terms.
+    const wrapperRoomPx = rowWidthPx - (cappedPx as number) - RESIZER_WIDTH_PX;
+    expect(wrapperRoomPx).toBeGreaterThan(WRAPPER_MIN_WIDTH_PX);
+  });
+
+  it('width-bound case is unchanged: a row taller than it is wide yields a cap that exceeds the row entirely — non-binding, #board-column keeps claiming its full natural share exactly as before this fix', () => {
+    const rowWidthPx = 1200;
+    const rowHeightPx = 5000; // taller than the row is wide
+    mountSplitWorkspace(rowWidthPx, rowHeightPx);
+    const panel = withSetup(() => useResizablePanel());
+
+    const cappedPx = panel.boardColumnMaxWidthPx.value;
+    expect(cappedPx as number).toBeGreaterThan(rowWidthPx);
+  });
+
+  it('an explicit (dragged or restored) treeControlRegionWidthPx disables the cap entirely — the user\'s own drag settings still win, this fix only governs the NO-EXPLICIT-WIDTH flex-fill distribution', () => {
+    store.session.ui.treeControlRegionWidthPx = 500; // an explicit, already-sane width
+    mountSplitWorkspace(2400, 900); // same height-bound geometry as the GREEN case above
+    const panel = withSetup(() => useResizablePanel());
+
+    expect(panel.effectiveTreeControlRegionWidthPx.value).toBe(500); // explicit-width branch engaged
+    expect(panel.boardColumnMaxWidthPx.value).toBeUndefined(); // cap does not apply
+  });
+
+  it('controlsExpanded false disables the cap — no competing #tree-control-wrapper flex-grow party to hand slack to', () => {
+    store.session.ui.controlsExpanded = false;
+    mountSplitWorkspace(2400, 900);
+    const panel = withSetup(() => useResizablePanel());
+
+    expect(panel.boardColumnMaxWidthPx.value).toBeUndefined();
+  });
+
+  it('not yet measured (rowHeightPx still 0, mirrors the pre-ResizeObserver-attach window) does not spuriously cap the board to its floor', () => {
+    // No mountSplitWorkspace call: #split-workspace never appears, so
+    // the composable's row observer never attaches and rowHeightPx stays 0.
+    const panel = withSetup(() => useResizablePanel());
+    expect(panel.boardColumnMaxWidthPx.value).toBeUndefined();
+  });
 });
