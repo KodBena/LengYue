@@ -221,6 +221,18 @@ class Settings(BaseSettings):
     # worst-case payload/parse cost.
     POSITIONS_HASH_BATCH_MAX: int = 200
 
+    # CARDS_BATCH_MINT_MAX: maximum number of members accepted in a
+    # single `POST /cards/batch` request (transactional batch card
+    # mint; ledger rows 884/885/886). Bounds the size of the single
+    # database transaction the whole batch runs inside — every member
+    # inserts a card row (and possibly a normalized_position /
+    # game_source row) atomically, so an unbounded batch would bound
+    # neither transaction duration nor lock-hold time. Mirrors
+    # POSITIONS_HASH_BATCH_MAX's cap value per the ratified contract's
+    # explicit instruction to adopt the same shape/constant
+    # conventions as the sibling batch endpoints.
+    CARDS_BATCH_MINT_MAX: int = 200
+
     model_config = SettingsConfigDict(env_file=".env")
 
     @model_validator(mode="after")

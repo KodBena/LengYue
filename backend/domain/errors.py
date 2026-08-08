@@ -12,11 +12,13 @@ Three-axis structure:
     ├── InvalidInputError          "the request is malformed at the domain level"
     │   ├── InvalidReviewError
     │   ├── PipelineDSLError
-    │   └── LineageOverflowError   "tree exceeds caller-supplied node cap"
+    │   ├── LineageOverflowError   "tree exceeds caller-supplied node cap"
+    │   └── BatchIndexReferenceError "batch_index parent_ref is forward/self"
     ├── ResourceLimitError         "the request would exceed a resource limit"
     │   ├── BundleTooLargeError
     │   ├── BatchTooLargeError
     │   ├── PositionHashBatchTooLargeError
+    │   ├── CardBatchTooLargeError
     │   └── UserQuotaExceededError
     └── UnknownSchemeError         "a stored row carries an unrecognised codec scheme"
 
@@ -134,6 +136,34 @@ class LineageOverflowError(InvalidInputError):
         )
 
 
+class BatchIndexReferenceError(InvalidInputError):
+    """
+    A ``POST /cards/batch`` member's ``parent_ref.batch_index`` does
+    not refer to an earlier member of the same batch.
+
+    Raised by ``CardService.create_cards_batch`` when
+    ``batch_index >= index`` (a forward reference, including the
+    self-reference case ``batch_index == index``) — the ratified
+    wire contract (ledger rows 884/885/886) requires ``i < own
+    index``, since a card cannot be a child of a card that hasn't
+    been minted yet (or of itself). The route projects this to 422
+    with the failing member's index and the invalid reference named
+    in the message, matching the codebase's existing InvalidInputError
+    axis (plain-string detail, not a structured body — see
+    ``CardNotFoundError`` / the normalizer-translation 422 for the
+    established shape this mirrors).
+    """
+
+    def __init__(self, *, index: int, batch_index: int):
+        self.index = index
+        self.batch_index = batch_index
+        super().__init__(
+            f"batch item {index}: parent_ref.batch_index={batch_index} does "
+            f"not refer to an earlier member of this batch (forward or "
+            f"self reference)"
+        )
+
+
 class ResourceLimitError(DomainError):
     """A request would exceed a resource limit.
 
@@ -213,6 +243,33 @@ class PositionHashBatchTooLargeError(ResourceLimitError):
         self.maximum = maximum
         super().__init__(
             f"position hash batch exceeds per-request cap "
+            f"(received={received}, maximum={maximum})"
+        )
+
+
+class CardBatchTooLargeError(ResourceLimitError):
+    """A ``POST /cards/batch`` request exceeds the configured per-request cap.
+
+    Raised by ``CardService.create_cards_batch`` when
+    ``len(items) > config.CARDS_BATCH_MINT_MAX``. Mirrors the shape of
+    ``BatchTooLargeError`` (library import) and
+    ``PositionHashBatchTooLargeError`` (position hash batch) — the
+    same "cap sibling endpoints the same way" convention the
+    transactional batch-mint commission (ledger rows 884/885/886)
+    names explicitly. The route projects this to 413 with body
+    ``{kind: "cards_batch_too_large", detail, received, maximum}``.
+
+    Unlike the stateless hash-batch endpoint, this one persists rows
+    inside a single transaction — but the cap check runs before any
+    Port call, so a too-large batch never opens an INSERT and there
+    is nothing to roll back.
+    """
+
+    def __init__(self, *, received: int, maximum: int):
+        self.received = received
+        self.maximum = maximum
+        super().__init__(
+            f"card batch exceeds per-request cap "
             f"(received={received}, maximum={maximum})"
         )
 
