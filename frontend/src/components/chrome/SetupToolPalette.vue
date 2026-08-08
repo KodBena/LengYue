@@ -5,11 +5,27 @@
   toolbar button that CLICKS open a small tool palette — it looks like
   the app's other toolbar popovers (`ToolbarSliderPopover`,
   `PboPopover`) but is deliberately NOT hover-driven. Click opens,
-  click again closes; closing (this way, ESC, or an outside click)
-  auto-deselects any armed tool and returns the board to normal-click
-  (play/navigate) behaviour — `useSetupTools.closePalette` is the one
-  place that contract lives, so it cannot drift between the three
-  dismiss paths.
+  click again closes; closing (this way or ESC) auto-deselects any
+  armed tool and returns the board to normal-click (play/navigate)
+  behaviour — `useSetupTools.closePalette` is the one place that
+  contract lives, so it cannot drift between the two dismiss paths.
+
+  STICKY MODE (setup-tool-sticky-mode, commission row 914; ADR-0019):
+  a selected setup tool is a genre-standard sticky mode — cgoban/q5go
+  precedent — that persists until the user EXPLICITLY ends it. There
+  is deliberately no outside-click dismiss: an earlier revision had a
+  document-level `pointerdown` listener that treated any click outside
+  the palette's own DOM (a tree node, a panel button, anywhere but the
+  board) as "dismiss", which violated ADR-0019 (only cgoban/q5go's own
+  chrome, never a document-wide catch-all, gates a setup tool) and
+  required a `data-setup-tool-surface` exemption marker on
+  `BoardWidget.vue` just to keep the board itself from being treated
+  as "outside". Both are removed. The only ends of the mode now are:
+  re-clicking the armed tool's own button (toggle-off, `selectTool`),
+  picking a different tool (switch, `selectTool`), closing the palette
+  via its own toolbar button (`togglePalette`), and Escape while no
+  modal has priority (`onKeydown` below, gated on `anyModalOpen` so a
+  modal's own Escape-to-close always wins over this palette's).
 
   Genre precedent for the click-toggle (not hover) interaction:
   `LocalePicker.vue` — same open/toggle/outside-click/ESC shape, not
@@ -51,6 +67,7 @@
 import { onBeforeUnmount, ref, watch } from 'vue';
 import { useSetupTools, type SetupTool } from '../../composables/board/useSetupTools';
 import { useHandicap } from '../../composables/board/useHandicap';
+import { anyModalOpen } from '../../composables/useModalKeyboard';
 import HandicapPanel from './HandicapPanel.vue';
 
 const { activeTool, paletteOpen, selectTool, togglePalette, closePalette } = useSetupTools();
@@ -58,47 +75,29 @@ const { panelOpen: handicapPanelOpen, togglePanel: toggleHandicapPanel, closePan
 
 const rootRef = ref<HTMLElement | null>(null);
 
-// Outside-click dismiss, same shape as LocalePicker.vue: `pointerdown`
-// in the capture phase so this fires before an in-palette click
-// handler, and only installed while open (zero-listener steady state,
-// the resource-ownership convention `frontend/CLAUDE.md` names).
-//
-// BUT unlike LocalePicker (whose menu items are the whole interaction
-// surface), this palette's WHOLE PURPOSE is to arm a tool that gets
-// applied by clicking somewhere else — the board. A naive "outside
-// this popover's DOM == dismiss" check treats every board click as a
-// dismiss, and because `pointerdown` (capture phase) fires and runs
-// synchronously BEFORE the board element's own `click` handler, the
-// tool was already deselected by the time BoardWidget's
-// `applyToolAt` ran — the tool armed, then silently no-op'd on every
-// real click (setup-palette-defects, commission row 756: "clicking
-// black/white/triangle then clicking the board places NOTHING").
-// `data-setup-tool-surface` (BoardWidget.vue's template) marks the
-// one exempted region: a pointerdown there is the tool's intended
-// use, not a request to dismiss.
-function onDocumentPointerDown(e: PointerEvent): void {
-  if (!rootRef.value) return;
-  const target = e.target as Node; // DOM: event.target is EventTarget; Node is contains()'s/closest's arg type
-  if (rootRef.value.contains(target)) return;
-  if (target instanceof Element && target.closest('[data-setup-tool-surface]')) return;
-  closePalette();
-}
-
+// ESC dismiss ONLY — see the header's STICKY MODE note for why there
+// is no outside-click dismiss. The palette is NOT a modal (it doesn't
+// register with `useModalKeyboard`'s open-count/focus-trap machinery
+// — that composable's Escape-priority stack is for actual modal
+// dialogs); this is a plain local Escape handler, scoped to this
+// component's own open state via the listener lifecycle below, same
+// as LocalePicker.vue. Gated on `anyModalOpen` so a modal opened on
+// top of an armed setup tool (e.g. from a board action) keeps its own
+// Escape-to-close priority: the modal closes, the tool stays armed —
+// both listeners are on the bubble path for the same keydown
+// (this one on `document`, `useModalKeyboard`'s on `window`, which
+// document precedes), so without this guard an Escape meant for the
+// modal would also silently disarm the tool underneath it.
 function onKeydown(e: KeyboardEvent): void {
-  // The palette is NOT a modal (it doesn't gate on / register with
-  // `anyModalOpen` — `useModalKeyboard.ts`'s ESC-priority stack is for
-  // actual modal dialogs); ESC here is a plain local dismiss, scoped
-  // to this component's own open state via the listener lifecycle
-  // below, same as LocalePicker.vue.
-  if (e.key === 'Escape') closePalette();
+  if (e.key !== 'Escape') return;
+  if (anyModalOpen.value) return;
+  closePalette();
 }
 
 watch(paletteOpen, (isOpen) => {
   if (isOpen) {
-    document.addEventListener('pointerdown', onDocumentPointerDown, true);
     document.addEventListener('keydown', onKeydown);
   } else {
-    document.removeEventListener('pointerdown', onDocumentPointerDown, true);
     document.removeEventListener('keydown', onKeydown);
     // The handicap sub-panel has no dismiss listeners of its own (it
     // rides the parent palette's — see this component's header); it
@@ -111,7 +110,6 @@ watch(paletteOpen, (isOpen) => {
 // Defensive cleanup if the component unmounts while open (parent
 // re-key, full app teardown) — same precedent as LocalePicker.vue.
 onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', onDocumentPointerDown, true);
   document.removeEventListener('keydown', onKeydown);
 });
 
