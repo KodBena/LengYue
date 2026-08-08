@@ -229,7 +229,11 @@ bare KataGo process. Per this codebase's fail-loudly tenet
 serving a dead engine — it logs the failure, drops connected
 clients, and exits non-zero rather than degrading silently; restart
 it deliberately (or under a process supervisor) rather than relying
-on it to self-heal.
+on it to self-heal. With the optional `zeroconf` package installed
+(`pip install zeroconf`, not part of `backend/requirements.txt`) the
+shim also advertises itself on the LAN as `_katago-ws._tcp.local.`
+for autodiscovery — see `--help` for the details and the `--no-mdns`
+opt-out.
 
 ### What happens with no upstream configured
 

@@ -54,7 +54,9 @@ You provide that upstream:
   `backend/scripts/katago_ws_shim.py` — launches `katago analysis` as
   a subprocess and re-exposes it as a WebSocket server multiple
   clients can share. Run it with `--help` for the full option list
-  (katago path/model/config, bind host/port).
+  (katago path/model/config, bind host/port); with the optional
+  `zeroconf` package installed (`pip install zeroconf`) it can also
+  advertise itself on the LAN via mDNS for autodiscovery.
 
 Where you point KataProxy at that upstream differs by packaging —
 Docker's `ENGINE_WS_URL`, the desktop app's proxy-upstream setting,
