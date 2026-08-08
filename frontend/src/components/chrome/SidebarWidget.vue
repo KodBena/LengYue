@@ -261,7 +261,14 @@ const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
    still render at their own 86px and sit centred, so they carry a wider gutter
    now — a deliberate "narrow tab strip + preview shelf" split. Both the rail
    width and the tab gutter are visual tunables (the author retunes by eye); if
-   `.board-preview`'s box grows, raise this in tandem, floor = that box width. */
+   `.board-preview`'s box grows, raise this in tandem, floor = that box width.
+
+   Content-need audit (commission row 848): the docked preview box is the
+   width DRIVER — `.board-actions`'s stacked LOAD/SAVE buttons (`width: 100%`
+   each) and the `--tab-width: 86px` tabs both fit well inside 168px with
+   room to spare, so neither adds width pressure of its own. No further
+   narrowing available without shrinking the preview box itself, which is a
+   separate, out-of-scope surface (not named in the commission). */
 #sidebar-widget {
   display: flex; flex-direction: column; align-items: center;
   padding: var(--space-medium) 0; background: var(--surface-0); height: 100%;
@@ -342,7 +349,10 @@ const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
   flex-shrink: 0;
 }
 
-/* LOAD / SAVE file-ops header — horizontal pair at the top of
+/* LOAD / SAVE file-ops header — STACKED pair (commission row 848,
+   "space should not be wasted": witnessed side-by-side at a ~2000px
+   window, each half of the rail's width, cramping "LOAD SGF" /
+   "SAVE SGF" against the rail's own narrow floor) at the top of
    the sidebar, above the scrollable thumb-list. Thin separator
    on the bottom edge sets the header off from the list without
    adding a heavy chrome element. Visual register matches
@@ -350,11 +360,16 @@ const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
    fill) so the row reads as quiet chrome rather than a primary-
    action shelf — the user's "out of sight, out of mind during
    study" aesthetic preference, honoured under a discoverable
-   placement. */
+   placement. Stacking gives each button the RAIL's full content
+   width instead of half of it — the rail's own width floor is set
+   by `#sidebar-widget` (150px docked preview box + gutters, see that
+   rule's comment), already narrower than either button ever needed
+   side-by-side, so stacking removes the crowding without any further
+   rail-width change. */
 .board-actions {
   display: flex;
-  flex-direction: row;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: var(--space-tight);
   width: 100%;
   padding: 0 var(--space-tight) var(--space-tight);
@@ -362,7 +377,7 @@ const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
   margin-bottom: var(--space-tight);
 }
 .board-action-btn {
-  flex: 1;
+  width: 100%;
   height: 20px;
   border-radius: 0%;
   border: none;
@@ -375,5 +390,6 @@ const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
   cursor: pointer;
   padding: 0 var(--space-tight);
   min-width: 0;
+  box-sizing: border-box;
 }
 </style>
