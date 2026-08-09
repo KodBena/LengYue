@@ -188,11 +188,13 @@ function nodeFill(item: { move?: GameNode['move'] }): string {
   // A pass is a game move played by a specific color (ledger row 759:
   // "a pass is a game move, not a meta-instruction") — it takes the
   // SAME B/W stone fill as any other move by that color, not a neutral
-  // chrome tone. The square outline the template swaps in for a pass
-  // (`isPassNode` below, ledger row 948) is the actual distinguishing
-  // signal that this node is a pass rather than a placed stone, per
-  // ADR-0019 appendix C18 (no color-only meaning) — the fill alone
-  // never carries the pass/stone distinction.
+  // chrome tone. Commissioner ruling (ledger row 948, amendment): a
+  // pass node renders EXACTLY like a normal move node — same circle,
+  // same per-color fill, no shape, glyph, or any other distinguishing
+  // mark. There is deliberately no pass-only branch anywhere in this
+  // file; `nodeFill`/`nodeStroke` and the single `<circle>` in the
+  // template below are shared, unconditional code paths for every
+  // move node, pass or not.
   //
   // Stone colors are domain-meaningful (board pieces); not chrome.
   //
@@ -221,22 +223,6 @@ function nodeFill(item: { move?: GameNode['move'] }): string {
 
 function nodeStroke(item: { move?: GameNode['move'] }): string {
   return item.move ? themeColor('--border-3') : themeColor('--border-2');
-}
-
-// Pass-node shape: a pass is drawn as a SQUARE, not the ordinary
-// stone circle — the genre convention for a pass in the game-tree
-// pane (Sabaki's GameGraph.js: `type: ... 'square' // Pass node`
-// versus `'circle' // Normal node`, same per-color fill both
-// shapes). Ledger row 948 ruled the old "P" letter glyph off (a pass
-// is a game move played by a color, not a meta-instruction annotated
-// with text) while ledger row 759 already made the pass node take
-// its player's own B/W fill on the shape underneath — this keeps that
-// fill (`nodeFill` below is unchanged) and swaps only the outline: the
-// square shape itself is what still tells a pass apart from a placed
-// stone, per ADR-0019 appendix C18 (no color-only meaning) — the fill
-// alone never carries the pass/stone distinction.
-function isPassNode(item: { move?: GameNode['move'] }): boolean {
-  return item.move?.type === 'pass';
 }
 
 // ── Coordinate mapping ────────────────────────────────────────────────────────
@@ -553,15 +539,12 @@ const edges = computed(() => {
                board carries this ring at a time (the walk issues one
                in-flight query at a time by construction). -->
           <circle v-if="item.isAnalyzing" :cx="item.px" :cy="item.py" :r="NODE_R + 13" class="analyzing-ring" stroke-width="1.5" stroke-dasharray="1,1" />
-          <!-- Pass node: a square, not the ordinary stone circle — the
-               actual distinguishing signal for a pass (per ADR-0019
-               appendix C18, no color-only meaning; genre grounding and
-               ledger provenance in `isPassNode`'s comment in the script
-               block). Same per-color fill/stroke as a placed-stone node
-               (`nodeFill`/`nodeStroke`, ledger row 759, unchanged) and
-               the same click target — only the shape differs. -->
-          <rect v-if="isPassNode(item)" :x="item.px - NODE_R" :y="item.py - NODE_R" :width="NODE_R * 2" :height="NODE_R * 2" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
-          <circle v-else :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
+          <!-- Commissioner ruling (ledger row 948, amendment): a pass
+               node renders EXACTLY like a normal move node — same
+               circle, same per-color fill (`nodeFill`/`nodeStroke`,
+               ledger row 759), no shape/glyph distinction of any kind.
+               No `item.move?.type === 'pass'` branch here by design. -->
+          <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
 
           <g v-if="item.isBranching" class="toggle-group" @click.stop="expansion.toggle(item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseenter="e => onToggleEnter(e, item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseleave="onToggleLeave">
             <line :x1="item.px" :y1="item.py" :x2="item.ix" :y2="item.iy" class="toggle-leader" stroke-width="1" stroke-dasharray="2,1" />
