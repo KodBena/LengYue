@@ -15,6 +15,7 @@
   "app.workspace.loadFailed":             "工作区加载失败。未发生任何更改或丢失。",
   "app.workspace.retry":                  "重试",
   "app.workspace.saveFailed":             "保存更改失败。请重试。",
+  "app.keybindingCapture.banner":         "正在为“{action}”录制新按键 — 按任意键，或按 Esc 取消。在结束之前，应用内的所有其他按键都会被捕获。",
 
   "dialogs.confirm.defaultConfirm":       "OK",
   "dialogs.confirm.defaultCancel":        "Cancel",
@@ -199,6 +200,7 @@
   "toolbar.metric.pbo":                   "PBO",
   "toolbar.sliders.empty":                "尚无已注册的旋钮。",
 
+  "statusBar.setupModeActive":            "摆子：{tool}",
   "statusBar.move":                       "第 {n} 手",
   "statusBar.versus":                     "对",
   "statusBar.komi":                       "贴目",
@@ -425,11 +427,15 @@
   "systemLog.clearAll":                   "清除全部",
   "systemLog.noMessages":                 "无消息 — 系统空闲。",
 
+  "analysisChart.emptyState":             "暂无{label}数据。",
+
   "analysisTimeline.title":               "分析范围",
   "analysisTimeline.nodesSelected":       "未选择节点 | 已选择 1 个节点 | 已选择 {count} 个节点",
   "analysisTimeline.turnsRange":          "回合 {from}–{to}",
   "analysisTimeline.visits":              "访问数:",
   "analysisTimeline.analyseSelection":    "分析选区({n})",
+  "analysisTimeline.analyseDisabledOffline": "分析选区已禁用 — 引擎离线。请连接引擎以分析此选区。",
+  "analysisTimeline.analyseDisabledNoSelection": "分析选区已禁用 — 请在上方时间线上拖动以选择要分析的回合。",
 
   "cardTree.tooltip.cardHeader":          "卡片 {id}",
   "cardTree.tooltip.cardHeaderActive":    "卡片 #{id} · 活动",
