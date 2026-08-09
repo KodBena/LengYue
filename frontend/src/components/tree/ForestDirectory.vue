@@ -24,7 +24,7 @@ import { useForestBrowsePolicy } from '../../composables/forest/useForestBrowseP
 import { useForestStats } from '../../composables/forest/useForestStats';
 import { useReviewSession } from '../../composables/review/useReviewSession';
 import { useAuth } from '../../composables/auth-app/useAuth';
-import { FOREST_NARROW_THRESHOLD_PX } from '../../state/layout-model';
+import { FOREST_NARROW_THRESHOLD_PX, PANEL_CONTENT_READING_MEASURE_CH } from '../../state/layout-model';
 import { expandContextIdMacros } from '../../utils/context-id-macros';
 import CardTreeWidget from '../charts/CardTreeWidget.vue';
 import ForestTreeNav from './ForestTreeNav.vue';
@@ -34,6 +34,13 @@ import TabWidget from '../chrome/TabWidget.vue';
 import HyperparamPromptModal, { type HyperparamValues } from '../modals/HyperparamPromptModal.vue';
 
 const { t } = useI18n();
+
+// Phase 3 (resolution roadmap, audit finding R3) — same prop shape as
+// LibraryTab.vue's `twoColumnReflow`: App.vue derives it once from the
+// workspace's LayoutClass (`getPanelContentPolicy`) and hands it down.
+// Defaults to `false` (today's single-stacked-column behaviour) so a
+// standalone mount that doesn't pass the prop is unaffected.
+const props = defineProps<{ twoColumnReflow?: boolean }>();
 
 const emit = defineEmits<{
   (e: 'load-card', card: ReviewCard): void;
@@ -77,6 +84,13 @@ const cardMetadata = useCardMetadata();
 const reviewSession = useReviewSession(boardIdRef);
 const selectedDeckId = ref<string>(store.session.ui.activeCardSetId);
 const orientation = ref<'horizontal' | 'vertical'>('vertical');
+
+// Phase 3 (audit finding R3) — the metadata panel's own width when
+// reflowed beside the chart (`.panel-content-two-col`, style block
+// below). Sourced from the SAME declared reading measure LibraryTab.vue's
+// split cap uses, so this and that never drift into two independently
+// hand-picked `ch` figures.
+const cardMetadataMaxWidthCss = computed(() => `${PANEL_CONTENT_READING_MEASURE_CH}ch`);
 
 // "In-session" gating for the Decks panel: when a session is running
 // against the active board, the Decks left panel hosts the
@@ -444,7 +458,7 @@ onUnmounted(() => {
        target (same ancestor-not-self reasoning iter-17 established:
        `.forest-container` cannot observe/react to its own width). -->
   <div class="forest-cq-wrapper" ref="forestCqWrapperEl">
-  <div class="forest-container" :class="{ 'forest-narrow-stack': forestNarrow }">
+  <div class="forest-container" :class="{ 'forest-narrow-stack': forestNarrow, 'panel-content-two-col': props.twoColumnReflow }">
 
     <!-- LEFT PANEL: Navigation — Decks / Browse via the shared TabWidget -->
     <div class="left-panel">
@@ -558,7 +572,13 @@ onUnmounted(() => {
            Surfaces here (Browse view) so the user can inspect /
            edit metadata without starting a review session — the
            gap that surfaced when legacy decks' suspended cards
-           silently emptied review queues. -->
+           silently emptied review queues. Phase 3 (audit finding R3):
+           at wide/vast LayoutWidthClass (.panel-content-two-col below,
+           `.tree-panel`'s own CSS), this sits BESIDE the chart/empty-
+           state block instead of stacked below it — `.tree-panel`
+           itself is the shared flex container for both, so this stays
+           a plain sibling; only the container's flex-direction and
+           this panel's own max-width change. -->
       <CardMetadataPanel
         v-if="selectedCard"
         :card="selectedCard"
@@ -638,4 +658,37 @@ onUnmounted(() => {
 .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-2); font-size: var(--text-emphasis); }
 .empty-state.error { color: var(--state-error); }
 .chart-wrapper { flex: 1; padding: var(--space-tight); min-height: 0; min-width: 0; overflow: hidden; display: flex; }
+
+/* Phase 3 (audit finding R3): at wide/vast LayoutWidthClass, the
+   right pane's chart + metadata panel sit SIDE BY SIDE (genre's "two
+   columns") instead of the chart stretching across the panel's full
+   width with CardMetadataPanel stacked below it. `.panel-header` and
+   `.empty-state` are forced onto their own full-width row
+   (`flex: 1 1 100%`) via `flex-flow: row wrap` on the container, so
+   only `.chart-wrapper` and `:deep(.card-metadata-panel)` actually
+   share the row — CardTreeWidget's own node-click wiring is untouched,
+   this only changes the flex container geometry around it.
+   `cardMetadataMaxWidthCss` (script) keeps the metadata column's own
+   width sourced from `PANEL_CONTENT_READING_MEASURE_CH`, the same
+   declared measure LibraryTab.vue's split cap uses — no second
+   hand-typed `ch` literal. */
+.forest-container.panel-content-two-col .tree-panel {
+  flex-flow: row wrap;
+  align-content: flex-start;
+  overflow: auto;
+}
+.forest-container.panel-content-two-col .tree-panel > .panel-header,
+.forest-container.panel-content-two-col .tree-panel > .empty-state {
+  flex: 1 1 100%;
+}
+.forest-container.panel-content-two-col .tree-panel > .chart-wrapper {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.forest-container.panel-content-two-col .tree-panel :deep(.card-metadata-panel) {
+  flex: 0 0 auto;
+  width: v-bind(cardMetadataMaxWidthCss);
+  max-width: 100%;
+  margin-top: 0;
+}
 </style>

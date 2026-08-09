@@ -23,7 +23,7 @@ import { useUserIORegistry } from './composables/useUserIORegistry';
 import { useAuth }           from './composables/auth-app/useAuth';
 import { workspaceIdentityKey } from './composables/auth-app/workspace-identity-key';
 import { useResizablePanel, CONTROL_PANEL_MIN_WIDTH_PX, isAnyPanelResizing } from './composables/chrome/useResizablePanel';
-import { CONTROL_PANEL_TAB_IDS, useDeferredLayoutClass } from './state/layout-model';
+import { CONTROL_PANEL_TAB_IDS, useDeferredLayoutClass, getPanelContentPolicy, computeTreePanelBoundWidth } from './state/layout-model';
 import { useDirtyBoardGuard } from './composables/board/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
 import { useTransientLogReveal } from './composables/useTransientLogReveal';
@@ -286,6 +286,7 @@ const {
   effectiveTreeControlRegionWidthPx,
   freshTreeControlWrapperMinWidthPx,
   boardColumnMaxWidthPx,
+  unsetWrapperMaxWidthCss,
   rowWidthPx,
   rowHeightPx,
 } = useResizablePanel();
@@ -302,6 +303,36 @@ const {
 // ForestDirectory's own narrow-stack reorg.
 const layoutClass = useDeferredLayoutClass(rowWidthPx, rowHeightPx, isAnyPanelResizing);
 const workspaceAxisColumn = computed(() => layoutClass.value.axis === 'column');
+
+// Phase 3 (resolution roadmap, audit finding R3): the declared
+// measure/reflow policy for THIS workspace's width class — read once
+// here and threaded down to the two control-panel tabs whose content
+// is dense text/tables (Library, Cards) rather than re-derived
+// per-tab. See `getPanelContentPolicy`'s doc (`state/layout-model.ts`).
+const panelContentPolicy = computed(() => getPanelContentPolicy(layoutClass.value));
+
+// Phase 3 (audit findings R3/R5), review follow-up (ledger rows
+// 929/926): the `#vue-tree-panel` `:style` WIDTH DECISION — extracted
+// from what used to be a template ternary into `computeTreePanelBoundWidth`
+// (state/layout-model.ts) so the stored-drag-precedence property (a
+// user-dragged `treePanelWidthPx` wins verbatim over the fraction
+// default, across ANY workspace width and axis flip) is a pure
+// function's contract, unit-testable directly, rather than true only
+// by inspection of the template. This computed is the ONLY read site
+// for `store.session.ui.treePanelWidthPx` in the template below —
+// still a pure render-time projection, not a second write channel.
+const treePanelBoundWidth = computed(() =>
+  computeTreePanelBoundWidth({
+    axisColumn: workspaceAxisColumn.value,
+    storedWidthPx: store.session.ui.treePanelWidthPx,
+    workspaceWidthPx: rowWidthPx.value,
+  }),
+);
+const treePanelStyle = computed(() =>
+  treePanelBoundWidth.value.mode === 'full'
+    ? {}
+    : { width: treePanelBoundWidth.value.widthPx + 'px', flex: '0 0 auto' },
+);
 
 // Defect 6 (ui-fix-56), preserved as a documented, minor cosmetic
 // nicety under the nested-splitter geometry (ledger rows 391/414) —
@@ -649,7 +680,20 @@ const activeTab = computed<string>({
              see useResizablePanel.ts's freshTreeControlWrapperFloorPx
              doc). `freshTreeControlWrapperMinWidthPx` supplies that
              floor, recomputed off treeExpanded so a tree-collapsed first
-             paint doesn't over-reserve room for a hidden tree panel. -->
+             paint doesn't over-reserve room for a hidden tree panel.
+
+             Phase 3 (audit finding R3): the SAME flex-fill branch also
+             now carries a `maxWidth` (`unsetWrapperMaxWidthCss`,
+             useResizablePanel.ts / computeUnsetWrapperMaxWidthCss,
+             state/layout-model.ts) — tree-default + resizer + the
+             panel-content reading measure. Freezes the wrapper at its
+             actual content need once the row is wide enough to exceed
+             it, handing the freed flex-grow share to #board-column
+             (flex: 1 1 auto) instead of leaving it as dead space inside
+             an oversized #control-panel — the "surplus flows back to
+             the board" half of R3. Applies ONLY to this never-dragged
+             default branch; an explicit (dragged/restored)
+             treeControlRegionWidthPx above is untouched. -->
         <!-- Phase 1: in column axis this wrapper's width comes from
              the `.axis-column` CSS rule (100%, flex-direction:
              column — tree above control, each full-width, natural
@@ -665,7 +709,7 @@ const activeTab = computed<string>({
             : store.session.ui.controlsExpanded && effectiveTreeControlRegionWidthPx !== undefined
               ? { flex: '0 0 auto', width: effectiveTreeControlRegionWidthPx + 'px' }
               : store.session.ui.controlsExpanded
-                ? { flex: '1 1 0', minWidth: freshTreeControlWrapperMinWidthPx + 'px' }
+                ? { flex: '1 1 0', minWidth: freshTreeControlWrapperMinWidthPx + 'px', maxWidth: unsetWrapperMaxWidthCss }
                 : {}"
         >
           <!-- resizer-rearch charter amendment + maintainer constraint
@@ -676,13 +720,30 @@ const activeTab = computed<string>({
                This is the tree pane's ONLY write channel: no
                fit-to-content, no auto-grow on branch expansion or
                navigation — content changes never touch this value.
-               See useResizablePanel.ts. -->
+               See useResizablePanel.ts.
+
+               Phase 3 (audit finding R5): the "never dragged" fallback
+               no longer falls through to bare CSS 140px — it applies
+               `treePanelDefaultWidthPx` (`computeTreePanelDefaultWidthPx`,
+               state/layout-model.ts), a fraction of the workspace's own
+               live width, floored at the SAME TREE_PANEL_MIN_WIDTH_PX
+               this pane has always dragged down to. Still a pure
+               render-time DEFAULT, not a second write channel: nothing
+               here touches `session.ui.treePanelWidthPx`, and the
+               moment the user drags #resizer-inner once, that stored
+               value takes over verbatim, forever, exactly as before.
+
+               Review follow-up (ledger rows 929/926): the width
+               decision itself (full-width in column axis / stored
+               verbatim / fraction default) is `treePanelBoundWidth`'s
+               `computeTreePanelBoundWidth` call above, not an inline
+               ternary here — see that computed's doc for the
+               stored-drag-precedence property this now witnesses
+               directly in `layout-model.test.ts`. -->
           <div
             id="vue-tree-panel"
             v-show="store.session.ui.treeExpanded"
-            :style="!workspaceAxisColumn && store.session.ui.treePanelWidthPx !== undefined
-              ? { width: store.session.ui.treePanelWidthPx + 'px', flex: '0 0 auto' }
-              : {}"
+            :style="treePanelStyle"
           >
             <div id="tree-panel-header">{{ $t('app.chrome.gameTreePanelHeader') }}</div>
             <TreeWidget
@@ -745,6 +806,7 @@ const activeTab = computed<string>({
               <template #library>
                 <div style="flex: 1; display: flex; min-height: 0; width: 100%;">
                   <LibraryTab
+                    :two-column-reflow="panelContentPolicy.twoColumnReflow"
                     @open-library-game="handleLoadLibraryGame"
                     @open-library-game-new-tab="handleLoadLibraryGameInNewBoard"
                   />
@@ -753,7 +815,7 @@ const activeTab = computed<string>({
 
               <template #cards>
                 <div style="flex: 1; display: flex; min-height: 0; width: 100%;">
-                  <ForestDirectory @load-card="handleLoadCard" />
+                  <ForestDirectory :two-column-reflow="panelContentPolicy.twoColumnReflow" @load-card="handleLoadCard" />
                 </div>
               </template>
 
@@ -985,16 +1047,22 @@ const activeTab = computed<string>({
    which can force the wrapper wider than its own flex-basis. */
 #tree-control-wrapper { display: flex; flex-direction: row; height: 100%; min-width: 0; min-height: 0; }
 
-/* magic-literal: 140px `#vue-tree-panel` DEFAULT width (was 220px,
-   iter-21 slim-down). Nested-splitter amendment (ledger row 391;
-   maintainer constraint ledger row 414 — this is the tree pane's
-   ONLY write channel, ever): the panel is user-resizable via the
-   INNER `.panel-resizer` (`#resizer-inner`, inside the wrapper above)
-   — the inline `width` style (App.vue template) overrides this
-   default once `session.ui.treePanelWidthPx` is set. 140 remains both
-   the CSS default AND the drag floor (`TREE_PANEL_MIN_WIDTH_PX`,
-   useResizablePanel.ts) — see that constant's comment for why the
-   floor wasn't lowered. magic-literal: 5px padding-right — preserved
+/* magic-literal: 140px `#vue-tree-panel` FALLBACK width (was 220px,
+   iter-21 slim-down; was the sole default pre-Phase-3). Nested-splitter
+   amendment (ledger row 391; maintainer constraint ledger row 414 —
+   this is the tree pane's ONLY write channel, ever): the panel is
+   user-resizable via the INNER `.panel-resizer` (`#resizer-inner`,
+   inside the wrapper above). Phase 3 (audit finding R5): the inline
+   `width` style (App.vue template) now ALWAYS wins once the workspace
+   has been measured once — either `session.ui.treePanelWidthPx` (user
+   dragged) or `treePanelDefaultWidthPx` (computed from live workspace
+   width, `computeTreePanelDefaultWidthPx`, `state/layout-model.ts`) —
+   so this bare CSS rule only paints the one frame before the first
+   `ResizeObserver` callback lands (`rowWidthPx` still 0), where
+   `computeTreePanelDefaultWidthPx` itself also degrades to
+   `TREE_PANEL_MIN_WIDTH_PX` (140), keeping the two in sync by
+   construction rather than by both hard-coding 140 independently.
+   magic-literal: 5px padding-right — preserved
    from prior; gives the tree the standard tight margin against the
    right chrome edge without affecting tree-widget layout. */
 /* Token categories per ledger row 742 (surface-token discipline): borders

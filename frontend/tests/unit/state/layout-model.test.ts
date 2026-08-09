@@ -40,6 +40,13 @@ import {
   FOREST_TREE_USABLE_FLOOR_PX,
   computeForestNarrowThresholdPx,
   FOREST_NARROW_THRESHOLD_PX,
+  PANEL_CONTENT_READING_MEASURE_CH,
+  getPanelContentPolicy,
+  PANEL_CONTENT_POLICY_BY_WIDTH_CLASS,
+  TREE_PANEL_DEFAULT_WIDTH_FRACTION,
+  computeTreePanelDefaultWidthPx,
+  computeTreePanelBoundWidth,
+  computeUnsetWrapperMaxWidthCss,
 } from '../../../src/state/layout-model';
 
 describe('deriveAxis — row/column split from aspect ratio', () => {
@@ -165,5 +172,132 @@ describe('computeForestNarrowThresholdPx — ForestDirectory\'s 479px, re-derive
   it('moves when either content fact moves — the whole point of naming them instead of hand-writing the sum', () => {
     expect(computeForestNarrowThresholdPx(300, 200)).toBe(499);
     expect(computeForestNarrowThresholdPx(280, 220)).toBe(499);
+  });
+});
+
+describe('getPanelContentPolicy / PANEL_CONTENT_POLICY_BY_WIDTH_CLASS — Phase 3, audit finding R3', () => {
+  it('every width class has its own policy entry (all four keys present)', () => {
+    expect(Object.keys(PANEL_CONTENT_POLICY_BY_WIDTH_CLASS).sort()).toEqual(
+      ['compact', 'standard', 'vast', 'wide'].sort(),
+    );
+  });
+
+  it('compact/standard stay single-column; wide/vast reflow to two columns', () => {
+    expect(getPanelContentPolicy({ axis: 'row', width: 'compact' }).twoColumnReflow).toBe(false);
+    expect(getPanelContentPolicy({ axis: 'row', width: 'standard' }).twoColumnReflow).toBe(false);
+    expect(getPanelContentPolicy({ axis: 'row', width: 'wide' }).twoColumnReflow).toBe(true);
+    expect(getPanelContentPolicy({ axis: 'row', width: 'vast' }).twoColumnReflow).toBe(true);
+  });
+
+  it('every width class carries the SAME declared reading measure — one figure, not four independently-tuned ones', () => {
+    for (const width of ['compact', 'standard', 'wide', 'vast'] as const) {
+      expect(getPanelContentPolicy({ axis: 'row', width }).readingMeasureCh).toBe(PANEL_CONTENT_READING_MEASURE_CH);
+    }
+  });
+
+  it('axis does not affect the result (looked up strictly by the width facet, mirrors getPanelGeometryPolicy)', () => {
+    const rowWide = getPanelContentPolicy({ axis: 'row', width: 'wide' });
+    const columnWide = getPanelContentPolicy({ axis: 'column', width: 'wide' });
+    expect(rowWide).toBe(columnWide);
+  });
+});
+
+describe('computeTreePanelDefaultWidthPx — Phase 3, audit finding R5 ("stuck at 140px on any screen")', () => {
+  it('given a workspace width where the fraction exceeds the floor, returns the declared fraction of it', () => {
+    // 2000 * 0.12 = 240, comfortably above the 140px floor.
+    expect(computeTreePanelDefaultWidthPx(2000)).toBe(
+      Math.round(2000 * TREE_PANEL_DEFAULT_WIDTH_FRACTION),
+    );
+  });
+
+  it('clamps to TREE_PANEL_MIN_WIDTH_PX on a narrow workspace where the fraction undershoots the floor', () => {
+    // 768 * 0.12 ≈ 92px, well under the 140px floor.
+    expect(computeTreePanelDefaultWidthPx(768)).toBe(TREE_PANEL_MIN_WIDTH_PX);
+  });
+
+  it('grows past the old fixed 140px on a vast (4K-class) workspace — the R5 fix itself', () => {
+    const at4k = computeTreePanelDefaultWidthPx(3840);
+    expect(at4k).toBeGreaterThan(TREE_PANEL_MIN_WIDTH_PX);
+    expect(at4k).toBe(Math.round(3840 * TREE_PANEL_DEFAULT_WIDTH_FRACTION));
+  });
+
+  it('non-finite or non-positive workspace width (not yet measured) degrades to the floor, not a guess', () => {
+    expect(computeTreePanelDefaultWidthPx(0)).toBe(TREE_PANEL_MIN_WIDTH_PX);
+    expect(computeTreePanelDefaultWidthPx(-100)).toBe(TREE_PANEL_MIN_WIDTH_PX);
+    expect(computeTreePanelDefaultWidthPx(Number.NaN)).toBe(TREE_PANEL_MIN_WIDTH_PX);
+    expect(computeTreePanelDefaultWidthPx(Number.POSITIVE_INFINITY)).toBe(TREE_PANEL_MIN_WIDTH_PX);
+  });
+});
+
+describe('computeTreePanelBoundWidth — App.vue\'s extracted :style width decision (review follow-up, ledger rows 929/926)', () => {
+  it('property (a): a stored width wins VERBATIM over the fraction default, for ANY workspace width, including extremes', () => {
+    const storedWidthPx = 314;
+    for (const workspaceWidthPx of [0, 1, 140, 768, 1280, 1920, 3840, 10000, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(
+        computeTreePanelBoundWidth({ axisColumn: false, storedWidthPx, workspaceWidthPx }),
+      ).toEqual({ mode: 'fixed', widthPx: storedWidthPx });
+    }
+  });
+
+  it('property (a), a second stored value, to rule out 314 being coincidentally special', () => {
+    const storedWidthPx = TREE_PANEL_MIN_WIDTH_PX; // the floor value itself — a stored width AT the floor still wins verbatim, not re-derived
+    for (const workspaceWidthPx of [50, 3840]) {
+      expect(
+        computeTreePanelBoundWidth({ axisColumn: false, storedWidthPx, workspaceWidthPx }),
+      ).toEqual({ mode: 'fixed', widthPx: storedWidthPx });
+    }
+  });
+
+  it('property (b): stored undefined -> the fraction default, clamped to the floor', () => {
+    expect(computeTreePanelBoundWidth({ axisColumn: false, storedWidthPx: undefined, workspaceWidthPx: 3840 })).toEqual({
+      mode: 'fixed',
+      widthPx: computeTreePanelDefaultWidthPx(3840),
+    });
+    // A narrow workspace where the fraction undershoots — the floor wins.
+    expect(computeTreePanelBoundWidth({ axisColumn: false, storedWidthPx: undefined, workspaceWidthPx: 768 })).toEqual({
+      mode: 'fixed',
+      widthPx: TREE_PANEL_MIN_WIDTH_PX,
+    });
+  });
+
+  it('property (c): axisColumn -> full-width mode regardless of a stored value', () => {
+    expect(computeTreePanelBoundWidth({ axisColumn: true, storedWidthPx: 314, workspaceWidthPx: 3840 })).toEqual({
+      mode: 'full',
+    });
+    expect(computeTreePanelBoundWidth({ axisColumn: true, storedWidthPx: undefined, workspaceWidthPx: 3840 })).toEqual({
+      mode: 'full',
+    });
+  });
+
+  it('property (c), continued: returning to row axis re-yields the SAME stored value untouched — the axis flip never rewrites it', () => {
+    const storedWidthPx = 500;
+    // Simulates the sequence App.vue's live `treePanelBoundWidth` computed
+    // walks through on an axis flip: row -> column -> row. The caller
+    // (App.vue) never re-derives `storedWidthPx` from this function's own
+    // output — it always re-reads the SAME session.ui.treePanelWidthPx —
+    // so this asserts the function's own side of that contract: it never
+    // substitutes a different width for the column-axis leg, and the
+    // row-axis result is identical before and after.
+    const beforeFlip = computeTreePanelBoundWidth({ axisColumn: false, storedWidthPx, workspaceWidthPx: 1920 });
+    const duringColumnAxis = computeTreePanelBoundWidth({ axisColumn: true, storedWidthPx, workspaceWidthPx: 1920 });
+    const afterFlipBack = computeTreePanelBoundWidth({ axisColumn: false, storedWidthPx, workspaceWidthPx: 1920 });
+
+    expect(beforeFlip).toEqual({ mode: 'fixed', widthPx: storedWidthPx });
+    expect(duringColumnAxis).toEqual({ mode: 'full' });
+    expect(afterFlipBack).toEqual(beforeFlip);
+  });
+});
+
+describe('computeUnsetWrapperMaxWidthCss — Phase 3, audit finding R3 (surplus flows back to the board)', () => {
+  it('composes a calc() string mixing the px facts and the ch reading measure', () => {
+    expect(computeUnsetWrapperMaxWidthCss(200, RESIZER_WIDTH_PX, PANEL_CONTENT_READING_MEASURE_CH)).toBe(
+      `calc(200px + ${RESIZER_WIDTH_PX}px + ${PANEL_CONTENT_READING_MEASURE_CH}ch)`,
+    );
+  });
+
+  it('reflects the tree-default input directly — never independently re-derives it', () => {
+    const treeDefault = computeTreePanelDefaultWidthPx(3840);
+    const css = computeUnsetWrapperMaxWidthCss(treeDefault, RESIZER_WIDTH_PX, PANEL_CONTENT_READING_MEASURE_CH);
+    expect(css).toContain(`${treeDefault}px`);
   });
 });

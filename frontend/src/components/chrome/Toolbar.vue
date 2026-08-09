@@ -9,6 +9,7 @@ import PboPopover from '../qeubo/PboPopover.vue';
 import ToolbarEngineMetrics from './ToolbarEngineMetrics.vue';
 import ToolbarEngineUri from './ToolbarEngineUri.vue';
 import ToolbarSliderPopover from './ToolbarSliderPopover.vue';
+import ToolbarMoveNav from './ToolbarMoveNav.vue';
 import SetupToolPalette from './SetupToolPalette.vue';
 import { useEngineControls } from '../../composables/useEngineControls';
 import { useAutoNavigatePerf } from '../../composables/useAutoNavigatePerf';
@@ -77,62 +78,86 @@ function onMatchClick() {
 
 <template>
   <div class="toolbar">
-    <!-- The toolbar-title element is preserved as a layout slot
-         (it participates in the toolbar's flex layout); the text
-         binding is opt-in via the `title` prop. No caller passes
-         it today; the element renders empty by default. -->
-    <span class="toolbar-title">{{ title }}</span>
+    <!-- Toolbar clustering (Phase 3 + S7 rider, resolution roadmap,
+         audit finding R4): the toolbar's direct flex children used to
+         be SEVEN individual items under `justify-content:
+         space-between` — at 4K that spread ~690px between adjacent
+         buttons that read as one group (e.g. the engine-controls
+         action row). Genre convention (Sabaki/KaTrain/Lizzie): buttons
+         anchor as GROUPED CLUSTERS, and surplus space lands OUTSIDE
+         the groups, between them — not inside a group, between two
+         buttons that belong together. `.toolbar` keeps its existing
+         `justify-content: space-between`; wrapping the items below
+         into `.toolbar-cluster`s (a handful, not seven) makes that
+         same CSS rule distribute space between CLUSTERS instead of
+         between individual buttons, with no other CSS change needed. -->
+    <div class="toolbar-cluster">
+      <!-- The toolbar-title element is preserved as a layout slot
+           (it participates in the toolbar's flex layout); the text
+           binding is opt-in via the `title` prop. No caller passes
+           it today; the element renders empty by default. -->
+      <span class="toolbar-title">{{ title }}</span>
 
-    <!-- The engine WebSocket URI — address-bar-like, click-to-edit.
-         Views and edits the same store cell as the Settings tab's
-         Advanced Registry editor (ADR-0012). Renders unconditionally
-         (unlike ToolbarEngineMetrics below) so it's usable to fix a
-         bad URI while disconnected, which is precisely the case
-         where it's most needed. -->
-    <ToolbarEngineUri />
+      <!-- The engine WebSocket URI — address-bar-like, click-to-edit.
+           Views and edits the same store cell as the Settings tab's
+           Advanced Registry editor (ADR-0012). Renders unconditionally
+           (unlike ToolbarEngineMetrics below) so it's usable to fix a
+           bad URI while disconnected, which is precisely the case
+           where it's most needed. -->
+      <ToolbarEngineUri />
+    </div>
 
-    <!-- Live engine telemetry (version / model / winrate / scoreLead / PPS /
-         latency / watchdog / queue). Extracted to its own leaf so its
-         per-packet / per-tick reads re-render only it, not the whole toolbar
-         (render-coupling fix — see ToolbarEngineMetrics.vue). Mounted only
-         while connected; the `v-if` is the sole engine-state read left in
-         this Toolbar's render. -->
-    <ToolbarEngineMetrics v-if="isConnected" />
+    <div class="toolbar-cluster">
+      <!-- Live engine telemetry (version / model / winrate / scoreLead / PPS /
+           latency / watchdog / queue). Extracted to its own leaf so its
+           per-packet / per-tick reads re-render only it, not the whole toolbar
+           (render-coupling fix — see ToolbarEngineMetrics.vue). Mounted only
+           while connected; the `v-if` is the sole engine-state read left in
+           this Toolbar's render. -->
+      <ToolbarEngineMetrics v-if="isConnected" />
 
-    <!-- Knob registry quick-access — hover the badge to drop down a
-         compact, priority-ordered list of every scalar knob in the
-         registry. Sits visually adjacent to the engine-metrics row
-         (PPS, LATENCY, WATCHDOG, QUEUE) when connected, but the badge
-         itself is substrate-driven (ADR-0003 band 1) and renders
-         unconditionally — preferences like ownership opacity and hue
-         offset have nothing to do with engine reachability. Mounting
-         INSIDE the v-if="isConnected" wrapper above was the PR #225
-         band/chrome-neighbourhood mismatch; see
-         `docs/notes/postmortem-knob-toolbar-popover-2026-05.md` for
-         the discipline this placement preserves. -->
-    <ToolbarSliderPopover />
+      <!-- Knob registry quick-access — hover the badge to drop down a
+           compact, priority-ordered list of every scalar knob in the
+           registry. Sits visually adjacent to the engine-metrics row
+           (PPS, LATENCY, WATCHDOG, QUEUE) when connected, but the badge
+           itself is substrate-driven (ADR-0003 band 1) and renders
+           unconditionally — preferences like ownership opacity and hue
+           offset have nothing to do with engine reachability. Mounting
+           INSIDE the v-if="isConnected" wrapper above was the PR #225
+           band/chrome-neighbourhood mismatch; see
+           `docs/notes/postmortem-knob-toolbar-popover-2026-05.md` for
+           the discipline this placement preserves. -->
+      <ToolbarSliderPopover />
 
-    <!-- PBO (preference-based Bayesian optimisation) calibration
-         popover. Self-gating on `calibrationEnabled &&
-         experimentExists` — feature constraint, not an inherited
-         engine-lifecycle gate (see
-         `docs/notes/postmortem-knob-toolbar-popover-2026-05.md`
-         for the band-coherence discipline). Sits between metrics
-         and engine controls so it shares horizontal space with
-         engine telemetry without competing for the title region.
-         The user-facing name is PBO; code identifiers and the
-         backend's `/qeubo/*` routes retain `qeubo` (the
-         acquisition function / library name). -->
-    <PboPopover />
+      <!-- PBO (preference-based Bayesian optimisation) calibration
+           popover. Self-gating on `calibrationEnabled &&
+           experimentExists` — feature constraint, not an inherited
+           engine-lifecycle gate (see
+           `docs/notes/postmortem-knob-toolbar-popover-2026-05.md`
+           for the band-coherence discipline). Sits between metrics
+           and engine controls so it shares horizontal space with
+           engine telemetry without competing for the title region.
+           The user-facing name is PBO; code identifiers and the
+           backend's `/qeubo/*` routes retain `qeubo` (the
+           acquisition function / library name). -->
+      <PboPopover />
 
-    <!-- Setup toolkit (ledger rows 603/604): the classic Go-editor
-         setup mode — click to open a small tool palette (BLACK/WHITE
-         setup stone, TRIANGLE mark), click again to close. Renders
-         unconditionally, same band-1 reasoning as ToolbarSliderPopover
-         above: setup edits don't require an engine connection. -->
-    <SetupToolPalette />
+      <!-- Setup toolkit (ledger rows 603/604): the classic Go-editor
+           setup mode — click to open a small tool palette (BLACK/WHITE
+           setup stone, TRIANGLE mark), click again to close. Renders
+           unconditionally, same band-1 reasoning as ToolbarSliderPopover
+           above: setup edits don't require an engine connection. -->
+      <SetupToolPalette />
+    </div>
 
-    <div class="engine-controls">
+    <!-- S7 rider (commissioner-adjudicated, riding on this phase):
+         genre-standard move-navigation cluster (|< < > >|), wired to
+         the SAME useNavigation() actions the existing Home/ArrowUp/
+         ArrowDown/End keybindings already dispatch — see
+         ToolbarMoveNav.vue. -->
+    <ToolbarMoveNav />
+
+    <div class="engine-controls toolbar-cluster">
       <button class="toolbar-btn highlight-btn" @click="emit('mint-card')">{{ $t('toolbar.mintCard') }}</button>
       <!-- "Learn this path" (wiki #8) — opens LearnPathModal. Works
            from ANY board position (commission row 832): the anchor is
@@ -203,6 +228,12 @@ function onMatchClick() {
    spreads items within each wrapped row. */
 .toolbar { min-height: 28px; background: var(--surface-0); display: flex; flex-wrap: wrap; align-items: center; padding: 0 var(--space-default); gap: var(--space-default); justify-content: space-between; border-bottom: 1px solid var(--surface-1); flex-shrink: 0; }
 .toolbar-title { font-size: var(--text-body); color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-default); white-space: nowrap; }
+/* R4's grouping unit — see the template's own comment (top of the
+   toolbar-cluster wrapping) for the "surplus OUTSIDE the groups"
+   argument this implements. `.engine-controls` already had this exact
+   shape (kept as its own class name too — nothing else in the app
+   selects `.toolbar-cluster` specifically for it). */
+.toolbar-cluster { display: flex; align-items: center; gap: var(--space-tight); flex-shrink: 0; }
 .engine-controls { display: flex; gap: var(--space-tight); flex-shrink: 0; }
 /* magic-literal: .toolbar-btn padding `1px 5px` — toolbar buttons are
    visually-compact one-line action triggers; tighter than the substrate's

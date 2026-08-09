@@ -184,6 +184,9 @@ import {
   TREE_PANEL_MIN_WIDTH_PX,
   WRAPPER_MIN_WIDTH_PX,
   RESIZER_WIDTH_PX,
+  PANEL_CONTENT_READING_MEASURE_CH,
+  computeTreePanelDefaultWidthPx,
+  computeUnsetWrapperMaxWidthCss,
 } from '../../state/layout-model';
 
 // Phase 0 (resolution roadmap, audit finding R2): these five floors
@@ -586,12 +589,32 @@ export function useResizablePanel() {
     return computeBoardColumnMaxWidthPx(rowHeightPx.value);
   });
 
+  // Phase 3 (resolution roadmap, audit finding R5): the tree panel's
+  // UNSET (never-dragged) default width — a fraction of the SAME live
+  // `rowWidthPx` this file already measures, floored at
+  // `TREE_PANEL_MIN_WIDTH_PX`. See `computeTreePanelDefaultWidthPx`'s
+  // own doc (`state/layout-model.ts`) for why this is a DEFAULT only:
+  // `session.ui.treePanelWidthPx`, once dragged, is the sole write
+  // channel and this value is never consulted again for that pane.
+  const treePanelDefaultWidthPx = computed(() => computeTreePanelDefaultWidthPx(rowWidthPx.value));
+
+  // Phase 3 (audit finding R3): the wrapper's own max-width in its
+  // flex-fill (never-dragged OUTER bar) branch — see
+  // `computeUnsetWrapperMaxWidthCss`'s doc for the "freeze it, let
+  // flexbox redistribute past it" argument this reuses from
+  // `boardColumnMaxWidthPx` above.
+  const unsetWrapperMaxWidthCss = computed(() =>
+    computeUnsetWrapperMaxWidthCss(treePanelDefaultWidthPx.value, RESIZER_WIDTH_PX, PANEL_CONTENT_READING_MEASURE_CH),
+  );
+
   return {
     startResizeInner,
     startResizeOuter,
     effectiveTreeControlRegionWidthPx,
     freshTreeControlWrapperMinWidthPx,
     boardColumnMaxWidthPx,
+    treePanelDefaultWidthPx,
+    unsetWrapperMaxWidthCss,
     // #split-workspace's own live width/height (Phase 1, resolution
     // roadmap): the SAME ResizeObserver-cached geometry the clamps
     // above already read — exposed so `state/layout-model.ts`'s
