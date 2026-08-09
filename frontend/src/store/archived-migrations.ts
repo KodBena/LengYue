@@ -5,7 +5,7 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-08-07: migrations 1 → 2 through 67 → 68 (67
+ * Scope as of 2026-08-09: migrations 1 → 2 through 68 → 69 (68
  * entries). The first eight covered pre-v1.0.0 schema evolution;
  * the rest are the v1.0.x – v1.1.x active cycle, archived in
  * per-PR rolling fashion under the same archive contract.
@@ -2848,6 +2848,42 @@ export const archivedMigrations: Migration[] = [
         if (!tab.panelIds.includes('interval-summary')) {
           tab.panelIds = ['interval-summary', ...tab.panelIds];
         }
+      }
+    }
+    return out;
+  },
+  // 68 → 69: backfill `session.ui.moveDeltaAnnotation` (string enum
+  // 'off' | 'deltaVisits' | 'perPlayer', default 'off') — the new
+  // board-overlay toggle for the just-played move's delta + visit-count
+  // annotation (wiki Wanted #7 / #7.1; see the field's doc comment on
+  // `UISession` in `schema.ts` and `composables/board/useMoveDeltaAnnotation.ts`
+  // for the derivation). The leaf is read by `BoardWidget` (gates whether
+  // `BoardDeltaAnnotation` mounts) and by `RegistryEditor`'s `PATH_ENUMS`
+  // table (renders the three-way dropdown); a persisted blob predating
+  // this field would otherwise carry no value and rely on
+  // `updateFromRemote`'s deepMerge to surface the default. Backfilling
+  // explicitly keeps the persisted shape honest (the composition test
+  // pins it) rather than leaning on the merge.
+  //
+  // Container witnessed against the runtime shape (`witnessedContainer`,
+  // per step 3 of the add-a-migration recipe): `session.ui` exists from
+  // the framework's introduction, so a typo'd path fails loudly here
+  // rather than no-oping and stamping the version. The blob-side
+  // resolution keeps the sibling bodies' non-null-object tolerance: a
+  // partial / legacy blob whose container is absent no-ops.
+  //
+  // Idempotent: a pre-existing valid `moveDeltaAnnotation` is preserved
+  // unchanged (a hand-edited or forward-compat blob keeps its value);
+  // only a missing / wrong-typed / out-of-enum leaf is backfilled to the
+  // default.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { moveDeltaAnnotation?: unknown };
+      const valid = ['off', 'deltaVisits', 'perPlayer'];
+      if (typeof u.moveDeltaAnnotation !== 'string' || !valid.includes(u.moveDeltaAnnotation)) {
+        u.moveDeltaAnnotation = 'off';
       }
     }
     return out;
