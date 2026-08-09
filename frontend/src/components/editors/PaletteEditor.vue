@@ -4,7 +4,7 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue';
+import { ref, computed, watch, onUnmounted, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQeubo } from '../../composables/useQeubo';
 import { pushSystemMessage } from '../../store';
@@ -58,6 +58,20 @@ function select(type: ViewType, id: string) {
   selectedType.value = type;
   selectedId.value = id;
 }
+
+// M24 (audit finding, ledger row 1251): the detail pane opened onto
+// "Select an item to edit" filling ~85% of the surface with nothing
+// to act on. Genre precedent (macOS System Settings, Thunderbird
+// accounts, Sabaki's engine manager) selects the first row on
+// arrival. Symbols are the top-of-list, most-fundamental entity
+// (parameters/palettes reference symbols, not the reverse — see
+// addPalette's delta_fn/summary_fn defaults below), so the first
+// symbol is the natural landing selection when any exist.
+onMounted(() => {
+  if (selectedType.value === null && symbolKeys.value.length > 0) {
+    select('symbol', symbolKeys.value[0]);
+  }
+});
 
 // ── Mutations ──────────────────────────────────────────
 
@@ -354,7 +368,14 @@ async function deleteItem() {
     <!-- LEFT PANE: Directory -->
     <div class="sidebar">
       <div class="section">
-        <div class="section-header">
+        <!-- M24 (audit finding, ledger row 1251): the "+" affordance
+             sat at the far-right edge of the 200px sidebar column,
+             ~180px from the "Symbols" heading it adds to — a
+             space-between layout meant for a two-fact header row,
+             not an action button that belongs to a single label.
+             section-header-tight packs label+button adjacent
+             instead. -->
+        <div class="section-header section-header-tight">
           <span>{{ $t('palette.sidebar.symbols') }}</span>
           <button class="add-btn" @click="addSymbol">+</button>
         </div>
@@ -409,13 +430,16 @@ async function deleteItem() {
         </div>
 
         <!-- Symbol Editor (CodeMirror) -->
-        <div v-if="selectedType === 'symbol'" class="editor-wrap">
-          <Codemirror
-            :model-value="env.symbols[selectedId]"
-            :extensions="extensions"
-            :style="{ height: '100%', fontSize: '12px' }"
-            @update:model-value="updateSymbolValue"
-          />
+        <div v-if="selectedType === 'symbol'" class="symbol-editor-pane">
+          <p class="symbol-intro">{{ $t('palette.symbol.intro') }}</p>
+          <div class="editor-wrap">
+            <Codemirror
+              :model-value="env.symbols[selectedId]"
+              :extensions="extensions"
+              :style="{ height: '100%', fontSize: '12px' }"
+              @update:model-value="updateSymbolValue"
+            />
+          </div>
         </div>
 
         <!-- Parameter Editor -->
@@ -555,6 +579,8 @@ async function deleteItem() {
   padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-1); font-size: var(--text-body); text-transform: uppercase;
 }
 .add-btn { background: none; border: none; color: var(--accent-primary); cursor: pointer; font-weight: bold; font-size: var(--text-heading); }
+/* M24: label + "+" adjacent, not spread to the row's opposite ends. */
+.section-header-tight { justify-content: flex-start; gap: var(--space-default); }
 
 .item-list { list-style: none; padding: 0; margin: 0; }
 .item-list li {
@@ -588,6 +614,24 @@ async function deleteItem() {
    Preserved until the substrate gains tinted-surface vocabulary. */
 .del-btn { background: var(--surface-0); color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: var(--radius-default); cursor: pointer; font-size: var(--text-body); }
 
+/* M24: wraps the intro sentence + CodeMirror editor so the pane
+   takes the same flex:1/min-height:0 slot .editor-wrap owned alone
+   before — see .detail-content's own flex-column layout. */
+.symbol-editor-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.symbol-intro {
+  margin: 0;
+  padding: var(--space-medium);
+  border-bottom: 1px solid var(--surface-3);
+  color: var(--text-1);
+  font-size: var(--text-body);
+  line-height: 1.5;
+  flex-shrink: 0;
+}
 .editor-wrap { flex: 1; overflow: auto; }
 
 .palette-form, .form-grid { padding: var(--space-medium); }
