@@ -3,17 +3,19 @@
  *
  * "Learn this path" (wiki #8, ledger rows 660/700/706-708/718 — see
  * src/composables/cards/useLearnPath.ts's module header for the full
- * design). This is the pre-registered acceptance test, updated for
- * the ratified rows-706-708/718 semantics: candidates rank by
- * `order` ascending (unit-tested separately in
+ * design). Updated for the batch card-minting affordance
+ * (commissioner-designed, ledger rows 926/957/1008): candidates rank
+ * by `order` ascending (unit-tested separately in
  * tests/unit/composables/learn-path-policy.test.ts); the best move at
  * each node is a SPINE, descended first, never carded; ranks 2..K are
- * DEVIATIONS, recursively expanded as their own subtree and carded;
- * the walk grows the board's live tree and registers pre-mint markers
- * as it explores; NOTHING is minted until `confirmMint` is called
- * explicitly (row 718 — no auto-mint at walk end); an unanalyzed
- * frontier fails loudly with a partial-result report; an
- * already-minted position is skipped-with-notice at mint time.
+ * DEVIATIONS, recursively expanded as their own subtree; the walk
+ * grows the board's live tree and adds every mintable position it
+ * finds to `mint-selection.ts`'s selection AS IT GOES — `explore()`
+ * mints NOTHING, ever (there is no more separate `confirmMint()` /
+ * `runLearnPath()` — minting is the generic "Mint card(s)" affordance,
+ * exercised elsewhere); an unanalyzed frontier fails loudly with a
+ * partial-result report; an already-minted position is skipped
+ * (not added to the selection).
  *
  * ── Determinism trick ─────────────────────────────────────────────────
  * `applyGoMove`'s node ids are `Math.random()`-keyed (src/logic.ts), so
@@ -67,12 +69,12 @@ import {
   LearnPathError,
   LearnPathPreconditionError,
 } from '../../src/composables/cards/useLearnPath';
-import { getPendingMintNodeIds } from '../../src/composables/cards/learn-path-pending-markers';
+import { getSelectedNodeIds } from '../../src/composables/cards/mint-selection';
 import { fakeBackendService, resetFakeBackendService } from '../fakes/backend-service';
 import { fakeAnalysisService, resetFakeAnalysisService, FAKE_QUERY_ID } from '../fakes/analysis-service';
 import { recordKnownPosition, purgeKnownPositions } from '../../src/state/known-positions';
 import en from '../../src/locales/en.json';
-import type { BoardId, BoardState, CardCreatePayload, CardId, CardLineageTree, CardPublicId, ContentHash, GameDisplayOrdinal, NodeId, QueryId, RawAnalysis, ReviewCard } from '../../src/types';
+import type { BoardId, BoardState, CardId, CardLineageTree, CardPublicId, ContentHash, GameDisplayOrdinal, NodeId, QueryId, RawAnalysis, ReviewCard } from '../../src/types';
 
 const ANCHOR_CARD_ID = 1000 as CardId;
 const EXISTING_Q16_CARD_ID = 1001 as CardId;
@@ -124,7 +126,7 @@ function stubReviewCard(id: CardId, canonicalContent: string): ReviewCard {
  *   Q3(spine) \  pass(deviation, unplayable)
  *
  * D4/C17/Q3 form the full-depth spine (never carded). P9 (D4's own
- * deviation) and Q16 (root's own deviation) are the two carded
+ * deviation) and Q16 (root's own deviation) are the two candidate
  * positions. C17's "pass" deviation is unplayable. Neither P9's nor
  * Q16's OWN subtree has recorded analysis — both are frontiers at
  * their respective depths (2 and 1).
@@ -194,15 +196,15 @@ function mockDedupFakes(
 
 /**
  * Anchor-resolution fixture support (commission row 832 generalization):
- * `resolveAnchor` now always runs `useKnownPositions.checkForDuplicate`
- * against `useMinting.prepareDraft`'s `raw_content` for the board's
- * CURRENT cursor position — even the legacy "board loaded from a card,
- * cursor at its root" flow goes through this same generic path (it just
- * happens to serialize to exactly that card's own content). Tests that
- * exercise the legacy fast path record a known-position entry for the
- * anchor board's current-position content so `resolveAnchor` finds
- * `ANCHOR_CARD_ID` and does NOT mint a fresh one — preserving the old
- * byte-identical behavior under the new generalized mechanism.
+ * `resolveAnchor` runs `useKnownPositions.checkForDuplicate` against
+ * `serializeActivePath(board)` for the board's CURRENT cursor position
+ * — even the legacy "board loaded from a card, cursor at its root"
+ * flow goes through this same generic path (it just happens to
+ * serialize to exactly that card's own content). Tests that exercise
+ * the legacy fast path record a known-position entry for the anchor
+ * board's current-position content so `resolveAnchor` finds
+ * `ANCHOR_CARD_ID` — preserving the old byte-identical behavior under
+ * the new generalized mechanism.
  *
  * `hashPosition` is faked as content-identity (the raw SGF string cast
  * to `ContentHash`) for this file's tests — a valid simplification for
@@ -264,8 +266,8 @@ function seedLedger(board: BoardState, nodeIds: { d4NodeId: NodeId; c17NodeId: N
   // Deliberately NOT seeding p9NodeId or the root's Q16-child node — both are frontiers.
 }
 
-describe('useLearnPath.explore — spine-first walk, live growth, no minting', () => {
-  it('grows the tree live (spine fully before deviations) and mints NOTHING', async () => {
+describe('useLearnPath.explore — spine-first walk, live growth, marks the selection instead of minting', () => {
+  it('grows the tree live (spine fully before deviations), mints NOTHING, and marks the selection', async () => {
     const { board, moves, nodeIds, q16Sgf } = buildAnchorBoard();
     board.sourceCardId = ANCHOR_CARD_ID;
     seedAnchorKnownPosition(board, ANCHOR_CARD_ID);
@@ -284,7 +286,7 @@ describe('useLearnPath.explore — spine-first walk, live growth, no minting', (
     };
 
     const { explore } = useLearnPath();
-    const exploration = await explore({ boardId, depth: 3, topK: 2, tag: 'taisha', yieldStep });
+    const exploration = await explore({ boardId, depth: 3, topK: 2, yieldStep });
 
     // Spine-first live growth: the FULL D4 -> C17 -> Q3 spine is grown
     // (and awaited) before either deviation (P9, then Q16) appears —
@@ -297,19 +299,22 @@ describe('useLearnPath.explore — spine-first walk, live growth, no minting', (
       `${moves.Q16.x},${moves.Q16.y}`,
     ]);
 
-    // No card minted during explore — row 718: batch mint is a button, not automatic.
+    // No card minted during explore — row 718/926: exploring never mints.
     expect(fakeBackendService.createCard).not.toHaveBeenCalled();
+    expect(fakeBackendService.createCardsBatch).not.toHaveBeenCalled();
 
     // Summary counts: 2 pending deviations (P9, Q16), 1 already exists (Q16).
     expect(exploration.pendingSeedCount).toBe(2);
     expect(exploration.existingCount).toBe(1);
     expect(exploration.frontierCount).toBe(2);
     expect(exploration.unplayableCount).toBe(1);
+    expect(exploration.anchorCardId).toBe(ANCHOR_CARD_ID);
 
-    // Pre-mint markers: pending minus existing — only P9's node is marked.
-    const markers = getPendingMintNodeIds(boardId);
-    expect(markers.size).toBe(1);
-    expect(markers.has(nodeIds.p9NodeId)).toBe(true);
+    // Selection: pending minus existing — only P9's node is marked.
+    const selected = getSelectedNodeIds(boardId);
+    expect(selected.size).toBe(1);
+    expect(selected.has(nodeIds.p9NodeId)).toBe(true);
+    expect(exploration.addedNodeIds).toEqual([nodeIds.p9NodeId]);
 
     // The user's cursor is restored to the anchor root; the grown tree persists.
     const finalBoard = store.boards.find(b => b.id === boardId)!;
@@ -364,7 +369,7 @@ describe('useLearnPath.explore — board-identity safety (fresh-context review B
 
     const { explore } = useLearnPath();
     // Must not throw, and must not corrupt C.
-    await explore({ boardId: boardIdB, depth: 3, topK: 2, tag: 'taisha', yieldStep });
+    await explore({ boardId: boardIdB, depth: 3, topK: 2, yieldStep });
 
     const liveC = store.boards.find(b => b.id === boardIdC)!;
     expect(liveC).toBeDefined();
@@ -413,7 +418,7 @@ describe('useLearnPath.explore — board-identity safety (fresh-context review B
 
     const { explore } = useLearnPath();
     // Must not throw — the walk aborts at its next BoardId re-resolution.
-    await explore({ boardId: boardIdB, depth: 3, topK: 2, tag: 'taisha', yieldStep });
+    await explore({ boardId: boardIdB, depth: 3, topK: 2, yieldStep });
 
     // The anchor stays closed: no stale-index write resurrects it into
     // another slot, and C (now occupying a shifted index) is untouched.
@@ -425,54 +430,22 @@ describe('useLearnPath.explore — board-identity safety (fresh-context review B
   });
 });
 
-describe('useLearnPath.confirmMint — deferred, explicit, one batch call', () => {
-  it('mints exactly the pending-minus-existing set in one pass, clears markers, matches the acceptance shape', async () => {
-    const { board, moves, nodeIds, q16Sgf } = buildAnchorBoard();
+describe('useLearnPath.explore — fails loudly on missing params rather than defaulting silently', () => {
+  it('rejects depth < 1 and topK < 1 with LearnPathPreconditionError (a LearnPathError)', async () => {
+    const { board } = buildAnchorBoard();
     board.sourceCardId = ANCHOR_CARD_ID;
-    seedAnchorKnownPosition(board, ANCHOR_CARD_ID);
     addBoard(board);
     const boardId = board.id as BoardId;
+    const { explore } = useLearnPath();
 
-    seedLedger(board, nodeIds, moves);
-    mockDedupFakes([{ cardId: EXISTING_Q16_CARD_ID, sgf: q16Sgf }]);
-
-    let nextMintedId = 2000;
-    fakeBackendService.createCard.mockImplementation(async () => nextMintedId++);
-
-    const { explore, confirmMint } = useLearnPath();
-    const exploration = await explore({ boardId, depth: 3, topK: 2, tag: 'taisha', yieldStep: microtaskYield });
-
-    expect(fakeBackendService.createCard).not.toHaveBeenCalled();
-
-    const result = await confirmMint(exploration);
-
-    // Exactly one batch call per pending-and-not-existing seed (P9 only).
-    expect(fakeBackendService.createCard).toHaveBeenCalledTimes(1);
-    const payload = fakeBackendService.createCard.mock.calls[0][0] as { tags: string[] };
-    expect(payload.tags).toEqual(['taisha']);
-
-    expect(result.tag).toBe('taisha');
-    expect(result.seeded).toHaveLength(1);
-    expect(result.seeded[0]).toMatchObject({ parentCardId: ANCHOR_CARD_ID, plyDepth: 2, rank: 2 });
-    const seededP9Id = result.seeded[0].cardId;
-
-    expect(result.skipped).toHaveLength(2);
-    expect(result.skipped).toContainEqual(expect.objectContaining({
-      reason: 'existing-card', existingCardId: EXISTING_Q16_CARD_ID, parentCardId: ANCHOR_CARD_ID, plyDepth: 1, rank: 2,
-    }));
-    expect(result.skipped).toContainEqual(expect.objectContaining({
-      reason: 'unplayable-move', parentCardId: ANCHOR_CARD_ID, plyDepth: 3, rank: 2,
-    }));
-
-    expect(result.frontiers).toHaveLength(2);
-    expect(result.frontiers).toContainEqual({ parentCardId: seededP9Id, plyDepth: 2, nodeId: nodeIds.p9NodeId });
-    expect(result.frontiers).toContainEqual({ parentCardId: EXISTING_Q16_CARD_ID, plyDepth: 1, nodeId: nodeIds.q16NodeId });
-
-    // Markers clear after mint.
-    expect(getPendingMintNodeIds(boardId).size).toBe(0);
+    await expect(explore({ boardId, depth: 0, topK: 1 })).rejects.toThrow(LearnPathError);
+    await expect(explore({ boardId, depth: 1, topK: 0 })).rejects.toThrow(LearnPathError);
+    await expect(explore({ boardId, depth: 0, topK: 1 })).rejects.toThrow(LearnPathPreconditionError);
   });
+});
 
-  it('discardExploration clears the markers without minting anything', async () => {
+describe('useLearnPath.discardExploration — un-marks exactly this exploration\'s own additions', () => {
+  it('clears only the NodeIds this exploration added, leaving unrelated selection entries and the tree itself untouched', async () => {
     const { board, moves, nodeIds, q16Sgf } = buildAnchorBoard();
     board.sourceCardId = ANCHOR_CARD_ID;
     seedAnchorKnownPosition(board, ANCHOR_CARD_ID);
@@ -483,66 +456,14 @@ describe('useLearnPath.confirmMint — deferred, explicit, one batch call', () =
     mockDedupFakes([{ cardId: EXISTING_Q16_CARD_ID, sgf: q16Sgf }]);
 
     const { explore, discardExploration } = useLearnPath();
-    const exploration = await explore({ boardId, depth: 3, topK: 2, tag: 'taisha', yieldStep: microtaskYield });
+    const exploration = await explore({ boardId, depth: 3, topK: 2, yieldStep: microtaskYield });
 
-    expect(getPendingMintNodeIds(boardId).size).toBe(1);
+    expect(getSelectedNodeIds(boardId).size).toBe(1);
     discardExploration(exploration);
-    expect(getPendingMintNodeIds(boardId).size).toBe(0);
+    expect(getSelectedNodeIds(boardId).size).toBe(0);
     expect(fakeBackendService.createCard).not.toHaveBeenCalled();
+    expect(fakeBackendService.createCardsBatch).not.toHaveBeenCalled();
   });
-});
-
-describe('useLearnPath.runLearnPath — programmatic explore+confirm convenience', () => {
-  it('is deterministic — same ledger state + same params produce the same seeded shape twice', async () => {
-    const build = () => {
-      const { board, moves, nodeIds, q16Sgf } = buildAnchorBoard();
-      board.sourceCardId = ANCHOR_CARD_ID;
-      seedAnchorKnownPosition(board, ANCHOR_CARD_ID);
-      seedLedger(board, nodeIds, moves);
-      return { board, q16Sgf };
-    };
-
-    let nextMintedId = 3000;
-    fakeBackendService.createCard.mockImplementation(async () => nextMintedId++);
-
-    const { runLearnPath } = useLearnPath();
-    const shape = (r: Awaited<ReturnType<typeof runLearnPath>>) => ({
-      seeded: r.seeded.map(s => ({ plyDepth: s.plyDepth, rank: s.rank, move: s.move })),
-      skipped: r.skipped,
-      frontierPlyDepths: r.frontiers.map(f => f.plyDepth).sort(),
-    });
-
-    const first = build();
-    mockDedupFakes([{ cardId: EXISTING_Q16_CARD_ID, sgf: first.q16Sgf }]);
-    store.boards.length = 0;
-    addBoard(first.board);
-    const run1 = await runLearnPath({ boardId: first.board.id as BoardId, depth: 3, topK: 2, tag: 'taisha', yieldStep: microtaskYield });
-
-    ledger.purgeAll();
-    resetFakeBackendService();
-    mockContentIdentityHashing(); // resetFakeBackendService cleared hashPosition's mockImplementation too
-    fakeBackendService.createCard.mockImplementation(async () => nextMintedId++);
-    const second = build();
-    mockDedupFakes([{ cardId: EXISTING_Q16_CARD_ID, sgf: second.q16Sgf }]);
-    store.boards.length = 0;
-    addBoard(second.board);
-    const run2 = await runLearnPath({ boardId: second.board.id as BoardId, depth: 3, topK: 2, tag: 'taisha', yieldStep: microtaskYield });
-
-    expect(shape(run1)).toEqual(shape(run2));
-  });
-
-  it('fails loudly on missing params rather than defaulting silently', async () => {
-    const { board } = buildAnchorBoard();
-    board.sourceCardId = ANCHOR_CARD_ID;
-    addBoard(board);
-    const boardId = board.id as BoardId;
-    const { explore } = useLearnPath();
-
-    await expect(explore({ boardId, depth: 0, topK: 1, tag: 'x' })).rejects.toThrow(LearnPathError);
-    await expect(explore({ boardId, depth: 1, topK: 0, tag: 'x' })).rejects.toThrow(LearnPathError);
-    await expect(explore({ boardId, depth: 1, topK: 1, tag: '   ' })).rejects.toThrow(LearnPathError);
-  });
-
 });
 
 /**
@@ -551,22 +472,12 @@ describe('useLearnPath.runLearnPath — programmatic explore+confirm convenience
  * sourceCardId", "requires cursor at the board root" — are REJECTED
  * narrowing, deleted from `useLearnPath.ts` (not softened to a
  * warning). These four tests are their replacement, covering the
- * ratified design's outcomes: (a) a genuinely new position on a board
- * with NO sourceCardId mints a fresh, root-level anchor and walks from
- * it (isolates the FIRST rejected precondition); (d) a genuinely new
- * position on a board that DOES have sourceCardId — cursor moved off
- * root — mints a fresh, lineage-preserving anchor parented under the
- * original card (isolates the SECOND rejected precondition, and pins
- * `prepareDraft`'s XOR rule as exercised through the anchor-mint path
- * for the first time); (b) a position that already has a card anchors
- * there without minting a duplicate; (c) the legacy "loaded from a
- * card, cursor at its root" flow is byte-identical under the new
- * mechanism (case (a)/(d)'s own resolution just happening to find case
- * (b)'s own card).
+ * ratified design's outcomes, updated for the batch card-minting
+ * affordance (rows 926/957/1008): a genuinely new anchor position is
+ * no longer minted — it is ADDED TO THE SELECTION instead, and
+ * `LearnPathExploration.anchorCardId` reports `null` for that case.
  */
 describe('useLearnPath.explore — generalized anchor resolution (commission row 832)', () => {
-  const NEW_ANCHOR_CARD_ID = 5000 as CardId;
-
   /** A board with NO sourceCardId (plain SGF-loaded / fresh board), cursor mid-game at D4. */
   function buildMidGameNoCardBoard() {
     const base = createInitialBoard();
@@ -575,7 +486,7 @@ describe('useLearnPath.explore — generalized anchor resolution (commission row
     return { board, D4 };
   }
 
-  it('(a) mints a fresh anchor from a mid-game cursor on a plain SGF-loaded board (no sourceCardId) and walks from it', async () => {
+  it('(a) a genuinely new anchor position (no sourceCardId) is added to the selection instead of minted, and the walk proceeds from it', async () => {
     const { board } = buildMidGameNoCardBoard();
     expect(board.sourceCardId).toBeUndefined();
     addBoard(board);
@@ -589,24 +500,32 @@ describe('useLearnPath.explore — generalized anchor resolution (commission row
       { move: 'Q16', order: 1 }, // deviation — pending seed
     ]));
 
-    fakeBackendService.createCard.mockResolvedValueOnce(NEW_ANCHOR_CARD_ID);
-    mockDedupFakes([], NEW_ANCHOR_CARD_ID); // fresh anchor has no descendants yet
+    // A fresh anchor has no descendants yet — resolveRoots/fetchTreeByRoot
+    // are never called for it (no CardId to fetch descendants for).
+    fakeBackendService.resolveRoots.mockImplementation(() => {
+      throw new Error('resolveRoots must not be called for a fresh, not-yet-minted anchor');
+    });
 
     const { explore } = useLearnPath();
-    const exploration = await explore({ boardId, depth: 1, topK: 2, tag: 'midgame', yieldStep: microtaskYield });
+    const exploration = await explore({ boardId, depth: 1, topK: 2, yieldStep: microtaskYield });
 
-    // Exactly one mint: the anchor itself. Row 718's "no auto-mint of
+    // Row 926/957/1008: no anchor mint — the anchor's own position is
+    // added to the selection instead. Row 718's "no auto-mint of
     // deviations" still holds — Q16 is only a pending seed.
-    expect(fakeBackendService.createCard).toHaveBeenCalledTimes(1);
-    const anchorPayload = fakeBackendService.createCard.mock.calls[0][0] as { raw_content: string; tags: string[] };
-    expect(anchorPayload.tags).toEqual(['midgame']);
-    expect(anchorPayload.raw_content).toBe(serializeActivePath(board));
+    expect(fakeBackendService.createCard).not.toHaveBeenCalled();
+    expect(fakeBackendService.createCardsBatch).not.toHaveBeenCalled();
 
-    expect(exploration.anchorCardId).toBe(NEW_ANCHOR_CARD_ID);
+    expect(exploration.anchorCardId).toBeNull();
     expect(exploration.pendingSeedCount).toBe(1); // Q16
     expect(exploration.existingCount).toBe(0);
     expect(exploration.frontierCount).toBe(0);
     expect(exploration.unplayableCount).toBe(0);
+
+    // The anchor's own NodeId AND Q16's are both selected.
+    const selected = getSelectedNodeIds(boardId);
+    expect(selected.has(startingNodeId)).toBe(true);
+    expect(exploration.addedNodeIds).toContain(startingNodeId);
+    expect(selected.size).toBe(2); // anchor + Q16
 
     // Cursor restored to exactly where it started (mid-game, not the tree's own root).
     const finalBoard = store.boards.find(b => b.id === boardId)!;
@@ -614,49 +533,7 @@ describe('useLearnPath.explore — generalized anchor resolution (commission row
     expect(finalBoard.currentNodeId).not.toBe(board.rootNodeId);
   });
 
-  it('(d) a card-loaded board whose cursor has moved off root to a genuinely new position mints a lineage-preserving anchor', async () => {
-    // The OTHER rejected precondition, isolated from (a): this board DOES
-    // have `sourceCardId` (it was loaded from ANCHOR_CARD_ID), but the
-    // cursor has moved away from that card's own root to a position no
-    // card exists at yet — the "I'm mid-review and want to learn from
-    // right here" case the commission names. `prepareDraft`'s existing
-    // XOR rule (unchanged by this feature) means the fresh anchor mint
-    // parents under the ORIGINAL card rather than becoming a new root —
-    // pinned explicitly here since nothing else in this suite asserts
-    // `parent_card_id` on an anchor mint.
-    const base = createInitialBoard();
-    base.sourceCardId = ANCHOR_CARD_ID;
-    const moved = applyGoMove(base, 3, 3)!; // D4 — a position no card exists at
-    expect(moved.sourceCardId).toBe(ANCHOR_CARD_ID); // survives the spread in applyGoMove
-    addBoard(moved);
-    const boardId = moved.id as BoardId;
-
-    ledger.recordRaw(activeAnalysisKeys.value.rawKey, moved.currentNodeId, rawWithMoves([
-      { move: 'C17', order: 0 }, // spine only (topK=1 below) — isolates the anchor-mint assertion
-    ]));
-
-    // Deliberately no `seedAnchorKnownPosition` — this mid-game position
-    // has never been minted, only the board's ROOT (ANCHOR_CARD_ID) has.
-    fakeBackendService.createCard.mockResolvedValueOnce(NEW_ANCHOR_CARD_ID);
-    mockDedupFakes([], NEW_ANCHOR_CARD_ID);
-
-    const { explore } = useLearnPath();
-    const exploration = await explore({ boardId, depth: 1, topK: 1, tag: 'midgame-from-card', yieldStep: microtaskYield });
-
-    expect(fakeBackendService.createCard).toHaveBeenCalledTimes(1);
-    const anchorPayload = fakeBackendService.createCard.mock.calls[0][0] as CardCreatePayload;
-    expect(anchorPayload.tags).toEqual(['midgame-from-card']);
-    expect(anchorPayload.raw_content).toBe(serializeActivePath(moved));
-    // Lineage-preserving XOR: parents under the board's OWN sourceCardId,
-    // not a fresh root (`game_metadata` absent) — prepareDraft's existing
-    // rule, exercised here through the anchor-mint path for the first time.
-    expect(anchorPayload.parent_card_id).toBe(ANCHOR_CARD_ID as unknown as number);
-    expect(anchorPayload.game_metadata).toBeUndefined();
-
-    expect(exploration.anchorCardId).toBe(NEW_ANCHOR_CARD_ID);
-  });
-
-  it('(b) anchors to an existing card at the current position and mints NO duplicate anchor', async () => {
+  it('(b) anchors to an existing card at the current position and selects nothing for the anchor itself', async () => {
     const { board } = buildMidGameNoCardBoard();
     addBoard(board);
     const boardId = board.id as BoardId;
@@ -671,15 +548,18 @@ describe('useLearnPath.explore — generalized anchor resolution (commission row
     mockDedupFakes([], ANCHOR_CARD_ID);
 
     const { explore } = useLearnPath();
-    // topK=1: only the spine (never carded) — no deviation mint call to
-    // conflate with an anchor mint call, isolating the assertion below.
-    const exploration = await explore({ boardId, depth: 1, topK: 1, tag: 'dup', yieldStep: microtaskYield });
+    // topK=1: only the spine (never carded) — no deviation to conflate
+    // with the anchor's own selection state, isolating the assertion below.
+    const exploration = await explore({ boardId, depth: 1, topK: 1, yieldStep: microtaskYield });
 
     expect(fakeBackendService.createCard).not.toHaveBeenCalled();
+    expect(fakeBackendService.createCardsBatch).not.toHaveBeenCalled();
     expect(exploration.anchorCardId).toBe(ANCHOR_CARD_ID);
+    expect(getSelectedNodeIds(boardId).has(board.currentNodeId)).toBe(false);
+    expect(exploration.addedNodeIds).toEqual([]);
   });
 
-  it('(c) the legacy card-loaded-at-root flow is byte-identical: anchors to sourceCardId\'s own card, no mint', async () => {
+  it('(c) the legacy card-loaded-at-root flow is byte-identical: anchors to sourceCardId\'s own card, no mint, no anchor selection', async () => {
     const { board, moves, nodeIds, q16Sgf } = buildAnchorBoard();
     board.sourceCardId = ANCHOR_CARD_ID;
     // The current position (board's own root, since currentNodeId ===
@@ -694,12 +574,13 @@ describe('useLearnPath.explore — generalized anchor resolution (commission row
     mockDedupFakes([{ cardId: EXISTING_Q16_CARD_ID, sgf: q16Sgf }]);
 
     const { explore } = useLearnPath();
-    const exploration = await explore({ boardId, depth: 3, topK: 2, tag: 'taisha', yieldStep: microtaskYield });
+    const exploration = await explore({ boardId, depth: 3, topK: 2, yieldStep: microtaskYield });
 
     // Byte-identical to the pre-generalization behavior: no anchor mint,
     // anchor resolves to the board's own sourceCardId, same counts as
     // the original spine-first acceptance test.
     expect(fakeBackendService.createCard).not.toHaveBeenCalled();
+    expect(fakeBackendService.createCardsBatch).not.toHaveBeenCalled();
     expect(exploration.anchorCardId).toBe(ANCHOR_CARD_ID);
     expect(exploration.pendingSeedCount).toBe(2);
     expect(exploration.existingCount).toBe(1);
@@ -762,7 +643,7 @@ describe('useLearnPath.explore — on-demand analysis (commission row 881)', () 
     });
 
     const { explore } = useLearnPath();
-    const exploration = await explore({ boardId, depth: 1, topK: 1, tag: 'ondemand', yieldStep: microtaskYield });
+    const exploration = await explore({ boardId, depth: 1, topK: 1, yieldStep: microtaskYield });
 
     expect(fakeAnalysisService.analyzeActiveNode).toHaveBeenCalledTimes(1);
     // The engine query is released once the wait settles — no orphaned
@@ -795,24 +676,21 @@ describe('useLearnPath.explore — on-demand analysis (commission row 881)', () 
     fakeAnalysisService.analyzeActiveNode.mockImplementation(() => null);
 
     const { explore } = useLearnPath();
-    const exploration = await explore({ boardId, depth: 1, topK: 1, tag: 'refused', yieldStep: microtaskYield });
+    const exploration = await explore({ boardId, depth: 1, topK: 1, yieldStep: microtaskYield });
 
     expect(fakeAnalysisService.analyzeActiveNode).toHaveBeenCalledTimes(1);
     // A refusal never mints a query to begin with — nothing to release.
     expect(fakeAnalysisService.stopQuery).not.toHaveBeenCalled();
 
     expect(exploration.frontierCount).toBe(1);
-    expect(exploration._pending.frontiers).toEqual([
-      { parentRef: { resolved: true, cardId: ANCHOR_CARD_ID }, plyDepth: 0, nodeId: board.rootNodeId },
-    ]);
     expect(exploration.pendingSeedCount).toBe(0);
     expect(fakeBackendService.createCard).not.toHaveBeenCalled();
+    expect(fakeBackendService.createCardsBatch).not.toHaveBeenCalled();
 
-    // The reworded locale string now names the true cause — "the
-    // engine refused" — never "no recorded analysis" (that framing
-    // implied a gap the walk itself created, which row 881 closes).
+    // The reworded locale string names the true cause — "the engine
+    // refused" — never "no recorded analysis" (that framing implied a
+    // gap the walk itself created, which row 881 closes).
     expect((en as Record<string, string>)['learnPath.explore.frontiers']).toMatch(/engine refused/i);
-    expect((en as Record<string, string>)['learnPath.result.frontiers']).toMatch(/engine refused/i);
   });
 
   it('(c) refuses to start when the engine is not connected, before any tree mutation', async () => {
@@ -825,7 +703,7 @@ describe('useLearnPath.explore — on-demand analysis (commission row 881)', () 
     store.engine.status = 'disconnected';
 
     const { explore } = useLearnPath();
-    await expect(explore({ boardId, depth: 1, topK: 1, tag: 'nc', yieldStep: microtaskYield }))
+    await expect(explore({ boardId, depth: 1, topK: 1, yieldStep: microtaskYield }))
       .rejects.toThrow(LearnPathPreconditionError);
 
     // No tree mutation, no anchor resolution, no engine query.
@@ -860,7 +738,7 @@ describe('useLearnPath.explore — on-demand analysis (commission row 881)', () 
 
     const { explore } = useLearnPath();
     // Must not throw and must not hang.
-    const exploration = await explore({ boardId, depth: 1, topK: 1, tag: 'cancel', yieldStep: microtaskYield });
+    const exploration = await explore({ boardId, depth: 1, topK: 1, yieldStep: microtaskYield });
 
     // The in-flight query is still released even though the wait was
     // aborted rather than settled — no orphaned query against the
@@ -892,7 +770,7 @@ describe('useLearnPath.explore — on-demand analysis (commission row 881)', () 
     });
 
     const { explore } = useLearnPath();
-    const exploration = await explore({ boardId, depth: 1, topK: 1, tag: 'legacy', yieldStep: microtaskYield });
+    const exploration = await explore({ boardId, depth: 1, topK: 1, yieldStep: microtaskYield });
 
     expect(fakeAnalysisService.analyzeActiveNode).not.toHaveBeenCalled();
     expect(exploration.pendingSeedCount).toBe(0);
@@ -991,7 +869,7 @@ describe('useLearnPath.explore — tree integrity (commission row 911, "variatio
     });
 
     const { explore } = useLearnPath();
-    const exploration = await explore({ boardId, depth: 2, topK: 2, tag: 'dense', yieldStep: microtaskYield });
+    const exploration = await explore({ boardId, depth: 2, topK: 2, yieldStep: microtaskYield });
 
     const finalBoard = store.boards.find(b => b.id === boardId)!;
 
@@ -1082,7 +960,7 @@ describe('useLearnPath.explore — rawKey re-derived per query (fresh-context re
     };
 
     const { explore } = useLearnPath();
-    const exploration = await explore({ boardId, depth: 2, topK: 1, tag: 'keydrift', yieldStep });
+    const exploration = await explore({ boardId, depth: 2, topK: 1, yieldStep });
 
     // Both queries fired and both were released — neither stranded on a
     // timeout (a timeout still resolves `walk()`, but only after riding
@@ -1098,6 +976,5 @@ describe('useLearnPath.explore — rawKey re-derived per query (fresh-context re
     const finalBoard = store.boards.find(b => b.id === boardId)!;
     const d4NodeId = finalBoard.nodes[board.rootNodeId].children[0];
     expect(finalBoard.nodes[d4NodeId]).toBeDefined();
-    expect(exploration._pending.frontiers[0].nodeId).toBe(d4NodeId);
   });
 });

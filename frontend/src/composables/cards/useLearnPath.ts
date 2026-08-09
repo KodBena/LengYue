@@ -2,11 +2,12 @@
  * src/composables/cards/useLearnPath.ts
  *
  * "Learn this path" (wiki Wanted feature #8): grow a card tree beneath
- * an already-minted anchor card by following the engine's palette-
- * ranked candidate moves, then mint the interesting deviations from
- * it in one confirmed batch. Pedagogical rationale (verbatim from the
- * wiki item): the perfect/best-move-only line is easy to memorise;
- * what's hard is handling deviations from either side.
+ * an anchor position by following the engine's palette-ranked
+ * candidate moves, marking the interesting deviations for the batch
+ * card-minting affordance instead of minting anything itself.
+ * Pedagogical rationale (verbatim from the wiki item): the
+ * perfect/best-move-only line is easy to memorise; what's hard is
+ * handling deviations from either side.
  *
  * ── Ratified semantics (ledger rows 660, 700, 706-708, 718) ──────────
  *
@@ -34,44 +35,82 @@
  *     time. Pacing is frame/microtask-based (`params.yieldStep`,
  *     defaulting to one `requestAnimationFrame` per step) — never a
  *     wall-clock sleep.
- *   - Row 708 (DEFERRED BATCH MINT), amended by row 718 (BUTTON, NOT
- *     AUTOMATIC): no card is created during the walk, and no card is
- *     created automatically once the walk finishes either. `explore()`
- *     only grows the tree and collects deviation positions, leaving
- *     the result inspectable; a caller-driven `confirmMint()` — wired
- *     to an explicit "mint all" button in the UI, never called
- *     implicitly — mints the whole collected batch in one pass, in
- *     discovery order (always parent-before-child by construction —
- *     see `ParentRef` below), applying the existing-card dedup check
- *     at mint time.
- *   - Row 718 (PRE-MINT MARKERS): every pending deviation that ISN'T
- *     already an existing card gets a live marker
- *     (`learn-path-pending-markers.ts`) the moment the walk finds it —
- *     "this node would be added on mint all." Cleared after
- *     `confirmMint` resolves, or on an explicit discard.
  *   - Row 718 (policy surface ratified): the typed `{K, depth}` config
  *     via `LearnPathPolicy` is the accepted v1 policy surface — no
  *     DSL. The seam (below) stays for a future one to plug into.
  *
- * Two of the three ratified constraints from row 660 that predate this
- * restructure still hold:
+ * ── SUPERSEDED BY THE BATCH CARD-MINTING AFFORDANCE (commissioner-
+ * designed, ledger rows 926/957/1008) ─────────────────────────────────
+ * Rows 708/718's own "DEFERRED BATCH MINT" / "BUTTON, NOT AUTOMATIC" /
+ * "PRE-MINT MARKERS" design (no card during the walk; a caller-driven
+ * `confirmMint()` mints the whole collected batch in one pass;
+ * `learn-path-pending-markers.ts` renders a live "would be added"
+ * ring) is now IMPLEMENTED THROUGH the general batch-mint affordance
+ * instead of a bespoke mint path of Learn Path's own:
  *
- *   1. The context tag is user-supplied, applied via the existing
- *      card-create wire's `tags` field — no tag-DSL changes.
- *   2. Seeded cards mint through the EXISTING mint path
- *      (`useMinting().commitMint`).
+ *   - `explore()` mints NOTHING — same invariant as before — but it no
+ *     longer collects a placeholder-linked pending-mint batch of its
+ *     own either. Every position the walk would have carded (the
+ *     anchor, if freshly resolved, plus every non-duplicate deviation)
+ *     is instead added LIVE to `mint-selection.ts`'s per-board
+ *     selection Set (`addToSelection`) — the SAME registry a manual
+ *     ctrl+click in `TreeWidget.vue` writes to.
+ *   - There is no more `confirmMint()` / `runLearnPath()`: minting
+ *     itself is the generic "Mint card(s)" affordance
+ *     (`MintCardModal.vue`, one `POST /cards/batch` call built by
+ *     `batch-mint-core.ts` from whatever is currently selected on the
+ *     board) — Learn Path's own job ends at "grow the tree and mark
+ *     what would be minted." The user reviews the grown tree (now
+ *     rendered with the SAME dashed selection ring the pending-mint
+ *     marker used to own) and hits Mint card(s) explicitly.
+ *   - `discardExploration()` survives, narrowed: it un-marks exactly
+ *     the NodeIds THIS exploration added (`LearnPathExploration.
+ *     addedNodeIds`) — never the whole board's selection, which may
+ *     also hold unrelated ctrl+click selections the user made by hand.
+ *   - The per-walk "context tag" field is RETIRED (decision, not an
+ *     oversight): since nothing mints from inside Learn Path anymore,
+ *     a tag applied at explore-time had no channel left to reach the
+ *     eventual mint call — `MintCardModal`'s own tag input already
+ *     applies uniformly to every card in a batch (mirroring the old
+ *     per-walk-tag behavior exactly, just applied at mint time instead
+ *     of explore time). Rejected: keeping an inert tag field in
+ *     `LearnPathModal` "for continuity" — a form control with no
+ *     observable effect is a genre violation (ADR-0019), not a
+ *     harmless leftover.
+ *   - The anchor itself no longer mints eagerly when no existing card
+ *     is found at the current cursor position — `resolveAnchor` (below)
+ *     now returns `cardId: null` for that case and the walk adds the
+ *     anchor's own NodeId to the selection instead, exactly like any
+ *     other newly-discovered deviation. `LearnPathExploration.
+ *     anchorCardId` is therefore `CardId | null`.
+ *   - The existing-card dedup check (`loadExistingDescendantContent`)
+ *     only has a card to fetch descendants FOR when the anchor
+ *     resolved to an EXISTING card — a freshly-selected (not yet
+ *     minted) anchor has, by construction, no descendants recorded
+ *     anywhere yet, so that case skips the fetch entirely (empty dedup
+ *     map) rather than being a special case to detect.
+ *
+ * Two of the three ratified constraints from row 660 that predate this
+ * restructure — retired above along with row 718's own mint machinery:
+ *
+ *   1. ~~The context tag is user-supplied, applied via the existing
+ *      card-create wire's `tags` field~~ — superseded (see above).
+ *   2. ~~Seeded cards mint through the EXISTING mint path
+ *      (`useMinting().commitMint`)~~ — superseded; Learn Path no
+ *      longer mints anything itself.
  *
  * The THIRD — "candidates come from EXISTING analysis already in the
  * ledger; no new engine queries; a position lacking analysis is a
  * FRONTIER" — is REPEALED by commission ledger row 881 (see "On-demand
- * analysis" below). It was an executor-authored restriction that was
- * never itself ratified by the commissioner; row 881 explicitly names
- * it as such and directs the walk to drive the engine instead. This is
- * the FOURTH unratified de-scope in this feature's history — row 881
- * treats scope with maximal care accordingly. FRONTIER now means a
- * GENUINE engine refusal (the query construction fails synchronously,
- * or the wait times out) at a position the walk DID ask about — never
- * "we never asked."
+ * analysis" below, UNCHANGED by the batch-mint supersession above). It
+ * was an executor-authored restriction that was never itself ratified
+ * by the commissioner; row 881 explicitly names it as such and directs
+ * the walk to drive the engine instead. This is the FOURTH unratified
+ * de-scope in this feature's history — row 881 treats scope with
+ * maximal care accordingly. FRONTIER now means a GENUINE engine
+ * refusal (the query construction fails synchronously, or the wait
+ * times out) at a position the walk DID ask about — never "we never
+ * asked."
  *
  * ── On-demand analysis (commission row 881) ───────────────────────────
  * A visited position with no recorded analysis in the ledger is no
@@ -177,48 +216,48 @@
  * `LearnPathPolicy` and plug in at this same seam without touching
  * this file.
  *
- * ── Parent-reference threading (how deviations skip the spine) ───────
- * A deviation's card should parent off the nearest CARDED ancestor —
- * which, since the spine never cards, may be several plies back. This
- * falls out of one small piece of bookkeeping: `walk()` threads a
- * `ParentRef` down through recursion, propagating it UNCHANGED across
- * every spine step (no card minted, so no new parent to hand down) and
- * re-minting it to a fresh placeholder only when it descends into a
- * deviation (which — deferred — doesn't have a real `CardId` yet).
- * `ParentRef` is `{resolved:true, cardId}` (the anchor, or a mint
- * that's already resolved) or `{resolved:false, placeholder}` (a
- * pending deviation, resolved once `confirmMint` reaches it — always
- * before any of its descendants are resolved, because a placeholder is
- * only ever created before recursing into that subtree).
+ * ── Parent linkage (no longer this module's concern) ──────────────────
+ * Pre-supersession, a deviation's eventual card had to parent off the
+ * nearest CARDED ancestor via a `ParentRef`/placeholder chain this
+ * module owned (since the spine never cards, that ancestor could be
+ * several plies back, and nothing here had a real `CardId` to parent
+ * against until `confirmMint` minted it). That entire chain is GONE:
+ * `batch-mint-core.ts::buildBatchMintPayload` resolves each selected
+ * node's parent purely from the LIVE board's tree structure plus
+ * current selection membership at MINT TIME (nearest ancestor that is
+ * ALSO selected → `batch_index`; otherwise the board's own lineage) —
+ * this module only ever needs to know WHICH NodeIds to select, never
+ * how they'll parent each other once minted.
  *
- * ── Live tree growth & pre-mint markers ───────────────────────────────
+ * ── Live tree growth & selection marking ────────────────────────────────
  * Both spine and deviation steps commit their position into the live
  * board via `updateBoardState` (so `TreeWidget` renders the growing
  * exploration) and then await `yieldStep()` — a paint checkpoint, not a
  * pacing delay; the default implementation is one `requestAnimationFrame`
- * per step. A deviation step additionally registers a pre-mint marker
- * (`learn-path-pending-markers.ts`) UNLESS it's already an existing
- * card (checked against the same pre-fetched dedup snapshot
- * `confirmMint` uses) — the marker set tracks exactly what mint-all
- * would actually create. Neither of these touches cards.db — only the
- * in-memory board's node tree and the marker registry change. Once the
- * walk finishes, the board's cursor (stones/turn/captures/koPoint/
- * currentNodeId) is reset to the anchor's own position — by
- * construction (see "Anchor resolution" above) this is always the SAME
- * position the cursor was at when `explore()` was invoked, whether the
- * anchor is a pre-existing card or one freshly minted from that exact
- * spot — the explored NODES persist (that tree IS the deliverable the
- * user inspects before minting), but the user's viewport doesn't end up
- * stranded wherever the last step landed.
+ * per step. A deviation step additionally adds the node to
+ * `mint-selection.ts`'s selection (`addToSelection`) UNLESS it's
+ * already an existing card (checked against the same pre-fetched dedup
+ * snapshot as before) — the selection tracks exactly what "Mint
+ * card(s)" would actually create if hit right now. Neither of these
+ * touches cards.db — only the in-memory board's node tree and the
+ * selection registry change. Once the walk finishes, the board's
+ * cursor (stones/turn/captures/koPoint/currentNodeId) is reset to the
+ * anchor's own position — by construction (see "Anchor resolution"
+ * below) this is always the SAME position the cursor was at when
+ * `explore()` was invoked, whether the anchor is a pre-existing card
+ * or a freshly-selected (not yet minted) position — the explored NODES
+ * persist (that tree IS the deliverable the user inspects before
+ * minting), but the user's viewport doesn't end up stranded wherever
+ * the last step landed.
  *
- * Documented limitation: if the caller never calls `confirmMint` (the
- * commissioner explicitly wants to inspect the exploration before
- * anything touches cards.db, rows 708/718), the grown tree nodes are
- * NOT rolled back — only the deferred card-minting and the pre-mint
- * markers are cancelable (`clearPendingMintMarkers`), not the tree
- * structure itself. Removing unconfirmed exploration nodes would
- * require tracking and safely deleting them (a node another concurrent
- * action might have started depending on), which is out of v1 scope.
+ * Documented limitation: if the caller never mints the resulting
+ * selection (the commissioner explicitly wants to inspect the
+ * exploration before anything touches cards.db, rows 708/718), the
+ * grown tree nodes are NOT rolled back — only the selection additions
+ * are cancelable (`discardExploration`), not the tree structure
+ * itself. Removing unconfirmed exploration nodes would require
+ * tracking and safely deleting them (a node another concurrent action
+ * might have started depending on), which is out of v1 scope.
  *
  * ── Board-identity safety (fresh-context review finding, fixed) ──────
  * `walk()` spans many `await yieldStep()` checkpoints — real time in
@@ -239,20 +278,16 @@
  * only the direct `updateBoardState` call sites were).
  *
  * `resolveAnchor` (the anchor-resolution generalization above) adds its
- * OWN pre-walk `await`s — the duplicate-check and, on a miss, the mint
- * — before `walk()`'s first checkpoint. A board close during those
- * awaits is not re-derived from an index (no index is held across
- * them), so it can't corrupt another board the way the stale-index bug
- * above could; the exposure is narrower: a fresh anchor can get minted
- * for a board that closes before `walk()` gets a chance to write
- * anything under it. `walk()`'s own first `writeLiveBoard` call still
- * catches this (the board is gone, so it reports `false` immediately)
- * and the walk aborts with an empty `LearnPathExploration` — the anchor
- * card itself is NOT rolled back (minting already committed
- * server-side), so it can end up a real card with no descendants ever
- * grown under it, the same accepted-cost shape as any other mint whose
- * caller doesn't get to build on it. Not observed in practice;
- * documented for the same reason the rest of this section is.
+ * OWN pre-walk `await` — the duplicate-check — before `walk()`'s first
+ * checkpoint. A board close during that await is not re-derived from
+ * an index (no index is held across it), so it can't corrupt another
+ * board the way the stale-index bug above could; post-supersession
+ * there's no mint exposure to document here either (a miss no longer
+ * mints anything — it marks the anchor's NodeId selected, which
+ * `walk()`'s own first `writeLiveBoard` call already covers: a missed
+ * write means the board is gone, and the walk aborts with an empty
+ * `LearnPathExploration`, same partial-progress posture as a
+ * frontier).
  *
  * ── Ranking metric — the commissioner's clarification (row 706), and
  * the finding that produced it ───────────────────────────────────────
@@ -288,27 +323,28 @@
  *      endpoint and looks the hash up in the boot-hydrated
  *      known-positions map (`hydrateKnownPositions`, plus this
  *      session's own incidental/mint-time appends). A hit anchors
- *      directly to that card — no mint.
- *   2. **No existing card.** The current position is minted as a fresh
- *      anchor, through the SAME real mint path a manual mint uses
- *      (`useMinting.prepareDraft` + `commitMint`), tagged with the
- *      caller's context tag. `commitMint` already calls
- *      `rememberMintedCard` internally, so the new anchor is
- *      immediately known-positions-visible for any later call this
- *      session.
+ *      directly to that card — no mint, nothing added to the
+ *      selection (it's already a card).
+ *   2. **No existing card** (post-supersession, ledger rows
+ *      926/957/1008). The current position is NOT minted — its NodeId
+ *      is added to `mint-selection.ts`'s selection instead, exactly
+ *      like any other newly-discovered deviation the walk finds.
+ *      `resolveAnchor` returns `cardId: null` for this outcome;
+ *      `explore()` is the one that calls `addToSelection` (both
+ *      outcomes funnel through the same call site every other
+ *      selection addition uses).
  *
  * **Serialization-match soundness.** `resolveAnchor` builds its
- * duplicate-check content via `prepareDraft(boardId)` — the EXACT call
- * site a manual mint of this same position would use
- * (`serializeActivePath(board)`, root→cursor, per that function's own
- * shape note). Reusing the call site, not just the function, forecloses
- * the failure mode named in the commission: a hand-rolled second
- * serialization of "the current position" that differs from the mint
- * path's own (a different property order, a different path
- * derivation) would silently never match a hash the mint path itself
- * recorded, and duplicate detection would quietly stop working. Because
- * `prepareDraft`'s returned `raw_content` is what's hashed AND (on a
- * miss) exactly what's minted, there is no seam for that drift to open.
+ * duplicate-check content via `serializeActivePath(board)` — the SAME
+ * function `useMinting.prepareDraft` calls for a manual mint of this
+ * same position (root→cursor, per that function's own shape note) —
+ * rather than a hand-rolled second serialization that could silently
+ * drift from the mint path's own (a different property order, a
+ * different path derivation) and quietly stop matching a hash the mint
+ * path itself would record. `batch-mint-core.ts::buildBatchMintPayload`
+ * calls the SAME function (with an explicit `targetNodeId`) at mint
+ * time, so the eventual mint's `raw_content` is byte-identical to what
+ * this duplicate-check hashed.
  *
  * **Known-positions staleness — reasoned, not solved.** The
  * known-positions map is a CLIENT-SIDE cache: hydrated at boot/re-auth
@@ -318,15 +354,17 @@
  * since every entry it holds was itself hash-verified by the backend
  * at the write that recorded it (there is no path that records a hash
  * without the backend having computed it from real content). A false
- * miss costs a redundant anchor mint, not an incorrect one — the same
- * accepted-cost posture `card-position-annotations-design.md` already
- * takes for the mint-dialog's own duplicate warning — and the mint
- * that follows immediately closes the gap for this session (outcome 2
- * above already calls `rememberMintedCard`). The backend's hash
- * computation is the only thing "authoritative" here; the lookup
- * itself is intentionally best-effort, matching `useKnownPositions.ts`'s
- * own file-header framing of the map as "a convenience annotation
- * layer... never a blocking dependency."
+ * miss costs a redundant anchor SELECTION (the position gets marked for
+ * minting even though a card for it may already exist), not an
+ * incorrect one — the same accepted-cost posture
+ * `card-position-annotations-design.md` already takes for the
+ * mint-dialog's own duplicate warning; the eventual mint (whenever the
+ * user hits "Mint card(s)") closes the gap for this session via
+ * `useMinting.commitMint`/`commitMintBatch`'s own `rememberMintedCard`
+ * call. The backend's hash computation is the only thing
+ * "authoritative" here; the lookup itself is intentionally best-effort,
+ * matching `useKnownPositions.ts`'s own file-header framing of the map
+ * as "a convenience annotation layer... never a blocking dependency."
  *
  * **The old fast path still exists — as a case of the general one.**
  * A board loaded from a card with the cursor still at that card's own
@@ -337,15 +375,18 @@
  * rather than a dedicated branch.
  *
  * ── Existing-card dedup ────────────────────────────────────────────────
- * `insert_card` does NOT dedup at the card level — v1 fetches the
+ * `insert_card` does NOT dedup at the card level — the walk fetches the
  * anchor's already-minted descendant subtree once up front
- * (`resolveRoots` + `fetchTreeByRoot`, still a pre-walk read — only the
- * COMPARISON against it, and the resulting mint-or-skip decision, is
- * deferred to `confirmMint`) and compares each pending candidate's
- * `serializeActivePath` output against existing descendants'
- * `canonicalContent` by exact string equality. Sound within one
- * lineage tree, with the same mint-time-komi-calibration caveat
- * documented in the original v1 design (unchanged here).
+ * (`resolveRoots` + `fetchTreeByRoot`) ONLY when the anchor itself
+ * resolved to an EXISTING card (a freshly-selected, not-yet-minted
+ * anchor has no descendants recorded anywhere yet, by construction —
+ * `existingContent` is the empty map in that case, no fetch needed) and
+ * compares each candidate deviation's `serializeActivePath` output
+ * against existing descendants' `canonicalContent` by exact string
+ * equality, live during the walk (no longer deferred to a separate
+ * confirm step — there is no confirm step). Sound within one lineage
+ * tree, with the same mint-time-komi-calibration caveat documented in
+ * the original v1 design (unchanged here).
  *
  * Domain band (ADR-0003): game-tree-coupled (B2).
  *
@@ -360,12 +401,11 @@ import { serializeActivePath } from '../../engine/sgf-writer';
 import { getPath } from '../../engine/navigator';
 import { applyGoMove } from '../../logic';
 import { gtpToBoard } from '../board/use-move-suggestions';
-import { compileMintGradingParameter, useMinting } from '../review/useMinting';
 import { useKnownPositions } from './useKnownPositions';
 import { waitForAnalysis, AnalysisWaitError } from '../analysis/wait-for-analysis';
 import { KATAGO_ANALYSIS_TIMEOUT_MS } from '../../lib/timing';
 import { spineFirstPolicy, type LearnPathPolicy, type LearnPathPolicyConfig } from './learn-path-policy';
-import { addPendingMintMarker, clearPendingMintMarkers } from './learn-path-pending-markers';
+import { addToSelection, removeFromSelection } from './mint-selection';
 import { setAnalyzingNode, clearAnalyzingNode } from './learn-path-progress';
 import {
   registerBoardCloseHandler,
@@ -377,11 +417,9 @@ import type {
   BoardState,
   CardId,
   CardLineageNode,
-  CardCreatePayload,
   GameNode,
   NodeId,
   RawKey,
-  StoneColor,
 } from '../../types';
 
 export class LearnPathError extends Error {
@@ -405,8 +443,6 @@ export interface LearnPathParams {
   readonly depth: number;
   /** Candidate ranks {1..K} expanded per node (rank 1 = the uncarded spine). >= 1. */
   readonly topK: number;
-  /** User-supplied context tag, applied to every minted card. Non-empty after trim. */
-  readonly tag: string;
   /** Exploration policy seam — defaults to the ratified `spineFirstPolicy` (rows 706-708, 718). */
   readonly policy?: LearnPathPolicy;
   /**
@@ -419,107 +455,27 @@ export interface LearnPathParams {
   readonly yieldStep?: () => Promise<void>;
 }
 
-export interface LearnPathMove {
-  readonly x: number;
-  readonly y: number;
-  readonly color: StoneColor;
-}
-
-export interface LearnPathSeeded {
-  readonly cardId: CardId;
-  readonly parentCardId: CardId;
-  readonly plyDepth: number;
-  readonly rank: number;
-  readonly move: LearnPathMove;
-}
-
-export interface LearnPathSkippedExisting {
-  readonly reason: 'existing-card';
-  readonly existingCardId: CardId;
-  readonly parentCardId: CardId;
-  readonly plyDepth: number;
-  readonly rank: number;
-  readonly move: LearnPathMove;
-}
-
-export interface LearnPathSkippedUnplayable {
-  readonly reason: 'unplayable-move';
-  readonly parentCardId: CardId;
-  readonly plyDepth: number;
-  readonly rank: number;
-}
-
-export type LearnPathSkipped = LearnPathSkippedExisting | LearnPathSkippedUnplayable;
-
-export interface LearnPathFrontier {
-  readonly parentCardId: CardId;
-  readonly plyDepth: number;
-  readonly nodeId: NodeId;
-}
-
-export interface LearnPathResult {
-  readonly tag: string;
-  readonly seeded: readonly LearnPathSeeded[];
-  readonly skipped: readonly LearnPathSkipped[];
-  readonly frontiers: readonly LearnPathFrontier[];
-}
-
-/**
- * A not-yet-resolved mint target: either the anchor / an already-
- * resolved mint (`resolved: true`), or a placeholder for a pending
- * deviation `confirmMint` hasn't reached yet (`resolved: false`). See
- * the module header's "Parent-reference threading" section.
- */
-type ParentRef =
-  | { readonly resolved: true; readonly cardId: CardId }
-  | { readonly resolved: false; readonly placeholder: number };
-
-interface PendingSeed {
-  readonly placeholder: number;
-  readonly parentRef: ParentRef;
-  readonly plyDepth: number;
-  readonly rank: number;
-  readonly move: LearnPathMove;
-  readonly candidateSgf: string;
-  readonly nodeId: NodeId;
-}
-
-interface PendingFrontier {
-  readonly parentRef: ParentRef;
-  readonly plyDepth: number;
-  readonly nodeId: NodeId;
-}
-
-interface PendingUnplayable {
-  readonly parentRef: ParentRef;
-  readonly plyDepth: number;
-  readonly rank: number;
-}
-
 /**
  * The result of `explore()`: the tree has already grown live in the
- * board (with pre-mint markers on the pending deviation nodes);
- * nothing has been minted. `pendingSeedCount` / `existingCount` /
- * `frontierCount` / `unplayableCount` are the summary a confirm-step
- * UI shows before `confirmMint` touches cards.db. `_pending` is the
- * walk's internal bookkeeping, round-tripped opaquely to
- * `confirmMint` — not for display.
+ * board, with every newly-discovered mintable position (the anchor, if
+ * freshly resolved, plus every non-duplicate deviation) added to
+ * `mint-selection.ts`'s selection — nothing has been minted.
+ * `pendingSeedCount` / `existingCount` / `frontierCount` /
+ * `unplayableCount` are the summary `LearnPathModal` shows; `addedNodeIds`
+ * is `discardExploration`'s own undo list — the exact set of NodeIds
+ * THIS exploration added, never the whole board's selection (which may
+ * also hold unrelated manual ctrl+click picks).
  */
 export interface LearnPathExploration {
-  readonly tag: string;
   readonly boardId: BoardId;
-  readonly anchorCardId: CardId;
+  /** `null` when the anchor itself was freshly selected (not yet minted) rather than resolved to an existing card. */
+  readonly anchorCardId: CardId | null;
   readonly pendingSeedCount: number;
-  /** How many pending seeds will resolve as an existing-card skip at mint time (computed now, from the same pre-fetched dedup snapshot `confirmMint` uses — a card minted by someone else between explore and confirm isn't reflected). These are NOT pre-mint-marked (row 718: markers = pending minus existing). */
+  /** How many candidate deviations matched an already-existing card and were therefore SKIPPED (not added to the selection). Only ever nonzero when `anchorCardId !== null` — a freshly-selected anchor has no existing descendants to match against. */
   readonly existingCount: number;
   readonly frontierCount: number;
   readonly unplayableCount: number;
-  readonly _pending: {
-    readonly seeds: readonly PendingSeed[];
-    readonly frontiers: readonly PendingFrontier[];
-    readonly unplayable: readonly PendingUnplayable[];
-    readonly existingContent: ReadonlyMap<string, CardId>;
-  };
+  readonly addedNodeIds: readonly NodeId[];
 }
 
 function defaultYieldStep(): Promise<void> {
@@ -662,20 +618,19 @@ function collectDescendantIds(node: CardLineageNode, out: CardId[]): void {
 }
 
 export function useLearnPath() {
-  const { commitMint, prepareDraft } = useMinting();
   const { checkForDuplicate } = useKnownPositions();
 
   /**
-   * Resolves the CURRENT CURSOR POSITION on `boardId` to the `CardId`
-   * the walk anchors under — see the module header's "Anchor
-   * resolution" section for the full design and its soundness argument.
-   * Two outcomes: an existing card at this exact position (no mint), or
-   * a freshly-minted one (through the real mint path, tagged with the
-   * caller's context tag).
+   * Resolves the CURRENT CURSOR POSITION on `boardId` — see the module
+   * header's "Anchor resolution" section for the full design and its
+   * soundness argument. Two outcomes: an existing card at this exact
+   * position (`cardId` set, no selection change — it's already a
+   * card), or a genuinely new position (`cardId: null` — the caller
+   * adds `nodeId` to the selection instead of minting).
    */
-  async function resolveAnchor(boardId: BoardId, tag: string): Promise<CardId> {
-    const draft = await prepareDraft(boardId);
-    if (!draft) {
+  async function resolveAnchor(boardId: BoardId): Promise<{ cardId: CardId | null; nodeId: NodeId }> {
+    const board = store.boards.find(b => b.id === boardId);
+    if (!board) {
       // Unreachable in practice: `explore` confirms the board exists
       // synchronously, with no intervening `await`, immediately before
       // calling this. Defensive per ADR-0002 rather than a non-null
@@ -684,18 +639,13 @@ export function useLearnPath() {
         `Learn this path: board ${boardId} not found while resolving the anchor.`,
       );
     }
-    const existingCardId = await checkForDuplicate(draft.raw_content);
-    if (existingCardId !== null) return existingCardId;
-
-    // No existing card at this position: mint one now, tagged with the
-    // caller's context tag rather than `prepareDraft`'s empty default —
-    // everything else (raw_content, parent_card_id/game_metadata XOR,
-    // grading_parameter) is the identical real-mint construction.
-    const anchorPayload: CardCreatePayload = { ...draft, tags: [tag] };
-    // Brand mint: commitMint (-> backendService.createCard) returns the
-    // wire's raw numeric id; same ACL re-brand pattern used at the seed
-    // mint site in confirmMint below.
-    return await commitMint(anchorPayload) as CardId;
+    // Same serialization `useMinting.prepareDraft` uses for a manual
+    // mint of this position (module header's "Serialization-match
+    // soundness") — root→cursor, no `targetNodeId` (defaults to
+    // `board.currentNodeId`).
+    const rawContent = serializeActivePath(board);
+    const existingCardId = await checkForDuplicate(rawContent);
+    return { cardId: existingCardId, nodeId: board.currentNodeId };
   }
 
   /**
@@ -704,7 +654,7 @@ export function useLearnPath() {
    * Throws `LearnPathError` if the anchor can't be resolved to a game
    * tree the caller owns — a resolve failure means we cannot honestly
    * claim dedup coverage, so per ADR-0002 the walk refuses rather than
-   * silently minting possible duplicates.
+   * silently selecting possible duplicates.
    */
   async function loadExistingDescendantContent(
     anchorCardId: CardId,
@@ -737,27 +687,15 @@ export function useLearnPath() {
     return byContent;
   }
 
-  function buildSeedPayload(rawSgf: string, parentCardId: CardId, tag: string): CardCreatePayload {
-    return {
-      raw_content: rawSgf,
-      num_moves: store.profile.settings.minting.defaultNumMoves,
-      grading_parameter: compileMintGradingParameter(),
-      tags: [tag],
-      // CardId brand-strip to the wire's raw number — same justified
-      // cast as useMinting.prepareDraft (CardId = Brand<number, 'CardId'>,
-      // erases at runtime).
-      parent_card_id: parentCardId as unknown as number,
-      game_metadata: undefined,
-    };
-  }
-
   /**
    * Runs the live-growth walk (spine descends uncarded; deviations
-   * recurse as their own subtree, collected — not minted). Validates
-   * params and the anchor precondition up front; every other outcome
-   * (a missing-analysis frontier, an unplayable candidate) is collected
-   * rather than aborting the walk, per ADR-0002 constraint 1. Mints
-   * NOTHING — see `confirmMint`.
+   * recurse as their own subtree). Validates params and the anchor
+   * precondition up front; every other outcome (a missing-analysis
+   * frontier, an unplayable candidate) is collected rather than
+   * aborting the walk, per ADR-0002 constraint 1. Mints NOTHING —
+   * every mintable position found is added to `mint-selection.ts`'s
+   * selection instead (see the module header's "SUPERSEDED BY THE
+   * BATCH CARD-MINTING AFFORDANCE" section).
    */
   async function explore(params: LearnPathParams): Promise<LearnPathExploration> {
     // Genuinely-impossible-input validation stays on `LearnPathPreconditionError`
@@ -767,25 +705,32 @@ export function useLearnPath() {
     // the module header's "Anchor resolution" section.
     if (params.depth < 1) throw new LearnPathPreconditionError('Learn this path: depth must be >= 1.');
     if (params.topK < 1) throw new LearnPathPreconditionError('Learn this path: topK must be >= 1.');
-    const tag = params.tag.trim();
-    if (!tag) throw new LearnPathPreconditionError('Learn this path: a context tag is required.');
 
     const board = store.boards.find(b => b.id === params.boardId);
     if (!board) throw new LearnPathPreconditionError(`Learn this path: board ${params.boardId} not found.`);
 
     // On-demand analysis (commission row 881) means the walk may need
     // to issue engine queries — refuse loudly, before any tree
-    // mutation or anchor mint, if there's no engine to ask. Genuinely-
-    // impossible-input class, same as the depth/topK/tag checks above,
-    // not a de-scope: a mid-walk disconnect is a DIFFERENT case (a
-    // per-position frontier or wait-timeout), handled where it happens.
+    // mutation, if there's no engine to ask. Genuinely-impossible-input
+    // class, same as the depth/topK checks above, not a de-scope: a
+    // mid-walk disconnect is a DIFFERENT case (a per-position frontier
+    // or wait-timeout), handled where it happens.
     if (store.engine.status !== 'connected') {
       throw new LearnPathPreconditionError(
         'Learn this path: connect to the engine first — the walk may need to analyze positions on demand.',
       );
     }
 
-    const anchorCardId = await resolveAnchor(params.boardId, tag);
+    const anchor = await resolveAnchor(params.boardId);
+    const addedNodeIds: NodeId[] = [];
+    if (anchor.cardId === null) {
+      // Fresh anchor: select it instead of minting it (module header's
+      // "SUPERSEDED..." section) — the SAME call site every other
+      // selection addition below uses.
+      addToSelection(params.boardId, anchor.nodeId);
+      addedNodeIds.push(anchor.nodeId);
+    }
+
     const policy = params.policy ?? spineFirstPolicy;
     const config: LearnPathPolicyConfig = { depth: params.depth, topK: params.topK };
     const yieldStep = params.yieldStep ?? defaultYieldStep;
@@ -796,7 +741,13 @@ export function useLearnPath() {
     // step instead — see the module header note near that read for the
     // full rationale.
 
-    const existingContent = await loadExistingDescendantContent(anchorCardId);
+    // Existing-descendant dedup only has a card to fetch descendants
+    // FOR when the anchor resolved to an EXISTING card (module header's
+    // "Existing-card dedup" section) — a freshly-selected anchor has no
+    // descendants recorded anywhere yet.
+    const existingContent = anchor.cardId !== null
+      ? await loadExistingDescendantContent(anchor.cardId)
+      : new Map<string, CardId>();
 
     // Snapshot the anchor's own cursor fields — restored once the walk
     // finishes (module header's "Live tree growth" section). The
@@ -810,10 +761,10 @@ export function useLearnPath() {
       currentNodeId: board.currentNodeId,
     };
 
-    const pendingSeeds: PendingSeed[] = [];
-    const pendingFrontiers: PendingFrontier[] = [];
-    const pendingUnplayable: PendingUnplayable[] = [];
-    let nextPlaceholder = 0;
+    let pendingSeedCount = 0;
+    let existingCount = 0;
+    let frontierCount = 0;
+    let unplayableCount = 0;
     // Set the moment `writeLiveBoard` reports the anchor board is gone
     // (closed mid-walk, by the user or anything else), OR the moment an
     // on-demand analysis wait observes an abort (board-close/workspace-
@@ -832,7 +783,7 @@ export function useLearnPath() {
     const walkAbort = new AbortController();
     learnPathAborts.set(params.boardId, walkAbort);
 
-    async function walk(state: BoardState, plyDepth: number, parentRef: ParentRef): Promise<void> {
+    async function walk(state: BoardState, plyDepth: number): Promise<void> {
       if (aborted) return;
       // Fresh-context review MEDIUM finding, fixed: re-derived at the top
       // of every step rather than captured once for the whole `explore()`
@@ -868,19 +819,19 @@ export function useLearnPath() {
           // 'refused' (engine declined the query outright) or 'timeout'
           // (no response within KATAGO_ANALYSIS_TIMEOUT_MS) — a GENUINE
           // engine refusal at a position the walk DID ask about, never
-          // "we never asked." Reported, never silently truncated
+          // "we never asked." Counted, never silently truncated
           // (ADR-0002).
-          pendingFrontiers.push({ parentRef, plyDepth, nodeId: state.currentNodeId });
+          frontierCount++;
           return;
         }
       }
       if (!raw.moveInfos || raw.moveInfos.length === 0) {
-        pendingFrontiers.push({ parentRef, plyDepth, nodeId: state.currentNodeId });
+        frontierCount++;
         return;
       }
       const ranked = policy.rankCandidates(raw.moveInfos, config);
       if (ranked.length === 0) {
-        pendingFrontiers.push({ parentRef, plyDepth, nodeId: state.currentNodeId });
+        frontierCount++;
         return;
       }
 
@@ -911,22 +862,21 @@ export function useLearnPath() {
       let parentState = state;
       for (const candidate of ranked) {
         if (aborted) break;
-        const { info, rank, role } = candidate;
+        const { info, role } = candidate;
         const nextPlyDepth = plyDepth + 1;
         const coords = gtpToBoard(info.move);
         if (!coords) {
-          // Pass (or another unplayable GTP token). Recorded, not dropped.
-          pendingUnplayable.push({ parentRef, plyDepth: nextPlyDepth, rank });
+          // Pass (or another unplayable GTP token). Counted, not dropped.
+          unplayableCount++;
           continue;
         }
         const nextState = applyGoMove(parentState, coords.x, coords.y);
         if (!nextState) {
           // Defensive: a move the search engine reported should always
           // be legal against this exact position.
-          pendingUnplayable.push({ parentRef, plyDepth: nextPlyDepth, rank });
+          unplayableCount++;
           continue;
         }
-        const move: LearnPathMove = { x: coords.x, y: coords.y, color: parentState.turn };
 
         // Live tree growth: commit into the reactive board (re-resolved
         // by BoardId, never a carried-over index — see writeLiveBoard's
@@ -940,35 +890,22 @@ export function useLearnPath() {
         await yieldStep();
 
         const eligible = policy.isCardEligible(role);
-        const childParentRef: ParentRef = eligible
-          ? { resolved: false, placeholder: nextPlaceholder++ }
-          : parentRef; // spine: no card, no new parent — thread the same ref down.
-
-        // Discriminant narrowing on `resolved === false` (not a cast) is
-        // what recovers `.placeholder`'s type here — sound because
-        // `childParentRef` was JUST constructed above with
-        // `resolved: false` on exactly the `eligible` branch.
-        if (eligible && childParentRef.resolved === false) {
+        if (eligible) {
           const candidateSgf = serializeActivePath(nextState);
-          pendingSeeds.push({
-            placeholder: childParentRef.placeholder,
-            parentRef,
-            plyDepth: nextPlyDepth,
-            rank,
-            move,
-            candidateSgf,
-            nodeId: nextState.currentNodeId,
-          });
-          // Row 718 PRE-MINT MARKERS: mark live, but only when mint-all
-          // would actually create a card here — an already-existing
-          // position resolves as a dedup-skip at confirm time, never minted.
-          if (!existingContent.has(candidateSgf)) {
-            addPendingMintMarker(params.boardId, nextState.currentNodeId);
+          pendingSeedCount++;
+          if (existingContent.has(candidateSgf)) {
+            // Already a card somewhere in the anchor's own tree — skip,
+            // never add to the selection (module header's "Existing-card
+            // dedup" section).
+            existingCount++;
+          } else {
+            addToSelection(params.boardId, nextState.currentNodeId);
+            addedNodeIds.push(nextState.currentNodeId);
           }
         }
 
         if (policy.shouldRecurse(role, nextPlyDepth, config)) {
-          await walk(nextState, nextPlyDepth, childParentRef);
+          await walk(nextState, nextPlyDepth);
         }
 
         // Refresh before the next sibling (see the tree-integrity note
@@ -987,7 +924,7 @@ export function useLearnPath() {
     }
 
     try {
-      await walk(board, 0, { resolved: true, cardId: anchorCardId });
+      await walk(board, 0);
     } finally {
       // Release this walk's abort-controller slot (only if it's still
       // ours — a later `explore()` call on the same board may already
@@ -1012,130 +949,28 @@ export function useLearnPath() {
       updateBoardState(finalIndex, { ...grownBoard, ...anchorCursor });
     }
 
-    const existingCount = pendingSeeds.reduce(
-      (n, s) => n + (existingContent.has(s.candidateSgf) ? 1 : 0), 0,
-    );
-
     return {
-      tag,
       boardId: params.boardId,
-      anchorCardId,
-      pendingSeedCount: pendingSeeds.length,
+      anchorCardId: anchor.cardId,
+      pendingSeedCount,
       existingCount,
-      frontierCount: pendingFrontiers.length,
-      unplayableCount: pendingUnplayable.length,
-      _pending: {
-        seeds: pendingSeeds,
-        frontiers: pendingFrontiers,
-        unplayable: pendingUnplayable,
-        existingContent,
-      },
+      frontierCount,
+      unplayableCount,
+      addedNodeIds,
     };
   }
 
   /**
-   * Mints the whole collected batch from a prior `explore()` in one
-   * pass (row 708 DEFERRED BATCH MINT, row 718 explicit-button-only —
-   * this function is the ONLY thing that calls `commitMint`), in
-   * discovery order — always parent-before-child by construction,
-   * since a placeholder is only ever created before the walk recurses
-   * into that subtree. Clears the board's pre-mint markers when done,
-   * regardless of outcome.
-   */
-  async function confirmMint(exploration: LearnPathExploration): Promise<LearnPathResult> {
-    const { seeds, frontiers, unplayable, existingContent } = exploration._pending;
-    const resolvedMap = new Map<number, CardId>();
-
-    function resolveParent(ref: ParentRef): CardId {
-      if (ref.resolved) return ref.cardId;
-      const resolved = resolvedMap.get(ref.placeholder);
-      if (resolved === undefined) {
-        // Unreachable by construction (see module header); fail loudly
-        // per ADR-0002 rather than mint under a dangling reference.
-        throw new LearnPathError(
-          `Learn this path: internal error — placeholder ${ref.placeholder} referenced before it was resolved.`,
-        );
-      }
-      return resolved;
-    }
-
-    const seededOut: LearnPathSeeded[] = [];
-    const skippedOut: LearnPathSkipped[] = [];
-
-    try {
-      for (const pending of seeds) {
-        const parentCardId = resolveParent(pending.parentRef);
-        const existingCardId = existingContent.get(pending.candidateSgf);
-        if (existingCardId !== undefined) {
-          skippedOut.push({
-            reason: 'existing-card',
-            existingCardId,
-            parentCardId,
-            plyDepth: pending.plyDepth,
-            rank: pending.rank,
-            move: pending.move,
-          });
-          resolvedMap.set(pending.placeholder, existingCardId);
-          continue;
-        }
-        const payload = buildSeedPayload(pending.candidateSgf, parentCardId, exploration.tag);
-        // CardId brand mint: commitMint (→ backendService.createCard)
-        // returns the wire's raw numeric id; ACL brand mint at this call
-        // site, mirroring backend-service.ts's other Band-2 mints.
-        const newCardId = await commitMint(payload) as CardId;
-        seededOut.push({ cardId: newCardId, parentCardId, plyDepth: pending.plyDepth, rank: pending.rank, move: pending.move });
-        resolvedMap.set(pending.placeholder, newCardId);
-      }
-
-      for (const u of unplayable) {
-        skippedOut.push({
-          reason: 'unplayable-move',
-          parentCardId: resolveParent(u.parentRef),
-          plyDepth: u.plyDepth,
-          rank: u.rank,
-        });
-      }
-
-      const frontiersOut: LearnPathFrontier[] = frontiers.map(f => ({
-        parentCardId: resolveParent(f.parentRef),
-        plyDepth: f.plyDepth,
-        nodeId: f.nodeId,
-      }));
-
-      return { tag: exploration.tag, seeded: seededOut, skipped: skippedOut, frontiers: frontiersOut };
-    } finally {
-      // Row 718: markers clear after mint regardless of outcome (partial
-      // mint on a mid-batch failure still leaves no stale "would be
-      // added" markers behind — the batch either resolves or the caller
-      // sees the rejection and the board is left in whatever state the
-      // partial loop reached, same partial-progress posture `runLearnPath`
-      // callers already accept for the walk phase).
-      clearPendingMintMarkers(exploration.boardId);
-    }
-  }
-
-  /**
-   * Discards a prior `explore()` without minting: clears the pre-mint
-   * markers. Per the module header's documented limitation, the grown
-   * tree NODES are not rolled back — only the deferred minting and its
-   * markers are cancelable.
+   * Discards a prior `explore()` without minting: un-marks exactly the
+   * NodeIds THIS exploration added to the selection
+   * (`exploration.addedNodeIds`) — never the whole board's selection,
+   * which may also hold unrelated manual ctrl+click picks. Per the
+   * module header's documented limitation, the grown tree NODES are
+   * not rolled back — only the selection additions are cancelable.
    */
   function discardExploration(exploration: LearnPathExploration): void {
-    clearPendingMintMarkers(exploration.boardId);
+    removeFromSelection(exploration.boardId, exploration.addedNodeIds);
   }
 
-  /**
-   * Convenience: `explore` then immediately `confirmMint`, for
-   * programmatic / test use where the two-phase inspect-before-mint UI
-   * (rows 708/718) isn't the caller's concern. The interactive modal
-   * calls `explore`, lets the user inspect the live-grown tree and its
-   * pre-mint markers, and only calls `confirmMint` on an explicit
-   * "mint all" click.
-   */
-  async function runLearnPath(params: LearnPathParams): Promise<LearnPathResult> {
-    const exploration = await explore(params);
-    return confirmMint(exploration);
-  }
-
-  return { explore, confirmMint, discardExploration, runLearnPath };
+  return { explore, discardExploration };
 }
