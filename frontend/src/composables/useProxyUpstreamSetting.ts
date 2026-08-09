@@ -33,6 +33,16 @@
  * alternative). Callers show the "restart to apply" copy themselves
  * (ADR-0019 C6/C7 — never silently imply the change is already live).
  *
+ * mDNS upstream discovery (ledger row 944 — `discover_upstreams`): when
+ * `load()` reports NEITHER the env override NOR a stored setting (a
+ * fresh install), this composable auto-runs a one-shot discovery browse
+ * for `_katago-ws._tcp.local.` — never a poll. `shouldAutoDiscover` and
+ * `classifyDiscoveryResults` are the pure decision half (given the
+ * loaded info / the raw discovery results, what should the UI show);
+ * `discover()` is the shell that calls them around the `invoke`. A
+ * manual "scan again" affordance (genre-convention refresh — ADR-0019)
+ * re-runs `discover()` unconditionally, bypassing the auto-run gate.
+ *
  * License: Public Domain (The Unlicense)
  */
 
@@ -52,6 +62,57 @@ export interface ProxyUpstreamInfo {
   readonly defaultUpstream: string;
 }
 
+/** Mirrors `DiscoveredUpstream` in `src-tauri/src/proxy_settings.rs`'s
+ *  `discover_upstreams` command (ledger row 944) — same camelCase-on-
+ *  both-sides mirroring convention as `ProxyUpstreamInfo` above. */
+export interface DiscoveredUpstream {
+  readonly url: string;
+  readonly instanceName: string;
+}
+
+/**
+ * Outcome of one discovery attempt. `'idle'` (nothing attempted yet)
+ * and `'discovering'` (the invoke is in flight) are session states
+ * `discover()` itself manages; the remaining three variants are exactly
+ * `classifyDiscoveryResults`'s return values, so a caller who only
+ * cares about the outcome can switch on those three without touching
+ * the session states.
+ */
+export type ProxyUpstreamDiscoveryState =
+  | { readonly kind: 'idle' }
+  | { readonly kind: 'discovering' }
+  | { readonly kind: 'none' }
+  | { readonly kind: 'single'; readonly upstream: DiscoveredUpstream }
+  | { readonly kind: 'multiple'; readonly upstreams: readonly DiscoveredUpstream[] };
+
+/**
+ * Pure decision: should `load()` auto-run discovery? Per the ratified
+ * contract (ledger row 944), only when NEITHER the env override NOR a
+ * stored setting exists — either one already gives the field an
+ * authoritative value, and a discovery browse would only add noise (or
+ * silently race a value the user already chose). `info === null` means
+ * `load()` itself failed (or hasn't run) — never auto-discover from an
+ * unknown state.
+ */
+export function shouldAutoDiscover(info: ProxyUpstreamInfo | null): boolean {
+  return info !== null && !info.envOverrideActive && info.stored === null;
+}
+
+/**
+ * Pure decision: classify raw `discover_upstreams` results into the
+ * three outcomes the ratified contract names — zero (`'none'`: today's
+ * default prefill, no notice, no error), exactly one (`'single'`:
+ * prefill its url, visibly marked as discovered), or more than one
+ * (`'multiple'`: the picker).
+ */
+export function classifyDiscoveryResults(
+  results: readonly DiscoveredUpstream[],
+): ProxyUpstreamDiscoveryState {
+  if (results.length === 0) return { kind: 'none' };
+  if (results.length === 1) return { kind: 'single', upstream: results[0] };
+  return { kind: 'multiple', upstreams: results };
+}
+
 export interface ProxyUpstreamSetting {
   /** True only under the Tauri desktop shell — callers gate rendering
    *  on this the same way they'd gate on any other Tauri-only affordance. */
@@ -63,10 +124,23 @@ export interface ProxyUpstreamSetting {
   readonly info: Ref<ProxyUpstreamInfo | null>;
   /** The in-progress edit buffer; bound to the input. Seeded from
    *  `info.value.stored` (or empty, meaning "unset — falls through to
-   *  the default") on `load()`. */
+   *  the default") on `load()`, then possibly re-seeded by a `'single'`
+   *  discovery outcome (see `discoveryState` below). */
   readonly draft: Ref<string>;
-  /** Fetch the current setting from the Rust side. No-op outside Tauri. */
+  /** The current mDNS-discovery outcome — see `ProxyUpstreamDiscoveryState`.
+   *  A caller may write this ref directly (e.g. to dismiss a `'multiple'`
+   *  picker back to `'idle'` once the user has chosen) — it is plain UI
+   *  state, not a second copy of anything persisted. */
+  readonly discoveryState: Ref<ProxyUpstreamDiscoveryState>;
+  /** Fetch the current setting from the Rust side. No-op outside Tauri.
+   *  Auto-runs `discover()` afterward when `shouldAutoDiscover` holds. */
   load: () => Promise<void>;
+  /** Run (or re-run) a one-shot mDNS discovery browse and update
+   *  `discoveryState` (and, on a `'single'` outcome, prefill `draft`).
+   *  This is both the auto-run `load()` triggers and the "scan again"
+   *  action a caller wires to a manual button — unconditional, no gate.
+   *  No-op outside Tauri. */
+  discover: () => Promise<void>;
   /** Validate the draft (same `ws://`/`wss://` shape rule
    *  `useEngineUriEditor.ts` enforces) and, if valid, persist it. Invalid
    *  input is rejected with a discriminated result and the store is
@@ -79,6 +153,35 @@ export function useProxyUpstreamSetting(): ProxyUpstreamSetting {
   const loading = ref(false);
   const info = ref<ProxyUpstreamInfo | null>(null);
   const draft = ref('');
+  const discoveryState = ref<ProxyUpstreamDiscoveryState>({ kind: 'idle' });
+
+  async function discover(): Promise<void> {
+    if (!IS_TAURI) return; // Inert outside Tauri — see module doc comment.
+    discoveryState.value = { kind: 'discovering' };
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      // No `timeout_ms` arg — Rust's `Option<u32>` deserializes a
+      // missing key as `None`, which resolves to the command's own
+      // documented default (2000ms). No UI surfaces a configurable
+      // timeout (not asked for by the contract), so there is nothing to
+      // pass through.
+      const results = await invoke<DiscoveredUpstream[]>('discover_upstreams');
+      const outcome = classifyDiscoveryResults(results);
+      discoveryState.value = outcome;
+      if (outcome.kind === 'single') {
+        draft.value = outcome.upstream.url;
+      }
+    } catch (err) {
+      // Absence is never an error per the contract ("resolves to []
+      // when mDNS is unavailable or nothing answers") — but the
+      // `invoke` call itself can still reject (e.g. the command isn't
+      // registered). Degrade to the same "found nothing" outcome rather
+      // than surfacing a discovery failure as a field error; the field
+      // still works via manual entry either way.
+      console.error('[proxyUpstream] discovery failed:', err);
+      discoveryState.value = { kind: 'none' };
+    }
+  }
 
   async function load(): Promise<void> {
     if (!IS_TAURI) return; // Inert outside Tauri — see module doc comment.
@@ -101,6 +204,9 @@ export function useProxyUpstreamSetting(): ProxyUpstreamSetting {
       console.error('[proxyUpstream] failed to load the stored setting:', err);
     } finally {
       loading.value = false;
+    }
+    if (shouldAutoDiscover(info.value)) {
+      await discover();
     }
   }
 
@@ -133,9 +239,15 @@ export function useProxyUpstreamSetting(): ProxyUpstreamSetting {
       // error the draft doesn't actually have.
       return { ok: false, errorKey: 'proxyUpstream.error.saveFailed' };
     }
+    // A persisted value is authoritative regardless of how the draft
+    // got there (typed, or picked from a discovery result) — clear any
+    // stale discovery notice/picker so it doesn't linger after a
+    // successful save. `load()` below won't re-derive this: `stored` is
+    // now non-null, so `shouldAutoDiscover` stays false.
+    discoveryState.value = { kind: 'idle' };
     await load(); // Re-fetch so `info`/`draft` reflect the just-saved state.
     return { ok: true };
   }
 
-  return { isTauri: IS_TAURI, loading, info, draft, load, save };
+  return { isTauri: IS_TAURI, loading, info, draft, discoveryState, load, discover, save };
 }
