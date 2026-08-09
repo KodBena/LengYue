@@ -618,12 +618,22 @@ function rowTitle(idx: number): string {
   outline: 2px solid var(--accent-primary);
   outline-offset: -2px;
 }
-/* Selection highlight: only the background changes. Forcing a
-   foreground colour against the accent-primary substrate produced
-   a low-contrast grey-on-blue that was hard to read; inheriting
-   the default body text colour keeps readability constant
-   between selected and unselected rows. */
-.library-row.selected { background: var(--accent-primary); }
+/* Selection highlight (audit L11 / ledger row 1018). The prior
+   comment here claimed inheriting the default body text colour
+   "keeps readability constant between selected and unselected rows"
+   — it does not: inheriting swaps one contrast failure (a forced
+   grey-on-blue, per the prior comment) for another and moves it into
+   a different theme. Measured: in `cluster`, the inherited body
+   colour (--text-1, cluster-12-4 purple) against --accent-primary
+   (cluster-12-2 sky blue) is ~7.74:1 — passes, fine to keep. In
+   `dark`, the inherited body colour (--text-0, #fff — <body> sets no
+   --text-1 override so this is what actually inherits) against
+   --accent-primary (#4aaef0) is ~2.44:1 — the measured failure.
+   `--text-on-accent` (theme.css) is a category-correct, theme-aware
+   role-alias token minted for exactly this role — "dark text on a
+   light accent chip" — with a real value in both palettes; see
+   theme.css's own definition for the derivation. */
+.library-row.selected { background: var(--accent-primary); color: var(--text-on-accent); }
 .library-row.loading { opacity: 0.5; }
 .td {
   white-space: nowrap;

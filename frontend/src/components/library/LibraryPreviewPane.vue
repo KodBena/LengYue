@@ -168,5 +168,19 @@ const scrubMax = computed(() => props.preview.totalMoves.value);
   cursor: pointer;
 }
 .preview-btn:hover { border-color: var(--accent-primary); }
-.preview-btn.primary { background: var(--accent-primary); color: var(--surface-1); border-color: var(--accent-primary); }
+/* Audit L10 / ledger row 1018 (amended row 1144): `color:
+ * var(--surface-1)` was a surface token used as a foreground — the
+ * named category-inversion defect (CLAUDE.md TOKEN LAW, rows 681/742)
+ * — measuring 1.84:1 in `cluster` (--surface-1 resolves to taupe
+ * there). `--text-on-accent` (theme.css) is a purpose-built,
+ * theme-aware role-alias token for exactly this role — text sitting
+ * directly on an --accent-primary fill — with its own category-correct
+ * value in each palette (dark: 5.18:1; cluster: 7.74:1; see theme.css's
+ * definition for the full derivation). No per-theme override needed
+ * here: the token itself already resolves correctly per theme. */
+.preview-btn.primary {
+  background: var(--accent-primary);
+  color: var(--text-on-accent);
+  border-color: var(--accent-primary);
+}
 </style>
