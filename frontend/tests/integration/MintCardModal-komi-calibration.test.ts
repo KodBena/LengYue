@@ -73,8 +73,14 @@ async function openModal(boardId: BoardId) {
 }
 
 describe('MintCardModal — komi calibration (single-card / degenerate batch)', () => {
-  it('runs calibration, adjusts komi, logs a batch-of-1 summary, then mints', async () => {
+  it('runs calibration, adjusts komi, logs a batch-of-1 summary, then mints (ledger row 1146: TT board rounds to integer)', async () => {
     store.engine.status = 'connected';
+    // The default board (`store.boards[0]`, seeded via `createInitialBoard`)
+    // carries `RU: ['Tromp-Taylor']` — `calibrateKomiOnDraft` now routes
+    // `calibrate`'s half-integer wire result (10.5) through
+    // `normalizeKomiForRuleset` against the CARD's own ruleset before
+    // writing it (ledger row 1146), so the persisted KM is the rounded
+    // integer 11, not the raw wire value.
     calibrate.mockResolvedValue({ evenKomi: 10.5, scoreLeadBlackPositive: 4, rawEvenKomi: 10.5, clamped: false });
 
     const boardId = store.boards[0].id as BoardId;
@@ -90,10 +96,32 @@ describe('MintCardModal — komi calibration (single-card / degenerate batch)', 
     expect(calibrate).toHaveBeenCalledTimes(1);
     expect(fakeBackendService.createCardsBatch).toHaveBeenCalledTimes(1);
     const payload = fakeBackendService.createCardsBatch.mock.calls[0][0] as { cards: Array<{ raw_content: string }> };
-    expect(payload.cards[0].raw_content).toContain('KM[10.5]');
+    expect(payload.cards[0].raw_content).toContain('KM[11]');
+    expect(payload.cards[0].raw_content).not.toContain('KM[10.5]');
 
     const infos = store.engine.messages.filter(m => m.type === 'info');
     expect(infos.some(m => m.text.includes('1'))).toBe(true); // batch-of-1 summary names the count
+
+    removeSelectionSlot(boardId);
+  });
+
+  it('a NON-Tromp-Taylor board keeps calibration\'s half-integer result unchanged (ledger row 1146)', async () => {
+    store.engine.status = 'connected';
+    // Same calibration result (10.5) as the TT case above, but the
+    // board's ruleset is Chinese (half-integer domain) — the written
+    // komi must NOT be rounded to an integer.
+    const root = store.boards[0].nodes[store.boards[0].rootNodeId];
+    root.properties = { ...root.properties, RU: ['Chinese'] };
+    calibrate.mockResolvedValue({ evenKomi: 10.5, scoreLeadBlackPositive: 4, rawEvenKomi: 10.5, clamped: false });
+
+    const boardId = store.boards[0].id as BoardId;
+    const wrapper = await openModal(boardId);
+    await wrapper.find('.calibrate-checkbox').setValue(true);
+    await wrapper.find('.btn-submit').trigger('click');
+    await flushPromises();
+
+    const payload = fakeBackendService.createCardsBatch.mock.calls[0][0] as { cards: Array<{ raw_content: string }> };
+    expect(payload.cards[0].raw_content).toContain('KM[10.5]');
 
     removeSelectionSlot(boardId);
   });
@@ -147,7 +175,7 @@ describe('MintCardModal — komi calibration (single-card / degenerate batch)', 
 });
 
 describe('MintCardModal — komi calibration applied per-card across a real batch (ledger row 1063)', () => {
-  it('calibrates EVERY card in a 2-node batch, each to its own position, in one wire call', async () => {
+  it('calibrates EVERY card in a 2-node batch, each to its own position, in one wire call (ledger row 1146: TT board rounds each to integer)', async () => {
     store.engine.status = 'connected';
     const { board, child } = boardWithChild();
     addBoard(board);
@@ -157,6 +185,9 @@ describe('MintCardModal — komi calibration applied per-card across a real batc
     fakeBackendService.createCardsBatch.mockResolvedValue([701, 702]);
 
     // Two DIFFERENT results, keyed by call order (root is preorder-first).
+    // `boardWithChild` builds off `createInitialBoard` — Tromp-Taylor —
+    // so both written komis are rounded to the nearest integer: 5.5 -> 6,
+    // 8 is already an integer and passes through unchanged.
     calibrate
       .mockResolvedValueOnce({ evenKomi: 5.5, scoreLeadBlackPositive: -1, rawEvenKomi: 5.5, clamped: false })
       .mockResolvedValueOnce({ evenKomi: 8, scoreLeadBlackPositive: 1.5, rawEvenKomi: 8, clamped: false });
@@ -174,7 +205,7 @@ describe('MintCardModal — komi calibration applied per-card across a real batc
 
     const payload = fakeBackendService.createCardsBatch.mock.calls[0][0] as { cards: Array<{ raw_content: string }> };
     expect(payload.cards).toHaveLength(2);
-    expect(payload.cards[0].raw_content).toContain('KM[5.5]');
+    expect(payload.cards[0].raw_content).toContain('KM[6]');
     expect(payload.cards[1].raw_content).toContain('KM[8]');
 
     const infos = store.engine.messages.filter(m => m.type === 'info');

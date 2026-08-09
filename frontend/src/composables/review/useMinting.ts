@@ -6,13 +6,13 @@
 
 import { store } from '../../store';
 import { setSgfRootKomi } from '../../engine/sgf-writer';
-import { resolveGameName } from '../../engine/util';
+import { resolveGameName, getRulesetResolution } from '../../engine/util';
 import { compileAnalysisConfig, compileEngineOverrides } from '../../state/analysis-config';
 import { learnTags } from '../cards/useTags';
 import { useKomiCalibration } from './useKomiCalibration';
 import { useKnownPositions } from '../cards/useKnownPositions';
 import { backendService } from '../../services/backend-service';
-import type { KomiCalibrationResult } from '../../engine/katago/komi-calibration';
+import { normalizeKomiForRuleset, type KomiCalibrationResult } from '../../engine/katago/komi-calibration';
 import type { BuildBatchMintPayloadResult } from '../cards/batch-mint-core';
 import { ref } from 'vue';
 import type {
@@ -210,13 +210,28 @@ export function useMinting() {
    * loudly. There is no silent fallback to an uncalibrated mint.
    *
    * Returns the calibration result so the caller can report the komi set
-   * (and whether it was clamped) in the system log. `evenKomi` is
-   * already rounded to the nearest half-integer and clamped to KataGo's
-   * accepted [-150, 150] range (`engine/katago/komi-calibration.ts`) —
-   * one evaluation, one round, one clamp; never a search/loop for a
-   * closer-than-0.5 result (KataGo's own wire constraint makes ~0.5
-   * point from even the best achievable — never promised or chased
-   * further).
+   * (and whether it was clamped) in the system log. `calibrate`'s own
+   * `evenKomi` is rounded to the nearest half-integer and clamped to
+   * KataGo's accepted [-150, 150] wire range
+   * (`engine/katago/komi-calibration.ts`) — that leg is the general
+   * wire-safety constraint, uniform across rulesets, and is untouched
+   * here.
+   *
+   * **Ledger row 1146 (review correction):** the value actually WRITTEN
+   * to `target.raw_content` is that `evenKomi` normalized ONE MORE step
+   * through `normalizeKomiForRuleset` against `board`'s own ruleset —
+   * `target`'s SGF is `serializeActivePath(board, targetNodeId)`'s
+   * output (root→target path off THIS SAME board's single root), so
+   * the card's ruleset is by construction identical to `board`'s; no
+   * separate per-card RU exists to read. Without this leg, a
+   * Tromp-Taylor card could be minted with a half-integer komi (e.g.
+   * `KM[10.5]`) straight off the wire-safety rounding, reintroducing
+   * exactly the invalid state `board-factory.ts`/`App.vue`'s write-time
+   * normalization exists to keep unrepresentable elsewhere. The
+   * returned result's `evenKomi` is the value actually written (so a
+   * caller reading it back never sees a stale pre-ruleset-round
+   * number); `clamped` still reports the ORIGINAL wire-range clamp only
+   * — a ruleset-domain rounding is not a range clamp.
    */
   async function calibrateKomiOnDraft(
     boardId: BoardId,
@@ -230,8 +245,10 @@ export function useMinting() {
     }
     const { calibrate } = useKomiCalibration();
     const result = await calibrate({ board, maxVisits: visits, targetNodeId });
-    target.raw_content = setSgfRootKomi(target.raw_content, result.evenKomi);
-    return result;
+    const ruleset = getRulesetResolution(board).name;
+    const cardKomi = normalizeKomiForRuleset(result.evenKomi, ruleset);
+    target.raw_content = setSgfRootKomi(target.raw_content, cardKomi);
+    return { ...result, evenKomi: cardKomi };
   }
 
   /**
