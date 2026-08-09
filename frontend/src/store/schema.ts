@@ -33,7 +33,7 @@ import type { AnalysisEnvironment } from '../types/analysis-env';
 import type { KnobRegistry } from '../types/knobs';
 import type { CardSet, ReviewSessionData } from '../types/cards';
 import type { QeuboBookmark } from '../types/qeubo';
-import type { WorkspaceLoadState } from '../types/app';
+import type { WorkspaceLoadState, WorkspaceSaveState } from '../types/app';
 // PV animation settings shape — `UISession.pvAnimation` references
 // the composable-owned alias (same relationship as pre-split).
 import type { PvAnimationSettings } from '../composables/board/use-pv-animation';
@@ -999,4 +999,11 @@ export interface GlobalStore {
   // loading/error state) are rendered. See `types/app.ts` for the
   // full lifecycle doc.
   workspaceLoadState: WorkspaceLoadState;
+  // Debounced-PUT save lifecycle (menus-ui audit finding M14). NON-
+  // PERSISTED, same rationale as `workspaceLoadState`: it describes
+  // this session's outstanding-write fact, not user data. Owned by
+  // `SyncService`; `App.vue` renders it as a persistent, non-blocking
+  // banner (unlike the load gate, it must not withhold the workspace
+  // surfaces). See `types/app.ts` for the full lifecycle doc.
+  workspaceSaveState: WorkspaceSaveState;
 }

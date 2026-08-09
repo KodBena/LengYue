@@ -149,6 +149,11 @@ export const store = reactive<GlobalStore>({
   // workspace as if it were the real one before SyncService's hydrate
   // (or its "nothing to fetch" resolution) has run at least once.
   workspaceLoadState: { kind: 'loading' },
+  // Debounced-PUT save lifecycle (menus-ui audit finding M14). Starts
+  // 'synced': nothing has been written yet, so there is nothing
+  // outstanding to report as failed. See GlobalStore's field comment
+  // and types/app.ts for the full lifecycle.
+  workspaceSaveState: { kind: 'synced' },
   session: {
     // NIL-UUID sentinels minted as the session/profile brands: the pre-auth
     // placeholder identity, replaced on login (brand mint at sentinels).
@@ -816,6 +821,10 @@ export function resetWorkspace(): void {
   // fetch) and the perf-scenario harness's direct calls — either way
   // a stale 'loading'/'error' state must not survive a reset.
   store.workspaceLoadState = { kind: 'loaded' };
+  // The outgoing identity's outstanding-save-failure fact (if any) does
+  // not carry over to the next identity / logged-out state — there is
+  // no pending write for a workspace that was just reset to its default.
+  store.workspaceSaveState = { kind: 'synced' };
   store.session = {
     id: NIL_UUID as SessionId, // NIL-UUID brand mint (logged-out sentinel)
     profileId: NIL_UUID as ProfileId, // NIL-UUID brand mint (logged-out sentinel)

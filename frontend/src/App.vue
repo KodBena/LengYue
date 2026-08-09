@@ -531,6 +531,30 @@ const activeTab = computed<string>({
           </div>
         </div>
 
+        <!-- Save-failure banner (menus-ui audit M14): the write-path
+             counterpart of the #workspace-boot-state error leg below,
+             same idiom (role="alert", plain-language message, explicit
+             Retry) but non-blocking — a failed write must not withhold
+             the workspace the user is still actively editing, only
+             announce that the last write to it didn't land.
+             `store.workspaceSaveState` is SyncService's one home for
+             this fact (see types/app.ts); it persists across further
+             local edits and clears only on the next successful PUT,
+             never on a timer, so it can't disappear while the failure
+             is still live. Retry is manual (`sync.retrySave()`),
+             matching the load-error banner's own idiom below rather
+             than introducing a second recovery model in the same app. -->
+        <div
+          v-if="store.workspaceSaveState.kind === 'error'"
+          id="workspace-save-banner"
+          role="alert"
+        >
+          <span class="save-banner-text">{{ $t('app.workspace.saveFailed') }}</span>
+          <button class="action-btn-large" style="width: auto; padding-left: var(--space-medium); padding-right: var(--space-medium);" @click="sync.retrySave()">
+            {{ $t('app.workspace.retry') }}
+          </button>
+        </div>
+
         <!-- Persistent system-log bar. Visible when either:
                (a) `systemLogExpanded` is checked in the Session (UI)
                    registry — the always-on case, or
@@ -969,6 +993,29 @@ const activeTab = computed<string>({
   gap: var(--space-default);
   color: var(--text-2); font-size: var(--text-emphasis);
 }
+
+/* Save-failure banner (menus-ui audit M14). Slim, non-blocking strip —
+   contrast with #workspace-boot-state's error leg, which replaces the
+   whole workspace because there is nothing to show yet; here the
+   workspace IS showing and stays interactive, so this only occupies
+   its own row. Background matches SystemLogPanel.vue:108's `.msg-error`
+   treatment EXACTLY — `--state-attention` mixed with `transparent`, not
+   `--surface-1` (review correction: `--surface-1` is exception-only in
+   this SPA and reads low-contrast under the cluster palette; the prior
+   annotation here claimed SystemLogPanel parity while actually mixing
+   against `--surface-1`, which it does not). `--state-attention` alone
+   is still the token that names "this is a failure" everywhere in the
+   app. */
+#workspace-save-banner {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-default);
+  padding: var(--space-tight) var(--space-medium);
+  background: color-mix(in srgb, var(--state-attention) 12%, transparent);
+  border-bottom: 1px solid var(--state-attention);
+  color: var(--text-0);
+}
+.save-banner-text { font-size: var(--text-body); }
 .workspace-boot-spinner {
   width: 20px; height: 20px; border-radius: 50%;
   border: 3px solid var(--surface-2); border-top-color: var(--accent-primary);

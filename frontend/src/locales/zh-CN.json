@@ -14,6 +14,7 @@
   "app.workspace.loading":                "正在加载工作区…",
   "app.workspace.loadFailed":             "工作区加载失败。未发生任何更改或丢失。",
   "app.workspace.retry":                  "重试",
+  "app.workspace.saveFailed":             "保存更改失败。请重试。",
 
   "dialogs.confirm.defaultConfirm":       "OK",
   "dialogs.confirm.defaultCancel":        "Cancel",
