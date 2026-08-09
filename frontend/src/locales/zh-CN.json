@@ -437,5 +437,15 @@
   "cardTree.header.unknownPlayer":        "?",
   "cardTree.header.versus":               "{black} 对 {white}",
   "cardTree.header.counts":               "{rendered} 已渲染 · {total} 总计",
-  "cardTree.header.countsWithActive":     "{rendered} 已渲染 · {total} 总计 · {active} 活动"
+  "cardTree.header.countsWithActive":     "{rendered} 已渲染 · {total} 总计 · {active} 活动",
+
+  "wizard.palette.basicGroupAriaLabel":   "调色板风格",
+  "wizard.palette.basic.traditional.label": "传统/严格(我偏好基于分数的视角)",
+  "wizard.palette.basic.fuzzy.label":     "模糊/宽松(我偏好统计意义上的精度评估)",
+  "wizard.palette.advancedToggle":        "高级:自由选择调色板",
+  "wizard.palette.aggregation.label":     "分数汇总方式:",
+  "wizard.palette.aggregation.mean":      "平均值",
+  "wizard.palette.aggregation.min":       "最小值",
+  "wizard.palette.aggregation.median":    "中位数",
+  "wizard.palette.aggregation.custom":    "自定义"
 }
