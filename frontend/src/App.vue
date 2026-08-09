@@ -998,15 +998,20 @@ const activeTab = computed<string>({
    contrast with #workspace-boot-state's error leg, which replaces the
    whole workspace because there is nothing to show yet; here the
    workspace IS showing and stays interactive, so this only occupies
-   its own row. `--state-attention` matches SystemLogPanel's own
-   `.msg-error` treatment — the same token names "this is a failure"
-   everywhere in the app. */
+   its own row. Background matches SystemLogPanel.vue:108's `.msg-error`
+   treatment EXACTLY — `--state-attention` mixed with `transparent`, not
+   `--surface-1` (review correction: `--surface-1` is exception-only in
+   this SPA and reads low-contrast under the cluster palette; the prior
+   annotation here claimed SystemLogPanel parity while actually mixing
+   against `--surface-1`, which it does not). `--state-attention` alone
+   is still the token that names "this is a failure" everywhere in the
+   app. */
 #workspace-save-banner {
   flex-shrink: 0;
   display: flex; align-items: center; justify-content: space-between;
   gap: var(--space-default);
   padding: var(--space-tight) var(--space-medium);
-  background: color-mix(in srgb, var(--state-attention) 12%, var(--surface-1));
+  background: color-mix(in srgb, var(--state-attention) 12%, transparent);
   border-bottom: 1px solid var(--state-attention);
   color: var(--text-0);
 }
