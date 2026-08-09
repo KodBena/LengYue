@@ -13,9 +13,23 @@ import {
   orderSelectionForBatch,
   resolveBatchAncestorRef,
   buildBatchMintPayload,
+  filterUncardedSelection,
+  type UncardedNodeId,
 } from '../../../src/composables/cards/batch-mint-core';
 import { createInitialBoard, asNodeId } from '../../../src/store/board-factory';
-import type { BoardState, GameNode, NodeId } from '../../../src/types';
+import type { BoardState, ContentHash, GameNode, NodeId } from '../../../src/types';
+
+/**
+ * Test-only shortcut: brand a plain `NodeId` set as `UncardedNodeId`
+ * via the REAL constructor (`filterUncardedSelection`) with an empty
+ * known-hashes set, so every id passes through unfiltered. Used by
+ * the `buildBatchMintPayload` tests below, which are about ordering/
+ * parent_ref resolution, not the exclusion filter itself (that has
+ * its own dedicated describe block further down).
+ */
+function asUncarded(ids: NodeId[]): ReadonlySet<UncardedNodeId> {
+  return filterUncardedSelection(new Set(ids), () => undefined, new Set()).ids;
+}
 
 /**
  * Builds a synthetic tree over a fresh `createInitialBoard()` skeleton:
@@ -129,7 +143,7 @@ describe('buildBatchMintPayload — parent_ref resolution end to end', () => {
   it('ancestor-in-selection -> batch_index; not-in-selection -> the fallback (board lineage)', () => {
     const { board, ids } = buildTree();
     // a and c selected; b (c's tree parent) and e are NOT.
-    const selectedNodeIds = new Set<NodeId>([ids.a, ids.c]);
+    const selectedNodeIds = asUncarded([ids.a, ids.c]);
     const result = buildBatchMintPayload({
       board,
       selectedNodeIds,
@@ -156,7 +170,7 @@ describe('buildBatchMintPayload — parent_ref resolution end to end', () => {
 
   it('a root mint (fallbackParentRef null) carries game_metadata only on members with no in-batch ancestor', () => {
     const { board, ids } = buildTree();
-    const selectedNodeIds = new Set<NodeId>([ids.a, ids.b]);
+    const selectedNodeIds = asUncarded([ids.a, ids.b]);
     const gameMetadata = { description: 'g', client_game_id: 'cgid' };
     const result = buildBatchMintPayload({
       board,
@@ -180,7 +194,7 @@ describe('buildBatchMintPayload — parent_ref resolution end to end', () => {
     const { board, ids } = buildTree();
     const result = buildBatchMintPayload({
       board,
-      selectedNodeIds: new Set<NodeId>([ids.d]),
+      selectedNodeIds: asUncarded([ids.d]),
       fallbackParentRef: { card_id: 7 },
       numMoves: 1,
       gradingParameter: null,
@@ -199,7 +213,7 @@ describe('buildBatchMintPayload — parent_ref resolution end to end', () => {
     const { board, ids } = buildTree();
     const result = buildBatchMintPayload({
       board,
-      selectedNodeIds: new Set<NodeId>([ids.b, ids.d]), // siblings — same parent, same move shape
+      selectedNodeIds: asUncarded([ids.b, ids.d]), // siblings — same parent, same move shape
       fallbackParentRef: { card_id: 1 },
       numMoves: 1,
       gradingParameter: null,
@@ -207,5 +221,55 @@ describe('buildBatchMintPayload — parent_ref resolution end to end', () => {
     });
     expect(result.cards).toHaveLength(2);
     expect(result.cards[0].raw_content).toBe(result.cards[1].raw_content);
+  });
+});
+
+describe('filterUncardedSelection — pre-existing-card exclusion (commissioner ruling, ledger row 1063)', () => {
+  const HASH_A = 'hash-a' as ContentHash;
+  const HASH_B = 'hash-b' as ContentHash;
+
+  it('excludes a selected node whose hash IS in the known set', () => {
+    const { ids } = buildTree();
+    const hashOf = (id: NodeId) => (id === ids.a ? HASH_A : undefined);
+    const result = filterUncardedSelection(new Set([ids.a, ids.b]), hashOf, new Set([HASH_A]));
+
+    expect(result.ids.has(ids.a as UncardedNodeId)).toBe(false);
+    expect(result.ids.has(ids.b as UncardedNodeId)).toBe(true);
+    expect(result.excludedAsKnown).toEqual([ids.a]);
+  });
+
+  it('includes a selected node whose hash is NOT in the known set', () => {
+    const { ids } = buildTree();
+    const hashOf = () => HASH_B;
+    const result = filterUncardedSelection(new Set([ids.a]), hashOf, new Set([HASH_A]));
+
+    expect(result.ids.has(ids.a as UncardedNodeId)).toBe(true);
+    expect(result.excludedAsKnown).toEqual([]);
+  });
+
+  it('a cache-miss (hashOf returns undefined) is treated as UNCARDED — included, not excluded (accepted-cost posture, same as useKnownPositionNodes)', () => {
+    const { ids } = buildTree();
+    const result = filterUncardedSelection(new Set([ids.a]), () => undefined, new Set([HASH_A]));
+
+    expect(result.ids.has(ids.a as UncardedNodeId)).toBe(true);
+    expect(result.excludedAsKnown).toEqual([]);
+  });
+
+  it('an entirely-known selection filters down to an empty result — the "nothing left to mint" case', () => {
+    const { ids } = buildTree();
+    const hashOf = () => HASH_A;
+    const result = filterUncardedSelection(new Set([ids.a, ids.b, ids.c]), hashOf, new Set([HASH_A]));
+
+    expect(result.ids.size).toBe(0);
+    expect(result.excludedAsKnown).toEqual([ids.a, ids.b, ids.c]);
+  });
+
+  it('an empty known-hashes set excludes nothing', () => {
+    const { ids } = buildTree();
+    const hashOf = () => HASH_A;
+    const result = filterUncardedSelection(new Set([ids.a, ids.b]), hashOf, new Set());
+
+    expect(result.ids.size).toBe(2);
+    expect(result.excludedAsKnown).toEqual([]);
   });
 });

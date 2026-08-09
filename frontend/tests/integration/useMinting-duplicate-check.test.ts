@@ -43,12 +43,13 @@ vi.mock('../../src/services/backend-service', async () => {
 
 import { useMinting } from '../../src/composables/review/useMinting';
 import { fakeBackendService, resetFakeBackendService } from '../fakes/backend-service';
+import { asNodeId } from '../../src/store/board-factory';
 import {
   recordKnownPosition,
   purgeKnownPositions,
   lookupKnownPosition,
 } from '../../src/state/known-positions';
-import type { CardCreatePayload, CardId, ContentHash } from '../../src/types';
+import type { CardId, ContentHash } from '../../src/types';
 
 const KNOWN_HASH = 'a'.repeat(64) as ContentHash;
 const NOVEL_HASH = 'b'.repeat(64) as ContentHash;
@@ -117,47 +118,62 @@ describe('useMinting — duplicate-position check', () => {
   });
 });
 
-describe('useMinting — commitMint remembers the minted card (state-module refresh on mint)', () => {
+// Batch card-minting affordance (ledger rows 926/957/1008): `commitMint`
+// was retired (no caller remained once `MintCardModal.vue` folded onto
+// the single `commitMintBatch` path) — this coverage now exercises
+// `commitMintBatch`'s identical best-effort known-positions recording,
+// a batch of one card being the exact shape `MintCardModal`'s
+// degenerate empty-selection case sends.
+describe('useMinting — commitMintBatch remembers minted cards (state-module refresh on mint)', () => {
   it('records the newly-minted card in known-positions without a re-fetch', async () => {
     const NEW_CARD_ID = 99;
-    fakeBackendService.createCard.mockResolvedValue(NEW_CARD_ID);
+    fakeBackendService.createCardsBatch.mockResolvedValue([NEW_CARD_ID]);
     fakeBackendService.hashPosition.mockResolvedValue(NOVEL_HASH);
 
-    const { commitMint } = useMinting();
-    const payload: CardCreatePayload = {
-      raw_content: '(;FF[4]SZ[19];B[pd])',
-      num_moves: 5,
-      tags: [],
-      grading_parameter: { data: { default_visits: 1000 } },
-      game_metadata: {},
+    const { commitMintBatch } = useMinting();
+    const items = {
+      cards: [{
+        raw_content: '(;FF[4]SZ[19];B[pd])',
+        num_moves: 5,
+        tags: [] as string[],
+        grading_parameter: { data: { default_visits: 1000 } },
+        parent_ref: null,
+        game_metadata: {},
+      }],
+      nodeOrder: [asNodeId('n1')],
     };
 
     expect(lookupKnownPosition(NOVEL_HASH)).toBeUndefined();
 
-    const returnedId = await commitMint(payload);
+    const returnedIds = await commitMintBatch(items);
 
-    expect(returnedId).toBe(NEW_CARD_ID);
+    expect(returnedIds).toEqual([NEW_CARD_ID]);
     expect(lookupKnownPosition(NOVEL_HASH)).toBe(NEW_CARD_ID as unknown as CardId);
   });
 
   it('a subsequent duplicate check against the just-minted content finds it immediately', async () => {
-    fakeBackendService.createCard.mockResolvedValue(7);
+    fakeBackendService.createCardsBatch.mockResolvedValue([7]);
     fakeBackendService.hashPosition.mockResolvedValue(NOVEL_HASH);
 
-    const { commitMint, checkDuplicate, duplicateCardId } = useMinting();
-    const payload: CardCreatePayload = {
-      raw_content: '(;FF[4]SZ[19];B[pd])',
-      num_moves: 5,
-      tags: [],
-      grading_parameter: { data: { default_visits: 1000 } },
-      game_metadata: {},
+    const { commitMintBatch, checkDuplicate, duplicateCardId } = useMinting();
+    const rawContent = '(;FF[4]SZ[19];B[pd])';
+    const items = {
+      cards: [{
+        raw_content: rawContent,
+        num_moves: 5,
+        tags: [] as string[],
+        grading_parameter: { data: { default_visits: 1000 } },
+        parent_ref: null,
+        game_metadata: {},
+      }],
+      nodeOrder: [asNodeId('n1')],
     };
-    await commitMint(payload);
+    await commitMintBatch(items);
 
     // A second mint attempt from the identical content now finds the
     // one just created, without any additional network fetch through
     // mapToReviewCard.
-    await checkDuplicate(payload.raw_content);
+    await checkDuplicate(rawContent);
     expect(duplicateCardId.value).toBe(7 as unknown as CardId);
   });
 });

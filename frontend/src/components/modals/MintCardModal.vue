@@ -10,18 +10,19 @@ import { store, pushSystemMessage } from '../../store';
 import { useMinting, compileMintGradingParameter, resolveBoardLineageAsBatchFallback } from '../../composables/review/useMinting';
 import { useMetadata } from '../../composables/auth-app/useMetadata';
 import { getSelectedNodeIds, removeFromSelection } from '../../composables/cards/mint-selection';
-import { buildBatchMintPayload } from '../../composables/cards/batch-mint-core';
+import { buildBatchMintPayload, filterUncardedSelection } from '../../composables/cards/batch-mint-core';
+import { getCachedNodeHash } from '../../state/node-position-hashes';
+import { getKnownPositionHashes } from '../../state/known-positions';
+import { serializeActivePath } from '../../engine/sgf-writer';
 import { useModalKeyboard } from '../../composables/useModalKeyboard';
 import { useAppDialogs } from '../../composables/useAppDialogs';
-import type { BoardId, CardCreatePayload, NodeId } from '../../types';
+import type { BoardId, NodeId } from '../../types';
 import { INTERACTION_DISMISS_DELAY_MS } from '../../lib/timing';
 
 const { t } = useI18n();
 const dialogs = useAppDialogs();
 const {
-  prepareDraft,
   calibrateKomiOnDraft,
-  commitMint,
   commitMintBatch,
   checkDuplicate,
   resetDuplicateCheck,
@@ -32,27 +33,42 @@ const {
 const isOpen = ref(false);
 const modalContentRef = ref<HTMLElement | null>(null);
 const isLoading = ref(false);
-const draft = ref<CardCreatePayload | null>(null);
-// The board this draft was prepared from — retained so the
-// komi-calibration evaluation (run at submit) can re-read the board's
-// position. Set in `open`, cleared in `close`.
 const draftBoardId = ref<BoardId | null>(null);
 
 // ── Batch card-minting affordance (commissioner-designed, ledger rows
-//    926/957/1008) ────────────────────────────────────────────────────
+//    926/957/1008) — ONE code path, not two ─────────────────────────────
 //
-// "Mint card(s)": a non-empty mint-selection at `open()` time switches
-// this SAME modal into batch mode — a snapshot of the selected
-// NodeIds, `null` in the (today's, unchanged) single-mint case. The
-// single mint is the empty-selection DEGENERATE case of the batch (one
-// code path for the shared settings — visits/gamma/palette/tags — that
-// apply uniformly to every card in a batch, same as a single mint's
-// own draft); only the wire call and a few batch-incompatible controls
-// (duplicate check, komi calibration — both inherently single-position)
-// branch on `isBatchMint`.
-const batchNodeIds = ref<ReadonlySet<NodeId> | null>(null);
-const isBatchMint = computed(() => batchNodeIds.value !== null);
-const batchCount = computed(() => batchNodeIds.value?.size ?? 0);
+// "Mint card(s)": `mintNodeIds` is the set of positions THIS submit
+// will mint — ALWAYS non-empty, ALWAYS resolved at `open()` time, and
+// ALWAYS minted through the SAME single call, `commitMintBatch`
+// (`POST /cards/batch`). An empty mint-selection at open() time
+// resolves to a one-element Set of the board's current node — "nothing
+// marked IMPLIES the current node is marked" (commissioner's wording).
+// There is no separate size-based branch to the OLD single-item
+// `POST /cards/` endpoint anywhere in this file; `useMinting.
+// commitMint`/`prepareDraft` were retired along with that second path
+// (no other caller remained — see the closing report).
+//
+// `isSingleCard` gates ONLY the duplicate-check control, which is
+// inherently single-position (a batch of N has N positions to check,
+// out of this build's scope) — never the wire call itself, which is
+// always `commitMintBatch` regardless of size. Komi calibration is
+// NOT gated on size (commissioner ruling, ledger row 1063): it applies
+// to EVERY card in the batch, each calibrated to its OWN position —
+// see the `calibrateKomi`/`submit()` per-card loop below.
+const mintNodeIds = ref<ReadonlySet<NodeId>>(new Set());
+const isSingleCard = computed(() => mintNodeIds.value.size === 1);
+const mintCount = computed(() => mintNodeIds.value.size);
+
+// Shared draft settings (num_moves / grading_parameter / tags) applied
+// uniformly to every card in the batch, degenerate size-1 batch
+// included — replaces the old per-single-mint `draft` object.
+interface SharedDraft {
+  num_moves: number;
+  grading_parameter: Record<string, unknown> | null;
+  tags: string[];
+}
+const draft = ref<SharedDraft | null>(null);
 
 // Tag Input State
 const tagInput = ref('');
@@ -72,15 +88,24 @@ const engineConnected = computed(() => store.engine.status === 'connected');
 const calibrateKomi = ref(false);
 const calibrationVisits = ref<number>(store.profile.settings.engine.katago.calibrationVisits);
 
+const activeBoard = computed(() => draftBoardId.value ? store.boards.find(b => b.id === draftBoardId.value) : undefined);
+
+// Single-card lineage display (the `isSingleCard` template branch) —
+// mirrors the board-level XOR rule `resolveBoardLineage` applies for
+// the wire payload; display-only here (the actual wire `parent_ref`
+// for the batch is resolved independently, per node, in `submit()`).
+const singleCardParentId = computed(() => activeBoard.value?.sourceCardId);
+
 const palettes = computed(() => store.profile.settings.engine.katago.analysis_env.palettes);
 
 // Typed accessors for the two editable fields inside `grading_parameter`.
 // The wire shape declares `grading_parameter: { [key: string]: unknown } | null`
-// (OpenAPI-honest about the blob's opacity), but `useMinting.prepareDraft`
-// populates `data.default_visits: number` and `data.gamma: number` before
-// the modal renders, and the modal's contract is to surface those two
-// fields as editable. The localized casts widen at the access boundary;
-// the rest of the blob stays opaque. Read-side counterparts are the
+// (OpenAPI-honest about the blob's opacity), but `open()` (below)
+// populates `data.default_visits: number` and `data.gamma: number` via
+// `compileMintGradingParameter` before the modal renders, and the
+// modal's contract is to surface those two fields as editable. The
+// localized casts widen at the access boundary; the rest of the blob
+// stays opaque. Read-side counterparts are the
 // `readGradingParam<number>` calls in
 // `services/backend-service.ts::mapToReviewCard`.
 const defaultVisits = computed<number>({
@@ -131,57 +156,43 @@ const filteredTags = computed(() => {
 
 defineExpose({
   async open(boardId: BoardId) {
+    const board = store.boards.find(b => b.id === boardId);
+    if (!board) return;
+
     selectedPaletteId.value = store.profile.settings.minting.defaultPaletteId;
 
+    // "Nothing marked IMPLIES the current node is marked" — the ONLY
+    // place this resolution happens; every downstream step (settings,
+    // duplicate check, calibration gating, submit) reads `mintNodeIds`,
+    // never re-branches on "was there a selection."
     const selection = getSelectedNodeIds(boardId);
-    if (selection.size > 0) {
-      // Batch mode: a snapshot, not a live reference — the draft's
-      // shared settings (visits/gamma/palette/tags) apply uniformly to
-      // every card in the batch; `submit()` re-derives the per-node
-      // raw_content/parent_ref from the LIVE board + this snapshot at
-      // submit time (`buildBatchMintPayload`), never from `draft.value`
-      // itself (which carries no `raw_content` in batch mode).
-      batchNodeIds.value = new Set(selection);
-      draft.value = {
-        raw_content: '',
-        num_moves: store.profile.settings.minting.defaultNumMoves,
-        grading_parameter: compileMintGradingParameter(),
-        tags: [],
-        parent_card_id: undefined,
-        game_metadata: undefined,
-      };
-      draftBoardId.value = boardId;
-      isOpen.value = true;
-      tagInput.value = '';
-      // Komi calibration and the duplicate-position check are both
-      // inherently single-position mechanisms — neither generalizes to
-      // "N selected positions at once" in this build; both stay off in
-      // batch mode (the checkbox/section is hidden in the template).
-      calibrateKomi.value = false;
-      resetDuplicateCheck();
-      return;
-    }
+    mintNodeIds.value = selection.size > 0 ? new Set(selection) : new Set([board.currentNodeId]);
 
-    // Empty selection: today's single-mint behavior, unchanged.
-    batchNodeIds.value = null;
-    draft.value = await prepareDraft(boardId);
-    if (draft.value) {
-      draftBoardId.value = boardId;
-      isOpen.value = true;
-      tagInput.value = '';
-      // Reset calibration to its opt-in default each open; prefill the
-      // visits input from the current setting (per-mint edits don't
-      // write back).
-      calibrateKomi.value = false;
-      calibrationVisits.value = store.profile.settings.engine.katago.calibrationVisits;
+    draft.value = {
+      num_moves: store.profile.settings.minting.defaultNumMoves,
+      grading_parameter: compileMintGradingParameter(),
+      tags: [],
+    };
+    draftBoardId.value = boardId;
+    isOpen.value = true;
+    tagInput.value = '';
 
-      // card-position-annotations Stage A: fire the duplicate-position
-      // check without awaiting it — the modal must render immediately
-      // with the draft; the warning box appears once the async check
-      // settles (checkDuplicate manages its own 'checking' -> 'checked'
-      // transition, which the template reads reactively).
-      resetDuplicateCheck();
-      void checkDuplicate(draft.value.raw_content);
+    // Reset calibration to its opt-in default each open; prefill the
+    // visits input from the current setting (per-mint edits don't
+    // write back). Batch-wide (ledger row 1063) — offered whenever an
+    // engine is connected, regardless of `mintNodeIds`'s size.
+    calibrateKomi.value = false;
+    calibrationVisits.value = store.profile.settings.engine.katago.calibrationVisits;
+
+    // card-position-annotations Stage A: duplicate-position check —
+    // only meaningful for a single card (a batch of N has N positions
+    // to check, out of scope for this build's duplicate-warning UI).
+    // Fired without awaiting — the modal must render immediately;
+    // the warning box appears once the async check settles.
+    resetDuplicateCheck();
+    if (mintNodeIds.value.size === 1) {
+      const [nodeId] = mintNodeIds.value;
+      void checkDuplicate(serializeActivePath(board, nodeId));
     }
   }
 });
@@ -190,7 +201,7 @@ function close() {
   isOpen.value = false;
   draft.value = null;
   draftBoardId.value = null;
-  batchNodeIds.value = null;
+  mintNodeIds.value = new Set();
   resetDuplicateCheck();
 }
 
@@ -304,7 +315,7 @@ async function submit() {
       // Local cast at the read site: the wire shape's `grading_parameter`
       // is `{[key: string]: unknown} | null`; the create-flow contract
       // populates `data.default_visits` and `data.gamma` (see
-      // `useMinting.prepareDraft`).
+      // `compileMintGradingParameter`, called from `open()` above).
       const gp = draft.value.grading_parameter as
         | { data?: { default_visits?: number; gamma?: number } }
         | null;
@@ -324,101 +335,132 @@ async function submit() {
     }
   }
 
-  // Batch branch (non-empty selection at open() time): ONE
-  // `POST /cards/batch` call, no komi calibration (inherently
-  // single-position — see the `batchNodeIds`/`isBatchMint` doc
-  // comment above), no per-mint calibration bookkeeping to attribute a
-  // failure to.
-  if (isBatchMint.value && batchNodeIds.value && draftBoardId.value) {
-    const boardIdForBatch = draftBoardId.value;
-    try {
-      const board = store.boards.find(b => b.id === boardIdForBatch);
-      if (!board) throw new Error(`Mint card(s): board ${boardIdForBatch} not found.`);
-      const boardRef = computed(() => board);
-      const metadata = useMetadata(boardRef).value;
-      const { fallbackParentRef, fallbackGameMetadata } = resolveBoardLineageAsBatchFallback(board, metadata);
-      const built = buildBatchMintPayload({
-        board,
-        selectedNodeIds: batchNodeIds.value,
-        fallbackParentRef,
-        fallbackGameMetadata,
-        numMoves: draft.value.num_moves,
-        gradingParameter: draft.value.grading_parameter as Record<string, unknown> | null,
-        tags: draft.value.tags,
-      });
-      await commitMintBatch(built);
-      // Lifecycle: a successful mint clears ONLY the minted entries —
-      // any node selected AFTER the draft opened stays selected.
-      removeFromSelection(boardIdForBatch, built.nodeOrder);
-      close();
-    } catch (err) {
-      console.error('[Minting] Failed to create card batch:', err);
-      // A failed batch is transactional (backend rolls back the whole
-      // request) — the selection is left INTACT (no removeFromSelection
-      // call above this catch), so the user can retry unchanged.
-      void dialogs.alert({
-        title: t('mint.alert.failed', { err: String(err) }),
-        message: t('mint.alert.failedRemediation'),
-      });
-    } finally {
-      isLoading.value = false;
-    }
-    return;
-  }
+  // ONE code path: always builds and sends exactly one
+  // `POST /cards/batch` call (`commitMintBatch`) for the UNCARDED
+  // subset of `mintNodeIds` — whether that's the N nodes the user
+  // ctrl+clicked, or the one-element degenerate Set `open()` resolved
+  // from an empty selection. There is no size-based branch to a second
+  // wire call.
+  if (!draftBoardId.value) { isLoading.value = false; return; }
+  const boardIdForMint = draftBoardId.value;
 
   // Tracks whether a requested calibration is still the in-flight step,
   // so the catch can attribute the failure correctly: a throw while this
   // is true is a CALIBRATION failure (calibration-failed message); a
-  // throw after it clears came from `commitMint` (mint-failed alert only).
+  // throw after it clears came from the mint itself (mint-failed alert
+  // only).
   let calibrationPending = false;
   try {
-    // Komi calibration (opt-in). Runs a fresh bounded evaluation and
-    // rewrites the draft's SGF komi so the minted card stores the
-    // even-game komi. If the evaluation fails (engine disconnect,
-    // error packet, timeout), `calibrateKomiOnDraft` throws and we
-    // ABORT the mint loudly (ADR-0002) — the catch below surfaces the
-    // failure and the card is NOT created. The visits passed are the
-    // per-mint value (which does not write back to the setting).
-    if (calibrateKomi.value && engineConnected.value && draftBoardId.value) {
+    const board = store.boards.find(b => b.id === boardIdForMint);
+    if (!board) throw new Error(`Mint card(s): board ${boardIdForMint} not found.`);
+
+    // Pre-existing-card exclusion, type-level (commissioner ruling,
+    // ledger row 1063): "positions that already have cards must never
+    // enter the batch-mint pipeline — filtered by construction, not by
+    // dialog." `filterUncardedSelection` is the ONLY way to produce an
+    // `UncardedNodeId` — `buildBatchMintPayload` below refuses a plain
+    // `NodeId` set. `getCachedNodeHash` / `getKnownPositionHashes` are
+    // the same per-node hash cache and known-hashes set
+    // `useKnownPositionNodes.ts` already reads for TreeWidget's own
+    // "already a card" ring — see `filterUncardedSelection`'s own doc
+    // comment for the cache-miss accepted-cost posture.
+    const uncarded = filterUncardedSelection(mintNodeIds.value, getCachedNodeHash, getKnownPositionHashes());
+    // Positions excluded here can NEVER mint (they already have a
+    // card) — drop them from the live selection unconditionally, not
+    // just on a successful mint below.
+    if (uncarded.excludedAsKnown.length > 0) {
+      removeFromSelection(boardIdForMint, uncarded.excludedAsKnown);
+    }
+    if (uncarded.ids.size === 0) {
+      // Honest empty-batch reflection (ruling: "the mint affordance
+      // reflects that state honestly rather than posting an empty
+      // batch") — no wire call, modal stays open.
+      void dialogs.alert({
+        title: t('mint.alert.allKnown'),
+        message: t('mint.alert.allKnownRemediation'),
+      });
+      return;
+    }
+
+    const metadata = useMetadata(computed(() => board)).value;
+    const { fallbackParentRef, fallbackGameMetadata } = resolveBoardLineageAsBatchFallback(board, metadata);
+    const built = buildBatchMintPayload({
+      board,
+      selectedNodeIds: uncarded.ids,
+      fallbackParentRef,
+      fallbackGameMetadata,
+      numMoves: draft.value.num_moves,
+      gradingParameter: draft.value.grading_parameter,
+      tags: draft.value.tags,
+    });
+
+    // Komi calibration (opt-in, pedagogical; commissioner ruling,
+    // ledger row 1063: BATCH-WIDE, not size-gated). Applies to EVERY
+    // card in the batch — each calibrated to its OWN position (a
+    // fresh bounded evaluation per card, sequential: `calibrate`'s
+    // one-shot connection lifecycle is owned per call, and the walk is
+    // already a blocking step behind `isLoading`). `calibrateKomiOnDraft`
+    // rewrites `built.cards[i]`'s SGF komi so the minted card stores
+    // the even-game komi, already rounded to the nearest half-integer
+    // and clamped to KataGo's accepted [-150, 150] range — ~0.5 point
+    // from even is the best achievable and is never chased further
+    // (`engine/katago/komi-calibration.ts`). If ANY evaluation fails
+    // (engine disconnect, error packet, timeout), `calibrateKomiOnDraft`
+    // throws and we ABORT THE WHOLE MINT loudly (ADR-0002) — the catch
+    // below surfaces the failure and NO card is created (the batch
+    // call hasn't fired yet, so a mid-loop failure never leaves a
+    // partially-calibrated batch on the wire).
+    if (calibrateKomi.value && engineConnected.value) {
       calibrationPending = true;
-      const result = await calibrateKomiOnDraft(
-        draftBoardId.value,
-        draft.value,
-        calibrationVisits.value,
-      );
+      let clampedCount = 0;
+      for (let i = 0; i < built.cards.length; i++) {
+        const result = await calibrateKomiOnDraft(
+          boardIdForMint, built.cards[i], calibrationVisits.value, built.nodeOrder[i],
+        );
+        if (result.clamped) clampedCount++;
+      }
       calibrationPending = false;
-      // System-log the komi set for this card; name the clamp when it
-      // fired so the user isn't surprised by an out-of-range adjustment.
+      // System-log a batch-wide summary; name the clamped count when
+      // any card's computed komi fell outside KataGo's range so the
+      // user isn't surprised by an out-of-range adjustment.
       pushSystemMessage(
         'info',
-        result.clamped
-          ? t('mint.komiCalibration.setClamped', {
-              komi: result.evenKomi,
-              raw: result.rawEvenKomi.toFixed(1),
-            })
-          : t('mint.komiCalibration.set', { komi: result.evenKomi }),
+        clampedCount > 0
+          ? t('mint.komiCalibration.setBatchClamped', { n: built.cards.length, clamped: clampedCount })
+          : t('mint.komiCalibration.setBatch', { n: built.cards.length }),
       );
     }
 
-    await commitMint(draft.value);
+    await commitMintBatch(built);
+    // Lifecycle: a successful mint clears ONLY the minted entries — any
+    // node selected AFTER the draft opened stays selected.
+    removeFromSelection(boardIdForMint, built.nodeOrder);
     close();
   } catch (err) {
-    console.error('[Minting] Failed to create card:', err);
+    console.error('[Minting] Failed to create card(s):', err);
     // A calibration failure aborts the mint loudly (ADR-0002) — surface
-    // it in the system log as an error so the user knows the card was
-    // NOT created and why, then fall through to the existing alert.
-    // Scoped to throws from the calibration step itself: a post-
-    // calibration `commitMint` failure must not be mislabelled as a
-    // calibration failure (coordinator gate correction, PR #434).
+    // it in the system log as an error so the user knows nothing was
+    // created and why, then fall through to the existing alert. Scoped
+    // to throws from the calibration step itself: a post-calibration
+    // batch-call failure must not be mislabelled as a calibration
+    // failure (coordinator gate correction, PR #434).
     if (calibrationPending) {
       pushSystemMessage('error', t('mint.komiCalibration.failed', { err: String(err) }));
     }
+    // A failed batch is transactional (backend rolls back the whole
+    // request) — the selection is left INTACT for anything that made
+    // it into the payload (no `removeFromSelection(...built.nodeOrder)`
+    // call above this catch — the already-known exclusions above are a
+    // separate, permanent fact and stay removed), so the user can
+    // retry unchanged.
+    //
     // Sanctioned in-app alert (ADR-0019 S14) wraps the English `${err}`
     // per the (a) backend-error pass-through approach (see
     // frontend/docs/i18n.md). C8: the message names the remediation
-    // (retry Mint Card) — the modal stays open on failure so that next
-    // action is reachable without navigating anywhere. Not awaited: the
-    // dialog is non-blocking, unlike the native alert() it replaces.
+    // (retry Mint Card(s)) — the modal stays open on failure so that
+    // next action is reachable without navigating anywhere. Not
+    // awaited: the dialog is non-blocking, unlike the native alert() it
+    // replaces.
     void dialogs.alert({
       title: t('mint.alert.failed', { err: String(err) }),
       message: t('mint.alert.failedRemediation'),
@@ -440,27 +482,26 @@ async function submit() {
 
       <div class="modal-body" v-if="draft">
 
-        <!-- Batch summary (non-empty mint-selection at open() time) —
-             replaces the single-mint lineage indicator, which names ONE
-             card's parent; a batch's per-node parent linkage
-             (ancestor-in-selection -> batch_index, else the board's own
-             lineage) is resolved individually per card at submit time
-             (`buildBatchMintPayload`), not a single value this box
-             could show. -->
-        <div v-if="isBatchMint" class="lineage-box branch">
+        <!-- Batch summary (mintCount > 1) — a batch's per-node parent
+             linkage (ancestor-in-selection -> batch_index, else the
+             board's own lineage) is resolved individually per card at
+             submit time (`buildBatchMintPayload`), not a single value
+             this box could show. -->
+        <div v-if="!isSingleCard" class="lineage-box branch">
           <span class="lineage-icon">🗂️</span>
           <div class="lineage-text">
             <strong>{{ $t('mint.batch.title') }}</strong>
-            <span>{{ $t('mint.batch.summary', { n: batchCount }) }}</span>
+            <span>{{ $t('mint.batch.summary', { n: mintCount }) }}</span>
           </div>
         </div>
 
-        <!-- Lineage Indicator (single-mint, unchanged) -->
-        <div v-else class="lineage-box" :class="draft.parent_card_id ? 'branch' : 'root'">
-          <span class="lineage-icon">{{ draft.parent_card_id ? '↳' : '🌱' }}</span>
+        <!-- Lineage Indicator — the degenerate size-1 batch (today's
+             single-mint UX, unchanged display, board-level XOR rule). -->
+        <div v-else class="lineage-box" :class="singleCardParentId ? 'branch' : 'root'">
+          <span class="lineage-icon">{{ singleCardParentId ? '↳' : '🌱' }}</span>
           <div class="lineage-text">
-            <strong>{{ draft.parent_card_id ? $t('mint.lineage.branch') : $t('mint.lineage.root') }}</strong>
-            <span v-if="draft.parent_card_id">{{ $t('mint.lineage.derivedFrom', { id: draft.parent_card_id }) }}</span>
+            <strong>{{ singleCardParentId ? $t('mint.lineage.branch') : $t('mint.lineage.root') }}</strong>
+            <span v-if="singleCardParentId">{{ $t('mint.lineage.derivedFrom', { id: singleCardParentId }) }}</span>
             <span v-else>{{ $t('mint.lineage.newOrigin') }}</span>
           </div>
         </div>
@@ -470,13 +511,13 @@ async function submit() {
              proceed deliberately (e.g. a second card with different
              grading params over the same position). C6: the in-flight
              lookup renders as "checking", never as a silent
-             no-duplicate-found. Single-mint only (`isBatchMint` skips
-             `checkDuplicate` entirely at open() time — see the
-             assumed-fact note in <script>). -->
-        <div v-if="!isBatchMint && duplicateCheckStatus === 'checking'" class="duplicate-notice duplicate-checking">
+             no-duplicate-found. Single-card only — `open()` only fires
+             `checkDuplicate` when `mintNodeIds.size === 1` (a batch of
+             N has N positions to check, out of this build's scope). -->
+        <div v-if="isSingleCard && duplicateCheckStatus === 'checking'" class="duplicate-notice duplicate-checking">
           {{ $t('mint.duplicateCheck.checking') }}
         </div>
-        <div v-else-if="!isBatchMint && duplicateCardId !== null" class="duplicate-notice duplicate-warning">
+        <div v-else-if="isSingleCard && duplicateCardId !== null" class="duplicate-notice duplicate-warning">
           {{ $t('mint.duplicateCheck.warning', { id: duplicateCardId }) }}
         </div>
 
@@ -491,8 +532,8 @@ async function submit() {
                that path opaque (`{[key: string]: unknown}`); the typed
                accessor `defaultVisits` (see <script>) widens at the
                access boundary. The path is guaranteed to exist because
-               `useMinting.prepareDraft` constructs it before the modal
-               renders. -->
+               `open()`'s `compileMintGradingParameter` call constructs
+               it before the modal renders. -->
           <input type="number" v-model.number="defaultVisits" min="1" step="100" class="dark-input" />
 
           <label>{{ $t('mint.field.discountGamma') }}</label>
@@ -509,13 +550,15 @@ async function submit() {
           </select>
 
           <!-- Komi calibration (opt-in, pedagogical). Shown only when an
-               engine is connected — calibration needs a live evaluation.
-               The visits input is enabled only when the checkbox is
-               checked; its value is per-mint and does not write back to
-               the `engine.katago.calibrationVisits` setting. -->
-          <!-- Batch mode never offers calibration — see the
-               `batchNodeIds`/`isBatchMint` doc comment in <script>. -->
-          <template v-if="engineConnected && !isBatchMint">
+               engine is connected — commissioner ruling (ledger row
+               1063): calibration is a BATCH-WIDE option, applied per
+               card, each card evaluated at its OWN position
+               (`submit()`'s per-card loop) — no longer gated to a
+               single-card selection. The visits input is enabled only
+               when the checkbox is checked; its value is per-mint and
+               does not write back to the `engine.katago.calibrationVisits`
+               setting. -->
+          <template v-if="engineConnected">
             <label>{{ $t('mint.field.calibrateKomi') }}</label>
             <label class="checkbox-cell">
               <input type="checkbox" v-model="calibrateKomi" class="calibrate-checkbox" />
