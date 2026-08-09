@@ -87,9 +87,9 @@ function onDragOver(ev: DragEvent): void {
 .library-import-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-small);
+  gap: var(--space-default);
   padding: var(--space-medium);
-  border: 2px dashed var(--border-subtle);
+  border: 2px dashed var(--border-1);
   border-radius: var(--radius-default);
   background: var(--surface-0);
 }
@@ -103,19 +103,19 @@ function onDragOver(ev: DragEvent): void {
 .import-hint {
   margin: 0;
   font-size: var(--text-body);
-  color: var(--text-muted);
+  color: var(--text-2);
 }
 .import-buttons {
   display: flex;
-  gap: var(--space-small);
+  gap: var(--space-default);
 }
 .import-btn {
-  padding: var(--space-tiny) var(--space-small);
+  padding: var(--space-tight) var(--space-default);
   font-size: var(--text-body);
   background: var(--surface-0);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-1);
   border-radius: var(--radius-default);
-  color: var(--text-default);
+  color: var(--text-1);
   cursor: pointer;
 }
 .import-btn:hover {
@@ -124,10 +124,10 @@ function onDragOver(ev: DragEvent): void {
 .import-progress, .import-done, .import-error {
   display: flex;
   flex-direction: column;
-  gap: var(--space-tiny);
+  gap: var(--space-tight);
 }
-.import-counts { font-size: var(--text-small); color: var(--text-muted); }
+.import-counts { font-size: var(--text-tiny); color: var(--text-2); }
 .ok { color: var(--accent-positive, var(--accent-primary)); }
 .err { color: var(--accent-negative, #c75450); }
-.muted { color: var(--text-muted); }
+.muted { color: var(--text-2); }
 </style>

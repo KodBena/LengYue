@@ -348,9 +348,9 @@ function rowTitle(idx: number): string {
 }
 .th {
   text-align: left;
-  font-size: var(--text-small);
+  font-size: var(--text-tiny);
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-2);
   background: none;
   border: none;
   padding: 0;
@@ -359,10 +359,12 @@ function rowTitle(idx: number): string {
 .th:hover { color: var(--accent-primary); }
 /* Elision indicator (audit R1/L2 fix shape) — a visible, not silent,
    signal that columns were dropped for width. Deliberately not a
-   `.th` button (nothing to sort); `--text-2`/`--text-tiny` are real
-   tokens (theme.css), unlike the pre-existing `--text-muted` a few of
-   this file's OTHER rules still reference (a known, separately-
-   tracked defect — not touched here). */
+   `.th` button (nothing to sort); `--text-2`/`--text-tiny` were
+   already real tokens (theme.css) at the time this rule was written,
+   unlike the ghost `--text-muted` this file's other rules referenced
+   then (ledger row 1014: all eight ghost tokens across the library
+   surface, including `--text-muted` here, were rewritten to their
+   real theme.css equivalents). */
 .col-indicator {
   color: var(--text-2);
   font-size: var(--text-tiny);
@@ -408,10 +410,10 @@ function rowTitle(idx: number): string {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.loading-cell { color: var(--text-muted); }
+.loading-cell { color: var(--text-2); }
 .library-empty {
-  padding: var(--space-large);
+  padding: var(--space-loose);
   text-align: center;
-  color: var(--text-muted);
+  color: var(--text-2);
 }
 </style>
