@@ -4,28 +4,32 @@
  *
  * Virtual-scrolled library list. Sortable column headers,
  * fixed-row-height rendering via `useVirtualRowList`. Emits
- * `open` on a plain row click and `visible-range` whenever the
- * rendered window changes so the parent can call `ensureRange` on
- * its `useLibraryQuery`.
+ * `select` on a plain row click, `open` on double-click or Enter,
+ * and `visible-range` whenever the rendered window changes so the
+ * parent can call `ensureRange` on its `useLibraryQuery`.
  *
- * Row-opening interaction (ledger row 1015, audit L7): single
- * click opens. Chosen over the prior double-click-to-open model
- * per genre convention — OGS's game archive and web-list
- * convention generally (mail clients, file managers, GitHub's PR
- * list) open on a single click; desktop double-click-to-open is
- * the minority idiom, and reserving it here bought nothing but the
- * native browser word-selection artifact double-click carries by
- * default (L7's "text smear"). There is no more separate
- * "select-without-opening" gesture from the mouse: the prior
- * single-click-selects-for-preview behavior is subsumed by open
- * (the parent's `open` handler sets the preview selection as its
- * first step before fetching/emitting), so clicking a row both
- * previews AND opens it, in one coherent action — matching how the
- * genre's own list-to-detail navigation works elsewhere (there is
- * no separate "arm the preview, then commit" step in OGS or a mail
- * client either). `user-select: none` on `.library-row` (below)
- * kills the text-selection artifact unconditionally, independent
- * of this choice.
+ * Row-opening interaction (ledger row 1015 → commissioner
+ * adjudication, ledger row 1106): SELECT-PREVIEWS, EXPLICIT-OPEN.
+ * A plain click selects a row and updates the preview pane only —
+ * nothing loads onto the board, no confirm-load modal can fire from
+ * a plain click. Opening is an explicit, separate gesture:
+ * double-click, or Enter on a selected row (mirrors the file-
+ * manager / mail-client master-detail idiom this surface's own
+ * split list+preview layout already commits to — click browses,
+ * a distinct commit gesture opens). This overrules the single-
+ * click-opens option explored earlier in this same ledger row;
+ * see ledger row 1106 for the adjudication. `user-select: none`
+ * on `.library-row` (below) is unconditional either way — it kills
+ * the double-click native word-selection artifact (L7's "text
+ * smear") regardless of which gesture opens.
+ *
+ * Rows carry `tabindex="0"` so a clicked (selected) row can receive
+ * the Enter keydown that opens it — the minimal reachability this
+ * one gesture needs. This does NOT implement roving arrow-key
+ * navigation, ARIA roles, or `aria-sort` (audit L4/L19) — that
+ * broader keyboard-navigation overhaul is owned elsewhere; Enter-
+ * to-open on the already-clicked row is the narrow slice this
+ * ledger row asked for.
  *
  * Thin renderer. Data flow:
  *   parent (LibraryTab)
@@ -67,8 +71,11 @@ interface Props {
 interface Emits {
   (e: 'update:sort', col: LibrarySortColumn): void;
   (e: 'update:direction', dir: LibrarySortDirection): void;
-  // Single click on a row: opens (and, via the parent's handler,
-  // becomes the preview selection too — see the header comment).
+  // Plain click: select for preview only. Nothing loads onto the
+  // board from this gesture (ledger row 1106).
+  (e: 'select', row: LibraryGameListItem): void;
+  // Double-click, or Enter on a selected row: the explicit open
+  // gesture (ledger row 1106).
   (e: 'open', row: LibraryGameListItem): void;
   // Modifier-click (Ctrl/Cmd) or middle-click on a row: open the
   // game in a NEW board rather than the active one (browser-link
@@ -214,14 +221,25 @@ function onRowClick(event: MouseEvent, idx: number): void {
   if (!row) return;
   // Ctrl/Cmd-click → "open in new tab" semantics. Same modifier
   // convention as browser links and the MoveSuggestions PV-paste
-  // affordance.
+  // affordance. Takes precedence over plain-click's select-only
+  // behavior — a modified click is always an open request.
   if (isPasteClick(event)) {
     emit('open-new-tab', row);
     return;
   }
-  // Plain click → open (ledger row 1015 / audit L7). See the file
-  // header comment for the genre grounding and the coherence
-  // argument for dropping the separate select-only gesture.
+  // Plain click → select for preview only (ledger row 1106). Opening
+  // is the separate, explicit gesture below (dblclick / Enter).
+  emit('select', row);
+}
+function onRowDblclick(idx: number): void {
+  const row = props.rowAt(idx);
+  if (row) emit('open', row);
+}
+function onRowKeydown(event: KeyboardEvent, idx: number): void {
+  if (event.key !== 'Enter') return;
+  const row = props.rowAt(idx);
+  if (!row) return;
+  event.preventDefault();
   emit('open', row);
 }
 function onRowMousedown(event: MouseEvent, idx: number): void {
@@ -316,7 +334,10 @@ function rowTitle(idx: number): string {
             }"
             :style="{ height: ROW_HEIGHT_PX + 'px', gridTemplateColumns }"
             :title="rowTitle(i)"
+            tabindex="0"
             @click="(e) => onRowClick(e, i)"
+            @dblclick="onRowDblclick(i)"
+            @keydown="(e) => onRowKeydown(e, i)"
             @mousedown="(e) => onRowMousedown(e, i)"
           >
             <template v-if="rowAt(i)">
@@ -414,13 +435,11 @@ function rowTitle(idx: number): string {
   align-items: center;
   cursor: pointer;
   border-bottom: 1px solid var(--border-1);
-  /* Audit L7: a single click now opens the row (see the file header
-     comment), but the browser's native double-click word-selection
-     is a gesture-level default independent of which app events are
-     bound — it fires on a physical double-click regardless. Row
-     text is not meant to be selectable content (it opens on click),
-     so this kills the artifact unconditionally rather than only for
-     whichever interaction model happened to be chosen. */
+  /* Audit L7 / ledger row 1106: double-click is the ratified open
+     gesture, and the browser's native double-click word-selection
+     fires on that same physical gesture regardless of which app
+     events are bound to it. Row text is not meant to be selectable
+     content, so this kills the artifact unconditionally. */
   user-select: none;
 }
 .library-row:hover { background: var(--surface-2); }

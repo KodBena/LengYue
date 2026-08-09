@@ -1,10 +1,13 @@
 /**
  * tests/integration/LibraryTable-row-open.test.ts
  *
- * Pins the row-opening interaction model (ledger row 1015, audit L7):
- * a single plain click opens the row, Ctrl/Cmd-click and middle-click
- * still mean "open in new tab", and a row is not user-selectable text
- * (the native double-click word-selection artifact L7 witnessed).
+ * Pins the row-opening interaction model (ledger row 1015 → commissioner
+ * adjudication, ledger row 1106 — SELECT-PREVIEWS, EXPLICIT-OPEN): a
+ * plain click selects (previews) only; double-click or Enter on a row
+ * opens explicitly; Ctrl/Cmd-click and middle-click still mean "open in
+ * new tab"; and a row is not user-selectable text (the native
+ * double-click word-selection artifact L7 witnessed, which the ratified
+ * double-click-opens gesture makes newly relevant to keep killed).
  *
  * Mounts the real component, same idiom as
  * `LibraryTable-column-fit.test.ts` — `ResizeObserver` faked the same
@@ -126,37 +129,61 @@ async function mountWideTable() {
   return wrapper;
 }
 
-describe('LibraryTable — row-opening interaction (ledger row 1015, audit L7)', () => {
-  it('opens on a single plain click, with no separate select-only emit', async () => {
+describe('LibraryTable — row-opening interaction (ledger row 1106: SELECT-PREVIEWS, EXPLICIT-OPEN)', () => {
+  it('a plain click selects (previews) only — never opens, never a stray new-tab emit', async () => {
     const wrapper = await mountWideTable();
     const row = wrapper.find('.library-row');
     expect(row.exists()).toBe(true);
 
     await row.trigger('click');
 
-    expect(wrapper.emitted('open')).toBeTruthy();
-    expect(wrapper.emitted('open')![0]).toEqual([fakeRow(0)]);
-    expect(wrapper.emitted('select')).toBeFalsy();
+    expect(wrapper.emitted('select')).toBeTruthy();
+    expect(wrapper.emitted('select')![0]).toEqual([fakeRow(0)]);
+    expect(wrapper.emitted('open')).toBeFalsy();
     expect(wrapper.emitted('open-new-tab')).toBeFalsy();
 
     wrapper.unmount();
   });
 
-  it('does not open a second time on a physical double-click gesture (dblclick unbound)', async () => {
+  it('double-click opens explicitly', async () => {
     const wrapper = await mountWideTable();
     const row = wrapper.find('.library-row');
 
     await row.trigger('dblclick');
 
-    // No app-level dblclick handler is bound at all — the row's own
-    // click handler (fired once by the browser on the first click of
-    // the pair) is the only path to 'open'.
+    expect(wrapper.emitted('open')).toBeTruthy();
+    expect(wrapper.emitted('open')![0]).toEqual([fakeRow(0)]);
+
+    wrapper.unmount();
+  });
+
+  it('Enter on a row opens explicitly', async () => {
+    const wrapper = await mountWideTable();
+    const row = wrapper.find('.library-row');
+
+    // A row is tabindex="0" precisely so it can receive this keydown
+    // once selected by a prior click — see the file header comment.
+    await row.trigger('click');
+    await row.trigger('keydown', { key: 'Enter' });
+
+    expect(wrapper.emitted('open')).toBeTruthy();
+    expect(wrapper.emitted('open')![0]).toEqual([fakeRow(0)]);
+
+    wrapper.unmount();
+  });
+
+  it('a non-Enter keydown does not open', async () => {
+    const wrapper = await mountWideTable();
+    const row = wrapper.find('.library-row');
+
+    await row.trigger('keydown', { key: 'ArrowDown' });
+
     expect(wrapper.emitted('open')).toBeFalsy();
 
     wrapper.unmount();
   });
 
-  it('Ctrl-click opens in a new tab, not the active board', async () => {
+  it('Ctrl-click opens in a new tab, not the active board, and is not a select', async () => {
     const wrapper = await mountWideTable();
     const row = wrapper.find('.library-row');
 
@@ -165,6 +192,19 @@ describe('LibraryTable — row-opening interaction (ledger row 1015, audit L7)',
     expect(wrapper.emitted('open-new-tab')).toBeTruthy();
     expect(wrapper.emitted('open-new-tab')![0]).toEqual([fakeRow(0)]);
     expect(wrapper.emitted('open')).toBeFalsy();
+    expect(wrapper.emitted('select')).toBeFalsy();
+
+    wrapper.unmount();
+  });
+
+  it('middle-click (mousedown) opens in a new tab', async () => {
+    const wrapper = await mountWideTable();
+    const row = wrapper.find('.library-row');
+
+    await row.trigger('mousedown', { button: 1 });
+
+    expect(wrapper.emitted('open-new-tab')).toBeTruthy();
+    expect(wrapper.emitted('open-new-tab')![0]).toEqual([fakeRow(0)]);
 
     wrapper.unmount();
   });
