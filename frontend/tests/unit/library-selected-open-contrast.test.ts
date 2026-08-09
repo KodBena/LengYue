@@ -2,8 +2,8 @@
  * tests/unit/library-selected-open-contrast.test.ts
  *
  * Regression guard for ledger row 1018 (library-ui-audit findings L10
- * and L11): two Library sites where a `color` declaration failed the
- * WCAG 2.1 AA 4.5:1 normal-text floor —
+ * and L11), amended by ledger row 1144: two Library sites where a
+ * `color` declaration failed the WCAG 2.1 AA 4.5:1 normal-text floor —
  *
  *   - L10: `.preview-btn.primary` (LibraryPreviewPane.vue, "Open in
  *     board") measured 1.84:1 in `cluster` — `color: var(--surface-1)`,
@@ -13,28 +13,28 @@
  *     in `dark` — inherited body text against an --accent-primary
  *     background a prior comment claimed (wrongly) was already fixed.
  *
- * Both were repaired the same way: an explicit `color` using
- * `var(--library-*-text, var(--text-0))` — `--text-0` for `cluster`
- * (and any theme without an override) — with a `dark`-only override
- * (mirroring TreeWidget.vue's `--tree-node-black-fill` technique, an
- * unscoped <style> block keying off `[data-theme="dark"]`, which lives
- * on <html>, outside a scoped block's reach) setting the custom
- * property to `--border-2`. Dark's own `text-*` tier (#fff/#aaa/#666)
- * cannot clear 4.5:1 against dark's --accent-primary (#4aaef0) — see
- * the two components' own comments at the fixed rules for the full
- * derivation.
+ * Row 1144 rejected the initial repair (an existing-tokens-only
+ * `--border-2` dark-theme override) as still a category mismatch, and
+ * amended the brief: `theme.css` now defines `--text-on-accent`, a
+ * genuine role-alias anchor for "text sitting directly on an
+ * --accent-primary fill," with its own category-correct value in each
+ * palette (`#333` in `dark`, `var(--cluster-12-4)` in `cluster` — see
+ * theme.css's own definition for the derivation). Both sites now
+ * consume that one token directly; no per-theme override lives in the
+ * component files anymore.
  *
  * This test is a source-text + theme-table assertion (Tier 1 — no DOM,
  * no Vue), same posture as tests/unit/library-token-integrity.test.ts:
- * it extracts the actual `var(--x)` chain used at each site from the
+ * it extracts the actual `var(--x)` used at each site from the
  * component source (not a hardcoded assumption of what SHOULD be
- * there), resolves each named custom property to a concrete hex value
- * by reading `src/assets/css/theme.css` (and, for `cluster`'s
- * `--cluster-12-N` indirections, `src/assets/css/palettes.css`), and
- * asserts the resulting `contrastRatio()` clears `WCAG_AA_NORMAL_TEXT`
- * for BOTH fixed sites in BOTH shipped themes. A future edit that
- * silently reintroduces a surface token, or swaps `--border-2` for a
- * lighter anchor, turns this red.
+ * there), resolves `--text-on-accent` and `--accent-primary` to
+ * concrete hex values by reading `src/assets/css/theme.css` per theme
+ * (and, for `cluster`'s `--cluster-12-N` indirections,
+ * `src/assets/css/palettes.css`), and asserts the resulting
+ * `contrastRatio()` clears `WCAG_AA_NORMAL_TEXT` for BOTH fixed sites
+ * in BOTH shipped themes. A future edit that silently reintroduces a
+ * surface token, or retunes `--text-on-accent` below the floor in
+ * either palette, turns this red.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -87,10 +87,10 @@ function resolveClusterVar(name: string): HexColor {
   return `#${hex}` as HexColor;
 }
 
-// Resolve a base anchor (`--accent-primary`, `--text-0`, `--border-2`,
-// ...) declared inside a specific theme's block to a concrete hex
-// value — one level of `var(--cluster-12-N)` indirection (cluster) or
-// a direct `#rrggbb` literal (dark).
+// Resolve a base anchor (`--accent-primary`, `--text-on-accent`, ...)
+// declared inside a specific theme's block to a concrete hex value —
+// one level of `var(--cluster-12-N)` indirection (cluster) or a direct
+// `#rrggbb`/`#rgb` literal (dark).
 function resolveAnchor(theme: ThemeName, anchorName: string): HexColor {
   const block = themeBlock(THEME_CSS, theme);
   const re = new RegExp(`${anchorName}:\\s*([^;]+);`);
@@ -111,32 +111,19 @@ function resolveAnchor(theme: ThemeName, anchorName: string): HexColor {
   throw new Error(`theme.css: [data-theme="${theme}"] ${anchorName} = "${raw}" not statically resolvable`);
 }
 
-// A component-local custom property with a fallback, e.g.
-// `var(--library-open-btn-text, var(--text-0))`, resolved for a given
-// theme: the dark-only unscoped-<style> override if present for that
-// theme, else the fallback anchor.
-function resolveLocalTextVar(
-  source: string,
-  selectorRuleRegex: RegExp,
-  localVarName: string,
-  theme: ThemeName,
-): HexColor {
+// Confirm a selector's rule block in a component source actually
+// references the given token via a bare `var(--x)` (not, say, a
+// leftover fallback chain or a different token entirely) before
+// trusting theme.css's resolution of that token for the assertion —
+// keeps this test honest about what the SHIPPED rule says, not what
+// it's assumed to say.
+function assertRuleUsesToken(source: string, selectorRuleRegex: RegExp, tokenName: string): void {
   const ruleMatch = selectorRuleRegex.exec(source);
   if (!ruleMatch) throw new Error(`source: selector rule not found (pattern ${selectorRuleRegex})`);
-  const fallbackMatch = new RegExp(
-    `var\\(${localVarName},\\s*var\\((--[a-zA-Z0-9-]+)\\)\\)`,
-  ).exec(ruleMatch[0]);
-  if (!fallbackMatch) throw new Error(`source: ${localVarName} fallback chain not found in matched rule`);
-  const fallbackAnchor = fallbackMatch[1];
-
-  if (theme === 'dark') {
-    const overrideRe = new RegExp(
-      `\\[data-theme="dark"\\][^{]*\\{[^}]*${localVarName}:\\s*var\\((--[a-zA-Z0-9-]+)\\)`,
-    );
-    const overrideMatch = overrideRe.exec(source);
-    if (overrideMatch) return resolveAnchor('dark', overrideMatch[1]);
+  const usesToken = new RegExp(`color:\\s*var\\(${tokenName}\\)`).test(ruleMatch[0]);
+  if (!usesToken) {
+    throw new Error(`source: expected "color: var(${tokenName})" in matched rule, got: ${ruleMatch[0]}`);
   }
-  return resolveAnchor(theme, fallbackAnchor);
 }
 
 const PREVIEW_PANE_SRC = readFileSync(
@@ -149,37 +136,36 @@ const TABLE_SRC = readFileSync(
 );
 
 const THEMES: ThemeName[] = ['dark', 'cluster'];
+const TEXT_ON_ACCENT = '--text-on-accent';
 
-describe('Library — "Open in board" primary label contrast (audit L10, ledger row 1018)', () => {
+describe('Library — "Open in board" primary label contrast (audit L10, ledger rows 1018/1144)', () => {
   const buttonRuleRe = /\.preview-btn\.primary\s*\{[^}]*\}/;
+
+  it('the shipped rule actually uses --text-on-accent (not a stale fallback chain)', () => {
+    assertRuleUsesToken(PREVIEW_PANE_SRC, buttonRuleRe, TEXT_ON_ACCENT);
+  });
 
   for (const theme of THEMES) {
     it(`clears WCAG AA 4.5:1 in the "${theme}" theme`, () => {
       const bg = resolveAnchor(theme, '--accent-primary');
-      const fg = resolveLocalTextVar(
-        PREVIEW_PANE_SRC,
-        buttonRuleRe,
-        '--library-open-btn-text',
-        theme,
-      );
+      const fg = resolveAnchor(theme, TEXT_ON_ACCENT);
       const ratio = contrastRatio(fg, bg);
       expect(ratio).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
     });
   }
 });
 
-describe('Library — selected-row text contrast (audit L11, ledger row 1018)', () => {
+describe('Library — selected-row text contrast (audit L11, ledger rows 1018/1144)', () => {
   const rowRuleRe = /\.library-row\.selected\s*\{[^}]*\}/;
+
+  it('the shipped rule actually uses --text-on-accent (not a stale fallback chain)', () => {
+    assertRuleUsesToken(TABLE_SRC, rowRuleRe, TEXT_ON_ACCENT);
+  });
 
   for (const theme of THEMES) {
     it(`clears WCAG AA 4.5:1 in the "${theme}" theme`, () => {
       const bg = resolveAnchor(theme, '--accent-primary');
-      const fg = resolveLocalTextVar(
-        TABLE_SRC,
-        rowRuleRe,
-        '--library-selected-row-text',
-        theme,
-      );
+      const fg = resolveAnchor(theme, TEXT_ON_ACCENT);
       const ratio = contrastRatio(fg, bg);
       expect(ratio).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
     });

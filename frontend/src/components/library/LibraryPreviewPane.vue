@@ -168,55 +168,19 @@ const scrubMax = computed(() => props.preview.totalMoves.value);
   cursor: pointer;
 }
 .preview-btn:hover { border-color: var(--accent-primary); }
-/* Audit L10 / ledger row 1018: `color: var(--surface-1)` was a surface
- * token used as a foreground — the named category-inversion defect
- * (CLAUDE.md TOKEN LAW, rows 681/742). It happened to read fine in the
- * `dark` theme (--surface-1 resolves to #111, near-black, ~7.74:1
- * against this button's --accent-primary background) but measured
- * 1.84:1 in `cluster` (--surface-1 there is taupe, --cluster-12-6) —
- * illegible, well under the 4.5:1 floor.
- *
- * `--text-0` is the established token for a primary-button label on an
- * --accent-primary fill elsewhere in the app (LoginModal .btn-primary,
- * shared-chrome.css .action-btn-large) and clears cluster's floor
- * (~7.74:1, cluster-12-4 purple text on cluster-12-2 sky-blue accent).
- * But `--text-0` in `dark` is #fff, and #fff on this theme's
- * --accent-primary (#4aaef0) is ~2.44:1 — the SAME failure this fix
- * exists to remove, just relocated to the other theme. No token in
- * the `text-*` (or `surface-*`/`border-*`) tier is both (a) not a
- * category inversion and (b) dark enough to clear 4.5:1 against
- * #4aaef0 — the tier only holds three anchors (#fff/#aaa/#666), all
- * too light; the only anchors dark enough are surface-0/1 (banned:
- * same defect class) or border-1/2 (banned by the general rule, though
- * --border-3 is already an established de-facto muted-text color
- * elsewhere in this app — SystemLogPanel, PaletteEditor, StatusBar,
- * etc.). `--border-2` (#333) is the closest of those that still
- * clears the floor with margin (~5.18:1; --border-3 does not, ~3.05:1)
- * and is the deliberate, narrowly-scoped choice here — same
- * dark-theme-only-override technique as TreeWidget.vue's
- * `--tree-node-black-fill` (grep it), because the `text-*` tier
- * genuinely has no anchor built for "dark text on a light accent
- * chip" in this theme. See the unscoped <style> block below for the
- * override; every other/future theme falls through to `--text-0`. */
+/* Audit L10 / ledger row 1018 (amended row 1144): `color:
+ * var(--surface-1)` was a surface token used as a foreground — the
+ * named category-inversion defect (CLAUDE.md TOKEN LAW, rows 681/742)
+ * — measuring 1.84:1 in `cluster` (--surface-1 resolves to taupe
+ * there). `--text-on-accent` (theme.css) is a purpose-built,
+ * theme-aware role-alias token for exactly this role — text sitting
+ * directly on an --accent-primary fill — with its own category-correct
+ * value in each palette (dark: 5.18:1; cluster: 7.74:1; see theme.css's
+ * definition for the full derivation). No per-theme override needed
+ * here: the token itself already resolves correctly per theme. */
 .preview-btn.primary {
   background: var(--accent-primary);
-  color: var(--library-open-btn-text, var(--text-0));
+  color: var(--text-on-accent);
   border-color: var(--accent-primary);
-}
-</style>
-
-<!--
-  Plain (unscoped) style block, deliberately separate from the scoped
-  block above — same reason and technique as TreeWidget.vue's
-  `--tree-node-black-fill`: `[data-theme="dark"]` lives on <html>, an
-  ancestor outside this component's own scope-id boundary, so a scoped
-  rule cannot key off it. `.preview-btn.primary` is unique in the
-  codebase (grep-checked), so the global selector is safely specific.
-  See the `.preview-btn.primary` rule's own comment above for the
-  contrast-math derivation (ledger row 1018 / audit L10).
--->
-<style>
-[data-theme="dark"] .preview-btn.primary {
-  --library-open-btn-text: var(--border-2);
 }
 </style>

@@ -2,9 +2,9 @@
  * src/assets/css/theme.css
  *
  * Chrome substrate — the SSOT for chrome design decisions in the
- * codebase. Color anchors (16 base: 4 surface, 3 border, 3 text,
- * 2 accent, 4 semantic state; plus 6 chart-derived helpers and 5
- * role aliases). Z-index ladder (4 layering tiers). Animation
+ * codebase. Color anchors (17 base: 4 surface, 3 border, 3 text,
+ * 2 accent, 1 text-on-accent, 4 semantic state; plus 6 chart-derived
+ * helpers and 5 role aliases). Z-index ladder (4 layering tiers). Animation
  * durations (2 timing tiers). Spacing scale (4 spacing tiers).
  * Font-size scale (4 typographic tiers). Border-radius scale (2
  * rounding tiers). Letter-spacing scale (3 tracking tiers).
@@ -19,7 +19,7 @@
  * accessors).
  *
  * ─── Theme variants (data-theme) ─────────────────────────────
- * The 16 base color anchors live inside `[data-theme="..."]`
+ * The 17 base color anchors live inside `[data-theme="..."]`
  * blocks at the top of this file; the alias layer (chart-derived
  * helpers, role aliases) stays in `:root` because CSS resolves
  * `var()` references at use time, not at declaration time — an
@@ -56,7 +56,7 @@
  *               the per-tier detail.
  *
  * Adding a new theme: add a new `[data-theme="X"]` block here
- * declaring the 16 base anchors, extend the
+ * declaring the 17 base anchors, extend the
  * `AppSettings.appearance.theme` union and RegistryEditor's
  * PATH_ENUMS to include the new name, and append a migration
  * coercion if a prior valid value is being retired.
@@ -138,6 +138,26 @@
    * name regardless of theme. See the `[data-theme="cluster"]` block's
    * copy of this comment for the full rationale. */
   --accent-primary-canonical: #4aaef0;
+
+  /* ── Text-on-accent (1) ──────────────────────────────────── */
+  /* Ledger row 1018 / row 1144 (Library audit L10/L11, commissioner
+   * ruling): a role for text that sits DIRECTLY on an --accent-primary
+   * fill — a filled button label, a selected-row highlight — distinct
+   * from the `text-*` tier, which is calibrated for THIS theme's own
+   * page background (black), not for a light accent chip. Measured:
+   * `--text-0` (#fff) on `--accent-primary` (#4aaef0, luminance
+   * 0.380) is ~2.44:1 — fails 4.5:1, and no `text-*` anchor in this
+   * theme (#fff/#aaa/#666) is dark enough to clear it (need luminance
+   * <= ~0.046; the only anchors that dark are surface-0/1, which
+   * would repeat the surface-as-foreground category-inversion defect
+   * this token exists to avoid). #333 is a literal, independently
+   * chosen value for this role (not an alias to --border-2, even
+   * though it happens to share border-2's hex today — a future
+   * border-2 retune must not silently drag this token with it):
+   * #333 on #4aaef0 = ~5.18:1, clears the WCAG AA 4.5:1 normal-text
+   * floor with margin. See the `[data-theme="cluster"]` block's copy
+   * of this comment for that theme's (very different) derivation. */
+  --text-on-accent: #333;
 
   /* ── Semantic state (4) ──────────────────────────────────── */
   --state-success:   #4caf50;  /* engine connected, complete */
@@ -241,6 +261,20 @@
    * "Role aliases" section below, applied one layer earlier because the
    * conflict originates in a base anchor, not an alias. */
   --accent-primary-canonical: var(--cluster-12-2);
+
+  /* ── Text-on-accent (1) ──────────────────────────────────── */
+  /* Ledger row 1018 / row 1144 (Library audit L10/L11, commissioner
+   * ruling). See the `[data-theme="dark"]` block's copy of this
+   * comment for the role's full rationale — text sitting DIRECTLY on
+   * an --accent-primary fill, distinct from the `text-*` tier. Here
+   * the derivation is easier: `--cluster-12-4` (deep purple, the same
+   * entry `--text-0`/`--text-1` already use) against `--accent-
+   * primary` (`--cluster-12-2`, sky blue, luminance 0.349) is ~7.74:1
+   * — comfortably clears 4.5:1, so no separate literal is needed here;
+   * strict palette compliance (this block's own docstring) is
+   * preserved by projecting to the same curated `--cluster-12-N`
+   * entry rather than introducing a new literal for this theme. */
+  --text-on-accent: var(--cluster-12-4);
 
   /* ── Semantic state (4) ──────────────────────────────────── */
   --state-success:   var(--cluster-12-1);   /* bright green */
