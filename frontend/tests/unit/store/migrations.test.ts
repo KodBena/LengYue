@@ -3231,3 +3231,145 @@ describe('69 → 70: backfill profile.settings.onboarding.completed = true (setu
     expect(out.profile.settings.onboarding.completed).toBe(true);
   });
 });
+
+describe('70 → 71: median-summary symbol (ledger rows 1204/1213/1229)', () => {
+  // (a) seed-expansion of the `median_summary` symbol, add-if-absent.
+  // (b) conditional repoint of the `quality` palette's `summary_fn`
+  // from `min_summary` to `median_summary`, only when uncustomised.
+  function blobWithAnalysisEnv(overrides: { symbols?: any; palettes?: any } = {}): any {
+    return {
+      profile: {
+        settings: {
+          engine: {
+            katago: {
+              analysis_env: {
+                symbols: overrides.symbols ?? {},
+                palettes: overrides.palettes ?? [],
+              },
+            },
+          },
+        },
+      },
+    };
+  }
+
+  it('backfills median_summary when the symbol is absent', () => {
+    const out = step(70)(blobWithAnalysisEnv());
+    expect(out.profile.settings.engine.katago.analysis_env.symbols.median_summary)
+      .toBe('float(median(x))');
+  });
+
+  it('preserves a pre-existing median_summary symbol (idempotent / hand-edited)', () => {
+    const blob = blobWithAnalysisEnv({ symbols: { median_summary: 'float(np.median(x))' } });
+    const out = step(70)(blob);
+    expect(out.profile.settings.engine.katago.analysis_env.symbols.median_summary)
+      .toBe('float(np.median(x))');
+  });
+
+  // Commissioner clarification (ledger row 1235): his real profiles
+  // each carry a HAND-WRITTEN median symbol he authored himself — add-
+  // if-absent is BY KEY, never by inferred intent, so any pre-existing
+  // `median_summary` key (whatever its body) wins outright. These three
+  // fixtures mirror his actual profiles' shapes.
+
+  it("acceptance fixture 1: existing median_summary with a custom body is preserved verbatim", () => {
+    const blob = blobWithAnalysisEnv({
+      symbols: { median_summary: '_myMedian(x) * 1.0' },
+    });
+    const out = step(70)(blob);
+    expect(out.profile.settings.engine.katago.analysis_env.symbols.median_summary)
+      .toBe('_myMedian(x) * 1.0');
+  });
+
+  it("acceptance fixture 2: a hand-written median under a DIFFERENT key coexists with the new median_summary default", () => {
+    const blob = blobWithAnalysisEnv({
+      symbols: { my_median: 'float(median(x)) + 0.001' },
+    });
+    const out = step(70)(blob);
+    const symbols = out.profile.settings.engine.katago.analysis_env.symbols;
+    // The user's own key is untouched...
+    expect(symbols.my_median).toBe('float(median(x)) + 0.001');
+    // ...and the new default key is added alongside it, not merged or
+    // renamed into it.
+    expect(symbols.median_summary).toBe('float(median(x))');
+  });
+
+  it("acceptance fixture 3: a quality palette already repointed at the user's own median-ish symbol is untouched", () => {
+    const blob = blobWithAnalysisEnv({
+      symbols: { my_median: 'float(median(x)) + 0.001' },
+      palettes: [{ id: 'quality', name: 'Quality', summary_fn: 'my_median' }],
+    });
+    const out = step(70)(blob);
+    const quality = out.profile.settings.engine.katago.analysis_env.palettes
+      .find((p: any) => p.id === 'quality');
+    expect(quality.summary_fn).toBe('my_median');
+  });
+
+  it('leaves a quality palette that is already repointed at median_summary untouched (idempotent)', () => {
+    const blob = blobWithAnalysisEnv({
+      palettes: [{ id: 'quality', name: 'Quality', summary_fn: 'median_summary' }],
+    });
+    const out = step(70)(blob);
+    const quality = out.profile.settings.engine.katago.analysis_env.palettes
+      .find((p: any) => p.id === 'quality');
+    expect(quality.summary_fn).toBe('median_summary');
+  });
+
+  it("repoints the 'quality' palette's summary_fn from min_summary to median_summary", () => {
+    const blob = blobWithAnalysisEnv({
+      palettes: [{ id: 'quality', name: 'Quality', summary_fn: 'min_summary' }],
+    });
+    const out = step(70)(blob);
+    const quality = out.profile.settings.engine.katago.analysis_env.palettes
+      .find((p: any) => p.id === 'quality');
+    expect(quality.summary_fn).toBe('median_summary');
+  });
+
+  it("leaves a customised 'quality' palette summary_fn untouched", () => {
+    const blob = blobWithAnalysisEnv({
+      palettes: [{ id: 'quality', name: 'Quality', summary_fn: 'mean_summary' }],
+    });
+    const out = step(70)(blob);
+    const quality = out.profile.settings.engine.katago.analysis_env.palettes
+      .find((p: any) => p.id === 'quality');
+    expect(quality.summary_fn).toBe('mean_summary');
+  });
+
+  it('does not touch activePaletteId', () => {
+    const blob = blobWithAnalysisEnv({
+      palettes: [{ id: 'quality', name: 'Quality', summary_fn: 'min_summary' }],
+    });
+    blob.profile.settings.engine.katago.analysis_env.activePaletteId = 'quality';
+    const out = step(70)(blob);
+    expect(out.profile.settings.engine.katago.analysis_env.activePaletteId).toBe('quality');
+  });
+
+  it('is a no-op when the analysis_env container is absent (partial blob)', () => {
+    const blob: any = { profile: { settings: {} } };
+    const out = step(70)(blob);
+    expect(out.profile.settings.engine).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v70 blob reaches CURRENT with median_summary backfilled and quality repointed', () => {
+    const blob: any = {
+      schemaVersion: 70,
+      profile: {
+        settings: {
+          engine: {
+            katago: {
+              analysis_env: {
+                symbols: {},
+                palettes: [{ id: 'quality', name: 'Quality', summary_fn: 'min_summary' }],
+              },
+            },
+          },
+        },
+      },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    const ae = out.profile.settings.engine.katago.analysis_env;
+    expect(ae.symbols.median_summary).toBe('float(median(x))');
+    expect(ae.palettes.find((p: any) => p.id === 'quality').summary_fn).toBe('median_summary');
+  });
+});
