@@ -9,6 +9,7 @@ import { SUPPORTED_LOCALES } from '../../i18n/locales';
 import { WINRATE_FRAMINGS } from '../../engine/katago/types';
 import { BUNDLE_COMPRESSION_SCHEMES } from '../../types';
 import { isRegistryGroupDefaultCollapsed } from '../../lib/utils';
+import { PANEL_CONTENT_READING_MEASURE_CH } from '../../state/layout-model';
 
 const props = defineProps<{
   registry: any;
@@ -236,6 +237,28 @@ function isModified(key: string, value: any) {
   if (!props.defaults) return false;
   return JSON.stringify(value) !== JSON.stringify(props.defaults[key]);
 }
+
+// M6 (audit finding, ledger row 1290): measured a 700-900px empty
+// gutter between the leaf label (x≈63) and its value column (x≈937) —
+// `.registry-leaf.scalar`'s `justify-content: space-between` was
+// stretching across the FULL unbounded pane width. Reuses the app's
+// existing phase-3 reading-measure vocabulary
+// (`PANEL_CONTENT_READING_MEASURE_CH`, state/layout-model.ts —
+// LibraryTab.vue's split panes and ForestDirectory.vue's card
+// metadata already cap on this same constant) rather than a
+// second, hand-typed `ch` literal (ADR-0012 one-home-per-fact).
+// Doubled — `calc(2 * ${PANEL_CONTENT_READING_MEASURE_CH}ch)` — the
+// same multiplier LibraryTab.vue's `librarySplitMaxWidthCss` uses for
+// its own two-region (list + preview) split: a registry leaf is a
+// two-region row too (label column + value column), so one bare
+// 60ch reading measure (sized for a single prose column) would clip
+// longer field names or the value input; doubling gives the row
+// room for both regions while still killing the multi-hundred-px
+// gutter. assumption (not spec-given): the exact multiplier — the
+// finding names "bound the form's measure", not a number; 2x is
+// reused from the one existing two-region precedent in this file
+// tree rather than invented fresh.
+const registryMeasureMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING_MEASURE_CH}ch)`);
 </script>
 
 <template>
@@ -341,6 +364,16 @@ function isModified(key: string, value: any) {
 
 <style scoped>
 .registry-editor { display: flex; flex-direction: column; font-family: 'Consolas', monospace; }
+/* M6: measure cap applies at the ROOT editor only (`registry-root` —
+   `:class="{ 'registry-root': !path }"`, already declared for this
+   purpose, previously unstyled). RegistryEditor recurses into its own
+   branches (`.branch-content > RegistryEditor`, no `path` guard
+   omitted there), so capping every recursive instance would compound
+   the cap under nested indentation; capping the root once and letting
+   nested branches inherit the bounded ancestor width (their own
+   `padding-left` indent already narrows further) is the one-home
+   application of the same fact. */
+.registry-editor.registry-root { max-width: v-bind(registryMeasureMaxWidthCss); }
 .registry-row { margin-bottom: 2px; }
 
 .branch-header, .leaf-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-tight); }
