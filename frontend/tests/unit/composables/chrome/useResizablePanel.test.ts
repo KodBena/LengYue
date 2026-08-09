@@ -63,10 +63,17 @@ import {
   MIN_BOARD_PX,
   RESIZER_WIDTH_PX,
 } from '../../../../src/composables/chrome/useResizablePanel';
+import {
+  CONTROL_PANEL_TAB_IDS,
+  computeControlPanelMinWidthPx,
+} from '../../../../src/state/layout-model';
 
 // ── INNER bar: the tree panel (session.ui.treePanelWidthPx) ─────────
 // A plausible drag-start ceiling for the tree pane within a
-// ~1400px-wide wrapper (control floor 220 + inner resizer 4 subtracted).
+// ~1400px-wide wrapper (CONTROL_PANEL_MIN_WIDTH_PX + inner resizer 4
+// subtracted; the constant itself is tab-registry-derived — see
+// state/layout-model.ts — so this is an illustrative fixed test
+// ceiling, not a live re-derivation).
 const MAX_TREE = 1176;
 
 describe('computeTreePanelWidthPx — continuity', () => {
@@ -199,7 +206,11 @@ describe('computeTreeControlRegionWidthPx — range pinning', () => {
 
 describe('computeTreeControlRegionWidthPx — no drag-start clobber', () => {
   it('at zero displacement, returns exactly the rendered geometry the drag started from', () => {
-    for (const dragOriginPx of [364, 500, 1400, 2628, 3348]) {
+    // WRAPPER_MIN_WIDTH_PX itself (not a hardcoded 364 — that literal
+    // silently assumed the pre-Phase-0 CONTROL_PANEL_MIN_WIDTH_PX; the
+    // floor is now tab-registry-derived, so this pins to the live
+    // constant instead of a value that would drift under it).
+    for (const dragOriginPx of [WRAPPER_MIN_WIDTH_PX, 500, 1400, 2628, 3348]) {
       const maxRegion = Math.max(dragOriginPx, MAX_REGION);
       expect(computeTreeControlRegionWidthPx(dragOriginPx, 0, maxRegion)).toBe(dragOriginPx);
     }
@@ -224,7 +235,13 @@ describe('resizer-rearch: the two bars are independent (ADR-0012 one-home-per-fa
 
   it('TREE_PANEL_MIN_WIDTH_PX and CONTROL_PANEL_MIN_WIDTH_PX are independent constants', () => {
     expect(TREE_PANEL_MIN_WIDTH_PX).toBe(140);
-    expect(CONTROL_PANEL_MIN_WIDTH_PX).toBe(220);
+    // CONTROL_PANEL_MIN_WIDTH_PX (audit finding R2's fix, resolution
+    // roadmap Phase 0): no longer a hand literal — it's a projection of
+    // CONTROL_PANEL_TAB_IDS.length (state/layout-model.ts). Pinning it
+    // against that projection, not a bare number, means a tab
+    // added/removed from the registry can't silently desync this test
+    // from the floor it's meant to guard.
+    expect(CONTROL_PANEL_MIN_WIDTH_PX).toBe(computeControlPanelMinWidthPx(CONTROL_PANEL_TAB_IDS.length));
     expect(TREE_PANEL_MIN_WIDTH_PX).not.toBe(CONTROL_PANEL_MIN_WIDTH_PX);
   });
 });
