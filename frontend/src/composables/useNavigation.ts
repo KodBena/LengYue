@@ -4,6 +4,7 @@
  * Provides pure domain actions for moving within the Game Tree.
  */
 
+import { computed } from 'vue';
 import { activeBoard, mutateBoard, pushSystemMessage } from '../store';
 import { registerBoardCloseHandler, registerWorkspaceResetHandler } from '../store/teardown-registry';
 import {
@@ -183,5 +184,30 @@ export function useNavigation() {
     if (outcome) surfaceBranchSwitchNoOp(outcome);
   };
 
-  return { next, prev, variation, home, end, goTo, toggleMainLine };
+  // Move-navigation cluster disabled-state (Phase 3 + S7 rider,
+  // resolution roadmap). Pure reads off the active board's CURRENT
+  // node, `state.nodes[state.currentNodeId]` — the exact same lookup
+  // `navigateNext`/`navigatePrev` (`engine/navigator.ts`) perform
+  // before their own no-op checks, so these can never drift from the
+  // actions' actual no-op conditions: no children means "at the end of
+  // the active line" (next/end disabled), no parent means "at the
+  // start" (prev/home disabled — `home`/`end` jump along the SAME
+  // active-variation path `next`/`prev` walk one step at a time, so
+  // "no parent"/"no children" at the current node is equivalent to
+  // "already at path[0]"/"already at path[last]").
+  const canGoNext = computed(() => {
+    const board = activeBoard.value;
+    if (!board) return false;
+    const curr = board.nodes[board.currentNodeId];
+    return !!curr && curr.children.length > 0;
+  });
+
+  const canGoPrev = computed(() => {
+    const board = activeBoard.value;
+    if (!board) return false;
+    const curr = board.nodes[board.currentNodeId];
+    return !!curr && !!curr.parent;
+  });
+
+  return { next, prev, variation, home, end, goTo, toggleMainLine, canGoNext, canGoPrev };
 }
