@@ -74,6 +74,21 @@ const draft = ref<SharedDraft | null>(null);
 const tagInput = ref('');
 const showSuggestions = ref(false);
 
+// Dynamic-query entry mode (M15, ledger row 1250): the OLD affordance
+// carried "prefix with $" as a magic character inside the tag text
+// itself — an in-band control sentinel (ADR-0019 C11). Replaced with
+// an explicit toggle: while active, `addTag` prepends `$` to whatever
+// the user commits, so the character never has to be typed by hand.
+// The STORAGE format is unchanged on purpose (a card's `tags` array
+// still carries plain strings, `$`-led ones included — downstream
+// consumers, notably the tag-DSL virtual-tag reference syntax
+// `backend/domain/tag_dsl_grammar.py`, key off that leading character
+// in the stored string, not off any separate flag) — only how the
+// user GETS there changes. With the toggle off, `$` is ordinary text:
+// typing `$price` and pressing Enter now reliably produces the literal
+// tag `$price`, same as any other character.
+const dynamicQueryMode = ref(false);
+
 // Palette Override State
 const selectedPaletteId = ref<string>('active');
 
@@ -217,9 +232,15 @@ useModalKeyboard(modalContentRef, isOpen, close);
 // ─── Tag Management ──────────────────────────────────────────────────────────
 
 function addTag(tag: string) {
-  const cleanTag = tag.trim().toLowerCase();
+  let cleanTag = tag.trim().toLowerCase();
   if (!cleanTag || !draft.value) return;
-  
+
+  // Dynamic-query mode supplies the `$` itself (see the ref's doc
+  // comment above) — don't double it if the user typed it anyway.
+  if (dynamicQueryMode.value && !cleanTag.startsWith('$')) {
+    cleanTag = '$' + cleanTag;
+  }
+
   if (!draft.value.tags.includes(cleanTag)) {
     draft.value.tags.push(cleanTag);
   }
@@ -228,7 +249,13 @@ function addTag(tag: string) {
 }
 
 function handleTagKeydown(e: KeyboardEvent) {
-  if (e.key === 'Enter' || e.key === ',') {
+  // Enter-only commit (M15, ledger row 1250; rejected: comma-as-
+  // separator, even an escapable one — the token/chip-input genre
+  // (GitHub labels, Linear, Notion) commits on Enter alone, so a
+  // comma typed into the field is just a character, and a tag like
+  // "a,b" is now representable by typing it and pressing Enter, no
+  // escape syntax to learn or document).
+  if (e.key === 'Enter') {
     e.preventDefault();
     addTag(tagInput.value);
   } else if (e.key === 'Backspace' && tagInput.value === '' && draft.value?.tags.length) {
@@ -579,7 +606,19 @@ async function submit() {
 
         <!-- Tag Autocomplete -->
         <div class="form-group" style="margin-top: var(--space-medium);">
-          <label class="tag-label">{{ $t('mint.field.tags') }}</label>
+          <div class="tag-label-row">
+            <label class="tag-label">{{ $t('mint.field.tags') }}</label>
+            <!-- Explicit dynamic-query affordance (M15, ledger row
+                 1250) — replaces the old "prefix with $" magic
+                 character with a named, discoverable toggle. -->
+            <button
+              type="button"
+              class="tag-mode-toggle"
+              :class="{ active: dynamicQueryMode }"
+              :aria-pressed="dynamicQueryMode"
+              @click="dynamicQueryMode = !dynamicQueryMode"
+            >{{ $t('mint.tags.dynamicToggle') }}</button>
+          </div>
           <div class="tag-input-wrapper">
             <div class="tag-badges">
               <span v-for="(tag, i) in draft.tags" :key="tag" class="tag-badge">
@@ -592,7 +631,7 @@ async function submit() {
               type="text"
               class="tag-input"
               v-model="tagInput"
-              :placeholder="$t('mint.tags.placeholder')"
+              :placeholder="dynamicQueryMode ? $t('mint.tags.placeholderDynamic') : $t('mint.tags.placeholder')"
               @keydown="handleTagKeydown"
               @focus="showSuggestions = true"
               @blur="hideSuggestionsDelayed"
@@ -605,7 +644,7 @@ async function submit() {
               </li>
             </ul>
           </div>
-          <p class="hint">{{ $t('mint.tags.hint') }}</p>
+          <p class="hint">{{ dynamicQueryMode ? $t('mint.tags.hintDynamic') : $t('mint.tags.hint') }}</p>
         </div>
 
       </div>
@@ -697,7 +736,15 @@ async function submit() {
 .checkbox-cell { display: flex; align-items: center; gap: var(--space-default); text-transform: none; }
 .calibrate-checkbox { width: auto; accent-color: var(--accent-primary); cursor: pointer; }
 
-.tag-label { font-size: var(--text-emphasis); color: var(--text-2); text-transform: uppercase; display: block; margin-bottom: var(--space-default); }
+.tag-label-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-default); margin-bottom: var(--space-default); }
+.tag-label { font-size: var(--text-emphasis); color: var(--text-2); text-transform: uppercase; display: block; margin-bottom: 0; }
+.tag-mode-toggle {
+  background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
+  color: var(--text-2); font-size: var(--text-emphasis); padding: 2px var(--space-default); cursor: pointer;
+  text-transform: none;
+}
+.tag-mode-toggle:hover { border-color: var(--accent-primary); color: var(--text-0); }
+.tag-mode-toggle.active { background: var(--border-1); border-color: var(--accent-primary); color: var(--accent-primary); }
 .tag-input-wrapper {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   display: flex; flex-wrap: wrap; padding: var(--space-tight); gap: var(--space-tight); position: relative;
