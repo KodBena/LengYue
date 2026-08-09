@@ -140,11 +140,17 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
         placeholder="e.g. Cho"
         :suggest="suggest.suggest"
       />
+      <!-- M27 (audit finding, ledger row 1251): this field and the
+           any-color filter above shared the identical placeholder
+           "e.g. Cho", defeating the point of a per-field example.
+           Shin Jinseo fits this field the same way Cho/Lee fit
+           theirs — a real player name, distinct from the other two
+           filters' examples. -->
       <LibraryPlayerFilter
         :model-value="query.filter.playerWhiteLike"
         @update:model-value="query.filter.playerWhiteLike = $event"
         label="White"
-        placeholder="e.g. Cho"
+        placeholder="e.g. Shin"
         :suggest="suggest.suggest"
       />
       <LibraryPlayerFilter

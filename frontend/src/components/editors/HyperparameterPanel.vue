@@ -172,7 +172,7 @@ function optionsStr(decl: HyperparamDecl): string {
           </td>
           <td>
             <select
-              class="dark-input"
+              class="dark-input type-select"
               :value="decl.type"
               @change="(e: any) => updateType(idx, e.target.value)"
             >
@@ -191,9 +191,19 @@ function optionsStr(decl: HyperparamDecl): string {
           </td>
           <td>
             <template v-if="decl.type === 'number'">
+              <!-- M25 (audit finding, ledger row 1251): Constraints
+                   held two unlabelled inputs — placeholder text
+                   ("min"/"max") disappears once a value is typed and
+                   is never an accessible name in the first place.
+                   These bound this hyperparameter's own runtime
+                   range (see updateRange's own docstring / the
+                   harness-level `range` field consumed at bind
+                   time), so the label names both the bound
+                   (min/max) and the hyperparameter it constrains. -->
               <input
                 type="text"
                 class="dark-input narrow"
+                :aria-label="t('cardSet.harness.ariaLabel.min', { name: decl.name })"
                 :placeholder="t('cardSet.harness.placeholder.min')"
                 :value="rangeLo(decl)"
                 @input="(e: any) => updateRange(idx, 'lo', e.target.value)"
@@ -201,6 +211,7 @@ function optionsStr(decl: HyperparamDecl): string {
               <input
                 type="text"
                 class="dark-input narrow"
+                :aria-label="t('cardSet.harness.ariaLabel.max', { name: decl.name })"
                 :placeholder="t('cardSet.harness.placeholder.max')"
                 :value="rangeHi(decl)"
                 @input="(e: any) => updateRange(idx, 'hi', e.target.value)"
@@ -284,6 +295,14 @@ function optionsStr(decl: HyperparamDecl): string {
 .dark-input:focus { border-color: var(--accent-primary); }
 .dark-input.dup { border-color: var(--state-error); }
 .dark-input.narrow { width: 48%; display: inline-block; margin-right: 2%; }
+/* M25 (audit finding, ledger row 1251): the Type select rendered
+   "numbe" — clipped by a column narrower than its own longest
+   option ("number"/"string", 6 characters). min-width in `ch`
+   (character-relative, so it tracks the select's own monospace
+   font-size rather than a hand-tuned px guess) guarantees the
+   column grows to fit before the browser starts eliding, while
+   `width: 100%` above still lets it grow further in a wider layout. */
+.type-select { min-width: 7ch; }
 .row-del-btn {
   background: none; border: none; color: var(--state-error);
   cursor: pointer; font-size: var(--text-heading); padding: 0 var(--space-tight);
