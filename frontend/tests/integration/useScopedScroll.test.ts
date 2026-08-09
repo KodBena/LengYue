@@ -120,6 +120,48 @@ describe('useScopedScroll — pure per-event containment gate (row 1050)', () =>
     expect(onScroll).toHaveBeenCalledWith(10);
   });
 
+  it('the stale-flag transition: a genuinely-hovered element loses hover to an overlay (real mouseleave) and the overlay is removed without the pointer moving (no re-fired mouseenter) — wheel on the element still navigates', () => {
+    // This isolates the actual mechanism the old `isHovered` ref got
+    // wrong, as opposed to the "no mouseenter ever fired" shortcut in
+    // the desync case above (which is red against the old code for a
+    // different, uninteresting reason). Sequence, matching what the
+    // browser actually does when an overlay steals the pointer mid-hover:
+    //   1. mouseenter fires on `el` (old: isHovered -> true)
+    //   2. an overlay takes the hit-test target -> mouseleave fires on
+    //      `el` (old: isHovered -> false) — this part IS a real browser
+    //      event, because the overlay's appearance changes what the
+    //      cursor is over even with no cursor motion (hit-testing is
+    //      re-evaluated whenever the DOM/paint changes under it).
+    //   3. the overlay is removed with the cursor still stationary — no
+    //      mousemove occurred, so no mouseenter re-fires for `el` even
+    //      though it is hit-testable again (old: isHovered stays stuck
+    //      `false`).
+    //   4. wheel is dispatched targeting `el`.
+    // Old implementation: isHovered is false at step 4 -> handleWheel's
+    // early-return swallows the wheel -> onScroll never called. This is
+    // exactly the witnessed maintainer bug (space-ponder-space). New
+    // implementation has no isHovered to go stale — the wheel's own
+    // composedPath contains `el` -> it navigates.
+    const { el } = mountHost();
+    const elRef = ref<HTMLElement | null>(el);
+    const onScroll = vi.fn();
+    withSetup(() => useScopedScroll(elRef, onScroll));
+
+    el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
+
+    const overlay = document.createElement('div');
+    document.body.appendChild(overlay);
+    el.dispatchEvent(new MouseEvent('mouseleave', { bubbles: false }));
+
+    overlay.remove();
+    // No mouseenter dispatched here — the pointer never moved, so the
+    // browser would not fire one either.
+
+    dispatchWheel(el);
+
+    expect(onScroll).toHaveBeenCalledWith(10);
+  });
+
   it('preventDefault is only called for a wheel that lands on the bound element', () => {
     const { el } = mountHost();
     const elRef = ref<HTMLElement | null>(el);
