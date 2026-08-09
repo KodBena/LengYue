@@ -326,6 +326,23 @@
    * text, ≥ 4.5:1; also clears the 3:1 large-text/glyph floor with
    * more margin). */
   --accent-primary: #0069A1;
+
+  /* text-on-accent (.preview-btn.primary label, .library-row.selected
+   * text): NOT one of the two tokens the ADR-0019 audit measured, but
+   * left un-overridden here it silently inherits the base cluster
+   * block's value for that role, `var(--cluster-12-4)` (deep purple,
+   * rgb(11,0,27), L ≈ 0.0016) — measured directly against THIS block's
+   * darkened --accent-primary (rgb(0,105,161), L ≈ 0.1269): (0.0016 +
+   * 0.05) / (0.1269 + 0.05) ≈ 3.43:1, fails the 4.5:1 normal-text
+   * floor (row 1198). Unlike text-2/accent-primary above, darkening
+   * the existing palette entry further isn't the fix — the token
+   * needs to go LIGHTER against a now-dark fill, so a literal (same
+   * discipline as the base :root block's own independently-chosen
+   * hex for that role, #333, not a --cluster-12-N alias) is category-
+   * correct here: white, rgb(255,255,255), L = 1.0 → (1.0 + 0.05) /
+   * (0.1269 + 0.05) ≈ 5.94:1. PASS (normal text, ≥ 4.5:1, with
+   * headroom). */
+  --text-on-accent: #FFFFFF;
 }
 
 :root {

@@ -36,6 +36,20 @@
  * surface token, or retunes `--text-on-accent` below the floor in
  * either palette, turns this red.
  *
+ * Extended by ledger row 1198: the opt-in
+ * `[data-theme="cluster"][data-contrast-text="on"]` overlay (see
+ * theme.css's own docstring above that block) darkens
+ * `--accent-primary` to `#0069A1` but had left `--text-on-accent`
+ * un-overridden, so it silently inherited the base `cluster` block's
+ * `var(--cluster-12-4)` (deep purple) — 3.43:1 against the darkened
+ * accent, below the 4.5:1 floor, even though the un-overlaid `cluster`
+ * theme (already covered above) passes. Because a plain `dark` /
+ * `cluster` theme-table can't see an attribute-gated overlay of an
+ * already-covered theme, the matrix below adds a third row,
+ * `'cluster-hc'`, resolved against the overlay selector directly (its
+ * own `--accent-primary` and `--text-on-accent`, both declared
+ * in-block in theme.css) rather than the base `cluster` block.
+ *
  * License: Public Domain (The Unlicense)
  */
 import { describe, it, expect } from 'vitest';
@@ -56,15 +70,27 @@ const PALETTES_CSS = readFileSync(
   'utf-8',
 );
 
-type ThemeName = 'dark' | 'cluster';
+type ThemeName = 'dark' | 'cluster' | 'cluster-hc';
 
-// Slice out a `[data-theme="X"] { ... }` block's body by brace-depth
+// Selector each `ThemeName` resolves to. `cluster-hc` is not a
+// `data-theme` value at all — it's the opt-in
+// `[data-theme="cluster"][data-contrast-text="on"]` overlay layered on
+// top of `cluster` (see theme.css's docstring above that block) — but
+// modeling it as its own row lets the matrix below assert the overlay
+// selector's OWN resolved values, not the base `cluster` block's.
+const THEME_SELECTORS: Record<ThemeName, string> = {
+  dark: '[data-theme="dark"]',
+  cluster: '[data-theme="cluster"]',
+  'cluster-hc': '[data-theme="cluster"][data-contrast-text="on"]',
+};
+
+// Slice out a theme selector's `{ ... }` block body by brace-depth
 // scanning from the opening selector — simple and correct for this
 // file's flat (non-nested) custom-property declarations.
 function themeBlock(css: string, theme: ThemeName): string {
-  const marker = `[data-theme="${theme}"] {`;
+  const marker = `${THEME_SELECTORS[theme]} {`;
   const start = css.indexOf(marker);
-  if (start === -1) throw new Error(`theme.css: no [data-theme="${theme}"] block found`);
+  if (start === -1) throw new Error(`theme.css: no ${THEME_SELECTORS[theme]} block found`);
   const bodyStart = start + marker.length;
   let depth = 1;
   let i = bodyStart;
@@ -95,7 +121,7 @@ function resolveAnchor(theme: ThemeName, anchorName: string): HexColor {
   const block = themeBlock(THEME_CSS, theme);
   const re = new RegExp(`${anchorName}:\\s*([^;]+);`);
   const m = re.exec(block);
-  if (!m) throw new Error(`theme.css: [data-theme="${theme}"] has no ${anchorName}`);
+  if (!m) throw new Error(`theme.css: ${THEME_SELECTORS[theme]} has no ${anchorName}`);
   const raw = m[1].trim();
   const clusterVarMatch = /^var\((--cluster-12-\d+)\)$/.exec(raw);
   if (clusterVarMatch) return resolveClusterVar(clusterVarMatch[1]);
@@ -108,7 +134,7 @@ function resolveAnchor(theme: ThemeName, anchorName: string): HexColor {
     const [, r, g, b] = hex3Match;
     return `#${r}${r}${g}${g}${b}${b}` as HexColor;
   }
-  throw new Error(`theme.css: [data-theme="${theme}"] ${anchorName} = "${raw}" not statically resolvable`);
+  throw new Error(`theme.css: ${THEME_SELECTORS[theme]} ${anchorName} = "${raw}" not statically resolvable`);
 }
 
 // Confirm a selector's rule block in a component source actually
@@ -135,7 +161,7 @@ const TABLE_SRC = readFileSync(
   'utf-8',
 );
 
-const THEMES: ThemeName[] = ['dark', 'cluster'];
+const THEMES: ThemeName[] = ['dark', 'cluster', 'cluster-hc'];
 const TEXT_ON_ACCENT = '--text-on-accent';
 
 describe('Library — "Open in board" primary label contrast (audit L10, ledger rows 1018/1144)', () => {
