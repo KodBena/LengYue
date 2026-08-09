@@ -14,6 +14,24 @@
   over `activePanels` unmounts the inactive tabs' panels entirely, so they
   leave the frame (the regime-B win). The timeline scrubber is the
   persistent header, above the tab strip; it is not a registry panel.
+
+  Tab-strip idiom (M19, ledger row 1292, audit menus-ui-audit/report.md):
+  this strip used to be a bespoke borderless-underline `<button>` row —
+  the second of three coexisting tab idioms the audit found (top-level +
+  Settings already rendered through the shared `TabWidget`; the Cards
+  Decks/Browse strip has since converged too, ledger row 928 commit
+  10b6e9aa). Converged here by actually rendering through `TabWidget`
+  (ADR-0012 — one component, one idiom) rather than visually matching it,
+  since the tab model fits `TabWidget`'s `{id,label}[]` + `modelValue`
+  contract exactly (`AnalysisTab` is a strict superset). `keepMounted`
+  stays at its default `false` so switching tabs still unmounts the
+  inactive tab's panels entirely — the same "regime-B win" this
+  docstring's first paragraph describes; TabWidget's own `v-if` on each
+  named slot reproduces it (only the active tab's slot content ever
+  renders — see TabWidget.vue's tab-pane loop). The strip is hidden
+  below TabWidget's own scroll-affordance when there's only one tab, same
+  as before (`v-if="tabs.length > 1"`), so a single-tab dashboard shows
+  no strip at all.
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
@@ -21,8 +39,9 @@ import { computed, watch } from 'vue';
 import { provideAnalysisContext } from '../../composables/analysis/useAnalysisContext';
 import { useAnalysisTabs } from '../../composables/analysis/useAnalysisTabs';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
-import type { BoardId, AnalysisTabId } from '../../types';
+import type { BoardId, AnalysisTab, AnalysisTabId } from '../../types';
 import AnalysisTimelinePanel from './AnalysisTimelinePanel.vue';
+import TabWidget from '../chrome/TabWidget.vue';
 import { ANALYSIS_PANELS_BY_ID, type AnalysisPanelDescriptor } from './panel-registry';
 
 const props = defineProps<{ boardId: BoardId }>();
@@ -44,24 +63,33 @@ watch(ctx.variationPath, (path) => {
 // Tab layout. Render only the active tab's panels.
 const { tabs, activeTab, setActiveTab } = useAnalysisTabs();
 
-// Resolve the active tab's panelIds to registry descriptors. A panelId not
-// in the registry (a removed/renamed panel orphaning a saved tab) is
-// dropped with a warning rather than crashing the render — ADR-0002
-// non-fatal degradation.
-const activePanels = computed<AnalysisPanelDescriptor[]>(() => {
-  const t = activeTab.value;
-  if (!t) return [];
+// Resolve a tab's panelIds to registry descriptors. A panelId not in the
+// registry (a removed/renamed panel orphaning a saved tab) is dropped
+// with a warning rather than crashing the render — ADR-0002 non-fatal
+// degradation. Named per-tab (not just "the active tab") because
+// TabWidget's template below calls this once per tab's named slot; only
+// the active slot's `v-if` actually renders, so in practice this still
+// only ever runs for the active tab (see the M19 docstring above).
+function resolvePanels(tab: AnalysisTab): AnalysisPanelDescriptor[] {
   const out: AnalysisPanelDescriptor[] = [];
-  for (const id of t.panelIds) {
+  for (const id of tab.panelIds) {
     const d = ANALYSIS_PANELS_BY_ID.get(id);
     if (d) out.push(d);
-    else console.warn(`[AnalysisDashboard] tab "${t.label}" references unknown panel id "${id}" — dropping.`);
+    else console.warn(`[AnalysisDashboard] tab "${tab.label}" references unknown panel id "${id}" — dropping.`);
   }
   return out;
+}
+
+// Single-tab fallback: TabWidget is only mounted when there's something
+// to switch between (`tabs.length > 1`, matching the strip's prior
+// visibility rule); with exactly one tab its panels render directly.
+const soloTabPanels = computed<AnalysisPanelDescriptor[]>(() => {
+  const t = activeTab.value;
+  return t ? resolvePanels(t) : [];
 });
 
-function onTabClick(id: AnalysisTabId): void {
-  setActiveTab(id);
+function onTabModelUpdate(id: string): void {
+  setActiveTab(id as AnalysisTabId);
 }
 </script>
 
@@ -69,23 +97,32 @@ function onTabClick(id: AnalysisTabId): void {
   <div class="dashboard">
     <AnalysisTimelinePanel />
 
-    <!-- Tab strip — hidden when there is only one tab (nothing to switch). -->
-    <div v-if="tabs.length > 1" class="tab-strip" role="tablist">
-      <button
-        v-for="tab in tabs"
-        :key="tab.id"
-        type="button"
-        role="tab"
-        class="tab"
-        :class="{ active: tab.id === activeTab?.id }"
-        :aria-selected="tab.id === activeTab?.id"
-        @click="onTabClick(tab.id)"
-      >{{ tab.label }}</button>
-    </div>
+    <!-- Tab strip — hidden when there is only one tab (nothing to
+         switch), same visibility rule as before. M19: rendered through
+         the shared TabWidget (see script-block docstring) rather than
+         a bespoke strip, so this converges with the top-level and
+         Settings strips onto the one incumbent idiom. -->
+    <TabWidget
+      v-if="tabs.length > 1"
+      class="analysis-tabwidget"
+      :tabs="tabs"
+      :model-value="activeTab?.id ?? ''"
+      @update:model-value="onTabModelUpdate"
+    >
+      <template v-for="tab in tabs" #[tab.id]>
+        <div class="scrollable-content">
+          <component
+            v-for="panel in resolvePanels(tab)"
+            :is="panel.component"
+            :key="panel.id"
+          />
+        </div>
+      </template>
+    </TabWidget>
 
-    <div class="scrollable-content">
+    <div v-else class="scrollable-content">
       <component
-        v-for="panel in activePanels"
+        v-for="panel in soloTabPanels"
         :is="panel.component"
         :key="panel.id"
       />
@@ -114,26 +151,16 @@ function onTabClick(id: AnalysisTabId): void {
   gap: var(--space-default);
   padding: var(--space-medium);
 }
-.tab-strip {
-  display: flex;
-  flex-shrink: 0;
-  gap: 2px;
-  border-bottom: 1px solid var(--surface-3);
-}
-.tab {
-  padding: 2px 10px;
-  font-size: var(--text-emphasis);
-  color: var(--text-2);
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  transition: color var(--duration-default), border-color var(--duration-default);
-}
-.tab:hover { color: var(--text-1); }
-.tab.active {
-  color: var(--text-0);
-  border-bottom-color: var(--accent-primary);
+/* M19: the strip's own visual idiom (bordered box, accent underline,
+   hover state) now lives entirely in TabWidget.vue — no bespoke
+   `.tab`/`.tab-strip` rules here. `.analysis-tabwidget` only sizes
+   TabWidget's root within `.dashboard`'s flex column (TabWidget's own
+   `.vue-tabs` root is `height: 100%`, which needs a `flex: 1;
+   min-height: 0` sizing parent the same way `.scrollable-content` used
+   to provide directly). */
+.analysis-tabwidget {
+  flex: 1;
+  min-height: 0;
 }
 .scrollable-content {
   flex: 1;
