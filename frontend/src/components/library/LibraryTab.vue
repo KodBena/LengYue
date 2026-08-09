@@ -62,19 +62,27 @@ onMounted(() => {
   void suggest.refresh();
 });
 
+// Plain click on a row (ledger row 1106 — SELECT-PREVIEWS,
+// EXPLICIT-OPEN, overruling the single-click-opens option explored
+// earlier under this same ledger row 1015): select for preview
+// ONLY. Nothing loads onto the board and no confirm-load modal can
+// fire from this gesture — it just updates which row's preview the
+// user is looking at.
 function onSelect(row: LibraryGameListItem): void {
   preview.selectedRow.value = row;
 }
 
-// Double-click on a row: select for preview AND open on the board.
-// The preview composable will fetch the full LibraryGame via its
-// watcher on selectedRow; we also fetch here directly so the
-// open-emit has a concrete game in hand without racing the watcher.
-// Two GET requests for the same id is a benign duplicate at hobby
-// scale; the alternative (await-the-watcher) requires plumbing a
-// resolution signal back out of useLibraryPreview, and the existing
-// "Open in board" button uses the watcher's selectedGame anyway —
-// the double-click and the button stay alignable that way.
+// Double-click, or Enter on a selected row (LibraryTable's explicit
+// open gesture, ledger row 1106): select for preview AND open on
+// the board. The preview composable will fetch the full LibraryGame
+// via its watcher on selectedRow; we also fetch here directly so
+// the open-emit has a concrete game in hand without racing the
+// watcher. Two GET requests for the same id is a benign duplicate
+// at hobby scale; the alternative (await-the-watcher) requires
+// plumbing a resolution signal back out of useLibraryPreview, and
+// the existing "Open in board" button uses the watcher's
+// selectedGame anyway — the explicit-open path and the button stay
+// alignable that way.
 async function onOpen(row: LibraryGameListItem): Promise<void> {
   preview.selectedRow.value = row;
   const game = await preview.fetchGame(row.id);
