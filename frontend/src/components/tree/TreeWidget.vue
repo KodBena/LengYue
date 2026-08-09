@@ -188,11 +188,13 @@ function nodeFill(item: { move?: GameNode['move'] }): string {
   // A pass is a game move played by a specific color (ledger row 759:
   // "a pass is a game move, not a meta-instruction") — it takes the
   // SAME B/W stone fill as any other move by that color, not a neutral
-  // chrome tone. The "P" glyph rendered alongside in the template (see
-  // `passGlyphFill` below) is the actual distinguishing signal that
-  // this node is a pass rather than a placed stone, per ADR-0019
-  // appendix C18 (no color-only meaning) — the fill alone never carries
-  // the pass/stone distinction.
+  // chrome tone. Commissioner ruling (ledger row 948, amendment): a
+  // pass node renders EXACTLY like a normal move node — same circle,
+  // same per-color fill, no shape, glyph, or any other distinguishing
+  // mark. There is deliberately no pass-only branch anywhere in this
+  // file; `nodeFill`/`nodeStroke` and the single `<circle>` in the
+  // template below are shared, unconditional code paths for every
+  // move node, pass or not.
   //
   // Stone colors are domain-meaningful (board pieces); not chrome.
   //
@@ -221,28 +223,6 @@ function nodeFill(item: { move?: GameNode['move'] }): string {
 
 function nodeStroke(item: { move?: GameNode['move'] }): string {
   return item.move ? themeColor('--border-3') : themeColor('--border-2');
-}
-
-// Pass-glyph fill: since `nodeFill()` now paints a pass node the same
-// B/W stone colour as any other move (ledger row 759), the "P" glyph
-// needs a per-stone-color fill to stay legible on BOTH stone colors —
-// a single `--text-1` (the prior treatment, correct only against the
-// neutral pass fill it replaced) would be invisible on a black stone
-// and low-contrast on white. White glyph on black stone, dark glyph on
-// white stone — the same B/W literal-color posture `nodeFill` already
-// uses for the stones themselves (ADR-0003 plan §D: domain colors, not
-// chrome).
-//
-// Checked against BOTH fills `nodeFill` can return for a black-color
-// pass: light theme's literal '#111' (glyph '#eee' vs '#111' is
-// ~16.9:1) and the dark-theme override
-// `var(--tree-node-black-fill, #111)` => '#707070' (see nodeFill()'s
-// WCAG derivation above) — '#eee' vs '#707070' is ~4.06:1, both well
-// past ADR-0019 appendix C19's 3:1 floor for information-bearing
-// glyphs. White stone fill '#eee' vs glyph '#111' is ~16.9:1 in every
-// theme (no theme override touches the white-stone fill).
-function passGlyphFill(item: { move?: GameNode['move'] }): string {
-  return item.move?.color === 'B' ? '#eee' : '#111';
 }
 
 // ── Coordinate mapping ────────────────────────────────────────────────────────
@@ -559,17 +539,12 @@ const edges = computed(() => {
                board carries this ring at a time (the walk issues one
                in-flight query at a time by construction). -->
           <circle v-if="item.isAnalyzing" :cx="item.px" :cy="item.py" :r="NODE_R + 13" class="analyzing-ring" stroke-width="1.5" stroke-dasharray="1,1" />
+          <!-- Commissioner ruling (ledger row 948, amendment): a pass
+               node renders EXACTLY like a normal move node — same
+               circle, same per-color fill (`nodeFill`/`nodeStroke`,
+               ledger row 759), no shape/glyph distinction of any kind.
+               No `item.move?.type === 'pass'` branch here by design. -->
           <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
-          <!-- Pass-node glyph — the actual distinguishing signal for a
-               pass (per ADR-0019 appendix C18, no color-only meaning):
-               a "P" letterform, since the node circle itself now renders
-               as an ordinary B/W stone (nodeFill, ledger row 759).
-               `:fill="passGlyphFill(item)"` picks a per-stone-color glyph
-               fill so the "P" stays legible on both colors (see
-               passGlyphFill's comment in the script block for the
-               contrast derivation). `pointer-events: none` so the glyph
-               doesn't shadow the circle's own click target. -->
-          <text v-if="item.move?.type === 'pass'" :x="item.px" :y="item.py" :fill="passGlyphFill(item)" class="pass-glyph" text-anchor="middle" dominant-baseline="central" pointer-events="none">P</text>
 
           <g v-if="item.isBranching" class="toggle-group" @click.stop="expansion.toggle(item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseenter="e => onToggleEnter(e, item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseleave="onToggleLeave">
             <line :x1="item.px" :y1="item.py" :x2="item.ix" :y2="item.iy" class="toggle-leader" stroke-width="1" stroke-dasharray="2,1" />
@@ -600,14 +575,6 @@ const edges = computed(() => {
 .analyzing-ring { fill: none; stroke: var(--state-attention); }
 .node-circle { cursor: pointer; transition: filter var(--duration-default); }
 .node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px var(--accent-primary)); }
-/* Pass-node glyph — 6px against a NODE_R=5 (10px-diameter) circle;
-   legible at the tree's default zoom without dominating the node.
-   Fill is set per-item via `:fill="passGlyphFill(item)"` in the
-   template (a B/W-stone-literal colour, contrasting with whichever
-   stone colour `nodeFill` painted the node) — no `fill` declared here,
-   so the element's own `fill` attribute is not overridden by the
-   stylesheet cascade. */
-.pass-glyph { font-size: 6px; font-weight: bold; user-select: none; }
 .toggle-group { cursor: pointer; }
 .toggle-group rect { transition: stroke var(--duration-default), fill var(--duration-default); }
 .toggle-leader { stroke: var(--border-3); }
