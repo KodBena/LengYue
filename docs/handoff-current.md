@@ -290,9 +290,10 @@ honest abstractions rather than convenience APIs.
 **Five operational roles**: LEAF (engine-bound process), RELAY
 (public-facing aggregator over many LEAFs), SELECTOR (per-query dispatch
 against a labelled upstream pool, added in v1.0.15), ECHO (test/replay),
-REDIRECT (compat shim). For local development, a single LEAF on
-`127.0.0.1:41948` is sufficient — and is exactly what the frontend's
-default config expects (matching `proxy/run_leaf.sh`'s default). For
+REDIRECT (compat shim). For local development, a single LEAF (or the websocket shim) on
+`127.0.0.1:1242` is sufficient — and is exactly what the frontend's
+default config expects (the canonical leaf port; see the one-port
+scheme in `docs/docker.md`). For
 institutional deployment, the RELAY-over-LEAF pattern is the production
 shape; SELECTOR-over-LEAFs is the variant when end-users should pick the
 analyzing model per query (the SPA's model-selector dropdown).
