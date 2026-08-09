@@ -178,30 +178,24 @@
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { store, touchSession } from '../../store';
+import {
+  MIN_BOARD_PX,
+  CONTROL_PANEL_MIN_WIDTH_PX,
+  TREE_PANEL_MIN_WIDTH_PX,
+  WRAPPER_MIN_WIDTH_PX,
+  RESIZER_WIDTH_PX,
+} from '../../state/layout-model';
 
-// The board's own floor. The OUTER bar's upper clamp is derived so
-// the board can never be squeezed narrower than this.
-export const MIN_BOARD_PX = 300;
-
-// magic-literal: mirrors #control-panel's min-width (App.vue) — the
-// tab-strip-legibility floor documented at that call site. Used here
-// only to derive the INNER bar's upper clamp (tree can't grow so
-// wide it squeezes control below this floor).
-export const CONTROL_PANEL_MIN_WIDTH_PX = 220;
-
-// magic-literal: the tree panel's historical fixed width (pre-
-// amendment `#vue-tree-panel { width: 140px }`). Kept as the FLOOR
-// rather than picking a smaller number: no prior data point validates
-// the tree/game-navigator widget rendering sensibly below 140px.
-export const TREE_PANEL_MIN_WIDTH_PX = 140;
-
-// The wrapper's own floor: it must fit at least the tree floor + the
-// inner resizer + the control-panel floor. Derived, not independently
-// chosen, so the three constants can't drift apart.
-export const WRAPPER_MIN_WIDTH_PX = TREE_PANEL_MIN_WIDTH_PX + 4 + CONTROL_PANEL_MIN_WIDTH_PX;
-
-// Each resizer bar's own rendered width (App.vue `.panel-resizer`).
-export const RESIZER_WIDTH_PX = 4;
+// Phase 0 (resolution roadmap, audit finding R2): these five floors
+// used to be hand-picked literals living HERE, independently of each
+// other and of the tab strip they were meant to track (R2's root
+// cause). They are now DECLARED DATA in `state/layout-model.ts` — the
+// single home `getPanelGeometryPolicy`/`PANEL_GEOMETRY_POLICY_BY_WIDTH_CLASS`
+// reads too — and re-exported below unchanged so this file's own drag
+// math (which only ever needs one floor at a time, never a whole
+// `LayoutClass`) doesn't have to thread one through. See that module's
+// header for the full derivation of each.
+export { MIN_BOARD_PX, CONTROL_PANEL_MIN_WIDTH_PX, TREE_PANEL_MIN_WIDTH_PX, WRAPPER_MIN_WIDTH_PX, RESIZER_WIDTH_PX };
 
 // True while EITHER resizer bar is being dragged. See this file's
 // header, "Shared drag-in-progress flag", for what consumes it.
@@ -598,5 +592,14 @@ export function useResizablePanel() {
     effectiveTreeControlRegionWidthPx,
     freshTreeControlWrapperMinWidthPx,
     boardColumnMaxWidthPx,
+    // #split-workspace's own live width/height (Phase 1, resolution
+    // roadmap): the SAME ResizeObserver-cached geometry the clamps
+    // above already read — exposed so `state/layout-model.ts`'s
+    // `useDeferredLayoutClass` can derive the axis/width LayoutClass
+    // from it without a second observer on the same element (ADR-0010
+    // imperative-escape discipline: one observer per measured
+    // element).
+    rowWidthPx,
+    rowHeightPx,
   };
 }

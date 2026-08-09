@@ -24,6 +24,7 @@ import { useForestBrowsePolicy } from '../../composables/forest/useForestBrowseP
 import { useForestStats } from '../../composables/forest/useForestStats';
 import { useReviewSession } from '../../composables/review/useReviewSession';
 import { useAuth } from '../../composables/auth-app/useAuth';
+import { FOREST_NARROW_THRESHOLD_PX } from '../../state/layout-model';
 import { expandContextIdMacros } from '../../utils/context-id-macros';
 import CardTreeWidget from '../charts/CardTreeWidget.vue';
 import ForestTreeNav from './ForestTreeNav.vue';
@@ -401,17 +402,28 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
 // comment). That's exactly the class of "discrete responsiveness
 // reorganization" the amendment names — this panel is hosted inside
 // #control-panel (the Cards tab), so a resizer drag sweeps this
-// wrapper's width continuously through 479px, and the CQ used to flip
-// the layout mid-gesture. Converted to a ResizeObserver-driven class
-// via useDeferredContainerBreakpoint, which freezes the reorg while
-// EITHER resizer bar is dragging and commits once, with hysteresis,
-// on release. See that composable's header for the full mechanism.
+// wrapper's width continuously through the threshold, and the CQ used
+// to flip the layout mid-gesture. Converted to a ResizeObserver-driven
+// class via useDeferredContainerBreakpoint, which freezes the reorg
+// while EITHER resizer bar is dragging and commits once, with
+// hysteresis, on release. See that composable's header for the full
+// mechanism.
+//
+// Phase 0 (resolution roadmap): the threshold itself is no longer the
+// bare literal `479` — it's `FOREST_NARROW_THRESHOLD_PX`
+// (state/layout-model.ts), projected from this panel's own content
+// facts (`.left-panel`'s natural width + the ECharts forest's usable
+// floor, both declared there) via `computeForestNarrowThresholdPx`.
+// See that module's header for why this and
+// `CONTROL_PANEL_MIN_WIDTH_PX` are documentation-adjacent, not
+// numerically coupled, despite App.vue's own pre-existing comment
+// once claiming otherwise.
 const forestCqWrapperEl = ref<HTMLElement | null>(null);
 const {
   committed: forestNarrow,
   observe: observeForestWidth,
   stop: stopForestWidthObserver,
-} = useDeferredContainerBreakpoint(479);
+} = useDeferredContainerBreakpoint(FOREST_NARROW_THRESHOLD_PX);
 
 onMounted(() => {
   if (forestCqWrapperEl.value) observeForestWidth(forestCqWrapperEl.value);
@@ -572,22 +584,27 @@ onUnmounted(() => {
    `.forest-container`, not the styled element itself — the
    ancestor-not-self lesson iter-17 originally paid for still applies
    to a ResizeObserver target the same way it applied to a CQ
-   container). Threshold 479 px is content-derived (left-panel
-   natural width 280 + tree-panel min-width ≈200 = 480), not viewport-
-   derived — a user widening the control panel above ~480 px gets the
-   side-by-side layout regardless of the actual viewport. */
+   container). Threshold (`FOREST_NARROW_THRESHOLD_PX`,
+   state/layout-model.ts) is content-derived (left-panel natural width
+   280 + tree-panel usable floor 200 = 480, threshold fires strictly
+   below), not viewport-derived — a user widening the control panel
+   above that gets the side-by-side layout regardless of the actual
+   viewport. */
 .forest-cq-wrapper { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; }
 .forest-container { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; overflow: hidden; background: var(--surface-0); }
 .left-panel { width: 280px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--surface-3); flex-shrink: 0; }
 
-/* magic-literal: 479px threshold (useDeferredContainerBreakpoint call
-   site in the script) — derived, not arbitrary. The side-by-side
-   layout needs `.left-panel`'s natural width (280px, set immediately
-   above) plus `.tree-panel`'s usable minimum (~200px, the threshold
-   below which the lineage explorer's ECharts forest renders
-   unintelligibly). 280 + 200 = 480; the reorg fires below that. If
-   the left-panel's natural width or the tree-panel's usable floor
-   changes, this threshold needs to track them. */
+/* FOREST_NARROW_THRESHOLD_PX (useDeferredContainerBreakpoint call
+   site in the script, state/layout-model.ts) — derived, not
+   arbitrary, and no longer a bare literal here (Phase 0, resolution
+   roadmap). The side-by-side layout needs `.left-panel`'s natural
+   width (280px, `FOREST_LEFT_PANEL_NATURAL_WIDTH_PX`, set immediately
+   above) plus `.tree-panel`'s usable minimum (~200px,
+   `FOREST_TREE_USABLE_FLOOR_PX`, the threshold below which the
+   lineage explorer's ECharts forest renders unintelligibly). If
+   either fact changes, update it at its declaration in
+   state/layout-model.ts — this threshold re-derives from it by
+   construction, nothing here to keep in sync by hand. */
 .forest-container.forest-narrow-stack {
   flex-direction: column;
 }
