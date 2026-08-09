@@ -63,6 +63,7 @@
 //!
 //! License: Public Domain (The Unlicense)
 
+mod mdns_discovery;
 mod proxy_settings;
 
 use std::net::{TcpListener, TcpStream};
@@ -175,6 +176,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             proxy_settings::get_proxy_upstream_setting,
             proxy_settings::set_proxy_upstream_setting,
+            mdns_discovery::discover_upstreams,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
