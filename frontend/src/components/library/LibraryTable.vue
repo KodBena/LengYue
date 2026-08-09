@@ -23,13 +23,32 @@
  * the double-click native word-selection artifact (L7's "text
  * smear") regardless of which gesture opens.
  *
- * Rows carry `tabindex="0"` so a clicked (selected) row can receive
- * the Enter keydown that opens it — the minimal reachability this
- * one gesture needs. This does NOT implement roving arrow-key
- * navigation, ARIA roles, or `aria-sort` (audit L4/L19) — that
- * broader keyboard-navigation overhaul is owned elsewhere; Enter-
- * to-open on the already-clicked row is the narrow slice this
- * ledger row asked for.
+ * Keyboard operability (audit L4, ledger row 1016 / scope-corrected
+ * row 1037): ROVING TABINDEX over the rendered rows. Exactly one
+ * row — the one at `focusIndex` — carries `tabindex="0"`; every
+ * other rendered row carries `tabindex="-1"`. That makes the list a
+ * single Tab stop (genre: native listbox / mail-client / file-
+ * manager row lists) rather than the earlier per-row tabindex flood.
+ * ArrowUp/ArrowDown/Home/End/PageUp/PageDown move `focusIndex`,
+ * update the selection (mirrors click-select — see `moveFocusTo`),
+ * and coordinate with the virtualizer: moving onto a row outside the
+ * rendered window first adjusts `scrollTop` (via `scrollIndexIntoView`)
+ * so `useVirtualRowList` brings it into the render window, THEN
+ * (after Vue's next DOM patch) calls `.focus()` on the now-existing
+ * element (`focusRowAfterRender`) — a plain synchronous `.focus()`
+ * at move-time would target a DOM node that doesn't exist yet for an
+ * off-window row. Enter still opens the focused/selected row through
+ * the existing guard path.
+ *
+ * Roles: rows container is `role="listbox"` (single-selection, row-
+ * grain focus/selection, no cell-level nav — the file-manager/mail-
+ * client shape the audit itself names) with `role="option"` +
+ * `aria-selected` per row; NOT `role="grid"`/`row` — nothing here
+ * does cell-level navigation, so the heavier grid pattern would be
+ * unearned. Sortable column headers carry `aria-sort` (they ARE
+ * sortable today, via `onSortableHeaderClick`); the `ordinal` column
+ * is not sortable and gets none, per L19/L4 scope — no new sorting
+ * behavior was added.
  *
  * Thin renderer. Data flow:
  *   parent (LibraryTab)
@@ -41,7 +60,7 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { computed, onMounted, onUnmounted, ref, watch, type Ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch, type Ref } from 'vue';
 import { useVirtualRowList } from '../../composables/library/useVirtualRowList';
 import { useElementWidth } from '../../composables/chrome/useElementWidth';
 import { fitColumns } from '../../state/table-column-fit';
@@ -144,6 +163,16 @@ function onSortableHeaderClick(key: LibraryColumnKey): void {
 function sortIndicatorFor(key: LibraryColumnKey): string {
   return isSortableColumn(key) ? sortIndicator(key as LibrarySortColumn) : '';
 }
+// aria-sort (audit L4/L19 roles item): only meaningful on the
+// sortable headers — `ordinal` isn't sortable (see isSortableColumn's
+// own comment) and gets no aria-sort at all, not `'none'`; `'none'`
+// on a non-sortable header would misreport it as sortable-but-unsorted
+// to assistive tech.
+function ariaSortFor(key: LibraryColumnKey): 'ascending' | 'descending' | 'none' | undefined {
+  if (!isSortableColumn(key)) return undefined;
+  if (props.sort !== key) return 'none';
+  return props.direction === 'asc' ? 'ascending' : 'descending';
+}
 
 // Native-title tooltip for the elision indicator — names the dropped
 // columns so the loss is inspectable, not just countable.
@@ -203,6 +232,101 @@ const visibleIndices = computed(() => {
   return arr;
 });
 
+// Roving tabindex (audit L4): the single row-index that currently
+// carries `tabindex="0"`. Defaults to 0 — an as-yet-unselected list
+// still needs exactly one tab stop the moment the user Tabs in.
+// Deliberately NOT resolved from `props.selectedId` on mount: the
+// query composable exposes no id→index lookup (only `rowAt(i)`,
+// index→row), and in this app's actual mount lifecycle LibraryTab
+// never remounts with a pre-existing `selectedId` — assumed fact,
+// ledgered per CLAUDE.md point 7.
+const focusIndex = ref(0);
+
+// Tracks the row-index `select` was already emitted for, so a row
+// whose data arrives AFTER focus already moved onto it (the
+// virtualization case: Home/End can jump focus onto an index whose
+// data hasn't been fetched yet) emits exactly once when it loads,
+// and a click that re-emits `select` for the same index doesn't
+// get double-fired by the watcher below.
+let selectEmittedForIndex = -1;
+
+function emitSelectForFocusIndex(idx: number): void {
+  if (selectEmittedForIndex === idx) return;
+  const row = props.rowAt(idx);
+  if (!row) return;
+  selectEmittedForIndex = idx;
+  emit('select', row);
+}
+
+// Deferred-select watcher: fires once the row at `focusIndex` becomes
+// available, covering the case where keyboard nav moved focus onto an
+// unrendered/unfetched row before its data arrived. `visible-range`
+// (emitted below from `v.visibleStart`/`v.visibleEnd`) already drives
+// the parent's `ensureRange` fetch; this just picks up the result.
+watch(
+  () => props.rowAt(focusIndex.value),
+  () => emitSelectForFocusIndex(focusIndex.value),
+);
+
+// Brings row `idx` into the virtualizer's render window by adjusting
+// `scrollTop` directly — same clamped-scroll math as any manual
+// scrollIntoView: scroll up if the target is above the window, down
+// if below, leave alone if already inside it.
+function scrollIndexIntoView(idx: number): void {
+  const el = scrollContainer.value;
+  if (!el) return;
+  const rowTop = idx * ROW_HEIGHT_PX;
+  const rowBottom = rowTop + ROW_HEIGHT_PX;
+  let target = el.scrollTop;
+  if (rowTop < el.scrollTop) {
+    target = rowTop;
+  } else if (rowBottom > el.scrollTop + el.clientHeight) {
+    target = rowBottom - el.clientHeight;
+  }
+  if (target !== el.scrollTop) el.scrollTop = target;
+  // A programmatic `scrollTop` write doesn't reliably raise a native
+  // `scroll` event synchronously (jsdom in particular never fires
+  // one at all) — update the reactive `scrollTop` ref directly so
+  // `useVirtualRowList`'s visibleStart/visibleEnd recompute
+  // regardless of whether the `scroll` listener also fires.
+  scrollTop.value = el.scrollTop;
+}
+
+// Focuses row `idx`'s DOM element once it exists. For an
+// already-rendered row this resolves on the very next microtask; for
+// a row `scrollIndexIntoView` just brought into the render window,
+// `nextTick()` waits for Vue's DOM patch that actually creates the
+// element before `.focus()` is attempted — the property audit L4
+// calls out explicitly as the regression-prone case.
+async function focusRowAfterRender(idx: number): Promise<void> {
+  await nextTick();
+  const el = scrollContainer.value?.querySelector<HTMLElement>(`[data-row-index="${idx}"]`);
+  el?.focus();
+}
+
+// Rows fully visible in the current containerHeight — PageUp/PageDown
+// step by this many. `Math.max(1, …)` keeps a page-step meaningful
+// even before `containerHeight` has been measured (onMounted hasn't
+// run yet, or jsdom reports 0).
+function pageSize(): number {
+  return Math.max(1, Math.floor(containerHeight.value / ROW_HEIGHT_PX));
+}
+
+// Single entry point for every keyboard-nav move: clamps to
+// [0, totalCount - 1], updates the roving tab stop, scrolls the
+// target into the virtualizer's render window, emits `select` (mirrors
+// click-select — "arrow navigation ... and preview follows, same as
+// click"), and focuses the row once it exists in the DOM.
+function moveFocusTo(idx: number): void {
+  const total = props.totalCount ?? 0;
+  if (total <= 0) return;
+  const clamped = Math.max(0, Math.min(total - 1, idx));
+  focusIndex.value = clamped;
+  scrollIndexIntoView(clamped);
+  emitSelectForFocusIndex(clamped);
+  void focusRowAfterRender(clamped);
+}
+
 function onHeaderClick(col: LibrarySortColumn): void {
   if (props.sort === col) {
     emit('update:direction', props.direction === 'asc' ? 'desc' : 'asc');
@@ -228,7 +352,12 @@ function onRowClick(event: MouseEvent, idx: number): void {
     return;
   }
   // Plain click → select for preview only (ledger row 1106). Opening
-  // is the separate, explicit gesture below (dblclick / Enter).
+  // is the separate, explicit gesture below (dblclick / Enter). Also
+  // moves the roving tab stop onto the clicked row — a click and an
+  // arrow-key move land on the same row either way, so both funnel
+  // through the same "this index is now current" bookkeeping.
+  focusIndex.value = idx;
+  selectEmittedForIndex = idx;
   emit('select', row);
 }
 function onRowDblclick(idx: number): void {
@@ -236,11 +365,41 @@ function onRowDblclick(idx: number): void {
   if (row) emit('open', row);
 }
 function onRowKeydown(event: KeyboardEvent, idx: number): void {
-  if (event.key !== 'Enter') return;
-  const row = props.rowAt(idx);
-  if (!row) return;
-  event.preventDefault();
-  emit('open', row);
+  switch (event.key) {
+    case 'Enter': {
+      const row = props.rowAt(idx);
+      if (!row) return;
+      event.preventDefault();
+      emit('open', row);
+      return;
+    }
+    case 'ArrowDown':
+      event.preventDefault();
+      moveFocusTo(idx + 1);
+      return;
+    case 'ArrowUp':
+      event.preventDefault();
+      moveFocusTo(idx - 1);
+      return;
+    case 'Home':
+      event.preventDefault();
+      moveFocusTo(0);
+      return;
+    case 'End':
+      event.preventDefault();
+      moveFocusTo((props.totalCount ?? 1) - 1);
+      return;
+    case 'PageDown':
+      event.preventDefault();
+      moveFocusTo(idx + pageSize());
+      return;
+    case 'PageUp':
+      event.preventDefault();
+      moveFocusTo(idx - pageSize());
+      return;
+    default:
+      return;
+  }
 }
 function onRowMousedown(event: MouseEvent, idx: number): void {
   if (!isMiddleButtonMousedown(event)) return;
@@ -291,6 +450,7 @@ function rowTitle(idx: number): string {
           v-else
           class="th"
           :class="col.grow ? 'col-player' : `col-${col.key}`"
+          :aria-sort="ariaSortFor(col.key)"
           @click="onSortableHeaderClick(col.key)"
         >{{ col.label }}{{ sortIndicatorFor(col.key) }}</button>
       </template>
@@ -322,6 +482,8 @@ function rowTitle(idx: number): string {
       >
         <div
           class="library-table-rows"
+          role="listbox"
+          aria-label="Library games"
           :style="{ transform: `translateY(${v.topSpacerPx.value}px)` }"
         >
           <div
@@ -334,7 +496,10 @@ function rowTitle(idx: number): string {
             }"
             :style="{ height: ROW_HEIGHT_PX + 'px', gridTemplateColumns }"
             :title="rowTitle(i)"
-            tabindex="0"
+            :data-row-index="i"
+            role="option"
+            :aria-selected="rowAt(i)?.id === selectedId"
+            :tabindex="i === focusIndex ? 0 : -1"
             @click="(e) => onRowClick(e, i)"
             @dblclick="onRowDblclick(i)"
             @keydown="(e) => onRowKeydown(e, i)"
@@ -443,6 +608,16 @@ function rowTitle(idx: number): string {
   user-select: none;
 }
 .library-row:hover { background: var(--surface-2); }
+/* Roving-tabindex focus ring (audit L4): only the one row currently
+   at `tabindex="0"` is ever reachable by keyboard, so its
+   `:focus-visible` state needs to be legible against both the plain
+   and `.selected` (accent-primary background) row states. Inset via
+   negative offset so it doesn't get clipped by the row's own
+   border-bottom / the scroll container's overflow. */
+.library-row:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+}
 /* Selection highlight (audit L11 / ledger row 1018). The prior
    comment here claimed inheriting the default body text colour
    "keeps readability constant between selected and unselected rows"
@@ -454,17 +629,11 @@ function rowTitle(idx: number): string {
    `dark`, the inherited body colour (--text-0, #fff — <body> sets no
    --text-1 override so this is what actually inherits) against
    --accent-primary (#4aaef0) is ~2.44:1 — the measured failure.
-   Explicit `color: var(--text-0)` below makes the cluster-passing
-   value explicit rather than relying on inheritance, and the
-   dark-only override two rules down replaces it with `--border-2`
-   (~5.18:1) for the same reason as LibraryPreviewPane.vue's
-   `.preview-btn.primary` fix: dark's `text-*` tier tops out at #fff
-   (2.44:1) and every anchor dark enough to clear 4.5:1 against this
-   theme's --accent-primary is either a surface token (same
-   category-inversion defect class this fix removes) or --border-2 —
-   see that file's `.preview-btn.primary` comment for the full
-   derivation, identical here. */
-.library-row.selected { background: var(--accent-primary); color: var(--library-selected-row-text, var(--text-0)); }
+   `--text-on-accent` (theme.css) is a category-correct, theme-aware
+   role-alias token minted for exactly this role — "dark text on a
+   light accent chip" — with a real value in both palettes; see
+   theme.css's own definition for the derivation. */
+.library-row.selected { background: var(--accent-primary); color: var(--text-on-accent); }
 .library-row.loading { opacity: 0.5; }
 .td {
   white-space: nowrap;
@@ -476,22 +645,5 @@ function rowTitle(idx: number): string {
   padding: var(--space-loose);
   text-align: center;
   color: var(--text-2);
-}
-</style>
-
-<!--
-  Plain (unscoped) style block, deliberately separate from the scoped
-  block above — same reason and technique as TreeWidget.vue's
-  `--tree-node-black-fill` and LibraryPreviewPane.vue's
-  `--library-open-btn-text`: `[data-theme="dark"]` lives on <html>, an
-  ancestor outside this component's own scope-id boundary, so a scoped
-  rule cannot key off it. `.library-row.selected` is unique in the
-  codebase (grep-checked), so the global selector is safely specific.
-  See the `.library-row.selected` rule's own comment above for the
-  contrast-math derivation (ledger row 1018 / audit L11).
--->
-<style>
-[data-theme="dark"] .library-row.selected {
-  --library-selected-row-text: var(--border-2);
 }
 </style>
