@@ -19,6 +19,7 @@ import { useNavigation }    from '../../composables/useNavigation';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { warmSnapshotAccessor } from '../../composables/cards/usePreviewSnapshot';
 import { useNodePositionHashes } from '../../composables/cards/useNodePositionHashes';
+import { toggleNodeSelection } from '../../composables/cards/mint-selection';
 import { isReviewStartNode } from '../../composables/forest/tree-review-marker';
 import { themeColor }        from '../../utils/theme-color';
 import FloatingThumbnail    from '../chrome/FloatingThumbnail.vue';
@@ -80,24 +81,26 @@ const props = withDefaults(
     // distinct color, so a card's start position reads at a glance
     // the same way a play/match session head does.
     reviewStartNodeId?: NodeId | null;
-    // "Learn this path" (wiki #8, ledger row 718 amendment #2 — PRE-MINT
-    // MARKERS): NodeIds the exploration walk has flagged as "would be
-    // added on mint all" — every pending deviation position that isn't
-    // already an existing card. Owned by `learn-path-pending-markers.ts`
-    // (module-scope, since `LearnPathModal` and this widget are siblings
-    // under App.vue, not parent/child); populated live as the walk
-    // grows the tree, cleared after mint or on discard. Renders a
-    // dashed blue ring, same colour family as the solid active-node
-    // ring but visually distinct (dashed, outermost radius — see the
+    // Batch card-minting selection (commissioner-designed, ledger rows
+    // 926/957/1008): NodeIds currently marked for the "Mint card(s)"
+    // affordance — either ctrl+clicked directly in this widget (see
+    // the node-circle click handler below) or added live by "Learn
+    // this path" (`useLearnPath.explore()`) as it grows the tree.
+    // Owned by `mint-selection.ts` (module-scope, since `MintCardModal`
+    // / `LearnPathModal` and this widget are siblings under App.vue,
+    // not parent/child); a successful mint clears the minted entries,
+    // a board/game switch clears the whole set. Renders a dashed blue
+    // ring, same colour family as the solid active-node ring but
+    // visually distinct (dashed, outermost radius — see the
     // ring-radius stack note by known-position-ring in the template
-    // below) so it reads as "pending", not "current" or "game head".
-    pendingMintIds?: ReadonlySet<NodeId>;
+    // below) so it reads as "selected", not "current" or "game head".
+    selectedForMintIds?: ReadonlySet<NodeId>;
     // "Learn this path" on-demand analysis progress (commission ledger
     // row 881, ADR-0002/C6 progress honesty): the single NodeId the
     // walk is currently awaiting an engine query for, or `null`/
     // `undefined` when nothing is in flight. Sourced from
     // `learn-path-progress.ts` (module-scope, same sibling-not-parent
-    // reason as `pendingMintIds` above). At most one node per board can
+    // reason as `selectedForMintIds` above). At most one node per board can
     // be "analyzing" at a time — the walk issues one in-flight query
     // at a time by construction — so a nullable single id, not a Set,
     // matching `reviewStartNodeId`'s own shape for the same reason.
@@ -178,6 +181,26 @@ function onToggleEnter(e: MouseEvent, nodeId: NodeId) {
 
 function onToggleLeave() {
   thumbRef.value?.hide();
+}
+
+// ── Node-circle click: navigate, or ctrl/cmd+click to toggle batch-mint
+//    selection ────────────────────────────────────────────────────────
+//
+// Batch card-minting affordance (commissioner-designed, ledger rows
+// 926/957/1008): a plain click still navigates exactly as today
+// (unchanged `select-node` emit — App.vue's `handleNodeSelect` moves
+// the cursor). Ctrl+click (Cmd+click on macOS, `event.metaKey`) instead
+// toggles the node's membership in `mint-selection.ts`'s per-board Set
+// and does NOT navigate — selection is data, independent of the
+// cursor, per the ratified design. This is the ONLY place selection
+// membership is written from direct user interaction; `useLearnPath`
+// writes the same registry from its own call site (`addToSelection`).
+function onNodeClick(event: MouseEvent, nodeId: NodeId): void {
+  if (event.ctrlKey || event.metaKey) {
+    toggleNodeSelection(props.boardId, nodeId);
+    return;
+  }
+  emit('select-node', nodeId);
 }
 
 // ── Node-circle fill / stroke helpers (chrome via themeColor; B/W
@@ -331,7 +354,7 @@ const nodeList = computed(() => {
     isGameHead: boolean;
     isKnownPosition: boolean;
     isReviewStart: boolean;
-    isPendingMint: boolean;
+    isSelectedForMint: boolean;
     isAnalyzing: boolean;
   }> = [];
 
@@ -365,7 +388,7 @@ const nodeList = computed(() => {
       isGameHead: !!props.gameHeadIds?.has(id),
       isKnownPosition: !!props.knownPositionNodeIds?.has(id),
       isReviewStart: isReviewStartNode(id, props.reviewStartNodeId),
-      isPendingMint: !!props.pendingMintIds?.has(id),
+      isSelectedForMint: !!props.selectedForMintIds?.has(id),
       isAnalyzing: props.analyzingNodeId != null && props.analyzingNodeId === id,
     });
   });
@@ -449,7 +472,7 @@ const edges = computed(() => {
         <g
           v-for="item in nodeList"
           :key="item.id"
-          v-memo="[item.isGameHead, item.isKnownPosition, item.isReviewStart, item.isPendingMint, item.isAnalyzing, item.move?.color, item.move?.type, item.isBranching, item.isExpanded, item.px, item.py]"
+          v-memo="[item.isGameHead, item.isKnownPosition, item.isReviewStart, item.isSelectedForMint, item.isAnalyzing, item.move?.color, item.move?.type, item.isBranching, item.isExpanded, item.px, item.py]"
         >
           <!-- Known-position marker (card-position-annotations Stage B).
                RADIUS NOTE (review REJECT finding 2,
@@ -518,12 +541,12 @@ const edges = computed(() => {
                at once. "This node would be added if you click mint-all";
                cleared on mint or discard. See
                `learn-path-pending-markers.ts`. -->
-          <circle v-if="item.isPendingMint" :cx="item.px" :cy="item.py" :r="NODE_R + 11" class="pending-mint-ring" stroke-width="1.5" stroke-dasharray="2,1" />
+          <circle v-if="item.isSelectedForMint" :cx="item.px" :cy="item.py" :r="NODE_R + 11" class="mint-selection-ring" stroke-width="1.5" stroke-dasharray="2,1" />
           <!-- "Learn this path" on-demand-analysis marker (commission
                ledger row 881, ADR-0002/C6 progress honesty): this node
                is the ONE position the walk is currently blocked
                awaiting an engine query for. One radius further out
-               than pending-mint-ring's NODE_R+11 (same "move outward"
+               than mint-selection-ring's NODE_R+11 (same "move outward"
                resolution the rings above this comment already use for
                their own collisions), so the full concentric stack —
                active +3, game-head +5, review-start +7, known-position
@@ -544,7 +567,7 @@ const edges = computed(() => {
                circle, same per-color fill (`nodeFill`/`nodeStroke`,
                ledger row 759), no shape/glyph distinction of any kind.
                No `item.move?.type === 'pass'` branch here by design. -->
-          <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
+          <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="onNodeClick($event, item.id)" />
 
           <g v-if="item.isBranching" class="toggle-group" @click.stop="expansion.toggle(item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseenter="e => onToggleEnter(e, item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseleave="onToggleLeave">
             <line :x1="item.px" :y1="item.py" :x2="item.ix" :y2="item.iy" class="toggle-leader" stroke-width="1" stroke-dasharray="2,1" />
@@ -571,7 +594,7 @@ const edges = computed(() => {
 .game-head-ring { fill: color-mix(in srgb, var(--state-success) 15%, transparent); stroke: var(--state-success); }
 .known-position-ring { fill: none; stroke: var(--accent-secondary); }
 .review-start-ring { fill: color-mix(in srgb, var(--accent-secondary) 15%, transparent); stroke: var(--accent-secondary); }
-.pending-mint-ring { fill: none; stroke: var(--accent-primary); }
+.mint-selection-ring { fill: none; stroke: var(--accent-primary); }
 .analyzing-ring { fill: none; stroke: var(--state-attention); }
 .node-circle { cursor: pointer; transition: filter var(--duration-default); }
 .node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px var(--accent-primary)); }
