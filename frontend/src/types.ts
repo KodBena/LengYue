@@ -210,6 +210,12 @@ export type {
   ReviewFeedback,
   CardCreatePayload,
   GameMetadataPayload,
+  CardBatchParentRefCardId,
+  CardBatchParentRefIndex,
+  CardBatchParentRef,
+  BatchCardItemPayload,
+  CardBatchCreateRequestPayload,
+  CardBatchCreateResponsePayload,
 } from './types/cards';
 
 // ── Card-tree / forest-stats browse domain ────────────────────────────────────

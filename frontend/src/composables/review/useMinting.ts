@@ -14,8 +14,16 @@ import { learnTags } from '../cards/useTags';
 import { useKomiCalibration } from './useKomiCalibration';
 import { useKnownPositions } from '../cards/useKnownPositions';
 import type { KomiCalibrationResult } from '../../engine/katago/komi-calibration';
+import type { BuildBatchMintPayloadResult } from '../cards/batch-mint-core';
 import { computed, ref } from 'vue';
-import type { BoardId, CardCreatePayload, CardId, GameMetadataPayload } from '../../types';
+import type {
+  BoardId,
+  BoardState,
+  CardBatchParentRef,
+  CardCreatePayload,
+  CardId,
+  GameMetadataPayload,
+} from '../../types';
 
 /** `duplicateCheckStatus` states for the mint-dialog duplicate warning
  * (card-position-annotations Stage A, C6 posture: a lookup in flight
@@ -73,6 +81,61 @@ export function compileMintGradingParameter(): Record<string, any> {
   return grading_parameter;
 }
 
+/**
+ * Resolves a board's XOR lineage — `parent_card_id` (a branch off the
+ * card this board was loaded from) or `game_metadata` (a fresh root) —
+ * exactly the rule `prepareDraft` below applies for a single mint.
+ * Extracted (batch card-minting affordance, ledger rows 926/957/1008)
+ * so the batch draft path (`MintCardModal.vue`'s "Mint card(s)")
+ * builds its `fallbackParentRef`/`fallbackGameMetadata` — the
+ * resolution `batch-mint-core.ts::buildBatchMintPayload` falls back to
+ * for any selected node whose nearest ancestor ISN'T also in the
+ * batch — through this SAME code, never a re-derived copy of the
+ * XOR rule (spec point 3: "the same parent resolution the single mint
+ * uses today").
+ *
+ * `metadata` is the caller's already-computed `useMetadata(boardRef)`
+ * projection (player names) — threaded in rather than recomputed here
+ * so this stays a pure function of its arguments, no composable
+ * instantiation of its own.
+ */
+export function resolveBoardLineage(
+  board: BoardState,
+  metadata: { whiteName?: string; blackName?: string } | null | undefined,
+): { parent_card_id?: number; game_metadata?: GameMetadataPayload } {
+  // See prepareDraft's own inline comment (below) for the full
+  // rationale (heredity XOR rule, client_game_id dedup key) — verbatim
+  // logic, moved here so both callers share it.
+  if (board.sourceCardId !== undefined) {
+    return { parent_card_id: board.sourceCardId as unknown as number };
+  }
+  return {
+    game_metadata: {
+      description: resolveGameName(board),
+      player_white: metadata?.whiteName,
+      player_black: metadata?.blackName,
+      client_game_id: board.clientGameId,
+    },
+  };
+}
+
+/**
+ * `resolveBoardLineage`'s `parent_card_id`/`game_metadata` shape,
+ * translated to the batch wire's `parent_ref` shape
+ * (`{card_id}` | `null`) for `buildBatchMintPayload`'s
+ * `fallbackParentRef` parameter.
+ */
+export function resolveBoardLineageAsBatchFallback(
+  board: BoardState,
+  metadata: { whiteName?: string; blackName?: string } | null | undefined,
+): { fallbackParentRef: CardBatchParentRef | null; fallbackGameMetadata?: GameMetadataPayload } {
+  const lineage = resolveBoardLineage(board, metadata);
+  if (lineage.parent_card_id !== undefined) {
+    return { fallbackParentRef: { card_id: lineage.parent_card_id } };
+  }
+  return { fallbackParentRef: null, fallbackGameMetadata: lineage.game_metadata };
+}
+
 export function useMinting() {
   const { checkForDuplicate, rememberMintedCard } = useKnownPositions();
 
@@ -122,53 +185,16 @@ export function useMinting() {
     // 1. Serialize only the active path (omits sidelines)
     const sgf = serializeActivePath(board);
 
-    // 2. Resolve Lineage (Heredity XOR Rule).
-    // The board's `sourceCardId` is the single source of truth for
-    // "this board was derived from card X" — set by the card-load
-    // paths (database tab via useDirtyBoardGuard, SR queue via
-    // useReviewSession.loadCard); absent on fresh boards from
-    // createInitialBoard and on SGF file uploads via useSgfLoader.
-    // Per the wire contract the two fields are mutually exclusive:
-    // supply game_metadata only when there is no upstream card.
-    // The `as unknown as number` cast strips the CardId brand at the
-    // wire boundary (CardId = Brand<number, 'CardId'>); the brand
-    // erases at runtime, so this is the standard ADR-0002-justified
-    // brand-erasure cast on the way to a snake_case wire payload.
-    let parent_card_id: number | undefined = undefined;
-    let game_metadata: GameMetadataPayload | undefined = undefined;
-
-    if (board.sourceCardId !== undefined) {
-      parent_card_id = board.sourceCardId as unknown as number; // CardId brand-strip to the wire's raw number (see comment above; IDENTIFIERS.md erosion (b))
-    }
-
-    // If there is no parent card, it is a Root. We must provide game_metadata.
-    //
-    // `description` runs through `resolveGameName` directly rather than the
-    // `metadata?.gameName` projection so this codepath doesn't depend on the
-    // composable surface for a value the wire requires; the four-rung
-    // ladder (GN → EV → sourceFileName → date-stamped catch-all) is the
-    // SSOT for "user-friendly game name" and `useMetadata` reads from
-    // the same helper for display.
-    //
-    // `client_game_id` is the dedup key per
-    // `docs/dispatch/backend-to-frontend-game-source-dedup-status.md`.
-    // Sent unconditionally on every root-mint from this board's lifetime;
-    // backend's get-or-create on `(user_id, client_game_id)` resolves
-    // subsequent mints to the same game_source row, so two mints from
-    // positions A and B of one loaded SGF surface as a single forest
-    // entry with two roots underneath. First-mint-wins on metadata —
-    // the description / player names from the second mint are ignored
-    // backend-side, which matches the user intent of editing SGF root
-    // properties between mints not retroactively rewriting the recorded
-    // game name.
-    if (!parent_card_id) {
-      game_metadata = {
-        description: resolveGameName(board),
-        player_white: metadata?.whiteName,
-        player_black: metadata?.blackName,
-        client_game_id: board.clientGameId,
-      };
-    }
+    // 2. Resolve Lineage (Heredity XOR Rule) — extracted to
+    // `resolveBoardLineage` (module-level, above) so the batch
+    // card-minting affordance's fallback-parent resolution
+    // (`MintCardModal.vue`'s "Mint card(s)" batch draft,
+    // `resolveBoardLineageAsBatchFallback`) shares this EXACT code,
+    // never a re-derived copy of the XOR rule. See that function's own
+    // doc comment for the field-by-field rationale (sourceCardId as
+    // the single source of truth, the CardId brand-strip cast,
+    // client_game_id dedup, first-mint-wins metadata).
+    const { parent_card_id, game_metadata } = resolveBoardLineage(board, metadata);
 
     // 3. Resolve Palette (Grading Parameter) — the mint-time snapshot has
     // two legs: `analysis_config` (palette) determines how the proxy
@@ -260,10 +286,44 @@ export function useMinting() {
     return newCardId;
   }
 
+  /**
+   * Submits one `POST /cards/batch` request — the non-empty-selection
+   * arm of "Mint card(s)" (spec point 2: a non-empty selection mints
+   * ALL selected positions in ONE call). `items` is
+   * `batch-mint-core.ts::buildBatchMintPayload`'s output; the returned
+   * `card_ids` are in the SAME order as `items.nodeOrder`, so the
+   * caller (`MintCardModal.vue`) can map each minted id back to the
+   * tree node it came from.
+   *
+   * Mirrors `commitMint`'s two best-effort side effects (tag-dictionary
+   * learning, known-positions recording) — a batch of N cards is N
+   * mints from the app's own point of view, just wire-batched into one
+   * HTTP round trip.
+   */
+  async function commitMintBatch(
+    items: Pick<BuildBatchMintPayloadResult, 'cards' | 'nodeOrder'>,
+  ): Promise<number[]> {
+    const cardIds = await backendService.createCardsBatch({ cards: [...items.cards] });
+
+    for (let i = 0; i < items.cards.length; i++) {
+      const card = items.cards[i];
+      const cardId = cardIds[i];
+      learnTags(card.tags);
+      try {
+        await rememberMintedCard(card.raw_content, cardId as unknown as CardId);
+      } catch (err) {
+        console.warn('[useMinting] rememberMintedCard failed for batch item (non-fatal):', err);
+      }
+    }
+
+    return cardIds;
+  }
+
   return {
     prepareDraft,
     calibrateKomiOnDraft,
     commitMint,
+    commitMintBatch,
     checkDuplicate,
     resetDuplicateCheck,
     duplicateCheckStatus,

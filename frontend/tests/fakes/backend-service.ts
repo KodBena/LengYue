@@ -30,6 +30,7 @@ import { vi } from 'vitest';
 import type {
   CardId,
   CardCreatePayload,
+  CardBatchCreateRequestPayload,
   CardLineageTree,
   CardMetadataPatch,
   CardPublicId,
@@ -41,6 +42,11 @@ import type {
 export const fakeBackendService = {
   submitReview: vi.fn<(cardId: CardId, scores: number[]) => Promise<ReviewCard>>(),
   createCard: vi.fn<(payload: CardCreatePayload) => Promise<number>>(),
+  // Batch card-minting affordance (ledger rows 926/957/1008): one
+  // transactional POST /cards/batch call — see
+  // src/composables/cards/batch-mint-core.ts for the payload builder
+  // and MintCardModal.vue's submit() for the sole caller.
+  createCardsBatch: vi.fn<(payload: CardBatchCreateRequestPayload) => Promise<number[]>>(),
   updateCardMetadata: vi.fn<(cardId: CardId, patch: CardMetadataPatch) => Promise<ReviewCard>>(),
   // useLearnPath's dedup-coverage read path (frontend/CLAUDE.md fakes
   // discipline: added when useLearnPath.test.ts started exercising it).
@@ -68,6 +74,7 @@ export const fakeBackendService = {
 export function resetFakeBackendService(): void {
   fakeBackendService.submitReview.mockReset();
   fakeBackendService.createCard.mockReset();
+  fakeBackendService.createCardsBatch.mockReset();
   fakeBackendService.updateCardMetadata.mockReset();
   fakeBackendService.resolveRoots.mockReset();
   fakeBackendService.fetchTreeByRoot.mockReset();

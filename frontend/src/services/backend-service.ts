@@ -14,6 +14,8 @@ import type {
   GameDisplayOrdinal,
   ReviewCard,
   CardCreatePayload,
+  CardBatchCreateRequestPayload,
+  CardBatchCreateResponsePayload,
   ForestStat,
   TagStat,
   ResolveRootsResult,
@@ -266,6 +268,23 @@ export class BackendService {
   public async createCard(payload: CardCreatePayload): Promise<number> {
     const response = await api.request<any>('POST', '/cards/', payload);
     return response.card_id;
+  }
+
+  /**
+   * Batch card-minting affordance (commissioner-designed, ledger rows
+   * 926/957/1008). Single transactional call — the whole batch mints
+   * or none of it does (backend's `async with db.begin()` around
+   * `CardService.create_cards_batch`, `backend/api/routes/cards.py`).
+   * `CardBatchCreateRequestPayload`/`CardBatchCreateResponsePayload`
+   * are hand-written wire types (see `types/cards.ts`'s own comment
+   * for why — `gen:api` needs a live backend this build couldn't
+   * reach); response `card_ids` come back in request order, so the
+   * caller maps `card_ids[i]` back to whatever built `cards[i]`
+   * (`batch-mint-core.ts::buildBatchMintPayload`'s `nodeOrder`).
+   */
+  public async createCardsBatch(payload: CardBatchCreateRequestPayload): Promise<number[]> {
+    const response = await api.request<CardBatchCreateResponsePayload>('POST', '/cards/batch', payload);
+    return response.card_ids;
   }
 
   /**
