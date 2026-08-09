@@ -159,3 +159,37 @@ pub fn discover_upstreams(timeout_ms: Option<u32>) -> Vec<DiscoveredUpstream> {
     let timeout = Duration::from_millis(u64::from(timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS)));
     discover_upstreams_blocking(timeout)
 }
+
+#[cfg(test)]
+mod tests {
+    //! Witnesses the actual serialized wire shape (ADR-0021: witness the
+    //! property, not a proxy for it) — `#[serde(rename_all = "camelCase")]`
+    //! on `DiscoveredUpstream` is structural evidence that casing SHOULD
+    //! come out right, not an observation that it DOES; this test asks
+    //! `serde_json` to actually serialize a value and inspects the
+    //! resulting keys directly.
+
+    use super::*;
+
+    #[test]
+    fn discovered_upstream_serializes_instance_name_as_camel_case_on_the_wire() {
+        let value = DiscoveredUpstream {
+            url: "ws://192.168.1.50:1242".to_string(),
+            instance_name: "office-gpu-box".to_string(),
+        };
+        let json = serde_json::to_value(&value).expect("DiscoveredUpstream must serialize");
+        let obj = json.as_object().expect("must serialize to a JSON object");
+
+        assert!(
+            obj.contains_key("instanceName"),
+            "wire shape must use camelCase \"instanceName\", got keys: {:?}",
+            obj.keys().collect::<Vec<_>>()
+        );
+        assert!(
+            !obj.contains_key("instance_name"),
+            "wire shape must NOT leak the Rust field name \"instance_name\", got keys: {:?}",
+            obj.keys().collect::<Vec<_>>()
+        );
+        assert!(obj.contains_key("url"), "expected an unchanged \"url\" key");
+    }
+}
