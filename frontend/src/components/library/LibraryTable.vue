@@ -443,12 +443,28 @@ function rowTitle(idx: number): string {
   user-select: none;
 }
 .library-row:hover { background: var(--surface-2); }
-/* Selection highlight: only the background changes. Forcing a
-   foreground colour against the accent-primary substrate produced
-   a low-contrast grey-on-blue that was hard to read; inheriting
-   the default body text colour keeps readability constant
-   between selected and unselected rows. */
-.library-row.selected { background: var(--accent-primary); }
+/* Selection highlight (audit L11 / ledger row 1018). The prior
+   comment here claimed inheriting the default body text colour
+   "keeps readability constant between selected and unselected rows"
+   — it does not: inheriting swaps one contrast failure (a forced
+   grey-on-blue, per the prior comment) for another and moves it into
+   a different theme. Measured: in `cluster`, the inherited body
+   colour (--text-1, cluster-12-4 purple) against --accent-primary
+   (cluster-12-2 sky blue) is ~7.74:1 — passes, fine to keep. In
+   `dark`, the inherited body colour (--text-0, #fff — <body> sets no
+   --text-1 override so this is what actually inherits) against
+   --accent-primary (#4aaef0) is ~2.44:1 — the measured failure.
+   Explicit `color: var(--text-0)` below makes the cluster-passing
+   value explicit rather than relying on inheritance, and the
+   dark-only override two rules down replaces it with `--border-2`
+   (~5.18:1) for the same reason as LibraryPreviewPane.vue's
+   `.preview-btn.primary` fix: dark's `text-*` tier tops out at #fff
+   (2.44:1) and every anchor dark enough to clear 4.5:1 against this
+   theme's --accent-primary is either a surface token (same
+   category-inversion defect class this fix removes) or --border-2 —
+   see that file's `.preview-btn.primary` comment for the full
+   derivation, identical here. */
+.library-row.selected { background: var(--accent-primary); color: var(--library-selected-row-text, var(--text-0)); }
 .library-row.loading { opacity: 0.5; }
 .td {
   white-space: nowrap;
@@ -460,5 +476,22 @@ function rowTitle(idx: number): string {
   padding: var(--space-loose);
   text-align: center;
   color: var(--text-2);
+}
+</style>
+
+<!--
+  Plain (unscoped) style block, deliberately separate from the scoped
+  block above — same reason and technique as TreeWidget.vue's
+  `--tree-node-black-fill` and LibraryPreviewPane.vue's
+  `--library-open-btn-text`: `[data-theme="dark"]` lives on <html>, an
+  ancestor outside this component's own scope-id boundary, so a scoped
+  rule cannot key off it. `.library-row.selected` is unique in the
+  codebase (grep-checked), so the global selector is safely specific.
+  See the `.library-row.selected` rule's own comment above for the
+  contrast-math derivation (ledger row 1018 / audit L11).
+-->
+<style>
+[data-theme="dark"] .library-row.selected {
+  --library-selected-row-text: var(--border-2);
 }
 </style>
