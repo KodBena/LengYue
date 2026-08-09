@@ -22,7 +22,8 @@ import { useEngineControls } from './composables/useEngineControls';
 import { useUserIORegistry } from './composables/useUserIORegistry';
 import { useAuth }           from './composables/auth-app/useAuth';
 import { workspaceIdentityKey } from './composables/auth-app/workspace-identity-key';
-import { useResizablePanel, CONTROL_PANEL_MIN_WIDTH_PX } from './composables/chrome/useResizablePanel';
+import { useResizablePanel, CONTROL_PANEL_MIN_WIDTH_PX, isAnyPanelResizing } from './composables/chrome/useResizablePanel';
+import { CONTROL_PANEL_TAB_IDS, useDeferredLayoutClass } from './state/layout-model';
 import { useDirtyBoardGuard } from './composables/board/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
 import { useTransientLogReveal } from './composables/useTransientLogReveal';
@@ -285,7 +286,22 @@ const {
   effectiveTreeControlRegionWidthPx,
   freshTreeControlWrapperMinWidthPx,
   boardColumnMaxWidthPx,
+  rowWidthPx,
+  rowHeightPx,
 } = useResizablePanel();
+
+// Phase 1 (resolution roadmap): the LayoutClass this workspace is
+// currently in, derived from #split-workspace's own live geometry
+// (the SAME ResizeObserver-cached rowWidthPx/rowHeightPx the board-
+// column-cap and restore-time clamps above already read — see
+// state/layout-model.ts's header for why this reuses that observer
+// rather than standing up a second one). `isAnyPanelResizing` freezes
+// the axis (a discrete flex-direction flip) for the duration of an
+// in-flight resizer drag, same discipline
+// useDeferredContainerBreakpoint.ts already established for
+// ForestDirectory's own narrow-stack reorg.
+const layoutClass = useDeferredLayoutClass(rowWidthPx, rowHeightPx, isAnyPanelResizing);
+const workspaceAxisColumn = computed(() => layoutClass.value.axis === 'column');
 
 // Defect 6 (ui-fix-56), preserved as a documented, minor cosmetic
 // nicety under the nested-splitter geometry (ledger rows 391/414) —
@@ -321,13 +337,15 @@ const transientLogReveal = useTransientLogReveal();
 // Computed so the labels re-evaluate on locale change. The TabWidget
 // renders `tab.label` directly; Vue's reactivity passes through the
 // prop, so a locale flip propagates without per-tab re-mounting.
-const controlTabs = computed(() => [
-  { id: 'library',  label: t('app.tabs.library')  },
-  { id: 'cards',    label: t('app.tabs.cards')    },
-  { id: 'settings', label: t('app.tabs.settings') },
-  { id: 'analysis', label: t('app.tabs.analysis') },
-  { id: 'other',    label: t('app.tabs.other')    },
-]);
+//
+// Mapped from `CONTROL_PANEL_TAB_IDS` (state/layout-model.ts) rather
+// than a second hand-written id list — that array is ALSO what
+// `computeControlPanelMinWidthPx` projects the tab-strip floor from
+// (audit finding R2), so a tab added/removed here moves the floor by
+// construction; a second, drifted id list would silently defeat that.
+const controlTabs = computed(() =>
+  CONTROL_PANEL_TAB_IDS.map((id) => ({ id, label: t(`app.tabs.${id}`) })),
+);
 
 // Board-mutation entry points (click-to-play + paste-PV), routed
 // through the grading-integrity gate: AWAITING_MOVE moves go to the
@@ -478,9 +496,26 @@ const activeTab = computed<string>({
           v-if="store.session.ui.systemLogExpanded || transientLogReveal"
         />
 
+        <!-- Phase 1 (resolution roadmap, audit findings R1/R2/R6):
+             `.axis-column` (state/layout-model.ts's LayoutClass,
+             `layoutClass.axis === 'column'`) is a taller-than-wide
+             workspace — half-screen tiles, portrait monitors — where
+             the row shape crushed tree+control to their floors
+             sharing a row that had no business existing (R1/R2) and
+             let the board render at a fraction of the available width
+             (R6, up to 48% letterboxed in a 1280×1440 tile). Below
+             puts tree+control BELOW the board at full window width —
+             the Sabaki/OGS shape — instead. See the `.axis-column`
+             CSS rules (below this template) for what each descendant
+             does differently; `workspaceAxisColumn`'s own comment
+             above for the measurement this is derived from.
+             `splitWorkspaceCentered` only applies in row axis — a
+             column layout has nothing to horizontally center, every
+             stacked child is already full-width. -->
         <div
           id="split-workspace"
-          :style="splitWorkspaceCentered ? { justifyContent: 'center' } : {}"
+          :class="{ 'axis-column': workspaceAxisColumn }"
+          :style="splitWorkspaceCentered && !workspaceAxisColumn ? { justifyContent: 'center' } : {}"
         >
 
         <!-- resizer-rearch (nested-splitter amendment, ledger row
@@ -523,7 +558,7 @@ const activeTab = computed<string>({
         <div
           id="board-column"
           v-show="store.session.ui.boardExpanded"
-          :style="boardColumnMaxWidthPx !== undefined ? { maxWidth: boardColumnMaxWidthPx + 'px' } : {}"
+          :style="!workspaceAxisColumn && boardColumnMaxWidthPx !== undefined ? { maxWidth: boardColumnMaxWidthPx + 'px' } : {}"
         >
           <!-- The visual board square + status bar, centered within
                whatever width #board-column (now unbounded) received.
@@ -569,8 +604,16 @@ const activeTab = computed<string>({
              below): with the control region entirely collapsed there
              is nothing for this bar to divide board-vs-wrapper room
              for that the tree's own presence doesn't already handle
-             via #board-column's flex-fill. -->
-        <div v-show="store.session.ui.controlsExpanded" class="panel-resizer" id="resizer-outer" @mousedown="startResizeOuter"></div>
+             via #board-column's flex-fill. Also gated on
+             `!workspaceAxisColumn` (Phase 1): in column axis
+             tree+control stack full-width below the board — there is
+             no board-vs-wrapper WIDTH split for this bar to drag; the
+             drag affordance is inapplicable by construction (task
+             charter), not a removed feature — the user's dragged
+             session.ui.treeControlRegionWidthPx is left untouched and
+             takes effect again the moment the workspace flips back to
+             row axis. -->
+        <div v-show="store.session.ui.controlsExpanded && !workspaceAxisColumn" class="panel-resizer" id="resizer-outer" @mousedown="startResizeOuter"></div>
 
         <!-- The combined tree+control region (nested-splitter
              amendment). TRUE nested flex container — see
@@ -607,13 +650,23 @@ const activeTab = computed<string>({
              doc). `freshTreeControlWrapperMinWidthPx` supplies that
              floor, recomputed off treeExpanded so a tree-collapsed first
              paint doesn't over-reserve room for a hidden tree panel. -->
+        <!-- Phase 1: in column axis this wrapper's width comes from
+             the `.axis-column` CSS rule (100%, flex-direction:
+             column — tree above control, each full-width, natural
+             height) instead of any of the three JS-derived styles
+             below, which are ALL row-axis pixel-width branches
+             (persisted, fresh-profile-floored, or none). The style
+             binding itself falls through to `{}` in column axis so it
+             never fights the CSS rule's `width`/`flex-direction`. -->
         <div
           id="tree-control-wrapper"
-          :style="store.session.ui.controlsExpanded && effectiveTreeControlRegionWidthPx !== undefined
-            ? { flex: '0 0 auto', width: effectiveTreeControlRegionWidthPx + 'px' }
-            : store.session.ui.controlsExpanded
-              ? { flex: '1 1 0', minWidth: freshTreeControlWrapperMinWidthPx + 'px' }
-              : {}"
+          :style="workspaceAxisColumn
+            ? {}
+            : store.session.ui.controlsExpanded && effectiveTreeControlRegionWidthPx !== undefined
+              ? { flex: '0 0 auto', width: effectiveTreeControlRegionWidthPx + 'px' }
+              : store.session.ui.controlsExpanded
+                ? { flex: '1 1 0', minWidth: freshTreeControlWrapperMinWidthPx + 'px' }
+                : {}"
         >
           <!-- resizer-rearch charter amendment + maintainer constraint
                (ledger row 414): bound to session.ui.treePanelWidthPx —
@@ -627,7 +680,7 @@ const activeTab = computed<string>({
           <div
             id="vue-tree-panel"
             v-show="store.session.ui.treeExpanded"
-            :style="store.session.ui.treePanelWidthPx !== undefined
+            :style="!workspaceAxisColumn && store.session.ui.treePanelWidthPx !== undefined
               ? { width: store.session.ui.treePanelWidthPx + 'px', flex: '0 0 auto' }
               : {}"
           >
@@ -649,18 +702,24 @@ const activeTab = computed<string>({
                #vue-tree-panel and #control-panel, INSIDE the wrapper.
                Directly sets session.ui.treePanelWidthPx — the tree
                pane's ONE write channel. -->
-          <div v-show="store.session.ui.controlsExpanded && store.session.ui.treeExpanded" class="panel-resizer" id="resizer-inner" @mousedown="startResizeInner"></div>
+          <div v-show="store.session.ui.controlsExpanded && store.session.ui.treeExpanded && !workspaceAxisColumn" class="panel-resizer" id="resizer-inner" @mousedown="startResizeInner"></div>
 
-          <!-- CONTROL_PANEL_MIN_WIDTH_PX (useResizablePanel.ts) —
-               derived from the tab strip's natural width at the
-               smallest legible font scale (4 tabs × ~50px each +
-               gaps). The audit's cross-cutting Finding #1 was that
-               without a floor, the tab strip's right-most tab fell
-               off-screen at 1024×768. Coupled with the iter-17
-               container-query threshold (479px) via the Cards-tab
-               `.tree-panel`'s 200px usable floor — changing this
-               value would invalidate the 479 derivation in
-               `ForestDirectory.vue`.
+          <!-- CONTROL_PANEL_MIN_WIDTH_PX (re-exported from
+               useResizablePanel.ts; DECLARED in state/layout-model.ts,
+               resolution-roadmap Phase 0) — projected from
+               CONTROL_PANEL_TAB_IDS.length via
+               computeControlPanelMinWidthPx, not a hand literal: audit
+               finding R2's root cause was exactly a hand-picked 220px
+               ("4 tabs") surviving a fifth tab shipping. A sixth tab
+               (or `controlTabs` above growing) now moves this floor by
+               construction. The iter-17 container-query threshold
+               (479px, ForestDirectory.vue) is a SEPARATE derivation
+               (its own content facts — the Cards-tab left-panel's
+               natural width + its tree-panel's usable floor — live
+               next to `computeForestNarrowThresholdPx` in
+               state/layout-model.ts) — the two floors are not
+               numerically coupled, despite this comment's own prior
+               claim that changing one would invalidate the other.
 
                resizer-rearch geometry fix (ledger row 414): ALWAYS
                `flex: 1 1 0` — pure CSS flex-fill WITHIN the wrapper,
@@ -673,7 +732,9 @@ const activeTab = computed<string>({
           <div
             id="control-panel"
             v-show="store.session.ui.controlsExpanded"
-            :style="{ flex: '1 1 0', minWidth: CONTROL_PANEL_MIN_WIDTH_PX + 'px' }"
+            :style="workspaceAxisColumn
+              ? {}
+              : { flex: '1 1 0', minWidth: CONTROL_PANEL_MIN_WIDTH_PX + 'px' }"
           >
             <TabWidget
               :key="controlPanelIdentityKey"
@@ -946,6 +1007,68 @@ const activeTab = computed<string>({
 #vue-tree-panel { width: 140px; flex-shrink: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border-1); background: var(--surface-2); min-height: 0; }
 #tree-panel-header { height: 20px; background: var(--surface-0); border-bottom: 1px solid var(--border-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: var(--text-tiny); letter-spacing: var(--tracking-wide); color: var(--text-2); text-transform: uppercase; flex-shrink: 0; }
 #control-panel { border-left: 1px solid var(--border-1); background: var(--surface-3); min-width: 0; display: flex; flex-direction: column; }
+
+/* Phase 1 (resolution roadmap, audit findings R1/R2/R6) — column
+   axis: the workspace is taller than it is wide (LayoutClass.axis
+   === 'column', state/layout-model.ts), so tree+control move BELOW
+   the board and take the full window width, Sabaki/OGS-style. Every
+   row-axis rule above (the flex-fill board-column, the pixel-width
+   nested splitter, the resizer bars) is superseded here rather than
+   removed — the moment the workspace measures back into row axis,
+   those rules and the user's persisted drag widths apply again
+   unchanged (no second writer, ADR-0012: this class only ever
+   overrides layout, never touches session.ui.treePanelWidthPx /
+   treeControlRegionWidthPx). `overflow-y: auto` on the workspace
+   itself: stacked board+tree+control can exceed one viewport's
+   height where a side-by-side row never could, so THIS is the one
+   axis-column rule that changes SCROLL behaviour, not just flex
+   geometry. */
+#split-workspace.axis-column {
+  flex-direction: column;
+  overflow-y: auto;
+}
+/* Width-bound instead of height-bound (row axis's #board-square:
+   `height: 100%; aspect-ratio: 1/1`, deriving width FROM height): here
+   the board takes the full stacked width and derives its OWN height
+   from that width instead, so it renders at its actual usable size
+   rather than a row-axis square letterboxed into a narrow row (audit
+   finding R6, up to 48% letterboxed at a 1280×1440 tile). */
+#split-workspace.axis-column #board-column {
+  flex: 0 0 auto;
+  width: 100%;
+  height: auto;
+}
+#split-workspace.axis-column #board-square {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+}
+/* Tree above control, each full-width and sized to its own natural
+   content height — not a flex-grow split (row axis's `flex: 1 1 0`
+   assumed a fixed-height ROW to divide; a column stack has no such
+   shared height to divide, and forcing an equal vertical split would
+   just reintroduce R1/R2's crush in the other axis). The INNER/OUTER
+   resizer bars are v-show-hidden in this axis (App.vue template) —
+   the row-only drag affordance the task charter names as
+   inapplicable here, not a removed feature. */
+#split-workspace.axis-column #tree-control-wrapper {
+  flex-direction: column;
+  width: 100%;
+  height: auto;
+}
+#split-workspace.axis-column #vue-tree-panel {
+  width: 100%;
+  flex: 0 0 auto;
+  border-left: none;
+  border-top: 1px solid var(--border-1);
+}
+#split-workspace.axis-column #control-panel {
+  width: 100%;
+  flex: 1 1 auto;
+  border-left: none;
+  border-top: 1px solid var(--border-1);
+}
 
 /* theme-exception: .panel-resizer #eba46d is a peach accent color
    outside the substrate vocabulary (the chrome substrate has
