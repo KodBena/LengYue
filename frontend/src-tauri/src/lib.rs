@@ -38,18 +38,28 @@
 //! The proxy's own upstream (the actual analysis engine) is settable
 //! IN-APP (ledger rows 860-862, `proxy_settings.rs`) — a desktop user
 //! has no way to set an OS environment variable, so the wizard/Settings
-//! field there is the primary path. Precedence: the `ENGINE_WS_URL` OS
-//! env var (power-user override, same name Docker's compose-level
-//! upstream knob already uses) beats the stored in-app setting, which
-//! beats `proxy_settings::DEFAULT_PROXY_UPSTREAM`
+//! field there is the primary path. LAUNCH-time precedence (ledger row
+//! 944): the `ENGINE_WS_URL` OS env var (power-user override, same name
+//! Docker's compose-level upstream knob already uses) beats the stored
+//! in-app setting, which beats a bounded mDNS/DNS-SD browse for a relay
+//! advertising `_katago-ws._tcp.local.` (`mdns_discovery.rs`) IF EXACTLY
+//! ONE answers, which beats `proxy_settings::DEFAULT_PROXY_UPSTREAM`
 //! (`ws://127.0.0.1:1242`, the websocket-leaf shim's own default port).
-//! See `proxy_settings::resolve_effective_upstream`, the sole place this
-//! order is decided — this `setup()` hook and the
-//! `get_proxy_upstream_setting` command both call it rather than each
-//! re-deriving the order. A change to the stored setting takes effect on
-//! next launch only (see `proxy_settings::set_proxy_upstream_setting`'s
-//! doc comment for the live-respawn alternative and why it was
-//! rejected).
+//! Zero or multiple mDNS answers both fall through to the default —
+//! ambiguity resolves only where a human can choose, never by a headless
+//! launch silently picking one. See
+//! `proxy_settings::resolve_effective_upstream_for_launch` /
+//! `resolve_launch_chain`, the sole place this order is decided — this
+//! `setup()` hook is the only caller. (The DISPLAY path,
+//! `get_proxy_upstream_setting`, uses a separate, mDNS-free chain — env >
+//! stored > default — via `proxy_settings::resolve_effective_upstream`;
+//! see that module's doc comment for why the two chains differ.) A
+//! change to the stored setting takes effect on next launch only (see
+//! `proxy_settings::set_proxy_upstream_setting`'s doc comment for the
+//! live-respawn alternative and why it was rejected). The SPA can also
+//! trigger an ad-hoc mDNS browse directly via the `discover_upstreams`
+//! command (`mdns_discovery.rs`) independent of launch resolution — e.g.
+//! for a setup-wizard "scan my network" affordance.
 //!
 //! Per-user data (the backend sidecar's `cards.db` and JWT signing-key
 //! file) lives under Tauri's resolved app-data directory, which on Linux
@@ -63,6 +73,7 @@
 //!
 //! License: Public Domain (The Unlicense)
 
+mod mdns_discovery;
 mod proxy_settings;
 
 use std::net::{TcpListener, TcpStream};
@@ -175,6 +186,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             proxy_settings::get_proxy_upstream_setting,
             proxy_settings::set_proxy_upstream_setting,
+            mdns_discovery::discover_upstreams,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -268,7 +280,7 @@ pub fn run() {
             // via `?` into `.build().expect(...)`, which would panic
             // the WHOLE APP (no window ever opens) over a recoverable
             // settings-file problem. See that function's doc comment.
-            let (proxy_upstream, _stored, _env_override_active) =
+            let (proxy_upstream, _stored, _env_override_active, _mdns_instance_chosen) =
                 proxy_settings::resolve_effective_upstream_for_launch(&handle);
 
             let proxy_port =

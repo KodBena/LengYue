@@ -10,15 +10,35 @@
 //! two Tauri commands (`get_proxy_upstream_setting` /
 //! `set_proxy_upstream_setting`) the SPA reads/writes it through.
 //!
-//! **Precedence (env > stored > default), exactly one home per fact:**
-//! `ENGINE_WS_URL` (an OS env var, power-user escape hatch — the SAME
-//! name Docker's compose-level operator-facing upstream knob already
-//! uses, per the commissioner's port-coherence ruling; NOT
+//! **Precedence for DISPLAY (env > stored > default), exactly one home
+//! per fact:** `ENGINE_WS_URL` (an OS env var, power-user escape hatch —
+//! the SAME name Docker's compose-level operator-facing upstream knob
+//! already uses, per the commissioner's port-coherence ruling; NOT
 //! `LENGYUE_PROXY_UPSTREAM`, an earlier ad-hoc name this delivery
 //! retires) takes precedence over the stored setting below, which takes
 //! precedence over [`DEFAULT_PROXY_UPSTREAM`]. [`resolve_with_stored`]
-//! is the SOLE place this precedence is decided; both entry points below
-//! call it rather than each re-deriving the order.
+//! is the SOLE place this precedence is decided; [`resolve_effective_upstream`]
+//! (the DISPLAY entry point) calls it directly.
+//!
+//! **Precedence for LAUNCH (env > stored > mDNS-if-exactly-one > default,
+//! ledger row 944):** [`resolve_effective_upstream_for_launch`] extends
+//! the display chain with ONE more step, inserted between "stored" and
+//! "default" — a bounded mDNS/DNS-SD browse (`mdns_discovery.rs`) for a
+//! relay advertising `_katago-ws._tcp.local.`, but ONLY when it would
+//! actually matter (`should_attempt_mdns_discovery` — no env var and no
+//! stored value, since either would already decide the outcome and the
+//! browse would just cost up to `mdns_discovery::DEFAULT_TIMEOUT_MS` of
+//! launch latency for nothing). Zero or multiple answers both fall
+//! through to the default: ambiguity resolves only where a human can
+//! choose (the contract's own words), so headless launch never silently
+//! picks one of several candidates. [`resolve_launch_chain`] is the SOLE
+//! place this order is decided, mirroring [`resolve_with_stored`]'s role
+//! for the display chain — kept as a SEPARATE function rather than
+//! folded into [`resolve_with_stored`] because the display path
+//! (`get_proxy_upstream_setting`, called after the webview is already up)
+//! has no reason to pay a bounded-browse latency cost just to report what
+//! is already in effect; only the launch path's "nothing else decided it
+//! yet" question needs mDNS's answer at all.
 //!
 //! **Two entry points, one failure posture apiece.**
 //! [`resolve_effective_upstream`] is FALLIBLE — used by
@@ -60,7 +80,10 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::time::Duration;
 use tauri::{AppHandle, Manager};
+
+use crate::mdns_discovery::{self, DiscoveredUpstream};
 
 /// Default upstream analysis-engine WebSocket URL when neither
 /// `ENGINE_WS_URL` nor a stored setting is present — `1242` is the
@@ -185,30 +208,117 @@ pub fn resolve_effective_upstream(app: &AppHandle) -> Result<(String, Option<Str
     Ok(resolve_with_stored(stored))
 }
 
+/// Bounded mDNS browse window the launch-time chain uses when it decides
+/// to browse at all (see [`should_attempt_mdns_discovery`]). Same value
+/// as `mdns_discovery::DEFAULT_TIMEOUT_MS` — the `discover_upstreams`
+/// command's own default — so a headless launch and an explicit
+/// SPA-triggered discovery wait the same length unless a caller of the
+/// command overrides it; a named constant here (rather than importing the
+/// mdns_discovery one directly at the call site) keeps this module's own
+/// "how long" decision visible in its own diff if the two are ever meant
+/// to diverge.
+const LAUNCH_MDNS_TIMEOUT_MS: u32 = mdns_discovery::DEFAULT_TIMEOUT_MS;
+
+/// Whether the launch-time chain should bother running a bounded mDNS
+/// browse before falling through to [`DEFAULT_PROXY_UPSTREAM`]. Pure
+/// (aside from the same `std::env::var` read [`resolve_with_stored`]
+/// already treats as in-bounds for a "pure" function in this module —
+/// see that function's doc comment and its tests' `EnvVarGuard`).
+/// Skipping the browse whenever `ENGINE_WS_URL` is set or a stored value
+/// exists isn't just an optimization: [`resolve_launch_chain`] would
+/// ignore the discovery result in either case anyway, so running it would
+/// only cost launch latency (up to [`LAUNCH_MDNS_TIMEOUT_MS`]) for an
+/// answer nothing downstream reads.
+fn should_attempt_mdns_discovery(stored: &Option<String>) -> bool {
+    std::env::var(ENGINE_WS_URL_ENV_VAR).is_err() && stored.is_none()
+}
+
+/// The SOLE decision point for the LAUNCH-time chain: `ENGINE_WS_URL` env
+/// var > stored setting > mDNS-if-EXACTLY-ONE-found >
+/// [`DEFAULT_PROXY_UPSTREAM`]. Pure given `discovered` — this function
+/// never touches the network itself; the caller ([`resolve_effective_upstream_for_launch`])
+/// already ran (or, per [`should_attempt_mdns_discovery`], chose not to
+/// run) the bounded browse before calling in. Returns `(effective,
+/// stored, env_override_active, mdns_instance_chosen)` — the fourth
+/// element is `Some(instance_name)` only when the mDNS step is what
+/// decided `effective`, so the launch log line (and any future UI) can
+/// say WHICH discovered instance was chosen without re-deriving that fact
+/// from `effective` alone.
+///
+/// Multiple mDNS answers is deliberately NOT "pick the first": ambiguity
+/// resolves only where a human can choose (the contract's own words for
+/// this delivery) — a headless launch with 2+ candidates and nothing else
+/// configured falls through to the default exactly like zero candidates
+/// would, same as it always has.
+fn resolve_launch_chain(
+    stored: Option<String>,
+    discovered: &[DiscoveredUpstream],
+) -> (String, Option<String>, bool, Option<String>) {
+    if let Ok(env_val) = std::env::var(ENGINE_WS_URL_ENV_VAR) {
+        return (env_val, stored, true, None);
+    }
+    if let Some(value) = stored.clone() {
+        return (value, stored, false, None);
+    }
+    if let [only] = discovered {
+        eprintln!(
+            "[proxy-settings] mDNS found exactly one {:?} instance ({:?} at {:?}); using it \
+             as this launch's upstream (no ENGINE_WS_URL and no stored setting took precedence)",
+            mdns_discovery::SERVICE_TYPE,
+            only.instance_name,
+            only.url
+        );
+        return (only.url.clone(), stored, false, Some(only.instance_name.clone()));
+    }
+    if discovered.len() > 1 {
+        eprintln!(
+            "[proxy-settings] mDNS found {} {:?} instances; ambiguous choice, falling back to \
+             the default ({DEFAULT_PROXY_UPSTREAM}) rather than silently picking one",
+            discovered.len(),
+            mdns_discovery::SERVICE_TYPE,
+        );
+    }
+    (DEFAULT_PROXY_UPSTREAM.to_string(), stored, false, None)
+}
+
 /// Resolve the upstream to hand the proxy sidecar at SPAWN time
-/// (`setup()`, `lib.rs` — before any window/webview exists). INFALLIBLE
-/// by construction: a read/parse failure degrades to treating the
-/// stored value as absent (logged loudly to the desktop shell's own log
-/// stream) rather than propagating an `Err` a caller might `?`-abort
-/// launch with — see the module doc comment's "two entry points"
-/// section for why this is a SEPARATE function from
-/// [`resolve_effective_upstream`] rather than that function reused with
-/// its `Err` swallowed at the call site (the failure posture is a
-/// property of WHICH caller this is, not an afterthought at the use
-/// site — a future second launch-time caller gets the safe behavior by
-/// construction, not by remembering to handle the `Err` correctly).
-pub fn resolve_effective_upstream_for_launch(app: &AppHandle) -> (String, Option<String>, bool) {
-    match read_stored_upstream(app) {
-        Ok(stored) => resolve_with_stored(stored),
+/// (`setup()`, `lib.rs` — before any window/webview exists), per the
+/// LAUNCH chain (env > stored > mDNS-if-exactly-one > default; see the
+/// module doc comment). INFALLIBLE by construction: a settings-file
+/// read/parse failure degrades to treating the stored value as absent
+/// (logged loudly to the desktop shell's own log stream) rather than
+/// propagating an `Err` a caller might `?`-abort launch with — see the
+/// module doc comment's "two entry points" section for why this is a
+/// SEPARATE function from [`resolve_effective_upstream`] rather than that
+/// function reused with its `Err` swallowed at the call site (the failure
+/// posture is a property of WHICH caller this is, not an afterthought at
+/// the use site — a future second launch-time caller gets the safe
+/// behavior by construction, not by remembering to handle the `Err`
+/// correctly). The mDNS browse itself is likewise infallible by
+/// construction — see `mdns_discovery::discover_upstreams_blocking`'s doc
+/// comment — so this function has no new failure mode to degrade from;
+/// mDNS being entirely unavailable on the host converges on the same
+/// "treat discovery as empty" outcome as it finding nothing.
+pub fn resolve_effective_upstream_for_launch(app: &AppHandle) -> (String, Option<String>, bool, Option<String>) {
+    let stored = match read_stored_upstream(app) {
+        Ok(stored) => stored,
         Err(e) => {
             eprintln!(
                 "[proxy-settings] could not read the stored upstream setting ({e}); \
-                 launching with it treated as unset (ENGINE_WS_URL env var or the \
-                 default still apply) rather than aborting startup"
+                 launching with it treated as unset (ENGINE_WS_URL env var, mDNS \
+                 discovery, or the default still apply) rather than aborting startup"
             );
-            resolve_with_stored(None)
+            None
         }
-    }
+    };
+
+    let discovered = if should_attempt_mdns_discovery(&stored) {
+        mdns_discovery::discover_upstreams_blocking(Duration::from_millis(u64::from(LAUNCH_MDNS_TIMEOUT_MS)))
+    } else {
+        Vec::new()
+    };
+
+    resolve_launch_chain(stored, &discovered)
 }
 
 /// Wire shape returned to the SPA — camelCase to match the rest of the
@@ -376,6 +486,104 @@ mod tests {
         assert_eq!(effective, DEFAULT_PROXY_UPSTREAM);
         assert_eq!(stored, None);
         assert!(!env_active);
+    }
+
+    // ---- resolve_launch_chain / should_attempt_mdns_discovery: the launch-time chain (ledger row 944) ----
+
+    fn discovered_one(url: &str, instance_name: &str) -> Vec<DiscoveredUpstream> {
+        vec![DiscoveredUpstream {
+            url: url.to_string(),
+            instance_name: instance_name.to_string(),
+        }]
+    }
+
+    #[test]
+    fn resolve_launch_chain_prefers_env_over_everything() {
+        let _guard = EnvVarGuard::set("ws://env-wins.test:1");
+        let discovered = discovered_one("ws://mdns.test:2", "some-box");
+        let (effective, stored, env_active, mdns_used) = resolve_launch_chain(
+            Some("ws://stored.test:3".to_string()),
+            &discovered,
+        );
+        assert_eq!(effective, "ws://env-wins.test:1");
+        assert_eq!(stored, Some("ws://stored.test:3".to_string()));
+        assert!(env_active);
+        assert_eq!(mdns_used, None);
+    }
+
+    #[test]
+    fn resolve_launch_chain_prefers_stored_over_mdns() {
+        let _guard = EnvVarGuard::unset();
+        let discovered = discovered_one("ws://mdns.test:2", "some-box");
+        let (effective, stored, env_active, mdns_used) =
+            resolve_launch_chain(Some("ws://stored.test:3".to_string()), &discovered);
+        assert_eq!(effective, "ws://stored.test:3");
+        assert_eq!(stored, Some("ws://stored.test:3".to_string()));
+        assert!(!env_active);
+        assert_eq!(mdns_used, None);
+    }
+
+    #[test]
+    fn resolve_launch_chain_uses_the_single_mdns_answer_when_nothing_else_is_set() {
+        let _guard = EnvVarGuard::unset();
+        let discovered = discovered_one("ws://192.168.1.50:1242", "office-gpu-box");
+        let (effective, stored, env_active, mdns_used) = resolve_launch_chain(None, &discovered);
+        assert_eq!(effective, "ws://192.168.1.50:1242");
+        assert_eq!(stored, None);
+        assert!(!env_active);
+        assert_eq!(mdns_used, Some("office-gpu-box".to_string()));
+    }
+
+    #[test]
+    fn resolve_launch_chain_falls_back_to_default_on_zero_mdns_answers() {
+        let _guard = EnvVarGuard::unset();
+        let (effective, stored, env_active, mdns_used) = resolve_launch_chain(None, &[]);
+        assert_eq!(effective, DEFAULT_PROXY_UPSTREAM);
+        assert_eq!(stored, None);
+        assert!(!env_active);
+        assert_eq!(mdns_used, None);
+    }
+
+    #[test]
+    fn resolve_launch_chain_falls_back_to_default_on_ambiguous_multiple_mdns_answers() {
+        // Ambiguity resolves only where a human can choose (contract
+        // point 2) — a headless launch must never silently pick one of
+        // several candidates.
+        let _guard = EnvVarGuard::unset();
+        let discovered = vec![
+            DiscoveredUpstream {
+                url: "ws://box-a.test:1242".to_string(),
+                instance_name: "box-a".to_string(),
+            },
+            DiscoveredUpstream {
+                url: "ws://box-b.test:1242".to_string(),
+                instance_name: "box-b".to_string(),
+            },
+        ];
+        let (effective, stored, env_active, mdns_used) = resolve_launch_chain(None, &discovered);
+        assert_eq!(effective, DEFAULT_PROXY_UPSTREAM);
+        assert_eq!(stored, None);
+        assert!(!env_active);
+        assert_eq!(mdns_used, None);
+    }
+
+    #[test]
+    fn should_attempt_mdns_discovery_is_false_when_env_is_set() {
+        let _guard = EnvVarGuard::set("ws://env.test:1");
+        assert!(!should_attempt_mdns_discovery(&None));
+        assert!(!should_attempt_mdns_discovery(&Some("ws://stored.test:2".to_string())));
+    }
+
+    #[test]
+    fn should_attempt_mdns_discovery_is_false_when_stored_is_present() {
+        let _guard = EnvVarGuard::unset();
+        assert!(!should_attempt_mdns_discovery(&Some("ws://stored.test:2".to_string())));
+    }
+
+    #[test]
+    fn should_attempt_mdns_discovery_is_true_when_neither_env_nor_stored_present() {
+        let _guard = EnvVarGuard::unset();
+        assert!(should_attempt_mdns_discovery(&None));
     }
 
     // ---- The blocker-1 regression itself: launch-time degrade on a corrupted file ----
