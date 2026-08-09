@@ -9,13 +9,26 @@
  * Two groups of assertions:
  *   1. The WCAG math itself, against a couple of textbook values.
  *   2. The actual token pairs from the ADR-0019 audit
- *      (`.claude/dispatch-reports/adr19-audit.md` §S4): the ORIGINAL
- *      cluster-theme `--text-2` / `--accent-primary` values fail
- *      4.5:1 against `--surface-0`; the OVERRIDE values chosen for
- *      the high-contrast-text block clear it. Pinning both directions
- *      means a future edit to either color can't silently regress the
- *      override back below the WCAG floor without a red test — the
- *      C19 enforcement the audit's own "shortest honest fix" names.
+ *      (`.claude/dispatch-reports/adr19-audit.md` §S4): the RAW
+ *      cluster-12 palette entries `--text-2` / `--accent-primary` were
+ *      originally bound to both fail 4.5:1 against `--surface-0`; the
+ *      OVERRIDE values chosen for the high-contrast-text block clear
+ *      it. Pinning both directions means a future edit to either
+ *      color can't silently regress the override back below the WCAG
+ *      floor without a red test — the C19 enforcement the audit's own
+ *      "shortest honest fix" names.
+ *
+ *      M26 (audit finding, ledger row 1292) subsequently found that
+ *      raw `--text-2` binding was still the DEFAULT (not just
+ *      opt-in-fixable) rendering — see
+ *      `tests/unit/cluster-secondary-text-contrast.test.ts`, which
+ *      reads `theme.css` live and pins that `--text-2` now resolves
+ *      to the darkened value BY DEFAULT, in the base
+ *      `[data-theme="cluster"]` block. The "OFF state" describe block
+ *      below keeps asserting the RAW palette entry's own ratio (still
+ *      true data about `--cluster-12-6` itself, and still what the
+ *      opt-in override block's comment cites as its starting point) —
+ *      it no longer describes `--text-2`'s shipped default.
  *
  * Hex literals here are copied from `palettes.css` (cluster-12-2,
  * cluster-12-6, cluster-12-9) and from `theme.css`'s override block;
@@ -59,15 +72,17 @@ describe('relativeLuminance / contrastRatio — WCAG math', () => {
   });
 });
 
-describe('cluster theme, OFF state (today\'s shipped values) — the audit\'s failing pair', () => {
+describe('cluster theme, RAW palette entries (no longer --text-2\'s shipped default — see M26 note above)', () => {
   // --surface-0 in [data-theme="cluster"]: var(--cluster-12-9), rgb(254,218,247).
   const surface0 = '#fedaf7';
-  // --text-2 in [data-theme="cluster"] (unmodified): var(--cluster-12-6), rgb(122,111,109).
+  // Raw --cluster-12-6, rgb(122,111,109) — --text-2's value BEFORE M26 (ledger
+  // row 1292) moved the darkened literal into the base cluster block itself.
   const text2Off = '#7a6f6d';
-  // --accent-primary in [data-theme="cluster"] (unmodified): var(--cluster-12-2), rgb(0,167,255).
+  // --accent-primary in [data-theme="cluster"] (unmodified — M26 did not touch
+  // this token; still gated behind the opt-in overlay): var(--cluster-12-2), rgb(0,167,255).
   const accentPrimaryOff = '#00a7ff';
 
-  it('text-2 on surface-0 fails the 4.5:1 normal-text floor (audit: 3.84:1)', () => {
+  it('the raw cluster-12-6 entry on surface-0 fails the 4.5:1 normal-text floor (audit: 3.84:1)', () => {
     const ratio = contrastRatio(text2Off, surface0);
     expect(ratio).toBeCloseTo(3.84, 1);
     expect(ratio).toBeLessThan(WCAG_AA_NORMAL_TEXT);
