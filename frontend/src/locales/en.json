@@ -525,6 +525,8 @@
   "cardSet.harness.type.enum":            "enum",
   "cardSet.harness.placeholder.min":      "min",
   "cardSet.harness.placeholder.max":      "max",
+  "cardSet.harness.ariaLabel.min":        "Minimum value for {name}",
+  "cardSet.harness.ariaLabel.max":        "Maximum value for {name}",
   "cardSet.harness.placeholder.options":  "comma-separated options",
   "cardSet.harness.placeholder.label":    "(optional)",
   "cardSet.harness.deleteRow":            "Remove this hyperparameter",
