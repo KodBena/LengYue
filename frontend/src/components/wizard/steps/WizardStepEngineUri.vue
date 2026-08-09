@@ -22,7 +22,9 @@
  * extended to one-rendering-one-home; see that component's header for
  * why the wizard/Settings duplication was collapsed). The component
  * owns its own `IS_TAURI` gate internally, so nothing here needs to
- * check it.
+ * check it. It also owns the mDNS upstream-discovery affordance
+ * (ledger row 944, `discover_upstreams`) entirely internally — this
+ * step just embeds the leaf and knows nothing about discovery.
  */
 import { onMounted } from 'vue';
 import { useEngineUriEditor } from '../../../composables/useEngineUriEditor';
