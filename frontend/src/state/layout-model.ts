@@ -294,6 +294,48 @@ export function computeTreePanelDefaultWidthPx(workspaceWidthPx: number): number
   return Math.max(TREE_PANEL_MIN_WIDTH_PX, Math.round(workspaceWidthPx * TREE_PANEL_DEFAULT_WIDTH_FRACTION));
 }
 
+/** `computeTreePanelBoundWidth`'s result — a discriminated union rather
+ *  than an `undefined`-width sentinel, so a caller can't forget to
+ *  branch on `mode` (ADR-0000: type-driven design). `'full'` is the
+ *  column-axis case, where `#vue-tree-panel` takes no explicit width
+ *  at all (the CSS `.axis-column` rule owns sizing); `'fixed'` always
+ *  carries a concrete `widthPx`. */
+export type TreePanelBoundWidth = { mode: 'full' } | { mode: 'fixed'; widthPx: number };
+
+/**
+ * The tree panel's `:style` WIDTH DECISION, extracted from App.vue's
+ * template ternary into a pure function so the stored-drag-precedence
+ * property — a user-dragged `treePanelWidthPx` wins VERBATIM over the
+ * fraction default, for ANY workspace width, and axis flips never
+ * touch it — is witnessable directly rather than only by inspection of
+ * the template (review finding, ledger rows 929/926: the property held
+ * by construction but had no test). Precedence, in order:
+ *
+ *   1. `axisColumn` -> `{ mode: 'full' }` — column axis stacks
+ *      tree+control full-width below the board (Phase 1); no explicit
+ *      width applies regardless of `storedWidthPx`. The stored value
+ *      itself is untouched by this branch — it is simply not READ
+ *      here, so flipping back to row axis re-reads it unchanged.
+ *   2. `storedWidthPx !== undefined` -> `{ mode: 'fixed', widthPx:
+ *      storedWidthPx }` — the user's own drag (`session.ui.
+ *      treePanelWidthPx`, `useResizablePanel.ts`'s INNER bar, the
+ *      pane's ONLY write channel) wins verbatim, byte-for-byte,
+ *      independent of `workspaceWidthPx` — a resize event never
+ *      recomputes it.
+ *   3. Otherwise -> `{ mode: 'fixed', widthPx:
+ *      computeTreePanelDefaultWidthPx(workspaceWidthPx) }` — the R5
+ *      fraction default.
+ */
+export function computeTreePanelBoundWidth(input: {
+  axisColumn: boolean;
+  storedWidthPx: number | undefined;
+  workspaceWidthPx: number;
+}): TreePanelBoundWidth {
+  if (input.axisColumn) return { mode: 'full' };
+  if (input.storedWidthPx !== undefined) return { mode: 'fixed', widthPx: input.storedWidthPx };
+  return { mode: 'fixed', widthPx: computeTreePanelDefaultWidthPx(input.workspaceWidthPx) };
+}
+
 /**
  * `#tree-control-wrapper`'s max-width in its flex-fill (never-dragged
  * OUTER bar) branch — the mechanism that sends R3's surplus back to

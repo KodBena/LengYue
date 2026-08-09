@@ -45,6 +45,7 @@ import {
   PANEL_CONTENT_POLICY_BY_WIDTH_CLASS,
   TREE_PANEL_DEFAULT_WIDTH_FRACTION,
   computeTreePanelDefaultWidthPx,
+  computeTreePanelBoundWidth,
   computeUnsetWrapperMaxWidthCss,
 } from '../../../src/state/layout-model';
 
@@ -225,6 +226,65 @@ describe('computeTreePanelDefaultWidthPx — Phase 3, audit finding R5 ("stuck a
     expect(computeTreePanelDefaultWidthPx(-100)).toBe(TREE_PANEL_MIN_WIDTH_PX);
     expect(computeTreePanelDefaultWidthPx(Number.NaN)).toBe(TREE_PANEL_MIN_WIDTH_PX);
     expect(computeTreePanelDefaultWidthPx(Number.POSITIVE_INFINITY)).toBe(TREE_PANEL_MIN_WIDTH_PX);
+  });
+});
+
+describe('computeTreePanelBoundWidth — App.vue\'s extracted :style width decision (review follow-up, ledger rows 929/926)', () => {
+  it('property (a): a stored width wins VERBATIM over the fraction default, for ANY workspace width, including extremes', () => {
+    const storedWidthPx = 314;
+    for (const workspaceWidthPx of [0, 1, 140, 768, 1280, 1920, 3840, 10000, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(
+        computeTreePanelBoundWidth({ axisColumn: false, storedWidthPx, workspaceWidthPx }),
+      ).toEqual({ mode: 'fixed', widthPx: storedWidthPx });
+    }
+  });
+
+  it('property (a), a second stored value, to rule out 314 being coincidentally special', () => {
+    const storedWidthPx = TREE_PANEL_MIN_WIDTH_PX; // the floor value itself — a stored width AT the floor still wins verbatim, not re-derived
+    for (const workspaceWidthPx of [50, 3840]) {
+      expect(
+        computeTreePanelBoundWidth({ axisColumn: false, storedWidthPx, workspaceWidthPx }),
+      ).toEqual({ mode: 'fixed', widthPx: storedWidthPx });
+    }
+  });
+
+  it('property (b): stored undefined -> the fraction default, clamped to the floor', () => {
+    expect(computeTreePanelBoundWidth({ axisColumn: false, storedWidthPx: undefined, workspaceWidthPx: 3840 })).toEqual({
+      mode: 'fixed',
+      widthPx: computeTreePanelDefaultWidthPx(3840),
+    });
+    // A narrow workspace where the fraction undershoots — the floor wins.
+    expect(computeTreePanelBoundWidth({ axisColumn: false, storedWidthPx: undefined, workspaceWidthPx: 768 })).toEqual({
+      mode: 'fixed',
+      widthPx: TREE_PANEL_MIN_WIDTH_PX,
+    });
+  });
+
+  it('property (c): axisColumn -> full-width mode regardless of a stored value', () => {
+    expect(computeTreePanelBoundWidth({ axisColumn: true, storedWidthPx: 314, workspaceWidthPx: 3840 })).toEqual({
+      mode: 'full',
+    });
+    expect(computeTreePanelBoundWidth({ axisColumn: true, storedWidthPx: undefined, workspaceWidthPx: 3840 })).toEqual({
+      mode: 'full',
+    });
+  });
+
+  it('property (c), continued: returning to row axis re-yields the SAME stored value untouched — the axis flip never rewrites it', () => {
+    const storedWidthPx = 500;
+    // Simulates the sequence App.vue's live `treePanelBoundWidth` computed
+    // walks through on an axis flip: row -> column -> row. The caller
+    // (App.vue) never re-derives `storedWidthPx` from this function's own
+    // output — it always re-reads the SAME session.ui.treePanelWidthPx —
+    // so this asserts the function's own side of that contract: it never
+    // substitutes a different width for the column-axis leg, and the
+    // row-axis result is identical before and after.
+    const beforeFlip = computeTreePanelBoundWidth({ axisColumn: false, storedWidthPx, workspaceWidthPx: 1920 });
+    const duringColumnAxis = computeTreePanelBoundWidth({ axisColumn: true, storedWidthPx, workspaceWidthPx: 1920 });
+    const afterFlipBack = computeTreePanelBoundWidth({ axisColumn: false, storedWidthPx, workspaceWidthPx: 1920 });
+
+    expect(beforeFlip).toEqual({ mode: 'fixed', widthPx: storedWidthPx });
+    expect(duringColumnAxis).toEqual({ mode: 'full' });
+    expect(afterFlipBack).toEqual(beforeFlip);
   });
 });
 

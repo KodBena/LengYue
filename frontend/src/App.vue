@@ -23,7 +23,7 @@ import { useUserIORegistry } from './composables/useUserIORegistry';
 import { useAuth }           from './composables/auth-app/useAuth';
 import { workspaceIdentityKey } from './composables/auth-app/workspace-identity-key';
 import { useResizablePanel, CONTROL_PANEL_MIN_WIDTH_PX, isAnyPanelResizing } from './composables/chrome/useResizablePanel';
-import { CONTROL_PANEL_TAB_IDS, useDeferredLayoutClass, getPanelContentPolicy } from './state/layout-model';
+import { CONTROL_PANEL_TAB_IDS, useDeferredLayoutClass, getPanelContentPolicy, computeTreePanelBoundWidth } from './state/layout-model';
 import { useDirtyBoardGuard } from './composables/board/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
 import { useTransientLogReveal } from './composables/useTransientLogReveal';
@@ -286,7 +286,6 @@ const {
   effectiveTreeControlRegionWidthPx,
   freshTreeControlWrapperMinWidthPx,
   boardColumnMaxWidthPx,
-  treePanelDefaultWidthPx,
   unsetWrapperMaxWidthCss,
   rowWidthPx,
   rowHeightPx,
@@ -311,6 +310,29 @@ const workspaceAxisColumn = computed(() => layoutClass.value.axis === 'column');
 // is dense text/tables (Library, Cards) rather than re-derived
 // per-tab. See `getPanelContentPolicy`'s doc (`state/layout-model.ts`).
 const panelContentPolicy = computed(() => getPanelContentPolicy(layoutClass.value));
+
+// Phase 3 (audit findings R3/R5), review follow-up (ledger rows
+// 929/926): the `#vue-tree-panel` `:style` WIDTH DECISION — extracted
+// from what used to be a template ternary into `computeTreePanelBoundWidth`
+// (state/layout-model.ts) so the stored-drag-precedence property (a
+// user-dragged `treePanelWidthPx` wins verbatim over the fraction
+// default, across ANY workspace width and axis flip) is a pure
+// function's contract, unit-testable directly, rather than true only
+// by inspection of the template. This computed is the ONLY read site
+// for `store.session.ui.treePanelWidthPx` in the template below —
+// still a pure render-time projection, not a second write channel.
+const treePanelBoundWidth = computed(() =>
+  computeTreePanelBoundWidth({
+    axisColumn: workspaceAxisColumn.value,
+    storedWidthPx: store.session.ui.treePanelWidthPx,
+    workspaceWidthPx: rowWidthPx.value,
+  }),
+);
+const treePanelStyle = computed(() =>
+  treePanelBoundWidth.value.mode === 'full'
+    ? {}
+    : { width: treePanelBoundWidth.value.widthPx + 'px', flex: '0 0 auto' },
+);
 
 // Defect 6 (ui-fix-56), preserved as a documented, minor cosmetic
 // nicety under the nested-splitter geometry (ledger rows 391/414) —
@@ -709,15 +731,19 @@ const activeTab = computed<string>({
                render-time DEFAULT, not a second write channel: nothing
                here touches `session.ui.treePanelWidthPx`, and the
                moment the user drags #resizer-inner once, that stored
-               value takes over verbatim, forever, exactly as before. -->
+               value takes over verbatim, forever, exactly as before.
+
+               Review follow-up (ledger rows 929/926): the width
+               decision itself (full-width in column axis / stored
+               verbatim / fraction default) is `treePanelBoundWidth`'s
+               `computeTreePanelBoundWidth` call above, not an inline
+               ternary here — see that computed's doc for the
+               stored-drag-precedence property this now witnesses
+               directly in `layout-model.test.ts`. -->
           <div
             id="vue-tree-panel"
             v-show="store.session.ui.treeExpanded"
-            :style="workspaceAxisColumn
-              ? {}
-              : store.session.ui.treePanelWidthPx !== undefined
-                ? { width: store.session.ui.treePanelWidthPx + 'px', flex: '0 0 auto' }
-                : { width: treePanelDefaultWidthPx + 'px', flex: '0 0 auto' }"
+            :style="treePanelStyle"
           >
             <div id="tree-panel-header">{{ $t('app.chrome.gameTreePanelHeader') }}</div>
             <TreeWidget
