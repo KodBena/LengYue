@@ -71,9 +71,9 @@ describe('WizardStepTheme — same cell as profile.settings.appearance.theme', (
 });
 
 describe('WizardStepPalette — same cell as AnalysisControls.vue', () => {
-  it('changing the select writes activePaletteId', async () => {
+  it('changing the advanced select writes activePaletteId', async () => {
     const wrapper = mount(WizardStepPalette, { global: { plugins: [i18n] } });
-    const select = wrapper.find('select');
+    const select = wrapper.find('#wizard-palette-select');
     const otherOption = store.profile.settings.engine.katago.analysis_env.palettes
       .find(p => p.id !== store.profile.settings.engine.katago.analysis_env.activePaletteId)!;
 
