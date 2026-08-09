@@ -1,17 +1,21 @@
 /**
  * tests/integration/render-count/TreeWidget-pass-node.test.ts
  *
- * Pins the pass-node rendering rule from ledger row 759 ("a pass is a
- * game move, not a meta-instruction... it is played by the corresponding
- * color, not 'always black' as it currently shows"):
+ * Pins the pass-node rendering rule from ledger rows 759 and 948:
  *
  * - `nodeFill()` no longer special-cases `move.type === 'pass'` to a
  *   neutral `--border-3` fill; a pass node renders the SAME B/W stone
  *   fill as any other move by that color (`src/components/tree/
- *   TreeWidget.vue`, `nodeFill`).
- * - The "P" glyph stays the pass signal (ADR-0019 appendix C18: no
- *   color-only meaning) and picks a per-stone-color fill
- *   (`passGlyphFill`) so it stays legible on both stone colors.
+ *   TreeWidget.vue`, `nodeFill`; ledger row 759).
+ * - The "P" letter glyph is RETIRED (ledger row 948: a pass is a game
+ *   move played by a color, not a meta-instruction annotated with
+ *   text). Its replacement is a SQUARE outline instead of the ordinary
+ *   stone circle — the genre convention this build grounds against
+ *   Sabaki's game-tree pane (`GameGraph.js`: `type: 'square' // Pass
+ *   node` vs `'circle' // Normal node`, same per-color fill both
+ *   shapes) — per ADR-0019 appendix C18 (no color-only meaning): the
+ *   shape, not the fill, is what still marks a pass apart from a
+ *   placed stone.
  *
  * Reuses the render-count harness's mount infrastructure (jsdom theme-var
  * stubs, `ResizeObserver` stub, i18n plugin) — this file asserts on
@@ -65,7 +69,7 @@ function loadBoardIntoStore(board: BoardState): BoardState {
   return store.boards[store.boards.length - 1];
 }
 
-describe('TreeWidget — pass node renders as the passing player\'s stone (ledger row 759)', () => {
+describe('TreeWidget — pass node renders as a square in the passing player\'s stone color (ledger rows 759, 948)', () => {
   let wrapper: VueWrapper<InstanceType<typeof TreeWidget>> | null = null;
 
   beforeEach(() => {
@@ -79,7 +83,7 @@ describe('TreeWidget — pass node renders as the passing player\'s stone (ledge
     removeRenderEnvStubs();
   });
 
-  it('renders a black pass as the black-stone fill, with a contrasting glyph', async () => {
+  it('renders a black pass as a square with the black-stone fill, and no "P" glyph', async () => {
     const board = loadBoardIntoStore(boardWithPass('B'));
     wrapper = mount(TreeWidget, {
       props: { nodes: board.nodes, boardId: board.id },
@@ -87,23 +91,25 @@ describe('TreeWidget — pass node renders as the passing player\'s stone (ledge
     });
     await nextTick();
 
+    // Only the root node keeps the ordinary stone circle; the pass node
+    // renders as a square (`rect.node-circle`) instead.
     const circles = wrapper.findAll('circle.node-circle');
-    expect(circles.length).toBe(2);
-    const passCircle = circles[1]!; // root has no move, pass is the second layout item
+    expect(circles.length).toBe(1);
+    const squares = wrapper.findAll('rect.node-circle');
+    expect(squares.length).toBe(1);
+    const passSquare = squares[0]!;
     // Black-stone fill (nodeFill's literal '#111' or the dark-theme
     // var() override) — NOT the old neutral '#888888' (--border-3 stub).
-    const fill = passCircle.attributes('fill');
+    const fill = passSquare.attributes('fill');
     expect(fill).not.toBe('#888888');
     expect(fill === '#111' || fill === 'var(--tree-node-black-fill, #111)').toBe(true);
 
-    const glyph = wrapper.find('text.pass-glyph');
-    expect(glyph.exists()).toBe(true);
-    expect(glyph.text()).toBe('P');
-    // White glyph on the black stone (passGlyphFill).
-    expect(glyph.attributes('fill')).toBe('#eee');
+    // The retired "P" glyph never appears (ledger row 948).
+    expect(wrapper.find('text.pass-glyph').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('P');
   });
 
-  it('renders a white pass as the white-stone fill, with a contrasting glyph', async () => {
+  it('renders a white pass as a square with the white-stone fill, and no "P" glyph', async () => {
     const board = loadBoardIntoStore(boardWithPass('W'));
     wrapper = mount(TreeWidget, {
       props: { nodes: board.nodes, boardId: board.id },
@@ -112,15 +118,14 @@ describe('TreeWidget — pass node renders as the passing player\'s stone (ledge
     await nextTick();
 
     const circles = wrapper.findAll('circle.node-circle');
-    expect(circles.length).toBe(2);
-    const passCircle = circles[1]!;
-    expect(passCircle.attributes('fill')).toBe('#eee');
-    expect(passCircle.attributes('fill')).not.toBe('#888888'); // not the old neutral fill
+    expect(circles.length).toBe(1);
+    const squares = wrapper.findAll('rect.node-circle');
+    expect(squares.length).toBe(1);
+    const passSquare = squares[0]!;
+    expect(passSquare.attributes('fill')).toBe('#eee');
+    expect(passSquare.attributes('fill')).not.toBe('#888888'); // not the old neutral fill
 
-    const glyph = wrapper.find('text.pass-glyph');
-    expect(glyph.exists()).toBe(true);
-    expect(glyph.text()).toBe('P');
-    // Dark glyph on the white stone (passGlyphFill).
-    expect(glyph.attributes('fill')).toBe('#111');
+    expect(wrapper.find('text.pass-glyph').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('P');
   });
 });
