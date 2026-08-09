@@ -33,6 +33,21 @@
  * `WizardStep*.vue` in isolation with a second, parallel set of
  * per-step mocks.
  *
+ * Review follow-up (fresh-context reviewer, live mutation): the
+ * original per-step assertion only checked `length > 0` and the
+ * aggregate only checked `>= WIZARD_STEPS.length` (7) against a true
+ * total of 10 — stripping `data-prose-measure-ch` from any ONE
+ * multi-element step's second/third paragraph (e.g. EngineUri's
+ * `.field-hint`, leaving `.step-description` capped) stayed green.
+ * `EXPECTED_CAPPED_COUNT_BY_STEP` below pins the EXACT count per step
+ * (verified against each `WizardStep*.vue`'s own template: EngineUri
+ * has `.step-description` + `.field-hint` = 2; PvAnimation has
+ * `.step-description` + `.mode-settings` = 2; Finish has
+ * `.step-description` + `.finish-hint` = 2; the other four steps have
+ * only `.step-description` = 1 each), and the aggregate is pinned to
+ * `=== 10`, not a floor — so losing any single element's cap now
+ * fails both the per-step and the aggregate assertion.
+ *
  * License: Public Domain (The Unlicense)
  */
 
@@ -42,7 +57,7 @@ import { i18n } from '../../src/i18n';
 import { resetWorkspace } from '../../src/store';
 import { installRenderEnvStubs, removeRenderEnvStubs } from './render-count/jsdom-stubs';
 import SetupWizardModal from '../../src/components/wizard/SetupWizardModal.vue';
-import { WIZARD_STEPS } from '../../src/composables/useSetupWizard';
+import { WIZARD_STEPS, type WizardStepId } from '../../src/composables/useSetupWizard';
 import { WIZARD_PROSE_MEASURE_CH } from '../../src/state/layout-model';
 
 let wrapper: VueWrapper | null = null;
@@ -60,15 +75,34 @@ afterEach(() => {
   removeRenderEnvStubs();
 });
 
+// Exact expected count of `[data-prose-measure-ch]` elements per step —
+// see file header for the per-file accounting. Total across all seven
+// steps is 10.
+const EXPECTED_CAPPED_COUNT_BY_STEP: Record<WizardStepId, number> = {
+  theme: 1,
+  engineUri: 2,
+  palette: 1,
+  demoBoard: 1,
+  pvAnimation: 2,
+  sgfImport: 1,
+  finish: 2,
+};
+const EXPECTED_TOTAL_CAPPED_COUNT = Object.values(EXPECTED_CAPPED_COUNT_BY_STEP)
+  .reduce((sum, n) => sum + n, 0);
+
 describe('wizard prose measure (R7) — every step\'s prose carries the declared constant', () => {
-  it('every step in the walk has at least one [data-prose-measure-ch] element, all bound to WIZARD_PROSE_MEASURE_CH', async () => {
+  it('every step in the walk has EXACTLY its expected [data-prose-measure-ch] count, all bound to WIZARD_PROSE_MEASURE_CH', async () => {
     wrapper = mount(SetupWizardModal, { global: { plugins: [i18n] } });
 
     let proseElementsSeen = 0;
 
     for (let i = 0; i < WIZARD_STEPS.length; i++) {
+      const stepId = WIZARD_STEPS[i];
       const proseEls = wrapper.findAll('[data-prose-measure-ch]');
-      expect(proseEls.length).toBeGreaterThan(0); // every step has at least one prose container
+      // Exact, not a floor — a stripped attribute on any ONE element
+      // of a multi-element step (e.g. EngineUri's .field-hint) must
+      // turn this red, not stay silently absorbed by a >0 check.
+      expect(proseEls.length).toBe(EXPECTED_CAPPED_COUNT_BY_STEP[stepId]);
 
       for (const el of proseEls) {
         // Bound from the SAME `WIZARD_PROSE_MEASURE_CH` import this
@@ -84,7 +118,8 @@ describe('wizard prose measure (R7) — every step\'s prose carries the declared
       }
     }
 
-    expect(proseElementsSeen).toBeGreaterThanOrEqual(WIZARD_STEPS.length); // one-plus per step
+    // Exact total (10), not a floor — see file header.
+    expect(proseElementsSeen).toBe(EXPECTED_TOTAL_CAPPED_COUNT);
   });
 
   it('WIZARD_PROSE_MEASURE_CH is a distinct, narrower figure than the panel-content reading measure', async () => {
