@@ -227,12 +227,26 @@ async function purgeLedger() {
 <template>
   <div class="tab-padding">
     <div class="header-row">
-      <p>
-        {{ $t('analysis.engineLabel') }}
-        <span class="status-indicator" :class="{ 'connected': store.engine.status === 'connected' }">
+      <!-- M11 (menus-ui audit row 1291): "Engine: Offline — the fact
+           explaining the whole screen — is ~10px text in the corner
+           with no colour, icon or as-of time." A status chip with
+           state colour + icon, genre precedent Lizzie/KaTrain (both
+           surface engine reachability as a coloured, iconed badge,
+           not incidental prose). The icon shape itself (filled vs
+           hollow dot) differs per state too, not only its colour —
+           the same "never color alone" discipline the codebase
+           already applies elsewhere (ADR-0019 appendix C18). -->
+      <div
+        class="engine-status-chip"
+        :class="store.engine.status === 'connected' ? 'is-connected' : 'is-offline'"
+        data-testid="engine-status-chip"
+      >
+        <span class="engine-status-icon" aria-hidden="true">{{ store.engine.status === 'connected' ? '●' : '○' }}</span>
+        <span>
+          {{ $t('analysis.engineLabel') }}
           {{ store.engine.status === 'connected' ? $t('analysis.engineConnected') : $t('analysis.engineOffline') }}
         </span>
-      </p>
+      </div>
 
       <div style="display: flex; flex-wrap: wrap; gap: var(--space-default); min-width: 0;">
         <div class="palette-selector">
@@ -392,8 +406,33 @@ async function purgeLedger() {
    little vertical breathing room when wrap engages. */
 .header-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: var(--space-default); row-gap: var(--space-default); }
 h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary); }
-.status-indicator { font-weight: bold; color: var(--text-0); }
-.status-indicator.connected { color: var(--state-success); }
+/* M11: bordered status chip — same shape as this file's own
+   `.experimental-tag`/`.auto-badge` (colored border + colored text,
+   no fill of its own) rather than a solid state-color fill: measured,
+   `--state-error` is DARK in the cluster theme (`--cluster-12-5`,
+   #630000) — a dark accent-role text on it (the `--text-on-accent`
+   token StatusBar.vue's `.setup-mode-chip` and KeybindingRow.vue's
+   `.row-capturing` use for the same "text on saturated fill" role)
+   would land at ~1.5:1, illegible. Reusing this file's own
+   already-audited "colored border + colored text against the panel's
+   own opaque background" idiom sidesteps that per-theme lightness
+   mismatch entirely — no new fill color, so no new contrast pairing
+   to verify per theme. Not a translucent overlay: there is no fill at
+   all, just the panel's own already-opaque background showing
+   through, same as its badge siblings. */
+.engine-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-tight);
+  padding: 1px 8px;
+  border-radius: var(--radius-default);
+  border: 1px solid currentColor;
+  font-weight: bold;
+  font-size: var(--text-body);
+}
+.engine-status-chip.is-connected { color: var(--state-success); }
+.engine-status-chip.is-offline   { color: var(--state-error); }
+.engine-status-icon { font-size: var(--text-emphasis); line-height: 1; }
 
 .palette-selector { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-body); color: var(--text-1); text-transform: uppercase; min-width: 0; }
 .dark-select { border: 1px solid var(--border-2); color: var(--accent-primary); padding: 2px 6px; border-radius: var(--radius-default); font-size: var(--text-body); outline: none; cursor: pointer; text-transform: uppercase; max-width: 100%; min-width: 0; }

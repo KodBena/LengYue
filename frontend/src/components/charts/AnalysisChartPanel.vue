@@ -3,9 +3,10 @@
   Updated to support onMouseLeave.
 -->
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import BaseChart from './BaseChart.vue';
 import ChartPreviewBox from './ChartPreviewBox.vue';
+import { seriesHasData } from './chart-data';
 import type { BoardSnapshot } from '../../engine/board-geometry';
 
 const props = defineProps<{
@@ -41,6 +42,15 @@ const props = defineProps<{
 }>();
 
 const expanded = ref(true);
+
+// M11 (menus-ui audit row 1291): "two full chart frames with axes,
+// ticks and a legend — and no data, no empty state… three renderings
+// of one absence." `hasData` decides between the real chart (which,
+// via BaseChart's own `seriesHasData` gate, never shows a legend for
+// series it has nothing to plot) and an actual empty-state message —
+// replacing the framed-but-empty axes/grid entirely rather than
+// leaving them to render over nothing.
+const hasData = computed(() => seriesHasData(props.series));
 
 // Responsive preview-hide WITHOUT a container query. `container-type:
 // inline-size` + `@container (max-width: …)` re-evaluated on every style flush,
@@ -97,7 +107,11 @@ onUnmounted(() => {
       @mouseleave="onMouseLeave"
     >
       <div class="chart-area">
+        <div v-if="!hasData" class="chart-empty-state" data-testid="chart-empty-state">
+          {{ $t('analysisChart.emptyState', { label }) }}
+        </div>
         <BaseChart
+          v-else
           :series="series"
           :active="expanded"
           :active-index-accessor="activeIndexAccessor"
@@ -137,6 +151,22 @@ onUnmounted(() => {
    reflows in a way that containment would have scoped. */
 .linear-content { display: flex; height: 160px; align-items: stretch; }
 .chart-area { flex: 1; min-width: 0; }
+/* M11: a real empty state — no axes, no ticks, no legend naming series
+   that have nothing plotted — replacing the chart entirely (not an
+   overlay atop it) while `!hasData`. Opaque text on the panel's own
+   `--surface-0` background (matches `.content`'s background above),
+   never a translucent layer. */
+.chart-empty-state {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-medium);
+  color: var(--text-2);
+  font-size: var(--text-body);
+  font-style: italic;
+}
 .preview-box { width: 140px; background: var(--surface-0); border-left: 1px solid var(--surface-3); display: flex; align-items: center; justify-content: center; }
 .linear-content.narrow .preview-box { display: none; }
 .preview-box div { width: 100%; height: 100%; }
