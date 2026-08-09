@@ -437,5 +437,15 @@
   "cardTree.header.unknownPlayer":        "?",
   "cardTree.header.versus":               "{black} vs {white}",
   "cardTree.header.counts":               "{rendered} 렌더됨 · {total} 총계",
-  "cardTree.header.countsWithActive":     "{rendered} 렌더됨 · {total} 총계 · {active} 활성"
+  "cardTree.header.countsWithActive":     "{rendered} 렌더됨 · {total} 총계 · {active} 활성",
+
+  "wizard.palette.basicGroupAriaLabel":   "팔레트 스타일",
+  "wizard.palette.basic.traditional.label": "전통적/엄격 (점수 기반 보기를 선호)",
+  "wizard.palette.basic.fuzzy.label":     "모호함/관대함 (통계적으로 산출된 정확도 측정을 선호)",
+  "wizard.palette.advancedToggle":        "고급: 팔레트 직접 선택",
+  "wizard.palette.aggregation.label":     "점수 결합 방식:",
+  "wizard.palette.aggregation.mean":      "평균",
+  "wizard.palette.aggregation.min":       "최소값",
+  "wizard.palette.aggregation.median":    "중앙값",
+  "wizard.palette.aggregation.custom":    "사용자 지정"
 }

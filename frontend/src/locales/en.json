@@ -719,7 +719,16 @@
   "wizard.engineUri.hint":                "Example: ws://127.0.0.1:1242 — full setup story: docs/docker.md. Change this anytime from the toolbar or Settings.",
 
   "wizard.step.palette.title":            "Default palette",
-  "wizard.step.palette.description":      "The palette controls how move quality is summarized across the board and charts. You can switch anytime.",
+  "wizard.step.palette.description":      "This decides how the app judges your moves. Pick whichever style matches how you like to think about mistakes — you can always open Advanced for full control, and switch anytime.",
+  "wizard.palette.basicGroupAriaLabel":   "Palette style",
+  "wizard.palette.basic.traditional.label": "traditional/severe (I prefer score based view)",
+  "wizard.palette.basic.fuzzy.label":     "fuzzy/lenient (I prefer statistically informed accuracy measurements)",
+  "wizard.palette.advancedToggle":        "Advanced: choose any palette",
+  "wizard.palette.aggregation.label":     "Combine scores using:",
+  "wizard.palette.aggregation.mean":      "Mean",
+  "wizard.palette.aggregation.min":       "Min",
+  "wizard.palette.aggregation.median":    "Median",
+  "wizard.palette.aggregation.custom":    "Custom",
 
   "wizard.step.demoBoard.title":          "Try the analysis overlays",
   "wizard.step.demoBoard.description":    "This is an open middle-game position with a pre-computed analysis — no engine connection needed. Toggle the overlays and sliders below and watch the board update.",

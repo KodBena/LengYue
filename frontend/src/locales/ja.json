@@ -437,5 +437,15 @@
   "cardTree.header.unknownPlayer":        "?",
   "cardTree.header.versus":               "{black} 対 {white}",
   "cardTree.header.counts":               "{rendered} 描画 · {total} 合計",
-  "cardTree.header.countsWithActive":     "{rendered} 描画 · {total} 合計 · {active} アクティブ"
+  "cardTree.header.countsWithActive":     "{rendered} 描画 · {total} 合計 · {active} アクティブ",
+
+  "wizard.palette.basicGroupAriaLabel":   "パレットのスタイル",
+  "wizard.palette.basic.traditional.label": "伝統的/厳格(スコア重視の見方が好み)",
+  "wizard.palette.basic.fuzzy.label":     "曖昧/寛容(統計的な精度評価が好み)",
+  "wizard.palette.advancedToggle":        "詳細設定: パレットを個別に選択",
+  "wizard.palette.aggregation.label":     "スコアの集計方法:",
+  "wizard.palette.aggregation.mean":      "平均",
+  "wizard.palette.aggregation.min":       "最小",
+  "wizard.palette.aggregation.median":    "中央値",
+  "wizard.palette.aggregation.custom":    "カスタム"
 }
