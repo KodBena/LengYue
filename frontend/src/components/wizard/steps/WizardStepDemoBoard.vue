@@ -33,6 +33,12 @@ import KnobSlider from '../../knobs/KnobSlider.vue';
 import { useSetupWizardDemoBoard } from '../../../composables/useSetupWizardDemoBoard';
 import { store, touchSession } from '../../../store';
 import type { KnobId } from '../../../types';
+import { WIZARD_PROSE_MEASURE_CH } from '../../../state/layout-model';
+
+// R7 measure cap — see `WizardStepEngineUri.vue`'s header comment for
+// the shared rationale and why a `[data-prose-measure-ch]` attribute
+// accompanies the `v-bind` CSS binding below.
+const wizardProseMaxWidthCss = computed(() => `${WIZARD_PROSE_MEASURE_CH}ch`);
 
 const { board, provenance, loadError } = useSetupWizardDemoBoard();
 
@@ -63,7 +69,7 @@ const ownershipLiveness = computed({
 
 <template>
   <div class="wizard-step-demo-board">
-    <p class="step-description">{{ $t('wizard.step.demoBoard.description') }}</p>
+    <p class="step-description" :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t('wizard.step.demoBoard.description') }}</p>
 
     <p v-if="loadError" class="load-error" role="alert">
       {{ $t('wizard.demoBoard.loadError', { message: loadError }) }}
@@ -108,7 +114,7 @@ const ownershipLiveness = computed({
 
 <style scoped>
 .wizard-step-demo-board { display: flex; flex-direction: column; gap: var(--space-default); }
-.step-description { color: var(--text-1); margin: 0; }
+.step-description { color: var(--text-1); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 .load-error { color: var(--state-error); font-weight: bold; }
 
 .demo-board-layout { display: flex; gap: var(--space-medium); align-items: flex-start; flex-wrap: wrap; }

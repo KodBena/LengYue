@@ -267,6 +267,24 @@ export function getPanelContentPolicy(layoutClass: LayoutClass): PanelContentPol
   return PANEL_CONTENT_POLICY_BY_WIDTH_CLASS[layoutClass.width];
 }
 
+// ── Wizard prose reading measure (Phase 4, audit finding R7) ──────────
+
+/**
+ * Reading-measure cap for the setup wizard's explanation/prose
+ * paragraphs (`WizardStep*.vue`'s `.step-description` and sibling
+ * hint/settings text) — same vocabulary and rationale as
+ * `PANEL_CONTENT_READING_MEASURE_CH` above (a text column stays
+ * readable regardless of how wide its container is), declared as its
+ * own constant rather than reusing that one because the wizard card
+ * is a fixed 640px dialog, not a resizable panel, so its measure was
+ * audited and tuned separately (R7: prose was running ~101-107ch/line
+ * against the card's full content width). assumption (not
+ * spec-given): 68ch — the R7 charter names "~68ch", the conventional
+ * reading-measure range's (45-75ch) narrower half, picked to read
+ * comfortably inside the 640px card without wasting its width.
+ */
+export const WIZARD_PROSE_MEASURE_CH = 68;
+
 // ── Tree panel UNSET default (Phase 3, audit finding R5) ───────────────
 
 // assumption (not spec-given): the fraction itself — the charter names

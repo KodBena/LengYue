@@ -26,17 +26,29 @@
  * (ledger row 944, `discover_upstreams`) entirely internally — this
  * step just embeds the leaf and knows nothing about discovery.
  */
-import { onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useEngineUriEditor } from '../../../composables/useEngineUriEditor';
 import ProxyUpstreamSettingField from '../../ProxyUpstreamSettingField.vue';
+import { WIZARD_PROSE_MEASURE_CH } from '../../../state/layout-model';
 
 const editor = useEngineUriEditor();
 onMounted(() => editor.beginEdit());
+
+// R7 measure cap (audit finding: this step's description/hint were
+// running ~101-107ch/line against the wizard card's full width) —
+// `v-bind` in the <style> block keeps this in sync with
+// `WIZARD_PROSE_MEASURE_CH`, no second hand-typed `ch` literal. The
+// `[data-prose-measure-ch]` attribute below binds the SAME constant
+// so a test can assert the container carries it without depending on
+// jsdom computing `v-bind`-driven CSS custom properties (this repo's
+// vitest config sets `css: false` — no style tag ever reaches the
+// test DOM, only script-level bindings do).
+const wizardProseMaxWidthCss = computed(() => `${WIZARD_PROSE_MEASURE_CH}ch`);
 </script>
 
 <template>
   <div class="wizard-step-engine-uri">
-    <p class="step-description">{{ $t('wizard.step.engineUri.description') }}</p>
+    <p class="step-description" :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t('wizard.step.engineUri.description') }}</p>
     <label class="field-label" for="wizard-engine-uri">{{ $t('wizard.engineUri.label') }}</label>
     <input
       id="wizard-engine-uri"
@@ -47,7 +59,7 @@ onMounted(() => editor.beginEdit());
       @keydown.enter="editor.commit()"
       @blur="editor.commit()"
     />
-    <p class="field-hint">{{ $t('wizard.engineUri.hint') }}</p>
+    <p class="field-hint" :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t('wizard.engineUri.hint') }}</p>
 
     <ProxyUpstreamSettingField field-id="wizard-proxy-upstream" class="proxy-upstream-slot" />
   </div>
@@ -55,7 +67,7 @@ onMounted(() => editor.beginEdit());
 
 <style scoped>
 .wizard-step-engine-uri { display: flex; flex-direction: column; gap: var(--space-default); }
-.step-description { color: var(--text-1); margin: 0 0 var(--space-default) 0; }
+.step-description { color: var(--text-1); margin: 0 0 var(--space-default) 0; max-width: v-bind(wizardProseMaxWidthCss); }
 .field-label { color: var(--text-2); font-size: var(--text-emphasis); text-transform: uppercase; }
 .proxy-upstream-slot { margin-top: var(--space-default); }
 .text-input {
@@ -64,5 +76,5 @@ onMounted(() => editor.beginEdit());
   border-radius: var(--radius-default); outline: none; width: 100%; box-sizing: border-box;
 }
 .text-input:focus { border-color: var(--accent-primary); }
-.field-hint { color: var(--text-2); font-size: var(--text-emphasis); margin: 0; }
+.field-hint { color: var(--text-2); font-size: var(--text-emphasis); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 </style>

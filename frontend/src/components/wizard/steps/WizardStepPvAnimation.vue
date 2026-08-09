@@ -52,6 +52,12 @@ import PvAnimationPreview from './PvAnimationPreview.vue';
 import { useSetupWizardDemoBoard } from '../../../composables/useSetupWizardDemoBoard';
 import { fromGtp } from '../../../engine/util';
 import { store, touchSession } from '../../../store';
+import { WIZARD_PROSE_MEASURE_CH } from '../../../state/layout-model';
+
+// R7 measure cap — see `WizardStepEngineUri.vue`'s header comment for
+// the shared rationale and why a `[data-prose-measure-ch]` attribute
+// accompanies the `v-bind` CSS binding below.
+const wizardProseMaxWidthCss = computed(() => `${WIZARD_PROSE_MEASURE_CH}ch`);
 
 const ANNOTATIONS: readonly PvAnnotation[] = ['none', 'from1', 'fromCurrent'];
 const PV_MODES: readonly PvMode[] = ['instant', 'sequential', 'window'];
@@ -106,7 +112,7 @@ function getPvMoves(): PvMove[] {
 
 <template>
   <div class="wizard-step-pv-animation">
-    <p class="step-description">{{ $t('wizard.step.pvAnimation.description') }}</p>
+    <p class="step-description" :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t('wizard.step.pvAnimation.description') }}</p>
 
     <PvAnimationPreview :get-pv-moves="getPvMoves" />
 
@@ -114,7 +120,7 @@ function getPvMoves(): PvMove[] {
     <select id="wizard-pv-mode" v-model="mode" class="dark-select">
       <option v-for="m in PV_MODES" :key="m" :value="m">{{ $t(`wizard.pvAnimation.mode.${m}`) }}</option>
     </select>
-    <p class="mode-settings">{{ $t(`wizard.pvAnimation.mode.${mode}.settings`) }}</p>
+    <p class="mode-settings" :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t(`wizard.pvAnimation.mode.${mode}.settings`) }}</p>
 
     <label class="field-label" for="wizard-pv-annotation">{{ $t('wizard.pvAnimation.annotationLabel') }}</label>
     <select id="wizard-pv-annotation" v-model="annotation" class="dark-select">
@@ -125,7 +131,7 @@ function getPvMoves(): PvMove[] {
 
 <style scoped>
 .wizard-step-pv-animation { display: flex; flex-direction: column; gap: var(--space-default); }
-.step-description { color: var(--text-1); margin: 0; }
+.step-description { color: var(--text-1); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 
 .field-label { color: var(--text-2); font-size: var(--text-emphasis); text-transform: uppercase; }
 .dark-select {
@@ -133,5 +139,5 @@ function getPvMoves(): PvMove[] {
   padding: var(--space-default); font-size: var(--text-emphasis); font-family: inherit;
   border-radius: var(--radius-default); outline: none;
 }
-.mode-settings { color: var(--text-2); font-size: var(--text-emphasis); margin: 0; }
+.mode-settings { color: var(--text-2); font-size: var(--text-emphasis); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 </style>

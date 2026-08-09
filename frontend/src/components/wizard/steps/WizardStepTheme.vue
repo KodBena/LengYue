@@ -13,11 +13,17 @@
  * state until the user clicks one, and their DOM order is the
  * registry's own declaration order, not a "recommended first" sort.
  */
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { mutateProfile } from '../../../store/profile-owner';
+import { WIZARD_PROSE_MEASURE_CH } from '../../../state/layout-model';
 
 type Theme = 'dark' | 'cluster';
 const THEME_OPTIONS: readonly Theme[] = ['dark', 'cluster'];
+
+// R7 measure cap — see `WizardStepEngineUri.vue`'s header comment for
+// the shared rationale and why a `[data-prose-measure-ch]` attribute
+// accompanies the `v-bind` CSS binding below.
+const wizardProseMaxWidthCss = computed(() => `${WIZARD_PROSE_MEASURE_CH}ch`);
 
 // Review BLOCKER (swz-setup-wizard-review.md finding 1, resolved per
 // ledger row 747): the highlight is WIZARD-LOCAL presentation state,
@@ -40,7 +46,7 @@ function selectTheme(theme: Theme): void {
 
 <template>
   <div class="wizard-step-theme">
-    <p class="step-description">{{ $t('wizard.step.theme.description') }}</p>
+    <p class="step-description" :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t('wizard.step.theme.description') }}</p>
     <div class="theme-options">
       <button
         v-for="theme in THEME_OPTIONS"
@@ -59,7 +65,7 @@ function selectTheme(theme: Theme): void {
 
 <style scoped>
 .wizard-step-theme { display: flex; flex-direction: column; gap: var(--space-medium); }
-.step-description { color: var(--text-1); margin: 0; }
+.step-description { color: var(--text-1); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 
 .theme-options { display: flex; gap: var(--space-medium); }
 .theme-card {
