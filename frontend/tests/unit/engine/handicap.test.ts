@@ -207,6 +207,11 @@ describe('applyHandicap', () => {
 
   it('seeds the handicap-convention default komi (0.5) when no KM is already set', () => {
     const board = createInitialBoard();
+    // `createInitialBoard` now authors its own KM (ledger row 1146 —
+    // see `tests/unit/store/board-factory-komi.test.ts`), so KM is
+    // deleted here to isolate applyHandicap's own "no KM yet" seeding
+    // path from the factory's authored default.
+    delete board.nodes[board.rootNodeId].properties['KM'];
     const next = applyHandicap(board, 19, 3);
 
     expect(next.nodes[next.rootNodeId].properties.KM).toEqual([String(HANDICAP_KOMI)]);

@@ -20,9 +20,13 @@ import {
   scoreLeadToBlackPositive,
   roundToHalf,
   clampKomi,
+  komiDomainStep,
+  roundToStep,
+  normalizeKomiForRuleset,
   KOMI_MIN,
   KOMI_MAX,
 } from '../../../../src/engine/katago/komi-calibration';
+import { RULESET_NAMES, type RulesetName } from '../../../../src/engine/rulesets';
 
 const WHITE = { reportAnalysisWinratesAs: 'WHITE' };
 const BLACK = { reportAnalysisWinratesAs: 'BLACK' };
@@ -75,6 +79,92 @@ describe('roundToHalf', () => {
     expect(roundToHalf(6.75)).toBe(7);
     // negative tie: -6.25*2 = -12.5 → Math.round -12 (half-up toward +∞) → -6
     expect(roundToHalf(-6.25)).toBe(-6);
+  });
+});
+
+describe('komiDomainStep — per-ruleset komi domain (ledger row 1146)', () => {
+  it('is 1 (integer-only) for Tromp-Taylor', () => {
+    expect(komiDomainStep('Tromp-Taylor')).toBe(1);
+  });
+
+  it('is 0.5 (half-integer) for the other three ruling-mandated rulesets', () => {
+    for (const name of RULESET_NAMES) {
+      if (name === 'Tromp-Taylor') continue;
+      expect(komiDomainStep(name)).toBe(0.5);
+    }
+  });
+});
+
+describe('roundToStep', () => {
+  it('rounds to the nearest multiple of an arbitrary step', () => {
+    expect(roundToStep(6.4, 1)).toBe(6);
+    expect(roundToStep(6.6, 1)).toBe(7);
+    expect(roundToStep(6.2, 0.5)).toBe(6);
+    expect(roundToStep(6.3, 0.5)).toBe(6.5);
+  });
+
+  it('rounds ties half-up, matching roundToHalf at step 0.5', () => {
+    expect(roundToStep(6.25, 0.5)).toBe(roundToHalf(6.25));
+    expect(roundToStep(-6.25, 0.5)).toBe(roundToHalf(-6.25));
+  });
+
+  it('rounds integer ties half-up at step 1', () => {
+    expect(roundToStep(6.5, 1)).toBe(7);
+    expect(roundToStep(-6.5, 1)).toBe(-6);
+  });
+});
+
+describe('normalizeKomiForRuleset — property-shaped (ledger row 1146)', () => {
+  it('Tromp-Taylor always rounds to an integer, across a spread of fractional inputs', () => {
+    const inputs = [6.5, 7.3, -6.5, 0.25, 149.6, -149.6, 6, -6];
+    for (const v of inputs) {
+      const out = normalizeKomiForRuleset(v, 'Tromp-Taylor');
+      expect(Number.isInteger(out)).toBe(true);
+    }
+  });
+
+  it('the non-Tromp-Taylor rulesets always round to a half-integer, never finer', () => {
+    const nonTT: readonly RulesetName[] = RULESET_NAMES.filter((n) => n !== 'Tromp-Taylor');
+    const inputs = [6.5, 7.3, -6.5, 0.24, 149.6, -149.6];
+    for (const ruleset of nonTT) {
+      for (const v of inputs) {
+        const out = normalizeKomiForRuleset(v, ruleset);
+        expect(Number.isInteger(out * 2)).toBe(true);
+      }
+    }
+  });
+
+  it('a value already inside the domain passes through unchanged', () => {
+    expect(normalizeKomiForRuleset(7, 'Tromp-Taylor')).toBe(7);
+    expect(normalizeKomiForRuleset(6.5, 'Chinese')).toBe(6.5);
+  });
+
+  it('the conventional default (6.5) normalizes to 7 under Tromp-Taylor', () => {
+    // Direct pin for the fresh-board default (board-factory.ts) and
+    // ruleset-switch renormalization (App.vue::handleUpdateRules).
+    expect(normalizeKomiForRuleset(6.5, 'Tromp-Taylor')).toBe(7);
+  });
+
+  it('clamps to [KOMI_MIN, KOMI_MAX] at both ends, for every ruleset', () => {
+    for (const ruleset of RULESET_NAMES) {
+      expect(normalizeKomiForRuleset(1000, ruleset)).toBe(KOMI_MAX);
+      expect(normalizeKomiForRuleset(-1000, ruleset)).toBe(KOMI_MIN);
+    }
+  });
+
+  it('a switch INTO Tromp-Taylor collapses an existing half-integer komi to the nearer integer', () => {
+    expect(normalizeKomiForRuleset(6.5, 'Tromp-Taylor')).toBe(7);
+    expect(normalizeKomiForRuleset(0.5, 'Tromp-Taylor')).toBe(1);
+    // Math.round(-0.5) is -0 (JS ties-toward-+Infinity), so this is
+    // asserted numerically (`-0 == 0`) rather than with `toBe`, which
+    // uses `Object.is` and would distinguish -0 from 0.
+    expect(normalizeKomiForRuleset(-0.5, 'Tromp-Taylor')).toBe(-0);
+  });
+
+  it('a switch AWAY FROM Tromp-Taylor is a no-op on an already-integer komi', () => {
+    expect(normalizeKomiForRuleset(7, 'Chinese')).toBe(7);
+    expect(normalizeKomiForRuleset(7, 'AGA')).toBe(7);
+    expect(normalizeKomiForRuleset(7, 'Japanese')).toBe(7);
   });
 });
 

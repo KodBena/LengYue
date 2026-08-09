@@ -27,6 +27,7 @@ import { store, touchSession } from '../../store';
 import { getRulesetResolution, getGameEndStatus } from '../../engine/util';
 import { getPath } from '../../engine/navigator';
 import { RULESET_NAMES, type RulesetName } from '../../engine/rulesets';
+import { komiDomainStep } from '../../engine/katago/komi-calibration';
 
 // Toggle the persisted `session.ui.showStoneMoveNumbers` flag and bump
 // the session counter SyncService keys persistence on (it no longer
@@ -90,6 +91,16 @@ const { hint } = useTransientHint();
 // applies, never whether a value is selectable.
 const rulesetResolution = computed(() => getRulesetResolution(props.board));
 
+// The komi `<input>`'s native `step` (ledger row 1146): `1` under
+// Tromp-Taylor (its komi domain is integers-only —
+// `engine/katago/komi-calibration.ts`'s `komiDomainStep`), `0.5`
+// otherwise. This only governs the input's up/down-arrow increment and
+// browser validity styling — App.vue's `handleUpdateKomi` is the actual
+// enforcement point (a typed-in value bypasses `step` entirely), but
+// the control should still LOOK like it only accepts the ruleset's
+// domain, not silently disagree with what gets persisted.
+const komiStep = computed(() => komiDomainStep(rulesetResolution.value.name));
+
 function onRulesChange(e: Event): void {
   const value = (e.target as HTMLSelectElement /* bound on the rules <select> */).value;
   // The <select>'s options are exactly RULESET_NAMES (plus the
@@ -149,7 +160,7 @@ const gameStatus = computed(() =>
           type="number"
           class="komi-input"
           :value="metadata?.komi"
-          step="0.5"
+          :step="komiStep"
           @change="(e) => emit('update-komi', parseFloat((e.target as HTMLInputElement /* bound on the komi <input> */).value))"
           :title="$t('statusBar.editKomi')"
         />
