@@ -58,6 +58,15 @@ describe('Tab-idiom convergence (audit M19, ledger row 1292)', () => {
         expect(template).toMatch(/<TabWidget[\s>]/);
       });
 
+      if (name === 'Analysis inner strip') {
+        it('the <TabWidget> call carries no keep-mounted attribute — review remedy (ADR-0021): a silent :keep-mounted="true" would kill the regime-B unmount-on-switch perf win with no red test', () => {
+          const template = src.slice(src.indexOf('<template>'), src.indexOf('</template>'));
+          const tabWidgetTag = /<TabWidget\b[^>]*>/.exec(template);
+          expect(tabWidgetTag).not.toBeNull();
+          expect(tabWidgetTag![0]).not.toMatch(/keep-mounted/);
+        });
+      }
+
       it('carries no bespoke role="tab" markup of its own (TabWidget owns that contract)', () => {
         // Anything outside TabWidget.vue itself declaring `role="tab"` is a
         // second, parallel tab-strip implementation — exactly the M19 defect.
