@@ -62,19 +62,17 @@ onMounted(() => {
   void suggest.refresh();
 });
 
-function onSelect(row: LibraryGameListItem): void {
-  preview.selectedRow.value = row;
-}
-
-// Double-click on a row: select for preview AND open on the board.
-// The preview composable will fetch the full LibraryGame via its
+// Click on a row (ledger row 1015 / audit L7 — single click opens,
+// see LibraryTable.vue's header comment for the genre grounding):
+// select for preview AND open on the board, in one gesture. The
+// preview composable will fetch the full LibraryGame via its
 // watcher on selectedRow; we also fetch here directly so the
 // open-emit has a concrete game in hand without racing the watcher.
 // Two GET requests for the same id is a benign duplicate at hobby
 // scale; the alternative (await-the-watcher) requires plumbing a
 // resolution signal back out of useLibraryPreview, and the existing
 // "Open in board" button uses the watcher's selectedGame anyway —
-// the double-click and the button stay alignable that way.
+// the click and the button stay alignable that way.
 async function onOpen(row: LibraryGameListItem): Promise<void> {
   preview.selectedRow.value = row;
   const game = await preview.fetchGame(row.id);
@@ -176,7 +174,6 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
           :selected-id="preview.selectedRow.value?.id ?? null"
           @update:sort="query.sort.value = $event"
           @update:direction="query.direction.value = $event"
-          @select="onSelect"
           @open="onOpen"
           @open-new-tab="onOpenNewTab"
           @visible-range="(s, e) => query.ensureRange(s, e)"
