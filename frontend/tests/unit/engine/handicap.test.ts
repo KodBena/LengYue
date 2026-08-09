@@ -9,8 +9,11 @@
  *      sizes (19×19 N=2..9, 13×13 N=2..5, 9×9 N=2..4), per the
  *      module-header convention (corners → edges → center).
  *   2. `applyHandicap` — white-to-move, HA[n]/PL[W]/default-KM root
- *      properties, the loud refusal once the root has children, and
- *      the re-selection replace-not-append behaviour.
+ *      properties (the seeded default KM now drawn per-ruleset from
+ *      `handicapKomiForRuleset`, ledger rows 1339/1340 — Tromp-Taylor
+ *      seeds 0, the other three ruling-mandated rulesets seed 0.5),
+ *      the loud refusal once the root has children, and the
+ *      re-selection replace-not-append behaviour.
  *   3. SGF round trip — save a handicapped board, reload it, and
  *      confirm AB[]/HA[n] survive and the reloaded board's turn is
  *      still White (via `getInitialPlayer`'s PL[W] read).
@@ -39,15 +42,25 @@ import { createInitialBoard } from '../../../src/store/board-factory';
 import { applyGoMove } from '../../../src/logic';
 import { loadSgf } from '../../../src/engine/sgf-loader';
 import { serializeBoard } from '../../../src/engine/sgf-writer';
+import { RULESET_NAMES, type RulesetName } from '../../../src/engine/rulesets';
+import {
+  handicapKomiForRuleset,
+  normalizeKomiForRuleset,
+} from '../../../src/engine/katago/komi-calibration';
 import type { BoardState } from '../../../src/types';
 
 function load(source: string): BoardState {
   return loadSgf(sgf.parse(source));
 }
 
-/** A board of a given size, freshly loaded (no moves yet). */
+/** A board of a given size, freshly loaded (no moves yet). No RU set — resolves to the defaulted Tromp-Taylor ruleset (`getRulesetResolution`'s own default). */
 function boardOfSize(size: number): BoardState {
   return load(`(;FF[4]GM[1]SZ[${size}])`);
+}
+
+/** A 19×19 board freshly loaded under an explicit `ruleset` (no moves yet). */
+function boardWithRuleset(ruleset: RulesetName): BoardState {
+  return load(`(;FF[4]GM[1]SZ[19]RU[${ruleset}])`);
 }
 
 // ── 1. Placement table ──────────────────────────────────────────────────────
@@ -205,7 +218,7 @@ describe('applyHandicap', () => {
     expect(next.nodes[next.rootNodeId].properties.PL).toEqual(['W']);
   });
 
-  it('seeds the handicap-convention default komi (0.5) when no KM is already set', () => {
+  it('seeds the Tromp-Taylor handicap komi (0) when no KM is already set — createInitialBoard authors RU[Tromp-Taylor] (ledger row 1146), so this is NOT HANDICAP_KOMI (0.5) any more: TT is an ordinary row in the per-ruleset domain table, not the uniform default (ledger rows 1339/1340)', () => {
     const board = createInitialBoard();
     // `createInitialBoard` now authors its own KM (ledger row 1146 —
     // see `tests/unit/store/board-factory-komi.test.ts`), so KM is
@@ -214,7 +227,30 @@ describe('applyHandicap', () => {
     delete board.nodes[board.rootNodeId].properties['KM'];
     const next = applyHandicap(board, 19, 3);
 
-    expect(next.nodes[next.rootNodeId].properties.KM).toEqual([String(HANDICAP_KOMI)]);
+    expect(next.nodes[next.rootNodeId].properties.KM).toEqual(['0']);
+  });
+
+  it.each(RULESET_NAMES)(
+    'seeds %s\'s own handicap komi (handicapKomiForRuleset) when no KM is already set — the compositional invariant: the seeded value always lies in that ruleset\'s own komi domain',
+    (ruleset) => {
+      const board = boardWithRuleset(ruleset);
+      const next = applyHandicap(board, 19, 3);
+
+      const expected = handicapKomiForRuleset(ruleset);
+      const seeded = next.nodes[next.rootNodeId].properties.KM;
+      expect(seeded).toEqual([String(expected)]);
+      // Domain membership: normalizing the seeded value against its OWN
+      // ruleset is a no-op — it is already in that ruleset's domain
+      // (integer under Tromp-Taylor, half-integer otherwise).
+      expect(normalizeKomiForRuleset(Number(seeded![0]), ruleset)).toBe(expected);
+    },
+  );
+
+  it('Tromp-Taylor seeds 0, the other three ruling-mandated rulesets seed 0.5 (HANDICAP_KOMI) — pinning the concrete per-ruleset values, not just the domain-membership property above', () => {
+    expect(handicapKomiForRuleset('Tromp-Taylor')).toBe(0);
+    expect(handicapKomiForRuleset('AGA')).toBe(HANDICAP_KOMI);
+    expect(handicapKomiForRuleset('Chinese')).toBe(HANDICAP_KOMI);
+    expect(handicapKomiForRuleset('Japanese')).toBe(HANDICAP_KOMI);
   });
 
   it('does not override an already-explicit KM on the root', () => {

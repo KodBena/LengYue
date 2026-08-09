@@ -50,7 +50,8 @@
  */
 
 import { applySetup } from '../logic';
-import { sgfToMove } from './util';
+import { sgfToMove, getRulesetResolution } from './util';
+import { handicapKomiForRuleset } from './katago/komi-calibration';
 import type { BoardState } from '../types';
 
 export type HandicapBoardSize = 19 | 13 | 9;
@@ -137,17 +138,22 @@ export function handicapPoints(size: number, n: number): readonly [number, numbe
 }
 
 /**
- * The standard handicap-game komi, applied uniformly across all four
- * supported rulesets (`src/engine/rulesets.ts`). 0.5 — just enough to
- * rule out a drawn game — is the de facto convention nearly every Go
- * client defaults a handicap game to, regardless of the active
- * scoring ruleset (area-scoring AGA/Chinese/Tromp-Taylor and
- * territory-scoring Japanese alike); it is not derived per-ruleset
- * because there is no widely-divergent per-ruleset handicap-komi
- * convention this codebase's ratified ruleset set actually disagrees
- * on. Komi stays user-editable after handicap application — this is
- * only the seeded default (same status as `createInitialBoard`'s own
- * un-set-komi default, `getKomi`'s 6.5 fallback in `engine/util.ts`).
+ * The standard handicap-game komi under the three half-integer-domain
+ * rulesets (AGA, Chinese, Japanese) — just enough to rule out a drawn
+ * game, the de facto convention nearly every Go client defaults a
+ * handicap game to. This is no longer the uniform value every ruleset
+ * seeds: `applyHandicap` below draws the actual per-board default from
+ * `handicapKomiForRuleset` (`engine/katago/komi-calibration.ts`),
+ * whose declared domain table gives Tromp-Taylor its own member (`0`,
+ * per Tromp-Taylor's integer-only komi domain) rather than this
+ * uniform 0.5 (commissioner ruling, ledger rows 1339/1340). Retained
+ * as a named export — the half-integer-domain rulesets' value, and the
+ * literal `komiDomainStep`/`handicapKomiForRuleset`'s table already
+ * resolves to for them — for callers and tests that want that specific
+ * constant without threading a ruleset through. Komi stays
+ * user-editable after handicap application — this is only the seeded
+ * default (same status as `createInitialBoard`'s own un-set-komi
+ * default, `getKomi`'s 6.5 fallback in `engine/util.ts`).
  */
 export const HANDICAP_KOMI = 0.5;
 
@@ -175,10 +181,16 @@ export class HandicapOnStartedGameError extends Error {
  * one substrate that writes AB — no parallel placement mechanism),
  * sets White to move first (`state.turn` for the live session, `PL[W]`
  * on the root for SGF round-trip), records `HA[n]` (the standard SGF
- * handicap-count property), and seeds the handicap-convention komi
- * (`HANDICAP_KOMI`) unless the root already carries an explicit `KM`
- * the caller placed some other way (defensive; in practice this is
- * always called against a fresh/empty root).
+ * handicap-count property), and seeds the handicap-convention komi for
+ * `board`'s OWN ruleset (`handicapKomiForRuleset`, read off the root's
+ * `RU` property via `getRulesetResolution` — same read `board`'s own
+ * komi-domain normalization already uses) unless the root already
+ * carries an explicit `KM` the caller placed some other way (defensive;
+ * in practice this is always called against a fresh/empty root). `RU`
+ * itself is never touched by this function, so reading it before the
+ * root rewrite below is safe — the same "a file's literal data is not
+ * rewritten by a read" posture `komi-calibration.ts`'s header
+ * documents for `normalizeRuleset`.
  *
  * Pure — like `applySetup`/`applyGoMove`, returns a new `BoardState`
  * rather than mutating in place. Callers already updating
@@ -240,7 +252,10 @@ export function applyHandicap(board: BoardState, size: number, n: number): Board
   const rootProps = { ...working.nodes[working.rootNodeId].properties };
   rootProps.HA = [String(n)];
   rootProps.PL = ['W'];
-  if (!rootProps.KM) rootProps.KM = [String(HANDICAP_KOMI)];
+  if (!rootProps.KM) {
+    const ruleset = getRulesetResolution(board).name;
+    rootProps.KM = [String(handicapKomiForRuleset(ruleset))];
+  }
 
   return {
     ...working,
