@@ -111,12 +111,25 @@ async function handleResetAll(): Promise<void> {
 .keybindings-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-small);
+  /* Ghost-token fix: --space-small isn't a defined token (see
+     theme.css); --space-tight is the nearest real one. */
+  gap: var(--space-tight);
 }
 
 .keybindings-table {
   width: 100%;
   border-collapse: collapse;
+  /* M5 (audit finding, ledger row 1251): every section renders its
+     own <table>, so an auto-layout table computes column widths
+     independently per section from that section's own content —
+     the audited "chord column" landed at a different x per section
+     even though within any one section it was already aligned.
+     table-layout: fixed plus explicit widths on the key/buttons
+     columns (KeybindingRow.vue's .action-key / .action-buttons)
+     makes every section's table use the SAME absolute column
+     widths, so the chord column lines up across the whole page,
+     not just within one section. */
+  table-layout: fixed;
 }
 
 .keybindings-footer {
@@ -147,14 +160,15 @@ async function handleResetAll(): Promise<void> {
 .reserved-keys-disclosure > summary {
   cursor: pointer;
   color: var(--text-1);
-  font-size: var(--text-small);
+  /* Ghost-token fix: --text-small isn't a defined token. */
+  font-size: var(--text-body);
   user-select: none;
 }
 
 .reserved-keys-body {
-  margin-top: var(--space-small);
+  margin-top: var(--space-tight);
   color: var(--text-2);
-  font-size: var(--text-small);
+  font-size: var(--text-body);
   line-height: 1.5;
 }
 </style>

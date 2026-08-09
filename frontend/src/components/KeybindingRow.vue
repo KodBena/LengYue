@@ -247,9 +247,20 @@ onUnmounted(() => {
 
 <style scoped>
 .keybinding-row td {
-  padding: var(--space-tiny) var(--space-small);
-  border-bottom: 1px solid var(--surface-1);
+  padding: var(--space-tight) var(--space-default);
+  /* M5 (audit row 1251): the prior rule referenced --surface-1,
+     which is near-invisible against the panel background in more
+     than one theme. --border-1 is the Library table's own row-rule
+     token (LibraryTable.vue's .library-row), used here for the same
+     "in-repo precedent" reason the task cites. */
+  border-bottom: 1px solid var(--border-1);
   vertical-align: middle;
+}
+
+/* M5: row-hover, matching LibraryTable.vue's .library-row:hover —
+   same scanning aid the in-repo precedent already uses. */
+.keybinding-row:hover td {
+  background: var(--surface-2);
 }
 
 .action-label {
@@ -258,11 +269,23 @@ onUnmounted(() => {
 }
 
 .action-key {
-  text-align: right;
+  /* M5 (audit finding, ledger row 1251): the chord column was
+     centred per-row by the surrounding per-section <table>s each
+     computing independent column widths from their own content, so
+     the same visual "column" landed at a different x-position per
+     section. .keybindings-table below now sets a fixed, identical
+     column width for every section's table (table-layout: fixed +
+     explicit widths), so left-alignment here is a genuine shared
+     column, not a per-row centering artifact. */
+  text-align: left;
   color: var(--text-1);
   font-family: monospace;
   white-space: nowrap;
-  min-width: 6ch;
+  /* Fixed, identical-across-sections column width — see
+     .keybindings-table's table-layout: fixed comment. 100px fits
+     the longest default chord ("ArrowRight"/"ArrowDown", 10 chars
+     monospace) plus the unbound-label string. */
+  width: 100px;
 }
 
 .capture-prompt {
@@ -273,10 +296,13 @@ onUnmounted(() => {
 .reserved-notice {
   display: block;
   color: var(--state-attention);
-  font-size: var(--text-small);
+  /* Ghost-token fix (same class as M5's): --text-small/--space-tiny
+     are not defined in theme.css; --text-body/--space-tight are the
+     nearest real tokens. */
+  font-size: var(--text-body);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   font-style: normal;
-  margin-top: var(--space-tiny);
+  margin-top: var(--space-tight);
 }
 
 .conflict-text {
@@ -287,20 +313,39 @@ onUnmounted(() => {
 .action-buttons {
   text-align: right;
   white-space: nowrap;
+  /* Fixed, identical-across-sections column width — see
+     .keybindings-table's table-layout: fixed comment. Wide enough
+     for the largest button pair (Edit + Reset) at the new >=24px
+     padded size. */
+  width: 150px;
 }
 
+/* M5: --space-small was never a defined token (see theme.css) — the
+   custom property failed to resolve, so this margin computed to 0
+   and Edit/Reset abutted with zero gap next to a destructive
+   action. --space-default is a real token and gives the genuine gap
+   the finding asked for. */
 .action-buttons .row-btn + .row-btn {
-  margin-left: var(--space-small);
+  margin-left: var(--space-default);
 }
 
 .row-btn {
   background: transparent;
   border: 1px solid var(--border-3);
   color: var(--text-1);
-  padding: var(--space-tiny) var(--space-small);
+  /* M16 (>=24x24 pointer targets) + M5 (ghost-token fix): the prior
+     padding referenced --space-tiny/--space-small, neither a
+     defined token (theme.css has --space-tight/--space-default/
+     --space-medium/--space-loose only), so the shorthand was invalid
+     at computed-value time and padding collapsed to 0 — the audited
+     ~22x11px buttons. Real tokens plus an explicit min-height floor
+     bring both dimensions to >=24px regardless of font metrics. */
+  padding: var(--space-default) var(--space-medium);
+  min-height: 24px;
+  min-width: 24px;
   border-radius: var(--radius-default);
   cursor: pointer;
-  font-size: var(--text-small);
+  font-size: var(--text-body);
 }
 
 .row-btn:hover:not(:disabled) {
