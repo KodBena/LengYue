@@ -14,12 +14,35 @@
   see the composable's header and
   `tests/integration/useIntervalSummary.test.ts`.
 
+  Resolution roadmap Phase 2 (ledger row 928): this is "the Analysis
+  dashboard table" that arc's spec names — identified from audit
+  finding R1's own language ("`.dashboard` (Analysis range panel)",
+  30% clipped by `overflow-x: hidden`/`clip`): "Interval" is the
+  audit's "range," and this panel's fixed Player/Interval/Value shape
+  is the one analysis-dashboard surface that is genuinely a named,
+  typed table rather than a data-driven matrix (contrast
+  `StabilityCrossCorrelationPanel.vue`'s N×N correlation grids, whose
+  column identities are extractor/metric ids, not a fixed priority-
+  ranked set — a column-drop-by-priority spec does not fit that
+  shape, so it is out of this arc's fixed two-surface scope; flagged
+  as an assumption, not silently resolved). Column geometry lives in
+  `analysis-interval-table-columns.ts`; the fit/drop decision is
+  `state/table-column-fit.ts`'s `fitColumns` (same engine
+  `LibraryTable.vue` uses).
+
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useIntervalSummary } from '../../composables/analysis/useIntervalSummary';
 import { injectAnalysisContext } from '../../composables/analysis/useAnalysisContext';
+import { useElementWidth } from '../../composables/chrome/useElementWidth';
+import { fitColumns } from '../../state/table-column-fit';
+import {
+  ANALYSIS_INTERVAL_TABLE_COLUMNS,
+  ANALYSIS_INTERVAL_TABLE_GAP_PX,
+  ANALYSIS_INTERVAL_TABLE_INDICATOR_WIDTH_PX,
+} from './analysis-interval-table-columns';
 import type { StoneColor } from '../../types';
 
 // Phase-0 projection seam: self-source from the injected AnalysisContext,
@@ -51,6 +74,48 @@ const rangeLabel = computed<SummaryDisplayRow[]>(() =>
     };
   }),
 );
+
+// Resolution roadmap Phase 2: available width measured off the
+// table's own content element (see IntervalSummaryPanel.vue's header
+// note on why this is "the Analysis dashboard table"), same
+// contentRect-based composable LibraryTable.vue uses.
+const contentEl = ref<HTMLDivElement | null>(null);
+const contentWidth = useElementWidth();
+
+const columnFit = computed(() =>
+  fitColumns(
+    contentWidth.widthPx.value,
+    ANALYSIS_INTERVAL_TABLE_COLUMNS,
+    ANALYSIS_INTERVAL_TABLE_GAP_PX,
+    ANALYSIS_INTERVAL_TABLE_INDICATOR_WIDTH_PX,
+  ),
+);
+
+type IntervalColumnKey = 'player' | 'interval' | 'value';
+
+function isColumnVisible(key: IntervalColumnKey): boolean {
+  return columnFit.value.visible.some((c) => c.key === key);
+}
+
+// By-key lookup (not array-index) so the template's per-column
+// minWidth binding stays correct regardless of the spec array's own
+// declaration order.
+function minWidthOf(key: IntervalColumnKey): number {
+  return ANALYSIS_INTERVAL_TABLE_COLUMNS.find((c) => c.key === key)?.minWidth ?? 0;
+}
+
+const droppedColumnsTitle = computed(() =>
+  columnFit.value.dropped.length > 0
+    ? `Hidden for width: ${columnFit.value.dropped.map((c) => c.label).join(', ')}`
+    : '',
+);
+
+onMounted(() => {
+  if (contentEl.value) contentWidth.observe(contentEl.value);
+});
+onUnmounted(() => {
+  contentWidth.stop();
+});
 </script>
 
 <template>
@@ -58,27 +123,54 @@ const rangeLabel = computed<SummaryDisplayRow[]>(() =>
     <div class="header">
       <span>Interval Summary</span>
     </div>
-    <div class="content">
-      <table class="summary-table">
-        <thead>
-          <tr>
-            <th scope="col">Player</th>
-            <th scope="col">Interval</th>
-            <th scope="col">Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in rangeLabel" :key="row.color">
-            <td class="player-cell" :class="row.color === 'B' ? 'player-black' : 'player-white'">
-              {{ COLOR_LABEL[row.color] }}
-            </td>
-            <td class="range-cell">{{ row.label }}</td>
-            <td class="value-cell">
-              {{ row.value === null ? 'no data' : row.value.toFixed(3) }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <div ref="contentEl" class="content">
+      <!--
+        Resolution roadmap Phase 2 (audit R1): overflow-x: auto is the
+        fallback the fit decision should make unreachable in practice
+        (per-column `min-width` never exceeds the measured available
+        width once a column is in `columnFit.visible`) — same posture
+        as LibraryTable.vue's own header comment. It is the honest
+        floor: this table never clips a rendered column silently.
+      -->
+      <div class="table-scroll">
+        <table class="summary-table">
+          <thead>
+            <tr>
+              <th v-if="isColumnVisible('player')" scope="col" :style="{ minWidth: minWidthOf('player') + 'px' }">Player</th>
+              <th v-if="isColumnVisible('interval')" scope="col" :style="{ minWidth: minWidthOf('interval') + 'px' }">Interval</th>
+              <th v-if="isColumnVisible('value')" scope="col" :style="{ minWidth: minWidthOf('value') + 'px' }">Value</th>
+              <!--
+                Elision indicator (audit R1's own fix shape): a
+                dropped column is never silent — this header cell
+                names how many, its title names which ones.
+              -->
+              <th
+                v-if="columnFit.dropped.length > 0"
+                scope="col"
+                class="indicator-cell"
+                :title="droppedColumnsTitle"
+                :style="{ minWidth: ANALYSIS_INTERVAL_TABLE_INDICATOR_WIDTH_PX + 'px' }"
+              >+{{ columnFit.dropped.length }} more</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in rangeLabel" :key="row.color">
+              <td
+                v-if="isColumnVisible('player')"
+                class="player-cell"
+                :class="row.color === 'B' ? 'player-black' : 'player-white'"
+              >
+                {{ COLOR_LABEL[row.color] }}
+              </td>
+              <td v-if="isColumnVisible('interval')" class="range-cell">{{ row.label }}</td>
+              <td v-if="isColumnVisible('value')" class="value-cell">
+                {{ row.value === null ? 'no data' : row.value.toFixed(3) }}
+              </td>
+              <td v-if="columnFit.dropped.length > 0" class="indicator-cell"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </template>
@@ -105,10 +197,25 @@ const rangeLabel = computed<SummaryDisplayRow[]>(() =>
   background: var(--surface-0);
   padding: var(--space-default) var(--space-medium);
 }
+/* Resolution roadmap Phase 2 (audit R1): the real painted-scrollbar
+   fallback for anything the fit decision still can't make fit —
+   never `overflow-x: hidden`. See the template's own comment on why
+   this should stay unreachable in the common case. */
+.table-scroll {
+  overflow-x: auto;
+}
 .summary-table {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--text-body);
+}
+/* Elision indicator (audit R1 fix shape) — a visible, not silent,
+   signal that columns were dropped for width. */
+.indicator-cell {
+  color: var(--text-2);
+  font-size: var(--text-tiny);
+  font-style: italic;
+  white-space: nowrap;
 }
 .summary-table th {
   text-align: left;

@@ -1,6 +1,26 @@
-<!-- 
-  src/components/chrome/TabWidget.vue 
+<!--
+  src/components/chrome/TabWidget.vue
   A controlled Vue component for tabbed navigation.
+
+  Resolution roadmap Phase 2 (ledger row 928, audit R2): this is the
+  ONE HOME both tab strips the arc names — the top-level control-panel
+  strip (App.vue's `controlTabs`) and the Settings sub-tab strip
+  (SettingsTab.vue's `subTabs`) — render through, so fixing it here
+  fixes both surfaces at once (ADR-0012). R2's finding was two-part:
+  (1) a squeezed strip silently truncated tab labels to a
+  10.3px-wide sliver with no scrollbar (`.tab-header` had no
+  `overflow-x` of its own — the audit found a scroll-LESS
+  `overflow-x: auto` on an ANCESTOR instead, invisible with no
+  painted scrollbar and no affordance), and (2) the `<li>` items
+  carried no `role` and were not keyboard-focusable at all, so
+  keyboard traversal could not reach an off-screen tab either. Both
+  are fixed here: `.tab-header` itself scrolls (own `overflow-x:
+  auto`, tabs never shrink below natural width via `flex: 0 0 auto`
+  so a genuinely narrow strip scrolls rather than illegibly
+  compressing every label), and each `<li>` is `role="tab"` with
+  `tabindex="0"` plus Enter/Space activation, so every tab — visible
+  or scrolled off — is Tab-reachable and keyboard-activatable
+  independent of whether it currently fits.
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
@@ -50,12 +70,17 @@ function selectTab(id: string) {
 
 <template>
   <div class="vue-tabs">
-    <ul class="tab-header">
-      <li 
-        v-for="tab in tabs" 
+    <ul class="tab-header" role="tablist">
+      <li
+        v-for="tab in tabs"
         :key="tab.id"
         :class="{ active: modelValue === tab.id }"
+        role="tab"
+        :aria-selected="modelValue === tab.id"
+        tabindex="0"
         @click="selectTab(tab.id)"
+        @keydown.enter="selectTab(tab.id)"
+        @keydown.space.prevent="selectTab(tab.id)"
       >
         {{ tab.label }}
       </li>
@@ -87,6 +112,11 @@ function selectTab(id: string) {
   background: var(--surface-0);
   border-bottom: 1px solid var(--border-1);
   flex-shrink: 0;
+  /* Resolution roadmap Phase 2 (audit R2): the strip scrolls itself —
+     a real painted scrollbar affordance — rather than relying on an
+     ancestor's own overflow-x and rather than letting tabs compress
+     illegibly (see `li`'s `flex: 0 0 auto` below). */
+  overflow-x: auto;
 }
 
 .tab-header li {
@@ -95,6 +125,15 @@ function selectTab(id: string) {
   color: var(--text-2);
   cursor: pointer;
   border-right: 1px solid var(--border-1);
+  /* Never shrink below natural label width — R2's finding was a
+     10.3px-wide pointer target from flex's default shrink-to-fit;
+     the strip scrolls (see `.tab-header` above) instead of squeezing. */
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.tab-header li:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
 }
 
 /* Hover: text brightening only — the previous background:
