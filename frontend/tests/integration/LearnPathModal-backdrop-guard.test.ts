@@ -5,15 +5,19 @@
  * wf8-learn-this-path-review.md`, ADVISORY upgraded to REQUIRED by the
  * coordinator): the modal backdrop's `@mousedown.self="close"` had no
  * phase guard, unlike the footer "Close" button's `:disabled` during
- * `'exploring'`/`'minting'`. A backdrop click while an `explore()` call
- * was still in flight tore down `exploration.value`/`phase.value` out
- * from under the pending promise — orphaning the walk (it kept
- * mutating the board and adding pre-mint markers) with no reachable
- * discard path once it eventually resolved.
+ * `'exploring'`. A backdrop click while an `explore()` call was still
+ * in flight tore down `exploration.value`/`phase.value` out from under
+ * the pending promise — orphaning the walk (it kept mutating the board
+ * and adding selection marks) with no reachable discard path once it
+ * eventually resolved.
  *
- * `useLearnPath` is mocked with a manually-resolved `explore()` so this
- * test controls exactly when the in-flight phase transitions, without
- * depending on real walk timing.
+ * Updated for the batch card-minting affordance (ledger rows
+ * 926/957/1008): `LearnPathModal` no longer has its own "Mint All"
+ * phase/button or a context-tag field — `useLearnPath()`'s surface
+ * shrank to `{explore, discardExploration}` (minting moved to the
+ * generic "Mint card(s)" affordance). `useLearnPath` is mocked with a
+ * manually-resolved `explore()` so this test controls exactly when the
+ * in-flight phase transitions, without depending on real walk timing.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -22,7 +26,6 @@ import { mount, flushPromises } from '@vue/test-utils';
 
 let resolveExplore!: (v: unknown) => void;
 const explore = vi.fn(() => new Promise(resolve => { resolveExplore = resolve; }));
-const confirmMint = vi.fn(async () => ({ tag: 'x', seeded: [], skipped: [], frontiers: [] }));
 const discardExploration = vi.fn();
 
 vi.mock('../../src/composables/cards/useLearnPath', async () => {
@@ -31,7 +34,7 @@ vi.mock('../../src/composables/cards/useLearnPath', async () => {
   );
   return {
     ...actual,
-    useLearnPath: () => ({ explore, confirmMint, discardExploration }),
+    useLearnPath: () => ({ explore, discardExploration }),
   };
 });
 
@@ -41,7 +44,6 @@ import type { BoardId } from '../../src/types';
 
 beforeEach(() => {
   explore.mockClear();
-  confirmMint.mockClear();
   discardExploration.mockClear();
 });
 
@@ -51,7 +53,6 @@ describe('LearnPathModal — backdrop close guard during an in-flight explore()'
     const vm = wrapper.vm as unknown as { open: (b: BoardId) => void };
     vm.open('board-a' as BoardId);
     await wrapper.vm.$nextTick();
-    await wrapper.find('.dark-input[placeholder]').setValue('taisha');
     await wrapper.find('.btn-submit').trigger('click'); // runExplore()
     await flushPromises();
 
@@ -68,7 +69,11 @@ describe('LearnPathModal — backdrop close guard during an in-flight explore()'
     // Now let the walk resolve — the modal must still be able to show it
     // (proving the earlier backdrop click did NOT reset exploration/phase
     // out from under the in-flight promise).
-    resolveExplore({ tag: 'taisha', pendingSeedCount: 1, existingCount: 0, frontierCount: 0, unplayableCount: 0, _pending: {} });
+    resolveExplore({
+      boardId: 'board-a', anchorCardId: null,
+      pendingSeedCount: 1, existingCount: 0, frontierCount: 0, unplayableCount: 0,
+      addedNodeIds: ['n1'],
+    });
     await flushPromises();
 
     expect(wrapper.find('.result-box').exists()).toBe(true);
@@ -87,14 +92,17 @@ describe('LearnPathModal — backdrop close guard during an in-flight explore()'
     const vm = wrapper.vm as unknown as { open: (b: BoardId) => void };
     vm.open('board-a' as BoardId);
     await wrapper.vm.$nextTick();
-    await wrapper.find('.dark-input[placeholder]').setValue('taisha');
     await wrapper.find('.btn-submit').trigger('click');
     await flushPromises();
 
     const closeBtn = wrapper.find('.btn-cancel');
     expect((closeBtn.element as HTMLButtonElement).disabled).toBe(true);
 
-    resolveExplore({ tag: 'taisha', pendingSeedCount: 0, existingCount: 0, frontierCount: 0, unplayableCount: 0, _pending: {} });
+    resolveExplore({
+      boardId: 'board-a', anchorCardId: null,
+      pendingSeedCount: 0, existingCount: 0, frontierCount: 0, unplayableCount: 0,
+      addedNodeIds: [],
+    });
     await flushPromises();
   });
 });

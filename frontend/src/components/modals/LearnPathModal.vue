@@ -1,13 +1,17 @@
 <!--
   src/components/modals/LearnPathModal.vue
   "Learn this path" — grows a card tree beneath the currently loaded
-  anchor card by following the engine's palette-ranked candidate moves
-  (spine-first, deviations recurse), then mints the collected
-  deviations in one explicit, user-confirmed batch. Two-phase flow
-  (ledger rows 708/718): Explore grows the tree live and leaves it
-  inspectable — nothing is minted; Mint All performs the single batch
-  mint only once clicked. See src/composables/cards/useLearnPath.ts
-  for the full design.
+  anchor position by following the engine's palette-ranked candidate
+  moves (spine-first, deviations recurse), marking every mintable
+  position it discovers for the batch card-minting affordance instead
+  of minting anything itself (commissioner-designed, ledger rows
+  926/957/1008 — supersedes this component's own former two-phase
+  Explore/Mint-All flow, ledger rows 708/718). Explore grows the tree
+  live and marks it (the SAME dashed selection ring a manual ctrl+click
+  in TreeWidget.vue produces); the user reviews the grown tree and hits
+  the toolbar's "Mint card(s)" — this modal never calls the backend
+  itself. See src/composables/cards/useLearnPath.ts for the full
+  design.
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
@@ -18,15 +22,14 @@ import {
   useLearnPath,
   LearnPathError,
   type LearnPathExploration,
-  type LearnPathResult,
 } from '../../composables/cards/useLearnPath';
 import { getAnalyzingNodeId } from '../../composables/cards/learn-path-progress';
 import type { BoardId } from '../../types';
 
 const { t } = useI18n();
-const { explore, confirmMint, discardExploration } = useLearnPath();
+const { explore, discardExploration } = useLearnPath();
 
-type Phase = 'form' | 'exploring' | 'explored' | 'minting' | 'minted';
+type Phase = 'form' | 'exploring' | 'explored';
 
 const isOpen = ref(false);
 const phase = ref<Phase>('form');
@@ -34,10 +37,8 @@ const boardId = ref<BoardId | null>(null);
 
 const depth = ref(4);
 const topK = ref(3);
-const tag = ref('');
 
 const exploration = ref<LearnPathExploration | null>(null);
-const result = ref<LearnPathResult | null>(null);
 const errorMessage = ref<string | null>(null);
 
 // On-demand-analysis progress (commission ledger row 881, ADR-0002/C6
@@ -56,9 +57,7 @@ defineExpose({
     boardId.value = id;
     phase.value = 'form';
     exploration.value = null;
-    result.value = null;
     errorMessage.value = null;
-    tag.value = '';
     isOpen.value = true;
   },
 });
@@ -66,38 +65,38 @@ defineExpose({
 function close() {
   // Guard, mirroring the footer "Close" button's own `:disabled`
   // (fresh-context review finding, upgraded to required): a walk in
-  // flight (`explore()` mid-run, or `confirmMint()` mid-run) is a
-  // pending Promise that `isOpen`/`phase` cannot cancel — it keeps
-  // mutating the board and adding pre-mint markers regardless of
-  // whether the modal is visible. Without this guard the BACKDROP
-  // click (unlike the footer button) had no phase check at all, so it
-  // could tear down `exploration.value`/`phase.value` out from under
-  // the in-flight promise, orphaning the walk with no discard path
-  // reachable through the UI once it eventually resolved. No-op here
-  // (same as the footer button rendering disabled): the user waits for
-  // the phase to land on 'explored' (a few paint-checkpoint ticks) and
-  // then Close/backdrop/Discard all work normally.
-  if (phase.value === 'exploring' || phase.value === 'minting') return;
+  // flight (`explore()` mid-run) is a pending Promise that
+  // `isOpen`/`phase` cannot cancel — it keeps mutating the board and
+  // adding selection marks regardless of whether the modal is
+  // visible. Without this guard the BACKDROP click (unlike the footer
+  // button) had no phase check at all, so it could tear down
+  // `exploration.value`/`phase.value` out from under the in-flight
+  // promise, orphaning the walk with no discard path reachable through
+  // the UI once it eventually resolved. No-op here (same as the
+  // footer button rendering disabled): the user waits for the phase to
+  // land on 'explored' (a few paint-checkpoint ticks) and then
+  // Close/backdrop/Discard all work normally.
+  if (phase.value === 'exploring') return;
 
-  // A closed-without-confirming exploration's markers are a discard —
-  // the grown tree nodes stay (documented limitation, useLearnPath.ts
-  // header), but the "would be added" markers shouldn't linger once
-  // the dialog is gone.
-  if (exploration.value && (phase.value === 'explored')) {
+  // A closed-without-minting exploration's selection marks are a
+  // discard — the grown tree nodes stay (documented limitation,
+  // useLearnPath.ts header), but the marks this exploration ADDED
+  // shouldn't linger once the dialog is gone (any OTHER selection —
+  // a manual ctrl+click, or an earlier exploration — is untouched;
+  // `discardExploration` un-marks exactly `exploration.addedNodeIds`).
+  if (exploration.value && phase.value === 'explored') {
     discardExploration(exploration.value);
   }
   isOpen.value = false;
   boardId.value = null;
   phase.value = 'form';
   exploration.value = null;
-  result.value = null;
   errorMessage.value = null;
 }
 
 async function runExplore() {
   if (!boardId.value) return;
-  const cleanTag = tag.value.trim();
-  if (!cleanTag || depth.value < 1 || topK.value < 1) return;
+  if (depth.value < 1 || topK.value < 1) return;
 
   phase.value = 'exploring';
   errorMessage.value = null;
@@ -106,9 +105,13 @@ async function runExplore() {
       boardId: boardId.value,
       depth: depth.value,
       topK: topK.value,
-      tag: cleanTag,
     });
     phase.value = 'explored';
+    pushSystemMessage('info', t('learnPath.systemMessage.summary', {
+      pending: exploration.value.pendingSeedCount - exploration.value.existingCount,
+      existing: exploration.value.existingCount,
+      frontiers: exploration.value.frontierCount,
+    }));
   } catch (err) {
     const message = err instanceof LearnPathError ? err.message : String(err);
     errorMessage.value = message;
@@ -121,33 +124,6 @@ function runDiscard() {
   if (exploration.value) discardExploration(exploration.value);
   exploration.value = null;
   phase.value = 'form';
-}
-
-async function runMintAll() {
-  if (!exploration.value) return;
-  phase.value = 'minting';
-  errorMessage.value = null;
-  try {
-    const r = await confirmMint(exploration.value);
-    result.value = r;
-    phase.value = 'minted';
-    pushSystemMessage('info', t('learnPath.systemMessage.summary', {
-      seeded: r.seeded.length,
-      skipped: r.skipped.length,
-      frontiers: r.frontiers.length,
-      tag: r.tag,
-    }));
-  } catch (err) {
-    const message = err instanceof LearnPathError ? err.message : String(err);
-    errorMessage.value = message;
-    pushSystemMessage('error', t('learnPath.systemMessage.failed', { err: message }));
-    // confirmMint's own `finally` already cleared the markers; the
-    // exploration is still available for inspection, but re-minting
-    // the same batch is not offered here — a fresh Explore is the
-    // documented recovery (mirrors the walk-phase's own
-    // partial-progress posture).
-    phase.value = 'explored';
-  }
 }
 </script>
 
@@ -168,15 +144,6 @@ async function runMintAll() {
 
           <label>{{ $t('learnPath.field.topK') }}</label>
           <input type="number" v-model.number="topK" min="1" max="6" class="dark-input" :disabled="phase !== 'form'" />
-
-          <label>{{ $t('learnPath.field.tag') }}</label>
-          <input
-            type="text"
-            v-model="tag"
-            class="dark-input"
-            :placeholder="$t('learnPath.field.tagPlaceholder')"
-            :disabled="phase !== 'form'"
-          />
         </div>
 
         <p v-if="errorMessage" class="error-box">{{ errorMessage }}</p>
@@ -184,11 +151,12 @@ async function runMintAll() {
         <p v-if="phase === 'exploring' && isAnalyzing" class="hint">{{ $t('learnPath.status.analyzing') }}</p>
         <p v-else-if="phase === 'exploring'" class="hint">{{ $t('learnPath.status.exploring') }}</p>
 
-        <!-- Explored, not yet minted: the tree has grown live in the
-             viewer (with dashed blue pre-mint markers on the deviation
-             positions) and this is the confirm step the commissioner
-             wants — inspect before anything touches cards.db. -->
-        <div v-if="exploration && (phase === 'explored' || phase === 'minting')" class="result-box">
+        <!-- Explored: the tree has grown live in the viewer (with the
+             dashed batch-mint selection ring on every marked position)
+             — this IS the deliverable; nothing is minted from this
+             modal. The user reviews, then hits the toolbar's own
+             "Mint card(s)". -->
+        <div v-if="exploration && phase === 'explored'" class="result-box">
           <p class="result-line">{{ $t('learnPath.explore.pending', { n: exploration.pendingSeedCount - exploration.existingCount }) }}</p>
           <p v-if="exploration.existingCount > 0" class="result-line">{{ $t('learnPath.explore.existing', { n: exploration.existingCount }) }}</p>
           <p v-if="exploration.frontierCount > 0" class="result-line result-line-attention">
@@ -196,34 +164,22 @@ async function runMintAll() {
           </p>
           <p v-if="exploration.unplayableCount > 0" class="result-line">{{ $t('learnPath.explore.unplayable', { n: exploration.unplayableCount }) }}</p>
         </div>
-
-        <div v-if="result" class="result-box">
-          <p class="result-line">{{ $t('learnPath.result.seeded', { n: result.seeded.length }) }}</p>
-          <p class="result-line">{{ $t('learnPath.result.skipped', { n: result.skipped.length }) }}</p>
-          <p v-if="result.frontiers.length > 0" class="result-line result-line-attention">
-            {{ $t('learnPath.result.frontiers', { n: result.frontiers.length }) }}
-          </p>
-        </div>
       </div>
 
       <div class="modal-footer">
-        <button class="btn-cancel" @click="close" :disabled="phase === 'exploring' || phase === 'minting'">
+        <button class="btn-cancel" @click="close" :disabled="phase === 'exploring'">
           {{ $t('learnPath.button.close') }}
         </button>
         <template v-if="phase === 'explored'">
           <button class="btn-cancel" @click="runDiscard">{{ $t('learnPath.button.discard') }}</button>
-          <button class="btn-submit" @click="runMintAll">{{ $t('learnPath.button.mintAll') }}</button>
         </template>
         <button
-          v-else-if="phase === 'form' || phase === 'exploring'"
+          v-else
           class="btn-submit"
           @click="runExplore"
-          :disabled="phase === 'exploring' || !tag.trim()"
+          :disabled="phase === 'exploring'"
         >
           {{ phase === 'exploring' ? $t('learnPath.button.exploring') : $t('learnPath.button.explore') }}
-        </button>
-        <button v-else class="btn-submit" disabled>
-          {{ phase === 'minting' ? $t('learnPath.button.minting') : $t('learnPath.button.mintAll') }}
         </button>
       </div>
     </div>

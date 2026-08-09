@@ -31,6 +31,7 @@ import { store, updateBoardState, mutateBoard } from '../../store';
 import { loadSgf } from '../../engine/sgf-loader';
 import { navigateTo } from '../../engine/navigator';
 import { getActiveVariationPath } from '../../engine/util';
+import { clearSelection } from '../cards/mint-selection';
 import type { BoardId, BoardState } from '../../types';
 
 /**
@@ -60,6 +61,13 @@ export function loadSgfIntoBoard(
     throw new Error(`loadSgfIntoBoard: target board ${targetBoardId} not found in store`);
   }
   updateBoardState(idx, parsedBoard);
+  // Batch card-minting affordance (ledger rows 926/957/1008), "board/
+  // game switch clears all" lifecycle rule: the node ids a prior
+  // selection referenced belong to the OLD tree this write just
+  // replaced wholesale — clear this BoardId's selection rather than
+  // leave it pointing at NodeIds that (at best) no longer exist, or
+  // (worst case) alias unrelated nodes in the newly-loaded tree.
+  clearSelection(targetBoardId);
   // Root→leaf is the genuine shape: walk the cursor to the end of the
   // loaded SGF's active line. Branded by the producer; the former
   // `as NodeId` re-cast on the element is retired.

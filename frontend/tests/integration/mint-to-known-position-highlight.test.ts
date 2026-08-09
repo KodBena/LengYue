@@ -5,8 +5,12 @@
  * (`.claude/dispatch-reports/card-position-annotations-design.md`,
  * §6 Stage-B criteria; commission row 525's TESTS section: "integration
  * test (mint->highlight-appears)"). Wires the three Stage-A/B pieces
- * end to end at the composable layer — `useMinting.commitMint`
- * (Stage A, records known-positions), `useNodePositionHashes.
+ * end to end at the composable layer — `useMinting.commitMintBatch`
+ * (Stage A, records known-positions — batch card-minting affordance,
+ * ledger rows 926/957/1008: `commitMint` was retired once
+ * `MintCardModal.vue` folded onto the single `commitMintBatch` path;
+ * this coverage exercises the batch-of-one shape that path's own
+ * degenerate empty-selection case sends), `useNodePositionHashes.
  * requestHashFill` (Stage B, fills the per-node hash cache), and
  * `useKnownPositionNodes.activeBoardKnownPositionNodeIds` (Stage B,
  * the derived Set TreeWidget's marker prop consumes) — without
@@ -17,10 +21,10 @@
  * Scenario: a board's root node is hashed (Stage B fill) BEFORE any
  * card exists at that position — the highlight set correctly excludes
  * it. A mint against the identical content then lands (Stage A,
- * `commitMint`), and the SAME already-cached node — with no re-fetch
- * of its hash — becomes part of the highlight set purely because
- * known-positions gained the entry. This is the "reactive to mint...
- * without reload" contract named in the commission.
+ * `commitMintBatch`), and the SAME already-cached node — with no
+ * re-fetch of its hash — becomes part of the highlight set purely
+ * because known-positions gained the entry. This is the "reactive to
+ * mint... without reload" contract named in the commission.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -39,7 +43,7 @@ import { purgeKnownPositions } from '../../src/state/known-positions';
 import { purgeAllNodeHashes } from '../../src/state/node-position-hashes';
 import { store, addBoard, resetWorkspace } from '../../src/store';
 import { createInitialBoard } from '../../src/store/board-factory';
-import type { CardCreatePayload, ContentHash } from '../../src/types';
+import type { ContentHash } from '../../src/types';
 
 const POSITION_HASH = 'c'.repeat(64) as ContentHash;
 const RAW_CONTENT = '(;FF[4]SZ[19];B[pd])';
@@ -75,17 +79,20 @@ describe('mint -> known-position highlight (Stage A + Stage B wiring)', () => {
 
     // Stage A: the user mints a card from the identical content.
     const NEW_CARD_ID = 123;
-    fakeBackendService.createCard.mockResolvedValue(NEW_CARD_ID);
+    fakeBackendService.createCardsBatch.mockResolvedValue([NEW_CARD_ID]);
     fakeBackendService.hashPosition.mockResolvedValue(POSITION_HASH);
-    const { commitMint } = useMinting();
-    const payload: CardCreatePayload = {
-      raw_content: RAW_CONTENT,
-      num_moves: 2,
-      tags: [],
-      grading_parameter: { data: { default_visits: 1000 } },
-      game_metadata: {},
-    };
-    await commitMint(payload);
+    const { commitMintBatch } = useMinting();
+    await commitMintBatch({
+      cards: [{
+        raw_content: RAW_CONTENT,
+        num_moves: 2,
+        tags: [],
+        grading_parameter: { data: { default_visits: 1000 } },
+        parent_ref: null,
+        game_metadata: {},
+      }],
+      nodeOrder: [board.rootNodeId],
+    });
 
     // The highlight appears WITHOUT any additional hash-batch call — the
     // node-position-hashes cache entry from the earlier fill is reused
@@ -103,15 +110,19 @@ describe('mint -> known-position highlight (Stage A + Stage B wiring)', () => {
     requestHashFill([board.rootNodeId], board);
     await vi.advanceTimersByTimeAsync(150);
 
-    fakeBackendService.createCard.mockResolvedValue(456);
+    fakeBackendService.createCardsBatch.mockResolvedValue([456]);
     fakeBackendService.hashPosition.mockResolvedValue(POSITION_HASH);
-    const { commitMint } = useMinting();
-    await commitMint({
-      raw_content: RAW_CONTENT,
-      num_moves: 2,
-      tags: [],
-      grading_parameter: { data: { default_visits: 1000 } },
-      game_metadata: {},
+    const { commitMintBatch } = useMinting();
+    await commitMintBatch({
+      cards: [{
+        raw_content: RAW_CONTENT,
+        num_moves: 2,
+        tags: [],
+        grading_parameter: { data: { default_visits: 1000 } },
+        parent_ref: null,
+        game_metadata: {},
+      }],
+      nodeOrder: [board.rootNodeId],
     });
 
     const { activeBoardKnownPositionNodeIds } = useKnownPositionNodes();

@@ -323,3 +323,43 @@ export interface ReviewFeedback {
 // for the construction site that places it there.
 export type CardCreatePayload = components['schemas']['CardCreate'];
 export type GameMetadataPayload = components['schemas']['GameSourceCreate'];
+
+// ─── Batch card-create wire shapes (POST /cards/batch) ─────────────────────────
+//
+// TEMPORARY hand-written wire types, not `components['schemas'][...]`
+// aliases like `CardCreatePayload` above — `npm run gen:api` requires a
+// live backend on port 8764 (off-limits for this build's scratch
+// session; see `backend-service.ts`'s own `PositionHashResponseWire`
+// comment for the identical precedent/blocker). Hand-verified
+// field-for-field against `backend/schemas/card.py`
+// (`ParentRefCardId` / `ParentRefBatchIndex` / `BatchCardItem` /
+// `CardBatchCreateRequest` / `CardBatchCreateResponse`). Replace with
+// generated aliases (deleting these) the next time `gen:api` runs
+// successfully.
+export interface CardBatchParentRefCardId {
+  readonly card_id: number;
+}
+export interface CardBatchParentRefIndex {
+  /** Refers to an EARLIER member's own index in the same `cards` array — a forward or self reference is rejected 422 backend-side. */
+  readonly batch_index: number;
+}
+export type CardBatchParentRef = CardBatchParentRefCardId | CardBatchParentRefIndex;
+
+/** One member of a `POST /cards/batch` request — `CardCreate`'s shape with `parent_card_id` replaced by `parent_ref`. */
+export interface BatchCardItemPayload {
+  raw_content: string;
+  num_moves: number;
+  grading_parameter: Record<string, unknown> | null;
+  tags: string[];
+  parent_ref: CardBatchParentRef | null;
+  game_metadata?: GameMetadataPayload;
+}
+
+export interface CardBatchCreateRequestPayload {
+  cards: BatchCardItemPayload[];
+}
+
+/** `card_ids` are returned in the SAME order as the request's `cards` array. */
+export interface CardBatchCreateResponsePayload {
+  card_ids: number[];
+}

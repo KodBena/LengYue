@@ -60,7 +60,7 @@ import Toolbar          from './components/chrome/Toolbar.vue';
 import StatusBar        from './components/board/StatusBar.vue';
 import MintCardModal    from './components/modals/MintCardModal.vue';
 import LearnPathModal   from './components/modals/LearnPathModal.vue';
-import { getPendingMintNodeIds } from './composables/cards/learn-path-pending-markers';
+import { getSelectedNodeIds } from './composables/cards/mint-selection';
 import { getAnalyzingNodeId } from './composables/cards/learn-path-progress';
 import ConfirmLoadModal from './components/modals/ConfirmLoadModal.vue';
 import EngineMatchModal from './components/modals/EngineMatchModal.vue';
@@ -91,13 +91,14 @@ const metadata           = useMetadata(activeBoard);
 const auth               = useAuth();
 
 const activeBoardId = computed<BoardId | null>(() => activeBoard.value?.id ?? null);
-// "Learn this path" pre-mint markers (ledger row 718) — reads the
-// module-scope registry `LearnPathModal` writes to via `useLearnPath`;
-// see `learn-path-pending-markers.ts` for why this lives at module
-// scope rather than as a prop threaded from the modal (siblings, not
+// Batch card-minting selection (commissioner-designed, ledger rows
+// 926/957/1008) — reads the module-scope registry both `TreeWidget`'s
+// ctrl+click handler and `LearnPathModal` (via `useLearnPath`) write
+// to; see `mint-selection.ts` for why this lives at module scope
+// rather than as a prop threaded from the modal (siblings, not
 // parent/child).
-const activeBoardPendingMintIds = computed(() =>
-  activeBoardId.value ? getPendingMintNodeIds(activeBoardId.value) : undefined,
+const activeBoardSelectedNodeIds = computed(() =>
+  activeBoardId.value ? getSelectedNodeIds(activeBoardId.value) : undefined,
 );
 // "Learn this path" on-demand-analysis progress marker (commission
 // ledger row 881) — same module-scope-registry-read shape as
@@ -205,7 +206,7 @@ function triggerMint() {
 
 // "Learn this path" (wiki #8) — mirrors triggerMint's pattern. The
 // modal's own `open()` doesn't need the precondition (loaded-card-at-
-// root) checked here; useLearnPath.runLearnPath surfaces a failed
+// root) checked here; useLearnPath.explore surfaces a failed
 // precondition as a reported error inside the modal.
 function triggerLearnPath() {
   if (activeBoardId.value) {
@@ -753,7 +754,7 @@ const activeTab = computed<string>({
               :game-head-ids="activeBoardGameHeadIds"
               :known-position-node-ids="activeBoardKnownPositionNodeIds"
               :review-start-node-id="reviewSession.startingNodeId.value"
-              :pending-mint-ids="activeBoardPendingMintIds"
+              :selected-for-mint-ids="activeBoardSelectedNodeIds"
               :analyzing-node-id="activeBoardAnalyzingNodeId"
               @select-node="handleNodeSelect"
             />

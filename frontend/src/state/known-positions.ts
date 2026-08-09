@@ -100,6 +100,25 @@ export function isKnownPosition(hash: ContentHash): boolean {
   return knownPositions.value.has(hash);
 }
 
+/**
+ * A snapshot Set of every currently-known `ContentHash` — the "known
+ * hashes" input the batch card-minting affordance's pure filtering
+ * constructor takes (`batch-mint-core.ts::filterUncardedSelection`,
+ * commissioner ruling, ledger row 1063: "positions that already have
+ * cards must never enter the batch-mint pipeline — filtered by
+ * construction"). A SNAPSHOT, not a live reference — the constructor
+ * that consumes it is pure (P9): it receives a Set, not a way to keep
+ * reading this module's mutable state after the fact. Reflects
+ * whatever this module currently holds (bulk-hydrated at
+ * auth-readiness, PLUS incidental fill — see file header); the same
+ * accepted-cost posture as `isKnownPosition`/`lookupKnownPosition`
+ * (a false MISS is possible if hydration hasn't completed or a card
+ * was minted in another session; never a false HIT).
+ */
+export function getKnownPositionHashes(): ReadonlySet<ContentHash> {
+  return new Set(knownPositions.value.keys());
+}
+
 /** Test-only / identity-flip escape hatch: drop every recorded position. */
 export function purgeKnownPositions(): void {
   knownPositions.value.clear();
