@@ -7,8 +7,9 @@
  * are the "spine" (the best-move reference line, never carded) vs.
  * "deviation" (carded, recursively expanded as their own subtree), and
  * how deep the walk continues. `useLearnPath.ts` (the effectful walk
- * engine — ledger reads, live tree mutation, deferred batch minting)
- * depends on this module, never the reverse.
+ * engine — ledger reads, live tree mutation, marking mintable
+ * positions for the batch card-minting affordance, ledger rows
+ * 926/957/1008) depends on this module, never the reverse.
  *
  * Ratified semantics (ledger rows 706-708, superseding this feature's
  * original v1 shipped design after commissioner review of the dispatch
@@ -31,12 +32,11 @@
  * `LearnPathPolicy` is the seam a future user-selectable policy DSL
  * (under design consideration, not built here — row: orchestrator,
  * type-driven) plugs into: `spineFirstPolicy` below is the sole
- * concrete implementation today, but `useLearnPath.runLearnPath` /
- * `explore` accept any `LearnPathPolicy` via an optional param,
- * defaulting to it. A DSL-backed policy would compile to this same
- * interface — nothing in the walk engine assumes `spineFirstPolicy`'s
- * specific spine/deviation split beyond what `RankedCandidate.role`
- * exposes.
+ * concrete implementation today, but `useLearnPath.explore` accepts
+ * any `LearnPathPolicy` via an optional param, defaulting to it. A
+ * DSL-backed policy would compile to this same interface — nothing in
+ * the walk engine assumes `spineFirstPolicy`'s specific
+ * spine/deviation split beyond what `RankedCandidate.role` exposes.
  *
  * Domain band (ADR-0003): game-tree-coupled (B2) — the policy shape is
  * generic (any per-node ranked-candidate walk), but `KataMoveInfo` ties

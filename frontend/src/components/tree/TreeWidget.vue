@@ -522,25 +522,30 @@ const edges = computed(() => {
                above for the NODE_R+7 collision this ring's radius was
                already occupying and how it was resolved at merge. -->
           <circle v-if="item.isReviewStart" :cx="item.px" :cy="item.py" :r="NODE_R + 7" class="review-start-ring" stroke-width="1.5" />
-          <!-- "Learn this path" pre-mint marker (ledger row 718, radius
-               reconciled per fresh-context review "wf8-learn-this-path-
-               review.md" REQUIRED finding). Dashed, same accent-primary
-               blue as the (solid) active-ring, but colour alone would
-               collide with nothing here (accent-primary is distinct from
-               the known-position/review-start rings' accent-secondary
-               orange) — the actual collision was RADIUS: this ring
-               originally shared NODE_R+7 with review-start-ring, which
-               would fully occlude one under the other on a node that is
-               simultaneously a review-start AND a pending-mint candidate.
-               Moved one radius past known-position-ring's own NODE_R+9
-               (the same "move outward" resolution known-position-ring's
-               own comment above documents for ITS NODE_R+7 collision) so
-               the full concentric stack — active +3, game-head +5,
-               review-start +7, known-position +9, pending-mint +11 — stays
+          <!-- Batch card-minting selection marker (commissioner-designed,
+               ledger rows 926/957/1008; originally the "Learn this path"
+               pre-mint marker, ledger row 718, radius reconciled per
+               fresh-context review "wf8-learn-this-path-review.md"
+               REQUIRED finding — generalized in place when the marker's
+               registry became `mint-selection.ts`). Dashed, same
+               accent-primary blue as the (solid) active-ring, but colour
+               alone would collide with nothing here (accent-primary is
+               distinct from the known-position/review-start rings'
+               accent-secondary orange) — the actual collision was
+               RADIUS: this ring originally shared NODE_R+7 with
+               review-start-ring, which would fully occlude one under the
+               other on a node that is simultaneously a review-start AND
+               a selected-for-mint candidate. Moved one radius past
+               known-position-ring's own NODE_R+9 (the same "move
+               outward" resolution known-position-ring's own comment
+               above documents for ITS NODE_R+7 collision) so the full
+               concentric stack — active +3, game-head +5, review-start
+               +7, known-position +9, selected-for-mint +11 — stays
                visually distinct even when every marker on a node is lit
-               at once. "This node would be added if you click mint-all";
-               cleared on mint or discard. See
-               `learn-path-pending-markers.ts`. -->
+               at once. "This node is selected for the next Mint card(s)
+               click" — set by ctrl+click (this widget) or live by
+               `useLearnPath.explore()`; cleared on a successful mint or
+               an explicit discard. See `mint-selection.ts`. -->
           <circle v-if="item.isSelectedForMint" :cx="item.px" :cy="item.py" :r="NODE_R + 11" class="mint-selection-ring" stroke-width="1.5" stroke-dasharray="2,1" />
           <!-- "Learn this path" on-demand-analysis marker (commission
                ledger row 881, ADR-0002/C6 progress honesty): this node
@@ -550,10 +555,11 @@ const edges = computed(() => {
                resolution the rings above this comment already use for
                their own collisions), so the full concentric stack —
                active +3, game-head +5, review-start +7, known-position
-               +9, pending-mint +11, analyzing +13 — stays distinct even
-               when every marker on a node is lit at once. Tightest
-               dash of the family (distinguishable from pending-mint's
-               "2,1" by pattern, not colour alone, per ADR-0019/C18) —
+               +9, selected-for-mint +11, analyzing +13 — stays distinct
+               even when every marker on a node is lit at once. Tightest
+               dash of the family (distinguishable from
+               mint-selection-ring's "2,1" by pattern, not colour alone,
+               per ADR-0019/C18) —
                `--state-attention` (the same "needs your attention /
                in-progress" accent the modal's error/status boxes use)
                keeps it visually distinct from both accent colours
