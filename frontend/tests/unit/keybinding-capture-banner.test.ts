@@ -19,6 +19,16 @@
  *      `#workspace-save-banner` uses — the standing ruling this
  *      dispatch was briefed under: no diffuse transparent overlays.
  *
+ * The actual id -> label DERIVATION (registry lookup, translate,
+ * not-found fallback) is a plain function,
+ * `resolveCapturingActionLabel` (keybindings-capture.ts), and is unit-
+ * tested directly in
+ * `keybindings-capture-resolve-label.test.ts` (review remedy, ledger
+ * row 1335) — this file stays a source-text check of App.vue's own
+ * wiring (App.vue itself is not mounted here; its composable graph —
+ * auth, sync, engine responders, multiple modal refs — is out of
+ * proportion to what changed).
+ *
  * License: Public Domain (The Unlicense)
  */
 import { describe, it, expect } from 'vitest';
@@ -28,12 +38,12 @@ import { resolve } from 'node:path';
 const APP_SRC = readFileSync(resolve(process.cwd(), 'src/App.vue'), 'utf-8');
 
 describe('App.vue — keybinding-capture banner (M8(c))', () => {
-  it('imports the real captureMode ref (not a locally-reinvented flag)', () => {
-    expect(APP_SRC).toMatch(/import\s*\{\s*captureMode\s*\}\s*from\s*'\.\/lib\/keybindings-capture'/);
+  it('imports the real captureMode ref and the shared resolver (not locally-reinvented logic)', () => {
+    expect(APP_SRC).toMatch(/import\s*\{\s*captureMode,\s*resolveCapturingActionLabel\s*\}\s*from\s*'\.\/lib\/keybindings-capture'/);
   });
 
-  it('the banner is gated on capturingActionLabel, which derives from captureMode', () => {
-    const computedMatch = /const capturingActionLabel = computed<string \| null>\(\(\) => \{[\s\S]*?captureMode\.value[\s\S]*?\}\);/.exec(APP_SRC);
+  it('the banner is gated on capturingActionLabel, which wraps resolveCapturingActionLabel(captureMode.value, …)', () => {
+    const computedMatch = /const capturingActionLabel = computed<string \| null>\(\(\) =>\s*resolveCapturingActionLabel\(captureMode\.value, KEYBINDINGS_REGISTRY, t\),?\s*\);/.exec(APP_SRC);
     expect(computedMatch).not.toBeNull();
 
     const bannerMatch = /<div\s+v-if="capturingActionLabel !== null"[\s\S]*?id="keybinding-capture-banner"/.exec(APP_SRC);

@@ -82,7 +82,7 @@ import QeuboBookmarks   from './components/qeubo/QeuboBookmarks.vue';
 import KnobRegistryEditor from './components/KnobRegistryEditor.vue';
 import VisitsLerpConfig from './components/VisitsLerpConfig.vue';
 import PerQueryOverridesConfig from './components/PerQueryOverridesConfig.vue';
-import { captureMode } from './lib/keybindings-capture';
+import { captureMode, resolveCapturingActionLabel } from './lib/keybindings-capture';
 import { KEYBINDINGS_REGISTRY } from './composables/keybindings-catalog';
 
 useUserIORegistry();
@@ -102,12 +102,15 @@ const { t } = useI18n();
 // vehicle than routing capture through the AppPromptDialog family,
 // which would turn a one-keypress interaction into a full modal
 // round-trip for every rebind.
-const capturingActionLabel = computed<string | null>(() => {
-  const id = captureMode.value;
-  if (id === null) return null;
-  const decl = KEYBINDINGS_REGISTRY.find((a) => a.id === id);
-  return decl ? t(decl.labelKey) : id;
-});
+//
+// Review remedy (ledger row 1335): the id -> label derivation itself
+// (registry lookup + translate, with the "id not found" fallback) now
+// lives in `resolveCapturingActionLabel` (keybindings-capture.ts) as a
+// plain, unit-testable function — this computed is a thin wrapper
+// wiring it to the live `captureMode` ref and this component's `t`.
+const capturingActionLabel = computed<string | null>(() =>
+  resolveCapturingActionLabel(captureMode.value, KEYBINDINGS_REGISTRY, t),
+);
 const { openFileDialog } = useSgfLoader();
 const { downloadActiveBoard } = useSgfDownload();
 const engineControls     = useEngineControls();
