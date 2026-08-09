@@ -236,10 +236,17 @@ async function purgeLedger() {
 
       <div style="display: flex; flex-wrap: wrap; gap: var(--space-default); min-width: 0;">
         <div class="palette-selector">
-          <label>{{ $t('analysis.paletteLabel') }}</label>
+          <!-- M27 (audit finding, ledger row 1251): the DOM probe
+               found this <select> with no id, no aria-label, and no
+               associated <label> — a visually-adjacent <label> with
+               no `for` isn't a programmatic association, so AT
+               announced an unnamed combobox for a control that
+               governs move-quality display app-wide. `for`/`id`
+               closes that gap. -->
+          <label for="analysis-palette-select">{{ $t('analysis.paletteLabel') }}</label>
           <!-- Owner-routed writable computed (see script); the prior
                direct profile v-model was an annotated exemption. -->
-          <select v-model="activePaletteId" class="dark-select">
+          <select id="analysis-palette-select" v-model="activePaletteId" class="dark-select">
             <option v-for="p in palettes" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
         </div>

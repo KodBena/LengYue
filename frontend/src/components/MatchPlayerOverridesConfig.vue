@@ -37,6 +37,13 @@ const { t } = useI18n();
 const text = computed(() => matchPlayerOverridesText(props.player));
 const error = computed(() => matchPlayerOverridesError(props.player));
 const labelKey = computed(() => (props.player === 'B' ? 'matchPlayerOverrides.labelBlack' : 'matchPlayerOverrides.labelWhite'));
+// M27 (audit finding, ledger row 1251): the visible <label> above
+// this textarea was never programmatically associated (no
+// `for`/`id`), so the audit read it as "named only by disappearing
+// placeholder JSON" from an accessibility-tree standpoint. Two
+// instances mount per match (player 'B' / 'W'), so the id must be
+// per-player, not a shared literal.
+const fieldId = computed(() => `match-player-overrides-${props.player}`);
 
 function handleInput(e: Event): void {
   // DOM cast: the template's only listener on this handler is the
@@ -53,9 +60,10 @@ function reset(): void {
 
 <template>
   <div class="match-player-overrides-config">
-    <label class="player-label">{{ t(labelKey) }}</label>
+    <label class="player-label" :for="fieldId">{{ t(labelKey) }}</label>
 
     <textarea
+      :id="fieldId"
       class="dark-input expression-input"
       spellcheck="false"
       :placeholder="t('matchPlayerOverrides.placeholder')"
