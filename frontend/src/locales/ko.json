@@ -14,6 +14,7 @@
   "app.workspace.loading":                "작업 공간 불러오는 중…",
   "app.workspace.loadFailed":             "작업 공간을 불러오지 못했습니다. 변경되거나 손실된 내용은 없습니다.",
   "app.workspace.retry":                  "재시도",
+  "app.workspace.saveFailed":             "변경 사항을 저장하지 못했습니다. 재시도해주세요.",
 
   "dialogs.confirm.defaultConfirm":       "OK",
   "dialogs.confirm.defaultCancel":        "Cancel",

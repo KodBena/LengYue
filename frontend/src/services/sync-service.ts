@@ -328,12 +328,19 @@ export class SyncService {
    * on it.
    * ──────────────────────────────────────────────────────────────────
    *
-   * User-visible surfacing (item 20):
+   * User-visible surfacing (item 20; menus-ui audit M14):
    *   - Success path is intentionally silent in the system log
    *     (a toast on every debounced save would be spam). Dev-mode
-   *     console.log is preserved for debugging.
-   *   - Failure emits an 'error' with a user-level description.
-   *     The low-level API error from api-client accompanies it.
+   *     console.log is preserved for debugging. It DOES clear
+   *     `store.workspaceSaveState` back to 'synced', retiring any
+   *     banner a prior failure raised.
+   *   - Failure emits an 'error' system-log message AND sets
+   *     `store.workspaceSaveState = { kind: 'error', message }` —
+   *     the durable, App.vue-rendered banner (Retry via
+   *     `retrySave()`). The system-log entry is transient (times out
+   *     per `useTransientLogReveal`); the save-state banner is the
+   *     one home for "the workspace has an unsaved/failed write"
+   *     and persists until the next successful save.
    */
   private async sendSync() {
     // Defense in depth: `scheduleSync` should have already gated
@@ -359,9 +366,33 @@ export class SyncService {
 
     try {
       await api.request('PUT', `/documents/${this.docKey}`, { data: payload });
+      // Clears a prior 'error' banner (menus-ui audit M14): the fact
+      // "the workspace has an unsaved/failed write" is retired exactly
+      // when a write actually lands, not merely when a new one is
+      // queued — see WorkspaceSaveState's lifecycle doc.
+      store.workspaceSaveState = { kind: 'synced' };
     } catch (err) {
       console.error('[Sync] Failed to save document:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      store.workspaceSaveState = { kind: 'error', message };
       pushSystemMessage('error', i18n.global.t('sync.saveFailed'));
     }
+  }
+
+  /**
+   * Retries the most recent (failed) save (menus-ui audit M14, the
+   * write-path counterpart of `retryHydrate()` above). Manual retry,
+   * matching the load-path precedent's own idiom rather than inventing
+   * a second interaction model in the same app: `store.workspaceSaveState
+   * .kind === 'error'` drives App.vue's banner, which offers exactly
+   * this button. Rebuilds and resends the CURRENT payload — not a
+   * replay of the failed one — since local edits may have continued
+   * to accumulate while the banner was up; that is the correct
+   * behaviour precisely because the debounced watcher never stopped
+   * scheduling saves on top of the error state (only cleared it), so
+   * the freshest snapshot is always what should go out next.
+   */
+  public retrySave(): void {
+    this.forceSave();
   }
 }

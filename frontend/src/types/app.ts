@@ -73,6 +73,33 @@ export type WorkspaceLoadState =
   | { readonly kind: 'loaded' }
   | { readonly kind: 'error'; readonly message: string };
 
+// ── Value Object (readonly preserved) — Workspace save state ──────────────────
+//
+// Discriminated union over the debounced-PUT save lifecycle
+// (SyncService's `PUT /documents/{key}`, `sendSync()`). Mirrors
+// `WorkspaceLoadState`'s shape: a `kind` tag, no impossible states
+// representable (no `error` without a message). Owned at runtime by
+// `SyncService`; rendered by `App.vue` as a persistent (non-blocking)
+// banner — unlike the load gate, a save failure must NOT withhold the
+// workspace surfaces, since the user's in-memory edits are still there
+// and still usable; only the fact "the last write did not reach the
+// server" needs a single, durable home (menus-ui audit finding M14: the
+// write path had zero UI change on failure, only a console log).
+//
+// Lifecycle:
+//   synced → default value (module init, and after `resetWorkspace`),
+//            and re-entered whenever a PUT resolves successfully.
+//            Nothing pending, nothing failed.
+//   error  → the most recent PUT failed; the payload it carried has not
+//            reached the server. Stays 'error' — even across further
+//            local edits that queue a new debounced PUT — until a PUT
+//            actually succeeds or the identity resets; a subsequent
+//            local edit alone must not quietly clear the banner while
+//            the underlying failure is still unresolved.
+export type WorkspaceSaveState =
+  | { readonly kind: 'synced' }
+  | { readonly kind: 'error'; readonly message: string };
+
 // ── Value Object (readonly preserved) — SystemMessage ─────────────────────────
 
 export interface SystemMessage {
