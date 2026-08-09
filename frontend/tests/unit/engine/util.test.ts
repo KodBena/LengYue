@@ -158,6 +158,12 @@ describe('getKomi', () => {
 
   it('defaults to 6.5 when KM is missing', () => {
     const board = createInitialBoard();
+    // `createInitialBoard` now authors its OWN KM (ledger row 1146 —
+    // see `tests/unit/store/board-factory-komi.test.ts`), so KM is
+    // deleted here to isolate `getKomi`'s bare-fallback contract from
+    // the factory's authored default, same pattern `getBoardSize`'s
+    // "defaults to 19 when SZ is missing" test above uses for SZ.
+    delete board.nodes[board.rootNodeId].properties['KM'];
     expect(getKomi(board)).toBe(6.5);
   });
 

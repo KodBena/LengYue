@@ -41,6 +41,8 @@ import {
 import type { BoardId, NodeId, UISession }   from './types';
 import { navigateTo }     from './engine/navigator';
 import type { RulesetName } from './engine/rulesets';
+import { getKomi, getRulesetResolution } from './engine/util';
+import { normalizeKomiForRuleset } from './engine/katago/komi-calibration';
 
 import { KATAGO_WS_URL } from './config/env';
 import { usePlayMatch } from './composables/board/usePlayFromPosition';
@@ -249,12 +251,19 @@ watch(
   { immediate: true },
 );
 
+// Komi write site (ledger row 1146): the raw `newKomi` off the
+// StatusBar `<input>` is routed through `normalizeKomiForRuleset`
+// against the board's CURRENT ruleset before it is persisted, so a
+// Tromp-Taylor board can never end up with a stored non-integer komi —
+// the per-ruleset domain function `engine/katago/komi-calibration.ts`
+// owns (TT: integers; the other three: half-integers in [-150, 150]).
 function handleUpdateKomi(newKomi: number) {
   if (!activeBoard.value || isNaN(newKomi)) return;
   mutateBoard(activeBoard.value.id, draft => {
     const root = draft.nodes[draft.rootNodeId];
     if (root) {
-      root.properties['KM'] = [newKomi.toString()];
+      const ruleset = getRulesetResolution(draft).name;
+      root.properties['KM'] = [normalizeKomiForRuleset(newKomi, ruleset).toString()];
     }
   });
 }
@@ -263,13 +272,21 @@ function handleUpdateKomi(newKomi: number) {
 // ruling-mandated canonical spellings (RulesetName) — StatusBar's
 // dropdown only emits values drawn from RULESET_NAMES, so this writes
 // the canonical spelling directly to root `RU`, no re-normalization
-// needed here.
+// needed for RU itself. The board's existing `KM`, however, IS
+// renormalized against the NEW ruleset here (ledger row 1146): a
+// switch INTO Tromp-Taylor must not leave a half-integer komi (e.g.
+// 6.5, carried over from Chinese/AGA/Japanese) sitting on the board —
+// that would be exactly the invalid state `handleUpdateKomi`'s own
+// write-time normalization exists to make unrepresentable. Switching
+// AWAY from Tromp-Taylor is a no-op here (an integer is already inside
+// every other ruleset's half-integer domain).
 function handleUpdateRules(newRules: RulesetName) {
   if (!activeBoard.value) return;
   mutateBoard(activeBoard.value.id, draft => {
     const root = draft.nodes[draft.rootNodeId];
     if (root) {
       root.properties['RU'] = [newRules];
+      root.properties['KM'] = [normalizeKomiForRuleset(getKomi(draft), newRules).toString()];
     }
   });
 }

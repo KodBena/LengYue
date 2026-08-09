@@ -12,6 +12,7 @@
 
 import type { BoardState, GameNode, BoardId, NodeId } from '../types';
 import { generateUUID } from '../lib/utils';
+import { normalizeKomiForRuleset } from '../engine/katago/komi-calibration';
 
 // ── Newtype constructors ───────────────────────────────────────────────────────
 // These are identity functions at runtime; their value is purely in the
@@ -45,6 +46,16 @@ export const uuid = (): string => Math.random().toString(36).substring(2, 9);
  * fresh RFC4122 v4 UUID — that's the dedup handle the mint flow sends
  * to the backend so subsequent mints from this board's lifetime resolve
  * to the same game_source row.
+ *
+ * **Komi (ledger row 1146):** the root's `RU` is authored as
+ * `'Tromp-Taylor'` (see the comment inline below), so its `KM` is
+ * authored here too, rather than left absent to fall through to
+ * `getKomi`'s bare 6.5 fallback (`engine/util.ts`) — a half-integer
+ * value that is not in Tromp-Taylor's own komi domain (integers only).
+ * `normalizeKomiForRuleset` (`engine/katago/komi-calibration.ts`) is the
+ * single per-ruleset domain function this fact lives in; applying it to
+ * the same 6.5 baseline every other ruleset would default to yields the
+ * conventional Tromp-Taylor komi of 7.
  */
 export function createInitialBoard(): BoardState {
   const rootId = asNodeId('root-' + uuid());
@@ -63,7 +74,17 @@ export function createInitialBoard(): BoardState {
     // `normalizeRuleset` in `engine/rulesets.ts`) rather than falling
     // through to the defaulted-Tromp-Taylor path a board with no RU
     // at all would take.
-    properties: { SZ: ['19'], GM: ['1'], FF: ['4'], RU: ['Tromp-Taylor'] },
+    //
+    // KM: authored through `normalizeKomiForRuleset` against the same
+    // 'Tromp-Taylor' name above (ledger row 1146) — see the doc comment
+    // above this function.
+    properties: {
+      SZ: ['19'],
+      GM: ['1'],
+      FF: ['4'],
+      RU: ['Tromp-Taylor'],
+      KM: [String(normalizeKomiForRuleset(6.5, 'Tromp-Taylor'))],
+    },
     move: null,
   };
 

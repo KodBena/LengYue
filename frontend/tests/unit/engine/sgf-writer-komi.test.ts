@@ -73,8 +73,13 @@ describe('setSgfRootKomi — malformed input fails loud (ADR-0002)', () => {
 
 describe('setSgfRootKomi — round-trip through serializeActivePath', () => {
   it('rewrites the komi of a real minted (root→current) SGF', () => {
-    // A fresh board carries no KM (board-factory roots are {SZ, GM, FF}).
+    // A fresh board now carries an authored KM (ledger row 1146 —
+    // `board-factory.ts` authors Tromp-Taylor's integer default; see
+    // `tests/unit/store/board-factory-komi.test.ts`), so KM is deleted
+    // here to exercise this test's own target: the "insert" branch of
+    // `setSgfRootKomi` when the root has no KM at all.
     let board = createInitialBoard();
+    delete board.nodes[board.rootNodeId].properties['KM'];
     const moved = applyGoMove(board, 3, 3);
     expect(moved).not.toBeNull();
     board = moved!;
