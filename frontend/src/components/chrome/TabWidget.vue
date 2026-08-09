@@ -129,7 +129,17 @@ function selectTab(id: string) {
 }
 
 .tab-header li {
-  padding: 1px 6px;
+  /* M16 (audit finding, ledger row 1251): measured 49.7 x 18px — under
+     WCAG 2.5.8's 24x24 floor on the vertical axis, the most-touched
+     control in the app. Token-based padding plus an explicit
+     min-height floor (padding alone can't guarantee 24px against
+     every font-metric variance) bring it to spec without font
+     blowup. display:flex + align-items:center recenters the label
+     text now that padding is no longer symmetric text-hugging. */
+  padding: var(--space-default) var(--space-default);
+  min-height: 24px;
+  display: flex;
+  align-items: center;
   font-size: var(--text-emphasis);
   color: var(--text-2);
   cursor: pointer;
@@ -139,6 +149,7 @@ function selectTab(id: string) {
      the strip scrolls (see `.tab-header` above) instead of squeezing. */
   flex: 0 0 auto;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 .tab-header li:focus-visible {
   outline: 2px solid var(--accent-primary);

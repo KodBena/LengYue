@@ -375,6 +375,40 @@ function onInput(event: Event) {
   cursor: not-allowed;
 }
 
+/* M16 (audit finding, ledger row 1251): the native thumb measured
+   ~18x8px, under the WCAG 2.5.8 24x24 floor — this is the padding-
+   only fix applied everywhere else in this pass, translated to a
+   range input's own sizing hooks (`padding` doesn't apply to a
+   thumb; `::-webkit-slider-thumb` / `::-moz-range-thumb` are the
+   only standard way to size one). Track height/appearance is left
+   otherwise alone — a taller thumb sitting on a thin track is
+   standard native-slider rendering, not a redesign, and the grid
+   row it sits in (`.knob-slider-row`/`.knob-slider-compact` above)
+   already auto-sizes to its tallest child so this doesn't collide
+   with adjacent rows. */
+.knob-slider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-circle);
+  background: var(--accent-primary);
+  cursor: pointer;
+  margin-top: -10px; /* re-centers the enlarged thumb on a ~4px native track */
+}
+.knob-slider-input::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-circle);
+  background: var(--accent-primary);
+  border: none;
+  cursor: pointer;
+}
+.knob-slider-input:disabled::-webkit-slider-thumb,
+.knob-slider-input:disabled::-moz-range-thumb {
+  cursor: not-allowed;
+}
+
 /* Compact layout — single row, label/slider/value side by side,
    tight margins. Used by ToolbarSliderPopover so the popover fits
    many knobs in minimal vertical space. */
