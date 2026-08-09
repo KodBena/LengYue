@@ -21,11 +21,20 @@
   `tabindex="0"` plus Enter/Space activation, so every tab — visible
   or scrolled off — is Tab-reachable and keyboard-activatable
   independent of whether it currently fits.
+
+  Space/Enter double-fire (ledger row 1051): a focused tab header's
+  `@keydown.space`/`@keydown.enter` handlers only ever called
+  `selectTab` — they never stopped the event from bubbling past the
+  `<li>`. Space and Enter also reach the window-level key registry
+  (`useUserIORegistry`), which double-fired whatever global binding
+  owns that key (witnessed: the ponder toggle firing a second time
+  from a focused tab). Both handlers now carry `.stop` so activating
+  a tab consumes the keypress instead of also replaying it globally.
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
 /**
- * As a stateless view, this component emits 'update:modelValue' 
+ * As a stateless view, this component emits 'update:modelValue'
  * instead of mutating internal state.
  */
 
@@ -79,8 +88,8 @@ function selectTab(id: string) {
         :aria-selected="modelValue === tab.id"
         tabindex="0"
         @click="selectTab(tab.id)"
-        @keydown.enter="selectTab(tab.id)"
-        @keydown.space.prevent="selectTab(tab.id)"
+        @keydown.enter.stop="selectTab(tab.id)"
+        @keydown.space.prevent.stop="selectTab(tab.id)"
       >
         {{ tab.label }}
       </li>
