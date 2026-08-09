@@ -36,6 +36,13 @@ import { mount, flushPromises } from '@vue/test-utils';
 const { DEFAULT_UPSTREAM } = vi.hoisted(() => ({ DEFAULT_UPSTREAM: 'ws://127.0.0.1:1242' }));
 
 let fakeStored: string | null = null;
+// mDNS discovery (ledger row 944) — empty by default so the pre-existing
+// gate/one-fact-one-home/error-rendering coverage below (all written
+// before discovery existed) is unaffected by the auto-discovery `load()`
+// now runs whenever `fakeStored` is null. The discovery-specific
+// behavior at the wizard-step level has its own `describe` block below,
+// which sets this per-test.
+let fakeDiscovered: Array<{ url: string; instanceName: string }> = [];
 
 const invokeMock = vi.fn(async (cmd: string, args?: Record<string, unknown>) => {
   if (cmd === 'get_proxy_upstream_setting') {
@@ -44,6 +51,9 @@ const invokeMock = vi.fn(async (cmd: string, args?: Record<string, unknown>) => 
   if (cmd === 'set_proxy_upstream_setting') {
     fakeStored = String(args?.value ?? '');
     return null;
+  }
+  if (cmd === 'discover_upstreams') {
+    return fakeDiscovered;
   }
   throw new Error(`unexpected invoke command: ${cmd}`);
 });
@@ -71,6 +81,7 @@ beforeEach(() => {
   store.engine.status = 'disconnected';
   store.engine.messages = [];
   fakeStored = null;
+  fakeDiscovered = [];
   invokeMock.mockClear();
 });
 
@@ -173,5 +184,78 @@ describe('WizardStepEngineUri proxy-upstream — invalid input renders the error
 
     expect(wrapper.find('[role="alert"]').exists()).toBe(false);
     expect(wrapper.find('[role="status"]').text()).toBe('Saved. Restart the app for the new upstream to take effect.');
+  });
+});
+
+describe('WizardStepEngineUri proxy-upstream — mDNS discovery (ledger row 944)', () => {
+  it('exactly one discovered upstream: prefills the field and shows the "found on your network" notice', async () => {
+    fakeDiscovered = [{ url: 'ws://living-room.example:1242', instanceName: 'living-room-box' }];
+    const wrapper = mount(WizardStepEngineUri, { global: { plugins: [i18n] } });
+    await flushPromises();
+
+    const input = wrapper.find<HTMLInputElement>('#wizard-proxy-upstream');
+    expect(input.element.value).toBe('ws://living-room.example:1242');
+    expect(wrapper.text()).toContain('Found on your network: living-room-box');
+  });
+
+  it('multiple discovered upstreams: shows a picker; choosing one persists through the existing save() path', async () => {
+    fakeDiscovered = [
+      { url: 'ws://box-one.example:1242', instanceName: 'box-one' },
+      { url: 'ws://box-two.example:1242', instanceName: 'box-two' },
+    ];
+    const wrapper = mount(WizardStepEngineUri, { global: { plugins: [i18n] } });
+    await flushPromises();
+
+    const picker = wrapper.find<HTMLSelectElement>('#wizard-proxy-upstream-discovered');
+    expect(picker.exists()).toBe(true);
+    const optionValues = picker.findAll('option').map((o) => o.element.value);
+    expect(optionValues).toEqual(['', 'ws://box-one.example:1242', 'ws://box-two.example:1242']);
+
+    await picker.setValue('ws://box-two.example:1242');
+    await flushPromises();
+
+    expect(invokeMock).toHaveBeenCalledWith('set_proxy_upstream_setting', { value: 'ws://box-two.example:1242' });
+    expect(fakeStored).toBe('ws://box-two.example:1242');
+    // Persisting through the picker dismisses it — a stored value is
+    // authoritative regardless of how it got there.
+    expect(wrapper.find('#wizard-proxy-upstream-discovered').exists()).toBe(false);
+    const input = wrapper.find<HTMLInputElement>('#wizard-proxy-upstream');
+    expect(input.element.value).toBe('ws://box-two.example:1242');
+  });
+
+  it('zero discovered upstreams: no error, no notice beyond the normal hint, default-empty draft', async () => {
+    fakeDiscovered = [];
+    const wrapper = mount(WizardStepEngineUri, { global: { plugins: [i18n] } });
+    await flushPromises();
+
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false);
+    const input = wrapper.find<HTMLInputElement>('#wizard-proxy-upstream');
+    expect(input.element.value).toBe('');
+    expect(wrapper.text()).toContain(
+      "Where the bundled local proxy forwards analysis requests to. Defaults to ws://127.0.0.1:1242",
+    );
+  });
+
+  it('a value already stored: no discover_upstreams invoke at all', async () => {
+    fakeStored = 'ws://already-set.example:1242';
+    fakeDiscovered = [{ url: 'ws://should-not-be-seen.example:1242', instanceName: 'ignored-box' }];
+    const wrapper = mount(WizardStepEngineUri, { global: { plugins: [i18n] } });
+    await flushPromises();
+
+    expect(invokeMock).not.toHaveBeenCalledWith('discover_upstreams');
+    const input = wrapper.find<HTMLInputElement>('#wizard-proxy-upstream');
+    expect(input.element.value).toBe('ws://already-set.example:1242');
+  });
+
+  it('"scan again" re-runs discovery on demand', async () => {
+    const wrapper = mount(WizardStepEngineUri, { global: { plugins: [i18n] } });
+    await flushPromises();
+    expect(wrapper.find<HTMLInputElement>('#wizard-proxy-upstream').element.value).toBe('');
+
+    fakeDiscovered = [{ url: 'ws://rescanned.example:1242', instanceName: 'rescanned-box' }];
+    await wrapper.find('.proxy-upstream-field-rescan').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find<HTMLInputElement>('#wizard-proxy-upstream').element.value).toBe('ws://rescanned.example:1242');
   });
 });
