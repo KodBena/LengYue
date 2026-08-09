@@ -15,7 +15,7 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 import LibraryImportPanel from './LibraryImportPanel.vue';
 import LibraryPlayerFilter from './LibraryPlayerFilter.vue';
 import LibraryPreviewPane from './LibraryPreviewPane.vue';
@@ -24,7 +24,17 @@ import { useLibraryImport } from '../../composables/library/useLibraryImport';
 import { useLibraryPlayerSuggest } from '../../composables/library/useLibraryPlayerSuggest';
 import { useLibraryPreview } from '../../composables/library/useLibraryPreview';
 import { useLibraryQuery } from '../../composables/library/useLibraryQuery';
+import { PANEL_CONTENT_READING_MEASURE_CH } from '../../state/layout-model';
 import type { LibraryGame, LibraryGameListItem } from '../../types';
+
+// Phase 3 (resolution roadmap, audit finding R3): App.vue reads the
+// declared measure/reflow policy once (getPanelContentPolicy, keyed by
+// the workspace's own LayoutClass) and passes the single boolean this
+// tab needs down as a prop, rather than every tab re-deriving its own
+// LayoutClass. Defaults to `false` (today's single-stretched-column
+// behaviour) so a standalone mount (a test, Storybook-alike) that
+// doesn't pass the prop is unaffected.
+const props = defineProps<{ twoColumnReflow?: boolean }>();
 
 const emit = defineEmits<{
   (e: 'open-library-game', game: LibraryGame): void;
@@ -98,10 +108,20 @@ function onPlayerChipClick(name: string): void {
   query.filter.playerWhiteLike = null;
   query.filter.playerBlackLike = null;
 }
+
+// R3's measure cap for `.library-split`'s TWO existing columns (list +
+// preview — this split has always been two columns; the bug was that
+// each stretched with no cap). Two reading measures, one per column,
+// rather than a single-column figure — `library-split-list`'s and
+// `library-split-preview`'s own `3fr`/`2fr` shares still divide this
+// bounded total, unchanged. `v-bind` in the <style> block below keeps
+// this in sync with `PANEL_CONTENT_READING_MEASURE_CH` — no second,
+// hand-typed `ch` literal to drift against it.
+const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING_MEASURE_CH}ch)`);
 </script>
 
 <template>
-  <div class="library-tab">
+  <div class="library-tab" :class="{ 'panel-content-two-col': props.twoColumnReflow }">
     <LibraryImportPanel :imp="importer" class="library-import-zone" />
 
     <div class="library-filters">
@@ -288,5 +308,16 @@ function onPlayerChipClick(name: string): void {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr) minmax(0, auto);
   }
+}
+
+/* Phase 3 (audit finding R3): at wide/vast LayoutWidthClass, cap the
+   split's own two columns (list + preview — genre's "two columns", not
+   a single one stretched to 1400px) at two reading measures total
+   rather than letting `flex: 1 1 0` claim the panel's full width. See
+   the `librarySplitMaxWidthCss` computed above — `v-bind` keeps the
+   `ch` figure sourced from `PANEL_CONTENT_READING_MEASURE_CH`, not a
+   second hand-typed literal. */
+.library-tab.panel-content-two-col .library-split {
+  max-width: v-bind(librarySplitMaxWidthCss);
 }
 </style>
