@@ -23,6 +23,7 @@ import * as echarts from 'echarts';
 import { themeColor } from '../../utils/theme-color';
 import { CHART_MARKER_DEBOUNCE_MS as DEBOUNCE_MS, BASE_CHART_REDRAW_THROTTLE_MS, CHART_INIT_RETRY_MS } from '../../lib/timing';
 import { createTrailingThrottle } from '../../composables/useThrottledSnapshot';
+import { seriesHasData } from './chart-data';
 
 const props = withDefaults(defineProps<{
   series: any[];
@@ -299,8 +300,16 @@ const updateOptions = () => {
   chartInstance.setOption({
     animation: false,
     backgroundColor: 'transparent',
-    legend: { 
-      show: true, 
+    legend: {
+      // M11 (menus-ui audit row 1291): a legend naming every series
+      // reads as an affirmative claim that data for those series
+      // exists. Suppress it when every series is empty/all-null —
+      // AnalysisChartPanel.vue additionally swaps the whole chart for
+      // a real empty-state message in that case, but BaseChart is
+      // reused by non-Analysis consumers too (ReviewSessionPanel,
+      // TreeWidget, BoardDeltaAnnotation) that render it directly, so
+      // the gate belongs here as the shared floor.
+      show: seriesHasData(props.series),
       selected: getSelectionMap(),
       textStyle: { color: themeColor('--text-2'), fontSize: 10 },
       top: '0%',

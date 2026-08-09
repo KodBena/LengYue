@@ -15,6 +15,7 @@
   "app.workspace.loadFailed":             "작업 공간을 불러오지 못했습니다. 변경되거나 손실된 내용은 없습니다.",
   "app.workspace.retry":                  "재시도",
   "app.workspace.saveFailed":             "변경 사항을 저장하지 못했습니다. 재시도해주세요.",
+  "app.keybindingCapture.banner":         "“{action}”에 대한 새 키를 기록 중 — 아무 키나 누르거나 Esc를 눌러 취소하세요. 종료될 때까지 다른 모든 키 입력은 앱 전체에서 캡처됩니다.",
 
   "dialogs.confirm.defaultConfirm":       "OK",
   "dialogs.confirm.defaultCancel":        "Cancel",
@@ -200,6 +201,7 @@
   "toolbar.metric.pbo":                   "PBO",
   "toolbar.sliders.empty":                "등록된 노브가 없습니다.",
 
+  "statusBar.setupModeActive":            "배치: {tool}",
   "statusBar.move":                       "{n} 수",
   "statusBar.versus":                     "vs",
   "statusBar.komi":                       "덤",
@@ -426,11 +428,15 @@
   "systemLog.clearAll":                   "모두 지우기",
   "systemLog.noMessages":                 "메시지 없음 — 시스템 대기 중.",
 
+  "analysisChart.emptyState":             "{label} 데이터가 아직 없습니다.",
+
   "analysisTimeline.title":               "분석 범위",
   "analysisTimeline.nodesSelected":       "선택된 노드 없음 | 노드 1개 선택됨 | 노드 {count}개 선택됨",
   "analysisTimeline.turnsRange":          "턴 {from}–{to}",
   "analysisTimeline.visits":              "방문 횟수:",
   "analysisTimeline.analyseSelection":    "선택 영역 분석 ({n})",
+  "analysisTimeline.analyseDisabledOffline": "선택 영역 분석이 비활성화되었습니다 — 엔진이 오프라인입니다. 이 선택 영역을 분석하려면 엔진을 연결하세요.",
+  "analysisTimeline.analyseDisabledNoSelection": "선택 영역 분석이 비활성화되었습니다 — 분석할 턴을 선택하려면 위 타임라인에서 범위를 드래그하세요.",
 
   "cardTree.tooltip.cardHeader":          "카드 {id}",
   "cardTree.tooltip.cardHeaderActive":    "카드 #{id} · 활성",

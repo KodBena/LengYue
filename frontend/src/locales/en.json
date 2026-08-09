@@ -15,6 +15,7 @@
   "app.workspace.loadFailed":             "Workspace failed to load. Nothing has been changed or lost.",
   "app.workspace.retry":                  "Retry",
   "app.workspace.saveFailed":             "Failed to save your changes. Retry to try again.",
+  "app.keybindingCapture.banner":         "Recording a new key for \"{action}\" — press any key, or Esc to cancel. Every other keypress is captured, app-wide, until this ends.",
 
   "dialogs.confirm.defaultConfirm":       "OK",
   "dialogs.confirm.defaultCancel":        "Cancel",
@@ -354,9 +355,10 @@
   "toolbar.autoNavPerf.start":            "Auto-nav ▶",
   "toolbar.autoNavPerf.stop":             "Auto-nav ◼",
   "toolbar.autoNavPerf.title":            "Dev: auto-navigate to the last node at ~60/s on Analysis/Basic, emitting perf markers for profiler capture (see perf-capture-normalization-protocol.md).",
-  "toolbar.popoverStress.start":          "Popover ⟳",
-  "toolbar.popoverStress.stop":           "Popover ◼",
+  "toolbar.popoverStress.start":          "Queue-Popover Stress: Off",
+  "toolbar.popoverStress.stop":           "Queue-Popover Stress: On ◼",
   "toolbar.popoverStress.title":          "Dev: toggle the queue popover open/closed at ~2/s, emitting popover:open/close markers tagged with queue state — run while a range query streams to measure popover toggle cost.",
+  "toolbar.popoverStress.titleDisconnected": "Dev: disabled while the engine is disconnected — the queue popover it drives only exists in the DOM while connected, so toggling now would have no visible effect.",
   "toolbar.setupToolkit.button":           "Setup",
   "toolbar.setupToolkit.tooltip":          "Setup toolkit: place handicap/setup stones or a triangle mark on the current position.",
   "toolbar.setupToolkit.stoneBlack":       "Black stone",
@@ -413,6 +415,7 @@
   "toolbar.queue.cancel":                 "Cancel this query",
   "toolbar.queue.col.cancel":             "",
 
+  "statusBar.setupModeActive":            "SETUP: {tool}",
   "statusBar.move":                       "MOVE {n}",
   "statusBar.versus":                     "vs",
   "statusBar.komi":                       "Komi",
@@ -690,11 +693,15 @@
   "systemLog.clearAll":                   "Clear All",
   "systemLog.noMessages":                 "No messages — system idle.",
 
+  "analysisChart.emptyState":             "No {label} data yet.",
+
   "analysisTimeline.title":               "Analysis Range",
   "analysisTimeline.nodesSelected":       "no nodes selected | one node selected | {count} nodes selected",
   "analysisTimeline.turnsRange":          "turns {from}–{to}",
   "analysisTimeline.visits":              "Visits:",
   "analysisTimeline.analyseSelection":    "Analyse Selection ({n})",
+  "analysisTimeline.analyseDisabledOffline": "Analyse Selection is disabled — the engine is offline. Connect the engine to analyse this selection.",
+  "analysisTimeline.analyseDisabledNoSelection": "Analyse Selection is disabled — drag a range on the timeline above to select turns to analyse.",
 
   "cardTree.tooltip.cardHeader":          "Card {id}",
   "cardTree.tooltip.cardHeaderActive":    "Card #{id} · active",

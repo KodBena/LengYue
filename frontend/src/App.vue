@@ -82,10 +82,35 @@ import QeuboBookmarks   from './components/qeubo/QeuboBookmarks.vue';
 import KnobRegistryEditor from './components/KnobRegistryEditor.vue';
 import VisitsLerpConfig from './components/VisitsLerpConfig.vue';
 import PerQueryOverridesConfig from './components/PerQueryOverridesConfig.vue';
+import { captureMode, resolveCapturingActionLabel } from './lib/keybindings-capture';
+import { KEYBINDINGS_REGISTRY } from './composables/keybindings-catalog';
 
 useUserIORegistry();
 
 const { t } = useI18n();
+
+// M8(c) (menus-ui audit row 1291, found not assumed): a keybinding-
+// capture row's own window-level listener (keybindings-capture.ts)
+// swallows every keypress in the app while armed — a fact the prior
+// UI signalled only via ~11px italic text inside the one settings row
+// itself (invisible if the user's attention isn't on that row, or the
+// Settings tab isn't even the active tab). `captureMode` is the same
+// module-scope ref KeybindingRow.vue sets; this banner mirrors the
+// `#workspace-save-banner` idiom just below it (role="alert", opaque,
+// no scrim) so the app has exactly one vocabulary for "a global fact
+// you should notice regardless of where you're looking" — a lighter
+// vehicle than routing capture through the AppPromptDialog family,
+// which would turn a one-keypress interaction into a full modal
+// round-trip for every rebind.
+//
+// Review remedy (ledger row 1335): the id -> label derivation itself
+// (registry lookup + translate, with the "id not found" fallback) now
+// lives in `resolveCapturingActionLabel` (keybindings-capture.ts) as a
+// plain, unit-testable function — this computed is a thin wrapper
+// wiring it to the live `captureMode` ref and this component's `t`.
+const capturingActionLabel = computed<string | null>(() =>
+  resolveCapturingActionLabel(captureMode.value, KEYBINDINGS_REGISTRY, t),
+);
 const { openFileDialog } = useSgfLoader();
 const { downloadActiveBoard } = useSgfDownload();
 const engineControls     = useEngineControls();
@@ -529,6 +554,20 @@ const activeTab = computed<string>({
             </button>
             <LocalePicker />
           </div>
+        </div>
+
+        <!-- Keybinding-capture banner (menus-ui audit M8(c), row 1291):
+             persistent, opaque (no scrim/translucency — standing
+             ruling), always mounted at the top of the chrome —
+             board-adjacent, same tier as the save-failure banner below
+             — for as long as `captureMode` is armed, regardless of
+             which tab/panel currently has visual focus. -->
+        <div
+          v-if="capturingActionLabel !== null"
+          id="keybinding-capture-banner"
+          role="alert"
+        >
+          {{ $t('app.keybindingCapture.banner', { action: capturingActionLabel }) }}
         </div>
 
         <!-- Save-failure banner (menus-ui audit M14): the write-path
@@ -1006,6 +1045,24 @@ const activeTab = computed<string>({
    against `--surface-1`, which it does not). `--state-attention` alone
    is still the token that names "this is a failure" everywhere in the
    app. */
+/* Keybinding-capture banner (M8(c)): opaque solid fill — deliberately
+   NOT the `color-mix(…, transparent)` translucent treatment
+   `#workspace-save-banner` below uses — per the standing ruling that a
+   NEW indicator must be an opaque surface, never a translucent layer.
+   `--text-on-accent` (theme.css, minted for LibraryTable.vue's
+   `.library-row.selected`) is the established "text directly on a
+   saturated chrome fill" role token — reused here rather than adding
+   a new one for the same category of pairing (see StatusBar.vue's
+   `.setup-mode-chip` and KeybindingRow.vue's `.row-capturing`, the
+   same M8 audit finding's other two indicators). */
+#keybinding-capture-banner {
+  flex-shrink: 0;
+  padding: var(--space-tight) var(--space-medium);
+  background: var(--state-attention);
+  color: var(--text-on-accent);
+  font-weight: bold;
+  text-align: center;
+}
 #workspace-save-banner {
   flex-shrink: 0;
   display: flex; align-items: center; justify-content: space-between;

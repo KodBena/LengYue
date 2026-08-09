@@ -195,12 +195,27 @@ function onMatchClick() {
         :title="$t('toolbar.autoNavPerf.title')"
         @click="toggleAutoNav"
       >{{ autoNavRunning ? $t('toolbar.autoNavPerf.stop') : $t('toolbar.autoNavPerf.start') }}</button>
-      <!-- Dev-only popover-stress affordance (useAutoPopoverPerf). -->
+      <!-- Dev-only popover-stress affordance (useAutoPopoverPerf).
+           M8(a) (menus-ui audit row 1291, found not assumed): this
+           button's only real-world target is the queue-tooltip popover,
+           which mounts exclusively inside ToolbarEngineMetrics
+           (`v-if="isConnected"` above) — so while disconnected, toggling
+           this on can never produce a visible popover; it only emits
+           performance.mark timeline markers into the void. Disabled
+           while disconnected (unless already running, so a run started
+           before a disconnect can still be stopped — see
+           useAutoPopoverPerf's auto-stop watch, which also catches that
+           case on its own). The label now states plainly what state is
+           active rather than relying on the `btn-connected` hue alone
+           (C18: hue is never the sole channel). -->
       <button
         v-if="isDevBuild"
         class="toolbar-btn"
         :class="{ 'btn-connected': popoverStressRunning }"
-        :title="$t('toolbar.popoverStress.title')"
+        :disabled="!isConnected && !popoverStressRunning"
+        :title="isConnected || popoverStressRunning
+          ? $t('toolbar.popoverStress.title')
+          : $t('toolbar.popoverStress.titleDisconnected')"
         @click="togglePopoverStress('queue')"
       >{{ popoverStressRunning ? $t('toolbar.popoverStress.stop') : $t('toolbar.popoverStress.start') }}</button>
       <button

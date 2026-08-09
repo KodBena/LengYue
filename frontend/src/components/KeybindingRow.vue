@@ -205,7 +205,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <tr class="keybinding-row">
+  <tr class="keybinding-row" :class="{ 'row-capturing': state.kind === 'capturing' }">
     <td class="action-label" :title="t(action.descriptionKey)">
       {{ t(action.labelKey) }}
     </td>
@@ -261,6 +261,38 @@ onUnmounted(() => {
    same scanning aid the in-repo precedent already uses. */
 .keybinding-row:hover td {
   background: var(--surface-2);
+}
+
+/* M8(c) (menus-ui audit row 1291): a row mid-capture swallows every
+   keypress in the app (keybindings-capture.ts's window-level listener),
+   a fact the prior rendering signalled only via 11px italic prompt
+   text — no different from any other row at a glance. An opaque
+   (never translucent — standing ruling) fill on the whole row gives
+   the state weight proportionate to what it's actually doing; the
+   accompanying app-level banner (App.vue, gated on the same
+   `captureMode` this row sets) covers the case where the user's
+   attention isn't on this row/tab at all. */
+.keybinding-row.row-capturing td {
+  background: var(--state-attention);
+  /* Same established "text on a saturated chrome fill" token as
+     StatusBar.vue's `.setup-mode-chip` (theme.css's --text-on-accent,
+     minted for LibraryTable.vue's `.library-row.selected`) — reused
+     rather than adding a new role for the same pairing. */
+  color: var(--text-on-accent);
+}
+/* The row's own child elements (`.action-label`, `.capture-prompt`,
+   `.row-btn`, …) each set their own explicit `color`, which wins over
+   inheriting the `td` rule above — restate legibility against the
+   attention fill explicitly for each, rather than rely on
+   inheritance. */
+.keybinding-row.row-capturing .action-label,
+.keybinding-row.row-capturing .capture-prompt,
+.keybinding-row.row-capturing .reserved-notice {
+  color: var(--text-on-accent);
+}
+.keybinding-row.row-capturing .row-btn {
+  border-color: var(--text-on-accent);
+  color: var(--text-on-accent);
 }
 
 .action-label {

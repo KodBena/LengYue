@@ -23,6 +23,7 @@ import { computed } from 'vue';
 import type { StoneColor, BoardState, GameNode, NodeId } from '../../types';
 import UserBadge from '../chrome/UserBadge.vue';
 import { useTransientHint } from '../../composables/useTransientHint';
+import { useSetupTools, SETUP_TOOL_LABEL_KEYS } from '../../composables/board/useSetupTools';
 import { store, touchSession } from '../../store';
 import { getRulesetResolution, getGameEndStatus } from '../../engine/util';
 import { getPath } from '../../engine/navigator';
@@ -78,6 +79,17 @@ const emit = defineEmits<{
 }>();
 
 const { hint } = useTransientHint();
+
+// M8(b) (menus-ui audit row 1291): the setup toolkit's sticky mode
+// (SetupToolPalette.vue's header — a selected tool persists after the
+// palette itself closes) was indicated ONLY by the toolbar trigger's
+// own highlight, invisible once the palette is closed. `activeTool` is
+// the same module-scope ref the palette reads/writes
+// (useSetupTools.ts) — this bar renders a persistent, board-adjacent
+// chip for as long as a tool stays armed, genre precedent (Sabaki/
+// CGoban3: persistent toolbar/status-bar state while an edit mode is
+// live), independent of whether the palette is open.
+const { activeTool } = useSetupTools();
 
 // Sourced from `props.board` directly (not `metadata.rules`, which is
 // `useMetadata`'s display-only `RU` passthrough with its own silent
@@ -137,6 +149,15 @@ const gameStatus = computed(() =>
 <template>
   <div class="status-bar">
     <div class="status-left">
+      <!-- M8(b): persistent setup-mode indicator. Opaque chip (no
+           translucent overlay — standing ruling), visible for as long
+           as `activeTool` is armed regardless of the palette's own
+           open/closed state. -->
+      <span
+        v-if="activeTool"
+        class="setup-mode-chip"
+        data-testid="setup-mode-chip"
+      >{{ $t('statusBar.setupModeActive', { tool: $t(SETUP_TOOL_LABEL_KEYS[activeTool]) }) }}</span>
       <span class="move-badge">{{ $t('statusBar.move', { n: moveNumber }) }}</span>
       <span class="player-names">
         <span class="stone-chip stone-chip--black" :class="{ active: turn === 'B' }" :aria-label="turn === 'B' ? $t('statusBar.blackToPlay') : undefined"></span>
@@ -224,6 +245,27 @@ const gameStatus = computed(() =>
   border-radius: var(--radius-default);
   font-family: monospace;
   font-size: var(--text-body);
+}
+
+/* Setup-mode chip (M8(b)): opaque solid fill (never a translucent
+   overlay, per the standing ruling), `--state-attention` — the same
+   accent the app already uses for "this is an interruptive/board-
+   mutating mode" (see Toolbar.vue's `.btn-stop-match`) — so the color
+   vocabulary for "board edits are live" is consistent app-wide.
+   `--text-on-accent` (theme.css, minted for LibraryTable.vue's
+   `.library-row.selected`) is the established "text directly on a
+   saturated chrome fill" role token in this codebase — reused here
+   rather than adding a new one for the same category of pairing. */
+.setup-mode-chip {
+  background: var(--state-attention);
+  color: var(--text-on-accent);
+  padding: 1px 6px;
+  font-weight: bold;
+  border-radius: var(--radius-default);
+  font-family: monospace;
+  font-size: var(--text-body);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-tight);
 }
 
 .player-names {
