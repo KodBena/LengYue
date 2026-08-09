@@ -65,7 +65,7 @@
 -->
 <script setup lang="ts">
 import { onBeforeUnmount, watch } from 'vue';
-import { useSetupTools, type SetupTool } from '../../composables/board/useSetupTools';
+import { useSetupTools, SETUP_TOOL_LABEL_KEYS, type SetupTool } from '../../composables/board/useSetupTools';
 import { useHandicap } from '../../composables/board/useHandicap';
 import { anyModalOpen } from '../../composables/useModalKeyboard';
 import HandicapPanel from './HandicapPanel.vue';
@@ -111,10 +111,16 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown);
 });
 
+// Review remedy (ledger row 1335): labelKey previously re-literalled the
+// same three i18n keys SETUP_TOOL_LABEL_KEYS (useSetupTools.ts) already
+// names — a duplicate that could silently drift from the chip
+// StatusBar.vue derives from that shared map. Reading the map here
+// instead makes this the map's only other reader, so the two surfaces
+// cannot disagree on a tool's label.
 const TOOLS: ReadonlyArray<{ id: SetupTool; labelKey: string; swatch: 'black' | 'white' | 'triangle' }> = [
-  { id: 'stone-black', labelKey: 'toolbar.setupToolkit.stoneBlack', swatch: 'black' },
-  { id: 'stone-white', labelKey: 'toolbar.setupToolkit.stoneWhite', swatch: 'white' },
-  { id: 'triangle',    labelKey: 'toolbar.setupToolkit.triangle',   swatch: 'triangle' },
+  { id: 'stone-black', labelKey: SETUP_TOOL_LABEL_KEYS['stone-black'], swatch: 'black' },
+  { id: 'stone-white', labelKey: SETUP_TOOL_LABEL_KEYS['stone-white'], swatch: 'white' },
+  { id: 'triangle',    labelKey: SETUP_TOOL_LABEL_KEYS['triangle'],    swatch: 'triangle' },
 ];
 </script>
 
