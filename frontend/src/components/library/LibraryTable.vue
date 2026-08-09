@@ -327,11 +327,22 @@ function moveFocusTo(idx: number): void {
   void focusRowAfterRender(clamped);
 }
 
+// Audit L21 (ledger row 1019 residual sweep): a newly-chosen sort
+// column must start ascending — genre convention (OGS, every file
+// manager, every spreadsheet) — and only toggle on a second click on
+// the SAME column. The prior version left `direction` untouched on a
+// column switch, so it silently inherited whatever direction the
+// PREVIOUS column was left in (the default is 'desc', so the very
+// first click on any text column landed the user at the end of the
+// alphabet with no indication why — witnessed live: clicking "Black"
+// from the default date-desc sort produced `thug, maxiao888, bork,
+// bork, bork`, not `An Cho-yeong, ...`).
 function onHeaderClick(col: LibrarySortColumn): void {
   if (props.sort === col) {
     emit('update:direction', props.direction === 'asc' ? 'desc' : 'asc');
   } else {
     emit('update:sort', col);
+    emit('update:direction', 'asc');
   }
 }
 
