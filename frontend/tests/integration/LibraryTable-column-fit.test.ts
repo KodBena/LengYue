@@ -119,12 +119,18 @@ describe('LibraryTable — column-fit rendering (audit L2)', () => {
   });
 
   // Widths chosen to exercise a mid-narrowing and an extreme-narrowing
-  // case. Expected visible/dropped sets are derived from the SAME
+  // case, PLUS the literal L2 specimen: 219px is the audit's own
+  // measured right-rail width at which the player-name columns
+  // rendered at 0px (scrollWidth 70/58) and the header text
+  // concatenated into "BlackWhiteDate" — the ledger declares L2
+  // foreclosed by this delivery's witness, so that exact width must
+  // be in the tested set, not just widths in its neighborhood.
+  // Expected visible/dropped sets are derived from the SAME
   // `fitColumns` engine the component uses (already covered as a pure
   // function in `table-column-fit.test.ts`) rather than hand-derived
   // arithmetic, so this test's job stays "does the DOM reflect the
   // fit decision," not "did the test re-derive the fit math correctly."
-  it.each([280, 160, 60])(
+  it.each([280, 219, 160, 60])(
     'renders exactly the fit-decided visible/dropped columns at width=%dpx, never a 0-width one',
     async (width) => {
       const expected = fitColumns(width, LIBRARY_TABLE_COLUMNS, LIBRARY_TABLE_GAP_PX, LIBRARY_TABLE_INDICATOR_WIDTH_PX);
@@ -144,6 +150,19 @@ describe('LibraryTable — column-fit rendering (audit L2)', () => {
       expect(columnCells.length).toBe(expected.visible.length);
       for (const cell of columnCells) {
         expect(cell.text().length).toBeGreaterThan(0);
+      }
+
+      // Every VISIBLE column's grid track is bound to >= its declared
+      // minWidth — jsdom does no real layout, so this reads the
+      // authoritative source of the rendered width (the header's own
+      // computed grid-template-columns, which every row shares) rather
+      // than a getBoundingClientRect that jsdom would just report as 0
+      // regardless of correctness. This is the direct, per-width check
+      // of the "0px-but-present" postcondition, not merely an inference
+      // from non-empty text.
+      const headerStyle = wrapper.find('.library-table-header').attributes('style') ?? '';
+      for (const col of expected.visible) {
+        expect(headerStyle).toContain(`${col.minWidth}px`);
       }
 
       // The elision indicator is present iff anything was dropped —
