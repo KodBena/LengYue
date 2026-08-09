@@ -233,6 +233,7 @@ export const defaultSettings = {
           // ─────────────────────────────────────────────────────────────────────
           min_summary:      'float(min(x))',
           mean_summary:     'float(mean(x))',
+          median_summary:   'float(median(x))',
         },
         parameters: {
           alpha: 0.25,
@@ -263,7 +264,7 @@ export const defaultSettings = {
             name: 'Quality (Robust-Child Calibrated)',
             delta_fn: 'quality_delta',
             delta_ordering: 'lower_is_worse',
-            summary_fn: 'min_summary',
+            summary_fn: 'median_summary',
             state_fns: {
               'Complexity':      'complexity',
               'Win Probability': 'winrate',
@@ -300,7 +301,7 @@ export const defaultSettings = {
             }
           }
         ],
-        activePaletteId: 'quality'
+        activePaletteId: 'score'
       },
     },
   },
