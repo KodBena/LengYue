@@ -61,9 +61,9 @@ const scrubMax = computed(() => props.preview.totalMoves.value);
     <template v-else-if="hasGame">
       <div class="preview-meta">
         <div class="meta-players">
-          <span class="meta-player-white">{{ preview.selectedGame.value?.playerWhite ?? '—' }}</span>
-          <span class="meta-vs">vs</span>
           <span class="meta-player-black">{{ preview.selectedGame.value?.playerBlack ?? '—' }}</span>
+          <span class="meta-vs">{{ $t('cards.browse.versus') }}</span>
+          <span class="meta-player-white">{{ preview.selectedGame.value?.playerWhite ?? '—' }}</span>
         </div>
         <div class="meta-details">
           <span v-if="preview.selectedGame.value?.date">{{ preview.selectedGame.value.date }}</span>
