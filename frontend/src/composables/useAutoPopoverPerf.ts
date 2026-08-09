@@ -26,8 +26,8 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { ref, readonly, onUnmounted } from 'vue';
-import { activeBoard } from '../store';
+import { ref, readonly, watch, onUnmounted } from 'vue';
+import { activeBoard, store } from '../store';
 import { useQueryTelemetry } from './useQueryTelemetry';
 import { summarizeAnalysisQueue } from './useAutoNavigatePerf';
 import { __devForcePopoverOpen } from './chrome/useHoverPopover';
@@ -91,6 +91,22 @@ export function useAutoPopoverPerf() {
     if (isRunning.value) stop();
     else start(id);
   }
+
+  // M8(a) (menus-ui audit row 1291): the harness's only real-world target,
+  // EngineQueueTooltip, is mounted exclusively inside ToolbarEngineMetrics
+  // (Toolbar.vue's `v-if="isConnected"`). A cycle started while connected
+  // that outlives the connection keeps `isRunning` (and the Toolbar's
+  // `btn-connected` green hue) true while forcing open a popover that no
+  // longer exists in the DOM — exactly the "turns green, no visible
+  // popover anywhere" defect the audit caught. Auto-stopping on disconnect
+  // keeps the button's on/off state truthful to whether the toggle can
+  // have any observable effect.
+  watch(
+    () => store.engine.status === 'connected',
+    (connected) => {
+      if (!connected && isRunning.value) stop();
+    },
+  );
 
   // The timer + the forced-open override outlive Vue's reactivity graph;
   // release both if the host component unmounts mid-run.
