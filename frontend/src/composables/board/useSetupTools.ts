@@ -45,6 +45,18 @@ import type { BoardState, NodeId } from '../../types';
  */
 export type SetupTool = 'stone-black' | 'stone-white' | 'triangle';
 
+/**
+ * Shared i18n key per tool — single source so a persistent mode
+ * indicator (StatusBar.vue's `.setup-mode-chip`, M8(b), menus-ui
+ * audit row 1291) and the palette's own tool buttons
+ * (SetupToolPalette.vue) never drift on the tool→label mapping.
+ */
+export const SETUP_TOOL_LABEL_KEYS: Readonly<Record<SetupTool, string>> = {
+  'stone-black': 'toolbar.setupToolkit.stoneBlack',
+  'stone-white': 'toolbar.setupToolkit.stoneWhite',
+  'triangle':    'toolbar.setupToolkit.triangle',
+};
+
 // Module-scope, not per-component-instance: see file header.
 const activeTool: Ref<SetupTool | null> = ref(null);
 const paletteOpen: Ref<boolean> = ref(false);
