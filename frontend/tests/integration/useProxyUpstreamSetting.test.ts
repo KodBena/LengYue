@@ -15,6 +15,13 @@
  * exactly the way the real commands do, including the `stored`/
  * `envOverrideActive` provenance fields the UI reads.
  *
+ * Also covers mDNS upstream discovery (ledger row 944,
+ * `discover_upstreams`) — the `fakeDiscovered` array below stands in
+ * for the Rust-side mDNS browse results. Coverage for the PURE decision
+ * functions (`shouldAutoDiscover`, `classifyDiscoveryResults`) with no
+ * invoke mock at all lives in
+ * `tests/unit/composables/useProxyUpstreamSetting-discovery.test.ts`.
+ *
  * License: Public Domain (The Unlicense)
  */
 
@@ -27,6 +34,13 @@ const { DEFAULT_UPSTREAM } = vi.hoisted(() => ({ DEFAULT_UPSTREAM: 'ws://127.0.0
 
 let fakeStored: string | null = null;
 let fakeEnvOverride: string | null = null;
+// mDNS discovery results (ledger row 944) `discover_upstreams` would
+// return — empty by default so the pre-existing `load()`/`save()`
+// coverage above is unaffected by the auto-discovery this composable
+// now runs whenever neither `fakeStored` nor `fakeEnvOverride` is set;
+// discovery-specific behavior is covered by its own `describe` blocks
+// below, which set this per-test.
+let fakeDiscovered: Array<{ url: string; instanceName: string }> = [];
 
 const invokeMock = vi.fn(async (cmd: string, args?: Record<string, unknown>) => {
   if (cmd === 'get_proxy_upstream_setting') {
@@ -46,6 +60,9 @@ const invokeMock = vi.fn(async (cmd: string, args?: Record<string, unknown>) => 
     fakeStored = value;
     return null;
   }
+  if (cmd === 'discover_upstreams') {
+    return fakeDiscovered;
+  }
   throw new Error(`unexpected invoke command: ${cmd}`);
 });
 
@@ -61,6 +78,7 @@ import { useProxyUpstreamSetting } from '../../src/composables/useProxyUpstreamS
 beforeEach(() => {
   fakeStored = null;
   fakeEnvOverride = null;
+  fakeDiscovered = [];
   invokeMock.mockClear();
 });
 
@@ -171,5 +189,126 @@ describe('useProxyUpstreamSetting — save() persistence', () => {
     const result = await setting.save();
 
     expect(result).toEqual({ ok: false, errorKey: 'proxyUpstream.error.saveFailed' });
+  });
+});
+
+describe('useProxyUpstreamSetting — mDNS discovery auto-run on load()', () => {
+  it('does not discover when a value is already stored', async () => {
+    fakeStored = 'ws://already-set.example:1242';
+    fakeDiscovered = [{ url: 'ws://should-not-be-seen.example:1242', instanceName: 'ignored-box' }];
+    const setting = useProxyUpstreamSetting();
+    await setting.load();
+
+    expect(invokeMock).not.toHaveBeenCalledWith('discover_upstreams');
+    expect(setting.discoveryState.value).toEqual({ kind: 'idle' });
+    expect(setting.draft.value).toBe('ws://already-set.example:1242');
+  });
+
+  it('does not discover when the env override is active', async () => {
+    fakeEnvOverride = 'ws://env.example:1242';
+    fakeDiscovered = [{ url: 'ws://should-not-be-seen.example:1242', instanceName: 'ignored-box' }];
+    const setting = useProxyUpstreamSetting();
+    await setting.load();
+
+    expect(invokeMock).not.toHaveBeenCalledWith('discover_upstreams');
+    expect(setting.discoveryState.value).toEqual({ kind: 'idle' });
+  });
+
+  it('zero results: discoveryState becomes none, draft stays empty, no error', async () => {
+    fakeDiscovered = [];
+    const setting = useProxyUpstreamSetting();
+    await setting.load();
+
+    expect(invokeMock).toHaveBeenCalledWith('discover_upstreams');
+    expect(setting.discoveryState.value).toEqual({ kind: 'none' });
+    expect(setting.draft.value).toBe('');
+  });
+
+  it('exactly one result: discoveryState becomes single and the draft is prefilled with its url', async () => {
+    fakeDiscovered = [{ url: 'ws://found.example:1242', instanceName: 'living-room-box' }];
+    const setting = useProxyUpstreamSetting();
+    await setting.load();
+
+    expect(setting.discoveryState.value).toEqual({
+      kind: 'single',
+      upstream: { url: 'ws://found.example:1242', instanceName: 'living-room-box' },
+    });
+    expect(setting.draft.value).toBe('ws://found.example:1242');
+  });
+
+  it('multiple results: discoveryState becomes multiple and the draft is left untouched', async () => {
+    fakeDiscovered = [
+      { url: 'ws://box-one.example:1242', instanceName: 'box-one' },
+      { url: 'ws://box-two.example:1242', instanceName: 'box-two' },
+    ];
+    const setting = useProxyUpstreamSetting();
+    await setting.load();
+
+    expect(setting.discoveryState.value).toEqual({ kind: 'multiple', upstreams: fakeDiscovered });
+    expect(setting.draft.value).toBe('');
+  });
+});
+
+describe('useProxyUpstreamSetting — discover() manual "scan again"', () => {
+  it('can be re-run unconditionally even when a value is already stored', async () => {
+    fakeStored = 'ws://already-set.example:1242';
+    const setting = useProxyUpstreamSetting();
+    await setting.load();
+    expect(invokeMock).not.toHaveBeenCalledWith('discover_upstreams');
+
+    fakeDiscovered = [{ url: 'ws://rescanned.example:1242', instanceName: 'rescanned-box' }];
+    await setting.discover();
+
+    expect(invokeMock).toHaveBeenCalledWith('discover_upstreams');
+    expect(setting.discoveryState.value).toEqual({
+      kind: 'single',
+      upstream: { url: 'ws://rescanned.example:1242', instanceName: 'rescanned-box' },
+    });
+  });
+
+  it('reflects discovering:true while the invoke is in flight', async () => {
+    // The deferred promise is constructed (and `resolveInvoke` bound)
+    // BEFORE `discover()` runs, so resolving it is never racing the
+    // dynamic `await import('@tauri-apps/api/core')` inside `discover()`
+    // — that import (and the `invoke()` call it gates) only reaches
+    // `pending` on a later microtask, but `pending`'s own resolution
+    // state doesn't depend on being awaited first.
+    let resolveInvoke!: (v: unknown) => void;
+    const pending = new Promise<unknown>((resolve) => { resolveInvoke = resolve; });
+    invokeMock.mockImplementationOnce(() => pending);
+    const setting = useProxyUpstreamSetting();
+
+    const promise = setting.discover();
+    expect(setting.discoveryState.value).toEqual({ kind: 'discovering' });
+    resolveInvoke([]);
+    await promise;
+
+    expect(setting.discoveryState.value).toEqual({ kind: 'none' });
+  });
+
+  it('degrades to none when the invoke call itself rejects', async () => {
+    invokeMock.mockImplementationOnce(async () => { throw new Error('command not registered'); });
+    const setting = useProxyUpstreamSetting();
+    await setting.discover();
+
+    expect(setting.discoveryState.value).toEqual({ kind: 'none' });
+  });
+});
+
+describe('useProxyUpstreamSetting — a successful save() clears a stale discovery state', () => {
+  it('clears discoveryState back to idle after persisting, even if it was multiple beforehand', async () => {
+    fakeDiscovered = [
+      { url: 'ws://box-one.example:1242', instanceName: 'box-one' },
+      { url: 'ws://box-two.example:1242', instanceName: 'box-two' },
+    ];
+    const setting = useProxyUpstreamSetting();
+    await setting.load();
+    expect(setting.discoveryState.value.kind).toBe('multiple');
+
+    setting.draft.value = 'ws://typed-instead.example:1242';
+    const result = await setting.save();
+
+    expect(result).toEqual({ ok: true });
+    expect(setting.discoveryState.value).toEqual({ kind: 'idle' });
   });
 });
