@@ -213,7 +213,7 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
 .library-filters {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: var(--space-small);
+  gap: var(--space-default);
   flex: 0 0 auto;
 }
 
@@ -225,9 +225,9 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
 }
 .library-players-summary {
   cursor: pointer;
-  padding: var(--space-tiny) var(--space-small);
-  font-size: var(--text-small);
-  color: var(--text-muted);
+  padding: var(--space-tight) var(--space-default);
+  font-size: var(--text-tiny);
+  color: var(--text-2);
   list-style: none;
   user-select: none;
 }
@@ -235,17 +235,17 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
 .library-players-summary::before {
   content: '▶';
   display: inline-block;
-  margin-right: var(--space-small);
+  margin-right: var(--space-default);
   font-size: var(--text-tiny);
 }
 .library-players[open] .library-players-summary::before {
   content: '▼';
 }
 .library-players-list {
-  padding: var(--space-tiny) var(--space-small) var(--space-small);
+  padding: var(--space-tight) var(--space-default) var(--space-default);
   display: flex;
   flex-direction: column;
-  gap: var(--space-tiny);
+  gap: var(--space-tight);
   /* magic-literal: 240px max-height — ~10 rows of name+count
      before the internal scrollbar kicks in. The accordion is a
      scan-and-pick tool; once the user finds a name they fold the
@@ -260,13 +260,13 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
   /* Name column grows; count column sized to content (right). */
   grid-template-columns: 1fr auto;
   align-items: baseline;
-  gap: var(--space-small);
-  padding: 2px var(--space-small);
-  font-size: var(--text-small);
+  gap: var(--space-default);
+  padding: 2px var(--space-default);
+  font-size: var(--text-tiny);
   background: var(--surface-0);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
-  color: var(--text-default);
+  color: var(--text-1);
   cursor: pointer;
   text-align: left;
   font-family: inherit;
@@ -281,7 +281,7 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
   text-overflow: ellipsis;
 }
 .library-player-count {
-  color: var(--text-muted);
+  color: var(--text-2);
   font-variant-numeric: tabular-nums;
 }
 .library-player-row:hover .library-player-count {
@@ -297,7 +297,7 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
 .library-split-list, .library-split-preview {
   min-height: 0;
   min-width: 0;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-1);
   border-radius: var(--radius-default);
   overflow: hidden;
 }

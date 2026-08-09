@@ -111,60 +111,60 @@ const scrubMax = computed(() => props.preview.totalMoves.value);
   overflow-y: auto;
 }
 .preview-empty {
-  padding: var(--space-large);
+  padding: var(--space-loose);
   text-align: center;
-  color: var(--text-muted);
+  color: var(--text-2);
 }
-.preview-meta { display: flex; flex-direction: column; gap: var(--space-tiny); }
+.preview-meta { display: flex; flex-direction: column; gap: var(--space-tight); }
 .meta-players {
   display: flex;
-  gap: var(--space-small);
+  gap: var(--space-default);
   align-items: baseline;
   font-size: var(--text-body);
   font-weight: 600;
 }
 .meta-vs {
-  font-size: var(--text-small);
-  color: var(--text-muted);
+  font-size: var(--text-tiny);
+  color: var(--text-2);
   font-weight: normal;
 }
 .meta-details {
-  font-size: var(--text-small);
-  color: var(--text-muted);
+  font-size: var(--text-tiny);
+  color: var(--text-2);
 }
 .preview-board {
   /* Reserve a square so the SVG mini-board renders aspect-1:1 */
   aspect-ratio: 1 / 1;
   max-width: 360px;
   background: var(--surface-0);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-1);
   border-radius: var(--radius-default);
 }
 .preview-board :deep(svg) { width: 100%; height: 100%; display: block; }
 .preview-scrub {
   display: flex;
-  gap: var(--space-small);
+  gap: var(--space-default);
   align-items: center;
 }
 .scrub-slider { flex: 1 1 0; }
 .scrub-position {
-  font-size: var(--text-small);
-  color: var(--text-muted);
+  font-size: var(--text-tiny);
+  color: var(--text-2);
   font-variant-numeric: tabular-nums;
   min-width: 5em;
   text-align: right;
 }
 .preview-actions {
   display: flex;
-  gap: var(--space-small);
+  gap: var(--space-default);
 }
 .preview-btn {
-  padding: var(--space-tiny) var(--space-small);
+  padding: var(--space-tight) var(--space-default);
   font-size: var(--text-body);
   background: var(--surface-0);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-1);
   border-radius: var(--radius-default);
-  color: var(--text-default);
+  color: var(--text-1);
   cursor: pointer;
 }
 .preview-btn:hover { border-color: var(--accent-primary); }
