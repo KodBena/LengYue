@@ -40,6 +40,12 @@ import {
   FOREST_TREE_USABLE_FLOOR_PX,
   computeForestNarrowThresholdPx,
   FOREST_NARROW_THRESHOLD_PX,
+  PANEL_CONTENT_READING_MEASURE_CH,
+  getPanelContentPolicy,
+  PANEL_CONTENT_POLICY_BY_WIDTH_CLASS,
+  TREE_PANEL_DEFAULT_WIDTH_FRACTION,
+  computeTreePanelDefaultWidthPx,
+  computeUnsetWrapperMaxWidthCss,
 } from '../../../src/state/layout-model';
 
 describe('deriveAxis — row/column split from aspect ratio', () => {
@@ -165,5 +171,73 @@ describe('computeForestNarrowThresholdPx — ForestDirectory\'s 479px, re-derive
   it('moves when either content fact moves — the whole point of naming them instead of hand-writing the sum', () => {
     expect(computeForestNarrowThresholdPx(300, 200)).toBe(499);
     expect(computeForestNarrowThresholdPx(280, 220)).toBe(499);
+  });
+});
+
+describe('getPanelContentPolicy / PANEL_CONTENT_POLICY_BY_WIDTH_CLASS — Phase 3, audit finding R3', () => {
+  it('every width class has its own policy entry (all four keys present)', () => {
+    expect(Object.keys(PANEL_CONTENT_POLICY_BY_WIDTH_CLASS).sort()).toEqual(
+      ['compact', 'standard', 'vast', 'wide'].sort(),
+    );
+  });
+
+  it('compact/standard stay single-column; wide/vast reflow to two columns', () => {
+    expect(getPanelContentPolicy({ axis: 'row', width: 'compact' }).twoColumnReflow).toBe(false);
+    expect(getPanelContentPolicy({ axis: 'row', width: 'standard' }).twoColumnReflow).toBe(false);
+    expect(getPanelContentPolicy({ axis: 'row', width: 'wide' }).twoColumnReflow).toBe(true);
+    expect(getPanelContentPolicy({ axis: 'row', width: 'vast' }).twoColumnReflow).toBe(true);
+  });
+
+  it('every width class carries the SAME declared reading measure — one figure, not four independently-tuned ones', () => {
+    for (const width of ['compact', 'standard', 'wide', 'vast'] as const) {
+      expect(getPanelContentPolicy({ axis: 'row', width }).readingMeasureCh).toBe(PANEL_CONTENT_READING_MEASURE_CH);
+    }
+  });
+
+  it('axis does not affect the result (looked up strictly by the width facet, mirrors getPanelGeometryPolicy)', () => {
+    const rowWide = getPanelContentPolicy({ axis: 'row', width: 'wide' });
+    const columnWide = getPanelContentPolicy({ axis: 'column', width: 'wide' });
+    expect(rowWide).toBe(columnWide);
+  });
+});
+
+describe('computeTreePanelDefaultWidthPx — Phase 3, audit finding R5 ("stuck at 140px on any screen")', () => {
+  it('given a workspace width where the fraction exceeds the floor, returns the declared fraction of it', () => {
+    // 2000 * 0.12 = 240, comfortably above the 140px floor.
+    expect(computeTreePanelDefaultWidthPx(2000)).toBe(
+      Math.round(2000 * TREE_PANEL_DEFAULT_WIDTH_FRACTION),
+    );
+  });
+
+  it('clamps to TREE_PANEL_MIN_WIDTH_PX on a narrow workspace where the fraction undershoots the floor', () => {
+    // 768 * 0.12 ≈ 92px, well under the 140px floor.
+    expect(computeTreePanelDefaultWidthPx(768)).toBe(TREE_PANEL_MIN_WIDTH_PX);
+  });
+
+  it('grows past the old fixed 140px on a vast (4K-class) workspace — the R5 fix itself', () => {
+    const at4k = computeTreePanelDefaultWidthPx(3840);
+    expect(at4k).toBeGreaterThan(TREE_PANEL_MIN_WIDTH_PX);
+    expect(at4k).toBe(Math.round(3840 * TREE_PANEL_DEFAULT_WIDTH_FRACTION));
+  });
+
+  it('non-finite or non-positive workspace width (not yet measured) degrades to the floor, not a guess', () => {
+    expect(computeTreePanelDefaultWidthPx(0)).toBe(TREE_PANEL_MIN_WIDTH_PX);
+    expect(computeTreePanelDefaultWidthPx(-100)).toBe(TREE_PANEL_MIN_WIDTH_PX);
+    expect(computeTreePanelDefaultWidthPx(Number.NaN)).toBe(TREE_PANEL_MIN_WIDTH_PX);
+    expect(computeTreePanelDefaultWidthPx(Number.POSITIVE_INFINITY)).toBe(TREE_PANEL_MIN_WIDTH_PX);
+  });
+});
+
+describe('computeUnsetWrapperMaxWidthCss — Phase 3, audit finding R3 (surplus flows back to the board)', () => {
+  it('composes a calc() string mixing the px facts and the ch reading measure', () => {
+    expect(computeUnsetWrapperMaxWidthCss(200, RESIZER_WIDTH_PX, PANEL_CONTENT_READING_MEASURE_CH)).toBe(
+      `calc(200px + ${RESIZER_WIDTH_PX}px + ${PANEL_CONTENT_READING_MEASURE_CH}ch)`,
+    );
+  });
+
+  it('reflects the tree-default input directly — never independently re-derives it', () => {
+    const treeDefault = computeTreePanelDefaultWidthPx(3840);
+    const css = computeUnsetWrapperMaxWidthCss(treeDefault, RESIZER_WIDTH_PX, PANEL_CONTENT_READING_MEASURE_CH);
+    expect(css).toContain(`${treeDefault}px`);
   });
 });

@@ -218,6 +218,106 @@ export {
   WRAPPER_MIN_WIDTH_PX,
 };
 
+// ── Panel-content reading measure (Phase 3, audit finding R3) ─────────
+
+/**
+ * Genre-convention reading measure (task charter: "~60ch reading
+ * measure") — a panel's TEXT content (Library table, Cards forest
+ * navigator/metadata) is capped at this width regardless of how much
+ * room the panel itself has, so a 4K control panel doesn't stretch a
+ * single column of text across 1400px (audit finding R3: "1.7%
+ * content"). assumption (not spec-given): the exact multiplier — the
+ * charter names the target measure, not a boundary table; 60ch is the
+ * conventional prose reading-measure (45-75ch) picked at its middle.
+ */
+export const PANEL_CONTENT_READING_MEASURE_CH = 60;
+
+export interface PanelContentPolicy {
+  /** Max-width cap (in `ch`) applied to a single column of panel text content. */
+  readingMeasureCh: number;
+  /** Whether panels with a natural two-region layout (Library's
+   *  list+preview, Cards' tree+metadata) reflow those regions
+   *  side-by-side (true) vs. the narrower stacked/single-column
+   *  default (false). */
+  twoColumnReflow: boolean;
+}
+
+// assumption (not spec-given): the wide/vast cutover for two-column
+// reflow reuses the SAME LayoutWidthClass boundary already declared
+// above (WIDTH_CLASS_MAX_PX.standard, 1280px) rather than a new,
+// independent threshold — one width-classification scheme for the
+// whole module (ADR-0012 one-home-per-fact), not two.
+const SINGLE_COLUMN_PANEL_CONTENT_POLICY: PanelContentPolicy = {
+  readingMeasureCh: PANEL_CONTENT_READING_MEASURE_CH,
+  twoColumnReflow: false,
+};
+const TWO_COLUMN_PANEL_CONTENT_POLICY: PanelContentPolicy = {
+  readingMeasureCh: PANEL_CONTENT_READING_MEASURE_CH,
+  twoColumnReflow: true,
+};
+
+export const PANEL_CONTENT_POLICY_BY_WIDTH_CLASS: Record<LayoutWidthClass, PanelContentPolicy> = {
+  compact: SINGLE_COLUMN_PANEL_CONTENT_POLICY,
+  standard: SINGLE_COLUMN_PANEL_CONTENT_POLICY,
+  wide: TWO_COLUMN_PANEL_CONTENT_POLICY,
+  vast: TWO_COLUMN_PANEL_CONTENT_POLICY,
+};
+
+export function getPanelContentPolicy(layoutClass: LayoutClass): PanelContentPolicy {
+  return PANEL_CONTENT_POLICY_BY_WIDTH_CLASS[layoutClass.width];
+}
+
+// ── Tree panel UNSET default (Phase 3, audit finding R5) ───────────────
+
+// assumption (not spec-given): the fraction itself — the charter names
+// "a declared fraction of workspace width", not a value. 0.12 keeps a
+// compact/standard workspace at its floor (768 * 0.12 ≈ 92px < 140px
+// floor) while letting a vast 4K workspace (3840 * 0.12 ≈ 461px) grow
+// well past the old fixed 140px (audit finding R5: "stuck at 140px on
+// any screen").
+export const TREE_PANEL_DEFAULT_WIDTH_FRACTION = 0.12;
+
+/**
+ * The tree panel's UNSET (never-dragged) default width — a fraction of
+ * the workspace's own live width, floored at `TREE_PANEL_MIN_WIDTH_PX`
+ * (the existing drag floor, unchanged). Non-finite/non-positive input
+ * (not yet measured) degrades to the floor rather than guessing, same
+ * convention as this module's other derive* functions. This is a
+ * DEFAULT only — `session.ui.treePanelWidthPx`, once the user drags
+ * the INNER bar even once, is the single write channel and this
+ * function is never consulted again for that session (ledger row 414's
+ * "never grows on content change" rule is untouched: this varies with
+ * the WINDOW, once, at render time, not with content).
+ */
+export function computeTreePanelDefaultWidthPx(workspaceWidthPx: number): number {
+  if (!Number.isFinite(workspaceWidthPx) || workspaceWidthPx <= 0) return TREE_PANEL_MIN_WIDTH_PX;
+  return Math.max(TREE_PANEL_MIN_WIDTH_PX, Math.round(workspaceWidthPx * TREE_PANEL_DEFAULT_WIDTH_FRACTION));
+}
+
+/**
+ * `#tree-control-wrapper`'s max-width in its flex-fill (never-dragged
+ * OUTER bar) branch — the mechanism that sends R3's surplus back to
+ * `#board-column` instead of leaving it as dead space inside an
+ * oversized control panel. Mirrors `computeBoardColumnMaxWidthPx`
+ * (`useResizablePanel.ts`): freeze the flex-grow item at its actual
+ * content need, and let the OTHER flex-grow party in the row
+ * (`#board-column`, `flex: 1 1 auto`) absorb what's left — no
+ * JS-computed complement, native flexbox redistribution past a frozen
+ * item. The cap is expressed as a CSS `calc()` string mixing `px`
+ * (the tree default + resizer, both already pixel facts) and `ch` (the
+ * reading measure, which only the browser can resolve against the
+ * control panel's actual font) — deliberately NOT pre-converted to a
+ * single px number in JS, which would need an assumed px-per-ch
+ * constant this module has no basis for.
+ */
+export function computeUnsetWrapperMaxWidthCss(
+  treePanelDefaultWidthPx: number,
+  resizerWidthPx: number,
+  readingMeasureCh: number,
+): string {
+  return `calc(${treePanelDefaultWidthPx}px + ${resizerWidthPx}px + ${readingMeasureCh}ch)`;
+}
+
 // ── ForestDirectory narrow-stack threshold (iter-17, 479px) ───────────
 
 // assumption (not spec-given): reverse-derived from ForestDirectory.vue's
