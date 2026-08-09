@@ -291,9 +291,11 @@ async function resetPriorStandalone(): Promise<void> {
         <p class="hint">{{ $t('cardMetadata.resetPriorInlineHint') }}</p>
       </div>
 
-      <!-- Gamma ─────────────────────────────────────────── -->
+      <!-- Gamma (M21, audit finding, ledger row 1292): plain domain
+           name in the label; the γ symbol/formula demoted to a
+           `title` tooltip (app's existing tooltip convention). ── -->
       <div class="field">
-        <label>{{ $t('cardMetadata.gammaLabel') }}</label>
+        <label :title="$t('cardMetadata.gammaHint')">{{ $t('cardMetadata.gammaLabel') }}</label>
         <input
           v-model.number="localGamma"
           type="number"
@@ -302,6 +304,7 @@ async function resetPriorStandalone(): Promise<void> {
           step="0.01"
           class="num-input"
           :disabled="disabled"
+          :title="$t('cardMetadata.gammaHint')"
           @blur="commitGamma"
           @keydown.enter="commitGamma"
         />

@@ -240,7 +240,25 @@
    * the right semantic for axis labels and hints). */
   --text-0: var(--cluster-12-4);    /* high emphasis (purple) */
   --text-1: var(--cluster-12-4);    /* body copy (purple) */
-  --text-2: var(--cluster-12-6);    /* labels, hints (taupe) */
+  /* M26 (audit finding, ledger row 1292): the raw palette entry
+   * (--cluster-12-6, taupe, rgb(122,111,109), L ~= 0.1661) measures
+   * ~3.84:1 against --surface-0 (--cluster-12-9, rgb(254,218,247),
+   * L ~= 0.7796) — below the WCAG AA 4.5:1 normal-text floor, and this
+   * IS the default (not opt-in) rendering every cluster-theme user
+   * sees for secondary/help text. Same literal darkening this file's
+   * `[data-theme="cluster"][data-contrast-text="on"]` block already
+   * derived for the SAME token under its own opt-in gate (same hue,
+   * R:G:B ratio preserved, scaled to ~85% luminance-equivalent
+   * brightness): rgb(104,94,93), L ~= 0.1175 -> ~4.95:1. PASS. Moving
+   * the fix into the base block (rather than only the opt-in overlay)
+   * is deliberate — M26's brief is "the default fails," and the
+   * opt-in toggle a user must discover and enable is not a fix for a
+   * default. Only this token moves; every other cluster anchor
+   * (including --accent-primary, covered separately by ADR-0019 audit
+   * S4 / ledger rows 1018/1144/1198) is untouched, and no surface
+   * token is touched (commissioner ruling pending on cluster surface
+   * flattening, ledger question family — out of this fix's scope). */
+  --text-2: #685E5D;                /* labels, hints (taupe, darkened for 4.5:1) */
 
   /* ── Accent (2) ──────────────────────────────────────────── */
   --accent-primary:   var(--cluster-12-2);   /* sky blue */
@@ -288,22 +306,28 @@
  * for the mechanism. `AppSettings.appearance.highContrastText` (default
  * false); useAppBootstrap mirrors it onto this attribute.
  *
- * Only `--text-2` and `--accent-primary` are overridden — the two
- * tokens the ADR-0019 audit (`.claude/dispatch-reports/
- * adr19-audit.md` §S4) measured failing WCAG 2.1's 4.5:1 normal-text
+ * Only `--accent-primary` is overridden here now — the ADR-0019 audit
+ * (`.claude/dispatch-reports/adr19-audit.md` §S4) originally measured
+ * BOTH this token and `--text-2` failing WCAG 2.1's 4.5:1 normal-text
  * floor against `--surface-0` (`--cluster-12-9`, `#fedaf7`) when bound
- * to their raw cluster-12 entries. Both overrides are the SAME hue as
- * the palette entry they replace, scaled down in luminance only (no
- * hue rotation, no desaturation toward gray) — "same look, readable",
- * per the commissioner's brief, not a second theme. `--text-0` /
- * `--text-1` (`--cluster-12-4`, deep purple) already clear ~16:1
- * against `--surface-0` and are left alone; every other base anchor,
- * every chart-derived helper (`--heatmap-*`, `--chart-*`), and every
- * role alias (`--player-*`, `--review-*`) is untouched, so the
- * data-series / chart palette this rule must not touch stays exactly
- * as `[data-theme="cluster"]` declares it.
+ * to their raw cluster-12 entries, but M26 (audit finding, ledger row
+ * 1292) re-found the same `--text-2` failure as the DEFAULT (not
+ * opt-in) rendering — an opt-in toggle a user must discover and enable
+ * is not a fix for a default — so `--text-2`'s darkened value moved
+ * into the base `[data-theme="cluster"]` block above and this overlay
+ * no longer needs to restate it (identical value either way; see that
+ * block's own comment for the ratio). The override here is the SAME
+ * hue as the palette entry it replaces, scaled down in luminance only
+ * (no hue rotation, no desaturation toward gray) — "same look,
+ * readable", per the commissioner's brief, not a second theme.
+ * `--text-0` / `--text-1` (`--cluster-12-4`, deep purple) already
+ * clear ~16:1 against `--surface-0` and are left alone; every other
+ * base anchor, every chart-derived helper (`--heatmap-*`, `--chart-*`),
+ * and every role alias (`--player-*`, `--review-*`) is untouched, so
+ * the data-series / chart palette this rule must not touch stays
+ * exactly as `[data-theme="cluster"]` declares it.
  *
- * Ratios computed via the WCAG 2.1 relative-luminance formula
+ * Ratio computed via the WCAG 2.1 relative-luminance formula
  * (`L = 0.2126 R + 0.7152 G + 0.0722 B` on gamma-expanded channels;
  * contrast `= (L1 + 0.05) / (L2 + 0.05)`), against `--surface-0`
  * (`--cluster-12-9`, rgb(254,218,247), L ≈ 0.7796) — the background
@@ -311,13 +335,6 @@
  * background the vast majority of the affected text nodes (tab
  * labels, leaf-labels, the accent CTA/badges) actually render on. */
 [data-theme="cluster"][data-contrast-text="on"] {
-  /* text-2 (labels, hints, axis text): cluster-12-6 rgb(122,111,109),
-   * taupe, L ≈ 0.1661 → 3.84:1 against surface-0 (fails 4.5:1). Scaled
-   * to ~85% luminance-equivalent brightness (same taupe hue, R:G:B
-   * ratio preserved) → rgb(104,94,93), L ≈ 0.1175 → 4.95:1. PASS
-   * (normal text, ≥ 4.5:1). */
-  --text-2: #685E5D;
-
   /* accent-primary (Mint Card CTA, active tab, "5%" badge, branch
    * labels): cluster-12-2 rgb(0,167,255), sky blue, L ≈ 0.3486 →
    * 2.08:1 against surface-0 (fails both 4.5:1 and 3:1). Scaled to

@@ -563,12 +563,18 @@ async function submit() {
                it before the modal renders. -->
           <input type="number" v-model.number="defaultVisits" min="1" step="100" class="dark-input" />
 
-          <label>{{ $t('mint.field.discountGamma') }}</label>
+          <!-- M21 (audit finding, ledger row 1292): labelled with a
+               bare "Discount γ:" — notation the audience of a
+               flashcard app's most-used dialog doesn't read. Plain
+               domain name in the label; the γ symbol/formula demoted
+               to a `title` tooltip, matching the app's existing
+               tooltip convention (see e.g. KeybindingRow.vue). -->
+          <label :title="$t('mint.field.discountGammaHint')">{{ $t('mint.field.discountGamma') }}</label>
           <!-- gamma rides in `grading_parameter.data.gamma` alongside
                default_visits; same opacity story, same typed-accessor
                pattern (see <script>). Range bounded to (0, 1] —
                Ebisu's recall-discount semantics. -->
-          <input type="number" v-model.number="gamma" min="0.01" max="1" step="0.01" class="dark-input" />
+          <input type="number" v-model.number="gamma" min="0.01" max="1" step="0.01" class="dark-input" :title="$t('mint.field.discountGammaHint')" />
 
           <label>{{ $t('mint.field.analysisPalette') }}</label>
           <select v-model="selectedPaletteId" class="dark-select">
