@@ -120,7 +120,7 @@ function setTheme(theme: 'dark' | 'cluster'): void {
   <TabWidget :tabs="subTabs" v-model="(activeSubTab as string /* widen the sub-tab id union to TabWidget's string v-model */)" :keep-mounted="true">
 
     <template #session>
-      <div class="tab-padding">
+      <div class="tab-padding settings-fill-pane">
         <!-- Re-run entry point for the first-run setup wizard (ledger
              slug swz-setup-wizard) — re-running never resets
              `profile.settings.onboarding.completed`; see
@@ -180,7 +180,7 @@ function setTheme(theme: 'dark' | 'cluster'): void {
     </template>
 
     <template #advancedRegistry>
-      <div class="tab-padding">
+      <div class="tab-padding settings-fill-pane">
         <div class="registry-container">
           <RegistryEditor :registry="store.profile.settings" :defaults="DEFAULTS.profile" @update="handleSettingsUpdate"/>
         </div>
@@ -201,6 +201,29 @@ function setTheme(theme: 'dark' | 'cluster'): void {
 </template>
 
 <style scoped>
+/* M3 (audit finding, ledger row 1290): makes the Session and Advanced
+   Registry sub-tabs' `.tab-padding` wrapper itself a bounded flex
+   column reaching TabWidget's `.tab-pane` full height, rather than
+   the plain block box `.tab-padding` is everywhere else it's used
+   (a flex item of a column flex container sizes to CONTENT height by
+   default — `flex-grow: 0` — so without this the wrapper never
+   actually reached the pane's available height for
+   `.registry-container`'s own `flex: 1 1 auto` (shared-chrome.css) to
+   fill). Scoped to THIS file only (Vue's scoped-attribute selector),
+   so it does not touch `.tab-padding`'s other consumers
+   (KeybindingsView.vue, AnalysisControls.vue, AnalysisDashboard.vue,
+   App.vue's own tab-panes) — deliberately not a global `.tab-padding`
+   change, which would have reflowed panes outside this pass's
+   registry/session-pane charter. Applied to Session (whose registry
+   sits below a button/theme-row/proxy-field, all default
+   flex-grow:0 so they keep their natural height while the trailing
+   `.registry-container` absorbs the remainder) and Advanced Registry
+   (a single flex child, so it gets the whole pane). NOT applied to
+   Card Sets, whose registry-container keeps its own inline
+   `clamp(500px, 70vh, 900px)` override untouched (see that class's
+   comment in shared-chrome.css). */
+.settings-fill-pane { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+
 /* Session (UI) theme selector row (row 748). surface-0 control per rows 681/742. */
 .theme-row { display: flex; align-items: center; gap: var(--space-default); margin-top: var(--space-medium); }
 .theme-row label { color: var(--text-1); font-size: var(--text-emphasis); }
