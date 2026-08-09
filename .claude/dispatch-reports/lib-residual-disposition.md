@@ -1,0 +1,80 @@
+# Library audit residual disposition (ledger row 1019)
+
+Worked in `/home/bork/w/wt-lib-residual` on `bork/fix/lib-residual`, base-fresh against
+`omega@next` (`dcace953`) at start. Source of findings:
+`/home/bork/w/omega/.claude/dispatch-reports/library-ui-audit/report.md` (L1-L21).
+
+**Method.** Read every finding in full, then read the current tree
+(`LibraryTable.vue`, `LibraryTab.vue`, `LibraryPreviewPane.vue`, `LibraryImportPanel.vue`,
+`LibraryPlayerFilter.vue`, `library-table-columns.ts`, `theme.css`,
+`useLibraryPreview.ts`, `useLibraryQuery.ts`, `useLibraryPlayerSuggest.ts`,
+`layout-model.ts`, `App.vue`) against each claim. Where a claim was about live rendered
+geometry or computed styles, I did not trust the source diff alone: I ran `npm ci`
+(node_modules were absent in this worktree), started `vite` on scratch port **19100**
+(off the reserved-port list), and drove the real app with `playwright-core` against the
+cached Chromium (`~/.cache/ms-playwright/chromium-1234`) at the audit's own substrate —
+`1920x1080`, `auth_username=local_user` in `localStorage`, default `cluster` theme,
+live backend on `:8764` — reading `getBoundingClientRect()` / `getComputedStyle()` off
+the real DOM, same idiom the original audit used. All scratch measurement scripts and
+the scratch vite process were removed/killed before finishing; nothing scratch is
+committed.
+
+## Disposition table
+
+| Finding | Status | Evidence |
+|---|---|---|
+| L1 — eight ghost tokens, ~58 declarations discarded | VERIFIED-CLOSED | `3387c524`/`fcfea82a`/`1c9f8825`. `theme.css` now declares `--space-tight/default/medium/loose`, `--text-tiny/body/emphasis/heading`, `--border-1/2/3`, `--z-popover`, etc.; all five Library components reference only these real names (grep, no remaining ghost token). Live: header `padding: 4px 8px` (was `0px`), row `border-bottom: 1px solid rgb(122,111,109)` (was `0px none`) — declarations now apply. |
+| L2 — player columns render at 0px | VERIFIED-CLOSED | `f984eb4d`/`cae5b8e2`/`992dd3d2`/`f566862a`. `library-table-columns.ts` gives every column a `minWidth` floor + drop priority (ordinal drops first); `fitColumns` never lets a visible column render below its floor. Live at 1920x1080: `.library-split-list` 393px, header text reads as distinct "Black"/"White"/etc. buttons (no "BlackWhiteDate" fusion). |
+| **L3** — 219px rail splinter | **SPECIAL CASE — foreclosed-with-evidence** | Phase 3 (`35334198`/`8cf601e4`/`a59b2f98`, audit R3) makes the never-dragged `#tree-control-wrapper` carry a `maxWidth` (tree-default + resizer + `PANEL_CONTENT_READING_MEASURE_CH`) so it stops overclaiming and the freed flex-grow goes to `#board-column` — but that mechanism's *complement* is what matters here: the wrapper is no longer starved down to a bare floor either. Live-measured at the audit's own 1920x1080 substrate: `.library-tab` **1073px** wide (audit: 219px), `.library-split` 667px (`list` 393px + `preview` 262px + gaps), `#control-panel` 1074px. This is not the same failure mode reduced — it's a different regime entirely; the Library is no longer a splinter at standard/wide widths. Not re-tested below `compact` width class (768px) or in `axis-column` (portrait) layout — those paths were out of this sweep's scope. |
+| L4 — no keyboard operability | VERIFIED-CLOSED | `4fab5274`/`43640bd3`/`5848ce62` (roving tabindex, `role="listbox"`/`"option"`, `aria-sort`, Arrow/Home/End/PageUp/PageDown/Enter). Confirmed in `LibraryTable.vue`'s current `onRowKeydown`/`moveFocusTo`/template; `LibraryTable-keyboard-nav.test.ts` covers it. |
+| L5 — hover/header/preview surface-differentiation collapse | PRESENTED-FOR-STRIKE | Partially fixed, partially not, and the not-fixed part has a *different* root cause than L1. Fixed: `.library-split-list`/`.library-split-preview` (`LibraryTab.vue`) now carry a real `border: 1px solid var(--border-1)` — the "preview pane has no boundary against the master" item is resolved. NOT fixed, live-verified: `.library-table` bg `rgb(254,218,247)`, `.library-row:hover` bg `rgb(254,218,247)` — **identical**, zero hover feedback, still true; `.library-table-header` bg `rgb(254,218,247)` — identical to rows, still doesn't read as a header. Root cause: `theme.css`'s `cluster` block sets `--surface-0`/`--surface-2`/`--surface-3` to the **same value** (`var(--cluster-12-9)`) by explicit design ("raised over chrome -> back to bg tone" — the exact comment the audit quoted). The tokens are real and resolve; they just resolve identically across all three surface levels in this theme. Fixing needs the `cluster` theme's own surface-differentiation policy to change, which is a theme-wide call (every `--surface-2`/`-3` consumer app-wide, not just Library) — not a Library-local, small, unambiguous fix. Question for the commissioner: should `cluster` mint distinct raised-surface values, and to what? |
+| L6 — no row separators, 32px pitch around 10px type | PRESENTED-FOR-STRIKE | The L1-caused half is fixed: `.library-row`'s `border-bottom: 1px solid var(--border-1)` now live-measures as `1px solid rgb(122,111,109)` (was `0px none`) — separators render again, and the declaration itself was never missing, only its token. NOT fixed: no zebra/alternating-row tint was ever built (and would hit the same L5 surface-flattening wall — two distinct row-tint tokens don't currently differ in `cluster`), and the 32px row height around 10px type is an unchanged, un-re-tuned design ratio. The finding's own headline ("too sparse to be dense and too small to read") is not fully closed by the token fix alone. |
+| L7 — dblclick text-select + interrupts every open with a modal | VERIFIED-CLOSED | `c12f558f`/`5d8307fe`/`0f6cfc6f`/`40d0a73e`. `.library-row` sets `user-select: none` unconditionally; SELECT-PREVIEWS/EXPLICIT-OPEN model confirmed in `LibraryTable.vue` + covered by `LibraryTable-row-open.test.ts` (incl. the `userSelect: none` assertion). |
+| L8 — preview always shows empty board at move 0 | VERIFIED-CLOSED | `4c6681e4`/`2ee1855a`. `useLibraryPreview.ts`: `defaultIndex = path.length > 0 ? path.length - 1 : 0` — defaults to the final main-line position, not the root; an empty game (no moves) correctly stays on the empty board. |
+| L9 — White named first, "vs" collides with both names | VERIFIED-CLOSED | `5e17f3c8`/`2ee1855a`. `LibraryPreviewPane.vue` template renders `meta-player-black` before `meta-player-white`; `.meta-players { gap: var(--space-default) }` is a real token (was the ghost `--space-small`) — live-confirmed no collision. |
+| L10 — 11px button, 1.84:1 contrast | VERIFIED-CLOSED | `3e518290`/`8774031d`/`01db0ff6`/`dcace953`. `.preview-btn` padding is `var(--space-tight) var(--space-default)` (real, not dropped); `.preview-btn.primary` uses `color: var(--text-on-accent)` (role-alias token, not a surface token used as foreground); contrast pinned by `library-selected-open-contrast.test.ts` at >=4.5:1 both themes. |
+| L11 — selected-row text 2.44:1 in dark | VERIFIED-CLOSED | Same commits as L10. `.library-row.selected { color: var(--text-on-accent) }`; theme.css derives it per-theme (dark 5.18:1, cluster 7.74:1); test asserts >=4.5:1 both themes. |
+| L12 — 10px type everywhere, no hierarchy | VERIFIED-CLOSED | Live-measured (playwright, computed styles): `.th` `font-size: 9px`, `color: rgb(122,111,109)` (taupe/`--text-2`); `.filter-label` same; `.import-hint` `font-size: 10px`, `color: rgb(122,111,109)`; vs. row/table body `font-size: 10px`, `color: rgb(11,0,27)` (purple/`--text-1`). No longer identical — a real two-tier size+color split (label/hint tier vs. body-content tier) now renders. Note: the audit's own framing named a *three*-tier intent (`--text-small`/`--text-muted`/body); the real vocabulary that shipped only has two tiers in play here (`--text-tiny` for labels/headers, `--text-body` for content) — but its literal claim, "not similar, identical," is refuted by measurement. |
+| L13 — every keystroke blanks the list to ellipses | PRESENTED-FOR-STRIKE | Partially fixed: `.library-row`'s real `padding: 0 var(--space-default)` and restored `border-bottom` mean the loading-cell `…` no longer sits flush against the left edge with zero row geometry — each loading row now has a visible boundary and inset. NOT fixed: the content is still a single literal `…` glyph (`LibraryTable.vue` template, unchanged) rather than genre-convention skeleton rows preserving row/column geometry. That's real UI feature work, not a dropped declaration. |
+| L14 — narrow width inverts list/preview priority | PRESENTED-FOR-STRIKE | Live-measured at 1100px viewport (post all merged fixes): list **459x169px**, preview **459x478px** — the inversion is still present and essentially unchanged from the audit's own 215px/464px figures (list is if anything slightly worse now). `@container (max-width:700px)` rule in `LibraryTab.vue` (`grid-template-rows: minmax(0,1fr) minmax(0,auto)`) is byte-identical to what the audit describes. L8 softens the framing (preview no longer shows an *empty* board by default) but the geometric priority inversion itself is untouched — a real layout-ratio judgment call. |
+| L15 — invisible drop zone, buttons read as prose | PRESENTED-FOR-STRIKE | Partially fixed: `LibraryImportPanel.vue`'s `.library-import-panel { border: 2px dashed var(--border-1) }` and `.import-btn` (real padding/border/color) and `.import-buttons { gap: var(--space-default) }` are all real tokens now — the "no boundary at all" and "buttons indistinguishable from prose" symptoms are structurally fixed (verified in source, non-ghost tokens). NOT fixed: the panel is still permanently mounted above the list for an action performed roughly once per collection — the placement/prominence complaint is untouched and is a design call (toolbar button / File-menu-style affordance vs. keep inline). |
+| L16 — raw, unnormalized archive data leaks through | PRESENTED-FOR-STRIKE | No assigned arc; unaddressed. Live-verified post-fix: `title` tooltip data (same row data feeding the columns) still shows `Published 1961-04`, `1931-10-28,29` (multi-day, uncanonicalized), `Left unfinished`, `W+R (moves after 210 not recorded)` verbatim. No parsing/normalization was added anywhere in the touched files. Real data-modeling/formatting work — how to canonicalize GoGoD's free-text date/result fields is a judgment call, not a small fix. |
+| L17 — 790,656px scrollbar, no navigation aid | PRESENTED-FOR-STRIKE | No assigned arc; unaddressed. Live-verified: `.library-table-scroll` `scrollHeight: 790656`, `clientHeight: 833` — same ~thousand:1 ratio the audit measured. No pagination, jump-to-index, or grouped headers exist in the current tree. Real navigation-feature work. |
+| L18 — leftmost column is a meaningless ordinal | PRESENTED-FOR-STRIKE | No assigned arc; unaddressed as framed. `library-table-columns.ts` still gives `ordinal` `priority: 1` (drops first) and renders it as a plain `<span>`, not a sortable `.th` button — still leftmost, still non-actionable, still a raw `display_ordinal`. L2's fix means it's no longer the *only* surviving column at narrow widths (an incidental improvement — it now correctly drops before the player columns under pressure), but at standard/wide widths it's still first. Fixing means either reordering it out of primary-scan position or dropping it into the title-tooltip overflow like Ruleset/Size (L20) — two legitimate options with different tradeoffs, so presenting rather than picking one. |
+| L19 — unranked autocomplete, no counts, no keyboard | PRESENTED-FOR-STRIKE | Partially fixed: `.filter-suggest-item` padding is real (`var(--space-tight) var(--space-default)`, was 0); `.filter-suggest`'s `z-index` now reads the real `--z-popover` token (theme.css: `10`) in place of the ghost `--z-dropdown` — items are no longer crushed and the stacking position is declared, not accidental. In `cluster`, `.filter-suggest` still inherits `--surface-2` == `--surface-0` (same L5 root cause) so it's distinguished from the page only by border+shadow, not background. NOT fixed, confirmed in `useLibraryPlayerSuggest.ts`/`LibraryPlayerFilter.vue`: substring `includes()` matching with no prefix-priority ranking; `suggest()`'s own doc comment states counts are deliberately excluded ("the autocomplete dropdown doesn't surface counts"); the `<ul>`/`<li>`+`@mousedown` list is still mouse-only — not focusable, no ArrowDown/Enter/`aria-activedescendant`/combobox roles. This mirrors L4's gap for a second list, and L4's own fix was three commits' worth of work (feat/test/fix) — not a small patch. |
+| L20 — Ruleset/Size served only via native `title` tooltip | PRESENTED-FOR-STRIKE | No assigned arc; unaddressed. `rowTitle()` in `LibraryTable.vue` is unchanged — still the sole home for Ruleset and Board Size, hand-spaced label columns, live-reconfirmed via the same `title` attribute dump used for L16. Promoting these to real columns (or some other surfaced affordance) is an information-architecture call. |
+| L21 — new-column sort defaults to Z→A; no sort affordance until used | **FIXED-HERE** (this branch) | `onHeaderClick` in `LibraryTable.vue` left `direction` untouched on a column switch, silently inheriting whatever the previous column's direction was (default `desc`). Live-reproduced pre-fix exactly as audited: clicking "Black" from the default `date`/`desc` state returned `thug, maxiao888, bork, bork, bork` — Z→A. **Fixed**: switching to a new column now also emits `update:direction: 'asc'`; a second click on the same (now-active) column still toggles. Re-verified live post-fix: clicking "Black" now returns `A Go Review subscriber` first (ascending). New test `tests/integration/LibraryTable-sort-header.test.ts` pins both branches. The finding's SECOND half — no persistent sort-affordance (chevron ghost) on inactive headers, `sortIndicator()` returns `''` until a column is active — is unchanged and is a visual-design call (what the "clickable, unsorted" cue should look like), so that half is left PRESENTED-FOR-STRIKE, not folded into this fix. |
+
+## Status counts
+
+- VERIFIED-CLOSED: 9 (L1, L2, L4, L7, L8, L9, L10, L11, L12)
+- SPECIAL CASE — foreclosed-with-evidence: 1 (L3)
+- PRESENTED-FOR-STRIKE: 10 (L5, L6, L13, L14, L15, L16, L17, L18, L19, L20)
+- FIXED-HERE: 1 (L21)
+- **Total: 21**
+
+## Fix made in this branch
+
+`frontend/src/components/library/LibraryTable.vue` — `onHeaderClick`: a newly-chosen
+sort column now starts ascending (emits `update:direction: 'asc'` alongside
+`update:sort`), instead of silently inheriting whatever direction the previous column
+was left in. New test: `frontend/tests/integration/LibraryTable-sort-header.test.ts`.
+
+## Assumed facts (CLAUDE.md point 7 — recorded here since this branch has no ledger of
+its own; carry into the world ledger if/when this disposition is accepted)
+
+1. "Small and unambiguous" was read narrowly: only L21's direction-reset bug qualified.
+   Zebra striping, autocomplete keyboard nav, ordinal-column repositioning, and raw-data
+   normalization were all judged to require a genuine design/behavior decision (palette,
+   IA, or feature scope) even though some are individually small in line-count, per the
+   task's own instruction that a judgment call gets presented, not resolved unilaterally.
+2. L5's root cause (the `cluster` theme's own `--surface-0`/`-2`/`-3` collapse) is
+   read as a *pre-existing, deliberate* theme design (the in-file comment says so), not a
+   second instance of the L1 ghost-token bug — hence PRESENTED rather than FIXED, since
+   changing it is a theme-wide value decision, not a token-vocabulary correction.
+3. The live-app measurements were taken once, at 1920x1080 (audit's own substrate) and
+   once at 1100px (L14's narrow-width check) — not swept across every `LayoutWidthClass`
+   boundary. L3's "foreclosed-with-evidence" verdict is scoped to standard/wide widths
+   in row-axis; compact width and column-axis (portrait) were not re-measured.
+4. The scratch `vite` dev server was run on port 19100 (outside the reserved list) and
+   killed before this report was finalized; no scratch files were committed.
