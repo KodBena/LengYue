@@ -44,23 +44,29 @@ const isDefault = computed(
   <div class="visits-lerp-config">
     <p class="hint">{{ t('visitsLerp.hint') }}</p>
 
+    <!-- M21 (audit finding, ledger row 1292): plain domain names in
+         the labels; the a/b coefficient letters (and the a·x + b
+         formula) demoted to `title` tooltips, matching the app's
+         existing tooltip convention. -->
     <div class="field">
-      <label>{{ t('visitsLerp.multiplierLabel') }}</label>
+      <label :title="t('visitsLerp.multiplierHint')">{{ t('visitsLerp.multiplierLabel') }}</label>
       <input
         v-model.number="a"
         type="number"
         step="0.01"
         class="dark-input num-input"
+        :title="t('visitsLerp.multiplierHint')"
       />
     </div>
 
     <div class="field">
-      <label>{{ t('visitsLerp.offsetLabel') }}</label>
+      <label :title="t('visitsLerp.offsetHint')">{{ t('visitsLerp.offsetLabel') }}</label>
       <input
         v-model.number="b"
         type="number"
         step="1"
         class="dark-input num-input"
+        :title="t('visitsLerp.offsetHint')"
       />
     </div>
 
