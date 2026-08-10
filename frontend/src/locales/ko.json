@@ -470,5 +470,18 @@
   "wizard.palette.describe.rank.body":    "KataGo가 후보 수들 중 당신의 수를 얼마나 높게 평가했는지에 따라 점수를 부여합니다 — 최상위 수는 만점, 두 번째는 절반, 이런 식입니다. 실제 점수 차이가 얼마나 컸는지는 고려하지 않습니다.",
   "wizard.palette.describe.default.name": "표준 평가",
   "wizard.palette.describe.default.body": "Quality와 동일한 로버스트 차일드 일치도를 사용하지만, 구간을 중앙값이 아니라 가장 나쁜 한 수로 집계합니다 — 기존 프로필과의 호환성을 위해 남겨진 더 엄격한 지표입니다.",
-  "wizard.palette.editorPointer":         "자유로운 편집은 설정의 '분석 환경' 탭을 확인하세요."
+  "wizard.palette.editorPointer":         "자유로운 편집은 설정의 '분석 환경' 탭을 확인하세요.",
+  "wizard.step.engineUri.description":    "분석하려면 KataGo 엔진이 필요합니다 — 이 필드는 앱이 연결할 위치입니다. 이미 입력되어 있다면 네트워크에서 발견되었거나 빌드에 미리 설정된 것이므로 그대로 계속하시면 됩니다. 그렇지 않다면 아래에 엔진 주소를 입력하세요.",
+  "wizard.engineUri.hint":                "예: ws://127.0.0.1:1242. 툴바나 설정에서 언제든 변경할 수 있습니다.",
+  "wizard.engineUri.test.button":         "연결 테스트",
+  "wizard.engineUri.test.probing":        "테스트 중…",
+  "wizard.engineUri.test.reachable":      "연결 가능",
+  "wizard.engineUri.test.unreachable":    "연결할 수 없음 — {reason}",
+  "wizard.engineUri.test.reason.timeout": "시간 초과",
+  "wizard.engineUri.test.reason.error":   "연결 실패",
+  "wizard.engineUri.details.summary":     "연결 방식 안내",
+  "wizard.engineUri.details.docker":      "Docker 번들을 사용하는 경우 KataGo는 컴포즈 시점의 ENGINE_WS_URL로 별도 설정됩니다 — 이 필드는 번들된 프록시만 가리킵니다.",
+  "wizard.engineUri.details.desktop":     "데스크톱 앱을 사용하는 경우 번들된 프록시 자체의 연결 대상 엔진은 설정에서 구성합니다 — 이 필드는 그 프록시 자체를 가리킵니다.",
+  "wizard.engineUri.details.source":      "소스에서 직접 실행하는 경우 이 필드는 KataGo 엔진에 직접, 또는 체인의 어떤 프록시에도 연결될 수 있습니다.",
+  "wizard.engineUri.details.docs":        "전체 설치 안내서는 설치본에 함께 제공되는 문서에 포함되어 있습니다."
 }

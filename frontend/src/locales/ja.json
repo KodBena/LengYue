@@ -470,5 +470,18 @@
   "wizard.palette.describe.rank.body":    "KataGoの候補手の中であなたの手が何番目に評価されたかに基づいて得点を与えます — 最善手なら満点、2位なら半分、というように。実際のスコア差がどれだけ離れていたかは問いません。",
   "wizard.palette.describe.default.name": "標準評価",
   "wizard.palette.describe.default.body": "Qualityと同じロバストチャイルド一致度を用いますが、区間内の中央値ではなく最悪の一手で集計します — 既存プロファイルとの互換性のために残された、より厳格な指標です。",
-  "wizard.palette.editorPointer":         "自由な編集は、設定の「分析環境」タブをご覧ください。"
+  "wizard.palette.editorPointer":         "自由な編集は、設定の「分析環境」タブをご覧ください。",
+  "wizard.step.engineUri.description":    "分析にはKataGoエンジンへの接続が必要です — この項目でアプリが接続する先を指定します。すでに入力されている場合は、ネットワーク上で見つかったか、ビルドにあらかじめ設定されているということなので、そのまま次に進んでください。そうでなければ、下にエンジンのアドレスを入力してください。",
+  "wizard.engineUri.hint":                "例: ws://127.0.0.1:1242。ツールバーや設定からいつでも変更できます。",
+  "wizard.engineUri.test.button":         "接続をテスト",
+  "wizard.engineUri.test.probing":        "テスト中…",
+  "wizard.engineUri.test.reachable":      "接続できました",
+  "wizard.engineUri.test.unreachable":    "接続できません — {reason}",
+  "wizard.engineUri.test.reason.timeout": "タイムアウトしました",
+  "wizard.engineUri.test.reason.error":   "接続に失敗しました",
+  "wizard.engineUri.details.summary":     "接続の仕組み",
+  "wizard.engineUri.details.docker":      "Dockerバンドルを使用している場合、KataGoはコンパイル時のENGINE_WS_URLで別途設定されます — この項目は同梱のプロキシを指すだけです。",
+  "wizard.engineUri.details.desktop":     "デスクトップアプリを使用している場合、同梱プロキシの接続先エンジンは設定画面で設定します — この項目はそのプロキシ自体を指します。",
+  "wizard.engineUri.details.source":      "ソースから実行している場合、この項目はKataGoエンジンに直接、またはチェーン内の任意のプロキシに向けることができます。",
+  "wizard.engineUri.details.docs":        "詳しいセットアップ手順はインストール先に同梱のドキュメントに記載されています。"
 }

@@ -41,26 +41,27 @@
  * `.field-hint`, leaving `.step-description` capped) stayed green.
  * `EXPECTED_CAPPED_COUNT_BY_STEP` below pins the EXACT count per step
  * (verified against each `WizardStep*.vue`'s own template: EngineUri
- * has `.step-description` + `.field-hint` = 2; Finish has
- * `.step-description` + `.finish-hint` = 2; Palette has
- * `.step-description` + four `.palette-descriptions dd` (one per
- * seeded palette, copy refinement rows 1349/1350) + `.field-hint`
- * (the PaletteEditor pointer) = 6, all counted regardless of the
- * advanced `<details>` disclosure's open/closed state since jsdom's
- * querySelectorAll doesn't filter on computed visibility; and the
- * aggregate is pinned to the sum of that table, not a floor — so
+ * has `.step-description` + `.field-hint` + the "How the connection
+ * works" disclosure's `.details-content` wrapper = 3 (copy-rewrite
+ * follow-up, ledger rows 1361/1362/1365/1366 — one shared
+ * `data-prose-measure-ch` on the disclosure wrapper rather than one
+ * per `<p>`); Finish has `.step-description` + `.finish-hint` = 2;
+ * Palette has `.step-description` + four `.palette-descriptions dd`
+ * (one per seeded palette, copy refinement rows 1349/1350) +
+ * `.field-hint` (the PaletteEditor pointer) = 6, all counted
+ * regardless of any `<details>` disclosure's open/closed state since
+ * jsdom's querySelectorAll doesn't filter on computed visibility; and
+ * the aggregate is pinned to the sum of that table, not a floor — so
  * losing any single element's cap now fails both the per-step and
  * the aggregate assertion.
  *
  * Merge update (ledger rows 1357/1358): the former `demoBoard` and
  * `pvAnimation` steps became ONE step, still named `demoBoard`. Its
  * prose count is the SUM of the two former steps' counts (nothing was
- * dropped, both prose paragraphs of the merged-in PV step —
- * `.pv-step-description` and `.mode-settings` — survive alongside the
- * demo board's own `.step-description`): 1 + 2 = 3. The step total
- * count (`WIZARD_STEPS.length`) drops from 7 to 6; the aggregate
- * element count is the table's sum (15 after both the palette copy
- * refinement and this merge — prose moved between steps, none removed).
+ * dropped): 1 + 2 = 3. The step total (`WIZARD_STEPS.length`) is 6;
+ * the aggregate element count is the table's sum — 16 after the
+ * palette copy refinement, the PV/demo merge, and the engine-URI
+ * copy rewrite (prose moved and added, none silently removed).
  *
  * License: Public Domain (The Unlicense)
  */
@@ -91,11 +92,12 @@ afterEach(() => {
 
 // Exact expected count of `[data-prose-measure-ch]` elements per step —
 // see file header for the per-file accounting. Total across all six
-// (post-merge) steps is 15 (palette copy refinement added five;
-// the PV/demo merge moved two into demoBoard, removing none).
+// (post-merge) steps is 16 (palette copy refinement added five; the
+// PV/demo merge moved two into demoBoard; the engine-URI rewrite
+// added the disclosure wrapper).
 const EXPECTED_CAPPED_COUNT_BY_STEP: Record<WizardStepId, number> = {
   theme: 1,
-  engineUri: 2,
+  engineUri: 3,
   palette: 6,
   demoBoard: 3, // merged demoBoard(1) + former pvAnimation(2) — see file header
   sgfImport: 1,
@@ -132,7 +134,7 @@ describe('wizard prose measure (R7) — every step\'s prose carries the declared
       }
     }
 
-    // Exact total (15), not a floor — see file header.
+    // Exact total (16), not a floor — see file header.
     expect(proseElementsSeen).toBe(EXPECTED_TOTAL_CAPPED_COUNT);
   });
 
