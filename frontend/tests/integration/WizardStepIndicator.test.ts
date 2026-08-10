@@ -1,11 +1,14 @@
 /**
  * tests/integration/WizardStepIndicator.test.ts
  *
- * Direct coverage of the step-dot row (commission row 748 series):
- * all seven dots share one styling apart from the current-step
- * marker, and every dot but the current one is clickable in BOTH
- * directions — `useSetupWizard.goTo` accepts any index, nothing
- * gates forward progression.
+ * Direct coverage of the step-dot row (commission row 748 series,
+ * extended by audit M18 / ledger rows 1390/1397): all six dots share
+ * one styling apart from the current-step marker, every dot but the
+ * current one is clickable in BOTH directions — `useSetupWizard.goTo`
+ * accepts any index, nothing gates forward progression — and every
+ * dot now also carries its step's NAME (genre convention: macOS
+ * Setup Assistant / JetBrains wizards label every step, not just the
+ * current one), not just a bare digit.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -15,6 +18,12 @@ import { mount } from '@vue/test-utils';
 import { i18n } from '../../src/i18n';
 import WizardStepIndicator from '../../src/components/wizard/WizardStepIndicator.vue';
 import { WIZARD_STEPS } from '../../src/composables/useSetupWizard';
+
+// Same source `en` catalog the mounted `i18n` plugin resolves
+// `$t('wizard.step.<id>.title')` against — asserting against the
+// live catalog value (not a hardcoded string) so this test doesn't
+// silently drift from whatever English copy the titles actually ship.
+import en from '../../src/locales/en.json';
 
 describe('WizardStepIndicator', () => {
   it('gives every non-current dot the same class set', () => {
@@ -72,5 +81,29 @@ describe('WizardStepIndicator', () => {
     for (const dot of wrapper.findAll('.step-dot')) {
       expect((dot.element as HTMLButtonElement).disabled).toBe(false);
     }
+  });
+
+  it('renders every step\'s NAME (title), not just its digit', () => {
+    const wrapper = mount(WizardStepIndicator, {
+      props: { currentIndex: 0 },
+      global: { plugins: [i18n] },
+    });
+    const labels = wrapper.findAll('.step-label');
+    expect(labels.length).toBe(WIZARD_STEPS.length);
+    WIZARD_STEPS.forEach((id, i) => {
+      const expectedTitle = (en as Record<string, string>)[`wizard.step.${id}.title`];
+      expect(expectedTitle).toBeTruthy(); // sanity: the key this test pins is real
+      expect(labels[i].text()).toBe(expectedTitle);
+    });
+  });
+
+  it('each dot still shows its 1-based digit alongside the name', () => {
+    const wrapper = mount(WizardStepIndicator, {
+      props: { currentIndex: 0 },
+      global: { plugins: [i18n] },
+    });
+    const digits = wrapper.findAll('.step-digit');
+    expect(digits.length).toBe(WIZARD_STEPS.length);
+    digits.forEach((d, i) => expect(d.text()).toBe(String(i + 1)));
   });
 });
