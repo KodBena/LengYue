@@ -1388,7 +1388,14 @@ const activeTab = computed<string>({
    separates them without introducing dead space between. Used for
    both nested-splitter divider bars (#resizer-outer, board↔tree;
    #resizer-inner, tree↔control — see useResizablePanel.ts). */
-.panel-resizer { width: 2px; background: var(--resizer-contrast); cursor: col-resize; z-index: var(--z-affordance); flex-shrink: 0; }
+.panel-resizer { width: 2px; background: var(--resizer-contrast); cursor: col-resize; z-index: var(--z-affordance); flex-shrink: 0; position: relative; }
+/* Grab-area widening (commissioner ruling 2026-08-10): the bar PAINTS
+   2px but GRABS as if 4px — an invisible pseudo-element overhanging
+   1px each side hit-tests as the resizer itself (mousedown + cursor
+   both work over it), so the visual stays hairline without the
+   hard-to-grab cost. Layout budget is untouched: the overhang is
+   absolutely positioned, so RESIZER_WIDTH_PX = 2 stays truthful. */
+.panel-resizer::before { content: ''; position: absolute; top: 0; bottom: 0; left: -1px; right: -1px; }
 .panel-resizer:hover, .panel-resizer:active { background: var(--accent-primary); }
 
 .collapse-btn { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-disabled); height: 18px; padding: 0 var(--space-tight); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-default); font-size: var(--text-body); }
