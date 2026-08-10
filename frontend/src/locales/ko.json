@@ -465,6 +465,7 @@
   "wizard.palette.describe.score.name":   "점수 손실",
   "wizard.palette.describe.score.body":   "당신의 수를 두기 직전과 직후의 국면을 비교하여, 그 한 수가 전체 반면 평가를 얼마나 흔들었는지를 점수로 측정합니다 (부호는 어느 쪽이 두었는지에 따라 올바르게 보정됩니다). '최상위 수와의 비교'와 달리, 엔진의 탐색이 후보로 한 번도 나열하지 않은 수를 포함해 실제로 둔 모든 수를 평가합니다.",
   "wizard.palette.definitionLabel":       "정의:",
+  "wizard.palette.table.descriptionHeader": "설명:",
   "wizard.palette.describe.quality.name": "품질 (로버스트 차일드 보정)",
   "wizard.palette.describe.quality.body": "당신의 수가 탐색에서 방문 횟수가 가장 많은 수('로버스트 차일드')와 얼마나 일치하는지를 측정하며, 탐색이 그 수를 얼마나 확신했는지로 보정합니다 — 여러 수가 타당해 보이는 국면에서는 편차를 더 관대하게 평가합니다.",
   "wizard.palette.describe.rank.name":    "엔진 순위",

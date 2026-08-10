@@ -465,6 +465,7 @@
   "wizard.palette.describe.score.name":   "スコア損失",
   "wizard.palette.describe.score.body":   "着手直前と直後の局面を比較し、あなたの一手が盤面全体の評価をどれだけ動かしたかを得点で示します(符号は着手した側から見て正しく補正されます)。「最善手との比較」とは異なり、探索が候補として一度も挙げなかった手も含め、実際に打ったすべての着手を評価します。",
   "wizard.palette.definitionLabel":       "定義:",
+  "wizard.palette.table.descriptionHeader": "説明:",
   "wizard.palette.describe.quality.name": "品質(ロバストチャイルド較正)",
   "wizard.palette.describe.quality.body": "あなたの手が探索で最も訪問数の多い手(「ロバストチャイルド」)にどれだけ一致しているかを測り、探索がその手をどれだけ確信していたかで較正します — 多くの手が妥当に見える局面では、ずれはより寛容に評価されます。",
   "wizard.palette.describe.rank.name":    "エンジン順位",
