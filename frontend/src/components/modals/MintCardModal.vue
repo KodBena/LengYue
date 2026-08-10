@@ -687,7 +687,7 @@ async function submit() {
   padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); background: var(--surface-2);
 }
 .modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-tight); }
-.close-btn { background: none; border: none; color: var(--text-2); font-size: var(--text-heading); cursor: pointer; }
+.close-btn { background: none; border: none; color: var(--text-disabled); font-size: var(--text-heading); cursor: pointer; }
 
 .modal-body { padding: var(--space-medium); }
 
@@ -714,8 +714,8 @@ async function submit() {
 }
 .duplicate-checking {
   color: var(--text-0);
-  background: color-mix(in srgb, var(--text-2) 8%, transparent);
-  border-color: color-mix(in srgb, var(--text-2) 20%, transparent);
+  background: color-mix(in srgb, var(--text-disabled) 8%, transparent);
+  border-color: color-mix(in srgb, var(--text-disabled) 20%, transparent);
 }
 .duplicate-warning {
   color: var(--text-0);
@@ -762,7 +762,7 @@ async function submit() {
   background: var(--border-1); color: var(--accent-primary); padding: 2px 6px; border-radius: var(--radius-default);
   font-size: var(--text-emphasis); font-family: monospace; display: flex; align-items: center; gap: var(--space-tight);
 }
-.tag-remove { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: var(--text-emphasis); padding: 0; line-height: 1; }
+.tag-remove { background: none; border: none; color: var(--text-disabled); cursor: pointer; font-size: var(--text-emphasis); padding: 0; line-height: 1; }
 .tag-remove:hover { color: var(--state-attention); }
 
 .tag-input {

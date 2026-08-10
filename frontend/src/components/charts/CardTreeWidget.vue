@@ -309,7 +309,7 @@ watch(
   user-select: none;
 }
 .tree-section.expanded .tree-header { border-bottom: 1px solid var(--surface-2); }
-.tree-header .chevron { font-size: var(--text-tiny); color: var(--text-2); width: 10px; flex-shrink: 0; }
+.tree-header .chevron { font-size: var(--text-tiny); color: var(--text-disabled); width: 10px; flex-shrink: 0; }
 .tree-header .title { font-size: var(--text-emphasis); color: var(--text-0); font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tree-header .meta { font-size: var(--text-body); color: var(--text-0); white-space: nowrap; }
 .tree-header .counts { margin-left: auto; font-size: var(--text-body); color: var(--accent-primary); white-space: nowrap; }

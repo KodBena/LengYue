@@ -148,12 +148,24 @@ function toSvg(x: number, y: number): { x: number; y: number } {
 // 'letters' mode) provide per-variation disambiguation but use a
 // different drawing path entirely (see below): the ring is dropped
 // and a black letter label appears at the intersection.
-const VARIATION_TINT_ANCHOR: ChromeAnchor = '--text-2';
-// Active-next-move ring is a *lighter* gray than the variation
-// rings — `--text-1` reads as "primary chrome text," brighter than
-// `--text-2`, so the active marker stays visually distinct from a
-// non-active variation when both render at the same time.
-const ACTIVE_TINT_ANCHOR: ChromeAnchor = '--text-1';
+//
+// rows 1478/1479/1481/1497: this is board-ring tint, not text — a
+// non-text token-category use predating the text-tier retirement
+// (theme.css's "Text tier retirement" docstring; findings census in
+// .claude/dispatch-reports/labels-text0-sweep-build.md). --text-1 and
+// --text-2 no longer exist as declared anchors, so both anchors below
+// were repointed to their nearest surviving equivalent, preserving
+// the SAME "active ring is brighter than a resting variation ring"
+// relationship the original comment called for: --text-disabled
+// carries forward the old --text-2 value byte-for-byte (the dimmer
+// resting tone); --text-0 is the brightest surviving anchor (the old
+// --text-1 role had no direct successor, so this is a deliberate
+// "round up to the brightest available" choice, same reasoning as
+// AnalysisControls.vue's `.info-icon`).
+const VARIATION_TINT_ANCHOR: ChromeAnchor = '--text-disabled';
+// Active-next-move ring is brighter than the resting variation
+// rings — see the comment above.
+const ACTIVE_TINT_ANCHOR: ChromeAnchor = '--text-0';
 // Letters-mode label colour. Black on wood reads as a high-contrast
 // SGF-style annotation, separate from the gray ring vocabulary.
 // magic-literal: hex literal #000 chosen by the user's spec

@@ -400,7 +400,7 @@ const gameStatus = computed(() =>
   border-color: var(--accent-primary);
 }
 .pass-btn:disabled {
-  color: var(--text-2);
+  color: var(--text-disabled);
   border-color: var(--border-2);
   cursor: default;
   opacity: 0.5;
@@ -415,16 +415,19 @@ const gameStatus = computed(() =>
   font-size: var(--text-body);
 }
 
-/* Move-number toggle. Inactive: muted text-2, no background.
+/* Move-number toggle. Inactive: --text-disabled (rows 1478/1479/
+   1481/1497 — an on/off toggle affordance, not readable prose; the
+   commissioner's disabled-control exception), no background.
    Active: accent-primary, hinting "on" without a separate
    indicator (the board itself is the indicator). Borderless to
-   match the chrome's low-contrast register; the same tonal scale
-   as `.caps` for the resting state so the button doesn't draw
-   the eye when off. */
+   match the chrome's low-contrast register; `.caps` nearby is now
+   --text-0 (readable capture-count text, rows 1478/1479/1481), so
+   this button's resting state is deliberately dimmer than its
+   neighbor — the toggle-off signal, not a shared tonal scale. */
 .move-numbers-btn {
   background: transparent;
   border: none;
-  color: var(--text-2);
+  color: var(--text-disabled);
   font-family: monospace;
   font-size: var(--text-body);
   font-weight: bold;

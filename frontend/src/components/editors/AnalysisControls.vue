@@ -468,7 +468,13 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary
    "danger / caution". Sits inline with the experimental-tag in
    the title row when analysisAutoSave is on. */
 .auto-badge { font-size: var(--text-tiny); padding: 0 var(--space-default); border: 1px solid var(--accent-primary); color: var(--accent-primary); border-radius: var(--radius-default); text-transform: uppercase; line-height: 1.4; }
-.info-icon { display: inline-block; width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--text-1); text-align: center; font-size: 9px; line-height: 11px; color: var(--text-1); cursor: help; }
+/* rows 1478/1479/1481/1497: --text-1 retired with no direct
+   successor (only --text-2's value was carried forward, as
+   --text-disabled). This "?" glyph is an icon, not readable prose,
+   but since its old tier no longer exists, it defaults up to
+   --text-0 rather than down to the disabled tone — safe (more
+   contrast, not less) and consistent with the ruling's spirit. */
+.info-icon { display: inline-block; width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--text-0); text-align: center; font-size: 9px; line-height: 11px; color: var(--text-0); cursor: help; }
 .settings-row { display: flex; flex-direction: column; gap: 3px; }
 .label-with-value { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-body); color: var(--text-0); }
 .value-badge { padding: 0 var(--space-default); border-radius: var(--radius-default); color: var(--accent-primary); font-family: monospace; }

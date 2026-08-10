@@ -140,7 +140,7 @@ onBeforeUnmount(() => {
 
 .locale-trigger .flag { font-size: var(--text-emphasis); line-height: 1; }
 .locale-trigger .name { font-size: var(--text-emphasis); }
-.locale-trigger .caret { color: var(--text-2); font-size: var(--text-tiny); margin-left: 1px; }
+.locale-trigger .caret { color: var(--text-disabled); font-size: var(--text-tiny); margin-left: 1px; }
 
 .locale-menu {
   position: absolute;

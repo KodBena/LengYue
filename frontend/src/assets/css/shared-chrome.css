@@ -52,7 +52,7 @@
   content: '▶';
   margin-right: var(--space-default);
   font-size: var(--text-tiny);
-  color: var(--text-2);
+  color: var(--text-disabled);
   transition: transform var(--duration-default) ease;
   flex-shrink: 0;
 }

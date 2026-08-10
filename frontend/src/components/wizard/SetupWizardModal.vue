@@ -111,7 +111,7 @@ useModalKeyboard(modalContentRef, computed(() => true), wizard.finish);
 .wizard-header { display: flex; align-items: center; justify-content: space-between; }
 .wizard-title { color: var(--text-0); margin: 0; font-size: var(--text-heading); }
 .close-btn {
-  background: none; border: none; color: var(--text-2); font-size: var(--text-heading);
+  background: none; border: none; color: var(--text-disabled); font-size: var(--text-heading);
   cursor: pointer; line-height: 1; padding: 0 var(--space-tight);
 }
 .close-btn:hover { color: var(--text-0); }

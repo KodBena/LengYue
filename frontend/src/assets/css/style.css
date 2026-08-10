@@ -86,7 +86,7 @@ body {
   border-radius: var(--radius-circle);
   background: transparent;
   border: 1px solid var(--border-1);
-  color: var(--text-2);
+  color: var(--text-disabled);
   font-size: var(--text-body);
   line-height: 1;
   cursor: pointer;

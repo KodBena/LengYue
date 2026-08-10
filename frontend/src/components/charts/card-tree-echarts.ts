@@ -69,7 +69,7 @@ const colors = {
   get active()             { return themeColor('--accent-primary-canonical'); },
   get activeBorder()       { return themeColor('--text-0'); },
   get context()            { return themeColor('--surface-3'); },
-  get contextBorder()      { return themeColor('--text-2'); },
+  get contextBorder()      { return themeColor('--text-disabled'); },
   get stub()               { return themeColor('--surface-2'); },
   get stubBorder()         { return themeColor('--border-3'); },
   get stubActiveBorder()   { return themeColor('--accent-primary-canonical'); },

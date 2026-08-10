@@ -184,7 +184,7 @@ function reassignPanel(panelId: AnalysisPanelId, toTabId: string): void {
   background: transparent;
   border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
-  color: var(--text-2);
+  color: var(--text-disabled);
   /* M16 (audit finding, ledger row 1251): Analysis Layout's
      up/down/x arrows measured ~20x18px, under the 24x24 WCAG 2.5.8
      floor. */

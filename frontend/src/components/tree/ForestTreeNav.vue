@@ -165,7 +165,7 @@ function hiddenCount(game: ForestNavGameNode): number {
 .game-row { display: flex; align-items: flex-start; gap: var(--space-tight); padding: var(--space-tight) var(--space-default); background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-default); cursor: pointer; transition: border-color var(--duration-default); }
 .game-row:hover { border-color: var(--border-3); }
 .game-row.selected { border-color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 5%, transparent); }
-.chevron-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: var(--text-body); padding: 0 2px; line-height: 1; flex-shrink: 0; }
+.chevron-btn { background: none; border: none; color: var(--text-disabled); cursor: pointer; font-size: var(--text-body); padding: 0 2px; line-height: 1; flex-shrink: 0; }
 .chevron-btn:hover { color: var(--text-0); }
 .game-meta { flex: 1; min-width: 0; }
 .game-title { display: flex; align-items: baseline; gap: var(--space-tight); font-size: var(--text-emphasis); font-weight: bold; color: var(--text-0); margin-bottom: 2px; min-width: 0; }

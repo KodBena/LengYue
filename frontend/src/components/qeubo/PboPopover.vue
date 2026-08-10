@@ -320,7 +320,7 @@ async function onPin(): Promise<void> {
    intentional muted-cyan accent matching the legacy QeuboToolbar
    and Toolbar's .highlight-btn vocabulary. */
 .apply-btn { border-color: #2a5a7a; color: var(--accent-primary); }
-.debug-toggle { background: none; border: none; color: var(--text-2); font-size: var(--text-emphasis); cursor: pointer; padding: 0 var(--space-tight); font-family: inherit; line-height: 1; }
+.debug-toggle { background: none; border: none; color: var(--text-disabled); font-size: var(--text-emphasis); cursor: pointer; padding: 0 var(--space-tight); font-family: inherit; line-height: 1; }
 .debug-toggle.active { color: var(--accent-primary); }
 /* About-PBO `?` chip — circle outline carrying the long phase
    tooltip. Matches the QeuboToolbar's prior phase-help glyph

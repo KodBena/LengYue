@@ -392,7 +392,7 @@ async function resetPriorStandalone(): Promise<void> {
   letter-spacing: var(--tracking-default);
   font-size: var(--text-emphasis);
 }
-.chevron { color: var(--text-2); font-size: var(--text-tiny); }
+.chevron { color: var(--text-disabled); font-size: var(--text-tiny); }
 
 .panel-body {
   padding: var(--space-default);

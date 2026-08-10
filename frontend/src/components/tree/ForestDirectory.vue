@@ -650,7 +650,7 @@ onUnmounted(() => {
 .action-btn-large:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 .start-review-btn { background: var(--accent-secondary); color: var(--surface-1); margin-bottom: var(--space-tight); }
 .tools-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 8px; border-bottom: 1px solid var(--surface-3); }
-.reload-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: var(--text-heading); padding: 0; line-height: 1; }
+.reload-btn { background: none; border: none; color: var(--text-disabled); cursor: pointer; font-size: var(--text-heading); padding: 0; line-height: 1; }
 .tree-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 .header-controls { display: flex; align-items: center; gap: var(--space-default); }
 .orient-btn { background: var(--surface-2); color: var(--accent-primary); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: 1px 3px; font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-tight); cursor: pointer; font-family: inherit; }

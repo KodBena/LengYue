@@ -608,7 +608,7 @@ const edges = computed(() => {
 .toggle-group rect { transition: stroke var(--duration-default), fill var(--duration-default); }
 .toggle-leader { stroke: var(--border-3); }
 .toggle-box { fill: var(--surface-2); stroke: var(--border-3); }
-.toggle-mark { stroke: var(--text-2); }
+.toggle-mark { stroke: var(--text-disabled); }
 .toggle-group:hover .toggle-box { stroke: var(--accent-primary); fill: var(--surface-3); }
 .toggle-group:hover .toggle-mark { stroke: var(--text-0); }
 .hit-area { pointer-events: all; }

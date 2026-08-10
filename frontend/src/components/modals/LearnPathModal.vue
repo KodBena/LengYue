@@ -207,7 +207,7 @@ function runDiscard() {
   padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); background: var(--surface-2);
 }
 .modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-tight); }
-.close-btn { background: none; border: none; color: var(--text-2); font-size: var(--text-heading); cursor: pointer; }
+.close-btn { background: none; border: none; color: var(--text-disabled); font-size: var(--text-heading); cursor: pointer; }
 
 .modal-body { padding: var(--space-medium); }
 .hint { font-size: var(--text-body); color: var(--text-0); margin: 0 0 var(--space-medium) 0; }
