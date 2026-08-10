@@ -177,81 +177,128 @@ function getPvMoves(): PvMove[] {
       {{ $t('wizard.demoBoard.loadError', { message: loadError }) }}
     </p>
 
-    <div v-else-if="board" class="demo-board-layout">
-      <div class="demo-board-mount">
-        <BoardWidget :key="board.id" :state="board" />
-        <p v-if="provenance" class="demo-provenance">
-          {{ $t('wizard.demoBoard.provenance', {
-            model: provenance.model, turn: provenance.selectedTurn,
-            visits: provenance.analysisVisits,
-          }) }}
-        </p>
+    <template v-else-if="board">
+      <div class="demo-board-layout">
+        <div class="demo-board-mount">
+          <BoardWidget :key="board.id" :state="board" />
+          <p v-if="provenance" class="demo-provenance">
+            {{ $t('wizard.demoBoard.provenance', {
+              model: provenance.model, turn: provenance.selectedTurn,
+              visits: provenance.analysisVisits,
+            }) }}
+          </p>
+        </div>
+
+        <div class="demo-board-controls">
+          <fieldset class="control-group">
+            <legend>{{ $t('wizard.demoBoard.togglesLegend') }}</legend>
+            <label class="checkbox-row">
+              <input type="checkbox" v-model="showMoveSuggestions" />
+              {{ $t('wizard.demoBoard.toggle.moveSuggestions') }}
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" v-model="ownershipLiveness" />
+              {{ $t('wizard.demoBoard.toggle.liveness') }}
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" v-model="ownershipContinuous" />
+              {{ $t('wizard.demoBoard.toggle.ownershipContinuous') }}
+            </label>
+          </fieldset>
+
+          <fieldset class="control-group">
+            <legend>{{ $t('wizard.demoBoard.slidersLegend') }}</legend>
+            <KnobSlider v-for="id in FIRST_FIVE_KNOB_IDS" :key="id" :knob-id="id" />
+          </fieldset>
+        </div>
       </div>
 
-      <div class="demo-board-controls">
-        <fieldset class="control-group">
-          <legend>{{ $t('wizard.demoBoard.togglesLegend') }}</legend>
-          <label class="checkbox-row">
-            <input type="checkbox" v-model="showMoveSuggestions" />
-            {{ $t('wizard.demoBoard.toggle.moveSuggestions') }}
-          </label>
-          <label class="checkbox-row">
-            <input type="checkbox" v-model="ownershipLiveness" />
-            {{ $t('wizard.demoBoard.toggle.liveness') }}
-          </label>
-          <label class="checkbox-row">
-            <input type="checkbox" v-model="ownershipContinuous" />
-            {{ $t('wizard.demoBoard.toggle.ownershipContinuous') }}
-          </label>
-        </fieldset>
+      <!-- PV playback as a full-width third region (not stacked in the
+           side column): the side-column stack was ~650px tall against a
+           ~550px height budget and bled under the wizard footer. Laid
+           horizontally (preview beside the two selects) it costs ~150px
+           of height instead of ~310px, which is what lets the whole
+           step fit the modal at a standard viewport. Same ids/classes,
+           same store cells — layout-only move. -->
+      <fieldset class="control-group pv-group">
+        <legend>{{ $t('wizard.pvAnimation.legend') }}</legend>
+        <p class="pv-step-description" :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t('wizard.pvAnimation.description') }}</p>
 
-        <fieldset class="control-group">
-          <legend>{{ $t('wizard.demoBoard.slidersLegend') }}</legend>
-          <KnobSlider v-for="id in FIRST_FIVE_KNOB_IDS" :key="id" :knob-id="id" />
-        </fieldset>
-
-        <fieldset class="control-group">
-          <legend>{{ $t('wizard.pvAnimation.legend') }}</legend>
-          <p class="pv-step-description" :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t('wizard.pvAnimation.description') }}</p>
-
+        <div class="pv-row">
           <PvAnimationPreview :get-pv-moves="getPvMoves" />
 
-          <label class="field-label" for="wizard-pv-mode">{{ $t('wizard.pvAnimation.modeLabel') }}</label>
-          <select id="wizard-pv-mode" v-model="mode" class="dark-select">
-            <option v-for="m in PV_MODES" :key="m" :value="m">{{ $t(`wizard.pvAnimation.mode.${m}`) }}</option>
-          </select>
-          <p class="mode-settings" :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t(`wizard.pvAnimation.mode.${mode}.settings`) }}</p>
+          <div class="pv-select-field">
+            <label class="field-label" for="wizard-pv-mode">{{ $t('wizard.pvAnimation.modeLabel') }}</label>
+            <select id="wizard-pv-mode" v-model="mode" class="dark-select">
+              <option v-for="m in PV_MODES" :key="m" :value="m">{{ $t(`wizard.pvAnimation.mode.${m}`) }}</option>
+            </select>
+            <p class="mode-settings" :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t(`wizard.pvAnimation.mode.${mode}.settings`) }}</p>
+          </div>
 
-          <label class="field-label" for="wizard-pv-annotation">{{ $t('wizard.pvAnimation.annotationLabel') }}</label>
-          <select id="wizard-pv-annotation" v-model="annotation" class="dark-select">
-            <option v-for="a in ANNOTATIONS" :key="a" :value="a">{{ $t(`wizard.pvAnimation.annotation.${a}`) }}</option>
-          </select>
-        </fieldset>
-      </div>
-    </div>
+          <div class="pv-select-field">
+            <label class="field-label" for="wizard-pv-annotation">{{ $t('wizard.pvAnimation.annotationLabel') }}</label>
+            <select id="wizard-pv-annotation" v-model="annotation" class="dark-select">
+              <option v-for="a in ANNOTATIONS" :key="a" :value="a">{{ $t(`wizard.pvAnimation.annotation.${a}`) }}</option>
+            </select>
+          </div>
+        </div>
+      </fieldset>
+    </template>
   </div>
 </template>
 
 <style scoped>
-.wizard-step-demo-board { display: flex; flex-direction: column; gap: var(--space-default); }
+.wizard-step-demo-board {
+  display: flex; flex-direction: column; gap: var(--space-default);
+  /* Height budget — coupled to SetupWizardModal.vue's card metrics
+     (measured 2026-08-10): the card caps at 88vh with ~152px of fixed
+     chrome around the step (header 18 + step indicator 24 + footer 32
+     + 2×20px card padding + 3×12px card gaps). The step budgets itself
+     to the remainder so the card never scrolls and `.wizard-body`
+     (a shrinkable flex child with no overflow handling of its own)
+     never shrink-bleeds the step's content under the footer buttons —
+     the defect this style block repairs. Below ~630px viewport height
+     the board floor + control minimums exceed the budget and this
+     becomes a deliberate, visible scroll region (ADR-0019 last resort:
+     the modal's own width/height and the step registry are fenced to
+     concurrent builders, so neither widening the dialog nor splitting
+     the step was available; surfaced in the build report, not silently
+     resolved). */
+  max-height: calc(88vh - 156px);
+  overflow-y: auto;
+}
 .step-description { color: var(--text-1); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 .load-error { color: var(--state-error); font-weight: bold; }
 
 .demo-board-layout { display: flex; gap: var(--space-medium); align-items: flex-start; flex-wrap: wrap; }
-.demo-board-mount { flex: 1 1 320px; min-width: 260px; max-width: 420px; }
+/* The board is square (the SVG's height tracks the mount's width), so
+   capping width caps the row's height: 88vh minus the modal chrome
+   (156px, above) minus the step's other fixed rows (description ~44 +
+   provenance ~28 + PV region ~150 + gaps ≈ 264px). 380px is the
+   spacious-viewport ceiling; `min-width` floors board usability at
+   small viewports (a floor breach falls back to the root scroll
+   region above rather than a sub-legible board). */
+.demo-board-mount { flex: 1 1 300px; min-width: 220px; max-width: min(380px, calc(88vh - 420px)); }
 .demo-provenance { color: var(--text-2); font-size: var(--text-emphasis); margin: var(--space-tight) 0 0 0; }
 
 .demo-board-controls { flex: 1 1 240px; min-width: 220px; display: flex; flex-direction: column; gap: var(--space-medium); }
-.control-group { border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: var(--space-default); display: flex; flex-direction: column; gap: var(--space-tight); }
+.control-group { border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: var(--space-tight) var(--space-default); display: flex; flex-direction: column; gap: var(--space-tight); }
 .control-group legend { color: var(--text-2); font-size: var(--text-emphasis); text-transform: uppercase; padding: 0 var(--space-tight); }
 .checkbox-row { display: flex; align-items: center; gap: var(--space-tight); color: var(--text-1); font-size: var(--text-emphasis); }
 
 .pv-step-description { color: var(--text-1); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
+/* Preview + the two selects side by side (wrap-safe): the horizontal
+   arrangement is what compresses the PV region from ~310px (stacked)
+   to ~150px so the step fits the modal's height budget. */
+.pv-row { display: flex; flex-wrap: wrap; gap: var(--space-medium); align-items: flex-start; }
+.pv-row > .pv-animation-preview { flex: 1 1 200px; min-width: 180px; }
+.pv-select-field { flex: 1 1 150px; min-width: 140px; display: flex; flex-direction: column; gap: var(--space-tight); }
 .field-label { color: var(--text-2); font-size: var(--text-emphasis); text-transform: uppercase; }
 .dark-select {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
   padding: var(--space-default); font-size: var(--text-emphasis); font-family: inherit;
   border-radius: var(--radius-default); outline: none;
+  width: 100%; box-sizing: border-box;
 }
 .mode-settings { color: var(--text-2); font-size: var(--text-emphasis); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 </style>
