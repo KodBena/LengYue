@@ -16,12 +16,13 @@ from __future__ import annotations
 
 import math
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Tuple
 
 import lyt_ast as ast
 import loader
+from baseline import BASELINE_WAIVERS
 from compiler import solve_lexicographic
 from render import render_ascii
 
@@ -42,6 +43,12 @@ class Registration:
     board_widget: str
     classes: List[ast.ScreenClass]
     layout_by_class: Dict[str, str]  # class id -> layout name (from any of `files`)
+    # `--baseline` load-mode support (lyt-constants-swap commission):
+    # layout name -> declared wellformed.Waiver list. Empty for every
+    # registration except the as-is baseline — `load_layouts` treats an
+    # absent/empty map exactly like the pre-waiver `waivers=None` shape,
+    # so this default changes no other registration's behavior.
+    waivers: Dict[str, list] = field(default_factory=dict)
 
 
 REGISTRATIONS: List[Registration] = [
@@ -65,6 +72,23 @@ REGISTRATIONS: List[Registration] = [
         board_widget="B",
         classes=[ast.ScreenClass(id="default", w_px=1920, h_px=1080)],
         layout_by_class={"default": "current-row-repaired"},
+    ),
+    Registration(
+        # AS-IS conformance baseline (lyt-constants-swap commission,
+        # ledger row 1687) — loaded via the `--baseline` waiver map
+        # (`baseline.BASELINE_WAIVERS`), NOT strict mode: this
+        # encoding is HONESTLY L2-non-conformant at two disclosed
+        # sites (see the .lyt file's own header), waived rather than
+        # repaired. `run_all` below threads `reg.waivers` into
+        # `loader.load_layouts` for every registration (an empty dict
+        # for every OTHER registration, so this changes no existing
+        # registration's behavior).
+        name="current_row_asis.lyt",
+        files=["current_row_asis.lyt"],
+        board_widget="B",
+        classes=[ast.ScreenClass(id="default", w_px=1920, h_px=1080)],
+        layout_by_class={"default": "current-row-asis"},
+        waivers=BASELINE_WAIVERS,
     ),
     Registration(
         # Merged: this is the one pair of §5 encodings that come as TWO
@@ -142,7 +166,7 @@ def run_all(*, cols: int = 100, rows: int = 36, time_limit_s: float = 20.0) -> i
         layouts: Dict[str, ast.Slot] = {}
         for f in reg.files:
             text = (ENCODINGS_DIR / f).read_text()
-            layouts.update(loader.load_layouts(text))
+            layouts.update(loader.load_layouts(text, waivers=reg.waivers))
         print("=" * 100)
         print(f"ENCODING {reg.name}")
         print("=" * 100)

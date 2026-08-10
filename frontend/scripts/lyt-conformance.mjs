@@ -54,11 +54,18 @@
  *
  * Usage:
  *   node scripts/lyt-conformance.mjs [--port N] [--headed]
- *        [--out-dir DIR] [--dist-dir DIR] [--build]
+ *        [--out-dir DIR] [--dist-dir DIR] [--build] [--source repaired|asis]
  *
  *   --build     run `npm run build` first (otherwise assumes `dist/`
  *               is already current — the caller's responsibility to
  *               keep in sync with the source being measured).
+ *   --source    which generated solved-geometry module to diff against
+ *               (lyt-constants-swap commission, row 1687): 'repaired'
+ *               (default, current_row_repaired.lyt /
+ *               lyt-solved-layout.gen.ts) or 'asis' (current_row_asis.lyt
+ *               / lyt-solved-layout-asis.gen.ts, the as-is conformance
+ *               baseline). Both come from `research/lyt/emit_ts.py
+ *               --registration <name>`.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -67,8 +74,6 @@ import { spawn } from 'node:child_process';
 import { mkdir, writeFile, access } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-import { LYT_SOLVED_LAYOUT, LYT_SCREEN_CLASSES } from '../src/state/lyt-solved-layout.gen.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FRONTEND_ROOT = join(__dirname, '..');
@@ -111,9 +116,30 @@ const SLOT_SELECTORS = {
   loadSave:      { selector: '.board-actions' },
   boardRail:     { selector: '.thumb-list' },
   addBoard:      { selector: '.tab-add-btn' },
+  // MAPPING FIX (lyt-constants-swap commission): the as-is encoding
+  // (current_row_asis.lyt) wraps addBoard in a 2-child H so its solved
+  // width is the real 20px button footprint, not the previous 168px
+  // full-row band -- see that file's own "MAPPING-FIX DECISION" note.
+  // `addBoardGap` is the filler absorbing the row's remaining width;
+  // there is no separate DOM element for it (the button has no
+  // wrapper), so it is unmappable by design, not a bug.
+  addBoardGap:   { selector: null, reason: 'LYT-only filler (current_row_asis.lyt) absorbing the addBoard row\'s remaining width -- no corresponding DOM element exists (`.tab-add-btn` has no wrapper)' },
   jankTest:      { selector: null, reason: 'dev-only (`v-if="isDevBuild"`) — absent by construction from a production build' },
   preview:       { selector: '.board-preview' },
-  title:         { selector: '.toolbar-title' },
+  // MAPPING FIX (lyt-constants-swap commission, row 1687): `.toolbar-title`
+  // is a genuinely empty inline `<span>` (Toolbar.vue:99, no text content
+  // by default; Toolbar.vue:245's CSS rule sets only font/text properties,
+  // no width/padding/min-height). An empty inline element with no box-
+  // forcing CSS collapses to a real 0x0 rect in every browser -- this is
+  // NOT a selector hitting the wrong/hidden element, it is a correct
+  // measurement of a slot that genuinely has zero rendered footprint
+  // today (matching the consult document's own "reserved but empty",
+  // layout-language-consult.md line 470 / §5.1). A 0x0 rect carries no
+  // comparable position or size information against the solver's elastic
+  // (max:inf) reservation for the same leaf, so this is marked honestly
+  // unmappable rather than reported as a numerically-large but
+  // meaningless "divergent".
+  title:         { selector: null, reason: '`.toolbar-title` (Toolbar.vue:99) is a genuinely empty `<span>` with no box-forcing CSS (Toolbar.vue:245) -- it collapses to a real 0x0 box, not a hidden/mis-selected element; a 0x0 measurement carries no comparable position/size information' },
   engineUri:     { selector: '.engine-uri' },
   engineMetrics: { selector: '.engine-metrics-bar', reason: 'mounts only while the engine is connected (`v-if="isConnected"`) — this harness runs with no backend/proxy, so expect absent' },
   sliders:       { selector: '.sliders-metric' },
@@ -127,7 +153,19 @@ const SLOT_SELECTORS = {
   autoNav:       { selector: null, reason: 'dev-only (`v-if="isDevBuild"`) — absent by construction from a production build' },
   popStress:     { selector: null, reason: 'dev-only (`v-if="isDevBuild"`) — absent by construction from a production build' },
   connect:       { selector: '.engine-controls .toolbar-btn:last-child' },
-  sidebarToggle: { selector: '.sidebar-collapse-rail .collapse-btn' },
+  // MAPPING FIX (lyt-constants-swap commission, "sweep the other
+  // selectors" item): the as-is encoding models sidebarToggle as a bare
+  // leaf directly under the outermost H, which (per H's own "every
+  // child's height is R.h" semantics, layout-language-consult.md §4.1)
+  // solves to the FULL viewport height -- and that matches the real
+  // DOM: `.sidebar-collapse-rail` (App.vue:521-525, App.vue:1049-1056)
+  // is a flex child of a stretch-default row with no explicit height,
+  // so it genuinely stretches full-height too; only the 18x18 button
+  // inside it is small. The previous selector targeted the small button
+  // (`.collapse-btn`), producing a false ~1000px height "divergence"
+  // against a leaf whose solved identity is the whole rail. Retargeted
+  // to the rail div itself, matching the leaf's real identity.
+  sidebarToggle: { selector: '.sidebar-collapse-rail' },
   boardToggle:   { selector: '.right-toggles .collapse-btn:nth-child(1)' },
   treeToggle:    { selector: '.right-toggles .collapse-btn:nth-child(2)' },
   ctrlToggle:    { selector: '.right-toggles .collapse-btn:nth-child(3)' },
@@ -176,6 +214,30 @@ const headed = argv.includes('--headed');
 const doBuild = argv.includes('--build');
 const outDir = flag('out-dir', DIVERGENCE_DIR);
 const distDir = flag('dist-dir', join(FRONTEND_ROOT, 'dist'));
+// --source selects which generated solved-geometry module (and which
+// encoding's report naming) this run targets: 'repaired' (default,
+// current_row_repaired.lyt) or 'asis' (current_row_asis.lyt, the
+// lyt-constants-swap commission's conformance BASELINE). Both modules
+// are produced by research/lyt/emit_ts.py --registration <name>.
+const SOURCES = {
+  repaired: {
+    module: '../src/state/lyt-solved-layout.gen.ts',
+    encodingLabel: 'current-row-repaired',
+    encodingPath: 'research/lyt/encodings/current_row_repaired.lyt',
+  },
+  asis: {
+    module: '../src/state/lyt-solved-layout-asis.gen.ts',
+    encodingLabel: 'current-row-asis',
+    encodingPath: 'research/lyt/encodings/current_row_asis.lyt',
+  },
+};
+const sourceKey = flag('source', 'repaired');
+const source = SOURCES[sourceKey];
+if (!source) {
+  console.error(`[lyt-conformance] unknown --source '${sourceKey}' -- expected one of: ${Object.keys(SOURCES).join(', ')}`);
+  process.exit(2);
+}
+const { LYT_SOLVED_LAYOUT, LYT_SCREEN_CLASSES } = await import(source.module);
 
 function run(cmd, args, opts = {}) {
   return new Promise((resolve, reject) => {
@@ -242,6 +304,21 @@ async function measureAtSize(browser, { label, wPx, hPx }) {
 
 function classify(solvedRect, measuredRect) {
   if (!measuredRect) return { verdict: 'unmappable', reason: 'selector matched no element in the rendered DOM' };
+  // MAPPING FIX (lyt-constants-swap commission, "sweep the other
+  // selectors" item): a selector can match a REAL element that is
+  // present in the DOM but rendered at zero area (`display: none` at
+  // this viewport's responsive breakpoint, or -- the `title` slot's
+  // own case, now handled by marking it unmappable at the selector
+  // level instead -- a genuinely empty inline element). Either way, a
+  // 0x0 rect's x/y are meaningless (browsers report a collapsed
+  // origin, not "where this would render if visible") -- diffing it
+  // against a nonzero solved rect produces a numerically large but
+  // semantically empty "divergent" verdict. Reclassified as unmappable
+  // with a named reason instead, same disclosure shape as a
+  // null-selector slot.
+  if (measuredRect.w === 0 && measuredRect.h === 0) {
+    return { verdict: 'unmappable', reason: 'element present in the DOM but rendered at zero area (display:none at this viewport, or no rendered content) -- a 0x0 rect carries no comparable position/size information' };
+  }
   const dx = Math.abs(solvedRect.x - measuredRect.x);
   const dy = Math.abs(solvedRect.y - measuredRect.y);
   const dw = Math.abs(solvedRect.w - measuredRect.w);
@@ -263,10 +340,11 @@ function renderReportMarkdown(runs, meta) {
   const lines = [];
   lines.push(`# LYT conformance divergence report — ${stamp}`);
   lines.push('');
-  lines.push('Phase 1 "shadow mode" (LYT adoption roadmap, commission: lyt-shadow-harness).');
-  lines.push('Measured against the BUILT SPA, no backend running, current-row-repaired');
-  lines.push('encoding (`research/lyt/encodings/current_row_repaired.lyt`) vs. its solved');
-  lines.push('geometry (`frontend/src/state/lyt-solved-layout.gen.ts`, generated by');
+  lines.push('Phase 1/2 "shadow mode" (LYT adoption roadmap; commission: lyt-shadow-harness,');
+  lines.push('then lyt-constants-swap row 1687). Measured against the BUILT SPA, no backend');
+  lines.push(`running, ${meta.source.encodingLabel} encoding`);
+  lines.push(`(\`${meta.source.encodingPath}\`) vs. its solved geometry`);
+  lines.push(`(\`frontend/src/state/${meta.source.module.split('/').pop()}\`, generated by`);
   lines.push('`research/lyt/emit_ts.py`).');
   lines.push('');
   lines.push(`Tolerance: ${TOLERANCE_PX}px per axis (x/y/w/h) — see the script's own`);
@@ -384,8 +462,8 @@ async function main() {
     }
 
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const reportPath = join(outDir, `${stamp}-current-row-repaired.md`);
-    const report = renderReportMarkdown(runs, { stamp, screenClasses: LYT_SCREEN_CLASSES });
+    const reportPath = join(outDir, `${stamp}-${source.encodingLabel}.md`);
+    const report = renderReportMarkdown(runs, { stamp, screenClasses: LYT_SCREEN_CLASSES, source });
     await mkdir(outDir, { recursive: true });
     await writeFile(reportPath, report);
     console.log(`[lyt-conformance] wrote ${reportPath}`);

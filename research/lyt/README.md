@@ -164,3 +164,28 @@ The underlying spec unsoundness this prototype surfaced (the literal §4.1
 semantics and `aspect` are jointly unsatisfiable in general) is real and
 arguably the prototype's most valuable finding — it just needs to be
 named as what it is, rather than narrated as a geometry-only proof.
+
+## The `--baseline` load mode (lyt-constants-swap, ledger row 1687)
+
+`load_layouts` / `check_wellformed` accept an optional `waivers`
+parameter — a `layout name -> [wellformed.Waiver, ...]` map — for loading
+an encoding that is HONESTLY L2-non-conformant rather than either (a)
+refusing to load it at all, or (b) silently weakening the checker for
+every encoding. Every `Waiver` is a loud, enumerated exemption at one
+exact tree path, and must name the law and a citation (`wellformed.py`'s
+`Waiver` docstring has the full mechanism and its stale-waiver-refusal
+safety net). Omitting `waivers` (the default) is byte-identical to this
+prototype's pre-baseline, strict-mode behavior — every OTHER encoding is
+unaffected.
+
+`research/lyt/baseline.py`'s `BASELINE_WAIVERS` is the one registry this
+mechanism is populated from today, covering
+`encodings/current_row_asis.lyt` — the LYT shadow-harness's AS-IS
+conformance baseline (today's SPA row-axis layout transcribed
+warts-and-all, unlike `current_row_repaired.lyt`, which structurally
+repairs its L1/L2 warts). `runner.py`'s `Registration.waivers` field and
+`emit_ts.py --registration current_row_asis.lyt` both thread this map
+through, so the CLI runner and the codegen agree on what's waived and
+why. See `encodings/current_row_asis.lyt`'s own header for the two
+disclosed L2 sites and `.claude/dispatch-reports/lyt-constants-swap-build.md`
+for the divergence-report evidence this baseline produced.

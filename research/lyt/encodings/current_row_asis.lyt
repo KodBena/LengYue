@@ -1,0 +1,218 @@
+-- CONFORMANCE BASELINE, not a design proposal (lyt-constants-swap
+-- commission, ledger row 1687). Transcribes today's SPA row-axis
+-- layout warts-and-all: the toggle cluster in its REAL split position
+-- (sidebar-collapse rail standing alone on the left, `.right-toggles`
+-- riding the nav bar on the right — App.vue:521-525 / App.vue:561-572,
+-- both re-read this session), banners as they actually mount
+-- (system+release presence — untypable, see TYPE-LEVEL NOTE below),
+-- and real paddings/gaps where measurable from the CSS
+-- (assets/css/theme.css:543-545, App.vue's own `.sidebar-collapse-rail`
+-- / `.top-nav-bar` / `.collapse-btn` / `.right-toggles` rules) or from
+-- the shadow-harness's own Playwright measurement
+-- (research/lyt/divergence/2026-08-10T16-26-56-479Z-current-row-repaired.md's
+-- 1920x1080 "measured" column — the SAME live app, so its numbers are
+-- valid input to THIS file even though that report was written against
+-- the repaired encoding).
+--
+-- UNLIKE `current_row_repaired.lyt`, this file applies NO L2 structural
+-- repair (the toggle cluster is NOT folded into the nav bar's substantial
+-- content) and introduces no NEW preserve-reservation design choice
+-- (per the commission: "NO L2/preserve repairs"). Its two known L2 sites
+-- are loaded via the `--baseline` waiver mechanism
+-- (`wellformed.Waiver`, wired up this session) — see
+-- `tests/test_lyt.py`'s `BASELINE_WAIVERS_ASIS` (mirrored in
+-- `runner.py`/`emit_ts.py`) for the exact citations, and the divergence
+-- report filed alongside this file for the enumerated list.
+--
+-- TYPE-LEVEL NOTE (distinct from the L1/L2 waiver mechanism — these are
+-- NOT well-formedness-law refusals, they are constructions LYT's typed
+-- AST has no representation for at all, per errors.py's own docstring
+-- ("an unrepresentable construct... never a violated well-formedness
+-- law")): two of the app's real behaviors have no loadable spelling in
+-- this prototype's grammar:
+--   1. Content-driven sizing (`max CONTENT`, App.vue:1077's `.top-nav-bar`
+--      having no fixed height — it grows with wrapped content,
+--      Toolbar.vue's flex-wrap). Approximated the same way
+--      `current_row_repaired.lyt` had to: `envelope:
+--      {single_line, wrapped_two_line}` over the row's two OBSERVED
+--      height states (measured: single-line content sits at
+--      y=34,h=24 within the 32px-min-height bar; the divergence
+--      report's own "most interesting divergence" section witnessed a
+--      genuine wrap to y=100 at 1280x1024). This is a representational
+--      necessity, not a design repair — the real behavior (unbounded
+--      content-driven growth) is still WORSE than what `envelope`'s
+--      finite state list can express; disclosed, not hidden.
+--   2. System-driven, fully-removing presence (`@toggle(system,
+--      release)` — untypable, `lyt_ast.Presence.__post_init__`,
+--      layout-language-consult.md line 268). The three system-driven
+--      banners (captureBanner/saveBanner/systemLog) and setupChip
+--      really do `v-if`-mount/unmount (App.vue:582-625,
+--      StatusBar.vue:213-217) — a true `release`-style removal, not a
+--      `preserve`-style "stays reserved, stops painting". The ONLY
+--      loadable spelling for a system-driven toggle is
+--      `@toggle(system, preserve)`; this file uses it not as a design
+--      choice (the commission's "no preserve repairs" instruction) but
+--      because it is the sole representable option — `AMENDMENT 1`'s
+--      min-raising (`loader.py::_apply_preserve_reservation`) then
+--      applies to these four slots UNAVOIDABLY, as an automatic
+--      consequence of the loader being law for every `preserve` slot
+--      now, not because this file elected the preserve semantics.
+--
+-- Sizing sources, disclosed per group:
+--   - sidebarToggle: rail padding is `7px var(--space-tight) 0`
+--     (App.vue:1049-1056) around an 18px-tall/wide button
+--     (`.collapse-btn`, App.vue:1401, div height 18px; divergence
+--     report measured w=18,h=18 for the button itself) —
+--     `--space-tight` is 4px (assets/css/theme.css:543), so the rail's
+--     own reserved width is 18 + 4 + 4 = 26px. This matches the
+--     original consult document's own "~26.5px" estimate (§1, line 54).
+--   - loadSave/boardRail/addBoard/jankTest/preview: unchanged from
+--     `current_row_repaired.lyt` (168px sidebar column, same per-row
+--     heights) — that file's own sizing for this group was already a
+--     faithful transcription of `SidebarWidget.vue`'s real layout, not
+--     an L1/L2 repair, so re-deriving it here would just reproduce the
+--     same numbers.
+--   - top-nav-bar Toolbar-interior (title/engineUri/engineMetrics/
+--     sliders/setup/moveNav/mint-cluster): title/engineUri/
+--     engineMetrics/sliders/setup/moveNav sizes unchanged from
+--     `current_row_repaired.lyt` (same rationale as above — that
+--     file's per-leaf sizes were transcriptions of the consult
+--     document's own §5.1 text, not L2 repairs). The mint-cluster's
+--     eight action buttons get the shadow-harness's OWN measured
+--     widths (1920x1080 row) instead of the repaired file's uniform
+--     32px placeholder, since real per-button widths are now available
+--     from a live measurement: mint=106, learn=90, play=43, match=51,
+--     connect=67 (dev-only clearCache/autoNav/popStress keep a 32px
+--     placeholder — no measurement exists for them in a production
+--     build, consistent with the divergence report's own "unmappable
+--     by design" note for all three).
+--   - `addBoard`: MAPPING-FIX DECISION (lyt-constants-swap commission
+--     item 2 — the conformance harness measured this slot as a 168x20
+--     full-width band but the real DOM element, `.tab-add-btn`
+--     (SidebarWidget.vue:228, styled at SidebarWidget.vue:304-307), is
+--     an explicit 20x20 button — `width: 20px` overrides the sidebar
+--     flex column's default stretch-to-fill. LYT's V() semantics give
+--     every V-child the FULL width of its parent by construction (no
+--     way to spell "narrower than my row" without an H-wrap), so the
+--     BAND identity the previous transcription implied was structurally
+--     forced, not a deliberate choice. Repaired here (in the encoding,
+--     not the selector — `.tab-add-btn` was already the right target)
+--     by wrapping addBoard in a 2-child H: the button's real 20px width,
+--     plus a documented, selector-less filler (`addBoardGap`) absorbing
+--     the row's remaining 148px (168-20) — there is no separate DOM
+--     element for that remaining flex space (the button has no
+--     wrapper), so `addBoardGap` is unmappable BY DESIGN, same
+--     disclosure class as the four dev-only leaves.
+--   - `.right-toggles` (boardToggle/treeToggle/ctrlToggle + locale):
+--     REAL DOM position — App.vue:561-572, a dedicated `div` alongside
+--     `<Toolbar style="flex:1">` inside `.top-nav-bar`, NOT folded into
+--     Toolbar's own interior the way the repaired file's restructuring
+--     did. Per-leaf widths from the shadow-harness's 1920x1080
+--     measurement: boardToggle/treeToggle/ctrlToggle = 33px each,
+--     locale = 78px.
+--   - banners/setupChip/main split-workspace: unchanged from
+--     `current_row_repaired.lyt` (see TYPE-LEVEL NOTE above for why
+--     `preserve` is used regardless of design intent) EXCEPT
+--     resizerOuter/resizerInner, corrected from the repaired file's
+--     stale `4px` to today's real `1px` (App.vue's `.panel-resizer`,
+--     `layout-model.ts`'s own `RESIZER_WIDTH_PX = 1` comment: "narrowed
+--     from 4px alongside the max-contrast recolor, commissioner ruling
+--     2026-08-10" — the repaired encoding predates that ruling; this
+--     as-is file must not).
+--
+-- L2 SITES (both loaded via waiver — citations in the waiver registry,
+-- not repeated here to avoid the two sources of truth drifting):
+--   1. The outermost H's three-way partition
+--      (sidebarToggle / sidebar-V / main-V) — `sidebarToggle` is a bare
+--      chrome/action leaf standing as a direct child of a Split whose
+--      main-V sibling has an elastic (`fr`) pref, which trips the
+--      dominance check's own disclosed AMBIGUOUS-fr-sibling path
+--      (wellformed.py's "Ambiguity" section) rather than a clean
+--      majority — still an L2-law refusal either way, per that
+--      module's own "both cases... report the same way" design.
+--   2. `.right-toggles`' own H (boardToggle/treeToggle/ctrlToggle +
+--      locale) — three 33px chrome leaves (99px) against a 177px total
+--      (99+78 locale) — 99*2=198 > 177 — a genuine, unambiguous
+--      majority violation. This is the SAME defect class as the
+--      canonical sidebar-collapse-rail witness (SPEC-AMENDMENTS.md
+--      Amendment 2), independently reproduced by the real
+--      `.right-toggles` div's own real widths — not manufactured for
+--      this file.
+--
+-- Public Domain (The Unlicense), matching `current_row_repaired.lyt`'s
+-- own license line.
+layout current-row-asis =
+  {min 0px, pref 1fr, max inf} H(
+    @fixed {26px} sidebarToggle[chrome, action],
+    @toggle(user, release) {min 168px, pref 168px, max 168px} V(
+      {min 44px, pref 44px, max 44px} loadSave[common, action],
+      {min 0px, pref 1fr, max inf} boardRail[common, info+action],
+      {min 20px, pref 20px, max 20px} H(
+        {20px} addBoard[common, action],
+        {min 0px, pref 148px, max inf} addBoardGap[common, info]
+      ),
+      @dev {min 18px, pref 18px, max 18px} jankTest[debug, action],
+      {min 150px, pref 150px, max 150px} preview[common, info]
+    ),
+    {min 0px, pref 1fr, max inf} V(
+      {min 32px, pref 58px, max 96px, envelope: {single_line, wrapped_two_line}} H(
+        {min 0px, pref 1fr, max inf} H(
+          {min 0px, pref 220px, max inf} H(
+            {min 0px, pref 0px, max inf} title[chrome, info],
+            {min 0px, pref 220px, max 220px} engineUri[common, info+action]
+          ),
+          {min 96px, pref 160px, max 220px, envelope: {disconnected, latency_1digit, latency_2digit, latency_3digit, latency_4digit, latency_5digit}} engineMetrics[common, info],
+          {min 24px, pref 24px, max 24px} sliders[common, info+action],
+          @toggle(user, preserve) {min 24px, pref 24px, max 24px} setup[go, action],
+          {min 96px, pref 96px, max 96px} moveNav[board, action],
+          {min 0px, pref 490px, max inf} H(
+            {106px} mint[go, action],
+            {90px} learn[go, action],
+            {43px} play[go, action],
+            {51px} match[go, action],
+            @dev {32px} clearCache[common, action],
+            @dev {32px} autoNav[debug, action],
+            @dev {32px} popStress[debug, action],
+            {67px} connect[common, action]
+          )
+        ),
+        {min 0px, pref 177px, max inf} H(
+          {33px} boardToggle[chrome, action],
+          {33px} treeToggle[chrome, action],
+          {33px} ctrlToggle[chrome, action],
+          {min 78px, pref 78px, max 78px} locale[common, action]
+        )
+      ),
+      @toggle(system, preserve) {min 0px, pref 32px, max 32px} captureBanner[common, info],
+      @toggle(system, preserve) {min 0px, pref 32px, max 32px} saveBanner[common, info+action],
+      @toggle(system, preserve) {min 0px, pref 250px, max 250px} systemLog[common, info+action],
+      {min 0px, pref 1fr, max inf} H(
+        @toggle(user, release) {pref 1fr, aspect-coupled} V(
+          {pref maximize, aspect 1} B[board],
+          {min 24px, pref 24px, max 24px} H(
+            @toggle(system, preserve) {min 0px, pref 90px, max 90px} setupChip[go, info],
+            {min 0px, pref 60px, max inf} moveBadge[board, info],
+            {min 0px, pref 120px, max inf} players[board, info],
+            {min 0px, pref 160px, max inf} rulesKomi[board, info+action],
+            {min 0px, pref 1fr, max inf} hintSlot[common, info],
+            {28px} pass[board, action],
+            {28px} moveNumbers[board, action],
+            {min 0px, pref 60px, max inf} caps[board, info],
+            {min 0px, pref 90px, max inf} userBadge[common, info+action]
+          )
+        ),
+        {1px} resizerOuter[common, action],
+        {min WRAPPER_MIN, pref 1fr, max inf} H(
+          @toggle(user, release) {min 140px, pref 140px, max inf, drag-persisted} tree[board, info+action],
+          {1px} resizerInner[common, action],
+          @toggle(user, release) {min WRAPPER_MIN, pref 1fr, max inf} T(
+            {min WRAPPER_MIN, pref 1fr, max inf} CP-library[blackbox],
+            {min WRAPPER_MIN, pref 1fr, max inf} CP-cards[blackbox],
+            {min WRAPPER_MIN, pref 1fr, max inf} CP-settings[blackbox],
+            {min WRAPPER_MIN, pref 1fr, max inf} CP-analysis[blackbox],
+            {min WRAPPER_MIN, pref 1fr, max inf} CP-other[blackbox]
+          )[BLACK BOX]
+        )
+      )
+    )
+  )

@@ -191,10 +191,65 @@ comments to learn that L4 is a no-op in this codebase.
 """
 from __future__ import annotations
 
-from typing import List, Tuple
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
 
 import lyt_ast as ast
 from errors import LytLoadError
+
+
+@dataclass(frozen=True)
+class Waiver:
+    """A single, loud, enumerated exemption from one well-formedness law
+    at one tree location — the mechanism named by the lyt-constants-swap
+    commission for loading an as-is baseline encoding that is honestly
+    L1/L2-non-conformant (`research/lyt/encodings/current_row_asis.lyt`).
+
+    Per the commission's own instruction ("a waiver must name the law and
+    the wiki/consult citation" — a documented per-law waiver annotation,
+    not a global weakening of the checker), every field is mandatory and
+    checked at construction:
+
+      - `law`: which well-formedness law is being waived (currently only
+        `"L2"` is checkable at all — see wellformed.py/loader.py's L1
+        disclosure — so this is `"L2"` in practice, but the field is
+        open-ended rather than hardcoded, in case a future law gains a
+        structural checker).
+      - `path`: the exact tree path `find_l2_violations`'s walk reports
+        for the violating Split node (`"root/H0"` etc.) — matched
+        EXACTLY, not as a prefix, so a waiver only ever silences the one
+        site it was written against, never an unrelated sibling that
+        happens to share a path prefix.
+      - `citation`: the wiki/consult-document citation naming WHY this
+        specific site is a known, accepted baseline wart rather than a
+        defect to fix (e.g. a `layout-language-consult.md` line range, or
+        an ADR). A waiver with no citation is exactly the "silently
+        passing it" failure mode the commission forbids.
+
+    `check_wellformed` below additionally refuses to load if a declared
+    waiver does NOT match any violation actually found on this load (a
+    "stale waiver" — one that no longer names a real site, whether
+    because the encoding changed or the path was mistyped) — a decorative
+    waiver that silences nothing real is exactly as dishonest as an
+    unwaived violation passing silently, so it is refused the same way.
+    """
+
+    law: str
+    path: str
+    citation: str
+
+    def __post_init__(self) -> None:
+        if not self.law:
+            raise ValueError("Waiver.law must be non-empty")
+        if not self.path:
+            raise ValueError("Waiver.path must be non-empty")
+        if not self.citation:
+            raise ValueError(
+                "Waiver.citation must name the wiki/consult citation this "
+                "waiver rests on — an uncited waiver is the silent-pass "
+                "failure mode ADR-0002 and the lyt-constants-swap "
+                "commission both forbid."
+            )
 
 
 def _is_bare_chrome_action_leaf(slot: ast.Slot) -> bool:
@@ -279,11 +334,63 @@ def find_l2_violations(root: ast.Slot, *, path: str = "root") -> List[str]:
     return violations
 
 
-def check_wellformed(root: ast.Slot, *, layout_name: str) -> None:
+def check_wellformed(
+    root: ast.Slot, *, layout_name: str, waivers: Optional[List[Waiver]] = None
+) -> List[Waiver]:
+    """Runs the L2 dominance check and arbitrates it against any declared
+    `Waiver`s (see that dataclass's docstring for the full mechanism —
+    this is the `--baseline` load-mode support the lyt-constants-swap
+    commission asks for). Returns the list of waivers actually APPLIED
+    (a subset of `waivers`, in `l2`'s own discovery order) so a caller
+    (the runner, the emitter, a test) can report exactly what was let
+    through and why, rather than the waiver list silently disappearing
+    once it does its job.
+
+    Two loud-refusal cases beyond the un-waived-violations case that
+    already existed:
+      - a declared waiver whose `(law, path)` matches no violation found
+        THIS load ("stale waiver" — see `Waiver`'s docstring).
+      - any remaining, un-waived violation (unchanged from before this
+        function grew a waiver parameter — the default `waivers=None`
+        call shape is byte-identical in behavior to the pre-waiver
+        version for every existing caller).
+    """
+    waivers = list(waivers or [])
     l2 = find_l2_violations(root)
-    if l2:
+    waiver_index: Dict[Tuple[str, str], Waiver] = {(w.law, w.path): w for w in waivers}
+    applied: List[Waiver] = []
+    remaining: List[str] = []
+    matched_keys: set = set()
+    for v in l2:
+        path = v.split(":", 1)[0]
+        key = ("L2", path)
+        w = waiver_index.get(key)
+        if w is not None:
+            applied.append(w)
+            matched_keys.add(key)
+        else:
+            remaining.append(v)
+    stale = [w for k, w in waiver_index.items() if k not in matched_keys]
+    if stale:
+        raise LytLoadError(
+            f"layout {layout_name!r} declares {len(stale)} waiver(s) that "
+            "do not match any L2 violation actually found on this load — "
+            "a waiver must name a real, currently-present site "
+            "(ADR-0002: a decorative waiver silencing nothing is refused "
+            "loudly, not left in place)",
+            {
+                "layout": layout_name,
+                "law": "waiver-integrity",
+                "stale": [
+                    {"law": w.law, "path": w.path, "citation": w.citation} for w in stale
+                ],
+            },
+        )
+    if remaining:
         raise LytLoadError(
             f"layout '{layout_name}' violates L2 (zero-standing-cost "
-            f"affordances) at {len(l2)} site(s)",
-            {"layout": layout_name, "law": "L2", "violations": l2},
+            f"affordances) at {len(remaining)} site(s) not covered by a "
+            "declared waiver",
+            {"layout": layout_name, "law": "L2", "violations": remaining},
         )
+    return applied

@@ -64,7 +64,7 @@ docstring for the full rationale and seam-choice disclosure.
 """
 from __future__ import annotations
 
-from typing import FrozenSet, List, Optional
+from typing import Dict, FrozenSet, List, Optional
 
 import lyt_ast as ast
 import parser as lytparser
@@ -427,18 +427,34 @@ def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
     raise LytLoadError("unknown raw node kind", {"path": path, "node": repr(node)})
 
 
-def load_layouts(text: str) -> "dict[str, ast.Slot]":
+def load_layouts(
+    text: str,
+    *,
+    waivers: Optional["Dict[str, List[object]]"] = None,
+) -> "dict[str, ast.Slot]":
     """Parse + type-check every `layout NAME = ...` fragment in `text`.
     Runs the L1/L2 well-formedness pass on each before returning (see
     wellformed.py) — a caller never receives a Slot tree that hasn't passed
     both the type-level and structural checks.
+
+    `waivers`, when given, is a `layout name -> [wellformed.Waiver, ...]`
+    map — the `--baseline` load-mode support named by the
+    lyt-constants-swap commission (row 1687) for loading an as-is
+    encoding that is honestly, disclosedly L2-non-conformant. Omitted
+    (the default, `None`) is byte-identical to this function's
+    pre-baseline behavior: every layout loads in strict mode, any L2
+    violation raises. A layout name absent from the map (or the map
+    itself absent) gets `waivers=None` passed to `check_wellformed`,
+    which that function treats as "no waivers for this layout" — same
+    strict behavior, not a silent skip of the check itself.
     """
     from wellformed import check_wellformed
 
+    waivers = waivers or {}
     raws = lytparser.parse_layouts(text)
     out = {}
     for raw in raws:
         slot = load_slot(raw.slot, path=raw.name)
-        check_wellformed(slot, layout_name=raw.name)
+        check_wellformed(slot, layout_name=raw.name, waivers=waivers.get(raw.name))
         out[raw.name] = slot
     return out
