@@ -47,28 +47,28 @@ Written by `bootstrap/new-project.sh` (tracker item `portable-adr-delivery`, mai
 
 **Reading posture:** read each ADR IN FULL before any work requiring it -- diagnosing, designing, or touching code shaped by its rule -- and read it for its SPIRIT: these are principles to extrapolate from and interpret judiciously, not rules to satisfy by letter alone. Where letter and spirit appear to diverge, the spirit governs, and the divergence is surfaced, not silently resolved.
 
-- **ADR-0000: The Alpha and the Omega — Type-Driven Design as the Foundational Law** -- `/home/bork/w/vdc/1/autoharn/law/adr/0000-the-alpha-and-the-omega-type-driven-design.md`
-- **ADR-0002: Fail Loudly** -- `/home/bork/w/vdc/1/autoharn/law/adr/0002-fail-loudly.md`
-- **ADR-0003: Domain-Coupling Bands** -- `/home/bork/w/vdc/1/autoharn/law/adr/0003-domain-coupling-bands.md`
-- **ADR-0004: Minimal-Touch Edits to Partially-Visible Files** -- `/home/bork/w/vdc/1/autoharn/law/adr/0004-minimal-touch-edits-to-partially-visible-files.md`
-- **ADR-0005: Documentation Discipline** -- `/home/bork/w/vdc/1/autoharn/law/adr/0005-documentation-discipline.md`
-- **ADR-0006: Source-File Headers** -- `/home/bork/w/vdc/1/autoharn/law/adr/0006-source-file-headers.md`
-- **ADR-0007: File Size and Information Density** -- `/home/bork/w/vdc/1/autoharn/law/adr/0007-file-size-and-information-density.md`
-- **ADR-0008: Classification Discipline** -- `/home/bork/w/vdc/1/autoharn/law/adr/0008-classification-discipline.md`
-- **ADR-0009: Performance Investigation Discipline** -- `/home/bork/w/vdc/1/autoharn/law/adr/0009-performance-investigation-discipline.md`
-- **ADR-0010: Render Locality and Canvas for Data-Dense Visuals** -- `/home/bork/w/vdc/1/autoharn/law/adr/0010-render-locality-and-canvas.md`
-- **ADR-0011: Mechanization Discipline** -- `/home/bork/w/vdc/1/autoharn/law/adr/0011-mechanization-discipline.md`
+- **ADR-0000: The Alpha and the Omega — Type-Driven Design as the Foundational Law** -- `docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md`
+- **ADR-0002: Fail Loudly** -- `docs/adr/0002-fail-loudly.md`
+- **ADR-0003: Domain-Coupling Bands** -- `docs/adr/0003-domain-coupling-bands.md`
+- **ADR-0004: Minimal-Touch Edits to Partially-Visible Files** -- `docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md`
+- **ADR-0005: Documentation Discipline** -- `docs/adr/0005-documentation-discipline.md`
+- **ADR-0006: Source-File Headers** -- `docs/adr/0006-source-file-headers.md`
+- **ADR-0007: File Size and Information Density** -- `docs/adr/0007-file-size-and-information-density.md`
+- **ADR-0008: Classification Discipline** -- `docs/adr/0008-classification-discipline.md`
+- **ADR-0009: Performance Investigation Discipline** -- `docs/adr/0009-performance-investigation-discipline.md`
+- **ADR-0010: Render Locality and Canvas for Data-Dense Visuals** -- `docs/adr/0010-render-locality-and-canvas.md`
+- **ADR-0011: Mechanization Discipline** -- `docs/adr/0011-mechanization-discipline.md`
 - **ADR-0012: Compositional and Structural Hygiene** -- `docs/adr/0012-compositional-and-structural-hygiene.md` (vendored locally 2026-08-10 with LengYue P9 examples appended — ledger row 1484; all other ADRs remain live-exec)
-- **ADR-0013: Execution Integrity — Against the Attrition of Will** -- `/home/bork/w/vdc/1/autoharn/law/adr/0013-execution-integrity.md`
-- **ADR-0014: Request a Second Opinion When a Problem Resists Resolution** -- `/home/bork/w/vdc/1/autoharn/law/adr/0014-executor-second-opinion.md`
-- **ADR-0015: Verification-Substrate Discipline — a result is only as good as the environment that produced it** -- `/home/bork/w/vdc/1/autoharn/law/adr/0015-verification-substrate-discipline.md`
-- **ADR-0016: The Service Contract Is an Enforcement Surface — a standing service's promise to a client is gated, not aspired to** -- `/home/bork/w/vdc/1/autoharn/law/adr/0016-the-service-contract-is-an-enforcement-surface.md`
-- **ADR-0017: The Zero-Context Reader — Documentation Legibility Discipline** -- `/home/bork/w/vdc/1/autoharn/law/adr/0017-the-zero-context-reader.md`
-- **ADR-0018 — Consults are not front-loaded** -- `/home/bork/w/vdc/1/autoharn/law/adr/0018-consults-are-not-front-loaded.md`
-- **UI Failure Proscriptions — Consolidated (blind + sighted consults merged)** -- `/home/bork/w/vdc/1/autoharn/law/adr/0019-appendix-ui-proscriptions.md`
-- **ADR-0019 — Genre convention is the default spec (UIs are not a novelty surface)** -- `/home/bork/w/vdc/1/autoharn/law/adr/0019-genre-convention-is-the-default-spec.md`
-- **ADR-0020 — The meaning-preservation witness (no-content-lost never discharges no-meaning-changed)** -- `/home/bork/w/vdc/1/autoharn/law/adr/0020-meaning-preservation-witness.md`
-- **ADR-0021: Witness-Construction Discipline — the witness observes the property, not a symptom** -- `/home/bork/w/vdc/1/autoharn/law/adr/0021-witness-construction-discipline.md`
+- **ADR-0013: Execution Integrity — Against the Attrition of Will** -- `docs/adr/0013-execution-integrity.md`
+- **ADR-0014: Request a Second Opinion When a Problem Resists Resolution** -- `docs/adr/0014-executor-second-opinion.md`
+- **ADR-0015: Verification-Substrate Discipline — a result is only as good as the environment that produced it** -- `docs/adr/0015-verification-substrate-discipline.md`
+- **ADR-0016: The Service Contract Is an Enforcement Surface — a standing service's promise to a client is gated, not aspired to** -- `docs/adr/0016-the-service-contract-is-an-enforcement-surface.md`
+- **ADR-0017: The Zero-Context Reader — Documentation Legibility Discipline** -- `docs/adr/0017-the-zero-context-reader.md`
+- **ADR-0018 — Consults are not front-loaded** -- `docs/adr/0018-consults-are-not-front-loaded.md`
+- **UI Failure Proscriptions — Consolidated (blind + sighted consults merged)** -- `docs/adr/0019-appendix-ui-proscriptions.md`
+- **ADR-0019 — Genre convention is the default spec (UIs are not a novelty surface)** -- `docs/adr/0019-genre-convention-is-the-default-spec.md`
+- **ADR-0020 — The meaning-preservation witness (no-content-lost never discharges no-meaning-changed)** -- `docs/adr/0020-meaning-preservation-witness.md`
+- **ADR-0021: Witness-Construction Discipline — the witness observes the property, not a symptom** -- `docs/adr/0021-witness-construction-discipline.md`
 
 ## Skills
 
