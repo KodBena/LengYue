@@ -1,27 +1,28 @@
 # LYT spec amendments
 
 **This file is the dated amendment RECORD — why each rule changed and
-when, as adjudicated on the work-status ledger. `SPEC.md` is the
+when, as adjudicated on the work-status ledger. [SPEC.md](SPEC.md) is the
 consolidated, standalone, current-state specification — what the rule
 is today, reconciled across the original consult document and every
 amendment below.** This file stays exactly what it always was (an
-append-only history) and is not restated or rewritten by `SPEC.md`'s
+append-only history) and is not restated or rewritten by [SPEC.md](SPEC.md)'s
 existence; the header note above is the only line this consolidation
 added here.
 
-Three language amendments to `layout-language-consult.md`, adjudicated via
+Four language amendments to [layout-language-consult.md](../../.claude/dispatch-reports/layout-language-consult.md), adjudicated via
 the work-status store's ledger (commissioner-delegated), implemented on
 top of the fix pass recorded in
-`.claude/dispatch-reports/lyt-compiler-fix1-build.md` /
-`lyt-compiler-fix2-build.md`. `layout-language-consult.md` itself is
+[.claude/dispatch-reports/lyt-compiler-fix1-build.md](../../.claude/dispatch-reports/lyt-compiler-fix1-build.md) /
+[.claude/dispatch-reports/lyt-compiler-fix2-build.md](../../.claude/dispatch-reports/lyt-compiler-fix2-build.md). [layout-language-consult.md](../../.claude/dispatch-reports/layout-language-consult.md) itself is
 **untouched** — it stays the historical record of the original consult.
-This file is the living amendment record: the three rulings, their
+This file is the living amendment record: the four rulings, their
 rationale (as recorded on the ledger rows), and a diff against the
 original document's prose.
 
 Build report for the implementation of Amendments 1/2:
-`.claude/dispatch-reports/lyt-language-amendments-build.md`. Build
-report for Amendment 3: `.claude/dispatch-reports/lyt-gap-amendment-build.md`.
+[.claude/dispatch-reports/lyt-language-amendments-build.md](../../.claude/dispatch-reports/lyt-language-amendments-build.md). Build
+report for Amendment 3: [.claude/dispatch-reports/lyt-gap-amendment-build.md](../../.claude/dispatch-reports/lyt-gap-amendment-build.md).
+Build report for Amendment 4: [.claude/dispatch-reports/lyt-presence-valuation-solve.md](../../.claude/dispatch-reports/lyt-presence-valuation-solve.md).
 
 ---
 
@@ -538,5 +539,5 @@ that file's "AMENDMENT 4" section for the runner-output-facing framing).
 
 ## License
 
-Public Domain (The Unlicense), matching `layout-language-consult.md`'s
+Public Domain (The Unlicense), matching [layout-language-consult.md](../../.claude/dispatch-reports/layout-language-consult.md)'s
 own license and the umbrella's ADR-0006 per-file convention.
