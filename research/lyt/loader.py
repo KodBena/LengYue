@@ -16,13 +16,30 @@ Two independent checking passes happen here, per the build commission:
      by='system', hidden='release'). This module's job is just to route a
      LytParseError-shaped raw token into that refusal instead of silently
      coercing it to something loadable.
-  2. **Structural well-formedness laws L1/L2** — checked by a *separate*
-     pass, `check_wellformed()`, run after a Slot tree is fully built (L2
-     is a whole-subtree graph shape check; L1 is checked opportunistically
-     against the `warns` the parser preserved from ⚠ markers, cross-checked
-     against an independent structural re-derivation — see its docstring).
-     Called by `load_layout()` automatically, so "load time" covers both
-     passes, matching the commission's phrasing.
+  2. **Structural well-formedness laws** — checked by a *separate* pass,
+     `check_wellformed()`, run after a Slot tree is fully built. Currently
+     this implements **L2 only** (a whole-subtree graph-shape check — see
+     wellformed.py). Called by `load_layout()` automatically, so "load
+     time" covers this pass, matching the commission's phrasing.
+
+     F7 CORRECTION (review row 1609,
+     `.claude/dispatch-reports/lyt-compiler-prototype-review.md`): an
+     earlier version of this docstring claimed L1 "is checked
+     opportunistically against the `warns` the parser preserved ...
+     cross-checked against an independent structural re-derivation." That
+     was never true — `wellformed.py` has never contained an L1 check, and
+     the ⚠-marker metadata the parser preserves as `Slot.violates` (see
+     `parser.py`'s "disclosed grammar extensions" and `load_slot` below,
+     which threads `rs.warns` into `Slot.violates` unchanged) is never
+     read by any code — it is inert, disclosed provenance from the raw
+     transcription, not an active cross-check. L1 ("control stability",
+     line 350-364) is NOT structurally checkable the way L2 is: it
+     quantifies over "screen class, user-initiated toggle states, user
+     drags" at RUNTIME, not over the static tree shape, so a genuine L1
+     checker would need a different design than `check_wellformed`'s
+     tree walk — out of scope for this prototype. This paragraph replaces
+     the false claim rather than leaving a dead feature described as
+     live.
 
 Disclosed constant: `PX_PER_CH` collapses `ch` extents (and any
 `px`+`ch` extent sum) to plain px at load time. The document says only that
@@ -125,6 +142,28 @@ def _resolve_max(
     return _resolve_extent_like(e, where=where)
 
 
+def _refuse_bare_envelope(*, where: str) -> None:
+    """F8 fix (review row 1609): a bare `envelope` keyword with no
+    `: {states}` clause is spec-legal concrete syntax
+    (layout-language-consult.md line 286 — the base EBNF's `envelope`
+    production has no state list at all), so `parser.py` now parses it
+    (`RawSizing.envelope_bare`) instead of raising a PARSE error. It is
+    refused HERE, at load time, because L3 ("every envelope slot must
+    enumerate its content states", line 381) makes a stateless envelope
+    semantically underspecified — there is no honest `basis='envelope'`
+    to build without a state list, and silently falling back to
+    `basis='reserved'` would drop the author's declared intent exactly
+    the way F2's fr-bound silent-drop did. Refused loudly instead."""
+    raise LytLoadError(
+        "bare 'envelope' keyword (no ': {states}' clause) is spec-legal "
+        "syntax (layout-language-consult.md line 286) but violates L3 — "
+        "every envelope slot must enumerate its declared content states "
+        "(line 381) — refused rather than silently treated as "
+        "basis='reserved'",
+        {"where": where, "law": "L3", "prohibition": "bare-envelope-no-states"},
+    )
+
+
 def _load_sizing(rs: Optional[lytparser.RawSizing], *, where: str, node_kind: str) -> ast.Sizing:
     if rs is None:
         raise LytLoadError(f"slot at {where} has no sizing block", {"where": where})
@@ -153,6 +192,8 @@ def _load_sizing(rs: Optional[lytparser.RawSizing], *, where: str, node_kind: st
         if rs.envelope_states:
             basis = "envelope"
             envelope_states = rs.envelope_states
+        elif rs.envelope_bare:
+            _refuse_bare_envelope(where=where)
         return ast.Sizing(
             min=fixed_extent,
             pref=fixed_extent,
@@ -190,6 +231,8 @@ def _load_sizing(rs: Optional[lytparser.RawSizing], *, where: str, node_kind: st
     if rs.envelope_states:
         basis = "envelope"
         envelope_states = rs.envelope_states
+    elif rs.envelope_bare:
+        _refuse_bare_envelope(where=where)
 
     return ast.Sizing(
         min=min_extent,
@@ -274,6 +317,13 @@ def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
         children = [
             load_slot(c, path=f"{path}/{node.axis.upper()}{i}") for i, c in enumerate(node.children)
         ]
+        # F10 disclosure (review row 1609): `gap_px` is hardcoded to 0.0
+        # here because no concrete syntax in this parser (and none in the
+        # base EBNF, layout-language-consult.md line 279) sets it — the
+        # compiler's partition-equality term for `gap_px` (compiler.py
+        # `_constrain`'s Split branch) is therefore modeled but only ever
+        # exercised in the degenerate gap=0 case. Left as a disclosed gap
+        # rather than inventing concrete syntax the document never shows.
         split = ast.Split(axis=node.axis, gap_px=0.0, children=children)
         sizing = _load_sizing(rs.sizing, where=path, node_kind="split")
         presence = _load_presence(rs.presence, where=path)

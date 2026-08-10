@@ -31,6 +31,9 @@ Domain = Literal["go", "common", "debug", "board", "chrome", "blackbox"]
 Facet = Literal["action", "info"]
 Unit = Literal["px", "ch", "fr"]
 
+_VALID_UNITS = {"px", "ch", "fr"}
+_VALID_BASES = {"reserved", "envelope"}
+
 
 @dataclass(frozen=True)
 class Extent:
@@ -42,12 +45,31 @@ class Extent:
     defers this exactly as `layout-model.ts:475-488` does — see §6, line
     669-671 — so a px-per-ch constant is a compiler input, not part of the
     AST).
+
+    F3 fix (review row 1609, `.claude/dispatch-reports/lyt-compiler-
+    prototype-review.md`): `unit`'s `Literal["px","ch","fr"]` annotation is
+    a typecheck-only promise — Python does not enforce it at runtime, so a
+    caller constructing `Extent(unit="content", v=5)` directly (bypassing
+    the concrete-syntax parser/loader, which DOES refuse content-driven
+    sizing, see loader.py `_resolve_extent_like`) previously succeeded
+    silently. `__post_init__` now enforces the same closed vocabulary at
+    construction time, mirroring `Presence.__post_init__`'s existing
+    runtime guard below — "unrepresentable by construction" becomes
+    literal for the Python constructor path too, not just the text one.
     """
 
     unit: Unit
     v: float
 
     def __post_init__(self) -> None:
+        if self.unit not in _VALID_UNITS:
+            raise ValueError(
+                f"Extent.unit must be one of {sorted(_VALID_UNITS)}, got "
+                f"{self.unit!r} — layout-language-consult.md line 324-329 "
+                "closes Extent.unit to px|ch|fr; there is no 'content' "
+                "member (§4.2 line 344-345, defect (a); F3 fix, review row "
+                "1609)."
+            )
         if self.v < 0:
             raise ValueError(f"Extent value must be >= 0, got {self.v}")
 
@@ -61,6 +83,12 @@ class Sizing:
     flag (line 322) and the EBNF only a bare `envelope` keyword (line 286),
     neither of which has anywhere to *put* the enumerated states, so we add
     an optional field for them. Disclosed invention — see build report.
+
+    F3 fix (review row 1609): `basis`'s `Literal["reserved","envelope"]`
+    annotation is likewise not runtime-enforced by itself — see `Extent`'s
+    docstring above for the same gap and its rationale. `__post_init__`
+    below now also validates `basis` against its closed vocabulary before
+    the (pre-existing) L3 envelope-states check runs.
     """
 
     min: Extent
@@ -71,6 +99,13 @@ class Sizing:
     envelope_states: Optional[List[str]] = None
 
     def __post_init__(self) -> None:
+        if self.basis not in _VALID_BASES:
+            raise ValueError(
+                f"Sizing.basis must be one of {sorted(_VALID_BASES)}, got "
+                f"{self.basis!r} — there is deliberately no 'content' "
+                "member (layout-language-consult.md line 344-345, defect "
+                "(a); F3 fix, review row 1609)."
+            )
         if self.basis == "envelope" and not self.envelope_states:
             raise ValueError(
                 "L3 (envelope honesty): basis='envelope' requires a "

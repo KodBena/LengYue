@@ -108,6 +108,19 @@ def nearest_class(classes: List[ast.ScreenClass], w: int, h: int) -> ast.ScreenC
 
 
 def _gather_reach_preferred_widgets(slot: ast.Slot, board_widget: str, path: str = "root") -> List[str]:
+    """F9 disclosure (review row 1609,
+    .claude/dispatch-reports/lyt-compiler-prototype-review.md): §4.5's
+    `ObjectiveTermReachPreferred` carries an author-declared
+    `weight: Record<WidgetId, number>` (consult-doc line 429). This
+    prototype has no `objectivesec` concrete syntax to declare one
+    (disclosed invention 1/11), so — rather than leave the reach-preferred
+    term unimplementable — the runner auto-derives the reach SET itself
+    (every non-board leaf with a plain px `pref`, below) and
+    `compiler.py`'s stage 2 sums shortfall UNWEIGHTED (every reach widget
+    counts equally). Both the auto-derivation and the uniform weighting
+    are real behavioral choices the document's §4.5 doesn't make for us,
+    and neither was previously stated outright (only the absence of
+    objectivesec syntax was disclosed) — named explicitly here."""
     out: List[str] = []
     node = slot.node
     if isinstance(node, ast.Leaf):

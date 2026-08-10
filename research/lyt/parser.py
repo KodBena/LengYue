@@ -43,9 +43,18 @@ EBNF does not cover):
     real aspect constraint lives on the wrapped board leaf), and
     `drag-persisted` (§5.1 lines 500/502, a documentation flag with no
     geometric effect in this static-solve prototype — see loader.py).
-    `envelope` gained a required `: {state, state, ...}` state list, since
-    the base grammar's bare `envelope` keyword (line 286) has nowhere to
-    put the enumerated states L3 requires (line 381).
+    `envelope` gained an OPTIONAL `: {state, state, ...}` state list — the
+    base grammar's bare `envelope` keyword (line 286) has nowhere to put
+    the enumerated states L3 requires (line 381), so this parser accepts
+    the extended `envelope: {...}` form to actually carry them. F8 fix
+    (review row 1609): an EARLIER version of this parser made the
+    `: {...}` clause MANDATORY, so the bare keyword — legal per the
+    published EBNF — was a PARSE error, not a mere extension. Bare
+    `envelope` now parses (`RawSizing.envelope_bare`); it is refused at
+    LOAD time instead (loader.py), for the precise reason that L3 needs
+    the states it doesn't have — the parser stays permissive per this
+    module's own stated architecture, and the refusal moves to the layer
+    that actually knows why it's wrong.
   - extents may be sums (`340px+60ch`, line 566) — resolved to plain px at
     LOAD time (see loader.py's `px_per_ch` constant), not by the parser.
   - two symbolic size sentinels the document uses as prose-in-syntax:
@@ -160,6 +169,7 @@ class RawSizing:
     max: Optional[RawExtentLike] = None
     aspect: Optional[float] = None
     envelope_states: Optional[List[str]] = None
+    envelope_bare: bool = False  # bare `envelope` keyword, no `: {states}` — F8 fix, see parse_sizing
     aspect_coupled: bool = False
     drag_persisted: bool = False
     fixed: Optional[RawExtentLike] = None  # `{28px}` shorthand, see §5.4/5.5
@@ -354,17 +364,32 @@ class Parser:
                 num = self._expect("NUMBER")
                 rs.aspect = float(num.text)
             elif key == "envelope":
-                self._expect("COLON")
-                self._expect("LBRACE")
-                states = []
-                sfirst = True
-                while self._peek().kind != "RBRACE":
-                    if not sfirst:
-                        self._expect("COMMA")
-                    sfirst = False
-                    states.append(self._expect("IDENT").text)
-                self._expect("RBRACE")
-                rs.envelope_states = states
+                if self._peek().kind == "COLON":
+                    self._advance()
+                    self._expect("LBRACE")
+                    states = []
+                    sfirst = True
+                    while self._peek().kind != "RBRACE":
+                        if not sfirst:
+                            self._expect("COMMA")
+                        sfirst = False
+                        states.append(self._expect("IDENT").text)
+                    self._expect("RBRACE")
+                    rs.envelope_states = states
+                else:
+                    # F8 fix (review row 1609): the base grammar's bare
+                    # `envelope` keyword (line 286) IS spec-legal syntax —
+                    # this parser used to demand a `: {states}` clause
+                    # unconditionally, making it a PARSE error, which the
+                    # review named as a breaking change to spec-legal
+                    # syntax disguised as a mere "extension" (F8). Bare
+                    # `envelope` now parses; loader.py refuses it at LOAD
+                    # time instead, for the more precise reason that L3
+                    # requires the enumerated states (line 381) — the
+                    # right layer for a semantic refusal, per this
+                    # codebase's own "parser permissive, loader refuses"
+                    # architecture (loader.py's own module docstring).
+                    rs.envelope_bare = True
             elif key == "aspect-coupled":
                 rs.aspect_coupled = True
             elif key == "drag-persisted":

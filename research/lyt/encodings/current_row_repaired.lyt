@@ -45,11 +45,49 @@
 -- (mint/learn/play/match/clearCache/autoNav/popStress/connect) are given
 -- a uniform 32px width, since the document elides their individual
 -- widths entirely.
+--
+-- F4 CORRECTIONS (review row 1609,
+-- .claude/dispatch-reports/lyt-compiler-prototype-review.md finding F4):
+-- an earlier version of this file silently dropped several semantic
+-- details present in the document's own §5.1 text. Restored here rather
+-- than added to a disclosure list, since restoring is the cheaper and
+-- more faithful path (the review's own recommendation):
+--   - Seven leaves had their `action` facet stripped (`info+action` ->
+--     `info`): boardRail (line 461), engineUri (470), sliders (474),
+--     saveBanner (485), systemLog (486-487), rulesKomi (494), userBadge
+--     (497). Restored to `info+action`. Facets are law-relevant (L1
+--     quantifies over action-faceted occurrences), so this was a
+--     semantic narrowing, not mere formatting.
+--   - Four user-toggle presences were dropped (`@toggle(user, release)`
+--     silently became implicit `@fixed`): the sidebar V() (line 458), the
+--     board-column V() (489), tree (501), and the control-panel T (504).
+--     All four restored to `@toggle(user, release)`. Geometrically inert
+--     under this prototype's all-present-valuation-only solve (disclosed
+--     invention 28 — presence never feeds the CP-SAT model), so this
+--     restoration changes no solved rectangle; it is a semantic-fidelity
+--     fix to the transcription.
+--   - setup's `preserve` annotation (line 475, "...preserve —
+--     conformer") was dropped entirely. Restored as
+--     `@toggle(user, preserve)` — 'user' because arming/disarming setup
+--     mode is a user action (SetupToolPalette.vue:277-298's
+--     visibility:hidden box-preserving mechanism the spec cites), matching
+--     the pattern already used for setupChip below.
+--   - tree's `pref` was invented as 220px with no disclosure (the
+--     document's own text, line 502, gives only `min 140px,
+--     drag-persisted` — no pref at all, and LYT's Sizing requires one).
+--     Changed to `pref 140px` (== its own declared min) as the least
+--     invented completion available — matching this file's own
+--     already-disclosed "least constraining choice" convention for
+--     omitted min/max (see file-level disclosure above) applied to pref:
+--     no additional target is invented beyond the declared floor. This
+--     DOES change tree's stage-2 reach-preferred target from 220px to
+--     140px; see the F1/F4 fix report for the resulting solved-rectangle
+--     delta.
 layout current-row-repaired =
   {min 0px, pref 1fr, max inf} H(
-    {min 168px, pref 168px, max 168px} V(
+    @toggle(user, release) {min 168px, pref 168px, max 168px} V(
       {min 44px, pref 44px, max 44px} loadSave[common, action],
-      {min 0px, pref 1fr, max inf} boardRail[common, info],
+      {min 0px, pref 1fr, max inf} boardRail[common, info+action],
       {min 20px, pref 20px, max 20px} addBoard[common, action],
       @dev {min 18px, pref 18px, max 18px} jankTest[debug, action],
       {min 150px, pref 150px, max 150px} preview[common, info]
@@ -58,11 +96,11 @@ layout current-row-repaired =
       {min 32px, pref 32px, max 64px, envelope: {single_line, wrapped_two_line}} H(
         {min 0px, pref 220px, max inf} H(
           {min 0px, pref 0px, max inf} title[chrome, info],
-          {min 0px, pref 220px, max 220px} engineUri[common, info]
+          {min 0px, pref 220px, max 220px} engineUri[common, info+action]
         ),
         {min 96px, pref 160px, max 220px, envelope: {disconnected, latency_1digit, latency_2digit, latency_3digit, latency_4digit, latency_5digit}} engineMetrics[common, info],
-        {min 24px, pref 24px, max 24px} sliders[common, info],
-        {min 24px, pref 24px, max 24px} setup[go, action],
+        {min 24px, pref 24px, max 24px} sliders[common, info+action],
+        @toggle(user, preserve) {min 24px, pref 24px, max 24px} setup[go, action],
         {min 96px, pref 96px, max 96px} moveNav[board, action],
         {min 0px, pref 256px, max inf} H(
           {32px} mint[go, action],
@@ -83,21 +121,21 @@ layout current-row-repaired =
         )
       ),
       @toggle(system, preserve) {min 0px, pref 32px, max 32px} captureBanner[common, info],
-      @toggle(system, preserve) {min 0px, pref 32px, max 32px} saveBanner[common, info],
-      @toggle(system, preserve) {min 0px, pref 250px, max 250px} systemLog[common, info],
+      @toggle(system, preserve) {min 0px, pref 32px, max 32px} saveBanner[common, info+action],
+      @toggle(system, preserve) {min 0px, pref 250px, max 250px} systemLog[common, info+action],
       {min 0px, pref 1fr, max inf} H(
-        {pref 1fr, aspect-coupled} V(
+        @toggle(user, release) {pref 1fr, aspect-coupled} V(
           {pref maximize, aspect 1} B[board],
           {min 24px, pref 24px, max 24px} H(
             @toggle(system, preserve) {min 0px, pref 90px, max 90px} setupChip[go, info],
             {min 0px, pref 60px, max inf} moveBadge[board, info],
             {min 0px, pref 120px, max inf} players[board, info],
-            {min 0px, pref 160px, max inf} rulesKomi[board, info],
+            {min 0px, pref 160px, max inf} rulesKomi[board, info+action],
             {min 0px, pref 1fr, max inf} hintSlot[common, info],
             {28px} pass[board, action],
             {28px} moveNumbers[board, action],
             {min 0px, pref 60px, max inf} caps[board, info],
-            {min 0px, pref 90px, max inf} userBadge[common, info]
+            {min 0px, pref 90px, max inf} userBadge[common, info+action]
           )
         ),
         -- FINDING (see build report): §5.1's own worked encoding tags
@@ -116,9 +154,9 @@ layout current-row-repaired =
         -- extent", even though only the former is what L2 is about.
         {4px} resizerOuter[common, action],
         {min WRAPPER_MIN, pref 1fr, max inf} H(
-          {min 140px, pref 220px, max inf, drag-persisted} tree[board, info+action],
+          @toggle(user, release) {min 140px, pref 140px, max inf, drag-persisted} tree[board, info+action],
           {4px} resizerInner[common, action],
-          {min WRAPPER_MIN, pref 1fr, max inf} T(
+          @toggle(user, release) {min WRAPPER_MIN, pref 1fr, max inf} T(
             {min WRAPPER_MIN, pref 1fr, max inf} CP-library[blackbox],
             {min WRAPPER_MIN, pref 1fr, max inf} CP-cards[blackbox],
             {min WRAPPER_MIN, pref 1fr, max inf} CP-settings[blackbox],

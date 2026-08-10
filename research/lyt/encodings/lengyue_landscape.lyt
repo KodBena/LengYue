@@ -22,6 +22,23 @@
 --     (`connected_5digit_latency` for the document's
 --     "connected×latency≤5digits", since '×' and '≤' aren't legal
 --     identifier characters).
+--   - F4 DISCLOSURE (review row 1609,
+--     .claude/dispatch-reports/lyt-compiler-prototype-review.md finding
+--     F4 item 4): every one of the T(...)'s six children below is given
+--     its own `min WRAPPER_MIN` (300px). §5.4's own text (line 577) gives
+--     no such per-child min — the bare "min envelope over tabs" phrase is
+--     prose, not a value, and the compiler derives the T-node's OWN
+--     structural min as the componentwise max of its children's declared
+--     mins (§4.1 line 298-302). Left with no per-child min at all, that
+--     derivation would yield T's own min = 0px, which reads as "the
+--     black-box region gets no floor at all" — an equally unfaithful
+--     reading of the same prose. We import WRAPPER_MIN onto every child
+--     instead, so the derived T floor is a real, if approximate, 300px —
+--     the SAME choice lengyue_portrait.lyt already makes (with 200px,
+--     disclosed there). An earlier version of this file made the same
+--     choice WITHOUT disclosing it; this paragraph brings the two files'
+--     disclosure to parity rather than removing the (functionally
+--     necessary) per-child mins.
 layout lengyue-landscape =
   {min 0px, pref 1fr, max inf} H(
     {pref 1fr} V(

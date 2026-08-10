@@ -19,12 +19,16 @@ Hard constraints (line 624-641):
     a T slot's own declared min is smaller than that componentwise max,
     since loader.py deliberately left a T's omitted 'min' at a
     disclosed-default 0px and lets the compiler supply the real floor).
-  - sizing bounds per slot, `ch` and `fr` already resolved by the loader
-    except `fr`, which is handled by the partition equality itself (an
-    `fr`-sized child's extent is a free variable within [min,max], and the
-    OBJECTIVE's reach-preferred term is what makes it grow — see below;
-    there is deliberately no separate "fr proportionality" hard
-    constraint, since the document doesn't specify one either).
+  - sizing bounds per slot, `ch` already resolved by the loader. `fr` in
+    `pref` position is handled by the partition equality itself (an
+    `fr`-sized child's PREF extent is a free variable within [min,max],
+    and the OBJECTIVE's reach-preferred term is what makes it grow — there
+    is deliberately no separate "fr proportionality" hard constraint for
+    `pref`, since the document doesn't specify one either). `fr` in `min`
+    or `max` position is a DIFFERENT case — see "fr bounds (F2 fix)" below;
+    it used to be silently dropped (a review defect, F2 in
+    `.claude/dispatch-reports/lyt-compiler-prototype-review.md`) and is now
+    resolved to a real bound rather than vanishing.
   - aspect: `w = aspect * h` as a pure integer equality for aspect=1
     (line 634-635); for non-1 aspects this prototype still uses
     `w = round(aspect * SCALE) * h / SCALE`-style scaled integer equality
@@ -36,16 +40,48 @@ Hard constraints (line 624-641):
     worked encoding names an alternate valuation to solve, so only the
     default is implemented; disclosed narrowing).
 
+fr bounds (F2 fix): §6 line 631-633 says only that "fr [is] handled by the
+partition equality itself", without saying what an `fr` value in MIN or MAX
+position (as opposed to `pref`) means — and §5.3's own worked OGS encoding
+(`I[info]{min 96px, pref 160px, max 25fr}`, consult-doc line 537) uses one.
+Refusing to load any `fr` in min/max position would make that worked
+encoding itself unloadable, which is worse than resolving it. We adopt a
+disclosed convention: **`N fr` in min/max position means N% of the
+enclosing Split's own extent along its partition axis** (constant
+`FR_MIN_MAX_DENOMINATOR = 100`, i.e. "100 shares == the whole split"),
+expressed as a genuine CP-SAT linear constraint against the split's own
+(w or h) variable — not a constant — so it tracks whatever that split
+solves to. A `min`/`max` fr bound with no enclosing Split to denominate
+against (the ROOT slot, or a direct child of an Exclusive/T node, which
+shares the WHOLE parent rectangle on both axes per §4.1 line 297-298, so
+there is no single partition-axis length to take a share of) is refused
+with a structured `LytLoadError` at compile time rather than silently
+dropped or given an arbitrary meaning.
+
 Objective (line 645-658): staged lexicographic solve, since §6 offers it as
 the "standard" option alongside a single weighted sum and doesn't commit to
 either — "solve term 1, fix its optimum as a constraint, solve term 2, ..."
 is exactly what we do, chosen over the weighted-sum alternative because it
 needs no dominance-weight tuning and is easy to witness stage-by-stage.
+
+Staging discipline (F6 fix): §6's own phrasing is "fix ITS OPTIMUM as a
+constraint" (line 646-647) — the OBJECTIVE VALUE, not the individual
+variable values that happened to produce it. The original version of this
+compiler pinned every variable touched by a stage to its one arbitrary
+optimal solution's value, which is strictly stronger: later stages lose
+the freedom to move among ties from an earlier stage, so a later stage's
+result is not certified as the true lexicographic optimum (review finding
+F6). Stage 1 still pins a single variable (`board_w`) directly — for a
+single variable that is equivalent to pinning the objective value, so it's
+kept as the simple form. Stages 1.5 and 2 now pin the SUM of their
+objective's terms to the stage's solved optimum via a constraint that is
+re-derived (same terms, fresh IntVars) on every subsequent rebuild — see
+`stage_constraints` in `solve_lexicographic`.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 from ortools.sat.python import cp_model
 
@@ -83,9 +119,20 @@ class _SlotVars:
         self.leaf_names: Dict[str, str] = {}
 
 
+# --- fr-in-min/max convention (F2 fix) --------------------------------------
+# "N fr" in min/max position means N% of the enclosing Split's own extent
+# along its partition axis. See the module docstring's "fr bounds (F2 fix)"
+# section for the full reasoning and the refusal this convention still
+# performs when there is no enclosing Split to denominate against.
+FR_MIN_MAX_DENOMINATOR = 100
+_FR_SCALE = 1000
+
+
 def _extent_px(e, *, upper_bound: int) -> Optional[int]:
     """Resolve a resolved (loader-level) Extent to a concrete px bound, or
-    None if it's an 'fr' extent (handled elsewhere) or 'inf'."""
+    None if it's an 'fr' extent (fr in min/max position is NOT resolved
+    here — see `_apply_bound`, which needs the enclosing Split's own
+    variable, not just an upper-bound constant) or 'inf'."""
     if e == "inf":
         return upper_bound
     assert isinstance(e, ast.Extent)
@@ -93,6 +140,89 @@ def _extent_px(e, *, upper_bound: int) -> Optional[int]:
         return None
     assert e.unit == "px"
     return int(round(e.v))
+
+
+def _apply_bound(
+    model: cp_model.CpModel,
+    var: cp_model.IntVar,
+    extent,
+    *,
+    is_max: bool,
+    parent_along_extent: Optional[cp_model.IntVar],
+    path: str,
+    dim: str,
+) -> None:
+    """Apply a single min or max sizing bound to `var`.
+
+    Plain px/'inf' bounds are ordinary constant constraints. An 'fr' bound
+    resolves per the disclosed F2 convention (module docstring): N fr =>
+    N% of `parent_along_extent` (the enclosing Split's own w/h variable
+    along its partition axis), expressed as a genuine linear CP-SAT
+    constraint so the bound tracks whatever the split solves to, rather
+    than a constant computed once against an upper bound. When there is no
+    such enclosing-Split variable to denominate against (root sizing, or a
+    direct Exclusive/T-node child, which shares the WHOLE parent rectangle
+    on both axes — no single partition-axis length applies), an fr bound
+    is refused loudly rather than silently ignored or given an arbitrary
+    meaning.
+    """
+    if extent == "inf":
+        return  # elastic — no bound to apply
+    assert isinstance(extent, ast.Extent)
+    if extent.unit == "fr":
+        if parent_along_extent is None:
+            raise LytLoadError(
+                f"'{'max' if is_max else 'min'} {extent.v}fr' at {path} "
+                f"({dim}) has no enclosing Split to denominate its share "
+                "against (root sizing is inert regardless of its declared "
+                "bounds; an Exclusive/T-node child shares its parent's "
+                "FULL rectangle on both axes, per layout-language-consult.md "
+                "line 297-298, so there is no single partition-axis length "
+                "to take a share of) — fr bounds in min/max position are "
+                "only resolvable for a direct Split (H/V) child (F2 fix, "
+                "disclosed FR_MIN_MAX_DENOMINATOR convention)",
+                {
+                    "path": path,
+                    "dim": dim,
+                    "fr_value": extent.v,
+                    "bound": "max" if is_max else "min",
+                    "prohibition": "unresolvable-fr-bound",
+                },
+            )
+        scaled_fr = int(round(extent.v * _FR_SCALE))
+        if is_max:
+            model.Add(var * FR_MIN_MAX_DENOMINATOR * _FR_SCALE <= scaled_fr * parent_along_extent)
+        else:
+            model.Add(var * FR_MIN_MAX_DENOMINATOR * _FR_SCALE >= scaled_fr * parent_along_extent)
+        return
+    assert extent.unit == "px"
+    px = int(round(extent.v))
+    if is_max:
+        model.Add(var <= px)
+    else:
+        model.Add(var >= px)
+
+
+def _along_axis_for_path(path: str) -> Optional[str]:
+    """Given a dotted slot path built by `_collect`/`_constrain`'s own
+    convention (a Split child's path segment is `H{i}` or `V{i}`, an
+    Exclusive/T child's is `T{i}`), return which of the slot's own two
+    variables ('w' or 'h') is its extent ALONG ITS PARENT'S AXIS — the
+    same 'along' semantics `_constrain`/`_collect_slack_terms` thread
+    explicitly via an `along` parameter, recovered here from the path
+    string alone for call sites (stage 2's reach-preferred shortfall) that
+    don't walk the tree with that parameter threaded through. Returns None
+    for the root, or for a T-node child (shares the whole parent rectangle
+    on both axes — see `_constrain`'s Exclusive branch, which itself uses
+    `along=None`)."""
+    if path == "root":
+        return None
+    last_segment = path.rsplit("/", 1)[-1]
+    if last_segment.startswith("H"):
+        return "w"
+    if last_segment.startswith("V"):
+        return "h"
+    return None  # a "T..." child, or a malformed/unrecognized path
 
 
 def _collect(slot: ast.Slot, path: str, sv: _SlotVars, model: cp_model.CpModel, W: int, H: int) -> None:
@@ -115,7 +245,15 @@ def _collect(slot: ast.Slot, path: str, sv: _SlotVars, model: cp_model.CpModel, 
 
 
 def _constrain(
-    slot: ast.Slot, path: str, sv: _SlotVars, model: cp_model.CpModel, W: int, H: int, *, along: Optional[str] = None
+    slot: ast.Slot,
+    path: str,
+    sv: _SlotVars,
+    model: cp_model.CpModel,
+    W: int,
+    H: int,
+    *,
+    along: Optional[str] = None,
+    parent_along_extent: Optional[cp_model.IntVar] = None,
 ) -> None:
     """`along` names which of this slot's own two variables is "the
     slot's extent along ITS PARENT'S axis" (lyt_ast.Slot's own docstring,
@@ -137,26 +275,31 @@ def _constrain(
     Exclusive/T node's children (§4.1 line 297-298: every T child receives
     the SAME rectangle as the T node — both dimensions are shared, so
     there is no single "parent axis" to prefer).
+
+    `parent_along_extent` (F2 fix): the enclosing Split's own w/h variable
+    along ITS partition axis, needed only to resolve an `fr` bound in
+    min/max position (see `_apply_bound` and the module docstring's "fr
+    bounds" section). None for the root and for Exclusive/T children,
+    where an fr min/max bound has no well-defined denominator and is
+    refused rather than guessed.
     """
     w = sv.w[path]
     h = sv.h[path]
     s = slot.sizing
 
     # min/max bounds (§6 "Sizing: min_s <= w_s <= max_s ... with 'fr'
-    # handled by the partition equality itself", line 631-633), applied
-    # only to the axis this slot's sizing actually describes.
-    min_px = _extent_px(s.min, upper_bound=max(W, H))
-    max_px = _extent_px(s.max, upper_bound=max(W, H))
-    targets = []
+    # handled by the partition equality itself", line 631-633 — refined by
+    # the F2 fix for fr in min/max position specifically, see
+    # `_apply_bound`), applied only to the axis this slot's sizing
+    # actually describes.
+    targets: List[Tuple[str, cp_model.IntVar]] = []
     if along in (None, "w"):
-        targets.append(w)
+        targets.append(("w", w))
     if along in (None, "h"):
-        targets.append(h)
-    for t in targets:
-        if min_px is not None:
-            model.Add(t >= min_px)
-        if max_px is not None:
-            model.Add(t <= max_px)
+        targets.append(("h", h))
+    for dim, t in targets:
+        _apply_bound(model, t, s.min, is_max=False, parent_along_extent=parent_along_extent, path=path, dim=dim)
+        _apply_bound(model, t, s.max, is_max=True, parent_along_extent=parent_along_extent, path=path, dim=dim)
 
     node = slot.node
     if isinstance(node, ast.Split):
@@ -165,7 +308,8 @@ def _constrain(
         gap = int(round(node.gap_px))
         along_vars = [sv.w[f"{path}/{axis.upper()}{i}"] if axis == "h" else sv.h[f"{path}/{axis.upper()}{i}"] for i in range(n)]
         cross_axis_var = h if axis == "h" else w
-        model.Add(sum(along_vars) + gap * max(n - 1, 0) == (w if axis == "h" else h))
+        this_along_extent = w if axis == "h" else h  # this split's OWN extent along ITS axis
+        model.Add(sum(along_vars) + gap * max(n - 1, 0) == this_along_extent)
         for i, child in enumerate(node.children):
             child_cross = sv.h[f"{path}/{axis.upper()}{i}"] if axis == "h" else sv.w[f"{path}/{axis.upper()}{i}"]
             if isinstance(child.node, ast.Leaf) and child.sizing.aspect is not None:
@@ -190,18 +334,34 @@ def _constrain(
                 model.Add(child_cross == cross_axis_var)
         child_along = "w" if axis == "h" else "h"
         for i, child in enumerate(node.children):
-            _constrain(child, f"{path}/{axis.upper()}{i}", sv, model, W, H, along=child_along)
+            _constrain(
+                child,
+                f"{path}/{axis.upper()}{i}",
+                sv,
+                model,
+                W,
+                H,
+                along=child_along,
+                parent_along_extent=this_along_extent,
+            )
     elif isinstance(node, ast.Exclusive):
         for i, child in enumerate(node.children):
             cpath = f"{path}/T{i}"
             model.Add(sv.w[cpath] == w)
             model.Add(sv.h[cpath] == h)
-            _constrain(child, cpath, sv, model, W, H, along=None)
+            # An Exclusive/T child shares the WHOLE parent rectangle on
+            # both axes (§4.1 line 297-298) — there is no single
+            # partition-axis length for an fr min/max bound to denominate
+            # against, so `parent_along_extent=None` here means such a
+            # bound is refused by `_apply_bound` rather than guessed.
+            _constrain(child, cpath, sv, model, W, H, along=None, parent_along_extent=None)
         # T's own min is the componentwise max of children's min (§4.1
         # line 298-302). loader.py leaves an omitted T 'min' at a
         # disclosed 0px default; we derive and assert the real floor here
         # so the compiler — not a silent default — is the source of
-        # truth for it.
+        # truth for it. (An fr min on a T child would hit the same
+        # "no denominator" refusal above before ever reaching here, since
+        # `_extent_px` alone can't resolve it either — see F2 fix.)
         child_min_w = []
         child_min_h = []
         for i, child in enumerate(node.children):
@@ -253,16 +413,33 @@ def solve_lexicographic(
        649-650 — we maximize w, and the aspect equality keeps h in lock
        step).
     2. holding term 1's optimum fixed, maximize a reach-preferred term:
-       sum over named widgets of min(w - pref, 0) [not exceeding pref
-       costs nothing further; falling short is penalized] — approximated
-       here via CP-SAT's AddMinEquality on an auxiliary var, exactly as
-       the document names (line 652).
+       sum over named widgets of min(extent - pref, 0), MEASURED ON THE
+       WIDGET'S OWN ALONG-AXIS (F1 fix — see `_along_axis_for_path`; the
+       original version measured shortfall on `w` unconditionally, which
+       silently reports zero shortfall — a false "-0.0" objective — for
+       every V-split child, since a V-child's along axis is `h`, not `w`).
+       [not exceeding pref costs nothing further; falling short is
+       penalized] — approximated here via CP-SAT's AddMinEquality/
+       AddMaxEquality on an auxiliary var, exactly as the document names
+       (line 652).
     3. minimize slack: minimize the sum of (max-capped slack), i.e. total
        unused room across every 'fr'-sized slot whose max is finite and
        whose w falls short of that cap. (§6 line 653-658 frames this term
        as mostly a guard against authoring caps that strand space; we
        implement it as literally minimizing total (cap - w) over
        finite-max slots, holding stages 1-2 fixed.)
+
+    Staging discipline (F6 fix, see module docstring): stages 1.5 and 2 no
+    longer pin every variable they touch to one arbitrary optimal
+    solution's value. Instead each appends a closure to
+    `stage_constraints` that RE-DERIVES the same objective terms on every
+    subsequent model rebuild and pins their SUM to the stage's solved
+    optimum (`model.Add(sum(terms) == opt)`, per §6's own "fix its
+    optimum as a constraint" phrasing, line 646-647) — leaving later
+    stages free to move among ties from an earlier stage. Stage 1 still
+    pins its single variable directly (`fixed`); for one variable that is
+    equivalent to pinning the objective value, so it's kept as the
+    simpler form.
     """
     # Each stage below builds a FRESH model (compile_program is cheap —
     # these trees have dozens, not thousands, of slots) rather than
@@ -273,12 +450,15 @@ def solve_lexicographic(
     # optimum as a constraint, solve term 2, ...", §6 line 646-647).
     objective_values: List[float] = []
     fixed: List[Tuple[str, str, int]] = []  # (path, 'w'|'h', value) equalities from prior stages
+    stage_constraints: List[Callable[[cp_model.CpModel, _SlotVars], None]] = []
 
     def _build():
         model, sv = compile_program(slot, class_id=class_id, w_px=w_px, h_px=h_px)
         for path, dim, value in fixed:
             var = sv.w[path] if dim == "w" else sv.h[path]
             model.Add(var == value)
+        for constraint_fn in stage_constraints:
+            constraint_fn(model, sv)
         return model, sv
 
     board_path = None
@@ -333,14 +513,29 @@ def solve_lexicographic(
             status = solver.Solve(model)
             if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
                 return SolveResult(class_id, w_px, h_px, {}, sv.leaf_names, objective_values, "INFEASIBLE")
-            # Pin exactly the (split, dimension) pairs the <= relaxation
-            # freed — not every slot in the tree — so stage 2's
-            # reach-preferred term still has real freedom elsewhere.
-            for p, dim in slack_controlled_vars:
-                var = sv.w[p] if dim == "w" else sv.h[p]
-                fixed.append((p, dim, solver.Value(var)))
+            # F6 fix: pin the SUM of the aspect-slack terms to this
+            # stage's optimum, not each individual freed (path, dim)
+            # value — a later stage may then redistribute the SAME total
+            # slack differently among tied aspect-locked leaves, rather
+            # than being frozen into this stage's arbitrary pick.
+            aspect_slack_opt = int(round(solver.ObjectiveValue()))
+
+            def _pin_aspect_slack_sum(model: cp_model.CpModel, sv: _SlotVars, *, _opt: int = aspect_slack_opt) -> None:
+                terms: List = []
+                controlled: List[Tuple[str, str]] = []
+                _collect_aspect_slack_terms(slot, "root", sv, model, terms, controlled)
+                if terms:
+                    model.Add(sum(terms) == _opt)
+
+            stage_constraints.append(_pin_aspect_slack_sum)
 
     # --- Stage 2: reach-preferred -------------------------------------------
+    # F1 fix: each reach slot's shortfall is measured on its OWN
+    # along-axis (recovered from its path by `_along_axis_for_path`), not
+    # on `w` unconditionally. A T-node child (along axis undefined — it
+    # shares the parent's whole rectangle on both axes) is measured on
+    # BOTH w and h, mirroring `_constrain`'s own `along=None` treatment of
+    # T children.
     reach_paths_px: List[Tuple[str, int]] = []
     if reach_preferred_widgets:
         for widget in reach_preferred_widgets:
@@ -356,10 +551,19 @@ def solve_lexicographic(
     if reach_paths_px:
         model, sv = _build()
         shortfall_terms = []
+        # (path, dim, pref_px) for every term actually built, so the F6
+        # fix's pinning closure can re-derive the identical set of terms
+        # on later rebuilds.
+        term_specs: List[Tuple[str, str, int]] = []
         for path, pref_px in reach_paths_px:
-            shortfall = model.NewIntVar(0, max(w_px, h_px), f"shortfall[{path}]")
-            model.AddMaxEquality(shortfall, [pref_px - sv.w[path], 0])
-            shortfall_terms.append(shortfall)
+            along = _along_axis_for_path(path)
+            dims = [along] if along in ("w", "h") else ["w", "h"]
+            for dim in dims:
+                var = sv.w[path] if dim == "w" else sv.h[path]
+                shortfall = model.NewIntVar(0, max(w_px, h_px), f"shortfall[{path}][{dim}]")
+                model.AddMaxEquality(shortfall, [pref_px - var, 0])
+                shortfall_terms.append(shortfall)
+                term_specs.append((path, dim, pref_px))
         model.Minimize(sum(shortfall_terms))
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = time_limit_s
@@ -368,8 +572,28 @@ def solve_lexicographic(
             return SolveResult(class_id, w_px, h_px, {}, sv.leaf_names, objective_values, "INFEASIBLE")
         shortfall_opt = int(round(solver.ObjectiveValue()))
         objective_values.append(-float(shortfall_opt))  # "reach-preferred score", higher (less shortfall) = better
-        for path, _ in reach_paths_px:
-            fixed.append((path, "w", solver.Value(sv.w[path])))
+
+        # F6 fix: pin the SUM of shortfall terms to this stage's optimum,
+        # not each individual reach path's solved value — stage 3 may
+        # then redistribute the same total shortfall differently among
+        # tied reach slots.
+        def _pin_reach_preferred_sum(
+            model: cp_model.CpModel,
+            sv: _SlotVars,
+            *,
+            _opt: int = shortfall_opt,
+            _specs: Tuple[Tuple[str, str, int], ...] = tuple(term_specs),
+        ) -> None:
+            terms: List = []
+            for path, dim, pref_px in _specs:
+                var = sv.w[path] if dim == "w" else sv.h[path]
+                shortfall = model.NewIntVar(0, max(w_px, h_px), f"shortfall2[{path}][{dim}]")
+                model.AddMaxEquality(shortfall, [pref_px - var, 0])
+                terms.append(shortfall)
+            if terms:
+                model.Add(sum(terms) == _opt)
+
+        stage_constraints.append(_pin_reach_preferred_sum)
 
     # --- Stage 3: minimize slack ---------------------------------------------
     model, sv = _build()
@@ -407,7 +631,22 @@ def _collect_slack_terms(
     produced a NEGATIVE, out-of-domain 'slack' for any along='h' leaf
     whose max was smaller than its (correctly unconstrained) w — making
     stage 3 spuriously INFEASIBLE for every encoding with a fixed-height
-    row (i.e. all five). See the build report."""
+    row (i.e. all five). See the build report.
+
+    Disclosed scoping (F2 fix follow-up): an `fr` max is now a REAL hard
+    bound (`_apply_bound`, applied in `_constrain`), so it is no longer
+    silently unconstrained — but this stage-3 term is only built for `px`
+    maxima. Re-deriving an `fr` bound's px-equivalent here as an exact
+    slack quantity would need the same enclosing-Split variable
+    `_apply_bound` uses, and an exact `==` equality against a scaled
+    integer division risks spurious infeasibility from rounding; since
+    the CORRECTNESS-critical half of F2 (the cap being honored at all) is
+    already handled by the hard constraint in `_constrain`, this
+    refinement (folding fr-capped slots into the slack-MINIMIZATION
+    objective too) is left as a disclosed narrowing rather than risking a
+    fragile exact-equality term for a stage that is itself a soft
+    tie-breaker (§6 line 653-655: "mostly a guard against ... caps that
+    strand space")."""
     s = slot.sizing
     max_px = _extent_px(s.max, upper_bound=max(W, W))
     if max_px is not None and s.max != "inf":
