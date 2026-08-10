@@ -71,6 +71,38 @@ const hasGame = computed(() => props.preview.selectedGame.value !== null);
 
 // Slider's max — scrubPosition's domain is [0, totalMoves].
 const scrubMax = computed(() => props.preview.totalMoves.value);
+
+// Ledger rows 1544/1545 (commissioner screenshot
+// ~/scroller_location_mismatch.png): switching from a SHORTER game to
+// a LONGER one left the native `<input type="range">`'s thumb stuck
+// near its old position — e.g. label "99 / 99" with the handle
+// sitting at ~1/3 of the track — even though `preview.scrubPosition`
+// and `preview.totalMoves` (the label's source) were already correct
+// for the newly-selected game. Root cause, confirmed by direct
+// instrumentation of `@vue/runtime-core`'s `patchElement`: on an
+// UPDATE (not a fresh mount), the `v-model` directive's `beforeUpdate`
+// hook — which sets the DOM `.value` PROPERTY — runs BEFORE Vue's own
+// prop patch that raises the `max` ATTRIBUTE. If the new target value
+// exceeds the element's still-stale (smaller, previous game's) `max`
+// at that instant, the browser silently CLAMPS `.value` down to the
+// stale max; raising `max` a moment later does not retroactively
+// re-expand it, so the thumb is left at the wrong, clamped position
+// while every purely-reactive read (this component's label
+// interpolation, `boardSnapshot`, etc.) already reflects the new
+// game correctly. `@vue/runtime-dom`'s own `vModelText.mounted` hook
+// carries the inverse comment ("set value on mounted so it's after
+// min/max for type=range") — the mount path already gets this order
+// right; only the in-place UPDATE path does not, and Vue has no public
+// hook to reorder it.
+//
+// Fix at the class (not the pixel): force Vue onto the MOUNT path,
+// never the patch-in-place UPDATE path, for this element, by keying
+// it to the selected game's identity. A key change tears the old
+// `<input>` down and builds a fresh one — min/max land before value
+// by construction — so the slider's value/max/handle can never
+// diverge from the just-selected game's state, matching the "atomic,
+// single-homed, no pane-scoped survival" policy for this control.
+const scrubKey = computed(() => props.preview.selectedGame.value?.id ?? undefined);
 </script>
 
 <template>
@@ -104,6 +136,7 @@ const scrubMax = computed(() => props.preview.totalMoves.value);
 
       <div class="preview-scrub">
         <input
+          :key="scrubKey"
           type="range"
           :min="0"
           :max="scrubMax"
