@@ -278,7 +278,7 @@ function setAggregation(next: KnownAggregation): void {
   overflow-y: auto;
 }
 .step-description { color: var(--text-1); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
-.field-label { color: var(--text-2); font-size: var(--text-emphasis); text-transform: uppercase; }
+.field-label { color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase; }
 .dark-select {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
   padding: var(--space-default); font-size: var(--text-emphasis); font-family: inherit;
@@ -320,9 +320,9 @@ function setAggregation(next: KnownAggregation): void {
   border-bottom: 1px solid var(--border-2);
 }
 .palette-table th {
-  color: var(--text-2); font-size: var(--text-emphasis); text-transform: uppercase;
+  color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase;
 }
-.palette-table td { color: var(--text-2); font-size: var(--text-emphasis); }
+.palette-table td { color: var(--text-0); font-size: var(--text-emphasis); }
 .palette-table td:first-child, .palette-table td:last-child { width: 50%; }
 .palette-name { display: block; color: var(--text-0); font-weight: 600; margin-bottom: 2px; }
 /* Description prose — same secondary-text idiom as .field-hint
@@ -341,8 +341,8 @@ function setAggregation(next: KnownAggregation): void {
 .palette-definition {
   display: flex; flex-direction: column; gap: 2px;
   font-family: var(--font-mono, monospace); font-size: var(--text-tiny);
-  color: var(--text-2); overflow-wrap: anywhere;
+  color: var(--text-0); overflow-wrap: anywhere;
 }
 .definition-line { display: block; }
-.field-hint { color: var(--text-2); font-size: var(--text-emphasis); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
+.field-hint { color: var(--text-0); font-size: var(--text-emphasis); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 </style>
