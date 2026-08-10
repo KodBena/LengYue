@@ -1016,7 +1016,11 @@ _STYLE = """
   --z-popover: 10;
   --z-affordance: 50;
   --z-overlay: 99999;
-  --caption-gutter: 92px;  /* X2 fix: one shared caption-column width, see .row-caption/.lyt-tab-caption */
+  --caption-gutter: 104px; /* X2 fix: one shared caption-column width, see .row-caption/.lyt-tab-caption.
+                              104px not 92px: the 92px floor clipped "COMMON ACTIONS" (97px) to an
+                              ellipsis in the DEFAULT state (opus pass-3 residual) — standing law
+                              forbids ellipsized readable names; the shared variable keeps all four
+                              content-starts locked by construction. */
 }
 html, body {
   margin: 0; padding: 0; height: 100%;
