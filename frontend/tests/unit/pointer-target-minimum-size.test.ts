@@ -118,7 +118,7 @@ describe('KnobSlider.vue — thumb pseudo-elements: 0.7x visual, >=24x24 EFFECTI
   }
 });
 
-describe('ToolbarSliderPopover.vue — compact-row rhythm at the 0.7x thumb (ledger rows 1395/1396)', () => {
+describe('KnobSlider.vue compact-row rhythm at the 0.7x thumb (ledger rows 1395/1396)', () => {
   // The commissioner's own diagnosis (rows 1395/1396): the popover's
   // row spacing already reads large relative to the label/value text
   // — the thumbs were the oversized element, not the gaps. The M16
