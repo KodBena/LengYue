@@ -1388,7 +1388,7 @@ const activeTab = computed<string>({
    separates them without introducing dead space between. Used for
    both nested-splitter divider bars (#resizer-outer, board↔tree;
    #resizer-inner, tree↔control — see useResizablePanel.ts). */
-.panel-resizer { width: 4px; background: var(--resizer-contrast); cursor: col-resize; z-index: var(--z-affordance); flex-shrink: 0; }
+.panel-resizer { width: 2px; background: var(--resizer-contrast); cursor: col-resize; z-index: var(--z-affordance); flex-shrink: 0; }
 .panel-resizer:hover, .panel-resizer:active { background: var(--accent-primary); }
 
 .collapse-btn { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-disabled); height: 18px; padding: 0 var(--space-tight); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-default); font-size: var(--text-body); }

@@ -211,7 +211,11 @@ export interface PanelGeometryPolicy {
 const MIN_BOARD_PX = 300;
 const TREE_PANEL_MIN_WIDTH_PX = 140;
 const TREE_PANEL_DEFAULT_WIDTH_PX = 140;
-const RESIZER_WIDTH_PX = 4;
+// Mirrors App.vue's `.panel-resizer { width: 2px }` (commissioner
+// ruling 2026-08-10, narrowed from 4px alongside the max-contrast
+// recolor) — the layout model's budget math must count the same
+// pixels the CSS actually occupies.
+const RESIZER_WIDTH_PX = 2;
 const CONTROL_PANEL_MIN_WIDTH_PX = computeControlPanelMinWidthPx(CONTROL_PANEL_TAB_IDS.length);
 const WRAPPER_MIN_WIDTH_PX = TREE_PANEL_MIN_WIDTH_PX + RESIZER_WIDTH_PX + CONTROL_PANEL_MIN_WIDTH_PX;
 
