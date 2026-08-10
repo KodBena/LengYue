@@ -133,7 +133,9 @@ computed) AND at least one direct child (chrome or not) whose `pref` is
 `fr` rather than `px`, `total_px` cannot be resolved to a definite
 number without a resolved (and, for a bare `fr` pref with no obvious
 "whole" to be a share of, currently undefined) convention — refused
-loudly with `law: "L2"`, `reason: "incomparable-fr-sibling"`, rather than
+loudly with `detail.law == "L2"` (the message text names the fr-pref
+sibling ambiguity; there is no `reason` key — see SPEC.md §5 for the
+real error shape, corrected per the grammar audit), rather than
 silently treating the `fr` sibling as 0 (which could manufacture a false
 majority) or as infinite (which could hide a true one). This is a real
 consequence: `current_row_wart_l2.lyt` (the flat, undecorated

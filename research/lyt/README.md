@@ -7,7 +7,72 @@ loader that enforces the language's typed prohibitions and structural
 well-formedness laws (`loader.py`, `lyt_ast.py`, `wellformed.py`), a
 CP-SAT compiler and staged lexicographic solver (`compiler.py`), an ASCII
 renderer (`render.py`), and a CLI runner that solves every worked
-encoding at several representative screen sizes (`runner.py`).
+encoding at several representative screen sizes (`runner.py`). LYT
+itself — what it is, its full syntax and semantics, its well-formedness
+laws, the CP-SAT and CSS-Grid compilation contracts, and its known
+limitations — is specified standalone in `SPEC.md`; this file no longer
+restates that content and instead points there. What follows in this
+section is the human-readable *why*: what problem LYT is solving and
+why it is shaped the way it is, for a reader arriving cold before the
+operational how-to below.
+
+## Why LYT exists
+
+LYT exists because LengYue's SPA had, on inspection, a repeating
+control-panel bug family that no amount of one-off patching was
+converging on: a toolbar control moves out from under the user's mouse
+the instant the engine finishes connecting, or the instant a latency
+readout grows from one digit to two, because nothing reserved room for
+the state that hadn't arrived yet — content was measuring itself and
+then re-partitioning its neighbors. A sibling bug, standing-cost
+chrome, is the same failure in reverse: a toggle button that exists
+only to hide another panel sits in its own permanently-reserved band
+of screen real estate whether or not anything is hidden, paying rent
+every frame for a feature nobody is using this second. Both bugs
+trace to the same missing primitive — a reservation that content lives
+*inside* rather than dictates — and the codebase had already
+reinvented that primitive locally three separate times (a
+permanently-reserved hint slot, a `visibility:hidden` box-preserving
+toggle, digit-count `—`-placeholder padding) before anyone asked
+whether it should be the *default* semantics of a layout description
+instead of a per-site fix. LYT's answer is to make "every extent is a
+reservation, never an emergent content measurement" the language's one
+load-bearing idea, and to make the two defect classes above into
+*type errors* — literally unconstructable values in the typed AST
+(`SPEC.md` §3, §4.2) — rather than review comments a tired reviewer
+can miss. The board-first objective (`SPEC.md` §7–§8: maximize the
+board's own dimension before anything else, as a lexicographic
+priority rather than a hard constraint that would make an
+information-dense row unsatisfiable) is the same idea applied to what
+the layout is *for*: LengYue is a Go-study tool, so the board's own
+size is the thing worth spending free space on first, and everything
+else is arbitrated afterward.
+
+The shape LYT takes — three separated strata (structure, sizing,
+presence) compiled once into two different consumers, rather than one
+ad-hoc description read by one renderer — follows from treating layout
+as a *solvable program* instead of a hand-tuned stylesheet: the same
+typed tree that a CP-SAT solver can verify offline (`SPEC.md` §8; does
+this screen size even admit a feasible layout, and if not, why not) is
+also, unmodified, the tree a browser's own CSS Grid engine realizes
+live (`SPEC.md` §10) — one description, two independent consumers,
+rather than a solver whose findings have to be hand-translated into
+CSS by someone who might translate them wrong. The well-formedness laws
+(`SPEC.md` §4.3–§5) are the boundary of the admissible design space
+this buys: L2's dominance test, for instance, isn't a lint rule bolted
+on afterward, it's the mechanized form of "no band of the screen may
+exist solely to hide/show another band," checked the same way a type
+error is checked, at load time, before a solver or a browser ever sees
+the tree. None of this is free of rough edges — `SPEC.md`'s own
+"Known limitations and open questions" section (§12) names them in
+full (a genuine, unresolved collision between the language's
+exact-cross-fill semantics and its `aspect` constraint; two of the four
+well-formedness laws with no structural checker at all; a presence-
+independent infeasibility at several real screen sizes even after the
+per-valuation presence work below) — but the strata separation is what
+let those rough edges be *found and named precisely*, by hand-evaluating
+the laws and by solving the tree, rather than staying as vague
+unease about "the layout feels fragile sometimes."
 
 Not application code — `frontend/` is untouched, per the umbrella's scope
 discipline. See `.claude/dispatch-reports/lyt-compiler-prototype-build.md`
@@ -28,47 +93,19 @@ report for the full account).
 
 ## Well-formedness checking scope (L1-L4)
 
-`errors.py`'s `LytLoadError` docstring references "L1-L4" as the laws it
-enforces; here is what that actually covers in this prototype, since
-neither the code nor this README stated it plainly before the cold
-review (`.claude/dispatch-reports/lyt-compiler-cold-review.md`) flagged
-the gap:
-
-- **L1** (control stability) is not structurally checked — it quantifies
-  over runtime screen-class/toggle/drag states, not static tree shape.
-  AMENDMENT 1 (ledger row 1670, `SPEC-AMENDMENTS.md`) tightens the one
-  corner of L1 this prototype DOES touch: `preserve` presence now raises
-  a slot's `min` to its `pref` at load time (`loader.py`'s
-  `_apply_preserve_reservation`), so a `preserve` slot's promised
-  geometry is a genuine reservation the solver can no longer squeeze to
-  zero — see "AMENDMENT 1 consequence" below for what that does to the
-  reported feasibility.
-- **L2** (no band of a partition axis reserved for a hide/show affordance
-  alone) IS checked, by `wellformed.py`. AMENDMENT 2 (ledger row 1671,
-  `SPEC-AMENDMENTS.md`) REPLACES the previous local tree-shape
-  approximation with a magnitude (dominance) test: a Split node violates
-  L2 when its direct chrome/action-leaf children's combined `pref`
-  exceeds half of the split's own total reserved extent (all direct
-  children's `pref`, along the split's own partition axis). The
-  previously-disclosed decoy loophole — flagged by the cold review, "a
-  single near-zero non-chrome sibling (as little as 1px, under 4% of the
-  wrapped band) is enough to flip the checker's verdict from VIOLATION to
-  CONFORMS" — is now CLOSED: the near-zero decoy no longer dilutes the
-  ratio enough to hide a genuine majority. See `wellformed.py`'s module
-  docstring for the full derivation, the two witnesses (decoy flagged,
-  mixed toolbar conforms), and the one remaining disclosed gap (a
-  genuinely-incomparable case — chrome content sharing a band with an
-  elastic `fr`-pref sibling — is refused loudly rather than guessed, not
-  silently resolved either way).
-- **L3** (envelope-state coverage) is checked at load time (loader.py).
-- **L4** (a slot's extent has at most one writer among {solver constant,
-  user drag}) is **entirely unimplemented**. The `drag-persisted` sizing
-  keyword parses but is dropped after parsing — never reaching the typed
-  AST, the loader, or the compiler. This is a defensible scope call for a
-  static, offline solver with no runtime drag state to arbitrate, but it
-  means an `.lyt` file with `drag-persisted` gets no enforcement of L4
-  from this prototype at all. See `wellformed.py`'s "L4 ACCOUNTING"
-  paragraph for the full disclosure.
+The full current-implementation status of each law — which of L1-L4 is
+structurally checked, which is a construction-time type refusal, and
+which is entirely unimplemented, with the checkable form of each — is
+specified in `SPEC.md` §4.3 (laws overview) and §5 (L2's dominance test
+in full). `errors.py`'s `LytLoadError` docstring references "L1-L4" as
+the laws it enforces; `SPEC.md` is where that reference actually
+resolves. In brief, for a reader orienting inside this file: L1 has no
+structural checker beyond the one corner AMENDMENT 1 touches (below);
+L2 is checked, by `wellformed.py`, per AMENDMENT 2's dominance test; L3
+is checked at load time; L4 is entirely unimplemented (the
+`drag-persisted` keyword parses and is then dropped on the floor). See
+`wellformed.py`'s own module docstring for the code-level derivation
+this README no longer duplicates.
 
 ## AMENDMENT 1 consequence: preserve reservations are now genuine, and the
 ## board sometimes has to shrink to pay for them

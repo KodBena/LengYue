@@ -185,6 +185,35 @@ def _refuse_bare_envelope(*, where: str) -> None:
     )
 
 
+def _refuse_empty_envelope_states(*, where: str) -> None:
+    """S1 fix (dispatch-report `lyt-spec-grammar-audit.md`, ledger row
+    1778, severe finding S1): an EXPLICIT but EMPTY state list —
+    `envelope: {}` — is concrete syntax `_refuse_bare_envelope` above does
+    not see at all, because `parser.parse_sizing` stores it as
+    `rs.envelope_states == []`, which is falsy, so `_load_sizing`'s
+    `if rs.envelope_states:` guard silently treats it as "no envelope
+    declared" and neither this refusal nor `_refuse_bare_envelope` ever
+    fired — the author's `envelope: {}` clause was dropped without any
+    error, loading as plain `basis='reserved'`. That is exactly the
+    silent-fallback behavior `_refuse_bare_envelope`'s own docstring says
+    is forbidden (ADR-0002): a `basis='envelope'` slot requires a
+    non-empty state list (L3, line 381; enforced again, redundantly, by
+    `lyt_ast.Sizing.__post_init__` for any caller that reaches the typed
+    constructor directly), and an explicit empty list is just as
+    underspecified as a bare keyword with none at all — it is refused the
+    same way, with its own prohibition token so the two spellings remain
+    distinguishable in a caller's structured `detail`."""
+    raise LytLoadError(
+        "envelope: {} (an explicit but EMPTY declared-states list) "
+        "violates L3 exactly as a bare 'envelope' keyword does — every "
+        "envelope slot must enumerate at least one declared content state "
+        "(layout-language-consult.md line 381) — refused rather than "
+        "silently treated as basis='reserved' (S1, "
+        ".claude/dispatch-reports/lyt-spec-grammar-audit.md)",
+        {"where": where, "law": "L3", "prohibition": "empty-envelope-states"},
+    )
+
+
 def _load_sizing(rs: Optional[lytparser.RawSizing], *, where: str, node_kind: str) -> ast.Sizing:
     if rs is None:
         raise LytLoadError(f"slot at {where} has no sizing block", {"where": where})
@@ -210,7 +239,14 @@ def _load_sizing(rs: Optional[lytparser.RawSizing], *, where: str, node_kind: st
         fixed_extent = _resolve_extent_like(rs.fixed, where=where)
         basis = "reserved"
         envelope_states = None
-        if rs.envelope_states:
+        if rs.envelope_states is not None:
+            if not rs.envelope_states:
+                # S1 fix: `envelope: {}` — explicit but empty — is
+                # distinct from `rs.envelope_states is None` (no envelope
+                # clause at all) and must not fall through to
+                # basis='reserved' silently. See
+                # `_refuse_empty_envelope_states`'s docstring.
+                _refuse_empty_envelope_states(where=where)
             basis = "envelope"
             envelope_states = rs.envelope_states
         elif rs.envelope_bare:
@@ -249,7 +285,11 @@ def _load_sizing(rs: Optional[lytparser.RawSizing], *, where: str, node_kind: st
 
     basis = "reserved"
     envelope_states = None
-    if rs.envelope_states:
+    if rs.envelope_states is not None:
+        if not rs.envelope_states:
+            # S1 fix: same empty-vs-absent distinction as the fixed-
+            # shorthand branch above.
+            _refuse_empty_envelope_states(where=where)
         basis = "envelope"
         envelope_states = rs.envelope_states
     elif rs.envelope_bare:

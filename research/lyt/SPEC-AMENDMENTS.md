@@ -1,5 +1,14 @@
 # LYT spec amendments
 
+**This file is the dated amendment RECORD — why each rule changed and
+when, as adjudicated on the work-status ledger. `SPEC.md` is the
+consolidated, standalone, current-state specification — what the rule
+is today, reconciled across the original consult document and every
+amendment below.** This file stays exactly what it always was (an
+append-only history) and is not restated or rewritten by `SPEC.md`'s
+existence; the header note above is the only line this consolidation
+added here.
+
 Three language amendments to `layout-language-consult.md`, adjudicated via
 the work-status store's ledger (commissioner-delegated), implemented on
 top of the fix pass recorded in
