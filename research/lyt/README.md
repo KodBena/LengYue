@@ -15,11 +15,16 @@ for the original build report and
 `.claude/dispatch-reports/lyt-compiler-prototype-review.md` for the
 adversarial review that followed it (REJECT, 2 MAJOR / 4 MODERATE / 5
 MINOR findings); the fixes for that review's findings are recorded in
-`.claude/dispatch-reports/lyt-compiler-fix1-build.md`. Two language
+`.claude/dispatch-reports/lyt-compiler-fix1-build.md`. Three language
 amendments, adjudicated via the commissioner-delegated ledger (rows
-1670/1671), are implemented on top of that fix pass — see
+1670/1671/1715), are implemented on top of that fix pass — see
 `SPEC-AMENDMENTS.md` for the rulings and their rationale, and the two
-sections below for what changed in this checker/loader as a result.
+sections below for what AMENDMENTS 1/2 changed in this checker/loader
+(AMENDMENT 3, the split-node `gap` declaration, touches the parser/
+loader/compiler/mockup-generator seam instead — see
+`SPEC-AMENDMENTS.md`'s own Amendment 3 section, `loader.py`'s
+`_load_gap_px` docstring, and the `lyt-gap-amendment-build` dispatch
+report for the full account).
 
 ## Well-formedness checking scope (L1-L4)
 

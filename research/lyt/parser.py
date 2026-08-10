@@ -60,6 +60,19 @@ EBNF does not cover):
     that actually knows why it's wrong.
   - extents may be sums (`340px+60ch`, line 566) — resolved to plain px at
     LOAD time (see loader.py's `px_per_ch` constant), not by the parser.
+  - AMENDMENT 3 (ledger row 1715, commissioner-delegated; see
+    SPEC-AMENDMENTS.md): an H/V split's own sizing block may carry an
+    optional `gap <extent>` term, the same bare `key <extent>` shape
+    every other sizing key already uses (`min`/`pref`/`max`/`width`) --
+    no new production, just one more recognized key in the existing
+    `sizing` block. This parser stays permissive per its own stated
+    architecture (module docstring, top) and accepts any extent unit
+    here, same as every other extent-valued key; loader.py is where the
+    amendment's actual law -- px only, refused loudly on `fr`/`ch`/a
+    symbolic extent, and refused entirely on a T (Exclusive) node -- is
+    enforced, matching the "parser permissive, loader refuses" division
+    of labor the bare-`envelope` (F8) and `preserve`-reservation
+    (AMENDMENT 1) precedents already use.
   - two symbolic size sentinels the document uses as prose-in-syntax:
     `CONTENT` (line 467, `max CONTENT` — the literal spelling-out of the
     forbidden content-driven-sizing basis) and `WRAPPER_MIN` (line 500, a
@@ -176,6 +189,7 @@ class RawSizing:
     aspect_coupled: bool = False
     drag_persisted: bool = False
     fixed: Optional[RawExtentLike] = None  # `{28px}` shorthand, see §5.4/5.5
+    gap: Optional[RawExtentLike] = None  # AMENDMENT 3 (ledger row 1715), H/V splits only
 
 
 @dataclass
@@ -399,6 +413,13 @@ class Parser:
                 rs.drag_persisted = True
             elif key == "width":
                 rs.pref = self.parse_extent()  # alias, see module docstring
+            elif key == "gap":
+                # AMENDMENT 3 (ledger row 1715): parsed permissively here
+                # (any extent unit/symbol, same as min/pref/max) -- the
+                # px-only/no-fr/no-ch/no-T-node law is loader.py's job, per
+                # this module's own "parser permissive, loader refuses"
+                # architecture (see module docstring).
+                rs.gap = self.parse_extent()
             else:
                 raise LytParseError(
                     f"unknown sizing key '{key_tok.text}'",

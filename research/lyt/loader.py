@@ -61,6 +61,19 @@ resolved, raises a `@toggle(_, preserve)` slot's declared `min` to
 `max(min, pref)` on its presence-bearing axis — "preserve" now genuinely
 reserves its preferred extent, not just its type. See that function's own
 docstring for the full rationale and seam-choice disclosure.
+
+AMENDMENT 3 (ledger row 1715, commissioner-delegated; see
+`SPEC-AMENDMENTS.md`): a split node (H/V) may declare an optional
+uniform `gap` — a constant px reservation between its children, never
+solvable/elastic, mapping 1:1 onto the compiler's existing `(k-1)*gap`
+partition term (`compiler.py`'s `_constrain`, Split branch) and CSS
+grid's native `gap`. `_load_gap_px` (below) is the load-time law: `px`
+only (`fr`/`ch`/any symbolic extent refused loudly — rhythm is not a
+negotiable, elastic quantity under board-maximization), and refused
+entirely on a T (Exclusive) node (its children share one rectangle, so
+there is nothing for a gap to separate). This REPLACES the F10-era
+"hardcoded to 0.0, no concrete syntax sets it" gap in `load_slot`'s
+Split branch — see that branch's own comment below for what changed.
 """
 from __future__ import annotations
 
@@ -360,6 +373,66 @@ def _apply_preserve_reservation(
     )
 
 
+def _load_gap_px(rs: Optional[lytparser.RawSizing], *, where: str, node_kind: str) -> float:
+    """AMENDMENT 3 (ledger row 1715): resolves an optional `gap <extent>`
+    sizing term to a plain px float, or 0.0 when the term is absent (the
+    pre-amendment default, unchanged).
+
+    The ruling's own law, enforced here (not in the parser, which stays
+    permissive per this module's architecture — see parser.py's own
+    disclosure at the `gap` grammar note):
+
+      - `gap` is legal ONLY on a split (H/V) node. `node_kind` is the
+        caller's own classification of the slot being loaded
+        ('leaf' | 'split' | 'exclusive'); a `gap` term surviving to this
+        call on anything but 'split' is refused loudly — a T node's
+        children all share the SAME rectangle (§4.1 line 297-298), so
+        there is no "between children" for a gap to reserve, and a leaf
+        has no children at all.
+      - the resolved extent must be a bare `px` literal — no `fr` (the
+        ruling's own words: "never solvable/elastic — rhythm is not
+        negotiable under board-maximization"), no `ch` (even though `ch`
+        IS otherwise resolvable to px elsewhere in this module — gap
+        position deliberately does not inherit that resolution, so the
+        author's declared unit is never silently reinterpreted), no
+        extent sum, and no symbolic sentinel (`WRAPPER_MIN`, `CONTENT`,
+        `MAXIMIZE`, `inf`) — all refused with the same structured error.
+    """
+    if rs is None or rs.gap is None:
+        return 0.0
+    if node_kind != "split":
+        raise LytLoadError(
+            f"gap declared at {where} but only an H/V split node may "
+            "declare a gap — a T (Exclusive) node's children all share "
+            "the same rectangle (layout-language-consult.md line "
+            "297-298), so there is nothing 'between' them for a gap to "
+            "reserve (AMENDMENT 3, ledger row 1715)",
+            {"where": where, "law": "gap-declaration", "node_kind": node_kind},
+        )
+    g = rs.gap
+    if isinstance(g, lytparser.RawExtent) and g.kind == "numunit" and g.unit == "px":
+        return g.v
+    bad_unit = g.unit if isinstance(g, lytparser.RawExtent) and g.unit else None
+    bad_symbol = g.symbol if isinstance(g, lytparser.RawExtent) and g.symbol else None
+    is_sum = isinstance(g, lytparser.RawExtentSum)
+    raise LytLoadError(
+        f"gap at {where} must be a constant px extent — 'fr' and 'ch' "
+        "(and extent sums, and symbolic sentinels) are refused in gap "
+        "position: a split's rhythm is a constant reservation, never a "
+        "solvable/elastic term, under board-maximization; an unfittable "
+        "gap is a loud INFEASIBLE, never silently absorbed elsewhere "
+        "(AMENDMENT 3, ledger row 1715)",
+        {
+            "where": where,
+            "law": "gap-declaration",
+            "prohibition": "non-px-gap",
+            "unit": bad_unit,
+            "symbol": bad_symbol,
+            "is_sum": is_sum,
+        },
+    )
+
+
 def _load_leaf(rl: lytparser.RawLeaf, *, where: str) -> ast.Leaf:
     domain = rl.domain
     facets = set()
@@ -397,6 +470,10 @@ def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
     node = rs.node
     if isinstance(node, lytparser.RawLeaf):
         leaf = _load_leaf(node, where=f"{path}:{node.widget}")
+        # AMENDMENT 3: a leaf has no children at all, so `gap` is refused
+        # here too (same law as the T-node refusal below) rather than
+        # silently dropped.
+        _load_gap_px(rs.sizing, where=f"{path}:{node.widget}", node_kind="leaf")
         sizing = _load_sizing(rs.sizing, where=f"{path}:{node.widget}", node_kind="leaf")
         presence = _load_presence(rs.presence, where=f"{path}:{node.widget}")
         sizing = _apply_preserve_reservation(sizing, presence, where=f"{path}:{node.widget}")
@@ -405,20 +482,24 @@ def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
         children = [
             load_slot(c, path=f"{path}/{node.axis.upper()}{i}") for i, c in enumerate(node.children)
         ]
-        # F10 disclosure (review row 1609): `gap_px` is hardcoded to 0.0
-        # here because no concrete syntax in this parser (and none in the
-        # base EBNF, layout-language-consult.md line 279) sets it — the
-        # compiler's partition-equality term for `gap_px` (compiler.py
-        # `_constrain`'s Split branch) is therefore modeled but only ever
-        # exercised in the degenerate gap=0 case. Left as a disclosed gap
-        # rather than inventing concrete syntax the document never shows.
-        split = ast.Split(axis=node.axis, gap_px=0.0, children=children)
+        # AMENDMENT 3 (ledger row 1715): `gap_px` is now resolved from an
+        # optional `gap <extent>` sizing term instead of being hardcoded
+        # to 0.0 (the F10-era disclosure this replaces — see the module
+        # docstring's AMENDMENT 3 paragraph and `_load_gap_px`'s own
+        # docstring for the full law). No `gap` term still resolves to
+        # 0.0, so an un-amended `.lyt` file's geometry is unchanged.
+        gap_px = _load_gap_px(rs.sizing, where=path, node_kind="split")
+        split = ast.Split(axis=node.axis, gap_px=gap_px, children=children)
         sizing = _load_sizing(rs.sizing, where=path, node_kind="split")
         presence = _load_presence(rs.presence, where=path)
         sizing = _apply_preserve_reservation(sizing, presence, where=path)
         return ast.Slot(node=split, presence=presence, sizing=sizing, violates=frozenset(rs.warns))
     if isinstance(node, lytparser.RawExclusive):
         children = [load_slot(c, path=f"{path}/T{i}") for i, c in enumerate(node.children)]
+        # AMENDMENT 3: a T node takes no gap — refused loudly (not
+        # silently ignored) if the author declared one, same as any other
+        # law this loader enforces.
+        _load_gap_px(rs.sizing, where=path, node_kind="exclusive")
         excl = ast.Exclusive(children=children, tag=node.tag)
         sizing = _load_sizing(rs.sizing, where=path, node_kind="exclusive")
         presence = _load_presence(rs.presence, where=path)

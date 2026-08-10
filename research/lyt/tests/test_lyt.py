@@ -391,6 +391,14 @@ def _tiling_violations(slot, result, *, path="root"):
                 if not is_aspect_leaf and cross_child != cross_parent:
                     bad.append(f"{cp}: cross {cross_child} != parent {cross_parent}")
                 walk(child, cp)
+            # AMENDMENT 3 (ledger row 1715): the partition sum must include
+            # the split's own (k-1)*gap term, the same quantity
+            # compiler.py's `_constrain` (Split branch) sums into its own
+            # partition equality -- an independent re-derivation, not a
+            # re-use of the compiler's own arithmetic, matching this
+            # helper's own stated purpose ("recompute ... directly from
+            # the solved rects").
+            along += int(round(node.gap_px)) * max(len(node.children) - 1, 0)
             parent_along = r.w if node.axis == "h" else r.h
             if along != parent_along:
                 bad.append(f"{path}: partition sum {along} != parent {parent_along}")
@@ -424,6 +432,135 @@ def test_tiling_invariants_hold_on_every_solvable_encoding(filename, layout_name
     assert result.status in ("OPTIMAL", "FEASIBLE"), f"{filename}@{w}x{h}: {result.status}"
     violations = _tiling_violations(slot, result)
     assert not violations, f"{filename}@{w}x{h} tiling violations: {violations}"
+
+
+# =============================================================================
+# AMENDMENT 3 (ledger row 1715): an H/V split may declare an optional
+# uniform `gap` -- a constant px reservation between its children, never
+# solvable/elastic. See `SPEC-AMENDMENTS.md` and `loader.py`'s
+# `_load_gap_px` docstring for the full rationale and law.
+# =============================================================================
+
+
+def test_gap_parses_and_loads_onto_the_split_node():
+    """The `gap <extent>` sizing term round-trips through parser.py ->
+    loader.py into `lyt_ast.Split.gap_px`. Absence still defaults to 0.0
+    (the pre-amendment behavior, unchanged for every un-amended
+    encoding)."""
+    with_gap = loader.load_layouts(
+        "layout g = {min 0px, pref 1fr, max inf, gap 8px} H("
+        "{min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome])"
+    )
+    assert with_gap["g"].node.gap_px == 8.0
+    without_gap = loader.load_layouts(
+        "layout g = {min 0px, pref 1fr, max inf} H("
+        "{min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome])"
+    )
+    assert without_gap["g"].node.gap_px == 0.0
+
+
+@pytest.mark.parametrize("bad_gap", ["8fr", "8ch"])
+def test_gap_refuses_elastic_or_ch_units_loudly(bad_gap):
+    """The ruling's own words: a gap is 'never solvable/elastic' -- `fr`
+    is refused outright, and `ch` is refused too even though it IS
+    otherwise resolvable to px elsewhere in this loader (min/pref/max),
+    because gap position deliberately does not inherit that resolution
+    (loader.py's `_load_gap_px` docstring)."""
+    with pytest.raises(LytLoadError) as exc_info:
+        loader.load_layouts(
+            f"layout g = {{min 0px, pref 1fr, max inf, gap {bad_gap}}} H("
+            "{min 0px, pref 1fr, max inf} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome])"
+        )
+    assert exc_info.value.detail.get("law") == "gap-declaration"
+    assert exc_info.value.detail.get("prohibition") == "non-px-gap"
+
+
+def test_gap_refuses_symbolic_extent_loudly():
+    """`gap WRAPPER_MIN` (a symbolic sentinel, legal in other extent
+    positions) is refused the same way `fr`/`ch` are -- gap position
+    accepts nothing but a bare px literal."""
+    with pytest.raises(LytLoadError) as exc_info:
+        loader.load_layouts(
+            "layout g = {min 0px, pref 1fr, max inf, gap WRAPPER_MIN} H("
+            "{min 0px, pref 1fr, max inf} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome])"
+        )
+    assert exc_info.value.detail.get("law") == "gap-declaration"
+    assert exc_info.value.detail.get("prohibition") == "non-px-gap"
+
+
+def test_gap_refuses_on_t_node():
+    """T (Exclusive) nodes take no gap: every child shares one rectangle
+    (§4.1 line 297-298), so there is nothing 'between' them to reserve."""
+    with pytest.raises(LytLoadError) as exc_info:
+        loader.load_layouts(
+            "layout g = {min 0px, pref 1fr, max inf, gap 8px} T("
+            "{min 0px, pref 1fr, max inf} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome])"
+        )
+    assert exc_info.value.detail.get("law") == "gap-declaration"
+    assert exc_info.value.detail.get("node_kind") == "exclusive"
+
+
+def test_gap_refuses_on_leaf():
+    """A leaf has no children at all, so `gap` is refused there too,
+    rather than silently dropped."""
+    with pytest.raises(LytLoadError) as exc_info:
+        loader.load_layouts(
+            "layout g = {min 0px, pref 0px, max 0px, gap 8px} A[chrome]"
+        )
+    assert exc_info.value.detail.get("law") == "gap-declaration"
+    assert exc_info.value.detail.get("node_kind") == "leaf"
+
+
+_GAP_HAND_COMPUTED_PROGRAM = """
+layout gaptest =
+  {min 0px, pref 1fr, max inf, gap 10px} V(
+    {min 100px, pref 100px, max 100px} top[chrome],
+    {min 200px, pref 200px, max 200px} mid[chrome]
+  )
+"""
+
+
+def test_gap_shifts_solved_rectangles_by_the_hand_computed_amount():
+    """Pins the `(k-1)*gap` partition term (compiler.py's `_constrain`,
+    Split branch) AND the offset accumulation (`_extract_rects`) against
+    a hand-computed case: a V-split root with two FIXED children (100px,
+    200px) and `gap 10px`, solved at a viewport whose height is EXACTLY
+    100+200+10=310 -- zero slack, so the gap must be neither silently
+    absorbed into a child's own extent nor dropped from either child's
+    solved offset."""
+    layouts = loader.load_layouts(_GAP_HAND_COMPUTED_PROGRAM)
+    slot = layouts["gaptest"]
+    assert slot.node.gap_px == 10.0
+    result = solve_lexicographic(
+        slot, class_id="t", w_px=500, h_px=310, board_widget=None, reach_preferred_widgets=None
+    )
+    assert result.status in ("OPTIMAL", "FEASIBLE")
+    top = result.rects["root/V0"]
+    mid = result.rects["root/V1"]
+    assert (top.x, top.y, top.w, top.h) == (0, 0, 500, 100)
+    # mid.y = 100 (top's own height) + 10 (the gap) = 110, NOT 100 -- the
+    # hand-computed pin that would catch a gap silently dropped from the
+    # offset accumulation while still being counted in the partition sum
+    # (or vice versa).
+    assert (mid.x, mid.y, mid.w, mid.h) == (0, 110, 500, 200)
+
+
+def test_unfittable_gap_is_a_loud_infeasible_not_silently_dropped():
+    """Same hand-computed shape, one px too short: the ruling's own
+    words -- 'an unfittable gap = loud INFEASIBLE' -- a gap is a hard
+    constant reservation the solver may not silently squeeze or drop to
+    make an otherwise-tight fit work."""
+    layouts = loader.load_layouts(_GAP_HAND_COMPUTED_PROGRAM)
+    slot = layouts["gaptest"]
+    result = solve_lexicographic(
+        slot, class_id="t", w_px=500, h_px=309, board_widget=None, reach_preferred_widgets=None
+    )
+    assert result.status == "INFEASIBLE"
 
 
 # =============================================================================
@@ -916,3 +1053,453 @@ def test_emit_ts_current_row_asis_resizer_slots_agree_across_sizes():
             continue
         assert r["slots"]["resizerOuter"]["w"] == 1
         assert r["slots"]["resizerInner"]["w"] == 1
+
+
+# =============================================================================
+# emit_mockup.py -- the lyt-cleanroom-mockups commission (ledger row 1703)
+# static HTML/CSS-grid mockup generator. Coverage: the LYT-sizing -> CSS
+# grid-track mapping (the sizing shapes actually present in the two
+# clean-room encodings), the T-node componentwise-max min derivation
+# reproduced from compiler.py, and output-shape checks on the generated
+# pages (well-formed nesting, every corner-menu toggle target present,
+# the debug-overlay solved data embedded and matching the live tree).
+# =============================================================================
+
+import json
+import re
+
+import emit_mockup
+
+
+def test_track_for_child_fixed_shape():
+    fixed = ast.Sizing(min=ast.Extent(unit="px", v=28), pref=ast.Extent(unit="px", v=28), max=ast.Extent(unit="px", v=28))
+    assert emit_mockup._track_for_child(fixed, floor_override_px=None, where="t") == "28px"
+
+
+def test_track_for_child_elastic_uncapped_shape():
+    elastic = ast.Sizing(min=ast.Extent(unit="px", v=0), pref=ast.Extent(unit="fr", v=1), max="inf")
+    assert emit_mockup._track_for_child(elastic, floor_override_px=None, where="t") == "minmax(0px, 1fr)"
+
+
+def test_track_for_child_elastic_capped_shape_drops_the_fr_weight():
+    """Module docstring's own disclosed choice: CSS minmax() has only two
+    argument slots, so a capped-elastic shape (min/pref-fr/max all
+    present, e.g. the side column's `{min 340px, pref 32fr, max
+    340px+60ch}`) keeps the hard min/max and drops the fr weight."""
+    capped = ast.Sizing(min=ast.Extent(unit="px", v=340), pref=ast.Extent(unit="fr", v=32), max=ast.Extent(unit="px", v=820))
+    assert emit_mockup._track_for_child(capped, floor_override_px=None, where="t") == "minmax(340px, 820px)"
+
+
+def test_track_for_child_floor_override_wins_over_declared_min():
+    elastic = ast.Sizing(min=ast.Extent(unit="px", v=0), pref=ast.Extent(unit="fr", v=1), max="inf")
+    assert emit_mockup._track_for_child(elastic, floor_override_px=300, where="t") == "minmax(300px, 1fr)"
+
+
+def test_track_for_child_refuses_unhandled_shapes_loudly():
+    """A shape none of the two clean-room encodings actually uses (here:
+    uncapped with a plain px pref) has no disclosed mapping -- refused,
+    not guessed (ADR-0002)."""
+    weird = ast.Sizing(min=ast.Extent(unit="px", v=0), pref=ast.Extent(unit="px", v=50), max="inf")
+    with pytest.raises(NotImplementedError):
+        emit_mockup._track_for_child(weird, floor_override_px=None, where="t")
+
+
+def test_exclusive_derived_min_px_matches_compilers_componentwise_max():
+    """Reproduces compiler.py's `_constrain` Exclusive branch derivation
+    (componentwise max of children's own declared min) -- this is the
+    exact floor the T node's own track in emit_mockup's HTML must carry,
+    the same floor the CP-SAT solver enforces."""
+    children = [
+        ast.Slot(node=ast.Leaf(widget="a"), presence=ast.FIXED, sizing=ast.Sizing(min=ast.Extent(unit="px", v=200), pref=ast.Extent(unit="fr", v=1), max="inf")),
+        ast.Slot(node=ast.Leaf(widget="b"), presence=ast.FIXED, sizing=ast.Sizing(min=ast.Extent(unit="px", v=300), pref=ast.Extent(unit="fr", v=1), max="inf")),
+    ]
+    excl = ast.Exclusive(children=children)
+    assert emit_mockup._exclusive_derived_min_px(excl, where="t") == 300
+
+
+def test_exclusive_derived_min_px_empty_children_is_zero():
+    assert emit_mockup._exclusive_derived_min_px(ast.Exclusive(children=[]), where="t") == 0.0
+
+
+@pytest.fixture(scope="module")
+def mockup_pages():
+    """Solves both classes once and reuses the result across this test
+    module's assertions -- each solve is a real (if fast) CP-SAT call,
+    and there is nothing about the assertions below that requires a
+    fresh solve per test."""
+    return emit_mockup.build_all(time_limit_s=10.0)
+
+
+def test_build_all_produces_both_screen_classes(mockup_pages):
+    assert set(mockup_pages.keys()) == {"landscape", "portrait"}
+    for class_id, html_text in mockup_pages.items():
+        assert html_text.startswith("<!doctype html>")
+        assert "GENERATED FILE" in html_text
+        assert f"lengyue-{class_id}" in html_text
+
+
+def test_generated_pages_have_balanced_div_nesting(mockup_pages):
+    for class_id, html_text in mockup_pages.items():
+        opens = len(re.findall(r"<div", html_text))
+        closes = len(re.findall(r"</div>", html_text))
+        assert opens == closes, f"{class_id}: {opens} <div vs {closes} </div>"
+        assert opens > 0
+
+
+def test_generated_pages_carry_every_declared_toggle_target(mockup_pages):
+    for class_id, targets in emit_mockup.TOGGLE_TARGETS.items():
+        html_text = mockup_pages[class_id]
+        for label, presence in targets.values():
+            slug = emit_mockup._slug(label)
+            assert f'data-toggle-id="{slug}" data-presence="{presence}"' in html_text
+            assert f'data-toggle-for="{slug}"' in html_text
+            if presence == "release":
+                assert f'data-toggle-id="{slug}"' in html_text and "data-track-prop=" in html_text
+
+
+def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_pages):
+    """X6 fix (lyt-mockups-opus-review.md): OVERLAY_SIZES now spans the
+    review's own full 14-viewport tested set, not just the three
+    screenshot sizes. At two of those extra sizes (landscape 1280x1024
+    and the portrait-shaped 1080x1920-in-landscape probe) the CP-SAT
+    solve is genuinely INFEASIBLE -- a real fact about the .lyt
+    encoding's own declared minimums (at 1280x1024 the side column's
+    floor, 340px, alone leaves composite less width than the board's
+    forced natural size needs), not a bug in this generator or its CSS
+    realization. Every OTHER size must still solve OPTIMAL with a real
+    board rect; an INFEASIBLE entry carries no slots (matching
+    build_overlay_data's own `if status in (OPTIMAL, FEASIBLE) else {}`)
+    and the debug overlay's own JS already renders that status text
+    instead of crashing (see `drawOverlay`)."""
+    known_infeasible = {
+        ("landscape", "1280x1024"),
+        ("landscape", "1080x1920-in-landscape"),
+    }
+    for class_id, html_text in mockup_pages.items():
+        m = re.search(r'<script id="lyt-solved-data" type="application/json">(.*?)</script>', html_text, re.S)
+        assert m, f"{class_id}: no embedded solved-data script tag"
+        data = json.loads(m.group(1))
+        expected_sizes = emit_mockup.OVERLAY_SIZES[class_id]
+        assert [(d["label"], d["wPx"], d["hPx"]) for d in data] == expected_sizes
+        for d in data:
+            if (class_id, d["label"]) in known_infeasible:
+                assert d["status"] == "INFEASIBLE"
+                assert d["slots"] == {}
+            else:
+                assert d["status"] == "OPTIMAL", f"{class_id}/{d['label']}: expected OPTIMAL, got {d['status']}"
+                assert "B" in d["slots"]  # the board widget always solves a rect when OPTIMAL
+
+
+def test_landscape_side_column_track_carries_the_board_priority_clamp(mockup_pages):
+    """B2/B3 fix regression pin: the side column's track (a direct
+    sibling of the board composite, both fed by `_board_priority_tracks`
+    CASE A) is no longer the bare `minmax(340px, 820px)` that let a
+    non-flexible track claim its full max before the board's `1fr` track
+    ever saw free space (the review's B2 finding). It is now a
+    `clamp()` expression whose middle term subtracts the board's own
+    closed-form natural size (100vh minus the 24px+28px fixed info/action
+    rows) from the available width, so the board structurally wins its
+    natural share before the side column grows toward its own declared
+    max -- see `_board_priority_tracks`'s own docstring for the full
+    derivation.
+
+    AMENDMENT 3 (ledger row 1715) update: the landscape encoding now
+    declares `gap 12px` on its own outer H(...) split (see that file's
+    own header comment for the `--space-medium` tier-mapping rationale).
+    `_board_priority_tracks`'s CASE A branch subtracts that gap from the
+    clamp's middle term (its own updated docstring covers why: the
+    board's `1fr` composite track would otherwise silently absorb the
+    gap's width out of the board's own natural share), so the pinned
+    clamp expression below gains a trailing `- 12px` term versus the
+    pre-amendment (gap-less) string."""
+    assert "minmax(340px, 820px)" not in mockup_pages["landscape"]
+    assert "clamp(340px, calc(100% - (100vh - 52px) - 12px), 820px)" in mockup_pages["landscape"]
+
+
+def test_portrait_composite_row_carries_the_board_priority_cap(mockup_pages):
+    """B2/B3 fix regression pin, CASE B: portrait's board composite row
+    (an uncapped `1fr` track competing against the Tree & Panels T-node's
+    OWN uncapped `1fr` track -- plain CSS Grid would split these 50/50,
+    the review's measured B3 symptom, 932px/932px instead of the solved
+    skew) is now capped at its own closed-form natural ceiling
+    (100vw, the board's own aspect-driven max width, plus the 24px+28px
+    fixed info/action rows), converting it from a flexible track into a
+    non-flexible calc-bounded one so the Tree & Panels T-node's own
+    declared `minmax(200px, 1fr)` floor is honored automatically by CSS
+    Grid's own track-sizing algorithm (base-size reservation happens
+    before a non-flexible sibling is allowed to grow) rather than
+    starved by a naive 50/50 split."""
+    assert "minmax(0px, calc(100vw + 52px))" in mockup_pages["portrait"]
+    assert "minmax(200px, 1fr)" in mockup_pages["portrait"]  # T-node's floor is untouched by the cap
+
+
+def test_tree_panels_t_node_track_carries_its_derived_floor(mockup_pages):
+    """The T node's own track in its parent must carry the
+    compiler-derived componentwise-max floor (300px landscape, 200px
+    portrait per the two .lyt files' own WRAPPER_MIN / literal 200px),
+    not the loader's un-derived 0px default."""
+    assert "minmax(300px, 1fr)" in mockup_pages["landscape"]
+    assert "minmax(200px, 1fr)" in mockup_pages["portrait"]
+
+
+def test_render_is_deterministic_given_the_same_overlay_data():
+    """Re-rendering the SAME (slot, overlay_data) pair must produce a
+    byte-identical page -- no wall-clock timestamp, no unordered
+    iteration leaking into the output (mirrors emit_ts's own
+    determinism test)."""
+    reg, layouts = emit_mockup.load_class_slots()
+    slot = layouts[reg.layout_by_class["landscape"]]
+    overlay = emit_mockup.build_overlay_data(reg, layouts, "landscape", time_limit_s=10.0)
+    text_a = emit_mockup.build_html_for_class("landscape", slot, overlay)
+    text_b = emit_mockup.build_html_for_class("landscape", slot, overlay)
+    assert text_a == text_b
+
+
+# =============================================================================
+# Fix pass regressions (lyt-mockups-opus-review.md, ledger row 1710/1711):
+# B1 (square board emission shape), B2/B3 (board-priority track fidelity --
+# covered above by test_landscape_side_column_track_carries_the_board_
+# priority_clamp / test_portrait_composite_row_carries_the_board_priority_
+# cap), and the supporting structural helpers.
+# =============================================================================
+
+
+def test_board_cell_emits_container_query_containment_not_both_axes_definite(mockup_pages):
+    """B1 regression pin: the board leaf's own wrapper must carry the
+    `board-cell` marker class (container-type:size, in `_STYLE`) and must
+    NOT carry the old inert combination that caused the non-square bug
+    (aspect-ratio alongside a same-element width:100%;height:100% with no
+    non-stretch alignment override) -- i.e. `aspect-ratio` no longer
+    appears inline on the leaf itself at all; it lives only in the
+    `.board-square` CSS RULE (sized via cq units), never as an inline
+    per-instance style on the leaf wrapper the way `justify-self:center`
+    used to."""
+    for class_id, html_text in mockup_pages.items():
+        assert 'class="lyt-node lyt-leaf board-cell"' in html_text
+        # The old bug's inline signature must be gone from every leaf.
+        assert "aspect-ratio:1/1;max-width:100%" not in html_text
+        assert "justify-self:center" not in html_text
+        assert "align-self:center" not in html_text
+    # The CSS rule carrying the actual containment lives once, in _STYLE.
+    assert ".board-cell { display: grid; place-items: center; container-type: size; }" in emit_mockup._STYLE
+    assert "width: min(100%, 100cqh); height: min(100%, 100cqw);" in emit_mockup._STYLE
+
+
+def test_board_stones_sit_on_grid_intersections(mockup_pages):
+    """B1 SECONDARY regression pin: every emitted stone's (left, top)
+    percentage must be one of `_intersection_pct(i)` for i in 0..18 --
+    the review's finding was that the old stone percentages (22%/30%,
+    etc.) did not coincide with the board-grid's own line spacing, so
+    stones sat inside cells rather than on intersections."""
+    valid_pcts = {f"{emit_mockup._intersection_pct(i):g}" for i in range(19)}
+    for class_id, html_text in mockup_pages.items():
+        stone_positions = re.findall(r'class="board-stone board-stone-[bw]" style="left:([\d.]+)%;top:([\d.]+)%;"', html_text)
+        assert stone_positions, f"{class_id}: no stones found"
+        for left, top in stone_positions:
+            assert left in valid_pcts, f"{class_id}: stone left={left}% is not on a grid intersection"
+            assert top in valid_pcts, f"{class_id}: stone top={top}% is not on a grid intersection"
+
+
+def test_board_has_star_points_and_coordinates(mockup_pages):
+    """B1 secondary finding ('no star points and no coordinates')."""
+    for class_id, html_text in mockup_pages.items():
+        assert html_text.count('class="board-star"') == 9  # standard 19x19 hoshi count
+        assert html_text.count('class="board-coord board-coord-col"') == 19
+        assert html_text.count('class="board-coord board-coord-row"') == 19
+
+
+def test_find_board_composite_child_recognizes_both_encodings_shapes():
+    """`_find_board_composite_child` must find exactly the board-bearing
+    child at both classes' roots, with the fixed-sibling sum matching
+    the .lyt source's own declared 24px + 28px info/action rows."""
+    reg, layouts = emit_mockup.load_class_slots()
+    landscape_root = layouts[reg.layout_by_class["landscape"]].node
+    portrait_root = layouts[reg.layout_by_class["portrait"]].node
+    l_match = emit_mockup._find_board_composite_child(landscape_root)
+    assert l_match is not None
+    assert l_match[0] == 0  # composite is the FIRST child of landscape's H root
+    assert l_match[2] == 52.0  # 24px + 28px
+
+    p_match = emit_mockup._find_board_composite_child(portrait_root)
+    assert p_match is not None
+    assert p_match[0] == 1  # composite is the SECOND child of portrait's V root (after A_top)
+    assert p_match[2] == 52.0
+
+
+def test_find_board_composite_child_is_none_for_a_split_with_no_aspect_leaf():
+    """A Split with no aspect-locked child at all must not match --
+    `_board_priority_tracks` must be a no-op there, not misapply the
+    override to an unrelated shape."""
+    plain = ast.Split(
+        axis="h",
+        children=[
+            ast.Slot(node=ast.Leaf(widget="x"), presence=ast.FIXED, sizing=ast.Sizing(min=ast.Extent(unit="px", v=28), pref=ast.Extent(unit="px", v=28), max=ast.Extent(unit="px", v=28))),
+            ast.Slot(node=ast.Leaf(widget="y"), presence=ast.FIXED, sizing=ast.Sizing(min=ast.Extent(unit="px", v=0), pref=ast.Extent(unit="fr", v=1), max="inf")),
+        ],
+    )
+    assert emit_mockup._find_board_composite_child(plain) is None
+
+
+def test_board_priority_tracks_is_a_noop_when_no_composite_child_matches():
+    plain = ast.Split(
+        axis="h",
+        children=[
+            ast.Slot(node=ast.Leaf(widget="x"), presence=ast.FIXED, sizing=ast.Sizing(min=ast.Extent(unit="px", v=28), pref=ast.Extent(unit="px", v=28), max=ast.Extent(unit="px", v=28))),
+        ],
+    )
+    tracks = ["28px"]
+    sizings = [plain.children[0].sizing]
+    assert emit_mockup._board_priority_tracks(plain, tracks, sizings) == tracks
+
+
+# =============================================================================
+# Fix pass 2 regressions (lyt-mockups-opus-review.md's "Re-review --
+# 2026-08-10" section, ledger rows 1717-1720): N1 (the release-toggle
+# track-property collision blocker), the X2 residual (caption gutter
+# min-width), N2 (the all-off guard's silent revert), and N3 (the board's
+# own strips not aligning to the board square).
+# =============================================================================
+
+
+def test_track_prop_naming_is_collision_free_by_construction():
+    """N1's own root cause (review's diagnosis): `--track-{i}`, a bare
+    per-level index, is an ORDINARY INHERITED CSS custom property -- an
+    override set via `.style.setProperty` on one grid container is
+    visible to every DESCENDANT grid's `var(--track-{i}, ...)` lookup
+    too, not only that container's own template. Two unrelated nodes at
+    different nesting depths that happened to reuse the same per-level
+    index (the board composite's own row 0 and the portrait root's own
+    column 0, in the specimen the review measured) collided: releasing
+    the root's track silently rewrote the composite's unrelated one.
+
+    The fix namespaces the property by the child's own FULL PATH FROM
+    THE TREE ROOT. This test does not merely assert the review's two
+    known-colliding paths no longer collide -- it walks BOTH classes'
+    real trees, computes every Split child's track_prop the exact way
+    `render_split` does, and asserts the WHOLE per-class set is
+    collision-free. This holds by construction (distinct tuples path-
+    join to distinct strings, since digits never contain the `-`
+    delimiter -- an injective encoding, not a coincidence of the two
+    specific trees), but pinning it against the real trees also catches
+    a future change to the join scheme (e.g. a delimiter that could
+    appear inside an index) that would silently break the guarantee.
+    """
+    reg, layouts = emit_mockup.load_class_slots()
+
+    def walk(slot, path, acc):
+        node = slot.node
+        if isinstance(node, ast.Split):
+            for i, child in enumerate(node.children):
+                cpath = path + (i,)
+                acc.append("--track-" + "-".join(str(p) for p in cpath))
+                walk(child, cpath, acc)
+        # ast.Exclusive children are tab labels, not grid tracks of their
+        # own (render_exclusive's own template is a plain literal, never
+        # parameterized by var(--track-...)) -- nothing to walk into.
+
+    for cls in reg.classes:
+        props = []
+        walk(layouts[reg.layout_by_class[cls.id]], (), props)
+        assert props, f"{cls.id}: no Split tracks found -- test fixture assumption broken"
+        dupes = sorted({p for p in props if props.count(p) > 1})
+        assert not dupes, f"{cls.id}: collision in emitted track-property names: {dupes}"
+
+
+def test_generated_pages_declare_every_track_prop_exactly_once(mockup_pages):
+    """Concrete regression pin (complementing the abstract walk above):
+    the actual EMITTED page must declare exactly one `var(--track-<path>,
+    ...)` fragment per Split child in the real tree -- the same count the
+    abstract walk computes -- and every declared name must be unique
+    within that page. A regression that reintroduced a bare per-level
+    index (or any other scheme that could alias two different nodes)
+    would either shrink this count (two children silently sharing one
+    declaration slot never happens structurally, but a future refactor
+    that flattened a level could) or produce a duplicate name; either
+    failure mode is caught here directly against the generator's own
+    output, not just the tree-walking model of it."""
+    reg, layouts = emit_mockup.load_class_slots()
+
+    def count_split_children(slot):
+        node = slot.node
+        if isinstance(node, ast.Split):
+            return len(node.children) + sum(count_split_children(c) for c in node.children)
+        return 0
+
+    for cls in reg.classes:
+        expected = count_split_children(layouts[reg.layout_by_class[cls.id]])
+        html_text = mockup_pages[cls.id]
+        declared = re.findall(r"var\((--track-[0-9-]+),", html_text)
+        assert len(declared) == expected, f"{cls.id}: expected {expected} track declarations, found {len(declared)}"
+        dupes = sorted({p for p in declared if declared.count(p) > 1})
+        assert not dupes, f"{cls.id}: duplicate track-property declaration(s) in emitted HTML: {dupes}"
+
+
+def test_release_toggle_track_prop_is_path_namespaced(mockup_pages):
+    """N1 regression pin, concrete specimen: the review's own measured
+    collision was the board composite's row-0 track and the root's
+    column-0 track both being named the bare `--track-0`. Every
+    `data-track-prop` this generator emits must now be a multi-segment,
+    path-namespaced name (contains a `-` after `--track`), not a bare
+    single-level index -- pinning the exact defect shape the review
+    found, not just its abstract precondition."""
+    for class_id, html_text in mockup_pages.items():
+        props = re.findall(r'data-track-prop="(--track-[0-9-]+)"', html_text)
+        assert props, f"{class_id}: no data-track-prop attributes found"
+        for p in props:
+            assert re.match(r"^--track-\d+-\d+", p) or p.count("-") >= 3, (
+                f"{class_id}: {p!r} looks like a bare per-level index, not a path-namespaced name"
+            )
+
+
+def test_x2_caption_gutter_clips_overflow_and_tabstrip_matches_row_padding():
+    """X2 residual fix: `flex: 0 0 92px` alone does not stop a longer
+    caption's own content from winning past the 92px basis (the review's
+    measured 97.55px for "COMMON ACTIONS") -- `min-width: 0` is required
+    to make the basis a real ceiling. `.lyt-tabstrip` must also carry the
+    same 4px left padding the info/action rows declare, or its own
+    caption starts 4px earlier than the other three strips'."""
+    assert "min-width: 0;" in emit_mockup._STYLE
+    caption_rule = re.search(r"\.row-caption,\s*\.lyt-tab-caption\s*\{([^}]*)\}", emit_mockup._STYLE)
+    assert caption_rule, "shared .row-caption/.lyt-tab-caption rule not found in _STYLE"
+    assert "min-width: 0" in caption_rule.group(1)
+    assert "overflow: hidden" in caption_rule.group(1)
+    tabstrip_rule = re.search(r"\.lyt-tabstrip\s*\{([^}]*)\}", emit_mockup._STYLE)
+    assert tabstrip_rule, ".lyt-tabstrip rule not found in _STYLE"
+    assert "padding-left: var(--space-tight)" in tabstrip_rule.group(1)
+    # Matches the rows' own `gap: var(--space-default)` -- without it the
+    # tab strip's first content item starts 8px earlier than the three
+    # row strips' (the caption box + its margin lines up, but the rows'
+    # additional flex `gap` after every child, including the caption,
+    # has no tabstrip counterpart otherwise).
+    assert "gap: var(--space-default)" in tabstrip_rule.group(1)
+
+
+def test_n2_release_guard_disables_last_checkbox_instead_of_reverting():
+    """N2 regression pin: the first fix pass's guard silently REVERTED an
+    accepted click on the last remaining checked release checkbox
+    (`cb.checked = true; return;`, with zero visible feedback) -- the
+    review named this indistinguishable from a bug. The fix disables
+    that checkbox (with an explanatory `title`) so the click is refused
+    up front instead of accepted-then-undone."""
+    assert "updateReleaseGuard" in emit_mockup._SCRIPT
+    assert "cb.disabled = true" in emit_mockup._SCRIPT
+    assert "cb.title = 'At least one panel must stay visible'" in emit_mockup._SCRIPT
+    # The old silent-revert pattern must be gone, not merely supplemented.
+    assert "cb.checked = true; return;" not in emit_mockup._SCRIPT
+    assert "anyStillOn" not in emit_mockup._SCRIPT
+
+
+def test_n3_board_composite_marker_and_fixed_sum_are_emitted(mockup_pages):
+    """N3 regression pin: the board composite (the Split wrapping the
+    board leaf plus its own fixed info/action rows) must carry the
+    `board-composite` class and an inline `--board-fixed-sum` custom
+    property equal to the SAME fixed-sibling total
+    `_find_board_composite_child` already derives (52px in both classes:
+    the 24px info row + 28px action row) -- the one input the
+    `.board-composite` CSS rule needs to reproduce the board square's own
+    sizing formula one level up."""
+    for class_id, html_text in mockup_pages.items():
+        assert "board-composite" in html_text
+        assert "--board-fixed-sum:52px;" in html_text
+    assert ".board-composite { container-type: size; }" in emit_mockup._STYLE
+    assert "max-width: min(100cqw, calc(100cqh - var(--board-fixed-sum, 0px)));" in emit_mockup._STYLE

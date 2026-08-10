@@ -19,8 +19,21 @@
 --     own min set to 200px so the T node's structurally-derived min
 --     (componentwise max of children, §4.1 line 298-302) reproduces the
 --     document's explicit `min 200px` for the whole group.
+--   - AMENDMENT 3 (ledger row 1715, gap-amendment-build): the root V(...)
+--     gets `gap 12px`, `--space-medium` (`frontend/src/assets/css/
+--     theme.css`'s own words: "section-level gap, content-block
+--     separation"). Landscape's OUTER split uses the wider `--space-loose`
+--     tier (20px) for its board-vs-side-column split, a clean two-way
+--     major-region seam with generous width to spare; portrait's root
+--     stacks FOUR bands in a narrower viewport (the top action strip, the
+--     board group, the engine-info strip, and the black-box tree/panels
+--     T node) — the same `--space-loose` gap three times over would cost
+--     60px of vertical rhythm the portrait class can less afford, so the
+--     next tier down is the disclosed, deliberate choice here, not an
+--     infeasibility workaround (this class stayed OPTIMAL at `--space-
+--     loose` too when probed — see build report).
 layout lengyue-portrait =
-  {min 0px, pref 1fr, max inf} V(
+  {min 0px, pref 1fr, max inf, gap 12px} V(
     {28px} A_top[common, action],
     {pref 1fr} V(
       {width 100fr, aspect 1} B[board],

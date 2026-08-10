@@ -39,14 +39,45 @@
 --     choice WITHOUT disclosing it; this paragraph brings the two files'
 --     disclosure to parity rather than removing the (functionally
 --     necessary) per-child mins.
+--   - AMENDMENT 3 (ledger row 1715, gap-amendment-build): two `gap`
+--     declarations, both mapped onto `frontend/src/assets/css/theme.css`'s
+--     `--space-*` tier scale (that file's own §"Four tiers for gap,
+--     padding, margin", read in full):
+--       - the OUTER H(...) (board area vs. the side control column) gets
+--         `gap 12px`, `--space-medium` ("section-level gap, content-block
+--         separation") — for the split between the page's two MAJOR
+--         REGIONS. DISCLOSED DOWN-TIER FROM `--space-loose` (20px): the
+--         first probe used `--space-loose`, which re-solves OPTIMAL at
+--         every representative/OVERLAY_SIZES size EXCEPT `900x600`
+--         (landscape), a size that solved OPTIMAL pre-amendment (gap 0)
+--         and regresses to INFEASIBLE at `--space-loose` specifically
+--         because of the extra reserved gap width — a real, measured
+--         finding, not silently dropped. `--space-medium` (12px) restores
+--         `900x600` to OPTIMAL while every OTHER size's feasibility
+--         status is unchanged from BOTH the gap-0 baseline and the
+--         `--space-loose` probe (see build report's feasibility table for
+--         the full before/after grid, including the two INFEASIBLE sizes
+--         — `1280x1024` and the `1080x1920`-viewport-fed-to-the-landscape-
+--         class probe — that were ALREADY infeasible before this
+--         amendment, per fix1's own X6 disclosure, and remain so
+--         independent of gap tier).
+--       - the side column's own V(...) (the go-actions/engine-info/
+--         common-actions strip stack feeding the black-box T node) gets
+--         `gap 4px`, `--space-tight` ("button-cluster gaps, icon
+--         spacing, tight rows") — the narrowest tier, matching that
+--         comment's own words almost verbatim: this IS a stack of tight
+--         control rows. Already the smallest tier, so no down-tier
+--         probe was possible for this one; it did not need one --
+--         re-solving with only this gap (root gap held at 0) never
+--         introduced a new infeasibility at any tested size.
 layout lengyue-landscape =
-  {min 0px, pref 1fr, max inf} H(
+  {min 0px, pref 1fr, max inf, gap 12px} H(
     {pref 1fr} V(
       {pref maximize, aspect 1} B[board],
       {min 24px, pref 24px, max 24px} I_board[board, info],
       {min 28px, pref 28px, max 28px} A_board[board, action]
     ),
-    {min 340px, pref 32fr, max 340px+60ch} V(
+    {min 340px, pref 32fr, max 340px+60ch, gap 4px} V(
       {28px} A_go[go, action],
       {28px, envelope: {disconnected, connected_5digit_latency}} I_engine[common, info],
       {28px} A_common[common, action],
