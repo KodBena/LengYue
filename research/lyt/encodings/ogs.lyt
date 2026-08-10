@@ -1,0 +1,12 @@
+-- Transcription of layout-language-consult.md §5.3 (lines 531-539),
+-- V(H(B,A),I). Same disclosed adjustments as q5go.lyt: no-op root sizing
+-- (document elides it), sizing-before-node reordering, I[info]
+-- domain/facet resolution, omitted min/max default to 0px/inf.
+layout ogs =
+  {min 0px, pref 1fr, max inf} V(
+    {pref 1fr} H(
+      {pref maximize, aspect 1} B[board],
+      {min 48px, pref 48px, max 48px} A[board, action]
+    ),
+    {min 96px, pref 160px, max 25fr} I[info]
+  )

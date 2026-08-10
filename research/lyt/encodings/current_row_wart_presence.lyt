@@ -1,0 +1,10 @@
+-- Isolated, VERBATIM fragment of layout-language-consult.md §5.1 lines
+-- 471-472:
+--     ⚠L1 @toggle(SYSTEM, RELEASE)
+--       engineMetrics[common, info]{...}
+-- This is the document's own illustration of Presence's "untypable"
+-- combination (line 268: "note: 'release' is UNTYPABLE here"). Not
+-- expected to load — see current_row_repaired.lyt for the same slot
+-- repaired to @fixed, and tests/test_lyt.py for the pytest assertion.
+layout current-row-wart-presence =
+  @toggle(system, release) {min 96px, pref 160px, max 220px} engineMetrics[common, info]

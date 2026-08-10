@@ -1,0 +1,30 @@
+"""Structured errors for the LYT prototype, per the umbrella's ADR-0002
+("fail loudly... refuse malformed input with a structured error, never
+coerce" — build commission item 3). Every refusal below carries a
+machine-checkable `.detail` dict (never just a free-text message) so a
+caller — human or test — can assert on *why* something was refused, not
+just *that* it was.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Dict
+
+
+@dataclass
+class LytError(Exception):
+    message: str
+    detail: Dict[str, Any] = field(default_factory=dict)
+
+    def __str__(self) -> str:
+        return f"{self.message} | detail={self.detail!r}"
+
+
+class LytParseError(LytError):
+    """The concrete-syntax text is not well-formed per the EBNF (§4.1)."""
+
+
+class LytLoadError(LytError):
+    """The parsed tree fails a semantic/type check: an unrepresentable
+    construct (content-driven sizing, system+release presence) or a
+    violated well-formedness law (L1-L4)."""
