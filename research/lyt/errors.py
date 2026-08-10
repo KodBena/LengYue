@@ -27,4 +27,5 @@ class LytParseError(LytError):
 class LytLoadError(LytError):
     """The parsed tree fails a semantic/type check: an unrepresentable
     construct (content-driven sizing, system+release presence) or a
-    violated well-formedness law (L1-L4)."""
+    violated well-formedness law (L1-L4), including AMENDMENT 4's new
+    "presence-valuation" law (SPEC-AMENDMENTS.md, ledger row 1737)."""

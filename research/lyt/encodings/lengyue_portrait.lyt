@@ -64,9 +64,17 @@
 --         420x880) — see the build report's before/after feasibility
 --         table for the measured outcome at each size, disclosed rather
 --         than silently absorbed either way.
+--
+--   - AMENDMENT 4 (ledger row 1737, per-valuation presence solving,
+--     SPEC-AMENDMENTS.md): boardRail and previewBoard below are now
+--     genuinely `@toggle(user, release)` in this file's own concrete
+--     syntax, same as lengyue_landscape.lyt — see that file's own
+--     boardRail header note for the full rationale (the DEFAULT-OFF
+--     state itself still lives at the registration layer, `runner.py`'s
+--     `Registration.default_valuation`, not in this file's text).
 layout lengyue-portrait =
   {min 0px, pref 1fr, max inf, gap 12px} V(
-    {min 168px, pref 168px, max 168px} boardRail[common, info+action],
+    @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
     {28px} A_top[common, action],
     {pref 1fr} V(
       {width 100fr, aspect 1} B[board],
@@ -83,6 +91,6 @@ layout lengyue-portrait =
         {min 200px, pref 1fr, max inf} CP-analysis[blackbox],
         {min 200px, pref 1fr, max inf} CP-other[blackbox]
       )[BLACK BOX],
-      {min 96px, pref 96px, max 96px, aspect 1} previewBoard[common, info]
+      @toggle(user, release) {min 96px, pref 96px, max 96px, aspect 1} previewBoard[common, info]
     )
   )
