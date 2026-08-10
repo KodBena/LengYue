@@ -346,6 +346,6 @@ export const KATAGO_FIRST_REPORT_FLOOR_S = 0.001;
 //     store.profile.settings.engine.katago.reportDuringSearchEvery
 //     (default 0.15 s) and .firstReportDuringSearchAfter (default 0.05 s).
 //   • PV-animation timings — store.profile.session.ui.pvAnimation
-//     (stepDelayMs / windowDurationMs / fadeDurationMs; defaults in
-//     src/store/defaults.ts and use-pv-animation's PV_DEFAULTS seed).
+//     (stepDelayMs / windowDurationMs; defaults in src/store/defaults.ts
+//     and use-pv-animation's PV_DEFAULTS seed).
 //   • Move-suggestions fade — a knob default (moveSuggestionsFadeMs).

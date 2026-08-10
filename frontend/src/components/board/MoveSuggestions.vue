@@ -224,12 +224,11 @@ function toSvg(x: number, y: number): { x: number; y: number } {
 // CSS `transition` is banned (ledger row 1506, no carve-outs): the
 // opacity fade this module drives is no longer painted via a CSS
 // transition on the `opacity` style — it snaps instantly to its
-// target value. `pvCfg.fadeDurationMs` / `moveSuggestionsFadeMs`
-// remain meaningful: `use-pv-animation.ts` still uses
-// `cfg.fadeDurationMs` for its own JS-side scheduling (the
-// setTimeout that releases `pvMoves` after the fade window), which
-// is timing logic, not a CSS transition, and is out of this ban's
-// scope.
+// target value. The `moveSuggestionsFadeMs` prop above is unrelated
+// to this comment's original subject (`pvCfg.fadeDurationMs`, the
+// PV-fade knob) and is left as-is here. The PV-fade knob itself was
+// removed outright (wiki2-pv-fade-knob) rather than kept as inert
+// timing logic — see `use-pv-animation.ts`'s file header.
 </script>
 
 <template>

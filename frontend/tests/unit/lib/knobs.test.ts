@@ -689,22 +689,28 @@ describe('validateRegistry', () => {
       );
     });
 
-    it('passes the two seeded session.ui.* decls (and the profile.* family) under the allowlist', () => {
+    it('passes a seeded session.ui.* decl, a synthetic second one, and the profile.* family, under the allowlist', () => {
       // Mirrors the production seeded shape: every output path begins with
-      // `profile.` or `session.ui.`. The two session.ui decls are
-      // move-filter-threshold and pv-fade-ms (src/store/defaults.ts).
+      // `profile.` or `session.ui.`. `display.move-filter-threshold` is the
+      // currently-only production session.ui.*-targeting decl
+      // (src/store/defaults.ts); the second session.ui.* decl below is
+      // purely synthetic (exercises the allowlist across multiple decls
+      // under the same subtree) and does not mirror any real production
+      // KnobDecl. The former second seed, `display.pv-fade-ms`, was
+      // removed outright (wiki2-pv-fade-knob — CSS transitions were
+      // purged, leaving it dead) rather than replaced.
       const root = {
         profile: { settings: { appearance: { ownershipOpacityCeiling: 0.5 }, engine: { katago: { watchdogAnimationMs: 800 } } } },
-        session: { ui: { moveFilterThreshold: 0.3, pvAnimation: { fadeDurationMs: 200 } } },
+        session: { ui: { moveFilterThreshold: 0.3, exampleSecondField: 200 } },
       };
       const registry: KnobRegistry = {
         'display.move-filter-threshold': decl({
           id: 'display.move-filter-threshold',
           outputs: [{ path: 'session.ui.moveFilterThreshold' }],
         }),
-        'display.pv-fade-ms': decl({
-          id: 'display.pv-fade-ms',
-          outputs: [{ path: 'session.ui.pvAnimation.fadeDurationMs' }],
+        'display.example-second-session-knob': decl({
+          id: 'display.example-second-session-knob',
+          outputs: [{ path: 'session.ui.exampleSecondField' }],
         }),
         'display.ownership-opacity-ceiling': decl({
           id: 'display.ownership-opacity-ceiling',

@@ -5,10 +5,10 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-08-10: migrations 1 → 2 through 69 → 70 (69
- * entries). The first eight covered pre-v1.0.0 schema evolution;
- * the rest are the v1.0.x – v1.1.x active cycle, archived in
- * per-PR rolling fashion under the same archive contract.
+ * Scope as of 2026-08-10 (wiki2-pv-fade-knob): migrations 1 → 2
+ * through 71 → 72 (71 entries). The first eight covered pre-v1.0.0
+ * schema evolution; the rest are the v1.0.x – v1.1.x active cycle,
+ * archived in per-PR rolling fashion under the same archive contract.
  *
  * Note: the most recently archived bodies (57 → 58 onward) were
  * authored against the `witnessedContainer` helper and keep that call
@@ -2989,6 +2989,73 @@ export const archivedMigrations: Migration[] = [
         );
         if (qualityPalette && qualityPalette.summary_fn === 'min_summary') {
           qualityPalette.summary_fn = 'median_summary';
+        }
+      }
+    }
+    return out;
+  },
+  // 71 → 72: root-delta score loss (ledger rows 1380/1381/1383/1378,
+  // commissioner-defined) — the same two-concern shape as 70 → 71
+  // immediately above: "add the new capability, repoint only what
+  // nobody has customised away."
+  //
+  //  (a) Seed expansion: add the `scoreLead_root_loss` symbol
+  //      (`store/defaults.ts`'s derivation comment on the symbol has
+  //      the full perspective derivation) to `analysis_env.symbols`
+  //      only when absent — same add-if-absent-BY-KEY shape as
+  //      70 → 71's `median_summary` seed (commissioner clarification,
+  //      ledger row 1235, applies identically here): a profile that
+  //      already carries a `scoreLead_root_loss` key — even a
+  //      hand-authored one with a different body — keeps that body
+  //      verbatim.
+  //
+  //  (b) Conditional repoint: the `score` palette's `delta_fn` moves
+  //      from `scoreLead_loss_topvsuser` to `scoreLead_root_loss`
+  //      ONLY when it still reads exactly `scoreLead_loss_topvsuser`
+  //      — a user who repointed that palette's `delta_fn` elsewhere
+  //      (via PaletteEditor) keeps their choice untouched. Same
+  //      by-id-lookup-then-conditional-field shape as 70 → 71's
+  //      `quality`/`summary_fn` repoint, scoped here to the `score`
+  //      id and the `delta_fn` field.
+  //
+  //  `delta_ordering` is deliberately NOT touched: `scoreLead_root_loss`
+  //  is a higher-is-worse loss form exactly like the symbol it
+  //  replaces (see the derivation comment), so the `score` palette's
+  //  existing `delta_ordering: 'higher_is_worse'` stays correct
+  //  as-is — no migration action needed for that field.
+  //
+  // Container witnessed against the runtime shape:
+  // `profile.settings.engine.katago.analysis_env` exists from the
+  // framework's introduction, so a typo'd path fails loudly here rather
+  // than no-oping and stamping the version.
+  //
+  // Idempotent: a pre-existing `scoreLead_root_loss` symbol is
+  // preserved unchanged; a `score` palette whose `delta_fn` is
+  // anything other than the exact string `scoreLead_loss_topvsuser`
+  // (including an already-repointed `scoreLead_root_loss`, or a
+  // user's own customisation) is left untouched.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ae = witnessedContainer(out, 'profile.settings.engine.katago.analysis_env');
+    if (ae) {
+      const a = ae as { symbols?: unknown; palettes?: unknown };
+
+      // (a) Seed expansion — add only if absent.
+      if (a.symbols && typeof a.symbols === 'object') {
+        const symbols = a.symbols as Record<string, unknown>;
+        if (symbols.scoreLead_root_loss === undefined) {
+          symbols.scoreLead_root_loss =
+            'player_sign(x[0]) * (x[1]["rootInfo"]["scoreLead"] - x[0]["rootInfo"]["scoreLead"])';
+        }
+      }
+
+      // (b) Conditional repoint of the `score` palette's `delta_fn`.
+      if (Array.isArray(a.palettes)) {
+        const scorePalette = a.palettes.find(
+          (p: any) => p && typeof p === 'object' && p.id === 'score',
+        );
+        if (scorePalette && scorePalette.delta_fn === 'scoreLead_loss_topvsuser') {
+          scorePalette.delta_fn = 'scoreLead_root_loss';
         }
       }
     }

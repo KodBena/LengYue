@@ -532,12 +532,16 @@ export const defaultSettings = {
       outputs: [{ path: 'profile.settings.appearance.intensityHueShift' }],
       priority: 40,
     },
-    // Animation-duration knobs (promoted from inline magic literals
-    // by the user 2026-05-22). Both surface adjacent in the toolbar
-    // slider popover via the `display` domain ordering. Range [0, …]
-    // permits an explicit "off" position; setting to 0 disables the
-    // corresponding ease transition (the CSS interprets `0ms ease`
-    // as a no-op).
+    // Animation-duration knob (promoted from an inline magic literal
+    // by the user 2026-05-22). Range [0, …] permits an explicit "off"
+    // position; setting to 0 disables the corresponding ease
+    // transition (the CSS interprets `0ms ease` as a no-op).
+    //
+    // The sibling PV-fade knob (`display.pv-fade-ms`, priority 47)
+    // that used to sit here was removed (wiki2-pv-fade-knob): CSS
+    // transitions were banned and purged from `frontend/src`, which
+    // left the knob controlling only inert JS-scheduling padding with
+    // no observable effect. See `use-pv-animation.ts`'s file header.
     'display.move-suggestions-fade-ms': {
       id: 'display.move-suggestions-fade-ms',
       label: 'Move-suggestion fade (ms)',
@@ -553,14 +557,6 @@ export const defaultSettings = {
       inputs: [{ range: [0, 1] as const }],
       outputs: [{ path: 'profile.settings.appearance.mistakeFinderThresholdQuantile' }],
       priority: 46,
-    },
-    'display.pv-fade-ms': {
-      id: 'display.pv-fade-ms',
-      label: 'PV preview fade (ms)',
-      domain: 'display',
-      inputs: [{ range: [0, 500] as const }],
-      outputs: [{ path: 'session.ui.pvAnimation.fadeDurationMs' }],
-      priority: 47,
     },
     'engine.watchdog-animation-ms': {
       id: 'engine.watchdog-animation-ms',
@@ -802,7 +798,6 @@ export const defaultSessionUI: UISession = {
     mode: 'instant',
     stepDelayMs: 350,
     windowDurationMs: 600,
-    fadeDurationMs: 0,
     cycle: false,
     pvOpacity: 1,
     annotation: 'from1',

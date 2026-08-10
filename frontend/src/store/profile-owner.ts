@@ -36,13 +36,15 @@
  *   - `resetWorkspace` / `updateFromRemote` (wholesale profile
  *     replacement on identity flip / hydration) stay in
  *     `store/index.ts`, the subtree's other enumerated owner file.
- *   - Knob output paths are profile-majority but two seeded knobs
- *     target `session.ui.*` leaves (`display.move-filter-threshold`,
- *     `display.pv-fade-ms`). `writeStoreKnobValue` is therefore
- *     honestly a GlobalStore-root knob writer, homed here because
- *     the registry it dispatches over is profile state and the
+ *   - Knob output paths are profile-majority but one seeded knob
+ *     targets a `session.ui.*` leaf (`display.move-filter-threshold`;
+ *     the sibling `display.pv-fade-ms` knob that used to be the
+ *     second one was removed, wiki2-pv-fade-knob — CSS transitions
+ *     were purged from `frontend/src`, leaving it dead). `writeStoreKnobValue`
+ *     is therefore honestly a GlobalStore-root knob writer, homed here
+ *     because the registry it dispatches over is profile state and the
  *     owner is the sanctioned root supplier; the session-targeting
- *     decls ride the same seam.
+ *     decl rides the same seam.
  *   - Enforcement (ADR-0011 Rule 1): direct dotted-path writes AND the
  *     two aliased generic-machinery shapes — `updateRegistry` over a
  *     `store.profile` root, `writeKnobValue`/`writeKnob` with the
@@ -138,10 +140,9 @@ export function writeStoreKnobValue(
   // list (same as updateProfileAt above; previously a no-restricted-syntax
   // disable).
   const result = writeKnobValue(store, store.profile.settings.knobs, knobId, inputVector, ctx);
-  // Two seeded knobs target `session.ui.*` leaves
-  // (`display.move-filter-threshold` → `session.ui.moveFilterThreshold`,
-  // `display.pv-fade-ms` → `session.ui.pvAnimation.fadeDurationMs`). Those
-  // writes mutate `store.session`, which SyncService no longer deep-watches
+  // One seeded knob targets a `session.ui.*` leaf
+  // (`display.move-filter-threshold` → `session.ui.moveFilterThreshold`).
+  // That write mutates `store.session`, which SyncService no longer deep-watches
   // — bump the session counter so a session-targeting knob write still
   // schedules a save. Profile-targeting knobs are already caught by the
   // profile deep watch; the extra bump there is a harmless redundant

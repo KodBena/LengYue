@@ -35,6 +35,7 @@
   "settings.section.sessionUI":           "세션 (UI)",
   "settings.button.forcePersistence":     "강제 저장",
   "settings.label.settingsTabsOrientation": "설정 탭 레이아웃:",
+  "settings.label.sessionRegistry":       "세션 설정 레지스트리",
   "settings.option.settingsTabsOrientation.horizontal": "가로",
   "settings.option.settingsTabsOrientation.vertical":   "세로 (오른쪽 레일)",
 
