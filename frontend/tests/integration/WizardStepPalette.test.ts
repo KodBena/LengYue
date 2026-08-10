@@ -132,8 +132,8 @@ describe('WizardStepPalette — basic/advanced coherence (same two cells)', () =
 describe('WizardStepPalette — advanced per-palette descriptions and editor pointer (copy refinement, rows 1349/1350)', () => {
   it('renders a name + description for each of the four seeded palettes', () => {
     const wrapper = mountStep();
-    const names = wrapper.findAll('.palette-descriptions dt').map((n) => n.text());
-    const bodies = wrapper.findAll('.palette-descriptions .description-text').map((n) => n.text());
+    const names = wrapper.findAll('.palette-table .palette-name').map((n) => n.text());
+    const bodies = wrapper.findAll('.palette-table .description-text').map((n) => n.text());
 
     expect(names).toEqual([
       en['wizard.palette.describe.score.name'],
@@ -196,5 +196,47 @@ describe('WizardStepPalette — formal definitions under each description (row 1
     const scoreBlock = wrapper.findAll('.palette-definition')[0]; // score is declaration order 0
     expect(scoreBlock.text()).toContain('delta_fn: scoreLead_root_loss');
     expect(scoreBlock.text()).toContain('summary_fn: mean_summary');
+  });
+});
+
+describe('WizardStepPalette — DESCRIPTION | DEFINITION table structure (ledger row 1464 amendment)', () => {
+  it('renders a genre-standard table: one thead row with two column headers, one tbody row per described palette', () => {
+    const wrapper = mountStep();
+    const table = wrapper.find('table.palette-table');
+    expect(table.exists()).toBe(true);
+
+    const headerCells = table.findAll('thead th').map((n) => n.text());
+    expect(headerCells).toEqual([
+      en['wizard.palette.table.descriptionHeader'],
+      en['wizard.palette.definitionLabel'],
+    ]);
+
+    const rows = table.findAll('tbody tr');
+    expect(rows).toHaveLength(4); // score, quality, rank, default
+    rows.forEach((row) => {
+      expect(row.findAll('td')).toHaveLength(2);
+    });
+  });
+
+  it('each row pairs the SAME palette\'s description (first cell) with its definition (second cell)', () => {
+    const wrapper = mountStep();
+    const rows = wrapper.findAll('table.palette-table tbody tr');
+    const order = ['score', 'quality', 'rank', 'default'] as const;
+    const palettes = store.profile.settings.engine.katago.analysis_env.palettes;
+
+    order.forEach((id, i) => {
+      const p = palettes.find((pal) => pal.id === id)!;
+      const cells = rows[i].findAll('td');
+      expect(cells[0].text()).toContain(en[`wizard.palette.describe.${id}.name` as keyof typeof en]);
+      expect(cells[1].text()).toContain(`delta_fn: ${p.delta_fn}`);
+      expect(cells[1].text()).toContain(`summary_fn: ${p.summary_fn}`);
+    });
+  });
+
+  it('the table lives inside a horizontally-scrollable wrapper so wide code lines never overflow the step', () => {
+    const wrapper = mountStep();
+    const scrollWrapper = wrapper.find('.palette-table-scroll');
+    expect(scrollWrapper.exists()).toBe(true);
+    expect(scrollWrapper.find('table.palette-table').exists()).toBe(true);
   });
 });

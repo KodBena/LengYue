@@ -761,6 +761,7 @@
   "wizard.palette.describe.score.name":   "Score Loss",
   "wizard.palette.describe.score.body":   "Measures how much your move swung the whole-board evaluation — comparing the position immediately before your move to the position immediately after it — as a score-point cost (or gain), correctly credited to whichever color moved. Unlike a 'top move' comparison, this scores every move you actually play, even ones the engine's search never considered listing as a candidate.",
   "wizard.palette.definitionLabel":       "Definition:",
+  "wizard.palette.table.descriptionHeader": "Description:",
   "wizard.palette.describe.quality.name": "Quality (Robust-Child Calibrated)",
   "wizard.palette.describe.quality.body": "Measures how closely your move matches the search's most-visited ('robust-child') move, calibrated by how decisively the search favored that move — deviations are judged more leniently in positions where many moves looked reasonable.",
   "wizard.palette.describe.rank.name":    "Engine Rank",
