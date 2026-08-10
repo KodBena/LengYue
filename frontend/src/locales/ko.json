@@ -470,5 +470,8 @@
   "wizard.palette.describe.rank.body":    "KataGo가 후보 수들 중 당신의 수를 얼마나 높게 평가했는지에 따라 점수를 부여합니다 — 최상위 수는 만점, 두 번째는 절반, 이런 식입니다. 실제 점수 차이가 얼마나 컸는지는 고려하지 않습니다.",
   "wizard.palette.describe.default.name": "표준 평가",
   "wizard.palette.describe.default.body": "Quality와 동일한 로버스트 차일드 일치도를 사용하지만, 구간을 중앙값이 아니라 가장 나쁜 한 수로 집계합니다 — 기존 프로필과의 호환성을 위해 남겨진 더 엄격한 지표입니다.",
-  "wizard.palette.editorPointer":         "자유로운 편집은 설정의 '분석 환경' 탭을 확인하세요."
+  "wizard.palette.editorPointer":         "자유로운 편집은 설정의 '분석 환경' 탭을 확인하세요.",
+
+  "wizard.step.finish.description":       "현재 설정 내용입니다 — 방문하지 않은 단계는 기본값 그대로입니다. 모든 설정은 저장되며 설정 화면에서도 확인할 수 있습니다.",
+  "wizard.finish.defaultBadge":           "기본값 - 미방문"
 }

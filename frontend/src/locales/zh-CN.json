@@ -470,5 +470,8 @@
   "wizard.palette.describe.rank.body":    "根据 KataGo 在候选着法中给你的着法打的排名给分——排名第一满分，第二名打五折，以此类推，不考虑实际分差有多大。",
   "wizard.palette.describe.default.name": "标准评估",
   "wizard.palette.describe.default.body": "使用与“质量”相同的稳健子节点一致性度量，但区间内以最差的一手而非中位数进行汇总——为兼容既有档案保留的更严格读数。",
-  "wizard.palette.editorPointer":         "如需自由编辑，请前往“设置”中的“分析环境”标签页。"
+  "wizard.palette.editorPointer":         "如需自由编辑，请前往“设置”中的“分析环境”标签页。",
+
+  "wizard.step.finish.description":       "这是您当前的配置——未访问过的步骤仍保留默认值。所有设置均已保存，也可在“设置”中查看。",
+  "wizard.finish.defaultBadge":           "默认 - 未访问"
 }

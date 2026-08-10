@@ -18,6 +18,12 @@
  * still marks the profile onboarded so it doesn't reappear on the
  * next load. `useModalKeyboard` supplies focus-trap / initial-focus /
  * focus-restoration, same as every other modal in the app.
+ *
+ * The Finish step alone also needs `wizard.visitedSteps` (audit M18,
+ * ledger rows 1390/1397) to distinguish a value the user set from a
+ * seeded default they never saw — passed in conditionally by step id
+ * rather than to every step, since it's a `WizardStepFinish`-only
+ * prop and the other five steps don't declare it.
  */
 import { computed, ref } from 'vue';
 import { useModalKeyboard } from '../../composables/useModalKeyboard';
@@ -62,7 +68,10 @@ useModalKeyboard(modalContentRef, computed(() => true), wizard.finish);
       <WizardStepIndicator :current-index="wizard.stepIndex.value" @jump="wizard.goTo" />
 
       <div class="wizard-body">
-        <component :is="currentStepComponent" />
+        <component
+          :is="currentStepComponent"
+          v-bind="wizard.stepId.value === 'finish' ? { visitedSteps: wizard.visitedSteps.value } : {}"
+        />
       </div>
 
       <div class="wizard-footer">

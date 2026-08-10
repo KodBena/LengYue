@@ -8,15 +8,33 @@
  * touched. Every value here is read straight from the real store
  * cell (ADR-0012: no shadow snapshot) — Settings shows the exact
  * same values immediately after the wizard closes.
+ *
+ * SKIPPED-VS-SET (audit M18, ledger rows 1390/1397): a row's value is
+ * shown either way (the cell always holds SOME value — every step
+ * ships a sensible default per `useSetupWizard.ts`'s header), but a
+ * row whose step is absent from `visitedSteps` (passed in by
+ * `SetupWizardModal.vue`, sourced from `useSetupWizard`'s one home
+ * for visit-tracking) is marked as still on its seeded default rather
+ * than something the user actually chose — the heading no longer
+ * claims blanket credit for values the user never saw.
  */
 import { computed } from 'vue';
 import { store } from '../../../store';
 import { WIZARD_PROSE_MEASURE_CH } from '../../../state/layout-model';
+import type { WizardStepId } from '../../../composables/useSetupWizard';
+
+const props = defineProps<{
+  visitedSteps: ReadonlySet<WizardStepId>;
+}>();
 
 // R7 measure cap — see `WizardStepEngineUri.vue`'s header comment for
 // the shared rationale and why a `[data-prose-measure-ch]` attribute
 // accompanies the `v-bind` CSS binding below.
 const wizardProseMaxWidthCss = computed(() => `${WIZARD_PROSE_MEASURE_CH}ch`);
+
+function wasVisited(id: WizardStepId): boolean {
+  return props.visitedSteps.has(id);
+}
 
 const themeLabel = computed(() => store.profile.settings.appearance.theme);
 const engineUri = computed(() => store.profile.settings.engine.katago.url);
@@ -31,17 +49,29 @@ const pvMode = computed(() => store.session.ui.pvAnimation.mode);
   <div class="wizard-step-finish">
     <p class="step-description" :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t('wizard.step.finish.description') }}</p>
     <dl class="summary-list">
-      <dt>{{ $t('wizard.step.theme.title') }}</dt>
-      <dd>{{ $t(`wizard.theme.${themeLabel}`) }}</dd>
+      <dt :class="{ 'is-default': !wasVisited('theme') }">{{ $t('wizard.step.theme.title') }}</dt>
+      <dd :class="{ 'is-default': !wasVisited('theme') }">
+        {{ $t(`wizard.theme.${themeLabel}`) }}
+        <span v-if="!wasVisited('theme')" class="default-badge">{{ $t('wizard.finish.defaultBadge') }}</span>
+      </dd>
 
-      <dt>{{ $t('wizard.step.engineUri.title') }}</dt>
-      <dd class="mono">{{ engineUri }}</dd>
+      <dt :class="{ 'is-default': !wasVisited('engineUri') }">{{ $t('wizard.step.engineUri.title') }}</dt>
+      <dd class="mono" :class="{ 'is-default': !wasVisited('engineUri') }">
+        {{ engineUri }}
+        <span v-if="!wasVisited('engineUri')" class="default-badge">{{ $t('wizard.finish.defaultBadge') }}</span>
+      </dd>
 
-      <dt>{{ $t('wizard.step.palette.title') }}</dt>
-      <dd>{{ paletteName }}</dd>
+      <dt :class="{ 'is-default': !wasVisited('palette') }">{{ $t('wizard.step.palette.title') }}</dt>
+      <dd :class="{ 'is-default': !wasVisited('palette') }">
+        {{ paletteName }}
+        <span v-if="!wasVisited('palette')" class="default-badge">{{ $t('wizard.finish.defaultBadge') }}</span>
+      </dd>
 
-      <dt>{{ $t('wizard.pvAnimation.modeLabel') }}</dt>
-      <dd>{{ $t(`wizard.pvAnimation.mode.${pvMode}`) }}</dd>
+      <dt :class="{ 'is-default': !wasVisited('demoBoard') }">{{ $t('wizard.pvAnimation.modeLabel') }}</dt>
+      <dd :class="{ 'is-default': !wasVisited('demoBoard') }">
+        {{ $t(`wizard.pvAnimation.mode.${pvMode}`) }}
+        <span v-if="!wasVisited('demoBoard')" class="default-badge">{{ $t('wizard.finish.defaultBadge') }}</span>
+      </dd>
     </dl>
     <p class="finish-hint" :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t('wizard.finish.hint') }}</p>
   </div>
@@ -54,5 +84,12 @@ const pvMode = computed(() => store.session.ui.pvAnimation.mode);
 .summary-list dt { color: var(--text-2); font-size: var(--text-emphasis); text-transform: uppercase; }
 .summary-list dd { color: var(--text-0); font-size: var(--text-emphasis); margin: 0; }
 .summary-list dd.mono { font-family: monospace; }
+.summary-list dt.is-default,
+.summary-list dd.is-default { color: var(--text-2); font-style: italic; }
+.default-badge {
+  font-size: var(--text-tiny); color: var(--text-2); font-style: normal; font-weight: normal;
+  text-transform: uppercase; border: 1px solid var(--border-3); border-radius: var(--radius-default);
+  padding: 0 var(--space-tight); margin-left: var(--space-tight);
+}
 .finish-hint { color: var(--text-2); font-size: var(--text-emphasis); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 </style>
