@@ -648,28 +648,20 @@
  * is the standard property (Firefox and current WebKit/Chromium both
  * honor it); the `::-webkit-scrollbar*` pseudo-elements are kept
  * alongside for any embedded engine that supports the pseudo-elements
- * but not yet (or only partially) the standard property. `thin` matches
- * this app's
- * existing dense-chrome visual language (no other scrollbar-width
- * declaration exists yet, so this is the first and only one to
- * reconcile). The track uses `--surface-1` (the default-panel
- * surface token) rather than a hardcoded value, per the surface-token
- * discipline the rest of this file follows. */
+ * but not yet (or only partially) the standard property.
+ *
+ * COLOR ONLY (commissioner correction, ledger row 1626): the
+ * commission changes scrollbar colors and nothing else — no width,
+ * radius, or hover restyle; browser-default metrics stay untouched.
+ * The track color is the syntactically-required second value of
+ * `scrollbar-color`; `--surface-1` (the default-panel surface token)
+ * is the disclosed choice pending any different ruling. */
 * {
   scrollbar-color: var(--accent-peach) var(--surface-1);
-  scrollbar-width: thin;
-}
-*::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
 }
 *::-webkit-scrollbar-track {
   background: var(--surface-1);
 }
 *::-webkit-scrollbar-thumb {
   background: var(--accent-peach);
-  border-radius: var(--radius-default);
-}
-*::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-primary);
 }
