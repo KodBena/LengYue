@@ -6,16 +6,44 @@
  * preview composable's parsed board + scrub slider + metadata
  * readout + action buttons (Open in board, Delete from library).
  *
- * The mini-board reuses the existing `renderBoardToSvg` engine
- * helper that the card-tree thumbnails use, so the visual style
- * is consistent across surfaces.
+ * The mini-board reuses the shared `MiniBoard` component (the same
+ * canvas/SVG-dispatching thumbnail idiom the board-tab rail's docked
+ * hover preview and ChartPreviewBox use — see MiniBoard.vue) rather
+ * than an ad hoc SVG-string projection, so this is ONE HOME for
+ * "small board thumbnail" rendering, not a second bespoke one
+ * (commissioner directive, library-preview-density dispatch,
+ * ledger rows 1525/1526: "we should just reuse the thumbnail in
+ * the lower left in the sidebar-widget"). This stays a SINGLE
+ * instance — the master-detail pane's one selected-game preview —
+ * so none of MiniBoardCanvas's ADR-0010 per-instance cost
+ * multiplies with list length; see LibraryTable.vue's own header
+ * comment for why the per-ROW list does NOT also get one.
+ *
+ * Ledger rows 1525/1526 (commissioner screenshot ~/smallscreen.png):
+ * this pane's board previously sized via `max-width: 360px` with no
+ * matching height cap (aspect-ratio alone, inside an `auto`-sized
+ * CSS Grid row in LibraryTab's narrow/stacked layout) — an
+ * intrinsically-sized auto grid track can grow past its container,
+ * and here it did: the board's height demand starved the sibling
+ * `1fr` list row down to ~0px, so only this single expanded preview
+ * card was visible and the actual multi-row game LIST (LibraryTable)
+ * had no room left to render. `.preview-board` below is now a fixed
+ * 160×160 box (both dimensions capped, not just width) — modest,
+ * fixed-size, matching the sidebar rail's own established 150px
+ * docked-preview convention — so its content-box height is bounded
+ * regardless of an `auto` grid track. LibraryTab.vue's own narrow-
+ * stack row template is ALSO capped defensively (see its comment) —
+ * belt and suspenders, since a future content addition to this pane
+ * (more meta lines, etc.) must not be able to re-trigger the same
+ * collapse via the grid track alone.
  *
  * License: Public Domain (The Unlicense)
  */
 import { computed } from 'vue';
-import { renderBoardToSvg } from '../../engine/board-renderer';
+import MiniBoard from '../board/MiniBoard.vue';
 import { getBoardSize } from '../../engine/util';
 import type { LibraryPreview } from '../../composables/library/useLibraryPreview';
+import type { BoardSnapshot } from '../../engine/board-geometry';
 
 interface Props {
   preview: LibraryPreview;
@@ -27,18 +55,15 @@ interface Emits {
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
-const previewSvg = computed((): string => {
+const boardSnapshot = computed((): BoardSnapshot | null => {
   const board = props.preview.parsedBoard.value;
-  if (!board) return '';
+  if (!board) return null;
   const currentNode = board.nodes[board.currentNodeId];
-  const size = getBoardSize(board);
-  return renderBoardToSvg({
-    size,
+  return {
+    size: getBoardSize(board),
     stones: board.stones,
     lastMove: currentNode?.move ?? null,
-    showMarker: true,
-    uid: `library-preview-${props.preview.selectedRow.value?.id ?? 'none'}`,
-  });
+  };
 });
 
 const hasSelection = computed(() => props.preview.selectedRow.value !== null);
@@ -73,8 +98,9 @@ const scrubMax = computed(() => props.preview.totalMoves.value);
         </div>
       </div>
 
-      <!-- eslint-disable-next-line vue/no-v-html -- deliberate board-SVG string projection from renderBoardToSvg (trusted, no user-authored HTML); see ADR-0010 string-vs-reactive board projection -->
-      <div class="preview-board" v-html="previewSvg"></div>
+      <div class="preview-board">
+        <MiniBoard v-if="boardSnapshot" :snapshot="boardSnapshot" :show-marker="true" />
+      </div>
 
       <div class="preview-scrub">
         <input
@@ -132,15 +158,24 @@ const scrubMax = computed(() => props.preview.totalMoves.value);
   font-size: var(--text-tiny);
   color: var(--text-0);
 }
+/* Fixed, modest, BOTH-dimensions-capped box (rows 1525/1526 fix — see
+   the script-block comment above for the collapse this replaces).
+   160px sits inside the genre's established modest-thumbnail range
+   (120-180px) and close to the sidebar rail's own 150px docked-
+   preview box, so the two surfaces read as the same idiom at a
+   glance. Deliberately NOT `max-width` + `aspect-ratio` alone —
+   that combination has no height ceiling of its own when the
+   parent's height is intrinsic (an `auto` CSS Grid row), which is
+   exactly how it grew unbounded and starved the sibling list. */
 .preview-board {
-  /* Reserve a square so the SVG mini-board renders aspect-1:1 */
-  aspect-ratio: 1 / 1;
-  max-width: 360px;
+  width: 160px;
+  height: 160px;
+  flex: 0 0 auto;
   background: var(--surface-0);
   border: 1px solid var(--border-1);
   border-radius: var(--radius-default);
+  overflow: hidden;
 }
-.preview-board :deep(svg) { width: 100%; height: 100%; display: block; }
 .preview-scrub {
   display: flex;
   gap: var(--space-default);

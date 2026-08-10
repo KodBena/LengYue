@@ -58,6 +58,41 @@
  *       composable
  *     → listens for sort changes to update the query
  *
+ * Rows 1525/1526 (commissioner screenshot ~/smallscreen.png, dispatch
+ * "library-preview-density"): the reported defect — "a single game's
+ * board-preview thumbnail expands to fill the panel width, so ...
+ * exactly one game is visible" — is NOT a per-row thumbnail in THIS
+ * component; these rows are, and stay, plain text columns (no
+ * canvas/SVG board at all). What the screenshot actually shows is
+ * LibraryPreviewPane's single selected-game detail card (matchup +
+ * date/result + board) filling the whole visible area because its
+ * board had no height cap, starving THIS list's grid row down to
+ * ~0px in LibraryTab's narrow/stacked layout — fixed at the source in
+ * LibraryPreviewPane.vue and LibraryTab.vue (see their own comments),
+ * not here.
+ *
+ * A mid-flight commissioner refinement asked to evaluate reusing the
+ * sidebar rail's MiniBoardCanvas-based thumb idiom for "the library
+ * game-list previews" specifically — i.e. adding a real per-ROW board
+ * thumbnail to every rendered row here, not just the one detail pane.
+ * Evaluated and NOT done, for a concrete data-shape reason rather than
+ * taste: `LibraryGameListItem` (this component's own row type)
+ * deliberately excludes the SGF body — "the SGF body ships only via
+ * the detail endpoint per the column-projection discipline (~2 KB/row
+ * × 100 rows would dwarf the metadata)", per that type's own doc
+ * comment in types/library.ts. Rendering a board thumbnail needs a
+ * parsed board (stones/lastMove), which needs that SGF body; there is
+ * no cheaper server-side thumbnail field today. Painting one canvas
+ * per visible row is the part MiniBoardCanvas is built cheaply for
+ * (ADR-0010) — virtualization already bounds instance count to the
+ * rendered window — but FETCHING and PARSING a full SGF per visible
+ * row, every scroll step, to feed it, is a genuinely new per-row cost
+ * this list's own virtualized/dense design was built to avoid, not a
+ * rendering-cost problem MiniBoardCanvas solves. That is reported here
+ * as the honest reason for falling back to the capped, fixed-size,
+ * SINGLE-instance reuse in LibraryPreviewPane.vue instead of forcing a
+ * second, heavier shape onto every row of a dense list.
+ *
  * License: Public Domain (The Unlicense)
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch, type Ref } from 'vue';
