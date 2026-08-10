@@ -1021,6 +1021,23 @@ def test_generated_pages_carry_every_declared_toggle_target(mockup_pages):
 
 
 def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_pages):
+    """X6 fix (lyt-mockups-opus-review.md): OVERLAY_SIZES now spans the
+    review's own full 14-viewport tested set, not just the three
+    screenshot sizes. At two of those extra sizes (landscape 1280x1024
+    and the portrait-shaped 1080x1920-in-landscape probe) the CP-SAT
+    solve is genuinely INFEASIBLE -- a real fact about the .lyt
+    encoding's own declared minimums (at 1280x1024 the side column's
+    floor, 340px, alone leaves composite less width than the board's
+    forced natural size needs), not a bug in this generator or its CSS
+    realization. Every OTHER size must still solve OPTIMAL with a real
+    board rect; an INFEASIBLE entry carries no slots (matching
+    build_overlay_data's own `if status in (OPTIMAL, FEASIBLE) else {}`)
+    and the debug overlay's own JS already renders that status text
+    instead of crashing (see `drawOverlay`)."""
+    known_infeasible = {
+        ("landscape", "1280x1024"),
+        ("landscape", "1080x1920-in-landscape"),
+    }
     for class_id, html_text in mockup_pages.items():
         m = re.search(r'<script id="lyt-solved-data" type="application/json">(.*?)</script>', html_text, re.S)
         assert m, f"{class_id}: no embedded solved-data script tag"
@@ -1028,14 +1045,45 @@ def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_
         expected_sizes = emit_mockup.OVERLAY_SIZES[class_id]
         assert [(d["label"], d["wPx"], d["hPx"]) for d in data] == expected_sizes
         for d in data:
-            assert d["status"] == "OPTIMAL"
-            assert "B" in d["slots"]  # the board widget always solves a rect when OPTIMAL
+            if (class_id, d["label"]) in known_infeasible:
+                assert d["status"] == "INFEASIBLE"
+                assert d["slots"] == {}
+            else:
+                assert d["status"] == "OPTIMAL", f"{class_id}/{d['label']}: expected OPTIMAL, got {d['status']}"
+                assert "B" in d["slots"]  # the board widget always solves a rect when OPTIMAL
 
 
-def test_landscape_side_column_track_is_capped_elastic(mockup_pages):
-    """Regression pin for the disclosed elastic+cap mapping (min 340px,
-    max 340px+60ch=820px) actually reaching the generated HTML."""
-    assert "minmax(340px, 820px)" in mockup_pages["landscape"]
+def test_landscape_side_column_track_carries_the_board_priority_clamp(mockup_pages):
+    """B2/B3 fix regression pin: the side column's track (a direct
+    sibling of the board composite, both fed by `_board_priority_tracks`
+    CASE A) is no longer the bare `minmax(340px, 820px)` that let a
+    non-flexible track claim its full max before the board's `1fr` track
+    ever saw free space (the review's B2 finding). It is now a
+    `clamp()` expression whose middle term subtracts the board's own
+    closed-form natural size (100vh minus the 24px+28px fixed info/action
+    rows) from the available width, so the board structurally wins its
+    natural share before the side column grows toward its own declared
+    max -- see `_board_priority_tracks`'s own docstring for the full
+    derivation."""
+    assert "minmax(340px, 820px)" not in mockup_pages["landscape"]
+    assert "clamp(340px, calc(100% - (100vh - 52px)), 820px)" in mockup_pages["landscape"]
+
+
+def test_portrait_composite_row_carries_the_board_priority_cap(mockup_pages):
+    """B2/B3 fix regression pin, CASE B: portrait's board composite row
+    (an uncapped `1fr` track competing against the Tree & Panels T-node's
+    OWN uncapped `1fr` track -- plain CSS Grid would split these 50/50,
+    the review's measured B3 symptom, 932px/932px instead of the solved
+    skew) is now capped at its own closed-form natural ceiling
+    (100vw, the board's own aspect-driven max width, plus the 24px+28px
+    fixed info/action rows), converting it from a flexible track into a
+    non-flexible calc-bounded one so the Tree & Panels T-node's own
+    declared `minmax(200px, 1fr)` floor is honored automatically by CSS
+    Grid's own track-sizing algorithm (base-size reservation happens
+    before a non-flexible sibling is allowed to grow) rather than
+    starved by a naive 50/50 split."""
+    assert "minmax(0px, calc(100vw + 52px))" in mockup_pages["portrait"]
+    assert "minmax(200px, 1fr)" in mockup_pages["portrait"]  # T-node's floor is untouched by the cap
 
 
 def test_tree_panels_t_node_track_carries_its_derived_floor(mockup_pages):
@@ -1058,3 +1106,100 @@ def test_render_is_deterministic_given_the_same_overlay_data():
     text_a = emit_mockup.build_html_for_class("landscape", slot, overlay)
     text_b = emit_mockup.build_html_for_class("landscape", slot, overlay)
     assert text_a == text_b
+
+
+# =============================================================================
+# Fix pass regressions (lyt-mockups-opus-review.md, ledger row 1710/1711):
+# B1 (square board emission shape), B2/B3 (board-priority track fidelity --
+# covered above by test_landscape_side_column_track_carries_the_board_
+# priority_clamp / test_portrait_composite_row_carries_the_board_priority_
+# cap), and the supporting structural helpers.
+# =============================================================================
+
+
+def test_board_cell_emits_container_query_containment_not_both_axes_definite(mockup_pages):
+    """B1 regression pin: the board leaf's own wrapper must carry the
+    `board-cell` marker class (container-type:size, in `_STYLE`) and must
+    NOT carry the old inert combination that caused the non-square bug
+    (aspect-ratio alongside a same-element width:100%;height:100% with no
+    non-stretch alignment override) -- i.e. `aspect-ratio` no longer
+    appears inline on the leaf itself at all; it lives only in the
+    `.board-square` CSS RULE (sized via cq units), never as an inline
+    per-instance style on the leaf wrapper the way `justify-self:center`
+    used to."""
+    for class_id, html_text in mockup_pages.items():
+        assert 'class="lyt-node lyt-leaf board-cell"' in html_text
+        # The old bug's inline signature must be gone from every leaf.
+        assert "aspect-ratio:1/1;max-width:100%" not in html_text
+        assert "justify-self:center" not in html_text
+        assert "align-self:center" not in html_text
+    # The CSS rule carrying the actual containment lives once, in _STYLE.
+    assert ".board-cell { display: grid; place-items: center; container-type: size; }" in emit_mockup._STYLE
+    assert "width: min(100%, 100cqh); height: min(100%, 100cqw);" in emit_mockup._STYLE
+
+
+def test_board_stones_sit_on_grid_intersections(mockup_pages):
+    """B1 SECONDARY regression pin: every emitted stone's (left, top)
+    percentage must be one of `_intersection_pct(i)` for i in 0..18 --
+    the review's finding was that the old stone percentages (22%/30%,
+    etc.) did not coincide with the board-grid's own line spacing, so
+    stones sat inside cells rather than on intersections."""
+    valid_pcts = {f"{emit_mockup._intersection_pct(i):g}" for i in range(19)}
+    for class_id, html_text in mockup_pages.items():
+        stone_positions = re.findall(r'class="board-stone board-stone-[bw]" style="left:([\d.]+)%;top:([\d.]+)%;"', html_text)
+        assert stone_positions, f"{class_id}: no stones found"
+        for left, top in stone_positions:
+            assert left in valid_pcts, f"{class_id}: stone left={left}% is not on a grid intersection"
+            assert top in valid_pcts, f"{class_id}: stone top={top}% is not on a grid intersection"
+
+
+def test_board_has_star_points_and_coordinates(mockup_pages):
+    """B1 secondary finding ('no star points and no coordinates')."""
+    for class_id, html_text in mockup_pages.items():
+        assert html_text.count('class="board-star"') == 9  # standard 19x19 hoshi count
+        assert html_text.count('class="board-coord board-coord-col"') == 19
+        assert html_text.count('class="board-coord board-coord-row"') == 19
+
+
+def test_find_board_composite_child_recognizes_both_encodings_shapes():
+    """`_find_board_composite_child` must find exactly the board-bearing
+    child at both classes' roots, with the fixed-sibling sum matching
+    the .lyt source's own declared 24px + 28px info/action rows."""
+    reg, layouts = emit_mockup.load_class_slots()
+    landscape_root = layouts[reg.layout_by_class["landscape"]].node
+    portrait_root = layouts[reg.layout_by_class["portrait"]].node
+    l_match = emit_mockup._find_board_composite_child(landscape_root)
+    assert l_match is not None
+    assert l_match[0] == 0  # composite is the FIRST child of landscape's H root
+    assert l_match[2] == 52.0  # 24px + 28px
+
+    p_match = emit_mockup._find_board_composite_child(portrait_root)
+    assert p_match is not None
+    assert p_match[0] == 1  # composite is the SECOND child of portrait's V root (after A_top)
+    assert p_match[2] == 52.0
+
+
+def test_find_board_composite_child_is_none_for_a_split_with_no_aspect_leaf():
+    """A Split with no aspect-locked child at all must not match --
+    `_board_priority_tracks` must be a no-op there, not misapply the
+    override to an unrelated shape."""
+    plain = ast.Split(
+        axis="h",
+        children=[
+            ast.Slot(node=ast.Leaf(widget="x"), presence=ast.FIXED, sizing=ast.Sizing(min=ast.Extent(unit="px", v=28), pref=ast.Extent(unit="px", v=28), max=ast.Extent(unit="px", v=28))),
+            ast.Slot(node=ast.Leaf(widget="y"), presence=ast.FIXED, sizing=ast.Sizing(min=ast.Extent(unit="px", v=0), pref=ast.Extent(unit="fr", v=1), max="inf")),
+        ],
+    )
+    assert emit_mockup._find_board_composite_child(plain) is None
+
+
+def test_board_priority_tracks_is_a_noop_when_no_composite_child_matches():
+    plain = ast.Split(
+        axis="h",
+        children=[
+            ast.Slot(node=ast.Leaf(widget="x"), presence=ast.FIXED, sizing=ast.Sizing(min=ast.Extent(unit="px", v=28), pref=ast.Extent(unit="px", v=28), max=ast.Extent(unit="px", v=28))),
+        ],
+    )
+    tracks = ["28px"]
+    sizings = [plain.children[0].sizing]
+    assert emit_mockup._board_priority_tracks(plain, tracks, sizings) == tracks

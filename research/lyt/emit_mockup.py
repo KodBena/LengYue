@@ -10,6 +10,22 @@ the clean-room LengYue layout (`encodings/lengyue_landscape.lyt` /
 the commissioner to judge from screenshots. NOT Vue, NOT wired to the
 app -- `frontend/` is untouched, per the umbrella's scope discipline.
 
+FIX PASS (ledger row 1710, `.claude/dispatch-reports/lyt-mockups-opus-
+review.md`): the first draft's board leaf rendered non-square at every
+tested viewport (B1) and lost the board-maximize objective's priority to
+non-board siblings below ~2200px width / at every portrait height (B2/
+B3). Both are fixed below -- see `_child_wrap`'s and
+`_board_priority_tracks`'s own docstrings for the mechanism -- along with
+the review's 5 major and 8 moderate findings; per-finding disposition is
+in the fix pass's own build report
+(`.claude/dispatch-reports/lyt-mockups-fix1-build.md`). The two mapping-
+table rows below marked FIX PASS UPDATE reflect the corrected mapping;
+the rest of this docstring (including the "elastic+cap" row's own
+divergence-with-the-solver disclosure, which is now handled -- see the
+board-priority block below -- ONLY for the one board-composite shape
+both encodings use, and is otherwise still accurate for any other
+elastic+capped track) is unchanged from the first draft.
+
 Two commissioner amendments landed while this script was being designed
 and are both incorporated (there was no code to convert -- this is the
 first draft):
@@ -72,7 +88,17 @@ deliverable; also restated in the build report):
       higher-priority stage needs the room; the grid's `minmax` always
       grows a non-flex track to its max before any `fr` track gets
       anything) -- exactly the kind of disagreement the debug overlay
-      exists to surface, not hide.
+      exists to surface, not hide. FIX PASS UPDATE (B2): this bare
+      mapping is still what `_track_for_child` emits, but for the ONE
+      elastic+capped track that is a direct sibling of the board
+      composite (both encodings' side/tab-vs-board split),
+      `_board_priority_tracks` REPLACES this value with a
+      `clamp(min, 100% - natural_board, max)` expression before the
+      template string is built -- see that function's own docstring for
+      the closed-form derivation and why it eliminates the divergence
+      for that one track (other elastic+capped tracks, if any encoding
+      ever adds one, keep this bare mapping and its disclosed
+      divergence unchanged).
   Exclusive (T) node's OWN track floor: loader.py leaves an omitted T
   'min' at a disclosed 0px default and lets the compiler derive the real
   one (componentwise max of the T's children's own declared min, both
@@ -80,17 +106,28 @@ deliverable; also restated in the build report):
   `_exclusive_derived_min_px` below reproduces that exact derivation so
   the T node's track in ITS parent carries the same floor the solver
   enforces, not the loader's un-derived 0px.
-  Board leaf (aspect-locked): grid's default stretch would force it to
-  the parent's full cross-axis extent, which fights `aspect-ratio`. The
-  ITEM (not the track) gets `aspect-ratio:1/1`, a `justify-self`/
-  `align-self:center` override on whichever axis is this leaf's cross
-  axis, and `max-width/max-height:100%` so it never overflows its track.
-  This is the CSS-grid analog of `compiler.py`'s own disclosed,
-  one-directional cross-axis relaxation for aspect leaves (README.md
-  "Honest caveat on the 'infeasibility proof' results") -- both this
-  mockup and the solver have to bend the same literal exact-cross-fill
-  rule to let a square board coexist with `aspect`, and both name the
-  bend rather than silently absorbing it.
+  Board leaf (aspect-locked): FIX PASS UPDATE (B1) -- the first draft
+  gave the leaf ITEM `width:100%;height:100%` (render_leaf's ordinary
+  per-leaf rule) PLUS `aspect-ratio:1/1` and a `justify-self`/
+  `align-self:center` override on only ONE axis. `aspect-ratio` only
+  takes effect when exactly one axis is indefinite (CSS Sizing 3);
+  making both axes definite via the 100%/100% pair made the declaration
+  inert, and the single-axis centering override left the OTHER axis
+  still stretched -- together, a non-square board at every tested
+  viewport (the review's B1 finding). Fixed via a container-query
+  containment pattern instead: the leaf ITEM keeps `width:100%;
+  height:100%` (it is just the grid CELL) plus `container-type:size`
+  (class `.board-cell`, see `_child_wrap`); the board's own inner
+  `.board-square` div is sized `min(100%, 100cqh)` / `min(100%,
+  100cqw)` -- the largest square that fits the cell on EITHER axis,
+  exact at every viewport, centered via the cell's own
+  `place-items:center`. This is still the CSS-grid analog of
+  `compiler.py`'s own disclosed, one-directional cross-axis relaxation
+  for aspect leaves (README.md "Honest caveat on the 'infeasibility
+  proof' results") -- both this mockup and the solver bend the same
+  literal exact-cross-fill rule to let a square board coexist with
+  `aspect`, and both name the bend rather than silently absorbing it;
+  only the CSS MECHANISM used to express the bend changed.
 
 Judgment calls beyond the two amendments (disclosed here and in the
 build report; none of them touch a solved rectangle, the census
@@ -164,30 +201,66 @@ from runner import ENCODINGS_DIR, _gather_reach_preferred_widgets
 REGISTRATION_NAME = "lengyue_landscape+portrait"
 OUT_DIR = Path(__file__).parent / "mockups"
 
-# Representative sizes the debug overlay solves against, per class -- the
-# commission's own screenshot sizes (1920x1080 landscape, 1080x1920
-# portrait, plus 2560x1440), reusing runner.py's SCREEN_SIZES labels so
-# the overlay's `label` field matches the CLI runner's own vocabulary.
+# Representative sizes the debug overlay solves against, per class.
+# X6 fix (fix pass, lyt-mockups-opus-review.md): the review's own finding
+# was that the overlay only resolved at the three sizes it happened to be
+# screenshotted at ("no solve for 1280x1024" everywhere else), including
+# the two sizes where B2's damage was worst -- exactly where the honesty
+# claim mattered most. Widened to the review's own full 14-viewport
+# tested set (its own "Method" section), so the affordance that exists to
+# support the resize-honesty claim can be exercised at every size the
+# claim is actually checked against.
 OVERLAY_SIZES: Dict[str, List[Tuple[str, int, int]]] = {
-    "landscape": [("1920x1080", 1920, 1080), ("2560x1440", 2560, 1440)],
-    "portrait": [("1080x1920-portrait", 1080, 1920)],
+    "landscape": [
+        ("1920x1080", 1920, 1080),
+        ("2560x1440", 2560, 1440),
+        ("1280x1024", 1280, 1024),
+        ("3440x1440", 3440, 1440),
+        ("1366x768", 1366, 768),
+        ("1024x700", 1024, 700),
+        ("900x600", 900, 600),
+        ("1080x1920-in-landscape", 1080, 1920),
+    ],
+    "portrait": [
+        ("1080x1920", 1080, 1920),
+        ("1200x1600", 1200, 1600),
+        ("768x1024", 768, 1024),
+        ("540x960", 540, 960),
+        ("420x880", 420, 880),
+        ("1920x1080-in-portrait", 1920, 1080),
+    ],
 }
 
 # path-tuple (child index chain from the class's root Split) -> (label, presence).
 # See the module docstring's "Corner presence-menu targets" paragraph.
+#
+# M1 fix (fix pass): "Tree & Panels" flips preserve -> release on both
+# classes. The review's finding was that the two largest regions on the
+# page (Board, Tree & Panels) were BOTH `preserve`, so no presence-menu
+# state could ever grow the board -- releasing the emptiest, least-
+# content-bearing region (Tree & Panels) lets the menu serve the primary
+# board-maximize objective at least once, per the review's own suggested
+# fix ("make Tree & Panels release... if the board must keep its geometry
+# when hidden, then hiding it should not be offered at all" -- Board
+# stays `preserve`, unchanged, for that reason).
+# X7 fix: "Board" is relabeled "Board & Controls" -- the toggle's actual
+# footprint (per landscape/portrait .lyt source) is the WHOLE composite
+# (board + info row + action row, i.e. Pass/move-nav/Annotate/Setup ride
+# along too), which the bare word "Board" doesn't disclose. Renaming is
+# the review's own offered cheap alternative to splitting the target.
 TOGGLE_TARGETS: Dict[str, Dict[Tuple[int, ...], Tuple[str, str]]] = {
     "landscape": {
-        (0,): ("Board", "preserve"),
+        (0,): ("Board & Controls", "preserve"),
         (1, 0): ("Go Actions", "release"),
         (1, 1): ("Engine Info", "release"),
         (1, 2): ("Common Actions", "release"),
-        (1, 3): ("Tree & Panels", "preserve"),
+        (1, 3): ("Tree & Panels", "release"),
     },
     "portrait": {
         (0,): ("Top Actions", "release"),
-        (1,): ("Board", "preserve"),
+        (1,): ("Board & Controls", "preserve"),
         (2,): ("Engine Info", "release"),
-        (3,): ("Tree & Panels", "preserve"),
+        (3,): ("Tree & Panels", "release"),
     },
 }
 
@@ -210,14 +283,31 @@ TAB_LABELS: Dict[str, str] = {
 # row rather than overlapping the content vertically (see that dict's
 # own docstring).
 WIDGET_CONTENT: Dict[str, str] = {
+    # M2/X8 fix (fix pass): denser, more realistic tree content -- a real
+    # game tree at move ~47 (I_board's own sample "Move 47", kept
+    # consistent) is not six rows. Two effects named by the review: (a)
+    # M2's "the Tree region alone is 820x996 carrying a 145x85 content
+    # block, 1.6% fill" -- more rows give the region real visual mass;
+    # (b) X8's "[the Tree-as-exclusive-tab cost] is currently invisible
+    # because the Tree panel is 98% empty" -- a fuller tree makes the
+    # "you can't see Analysis while reading the tree" workflow cost this
+    # finding names actually visible in the mockup, which is what X8
+    # asks for (not a structural fix to the T-node's exclusive-tab
+    # mapping itself -- that is the consult's own §5.4 T-node semantics,
+    # out of this generator's scope; see the build report's unfixed list).
     "tree": (
         '<div class="tree-body">'
-        '<div class="tree-row" style="padding-left:0">Game Tree</div>'
-        '<div class="tree-row" style="padding-left:12px">├ Move 1 (B)</div>'
-        '<div class="tree-row" style="padding-left:12px">├ Move 2 (W)</div>'
-        '<div class="tree-row" style="padding-left:24px">│ ├ Variation A</div>'
-        '<div class="tree-row" style="padding-left:24px">│ └ Variation B</div>'
-        '<div class="tree-row" style="padding-left:12px">└ Move 3 (B) — current</div>'
+        '<div class="tree-row" style="padding-left:0">Game Tree — 187 moves</div>'
+        '<div class="tree-row" style="padding-left:12px">├ Move 41 (B) 51.2%</div>'
+        '<div class="tree-row" style="padding-left:12px">├ Move 42 (W) 49.0%</div>'
+        '<div class="tree-row" style="padding-left:24px">│ ├ Move 43 (B) 52.8%</div>'
+        '<div class="tree-row" style="padding-left:24px">│ │ └ Variation: 3-3 invasion</div>'
+        '<div class="tree-row" style="padding-left:24px">│ └ Move 43 (B) 50.1% (alt)</div>'
+        '<div class="tree-row" style="padding-left:12px">├ Move 44 (W) 48.6%</div>'
+        '<div class="tree-row" style="padding-left:12px">├ Move 45 (B) 53.4%</div>'
+        '<div class="tree-row" style="padding-left:12px">├ Move 46 (W) 46.9%</div>'
+        '<div class="tree-row" style="padding-left:24px">│ └ Variation: hane instead</div>'
+        '<div class="tree-row" style="padding-left:12px">└ Move 47 (B) 54.2% — current</div>'
         "</div>"
     ),
     "CP-library": '<div class="blackbox-body">Library (control-panel tab — black box, SS2 census)</div>',
@@ -238,12 +328,21 @@ WIDGET_CONTENT: Dict[str, str] = {
 # fixed-height strip -- see the build report's first-draft screenshot
 # finding).
 ROW_WIDGETS: Dict[str, Tuple[str, str]] = {
+    # X8 fix (fix pass): winrate + score lead added. The review's own
+    # finding was that the Engine Info envelope showed six pieces of
+    # OPERATOR telemetry (version, connected, model, pps, latency, queue)
+    # and omitted "the two numbers a student actually reads" -- placed on
+    # I_board (the board's own info row, board domain) rather than
+    # I_engine (common/operator domain) since that's the row a reviewing
+    # student actually looks at.
     "I_board": (
         "info-row",
         "<span>Move 47</span>"
         "<span>● Black — Alice (2400)</span>"
         "<span>○ White — Bob (2350)</span>"
-        "<span>Caps B 3 · W 5</span>",
+        "<span>Caps B 3 · W 5</span>"
+        "<span>Win B 54.2%</span>"
+        "<span>Score B +3.5</span>",
     ),
     "A_board": (
         "actions-row",
@@ -279,14 +378,22 @@ ROW_WIDGETS: Dict[str, Tuple[str, str]] = {
         '<button class="btn">Sliders</button>'
         '<button class="btn debug-pill" title="Autonav, popover test, clear cache (dev-only, C-domain)">Debug (3)</button>',
     ),
+    # Label drift fix ("The portrait layout, on its own terms" section):
+    # portrait now spells out the same labels landscape's A_go/A_common
+    # use ("Mint Card", not "Mint") -- the review's own measurement
+    # showed the row has the room (580px of content in a 1070px box at
+    # 1080px width) and named the two-names-for-one-button drift as
+    # something to fix one way or the other; matching landscape's full
+    # labels (rather than abbreviating landscape too) keeps every other
+    # class's screenshot honest about what the button actually says.
     "A_top": (
         "actions-row actions-row-wrap",
-        '<button class="btn">Mint</button>'
-        '<button class="btn">Learn</button>'
+        '<button class="btn">Mint Card</button>'
+        '<button class="btn">Learn Path</button>'
         '<button class="btn">Play</button>'
         '<button class="btn">Match</button>'
-        '<button class="btn">Load</button>'
-        '<button class="btn">Save</button>'
+        '<button class="btn">Load SGF</button>'
+        '<button class="btn">Save SGF</button>'
         '<button class="btn">Connect</button>'
         '<button class="btn">Sliders</button>'
         '<button class="btn debug-pill" title="Autonav, popover test, clear cache (dev-only, C-domain)">Debug (3)</button>',
@@ -295,14 +402,59 @@ ROW_WIDGETS: Dict[str, Tuple[str, str]] = {
 
 
 
+_BOARD_LINES = 19  # a 19x19 goban has 19 lines, 18 gaps between them
+_HOSHI = [(3, 3), (3, 9), (3, 15), (9, 3), (9, 9), (9, 15), (15, 3), (15, 9), (15, 15)]  # standard 9 star points, 0-indexed
+_COORD_LETTERS = "ABCDEFGHJKLMNOPQRST"  # 19 letters, 'I' conventionally skipped
+
+
+def _intersection_pct(i: int) -> float:
+    """Percentage position (of `.board-square`'s own box, NOT
+    `.board-grid`'s) of grid line `i` (0..18) along either axis. B1
+    SECONDARY fix (lyt-mockups-opus-review.md): stones/star-points/
+    coordinates are positioned via this SAME function everywhere they're
+    placed, rather than separately-typed arbitrary percentages -- the
+    review's B1 finding was exactly that the old stone percentages
+    (22%/30%, 35%/45%, ...) didn't coincide with the board-grid's own
+    line spacing, so every stone sat inside a cell instead of on an
+    intersection. `.board-grid` is inset 5% on every side of
+    `.board-square` (a 90%-wide/tall square) and its own repeating-
+    gradient period is 100%/18 -- 18 equal gaps between 19 lines -- so
+    the two facts combine to an exact 5% step (90/18 == 5), never
+    approximated separately in two places."""
+    return 5.0 + i * (90.0 / (_BOARD_LINES - 1))
+
+
 def _board_html() -> str:
+    stars = "".join(
+        f'<div class="board-star" style="left:{_intersection_pct(c):g}%;top:{_intersection_pct(r):g}%;"></div>'
+        for (r, c) in _HOSHI
+    )
+    coords_top = "".join(
+        f'<div class="board-coord board-coord-col" style="left:{_intersection_pct(c):g}%;">{_COORD_LETTERS[c]}</div>'
+        for c in range(_BOARD_LINES)
+    )
+    coords_left = "".join(
+        f'<div class="board-coord board-coord-row" style="top:{_intersection_pct(r):g}%;">{r + 1}</div>'
+        for r in range(_BOARD_LINES)
+    )
+    # A plausible mid-game cluster -- honest-proxy content (a fixed
+    # sample, never content that would vary at runtime, per the original
+    # commission's own standing rule), now placed ON GRID INTERSECTIONS
+    # (row, col; 0-indexed) rather than at arbitrary percentages -- the
+    # review's B1 finding.
+    stones_spec = [
+        ("b", 9, 9), ("w", 9, 10), ("b", 8, 10), ("w", 10, 9),
+        ("b", 10, 11), ("w", 11, 10), ("b", 7, 9),
+    ]
+    stones = "".join(
+        f'<div class="board-stone board-stone-{color}" '
+        f'style="left:{_intersection_pct(c):g}%;top:{_intersection_pct(r):g}%;"></div>'
+        for (color, r, c) in stones_spec
+    )
     return (
         '<div class="board-square">'
         '<div class="board-grid"></div>'
-        '<div class="board-stone board-stone-b" style="left:22%;top:30%;"></div>'
-        '<div class="board-stone board-stone-w" style="left:35%;top:45%;"></div>'
-        '<div class="board-stone board-stone-b" style="left:50%;top:38%;"></div>'
-        '<div class="board-stone board-stone-w" style="left:44%;top:58%;"></div>'
+        f"{stars}{coords_top}{coords_left}{stones}"
         "</div>"
     )
 
@@ -362,6 +514,138 @@ def _exclusive_derived_min_px(excl: ast.Exclusive, *, where: str) -> float:
 
 
 # ---------------------------------------------------------------------------
+# BLOCKER B2/B3 fix (fix pass, `.claude/dispatch-reports/lyt-mockups-opus-
+# review.md`): board-maximize lexicographic priority.
+#
+# Plain CSS Grid has no concept of the CP-SAT compiler's staged
+# lexicographic objective (compiler.py `solve_lexicographic`): stage 1
+# maximizes the board leaf's own area BEFORE any later stage's fr-weighted
+# "reach preferred" term or slack-minimization term runs at all. A flat
+# `grid-template-columns/rows` list of tracks -- even one that faithfully
+# preserves every declared `fr` weight -- can only express ONE round of
+# proportional (or, worse, greedy-non-flexible-first) space distribution,
+# which is a different thing than "this track wins first, unconditionally,
+# up to what it can actually use."
+#
+# Both `.lyt` encodings share exactly one shape for their board group: a
+# Split (H or V) whose children are [the aspect-locked board leaf, ...one
+# or more FIXED-size siblings...], itself a direct child of the class's
+# ROOT split. That shape has a closed-form, viewport-relative "natural
+# size" for the board -- derived below -- that a plain `calc()`/`clamp()`
+# CSS expression can reproduce exactly, no arbitrary weight ratio needed:
+#
+#   - composite's CROSS dimension (relative to its OWN children) is always
+#     cross-filled from the root's own extent along that axis (the
+#     ordinary H/V cross-fill rule, SS4.1) -- i.e. it is always exactly
+#     100vw or 100vh, a viewport-relative CONSTANT, because `composite` is
+#     a direct child of the tree's own root (hard-pinned to the full
+#     viewport) and no other node sits between them in either encoding.
+#   - the board leaf's aspect (=1 in both encodings) ties its own along-
+#     and cross-dimensions together, so its natural maximum size is that
+#     same constant, less whatever fixed-size siblings share composite's
+#     OTHER (along) axis.
+#
+# Two orientations occur, depending on whether `composite`'s own
+# partition axis matches its PARENT split's axis:
+#
+#   CASE A (landscape: H root > V composite) -- composite's ALONG
+#   dimension (used for its own board/info/action row-split) equals the
+#   ROOT's CROSS dimension (perpendicular nesting), so it is the
+#   viewport-constant one; the board's natural size therefore bounds
+#   composite's CROSS dimension, which is the variable CONTESTED in the
+#   root's own H-split (composite.w vs the side column's w). Fix: cap the
+#   NON-board sibling's track (only when it's the "elastic+capped" shape
+#   this ever needs) via `clamp(min, 100% - natural_board, max)` -- CSS
+#   sizes this non-flexible clamp value FIRST, so it structurally yields
+#   whatever the board needs before growing toward its own declared max.
+#
+#   CASE B (portrait: V root > V composite) -- composite's ALONG
+#   dimension is itself the ROOT's own along dimension (parallel nesting),
+#   i.e. the variable CONTESTED in the root's split; its CROSS dimension
+#   is the viewport-constant one. Fix: cap COMPOSITE's OWN track at its
+#   natural ceiling (`calc(100v<cross> + fixed_siblings)`) instead --
+#   converting it from an uncapped `fr` track into a non-flexible
+#   calc-bounded one. CSS Grid's own track-sizing algorithm reserves
+#   every OTHER track's declared `min` (a real floor -- e.g. the Tree &
+#   Panels T-node's derived WRAPPER_MIN) before growing a non-flexible
+#   track, so a sibling's floor is never starved by this cap; whatever
+#   free space remains after composite's calc-bounded growth flows to the
+#   sibling automatically, since it stays the sole flexible (`fr`) track.
+#
+# Both cases reduce the live CSS realization to EXACTLY the CP-SAT solve's
+# own closed-form result for this shape (worked out in the fix pass's own
+# build report) -- not an approximation, an equality, verified against the
+# debug overlay at every tested viewport.
+#
+# Only this ONE recognized shape is touched. Anything else (a board leaf
+# nested more than one Split deep, more than one board-bearing sibling in
+# the same split, a Split this override wasn't derived for) is left to the
+# ordinary per-child mapping -- `_find_board_composite_child` returns None
+# rather than guessing a formula for a shape it wasn't derived against.
+# ---------------------------------------------------------------------------
+
+
+def _find_board_composite_child(node: ast.Split) -> Optional[Tuple[int, ast.Split, float]]:
+    """If exactly one child of `node` is itself a Split whose children are
+    [one aspect-locked Leaf, ...otherwise only FIXED-size siblings...],
+    return (that child's index, the child's own Split node, the sum of the
+    fixed siblings' own px extent along the child's partition axis). None
+    if no child matches, or more than one does (ambiguous -- refused by
+    the caller falling back to the ordinary mapping, not guessed)."""
+    matches: List[Tuple[int, ast.Split, float]] = []
+    for i, child in enumerate(node.children):
+        if not isinstance(child.node, ast.Split):
+            continue
+        sub = child.node
+        aspect_leaves = [c for c in sub.children if isinstance(c.node, ast.Leaf) and c.sizing.aspect is not None]
+        if len(aspect_leaves) != 1:
+            continue
+        others = [c for c in sub.children if c is not aspect_leaves[0]]
+        if not all(_is_fixed(c.sizing) for c in others):
+            continue
+        fixed_sum = sum(_px(c.sizing.pref, where=f"board-composite-fixed-sum@{i}") for c in others)
+        matches.append((i, sub, fixed_sum))
+    return matches[0] if len(matches) == 1 else None
+
+
+def _board_priority_tracks(node: ast.Split, tracks: List[str], sizings: List[ast.Sizing]) -> List[str]:
+    """Applies the CASE A / CASE B override described above, in place on a
+    COPY of `tracks` (the caller's own list is left untouched), only when
+    `node` matches the one recognized board-composite shape. Called only
+    for the tree's ROOT split (see `render_split`'s call site) -- the
+    100vw/100vh constants below are only valid when `node` itself is
+    hard-pinned to the full viewport, which is true for the root and is
+    NOT generally true for a split nested deeper in the tree."""
+    match = _find_board_composite_child(node)
+    if match is None:
+        return tracks
+    board_idx, composite, fixed_sum = match
+    out = list(tracks)
+    node_cross_vunit = "vh" if node.axis == "h" else "vw"  # node partitions width -> cross is height, and vice versa
+    if composite.axis == node.axis:
+        # CASE B: cap composite's OWN track at its natural ceiling.
+        # composite.axis == node.axis here, so composite's OWN cross axis
+        # (opposite of composite.axis) is the SAME axis as node's own
+        # cross axis (opposite of node.axis, which is equal to
+        # composite.axis by this branch's own condition) -- both are
+        # cross-filled from the same viewport dimension, `node_cross_vunit`.
+        natural = f"calc(100{node_cross_vunit} + {fixed_sum:g}px)"
+        out[board_idx] = f"minmax(0px, {natural})"
+    else:
+        # CASE A: cap the non-board, elastic+capped sibling(s).
+        natural_board_expr = f"100{node_cross_vunit} - {fixed_sum:g}px"
+        for j, sibling_sizing in enumerate(sizings):
+            if j == board_idx:
+                continue
+            if _is_fixed(sibling_sizing) or sibling_sizing.max == "inf" or sibling_sizing.pref.unit != "fr":
+                continue  # not the elastic+capped shape this override is for -- leave alone
+            min_px = _px(sibling_sizing.min, where=f"board-priority/sibling-min@{j}")
+            max_px = _px(sibling_sizing.max, where=f"board-priority/sibling-max@{j}")
+            out[j] = f"clamp({min_px:g}px, calc(100% - ({natural_board_expr})), {max_px:g}px)"
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Tree -> HTML/CSS grid.
 # ---------------------------------------------------------------------------
 
@@ -394,31 +678,50 @@ def _child_wrap(
     child: ast.Slot, *, cpath: Tuple[int, ...], class_id: str, axis: str, track_prop: str
 ) -> Tuple[str, str, str, Optional[str]]:
     """Returns (extra_style, extra_data, extra_class, caption) for a Split
-    child, folding in the board-leaf aspect override and any corner-menu
-    toggle target at this path. `track_prop` (e.g. "--track-1") is the
-    CSS custom property this child's OWN track is parameterized by in its
-    parent's grid-template -- see render_split's own comment for why a
-    'release' toggle needs it (collapsing the track itself, not just
-    hiding the item) to avoid mis-tracking the remaining siblings."""
+    child, folding in the board-leaf square-containment marker and any
+    corner-menu toggle target at this path. `track_prop` (e.g.
+    "--track-1") is the CSS custom property this child's OWN track is
+    parameterized by in its parent's grid-template -- see render_split's
+    own comment for why a 'release' toggle needs it (collapsing the track
+    itself, not just hiding the item) to avoid mis-tracking the remaining
+    siblings.
+
+    BLOCKER B1 fix (fix pass, lyt-mockups-opus-review.md): the board leaf
+    no longer gets `aspect-ratio`/`justify-self`/`align-self` inline on
+    ITSELF. `aspect-ratio` only takes effect when exactly one axis is
+    indefinite (CSS Sizing 3) -- the OLD code also gave this same element
+    `width:100%;height:100%` (in `render_leaf`, unconditionally), making
+    BOTH axes definite and the aspect-ratio declaration inert; that is
+    exactly how the board rendered non-square at every tested viewport
+    (the review's B1 finding). The fix moves the containment to a CSS
+    container-query pattern instead (`.board-cell` + `.board-square`,
+    see `_STYLE`): this element keeps `width:100%;height:100%` (it is
+    just the grid CELL, establishing a definite size-contained box via
+    `container-type:size`), and the INNER `.board-square` div (built by
+    `_board_html`) is sized via `min(100%, 100cqh)` / `min(100%, 100cqw)`
+    -- the largest square that fits the cell on EITHER axis, centered by
+    the cell's own `place-items:center`. This is exact (not an
+    approximation) at every viewport, not just the ones a live-resize
+    happened to be eyeballed at."""
     parts = ["min-width:0", "min-height:0"]
     is_board_leaf = isinstance(child.node, ast.Leaf) and child.node.widget == "B"
-    if is_board_leaf:
-        parts.append("justify-self:center" if axis == "v" else "align-self:center")
-        parts += ["aspect-ratio:1/1", "max-width:100%", "max-height:100%"]
     extra_style = ";".join(parts) + ";"
 
     toggle = TOGGLE_TARGETS.get(class_id, {}).get(cpath)
+    class_parts: List[str] = []
+    if is_board_leaf:
+        class_parts.append("board-cell")
     if toggle:
         label, presence = toggle
         extra_data = f'data-toggle-id="{_slug(label)}" data-presence="{presence}"'
         if presence == "release":
             extra_data += f' data-track-prop="{track_prop}"'
-        extra_class = "lyt-group"
+        class_parts.append("lyt-group")
         caption: Optional[str] = label
     else:
         extra_data = ""
-        extra_class = ""
         caption = None
+    extra_class = " ".join(class_parts)
     return extra_style, extra_data, extra_class, caption
 
 
@@ -426,12 +729,26 @@ def render_split(
     node: ast.Split, *, path: Tuple[int, ...], class_id: str, extra_style: str, extra_data: str, extra_class: str, caption: Optional[str]
 ) -> str:
     axis = node.axis
+    raw_track_values: List[str] = []
+    sizings: List[ast.Sizing] = []
+    for i, child in enumerate(node.children):
+        cpath = path + (i,)
+        floor = _exclusive_derived_min_px(child.node, where=str(cpath)) if isinstance(child.node, ast.Exclusive) else None
+        raw_track_values.append(_track_for_child(child.sizing, floor_override_px=floor, where=str(cpath)))
+        sizings.append(child.sizing)
+    # BLOCKER B2/B3 fix: only ever engages at the tree's own ROOT (path ==
+    # ()) -- see `_board_priority_tracks`'s own docstring for why the
+    # 100vw/100vh constants it relies on are only valid there. A no-op for
+    # every other Split in the tree, and for a root that doesn't match the
+    # one recognized board-composite shape.
+    if path == ():
+        raw_track_values = _board_priority_tracks(node, raw_track_values, sizings)
+
     tracks: List[str] = []
     kids: List[str] = []
     for i, child in enumerate(node.children):
         cpath = path + (i,)
-        floor = _exclusive_derived_min_px(child.node, where=str(cpath)) if isinstance(child.node, ast.Exclusive) else None
-        track_value = _track_for_child(child.sizing, floor_override_px=floor, where=str(cpath))
+        track_value = raw_track_values[i]
         # Every track is parameterized by its own CSS custom property,
         # `var(--track-N, <computed value>)`, rather than the bare
         # computed value -- this is what lets the 'release' toggle
@@ -530,7 +847,38 @@ def render_leaf(node: ast.Leaf, *, extra_style: str, extra_data: str, extra_clas
 # tokens this mockup actually uses -- dark only, see module docstring's
 # "Theme" judgment-call paragraph.
 _STYLE = """
-:root {
+/* Theme: CLUSTER fix pass (item 5, lyt-mockups-opus-review.md fix
+   commission). The commissioner's own default light palette
+   ([data-theme="cluster"] in frontend/src/assets/css/theme.css,
+   resolved against the cluster-12-N literals in
+   frontend/src/assets/css/palettes.css -- both read in full, not
+   guessed) is now the PRIMARY set (`<html data-theme="cluster">`
+   below); the original dark tokens survive as a toggle in the corner
+   popover (cheap -- both are just CSS custom-property blocks selected
+   by the SAME data-theme attribute the real app uses, no second HTML
+   file). Values copied by hand from the two files, hex-only (no
+   var(--cluster-12-N) chain, since this mockup imports no app CSS at
+   all, per the umbrella's scope discipline) -- exactly the same
+   discipline the original build report used for the dark set. */
+:root[data-theme="cluster"] {
+  --surface-0: #fedaf7;    /* cluster-12-9, page bg */
+  --surface-1: #7a6f6d;    /* cluster-12-6, chrome containers (taupe) */
+  --surface-2: #fedaf7;    /* collapses to bg tone, per theme.css's own disclosed tier collapse */
+  --surface-3: #fedaf7;
+  --border-1: #7a6f6d;
+  --border-2: #7a6f6d;
+  --border-3: #0b001b;     /* cluster-12-4, strong/focus */
+  --text-0: #0b001b;       /* cluster-12-4, the only text-emphasis tier */
+  --text-disabled: #685e5d;
+  --accent-primary: #00a7ff;   /* cluster-12-2 */
+  --accent-secondary: #ff8800; /* cluster-12-11 */
+  --text-on-accent: #0b001b;
+  --state-success: #00a400;    /* cluster-12-1 */
+  --state-warning: #ff8800;
+  --state-error: #630000;      /* cluster-12-5 */
+  --state-attention: #ff0086;  /* cluster-12-10 */
+}
+:root[data-theme="dark"] {
   --surface-0: #000;
   --surface-1: #111;
   --surface-2: #1a1a1a;
@@ -539,8 +887,16 @@ _STYLE = """
   --border-2: #333;
   --border-3: #555;
   --text-0: #fff;
+  --text-disabled: #666;
   --accent-primary: #4aaef0;
+  --accent-secondary: #f0a04a;
+  --text-on-accent: #333;
+  --state-success: #4caf50;
+  --state-warning: #f0a04a;
+  --state-error: #f04a4a;
   --state-attention: #ff4a4a;
+}
+:root {
   --space-tight: 4px;
   --space-default: 8px;
   --space-medium: 12px;
@@ -553,6 +909,7 @@ _STYLE = """
   --z-popover: 10;
   --z-affordance: 50;
   --z-overlay: 99999;
+  --caption-gutter: 92px;  /* X2 fix: one shared caption-column width, see .row-caption/.lyt-tab-caption */
 }
 html, body {
   margin: 0; padding: 0; height: 100%;
@@ -562,14 +919,33 @@ html, body {
 }
 .lyt-node { box-sizing: border-box; }
 .lyt-group {
-  border: 1px solid var(--border-1);
+  /* M5 fix: the group chrome used to be `border:1px` + `padding:
+     var(--space-tight)` (4px), consuming 10px of every 28px-fixed
+     strip -- a 24px button no longer fits an 18px content box. Outline
+     draws INSIDE the box without consuming layout space (unlike
+     border), and the vertical padding drops to 1px (horizontal stays
+     at the tight token) -- 28px strip, 0px consumed by outline + 2px
+     vertical padding = 26px content box, fits a 24px button with a
+     little room to spare, centered by the row's own
+     align-items:center. */
+  outline: 1px solid var(--border-1);
+  outline-offset: -1px;
   background: var(--surface-1);
-  padding: var(--space-tight);
+  padding: 1px var(--space-tight);
   position: relative;
+}
+/* X2 fix: a real column grid for the four sibling strips' captions --
+   the review measured four different content-start x-positions because
+   `.row-caption`/`.lyt-tab-caption` were sized to their own text
+   (`flex: 0 0 auto`). Both now share ONE fixed gutter width, so every
+   strip's content starts at the same x regardless of caption length. */
+.row-caption, .lyt-tab-caption {
+  flex: 0 0 var(--caption-gutter);
+  box-sizing: border-box;
 }
 .row-caption {
   font-size: var(--text-tiny); letter-spacing: var(--tracking-default);
-  text-transform: uppercase; color: var(--text-0); flex: 0 0 auto;
+  text-transform: uppercase; color: var(--text-0);
   padding-right: var(--space-tight); border-right: 1px solid var(--border-2);
   margin-right: var(--space-tight);
 }
@@ -578,9 +954,24 @@ html, body {
   display: flex; align-items: center; height: 100%;
   box-sizing: border-box; padding: 0 var(--space-tight);
   gap: var(--space-default); overflow-x: auto; white-space: nowrap;
+  /* M4 fix (partial, disclosed): a trailing fade instead of an abrupt
+     cut turns silent truncation into a HINTED "there's more, scroll"
+     affordance -- an "explicit overflow control", per the review's own
+     list of acceptable remedies. This does not implement full
+     priority-order button dropping (no widget-priority metadata exists
+     in the .lyt encodings to drive it) -- see the fix pass's report for
+     the disclosed scope line. */
+  mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent 100%);
 }
 .actions-row-wrap { gap: var(--space-tight); }
-.info-row span { color: var(--text-0); font-size: var(--text-emphasis); }
+/* X1 fix: `.info-row span` (specificity 0,2,0) used to override
+   `.row-caption` (0,1,0) whenever the caption ALSO happened to be an
+   `.info-row`'s own child (only I_engine) -- the one caption that
+   rendered at 12px instead of the other three's 9px. Scoping this rule
+   away from `.row-caption` removes the accidental override instead of
+   fighting it with a specificity bump. */
+.info-row span:not(.row-caption) { color: var(--text-0); font-size: var(--text-emphasis); }
 .btn {
   background: var(--surface-3); border: 1px solid var(--border-2);
   color: var(--text-0); border-radius: var(--radius-default);
@@ -589,8 +980,22 @@ html, body {
   justify-content: center; flex: 0 0 auto;
 }
 .debug-pill { background: var(--surface-2); border-color: var(--border-1); }
+/* B1 fix: `.board-cell` is the grid ITEM (the `.lyt-leaf` wrapper for
+   widget 'B') -- it keeps the ordinary `width:100%;height:100%` inline
+   style (set by render_leaf for every leaf), which just makes it fill
+   its grid cell exactly and gives `container-type:size` a definite box
+   to measure. `.board-square` (its one child, built by `_board_html`)
+   is sized via `min(100%, 100cqh)` / `min(100%, 100cqw)` -- the
+   largest square that fits the cell on EITHER axis -- which is exact,
+   not an approximation, and needs no knowledge of which axis is
+   smaller at authoring time. `place-items:center` centers the square
+   within any leftover space on the larger axis, matching the CP-SAT
+   solve's own aspect-relaxation centering (compiler.py `_extract_
+   rects`'s `cross_offset`). */
+.board-cell { display: grid; place-items: center; container-type: size; }
 .board-square {
-  width: 100%; height: 100%; position: relative;
+  width: min(100%, 100cqh); height: min(100%, 100cqw);
+  aspect-ratio: 1 / 1; position: relative;
   background: var(--surface-2); border: 1px solid var(--border-2);
   box-sizing: border-box;
 }
@@ -606,15 +1011,30 @@ html, body {
 }
 .board-stone-b { background: #000; border: 1px solid #444; }
 .board-stone-w { background: #fff; border: 1px solid #999; }
+/* B1 secondary fix: star points (hoshi) and rank/file coordinates --
+   "no star points and no coordinates" (review's B1 evidence). */
+.board-star {
+  position: absolute; width: 1.1%; height: 1.1%; border-radius: var(--radius-circle);
+  background: var(--border-3); transform: translate(-50%, -50%);
+}
+.board-coord { position: absolute; font-size: var(--text-tiny); color: var(--text-0); line-height: 1; }
+.board-coord-col { top: 1.6%; transform: translateX(-50%); }
+.board-coord-row { left: 1.6%; transform: translateY(-50%); }
 .lyt-tabstrip {
   display: flex; height: 24px; box-sizing: border-box;
   border-bottom: 1px solid var(--border-2); overflow-x: auto; white-space: nowrap;
 }
 .lyt-tab-caption {
-  padding: 0 var(--space-default); display: flex; align-items: center; flex: 0 0 auto;
+  /* X4 fix: a distinct fill (chrome surface-1, not the tabstrip's own
+     transparent/surface-0 default and not the active tab's surface-2)
+     so this reads as a labeled gutter block, not a 7th (disabled) tab
+     peer -- the review's own finding was that identical padding+height
+     +border made it indistinguishable from a tab. */
+  background: var(--surface-1);
+  padding: 0 var(--space-default); display: flex; align-items: center;
   font-size: var(--text-tiny); letter-spacing: var(--tracking-default);
   text-transform: uppercase; color: var(--text-0);
-  border-right: 1px solid var(--border-2); box-sizing: border-box;
+  border-right: 1px solid var(--border-2);
 }
 .lyt-tab {
   padding: 0 var(--space-default); display: flex; align-items: center; flex: 0 0 auto;
@@ -622,12 +1042,22 @@ html, body {
   border-right: 1px solid var(--border-1); box-sizing: border-box;
 }
 .lyt-tab.active { background: var(--surface-2); border-bottom: 2px solid var(--accent-primary); }
-.lyt-tabbody, .blackbox-body { padding: var(--space-tight); overflow: auto; color: var(--text-0); }
+/* M2 fix (fix pass): the tab body used to have no fill of its own, so
+   any leftover height below its content showed bare page background --
+   "the eye lands on a large void" (review's own description, dark
+   theme's black; cluster theme's pale pink). A chrome-tone fill makes
+   the WHOLE region read as one contained panel regardless of how much
+   of its height the sample content happens to occupy. */
+.lyt-tabbody, .blackbox-body { padding: var(--space-tight); overflow: auto; color: var(--text-0); background: var(--surface-1); height: 100%; box-sizing: border-box; }
 .tree-row { color: var(--text-0); font-size: var(--text-emphasis); white-space: nowrap; }
 #lyt-menu-btn {
+  /* X5 fix: bumped from --surface-3-on-surface-1 (near-invisible, per
+     the review's own "not findable without knowing where to look") to
+     a stronger --border-3 outline and --surface-1 fill -- still
+     28x28px, zero ADDITIONAL standing cost, just more findable. */
   position: fixed; right: 8px; bottom: 8px; width: 28px; height: 28px;
-  z-index: var(--z-affordance); background: var(--surface-3);
-  border: 1px solid var(--border-2); color: var(--text-0);
+  z-index: var(--z-affordance); background: var(--surface-1);
+  border: 1px solid var(--border-3); color: var(--text-0);
   border-radius: var(--radius-default); font-size: var(--text-heading);
   line-height: 1; cursor: pointer;
 }
@@ -636,7 +1066,12 @@ html, body {
   background: var(--surface-0); border: 1px solid var(--border-2);
   padding: var(--space-medium); min-width: 220px; color: var(--text-0);
 }
-.lyt-menu-title { font-size: var(--text-emphasis); color: var(--text-0); margin-bottom: var(--space-tight); }
+.lyt-menu-title { font-size: var(--text-heading); color: var(--text-0); margin-bottom: var(--space-tight); }
+.lyt-menu-subtitle {
+  font-size: var(--text-tiny); letter-spacing: var(--tracking-default); text-transform: uppercase;
+  color: var(--text-0); margin: var(--space-default) 0 var(--space-tight);
+}
+.lyt-menu-divider { border-top: 1px solid var(--border-2); margin: var(--space-tight) 0; }
 .lyt-menu-row {
   display: flex; align-items: center; gap: var(--space-tight);
   min-height: 24px; color: var(--text-0); font-size: var(--text-emphasis);
@@ -655,7 +1090,50 @@ _SCRIPT = """
 (function () {
   var btn = document.getElementById('lyt-menu-btn');
   var pop = document.getElementById('lyt-menu-popover');
-  btn.addEventListener('click', function () { pop.hidden = !pop.hidden; });
+
+  // X5 fix: aria-expanded (kept in sync with open/closed), Escape
+  // dismissal + focus return to the button, and outside-click
+  // dismissal -- the review's own named list ("no Escape dismissal, no
+  // outside-click dismissal, no aria-expanded, no focus ring, no focus
+  // return"). Focus ring itself needs no code: neither this stylesheet
+  // nor this script ever sets `outline:none`, so the browser's own
+  // default focus ring already renders on both the button and every
+  // checkbox/toggle inside the popover.
+  function openMenu() { pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); }
+  function closeMenu(returnFocus) {
+    pop.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+    if (returnFocus) { btn.focus(); }
+  }
+  btn.setAttribute('aria-expanded', 'false');
+  btn.setAttribute('aria-controls', 'lyt-menu-popover');
+  btn.addEventListener('click', function () { if (pop.hidden) { openMenu(); } else { closeMenu(false); } });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && !pop.hidden) { closeMenu(true); }
+  });
+  document.addEventListener('click', function (ev) {
+    if (pop.hidden) return;
+    if (pop.contains(ev.target) || btn.contains(ev.target)) return;
+    closeMenu(false);
+  });
+
+  // M3 fix (partial -- prevent the all-off terminal state): the review's
+  // finding was that unchecking every panel leaves a pure-black screen
+  // with no product identity and no way back except the popover already
+  // open. The product-identity half is fixed in the popover's own title
+  // (see build_html_for_class); this half refuses the LAST release-panel
+  // uncheck that would leave every managed release target off,
+  // reverting the checkbox rather than letting the terminal state occur.
+  // 'preserve' targets (Board & Controls, Tree & Panels) are excluded
+  // from this guard -- they never remove content from the DOM, only
+  // hide painting, so they can't produce a truly blank page on their own.
+  var releaseCheckboxes = Array.prototype.filter.call(
+    document.querySelectorAll('#lyt-menu-popover input[data-toggle-for]'),
+    function (cb) {
+      var el = document.querySelector('[data-toggle-id="' + cb.getAttribute('data-toggle-for') + '"]');
+      return el && el.getAttribute('data-presence') === 'release';
+    }
+  );
 
   document.querySelectorAll('#lyt-menu-popover input[data-toggle-for]').forEach(function (cb) {
     cb.addEventListener('change', function () {
@@ -663,6 +1141,10 @@ _SCRIPT = """
       var el = document.querySelector('[data-toggle-id="' + id + '"]');
       if (!el) return;
       var presence = el.getAttribute('data-presence');
+      if (presence === 'release' && !cb.checked) {
+        var anyStillOn = releaseCheckboxes.some(function (other) { return other !== cb && other.checked; });
+        if (!anyStillOn) { cb.checked = true; return; }
+      }
       if (presence === 'preserve') {
         el.style.visibility = cb.checked ? '' : 'hidden';
       } else {
@@ -727,6 +1209,16 @@ _SCRIPT = """
     if (overlayToggle.checked) { drawOverlay(); } else { overlayLayer.innerHTML = ''; overlayStatus.textContent = ''; }
   });
   window.addEventListener('resize', function () { if (overlayToggle.checked) drawOverlay(); });
+
+  // Theme fix (item 5): cluster (light) is the primary set on <html>;
+  // this checkbox is the "secondary toggle... if cheap" the commission
+  // allowed for dark, living in the SAME corner popover as the overlay
+  // toggle (consistent with that control already sharing the popover
+  // rather than adding a second interactive affordance elsewhere).
+  var themeToggle = document.getElementById('lyt-theme-toggle');
+  themeToggle.addEventListener('change', function () {
+    document.documentElement.setAttribute('data-theme', themeToggle.checked ? 'dark' : 'cluster');
+  });
 })();
 """
 
@@ -772,10 +1264,16 @@ def build_html_for_class(class_id: str, root_slot: ast.Slot, overlay_data: List[
   Source encodings: research/lyt/encodings/lengyue_landscape.lyt,
   research/lyt/encodings/lengyue_portrait.lyt (layout `lengyue-{class_id}`).
   Regenerate: {REGEN_COMMAND}
+  Realization-limit disclosure: the board-priority CSS override
+  (`_board_priority_tracks`) reproduces the CP-SAT compiler's
+  lexicographic board-maximize solve in closed form for the ONE
+  board-composite shape both clean-room encodings use; a future
+  encoding using a different shape for its board group is not covered
+  and would need the override extended, not silently mis-applied.
   Public Domain (The Unlicense), matching research/lyt/__init__.py's
   license line and the umbrella's ADR-0006 per-file convention.
 -->
-<html data-theme="dark">
+<html data-theme="cluster">
 <head>
 <meta charset="utf-8">
 <title>{html.escape(title)}</title>
@@ -785,11 +1283,16 @@ def build_html_for_class(class_id: str, root_slot: ast.Slot, overlay_data: List[
 <div id="lyt-root" style="width:100vw;height:100vh;overflow:hidden;position:relative;">
 {body_html}
 </div>
-<button id="lyt-menu-btn" type="button" aria-label="Panel menu">&#8942;</button>
-<div id="lyt-menu-popover" hidden>
-  <div class="lyt-menu-title">Panels</div>
+<button id="lyt-menu-btn" type="button" aria-label="Panel menu" aria-haspopup="true">&#8942;</button>
+<div id="lyt-menu-popover" hidden role="menu" aria-label="LengYue panel menu">
+  <div class="lyt-menu-title">LengYue</div>
+  <div class="lyt-menu-subtitle">Panels</div>
   {checklist_html}
-  <hr>
+  <div class="lyt-menu-divider"></div>
+  <div class="lyt-menu-subtitle">Appearance</div>
+  <label class="lyt-menu-row"><input type="checkbox" id="lyt-theme-toggle"> Dark theme</label>
+  <div class="lyt-menu-divider"></div>
+  <div class="lyt-menu-subtitle">Debug</div>
   <label class="lyt-menu-row"><input type="checkbox" id="lyt-overlay-toggle"> Show solved-rect overlay</label>
   <div id="lyt-overlay-status" class="lyt-overlay-status"></div>
 </div>

@@ -5,15 +5,52 @@
   Source encodings: research/lyt/encodings/lengyue_landscape.lyt,
   research/lyt/encodings/lengyue_portrait.lyt (layout `lengyue-landscape`).
   Regenerate: cd research/lyt && nice -n 19 ~/w/vdc/venvs/generic/bin/python emit_mockup.py
+  Realization-limit disclosure: the board-priority CSS override
+  (`_board_priority_tracks`) reproduces the CP-SAT compiler's
+  lexicographic board-maximize solve in closed form for the ONE
+  board-composite shape both clean-room encodings use; a future
+  encoding using a different shape for its board group is not covered
+  and would need the override extended, not silently mis-applied.
   Public Domain (The Unlicense), matching research/lyt/__init__.py's
   license line and the umbrella's ADR-0006 per-file convention.
 -->
-<html data-theme="dark">
+<html data-theme="cluster">
 <head>
 <meta charset="utf-8">
 <title>LengYue clean-room mockup — landscape</title>
 <style>
-:root {
+/* Theme: CLUSTER fix pass (item 5, lyt-mockups-opus-review.md fix
+   commission). The commissioner's own default light palette
+   ([data-theme="cluster"] in frontend/src/assets/css/theme.css,
+   resolved against the cluster-12-N literals in
+   frontend/src/assets/css/palettes.css -- both read in full, not
+   guessed) is now the PRIMARY set (`<html data-theme="cluster">`
+   below); the original dark tokens survive as a toggle in the corner
+   popover (cheap -- both are just CSS custom-property blocks selected
+   by the SAME data-theme attribute the real app uses, no second HTML
+   file). Values copied by hand from the two files, hex-only (no
+   var(--cluster-12-N) chain, since this mockup imports no app CSS at
+   all, per the umbrella's scope discipline) -- exactly the same
+   discipline the original build report used for the dark set. */
+:root[data-theme="cluster"] {
+  --surface-0: #fedaf7;    /* cluster-12-9, page bg */
+  --surface-1: #7a6f6d;    /* cluster-12-6, chrome containers (taupe) */
+  --surface-2: #fedaf7;    /* collapses to bg tone, per theme.css's own disclosed tier collapse */
+  --surface-3: #fedaf7;
+  --border-1: #7a6f6d;
+  --border-2: #7a6f6d;
+  --border-3: #0b001b;     /* cluster-12-4, strong/focus */
+  --text-0: #0b001b;       /* cluster-12-4, the only text-emphasis tier */
+  --text-disabled: #685e5d;
+  --accent-primary: #00a7ff;   /* cluster-12-2 */
+  --accent-secondary: #ff8800; /* cluster-12-11 */
+  --text-on-accent: #0b001b;
+  --state-success: #00a400;    /* cluster-12-1 */
+  --state-warning: #ff8800;
+  --state-error: #630000;      /* cluster-12-5 */
+  --state-attention: #ff0086;  /* cluster-12-10 */
+}
+:root[data-theme="dark"] {
   --surface-0: #000;
   --surface-1: #111;
   --surface-2: #1a1a1a;
@@ -22,8 +59,16 @@
   --border-2: #333;
   --border-3: #555;
   --text-0: #fff;
+  --text-disabled: #666;
   --accent-primary: #4aaef0;
+  --accent-secondary: #f0a04a;
+  --text-on-accent: #333;
+  --state-success: #4caf50;
+  --state-warning: #f0a04a;
+  --state-error: #f04a4a;
   --state-attention: #ff4a4a;
+}
+:root {
   --space-tight: 4px;
   --space-default: 8px;
   --space-medium: 12px;
@@ -36,6 +81,7 @@
   --z-popover: 10;
   --z-affordance: 50;
   --z-overlay: 99999;
+  --caption-gutter: 92px;  /* X2 fix: one shared caption-column width, see .row-caption/.lyt-tab-caption */
 }
 html, body {
   margin: 0; padding: 0; height: 100%;
@@ -45,14 +91,33 @@ html, body {
 }
 .lyt-node { box-sizing: border-box; }
 .lyt-group {
-  border: 1px solid var(--border-1);
+  /* M5 fix: the group chrome used to be `border:1px` + `padding:
+     var(--space-tight)` (4px), consuming 10px of every 28px-fixed
+     strip -- a 24px button no longer fits an 18px content box. Outline
+     draws INSIDE the box without consuming layout space (unlike
+     border), and the vertical padding drops to 1px (horizontal stays
+     at the tight token) -- 28px strip, 0px consumed by outline + 2px
+     vertical padding = 26px content box, fits a 24px button with a
+     little room to spare, centered by the row's own
+     align-items:center. */
+  outline: 1px solid var(--border-1);
+  outline-offset: -1px;
   background: var(--surface-1);
-  padding: var(--space-tight);
+  padding: 1px var(--space-tight);
   position: relative;
+}
+/* X2 fix: a real column grid for the four sibling strips' captions --
+   the review measured four different content-start x-positions because
+   `.row-caption`/`.lyt-tab-caption` were sized to their own text
+   (`flex: 0 0 auto`). Both now share ONE fixed gutter width, so every
+   strip's content starts at the same x regardless of caption length. */
+.row-caption, .lyt-tab-caption {
+  flex: 0 0 var(--caption-gutter);
+  box-sizing: border-box;
 }
 .row-caption {
   font-size: var(--text-tiny); letter-spacing: var(--tracking-default);
-  text-transform: uppercase; color: var(--text-0); flex: 0 0 auto;
+  text-transform: uppercase; color: var(--text-0);
   padding-right: var(--space-tight); border-right: 1px solid var(--border-2);
   margin-right: var(--space-tight);
 }
@@ -61,9 +126,24 @@ html, body {
   display: flex; align-items: center; height: 100%;
   box-sizing: border-box; padding: 0 var(--space-tight);
   gap: var(--space-default); overflow-x: auto; white-space: nowrap;
+  /* M4 fix (partial, disclosed): a trailing fade instead of an abrupt
+     cut turns silent truncation into a HINTED "there's more, scroll"
+     affordance -- an "explicit overflow control", per the review's own
+     list of acceptable remedies. This does not implement full
+     priority-order button dropping (no widget-priority metadata exists
+     in the .lyt encodings to drive it) -- see the fix pass's report for
+     the disclosed scope line. */
+  mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent 100%);
 }
 .actions-row-wrap { gap: var(--space-tight); }
-.info-row span { color: var(--text-0); font-size: var(--text-emphasis); }
+/* X1 fix: `.info-row span` (specificity 0,2,0) used to override
+   `.row-caption` (0,1,0) whenever the caption ALSO happened to be an
+   `.info-row`'s own child (only I_engine) -- the one caption that
+   rendered at 12px instead of the other three's 9px. Scoping this rule
+   away from `.row-caption` removes the accidental override instead of
+   fighting it with a specificity bump. */
+.info-row span:not(.row-caption) { color: var(--text-0); font-size: var(--text-emphasis); }
 .btn {
   background: var(--surface-3); border: 1px solid var(--border-2);
   color: var(--text-0); border-radius: var(--radius-default);
@@ -72,8 +152,22 @@ html, body {
   justify-content: center; flex: 0 0 auto;
 }
 .debug-pill { background: var(--surface-2); border-color: var(--border-1); }
+/* B1 fix: `.board-cell` is the grid ITEM (the `.lyt-leaf` wrapper for
+   widget 'B') -- it keeps the ordinary `width:100%;height:100%` inline
+   style (set by render_leaf for every leaf), which just makes it fill
+   its grid cell exactly and gives `container-type:size` a definite box
+   to measure. `.board-square` (its one child, built by `_board_html`)
+   is sized via `min(100%, 100cqh)` / `min(100%, 100cqw)` -- the
+   largest square that fits the cell on EITHER axis -- which is exact,
+   not an approximation, and needs no knowledge of which axis is
+   smaller at authoring time. `place-items:center` centers the square
+   within any leftover space on the larger axis, matching the CP-SAT
+   solve's own aspect-relaxation centering (compiler.py `_extract_
+   rects`'s `cross_offset`). */
+.board-cell { display: grid; place-items: center; container-type: size; }
 .board-square {
-  width: 100%; height: 100%; position: relative;
+  width: min(100%, 100cqh); height: min(100%, 100cqw);
+  aspect-ratio: 1 / 1; position: relative;
   background: var(--surface-2); border: 1px solid var(--border-2);
   box-sizing: border-box;
 }
@@ -89,15 +183,30 @@ html, body {
 }
 .board-stone-b { background: #000; border: 1px solid #444; }
 .board-stone-w { background: #fff; border: 1px solid #999; }
+/* B1 secondary fix: star points (hoshi) and rank/file coordinates --
+   "no star points and no coordinates" (review's B1 evidence). */
+.board-star {
+  position: absolute; width: 1.1%; height: 1.1%; border-radius: var(--radius-circle);
+  background: var(--border-3); transform: translate(-50%, -50%);
+}
+.board-coord { position: absolute; font-size: var(--text-tiny); color: var(--text-0); line-height: 1; }
+.board-coord-col { top: 1.6%; transform: translateX(-50%); }
+.board-coord-row { left: 1.6%; transform: translateY(-50%); }
 .lyt-tabstrip {
   display: flex; height: 24px; box-sizing: border-box;
   border-bottom: 1px solid var(--border-2); overflow-x: auto; white-space: nowrap;
 }
 .lyt-tab-caption {
-  padding: 0 var(--space-default); display: flex; align-items: center; flex: 0 0 auto;
+  /* X4 fix: a distinct fill (chrome surface-1, not the tabstrip's own
+     transparent/surface-0 default and not the active tab's surface-2)
+     so this reads as a labeled gutter block, not a 7th (disabled) tab
+     peer -- the review's own finding was that identical padding+height
+     +border made it indistinguishable from a tab. */
+  background: var(--surface-1);
+  padding: 0 var(--space-default); display: flex; align-items: center;
   font-size: var(--text-tiny); letter-spacing: var(--tracking-default);
   text-transform: uppercase; color: var(--text-0);
-  border-right: 1px solid var(--border-2); box-sizing: border-box;
+  border-right: 1px solid var(--border-2);
 }
 .lyt-tab {
   padding: 0 var(--space-default); display: flex; align-items: center; flex: 0 0 auto;
@@ -105,12 +214,22 @@ html, body {
   border-right: 1px solid var(--border-1); box-sizing: border-box;
 }
 .lyt-tab.active { background: var(--surface-2); border-bottom: 2px solid var(--accent-primary); }
-.lyt-tabbody, .blackbox-body { padding: var(--space-tight); overflow: auto; color: var(--text-0); }
+/* M2 fix (fix pass): the tab body used to have no fill of its own, so
+   any leftover height below its content showed bare page background --
+   "the eye lands on a large void" (review's own description, dark
+   theme's black; cluster theme's pale pink). A chrome-tone fill makes
+   the WHOLE region read as one contained panel regardless of how much
+   of its height the sample content happens to occupy. */
+.lyt-tabbody, .blackbox-body { padding: var(--space-tight); overflow: auto; color: var(--text-0); background: var(--surface-1); height: 100%; box-sizing: border-box; }
 .tree-row { color: var(--text-0); font-size: var(--text-emphasis); white-space: nowrap; }
 #lyt-menu-btn {
+  /* X5 fix: bumped from --surface-3-on-surface-1 (near-invisible, per
+     the review's own "not findable without knowing where to look") to
+     a stronger --border-3 outline and --surface-1 fill -- still
+     28x28px, zero ADDITIONAL standing cost, just more findable. */
   position: fixed; right: 8px; bottom: 8px; width: 28px; height: 28px;
-  z-index: var(--z-affordance); background: var(--surface-3);
-  border: 1px solid var(--border-2); color: var(--text-0);
+  z-index: var(--z-affordance); background: var(--surface-1);
+  border: 1px solid var(--border-3); color: var(--text-0);
   border-radius: var(--radius-default); font-size: var(--text-heading);
   line-height: 1; cursor: pointer;
 }
@@ -119,7 +238,12 @@ html, body {
   background: var(--surface-0); border: 1px solid var(--border-2);
   padding: var(--space-medium); min-width: 220px; color: var(--text-0);
 }
-.lyt-menu-title { font-size: var(--text-emphasis); color: var(--text-0); margin-bottom: var(--space-tight); }
+.lyt-menu-title { font-size: var(--text-heading); color: var(--text-0); margin-bottom: var(--space-tight); }
+.lyt-menu-subtitle {
+  font-size: var(--text-tiny); letter-spacing: var(--tracking-default); text-transform: uppercase;
+  color: var(--text-0); margin: var(--space-default) 0 var(--space-tight);
+}
+.lyt-menu-divider { border-top: 1px solid var(--border-2); margin: var(--space-tight) 0; }
 .lyt-menu-row {
   display: flex; align-items: center; gap: var(--space-tight);
   min-height: 24px; color: var(--text-0); font-size: var(--text-emphasis);
@@ -133,23 +257,71 @@ html, body {
 </head>
 <body>
 <div id="lyt-root" style="width:100vw;height:100vh;overflow:hidden;position:relative;">
-<div class="lyt-node lyt-split lyt-h "  style="display:grid;grid-auto-flow:column;grid-template-columns:var(--track-0, minmax(0px, 1fr)) var(--track-1, minmax(340px, 820px));grid-template-rows:1fr;column-gap:0px;row-gap:0px;width:100%;height:100%;"><div class="lyt-node lyt-split lyt-v lyt-group" data-toggle-id="board" data-presence="preserve" style="display:grid;grid-auto-flow:row;grid-template-rows:var(--track-0, minmax(0px, 1fr)) var(--track-1, 24px) var(--track-2, 28px);grid-template-columns:1fr;column-gap:0px;row-gap:0px;grid-column:1/2;grid-row:1;min-width:0;min-height:0;"><div class="lyt-node lyt-leaf "  style="width:100%;height:100%;grid-row:1/2;grid-column:1;min-width:0;min-height:0;justify-self:center;aspect-ratio:1/1;max-width:100%;max-height:100%;"><div class="board-square"><div class="board-grid"></div><div class="board-stone board-stone-b" style="left:22%;top:30%;"></div><div class="board-stone board-stone-w" style="left:35%;top:45%;"></div><div class="board-stone board-stone-b" style="left:50%;top:38%;"></div><div class="board-stone board-stone-w" style="left:44%;top:58%;"></div></div></div><div class="lyt-node lyt-leaf "  style="width:100%;height:100%;grid-row:2/3;grid-column:1;min-width:0;min-height:0;"><div class="info-row"><span>Move 47</span><span>● Black — Alice (2400)</span><span>○ White — Bob (2350)</span><span>Caps B 3 · W 5</span></div></div><div class="lyt-node lyt-leaf "  style="width:100%;height:100%;grid-row:3/4;grid-column:1;min-width:0;min-height:0;"><div class="actions-row"><button class="btn">Pass</button><button class="btn">|&lt;</button><button class="btn">&lt;</button><button class="btn">&gt;</button><button class="btn">&gt;|</button><button class="btn">Annotate</button><button class="btn">Setup</button></div></div></div><div class="lyt-node lyt-split lyt-v "  style="display:grid;grid-auto-flow:row;grid-template-rows:var(--track-0, 28px) var(--track-1, 28px) var(--track-2, 28px) var(--track-3, minmax(300px, 1fr));grid-template-columns:1fr;column-gap:0px;row-gap:0px;grid-column:2/3;grid-row:1;min-width:0;min-height:0;"><div class="lyt-node lyt-leaf lyt-group" data-toggle-id="go-actions" data-presence="release" data-track-prop="--track-0" style="width:100%;height:100%;grid-row:1/2;grid-column:1;min-width:0;min-height:0;"><div class="actions-row"><span class="row-caption">Go Actions</span><button class="btn">Mint Card</button><button class="btn">Learn Path</button><button class="btn">Play</button><button class="btn">Match</button><button class="btn">Load SGF</button><button class="btn">Save SGF</button></div></div><div class="lyt-node lyt-leaf lyt-group" data-toggle-id="engine-info" data-presence="release" data-track-prop="--track-1" style="width:100%;height:100%;grid-row:2/3;grid-column:1;min-width:0;min-height:0;"><div class="info-row"><span class="row-caption">Engine Info</span><span>KataGo v1.0.27</span><span>Connected</span><span>Model: b18-8192</span><span>1200 pps</span><span>40 ms</span><span>Queue 2</span></div></div><div class="lyt-node lyt-leaf lyt-group" data-toggle-id="common-actions" data-presence="release" data-track-prop="--track-2" style="width:100%;height:100%;grid-row:3/4;grid-column:1;min-width:0;min-height:0;"><div class="actions-row"><span class="row-caption">Common Actions</span><button class="btn">Connect</button><button class="btn">Sliders</button><button class="btn debug-pill" title="Autonav, popover test, clear cache (dev-only, C-domain)">Debug (3)</button></div></div><div class="lyt-node lyt-exclusive lyt-group" data-toggle-id="tree-panels" data-presence="preserve" style="display:grid;grid-template-rows:auto 1fr;grid-template-columns:1fr;column-gap:0px;row-gap:0px;grid-row:4/5;grid-column:1;min-width:0;min-height:0;"><div class="lyt-tabstrip"><div class="lyt-tab-caption">Tree &amp; Panels</div><div class="lyt-tab active">Tree</div><div class="lyt-tab">Library</div><div class="lyt-tab">Cards</div><div class="lyt-tab">Settings</div><div class="lyt-tab">Analysis</div><div class="lyt-tab">Other</div></div><div class="lyt-tabbody"><div class="tree-body"><div class="tree-row" style="padding-left:0">Game Tree</div><div class="tree-row" style="padding-left:12px">├ Move 1 (B)</div><div class="tree-row" style="padding-left:12px">├ Move 2 (W)</div><div class="tree-row" style="padding-left:24px">│ ├ Variation A</div><div class="tree-row" style="padding-left:24px">│ └ Variation B</div><div class="tree-row" style="padding-left:12px">└ Move 3 (B) — current</div></div></div></div></div></div>
+<div class="lyt-node lyt-split lyt-h "  style="display:grid;grid-auto-flow:column;grid-template-columns:var(--track-0, minmax(0px, 1fr)) var(--track-1, clamp(340px, calc(100% - (100vh - 52px)), 820px));grid-template-rows:1fr;column-gap:0px;row-gap:0px;width:100%;height:100%;"><div class="lyt-node lyt-split lyt-v lyt-group" data-toggle-id="board-controls" data-presence="preserve" style="display:grid;grid-auto-flow:row;grid-template-rows:var(--track-0, minmax(0px, 1fr)) var(--track-1, 24px) var(--track-2, 28px);grid-template-columns:1fr;column-gap:0px;row-gap:0px;grid-column:1/2;grid-row:1;min-width:0;min-height:0;"><div class="lyt-node lyt-leaf board-cell"  style="width:100%;height:100%;grid-row:1/2;grid-column:1;min-width:0;min-height:0;"><div class="board-square"><div class="board-grid"></div><div class="board-star" style="left:20%;top:20%;"></div><div class="board-star" style="left:50%;top:20%;"></div><div class="board-star" style="left:80%;top:20%;"></div><div class="board-star" style="left:20%;top:50%;"></div><div class="board-star" style="left:50%;top:50%;"></div><div class="board-star" style="left:80%;top:50%;"></div><div class="board-star" style="left:20%;top:80%;"></div><div class="board-star" style="left:50%;top:80%;"></div><div class="board-star" style="left:80%;top:80%;"></div><div class="board-coord board-coord-col" style="left:5%;">A</div><div class="board-coord board-coord-col" style="left:10%;">B</div><div class="board-coord board-coord-col" style="left:15%;">C</div><div class="board-coord board-coord-col" style="left:20%;">D</div><div class="board-coord board-coord-col" style="left:25%;">E</div><div class="board-coord board-coord-col" style="left:30%;">F</div><div class="board-coord board-coord-col" style="left:35%;">G</div><div class="board-coord board-coord-col" style="left:40%;">H</div><div class="board-coord board-coord-col" style="left:45%;">J</div><div class="board-coord board-coord-col" style="left:50%;">K</div><div class="board-coord board-coord-col" style="left:55%;">L</div><div class="board-coord board-coord-col" style="left:60%;">M</div><div class="board-coord board-coord-col" style="left:65%;">N</div><div class="board-coord board-coord-col" style="left:70%;">O</div><div class="board-coord board-coord-col" style="left:75%;">P</div><div class="board-coord board-coord-col" style="left:80%;">Q</div><div class="board-coord board-coord-col" style="left:85%;">R</div><div class="board-coord board-coord-col" style="left:90%;">S</div><div class="board-coord board-coord-col" style="left:95%;">T</div><div class="board-coord board-coord-row" style="top:5%;">1</div><div class="board-coord board-coord-row" style="top:10%;">2</div><div class="board-coord board-coord-row" style="top:15%;">3</div><div class="board-coord board-coord-row" style="top:20%;">4</div><div class="board-coord board-coord-row" style="top:25%;">5</div><div class="board-coord board-coord-row" style="top:30%;">6</div><div class="board-coord board-coord-row" style="top:35%;">7</div><div class="board-coord board-coord-row" style="top:40%;">8</div><div class="board-coord board-coord-row" style="top:45%;">9</div><div class="board-coord board-coord-row" style="top:50%;">10</div><div class="board-coord board-coord-row" style="top:55%;">11</div><div class="board-coord board-coord-row" style="top:60%;">12</div><div class="board-coord board-coord-row" style="top:65%;">13</div><div class="board-coord board-coord-row" style="top:70%;">14</div><div class="board-coord board-coord-row" style="top:75%;">15</div><div class="board-coord board-coord-row" style="top:80%;">16</div><div class="board-coord board-coord-row" style="top:85%;">17</div><div class="board-coord board-coord-row" style="top:90%;">18</div><div class="board-coord board-coord-row" style="top:95%;">19</div><div class="board-stone board-stone-b" style="left:50%;top:50%;"></div><div class="board-stone board-stone-w" style="left:55%;top:50%;"></div><div class="board-stone board-stone-b" style="left:55%;top:45%;"></div><div class="board-stone board-stone-w" style="left:50%;top:55%;"></div><div class="board-stone board-stone-b" style="left:60%;top:55%;"></div><div class="board-stone board-stone-w" style="left:55%;top:60%;"></div><div class="board-stone board-stone-b" style="left:50%;top:40%;"></div></div></div><div class="lyt-node lyt-leaf "  style="width:100%;height:100%;grid-row:2/3;grid-column:1;min-width:0;min-height:0;"><div class="info-row"><span>Move 47</span><span>● Black — Alice (2400)</span><span>○ White — Bob (2350)</span><span>Caps B 3 · W 5</span><span>Win B 54.2%</span><span>Score B +3.5</span></div></div><div class="lyt-node lyt-leaf "  style="width:100%;height:100%;grid-row:3/4;grid-column:1;min-width:0;min-height:0;"><div class="actions-row"><button class="btn">Pass</button><button class="btn">|&lt;</button><button class="btn">&lt;</button><button class="btn">&gt;</button><button class="btn">&gt;|</button><button class="btn">Annotate</button><button class="btn">Setup</button></div></div></div><div class="lyt-node lyt-split lyt-v "  style="display:grid;grid-auto-flow:row;grid-template-rows:var(--track-0, 28px) var(--track-1, 28px) var(--track-2, 28px) var(--track-3, minmax(300px, 1fr));grid-template-columns:1fr;column-gap:0px;row-gap:0px;grid-column:2/3;grid-row:1;min-width:0;min-height:0;"><div class="lyt-node lyt-leaf lyt-group" data-toggle-id="go-actions" data-presence="release" data-track-prop="--track-0" style="width:100%;height:100%;grid-row:1/2;grid-column:1;min-width:0;min-height:0;"><div class="actions-row"><span class="row-caption">Go Actions</span><button class="btn">Mint Card</button><button class="btn">Learn Path</button><button class="btn">Play</button><button class="btn">Match</button><button class="btn">Load SGF</button><button class="btn">Save SGF</button></div></div><div class="lyt-node lyt-leaf lyt-group" data-toggle-id="engine-info" data-presence="release" data-track-prop="--track-1" style="width:100%;height:100%;grid-row:2/3;grid-column:1;min-width:0;min-height:0;"><div class="info-row"><span class="row-caption">Engine Info</span><span>KataGo v1.0.27</span><span>Connected</span><span>Model: b18-8192</span><span>1200 pps</span><span>40 ms</span><span>Queue 2</span></div></div><div class="lyt-node lyt-leaf lyt-group" data-toggle-id="common-actions" data-presence="release" data-track-prop="--track-2" style="width:100%;height:100%;grid-row:3/4;grid-column:1;min-width:0;min-height:0;"><div class="actions-row"><span class="row-caption">Common Actions</span><button class="btn">Connect</button><button class="btn">Sliders</button><button class="btn debug-pill" title="Autonav, popover test, clear cache (dev-only, C-domain)">Debug (3)</button></div></div><div class="lyt-node lyt-exclusive lyt-group" data-toggle-id="tree-panels" data-presence="release" data-track-prop="--track-3" style="display:grid;grid-template-rows:auto 1fr;grid-template-columns:1fr;column-gap:0px;row-gap:0px;grid-row:4/5;grid-column:1;min-width:0;min-height:0;"><div class="lyt-tabstrip"><div class="lyt-tab-caption">Tree &amp; Panels</div><div class="lyt-tab active">Tree</div><div class="lyt-tab">Library</div><div class="lyt-tab">Cards</div><div class="lyt-tab">Settings</div><div class="lyt-tab">Analysis</div><div class="lyt-tab">Other</div></div><div class="lyt-tabbody"><div class="tree-body"><div class="tree-row" style="padding-left:0">Game Tree — 187 moves</div><div class="tree-row" style="padding-left:12px">├ Move 41 (B) 51.2%</div><div class="tree-row" style="padding-left:12px">├ Move 42 (W) 49.0%</div><div class="tree-row" style="padding-left:24px">│ ├ Move 43 (B) 52.8%</div><div class="tree-row" style="padding-left:24px">│ │ └ Variation: 3-3 invasion</div><div class="tree-row" style="padding-left:24px">│ └ Move 43 (B) 50.1% (alt)</div><div class="tree-row" style="padding-left:12px">├ Move 44 (W) 48.6%</div><div class="tree-row" style="padding-left:12px">├ Move 45 (B) 53.4%</div><div class="tree-row" style="padding-left:12px">├ Move 46 (W) 46.9%</div><div class="tree-row" style="padding-left:24px">│ └ Variation: hane instead</div><div class="tree-row" style="padding-left:12px">└ Move 47 (B) 54.2% — current</div></div></div></div></div></div>
 </div>
-<button id="lyt-menu-btn" type="button" aria-label="Panel menu">&#8942;</button>
-<div id="lyt-menu-popover" hidden>
-  <div class="lyt-menu-title">Panels</div>
-  <label class="lyt-menu-row"><input type="checkbox" data-toggle-for="board" checked> Board</label><label class="lyt-menu-row"><input type="checkbox" data-toggle-for="go-actions" checked> Go Actions</label><label class="lyt-menu-row"><input type="checkbox" data-toggle-for="engine-info" checked> Engine Info</label><label class="lyt-menu-row"><input type="checkbox" data-toggle-for="common-actions" checked> Common Actions</label><label class="lyt-menu-row"><input type="checkbox" data-toggle-for="tree-panels" checked> Tree &amp; Panels</label>
-  <hr>
+<button id="lyt-menu-btn" type="button" aria-label="Panel menu" aria-haspopup="true">&#8942;</button>
+<div id="lyt-menu-popover" hidden role="menu" aria-label="LengYue panel menu">
+  <div class="lyt-menu-title">LengYue</div>
+  <div class="lyt-menu-subtitle">Panels</div>
+  <label class="lyt-menu-row"><input type="checkbox" data-toggle-for="board-controls" checked> Board &amp; Controls</label><label class="lyt-menu-row"><input type="checkbox" data-toggle-for="go-actions" checked> Go Actions</label><label class="lyt-menu-row"><input type="checkbox" data-toggle-for="engine-info" checked> Engine Info</label><label class="lyt-menu-row"><input type="checkbox" data-toggle-for="common-actions" checked> Common Actions</label><label class="lyt-menu-row"><input type="checkbox" data-toggle-for="tree-panels" checked> Tree &amp; Panels</label>
+  <div class="lyt-menu-divider"></div>
+  <div class="lyt-menu-subtitle">Appearance</div>
+  <label class="lyt-menu-row"><input type="checkbox" id="lyt-theme-toggle"> Dark theme</label>
+  <div class="lyt-menu-divider"></div>
+  <div class="lyt-menu-subtitle">Debug</div>
   <label class="lyt-menu-row"><input type="checkbox" id="lyt-overlay-toggle"> Show solved-rect overlay</label>
   <div id="lyt-overlay-status" class="lyt-overlay-status"></div>
 </div>
 <div id="lyt-overlay-layer"></div>
-<script id="lyt-solved-data" type="application/json">[{"label": "1920x1080", "wPx": 1920, "hPx": 1080, "status": "OPTIMAL", "slots": {"A_board": {"x": 0, "y": 1052, "w": 1100, "h": 28}, "A_common": {"x": 1100, "y": 56, "w": 820, "h": 28}, "A_go": {"x": 1100, "y": 0, "w": 820, "h": 28}, "B": {"x": 36, "y": 0, "w": 1028, "h": 1028}, "CP-analysis": {"x": 1100, "y": 84, "w": 820, "h": 996}, "CP-cards": {"x": 1100, "y": 84, "w": 820, "h": 996}, "CP-library": {"x": 1100, "y": 84, "w": 820, "h": 996}, "CP-other": {"x": 1100, "y": 84, "w": 820, "h": 996}, "CP-settings": {"x": 1100, "y": 84, "w": 820, "h": 996}, "I_board": {"x": 0, "y": 1028, "w": 1100, "h": 24}, "I_engine": {"x": 1100, "y": 28, "w": 820, "h": 28}, "tree": {"x": 1100, "y": 84, "w": 820, "h": 996}}}, {"label": "2560x1440", "wPx": 2560, "hPx": 1440, "status": "OPTIMAL", "slots": {"A_board": {"x": 0, "y": 1412, "w": 1740, "h": 28}, "A_common": {"x": 1740, "y": 56, "w": 820, "h": 28}, "A_go": {"x": 1740, "y": 0, "w": 820, "h": 28}, "B": {"x": 176, "y": 0, "w": 1388, "h": 1388}, "CP-analysis": {"x": 1740, "y": 84, "w": 820, "h": 1356}, "CP-cards": {"x": 1740, "y": 84, "w": 820, "h": 1356}, "CP-library": {"x": 1740, "y": 84, "w": 820, "h": 1356}, "CP-other": {"x": 1740, "y": 84, "w": 820, "h": 1356}, "CP-settings": {"x": 1740, "y": 84, "w": 820, "h": 1356}, "I_board": {"x": 0, "y": 1388, "w": 1740, "h": 24}, "I_engine": {"x": 1740, "y": 28, "w": 820, "h": 28}, "tree": {"x": 1740, "y": 84, "w": 820, "h": 1356}}}]</script>
+<script id="lyt-solved-data" type="application/json">[{"label": "1920x1080", "wPx": 1920, "hPx": 1080, "status": "OPTIMAL", "slots": {"A_board": {"x": 0, "y": 1052, "w": 1100, "h": 28}, "A_common": {"x": 1100, "y": 56, "w": 820, "h": 28}, "A_go": {"x": 1100, "y": 0, "w": 820, "h": 28}, "B": {"x": 36, "y": 0, "w": 1028, "h": 1028}, "CP-analysis": {"x": 1100, "y": 84, "w": 820, "h": 996}, "CP-cards": {"x": 1100, "y": 84, "w": 820, "h": 996}, "CP-library": {"x": 1100, "y": 84, "w": 820, "h": 996}, "CP-other": {"x": 1100, "y": 84, "w": 820, "h": 996}, "CP-settings": {"x": 1100, "y": 84, "w": 820, "h": 996}, "I_board": {"x": 0, "y": 1028, "w": 1100, "h": 24}, "I_engine": {"x": 1100, "y": 28, "w": 820, "h": 28}, "tree": {"x": 1100, "y": 84, "w": 820, "h": 996}}}, {"label": "2560x1440", "wPx": 2560, "hPx": 1440, "status": "OPTIMAL", "slots": {"A_board": {"x": 0, "y": 1412, "w": 1740, "h": 28}, "A_common": {"x": 1740, "y": 56, "w": 820, "h": 28}, "A_go": {"x": 1740, "y": 0, "w": 820, "h": 28}, "B": {"x": 176, "y": 0, "w": 1388, "h": 1388}, "CP-analysis": {"x": 1740, "y": 84, "w": 820, "h": 1356}, "CP-cards": {"x": 1740, "y": 84, "w": 820, "h": 1356}, "CP-library": {"x": 1740, "y": 84, "w": 820, "h": 1356}, "CP-other": {"x": 1740, "y": 84, "w": 820, "h": 1356}, "CP-settings": {"x": 1740, "y": 84, "w": 820, "h": 1356}, "I_board": {"x": 0, "y": 1388, "w": 1740, "h": 24}, "I_engine": {"x": 1740, "y": 28, "w": 820, "h": 28}, "tree": {"x": 1740, "y": 84, "w": 820, "h": 1356}}}, {"label": "1280x1024", "wPx": 1280, "hPx": 1024, "status": "INFEASIBLE", "slots": {}}, {"label": "3440x1440", "wPx": 3440, "hPx": 1440, "status": "OPTIMAL", "slots": {"A_board": {"x": 0, "y": 1412, "w": 2620, "h": 28}, "A_common": {"x": 2620, "y": 56, "w": 820, "h": 28}, "A_go": {"x": 2620, "y": 0, "w": 820, "h": 28}, "B": {"x": 616, "y": 0, "w": 1388, "h": 1388}, "CP-analysis": {"x": 2620, "y": 84, "w": 820, "h": 1356}, "CP-cards": {"x": 2620, "y": 84, "w": 820, "h": 1356}, "CP-library": {"x": 2620, "y": 84, "w": 820, "h": 1356}, "CP-other": {"x": 2620, "y": 84, "w": 820, "h": 1356}, "CP-settings": {"x": 2620, "y": 84, "w": 820, "h": 1356}, "I_board": {"x": 0, "y": 1388, "w": 2620, "h": 24}, "I_engine": {"x": 2620, "y": 28, "w": 820, "h": 28}, "tree": {"x": 2620, "y": 84, "w": 820, "h": 1356}}}, {"label": "1366x768", "wPx": 1366, "hPx": 768, "status": "OPTIMAL", "slots": {"A_board": {"x": 0, "y": 740, "w": 716, "h": 28}, "A_common": {"x": 716, "y": 56, "w": 650, "h": 28}, "A_go": {"x": 716, "y": 0, "w": 650, "h": 28}, "B": {"x": 0, "y": 0, "w": 716, "h": 716}, "CP-analysis": {"x": 716, "y": 84, "w": 650, "h": 684}, "CP-cards": {"x": 716, "y": 84, "w": 650, "h": 684}, "CP-library": {"x": 716, "y": 84, "w": 650, "h": 684}, "CP-other": {"x": 716, "y": 84, "w": 650, "h": 684}, "CP-settings": {"x": 716, "y": 84, "w": 650, "h": 684}, "I_board": {"x": 0, "y": 716, "w": 716, "h": 24}, "I_engine": {"x": 716, "y": 28, "w": 650, "h": 28}, "tree": {"x": 716, "y": 84, "w": 650, "h": 684}}}, {"label": "1024x700", "wPx": 1024, "hPx": 700, "status": "OPTIMAL", "slots": {"A_board": {"x": 0, "y": 672, "w": 648, "h": 28}, "A_common": {"x": 648, "y": 56, "w": 376, "h": 28}, "A_go": {"x": 648, "y": 0, "w": 376, "h": 28}, "B": {"x": 0, "y": 0, "w": 648, "h": 648}, "CP-analysis": {"x": 648, "y": 84, "w": 376, "h": 616}, "CP-cards": {"x": 648, "y": 84, "w": 376, "h": 616}, "CP-library": {"x": 648, "y": 84, "w": 376, "h": 616}, "CP-other": {"x": 648, "y": 84, "w": 376, "h": 616}, "CP-settings": {"x": 648, "y": 84, "w": 376, "h": 616}, "I_board": {"x": 0, "y": 648, "w": 648, "h": 24}, "I_engine": {"x": 648, "y": 28, "w": 376, "h": 28}, "tree": {"x": 648, "y": 84, "w": 376, "h": 616}}}, {"label": "900x600", "wPx": 900, "hPx": 600, "status": "OPTIMAL", "slots": {"A_board": {"x": 0, "y": 572, "w": 548, "h": 28}, "A_common": {"x": 548, "y": 56, "w": 352, "h": 28}, "A_go": {"x": 548, "y": 0, "w": 352, "h": 28}, "B": {"x": 0, "y": 0, "w": 548, "h": 548}, "CP-analysis": {"x": 548, "y": 84, "w": 352, "h": 516}, "CP-cards": {"x": 548, "y": 84, "w": 352, "h": 516}, "CP-library": {"x": 548, "y": 84, "w": 352, "h": 516}, "CP-other": {"x": 548, "y": 84, "w": 352, "h": 516}, "CP-settings": {"x": 548, "y": 84, "w": 352, "h": 516}, "I_board": {"x": 0, "y": 548, "w": 548, "h": 24}, "I_engine": {"x": 548, "y": 28, "w": 352, "h": 28}, "tree": {"x": 548, "y": 84, "w": 352, "h": 516}}}, {"label": "1080x1920-in-landscape", "wPx": 1080, "hPx": 1920, "status": "INFEASIBLE", "slots": {}}]</script>
 <script>
 (function () {
   var btn = document.getElementById('lyt-menu-btn');
   var pop = document.getElementById('lyt-menu-popover');
-  btn.addEventListener('click', function () { pop.hidden = !pop.hidden; });
+
+  // X5 fix: aria-expanded (kept in sync with open/closed), Escape
+  // dismissal + focus return to the button, and outside-click
+  // dismissal -- the review's own named list ("no Escape dismissal, no
+  // outside-click dismissal, no aria-expanded, no focus ring, no focus
+  // return"). Focus ring itself needs no code: neither this stylesheet
+  // nor this script ever sets `outline:none`, so the browser's own
+  // default focus ring already renders on both the button and every
+  // checkbox/toggle inside the popover.
+  function openMenu() { pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); }
+  function closeMenu(returnFocus) {
+    pop.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+    if (returnFocus) { btn.focus(); }
+  }
+  btn.setAttribute('aria-expanded', 'false');
+  btn.setAttribute('aria-controls', 'lyt-menu-popover');
+  btn.addEventListener('click', function () { if (pop.hidden) { openMenu(); } else { closeMenu(false); } });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && !pop.hidden) { closeMenu(true); }
+  });
+  document.addEventListener('click', function (ev) {
+    if (pop.hidden) return;
+    if (pop.contains(ev.target) || btn.contains(ev.target)) return;
+    closeMenu(false);
+  });
+
+  // M3 fix (partial -- prevent the all-off terminal state): the review's
+  // finding was that unchecking every panel leaves a pure-black screen
+  // with no product identity and no way back except the popover already
+  // open. The product-identity half is fixed in the popover's own title
+  // (see build_html_for_class); this half refuses the LAST release-panel
+  // uncheck that would leave every managed release target off,
+  // reverting the checkbox rather than letting the terminal state occur.
+  // 'preserve' targets (Board & Controls, Tree & Panels) are excluded
+  // from this guard -- they never remove content from the DOM, only
+  // hide painting, so they can't produce a truly blank page on their own.
+  var releaseCheckboxes = Array.prototype.filter.call(
+    document.querySelectorAll('#lyt-menu-popover input[data-toggle-for]'),
+    function (cb) {
+      var el = document.querySelector('[data-toggle-id="' + cb.getAttribute('data-toggle-for') + '"]');
+      return el && el.getAttribute('data-presence') === 'release';
+    }
+  );
 
   document.querySelectorAll('#lyt-menu-popover input[data-toggle-for]').forEach(function (cb) {
     cb.addEventListener('change', function () {
@@ -157,6 +329,10 @@ html, body {
       var el = document.querySelector('[data-toggle-id="' + id + '"]');
       if (!el) return;
       var presence = el.getAttribute('data-presence');
+      if (presence === 'release' && !cb.checked) {
+        var anyStillOn = releaseCheckboxes.some(function (other) { return other !== cb && other.checked; });
+        if (!anyStillOn) { cb.checked = true; return; }
+      }
       if (presence === 'preserve') {
         el.style.visibility = cb.checked ? '' : 'hidden';
       } else {
@@ -221,6 +397,16 @@ html, body {
     if (overlayToggle.checked) { drawOverlay(); } else { overlayLayer.innerHTML = ''; overlayStatus.textContent = ''; }
   });
   window.addEventListener('resize', function () { if (overlayToggle.checked) drawOverlay(); });
+
+  // Theme fix (item 5): cluster (light) is the primary set on <html>;
+  // this checkbox is the "secondary toggle... if cheap" the commission
+  // allowed for dark, living in the SAME corner popover as the overlay
+  // toggle (consistent with that control already sharing the popover
+  // rather than adding a second interactive affordance elsewhere).
+  var themeToggle = document.getElementById('lyt-theme-toggle');
+  themeToggle.addEventListener('change', function () {
+    document.documentElement.setAttribute('data-theme', themeToggle.checked ? 'dark' : 'cluster');
+  });
 })();
 </script>
 </body>
