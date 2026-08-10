@@ -328,7 +328,7 @@ const {
   startResizeOuter,
   effectiveTreeControlRegionWidthPx,
   freshTreeControlWrapperMinWidthPx,
-  boardColumnMaxWidthPx,
+  boardAreaMaxWidthPx,
   unsetWrapperMaxWidthCss,
   rowWidthPx,
   rowHeightPx,
@@ -337,7 +337,7 @@ const {
 // Phase 1 (resolution roadmap): the LayoutClass this workspace is
 // currently in, derived from #split-workspace's own live geometry
 // (the SAME ResizeObserver-cached rowWidthPx/rowHeightPx the board-
-// column-cap and restore-time clamps above already read — see
+// area-cap and restore-time clamps above already read — see
 // state/layout-model.ts's header for why this reuses that observer
 // rather than standing up a second one). `isAnyPanelResizing` freezes
 // the axis (a discrete flex-direction flip) for the duration of an
@@ -384,14 +384,14 @@ const treePanelStyle = computed(() =>
 // the control panel is toggled off entirely.
 //
 // Under the nested model this is now LARGELY (not fully) redundant
-// with a structural effect: #board-column is `flex: 1 1 auto` and
+// with a structural effect: #board-area is `flex: 1 1 auto` and
 // #board-square (the actual visual square) is `align-self: center`
-// within it, so #board-column growing into freed space already
-// re-centers the square WITHIN #board-column's own box, continuously,
+// within it, so #board-area growing into freed space already
+// re-centers the square WITHIN #board-area's own box, continuously,
 // with no discrete class flip. The discrete `justify-content: center`
 // here additionally centers the square across the FULL row (including
 // the tree-only wrapper's own leftover width when control is hidden)
-// rather than only within #board-column's box — the two differ by at
+// rather than only within #board-area's box — the two differ by at
 // most half the tree panel's width (~70px at the default 140px),
 // judged acceptable to keep as the simpler, already-shipped mechanism
 // rather than removing it and accepting that small a asymmetry as a
@@ -649,7 +649,7 @@ const activeTab = computed<string>({
         <!-- resizer-rearch (nested-splitter amendment, ledger row
              391; geometry corrected per the live diagnostic,
              .claude/dispatch-reports/panel-weirdness-live-investigation.md
-             §3/§6). #board-column is purely DERIVED — never a second
+             §3/§6). #board-area is purely DERIVED — never a second
              writer (C2) — from the row's structural layout, and now
              `flex: 1 1 auto` (TRUE flex-fill, not `0 1 auto`): it
              absorbs 100% of whatever space the tree panel, BOTH
@@ -660,23 +660,23 @@ const activeTab = computed<string>({
              with no cap of its own. This is what makes a resizer bar
              ALWAYS track the cursor 1:1: the diagnostic measured up to
              541px of pointer/divider lag under the prior `flex: 0 1
-             auto` shape, because that shape let #board-column stop
+             auto` shape, because that shape let #board-area stop
              absorbing freed space once its own aspect-ratio square
              saturated, decoupling every bar's screen position (which
-             is a function of #board-column's width) from the drag
+             is a function of #board-area's width) from the drag
              past that point. The aspect-ratio SQUARE itself moves down
              one level, to #board-square below — see its own comment
              for why splitting "the row-flex slot" from "the visual
              square" is what fixes this without losing the square.
 
-             boardColumnMaxWidthPx (commission row 848, "space should
+             boardAreaMaxWidthPx (commission row 848, "space should
              not be wasted" — useResizablePanel.ts's header, "Board-
-             column width cap"): a HEIGHT-bound board-square can't
+             area width cap"): a HEIGHT-bound board-square can't
              render past the row's own height regardless of how much
-             row WIDTH #board-column's flex-fill claims; left
+             row WIDTH #board-area's flex-fill claims; left
              uncapped, the excess became dead centered margin around
              the square while #tree-control-wrapper starved at its
-             floor. The cap freezes #board-column at its actual usable
+             floor. The cap freezes #board-area at its actual usable
              width once reached, and native flexbox hands the
              remaining free space to the wrapper's own flex-grow
              instead — undefined (not yet measured, controls
@@ -684,23 +684,42 @@ const activeTab = computed<string>({
              already governs the split) falls back to the prior
              uncapped behaviour. -->
         <div
-          id="board-column"
+          id="board-area"
           v-show="store.session.ui.boardExpanded"
-          :style="!workspaceAxisColumn && boardColumnMaxWidthPx !== undefined ? { maxWidth: boardColumnMaxWidthPx + 'px' } : {}"
+          :style="!workspaceAxisColumn && boardAreaMaxWidthPx !== undefined ? { maxWidth: boardAreaMaxWidthPx + 'px' } : {}"
         >
-          <!-- The visual board square + status bar, centered within
-               whatever width #board-column (now unbounded) received.
-               `align-self: center` (not the parent's default stretch)
-               is what lets `aspect-ratio: 1/1` + `height: 100%` derive
-               THIS element's width from its height, independent of
-               #board-column's own (now often wider) box — exactly the
-               same aspect-ratio-cap mechanism #board-column itself
-               used to carry, just no longer coupled to the row's flex
-               math. `max-width: 100%` preserves the existing
-               overconstrained-viewport behavior: shrinks below the
-               natural square (tall-narrow rectangle) rather than
+          <!-- The visual board square, centered within whatever width
+               #board-area (now unbounded) received. `align-self: center`
+               (not the parent's default stretch) is what lets
+               `aspect-ratio: 1/1` derive THIS element's width from its
+               own (now flex-shared, see `#board-square`'s CSS below)
+               height, independent of #board-area's own (now often
+               wider) box — exactly the same aspect-ratio-cap mechanism
+               #board-area itself used to carry, just no longer coupled
+               to the row's flex math. `max-width: 100%` preserves the
+               existing overconstrained-viewport behavior: shrinks below
+               the natural square (tall-narrow rectangle) rather than
                overflowing, and the board SVG's own preserveAspectRatio
-               letterboxes inside it exactly as before. -->
+               letterboxes inside it exactly as before.
+
+               wiki2-status-bar-reparent: StatusBar used to be
+               #board-square's second child (below `#content`). A first
+               attempt at this fix simply moved the `<StatusBar>` tag to
+               be #board-square's SIBLING (still inside #board-area) and
+               stopped there — that alone does NOT make the bar span
+               #board-area's full width, because #board-area's own
+               `align-items: center` (see its CSS) applies to EVERY flex
+               child that doesn't opt out, so an un-stretched sibling
+               still shrink-wraps to its own content's intrinsic width,
+               same as #board-square (whose width is itself
+               height-derived via aspect-ratio, and conceptually
+               unrelated to #board-area's own, frequently-wider, box —
+               "they're not really the same width"). The actual fix has
+               two parts, both required: (1) the reparent below, and (2)
+               the `#board-area > .status-bar { align-self: stretch; }`
+               rule (CSS section) that opts StatusBar OUT of the
+               center-and-shrink-wrap default so it fills #board-area's
+               cross-axis instead of hugging its own content. -->
           <div id="board-square">
             <div id="content">
               <BoardWidget
@@ -711,20 +730,20 @@ const activeTab = computed<string>({
                 @paste-pv="handlePastePv"
               />
             </div>
-            <StatusBar
-              v-if="activeBoard"
-              :board="activeBoard"
-              :metadata="metadata"
-              :can-pass="canPass"
-              @update-komi="handleUpdateKomi"
-              @update-rules="handleUpdateRules"
-              @pass="handlePass"
-            />
           </div>
+          <StatusBar
+            v-if="activeBoard"
+            :board="activeBoard"
+            :metadata="metadata"
+            :can-pass="canPass"
+            @update-komi="handleUpdateKomi"
+            @update-rules="handleUpdateRules"
+            @pass="handlePass"
+          />
         </div>
 
         <!-- OUTER resizer (nested-splitter amendment, ledger row 391;
-             geometry per ledger row 414): sits between #board-column
+             geometry per ledger row 414): sits between #board-area
              and #tree-control-wrapper, directly sets
              session.ui.treeControlRegionWidthPx — the WRAPPER's own
              width, never either pane inside it. Gated on
@@ -732,7 +751,7 @@ const activeTab = computed<string>({
              below): with the control region entirely collapsed there
              is nothing for this bar to divide board-vs-wrapper room
              for that the tree's own presence doesn't already handle
-             via #board-column's flex-fill. Also gated on
+             via #board-area's flex-fill. Also gated on
              `!workspaceAxisColumn` (Phase 1): in column axis
              tree+control stack full-width below the board — there is
              no board-vs-wrapper WIDTH split for this bar to drag; the
@@ -760,7 +779,7 @@ const activeTab = computed<string>({
              persisted number against #split-workspace's CURRENT live
              width on every render (not just mid-drag), so a value
              hydrated from a different/wider viewport (or otherwise
-             stale/migrated/garbage) can never squeeze #board-column
+             stale/migrated/garbage) can never squeeze #board-area
              below MIN_BOARD_PX ("board restored minimized" after
              upgrading). See useResizablePanel.ts's header for the
              full rationale.
@@ -785,7 +804,7 @@ const activeTab = computed<string>({
              state/layout-model.ts) — tree-default + resizer + the
              panel-content reading measure. Freezes the wrapper at its
              actual content need once the row is wide enough to exceed
-             it, handing the freed flex-grow share to #board-column
+             it, handing the freed flex-grow share to #board-area
              (flex: 1 1 auto) instead of leaving it as dead space inside
              an oversized #control-panel — the "surplus flows back to
              the board" half of R3. Applies ONLY to this never-dragged
@@ -793,8 +812,8 @@ const activeTab = computed<string>({
              treeControlRegionWidthPx above is untouched.
 
              Init-vs-drag divergence fix (ledger rows 1505/1510): this
-             flex-fill/maxWidth branch and #board-column's own
-             boardColumnMaxWidthPx cap used to BOTH engage for every
+             flex-fill/maxWidth branch and #board-area's own
+             boardAreaMaxWidthPx cap used to BOTH engage for every
              never-dragged render, and could both saturate below the
              row's actual width, leaving the remainder as dead space
              (the reported defect — a wide unused band right of the
@@ -804,7 +823,7 @@ const activeTab = computed<string>({
              (computeTreeControlRegionDefaultWidthPx, state/layout-
              model.ts), so the branch above (line 791) is taken on
              every steady-state render instead of this one — this
-             flex-fill branch, and boardColumnMaxWidthPx, now apply
+             flex-fill branch, and boardAreaMaxWidthPx, now apply
              only for the single frame before that first measurement
              lands (rowWidthPx still 0), same transient window the
              bare CSS 140px #vue-tree-panel fallback below already
@@ -1141,11 +1160,11 @@ const activeTab = computed<string>({
    THIS shape corrected per the live diagnostic,
    .claude/dispatch-reports/panel-weirdness-live-investigation.md
    §3/§6, which measured a resizer bar decoupling from the cursor by
-   up to 541px because a `flex: 0 1 auto` (never-grow) board column
+   up to 541px because a `flex: 0 1 auto` (never-grow) board area
    stops absorbing freed row space the moment its own aspect-ratio
    square saturates).
 
-   `flex: 1 1 auto` — TRUE flex-fill. #board-column now claims 100% of
+   `flex: 1 1 auto` — TRUE flex-fill. #board-area now claims 100% of
    whatever width #tree-control-wrapper (below — a TRUE nested flex
    container, itself bound to session.ui.treeControlRegionWidthPx, the
    OUTER bar's own persisted fact) did NOT claim — continuously,
@@ -1154,28 +1173,28 @@ const activeTab = computed<string>({
    square lives one level down, in #board-square.
 
    The inline `:style` binding on the element (template, above —
-   `boardColumnMaxWidthPx`, useResizablePanel.ts) DOES add a `max-
+   `boardAreaMaxWidthPx`, useResizablePanel.ts) DOES add a `max-
    width` conditionally, but it is disabled (`undefined`) the instant
    an explicit `treeControlRegionWidthPx` exists — which includes
    every frame of an active OUTER-bar drag, since `onMouseMoveOuter`
    writes that field on the very first `mousemove`. So the cap and the
    1:1-tracking argument below never overlap in time: while a drag is
-   genuinely in flight, #board-column is exactly as uncapped as this
+   genuinely in flight, #board-area is exactly as uncapped as this
    comment always described; the cap only ever engages in the
    NO-EXPLICIT-WIDTH flex-fill distribution (never dragged, nothing
    restored), where there is no cursor to track yet. See
-   useResizablePanel.ts's header, "Board-column width cap", for why
+   useResizablePanel.ts's header, "Board-area width cap", for why
    that distribution needed one.
 
-   Because #board-column is the OUTER row's
+   Because #board-area is the OUTER row's
    ONLY flex-grow party, and the wrapper's own width is the ONLY thing
    the OUTER bar directly drags, #resizer-outer's screen position (a
-   function of #board-column's width, since it sits immediately after
+   function of #board-area's width, since it sits immediately after
    it) tracks the cursor 1:1 across the bar's ENTIRE range — see
    useResizablePanel.ts's header for the full nesting argument, and
    the diagnostic's Anomaly 1 (up to 541px lag) / Anomaly 4 (board
    frozen for ~1250px of travel) for the failure mode this replaces. */
-#board-column {
+#board-area {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1185,24 +1204,40 @@ const activeTab = computed<string>({
   min-height: 0;
 }
 
-/* The visual board square, pushed down from #board-column (see that
+/* The visual board square, pushed down from #board-area (see that
    rule's comment for why). `align-self: center` overrides the
    parent's default cross-axis stretch, which is what lets
-   `aspect-ratio: 1/1` + `height: 100%` derive THIS element's width
-   from its own height — the same mechanism #board-column used to
-   carry directly, just no longer coupled to the row's flex math, so
-   #board-column can be as wide as the row leaves it (absorbing freed
-   space for bar-tracking continuity) while #board-square stays a true
-   square (or a letterboxed tall-narrow rectangle when overconstrained
-   — same fallback as before) regardless. `max-width: 100%` is the
+   `aspect-ratio: 1/1` derive THIS element's width from its own
+   height — the same mechanism #board-area used to carry directly,
+   just no longer coupled to the row's flex math, so #board-area can
+   be as wide as the row leaves it (absorbing freed space for
+   bar-tracking continuity) while #board-square stays a true square
+   (or a letterboxed tall-narrow rectangle when overconstrained — same
+   fallback as before) regardless. `max-width: 100%` is the
    overconstrained-viewport floor: shrinks below the natural square
-   rather than overflowing #board-column; the board SVG's own
-   preserveAspectRatio letterboxes inside it exactly as before. */
+   rather than overflowing #board-area; the board SVG's own
+   preserveAspectRatio letterboxes inside it exactly as before.
+
+   wiki2-status-bar-reparent: was `height: 100%` — correct back when
+   #board-square was #board-area's ONLY child, so 100% of #board-area's
+   height was #board-square's to claim (the status bar was accounted
+   for INSIDE this box, as #board-square's own second flex child,
+   below `#content`). Now that the status bar lives one level up as
+   #board-square's OWN sibling (see the template comment at
+   #board-area's usage site), #board-square must instead SHARE
+   #board-area's height with that sibling — `flex: 1 1 auto` +
+   `min-height: 0` claims whatever height the status bar (its own
+   natural/min-height, `flex-shrink: 0` in StatusBar.vue) does NOT
+   need, and `aspect-ratio: 1/1` derives the square's width from
+   that (now flex-computed, still fully definite post-layout) height
+   exactly as before — the board shrinks by the status bar's own
+   height, which is the same total vertical budget the previous
+   nested shape spent, just accounted one level higher. */
 #board-square {
   display: flex;
   flex-direction: column;
   align-self: center;
-  height: 100%;
+  flex: 1 1 auto;
   aspect-ratio: 1 / 1;
   min-width: 0;
   max-width: 100%;
@@ -1210,6 +1245,32 @@ const activeTab = computed<string>({
 }
 
 #content { flex: 1; display: flex; justify-content: center; align-items: center; min-height: 0; }
+
+/* wiki2-status-bar-reparent: StatusBar.vue's own scoped stylesheet
+   can't reach outside its own root element, and App.vue's <style>
+   here is unscoped (App-local chrome only, per this block's own
+   header) — the same pattern #split-workspace.axis-column's
+   descendant rules already use to steer a child component's root
+   class from the layout that positions it. `.status-bar` is unique
+   to StatusBar.vue app-wide (no other component uses the class), so
+   the ID-scoped descendant selector is exact, not a fuzzy match.
+
+   `align-self: stretch` overrides #board-area's `align-items: center`
+   (see that rule) — WITHOUT this, StatusBar would shrink-wrap to its
+   own content's intrinsic width like any other un-opted-out flex
+   child in a centered column, same as #board-square does (by design,
+   for the square) — which is what made the naive "just reparent the
+   tag" attempt not work: #board-square's width is height-derived via
+   aspect-ratio and #board-area's own box is frequently WIDER (it
+   absorbs freed row space up to `boardAreaMaxWidthPx`), so the two
+   were never the same width to inherit by simple sibling adjacency.
+   `align-self: stretch` is what actually claims #board-area's full
+   available cross-axis (width) for the bar, independent of whatever
+   width #board-square's aspect-ratio square happens to compute to. */
+#board-area > .status-bar {
+  align-self: stretch;
+  flex-shrink: 0;
+}
 
 /* The combined tree+control region — a TRUE nested flex container
    (nested-splitter amendment, ledger row 391 / geometry ledger row
@@ -1256,7 +1317,7 @@ const activeTab = computed<string>({
    axis: the workspace is taller than it is wide (LayoutClass.axis
    === 'column', state/layout-model.ts), so tree+control move BELOW
    the board and take the full window width, Sabaki/OGS-style. Every
-   row-axis rule above (the flex-fill board-column, the pixel-width
+   row-axis rule above (the flex-fill board-area, the pixel-width
    nested splitter, the resizer bars) is superseded here rather than
    removed — the moment the workspace measures back into row axis,
    those rules and the user's persisted drag widths apply again
@@ -1272,12 +1333,17 @@ const activeTab = computed<string>({
   overflow-y: auto;
 }
 /* Width-bound instead of height-bound (row axis's #board-square:
-   `height: 100%; aspect-ratio: 1/1`, deriving width FROM height): here
-   the board takes the full stacked width and derives its OWN height
-   from that width instead, so it renders at its actual usable size
-   rather than a row-axis square letterboxed into a narrow row (audit
-   finding R6, up to 48% letterboxed at a 1280×1440 tile). */
-#split-workspace.axis-column #board-column {
+   `flex: 1 1 auto; aspect-ratio: 1/1`, deriving width FROM its
+   flex-computed height): here the board takes the full stacked width
+   and derives its OWN height from that width instead, so it renders
+   at its actual usable size rather than a row-axis square letterboxed
+   into a narrow row (audit finding R6, up to 48% letterboxed at a
+   1280×1440 tile). #board-area's own `height: auto` below makes it
+   (and so #board-square + the status bar stacked inside it) size to
+   natural content height rather than fighting for a share of a fixed
+   row height, same as every other axis-column override in this
+   block. */
+#split-workspace.axis-column #board-area {
   flex: 0 0 auto;
   width: 100%;
   height: auto;
@@ -1314,13 +1380,17 @@ const activeTab = computed<string>({
   border-top: 1px solid var(--border-1);
 }
 
-/* theme-exception: .panel-resizer #eba46d is a peach accent color
-   outside the substrate vocabulary (the chrome substrate has
-   --accent-primary cyan and --accent-secondary orange #f0a04a; this
-   peach is distinct from both). Used as a visual handle for both
-   nested-splitter divider bars (#resizer-outer, board↔tree;
-   #resizer-inner, tree↔control — see useResizablePanel.ts). */
-.panel-resizer { width: 4px; background: #eba46d; cursor: col-resize; z-index: var(--z-affordance); flex-shrink: 0; }
+/* theme-exception: .panel-resizer's peach accent is outside the
+   substrate vocabulary (the chrome substrate has --accent-primary
+   cyan and --accent-secondary orange #f0a04a; this peach is distinct
+   from both). Used as a visual handle for both nested-splitter
+   divider bars (#resizer-outer, board↔tree; #resizer-inner,
+   tree↔control — see useResizablePanel.ts). Sourced from
+   `--accent-peach` (theme.css, minted wiki2-scrollbar-color) rather
+   than its own literal — the app-wide scrollbar styling needed the
+   same peach, so the value now has one named home instead of two
+   independent copies of the same hex. */
+.panel-resizer { width: 4px; background: var(--accent-peach); cursor: col-resize; z-index: var(--z-affordance); flex-shrink: 0; }
 .panel-resizer:hover, .panel-resizer:active { background: var(--accent-primary); }
 
 .collapse-btn { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-disabled); height: 18px; padding: 0 var(--space-tight); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-default); font-size: var(--text-body); }

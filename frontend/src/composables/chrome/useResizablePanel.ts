@@ -10,7 +10,7 @@
  * automatically (no fit-to-content, no auto-grow on branch expansion
  * or navigation):
  *
- *   OUTER bar (`#resizer-outer`, between `#board-column` and
+ *   OUTER bar (`#resizer-outer`, between `#board-area` and
  *     `#tree-control-wrapper`) → directly sets
  *     `session.ui.treeControlRegionWidthPx` — the WRAPPER's own
  *     width (the combined tree+control region), not either pane
@@ -21,14 +21,14 @@
  *     `session.ui.treePanelWidthPx` — the tree panel's own width.
  *
  * `#control-panel` is ALWAYS `flex: 1 1 0` within the wrapper (pure
- * CSS, no JS derivation at all) and `#board-column` is ALWAYS `flex:
+ * CSS, no JS derivation at all) and `#board-area` is ALWAYS `flex:
  * 1 1 auto` in the outer row (App.vue) — both fully derived, never a
  * second writer for either persisted fact.
  *
  * ── Why TRUE nesting, not a flatter derivation (the geometric fix
  *    behind the live diagnostic) ──────────────────────────────────
  * An earlier shape of this rearch treated the row as one flat list
- * and derived `#board-column`'s width in JS from the OTHER panes'
+ * and derived `#board-area`'s width in JS from the OTHER panes'
  * widths. The live diagnostic
  * (.claude/dispatch-reports/panel-weirdness-live-investigation.md
  * §3/§6) measured up to 541px of lag between the cursor and the
@@ -45,10 +45,10 @@
  * (`#vue-tree-panel`'s width, directly dragged — nothing else is
  * between them), while `#control-panel` absorbs the wrapper-local
  * complement on the OTHER side of that bar. One level up,
- * `#resizer-outer`'s position depends only on `#board-column`'s width
+ * `#resizer-outer`'s position depends only on `#board-area`'s width
  * in the OUTER row, which absorbs the complement against the
  * wrapper's OWN width (directly dragged by the outer bar) — the
- * dragged quantity (wrapper width) and the absorber (`#board-column`)
+ * dragged quantity (wrapper width) and the absorber (`#board-area`)
  * are on OPPOSITE sides of that bar too. Both bars therefore track
  * the cursor 1:1 across their FULL range, with no saturation-
  * triggered decoupling — see the unit tests
@@ -108,7 +108,7 @@
  * other way (hydrated from a stale save, a save made on a wider
  * screen, or simply garbage) was rendered unclamped. On a narrower
  * viewport than the one the value was saved from, this could squeeze
- * `#board-column` down to a sliver — reported as "the board comes
+ * `#board-area` down to a sliver — reported as "the board comes
  * back minimized after upgrading" (wiki #5.3): the fix predates the
  * nested-splitter rearch only in the sense that ANY numeric width
  * persisted against one viewport and replayed against another has
@@ -133,23 +133,25 @@
  * dragged) still means `undefined` out — fresh installs, which have
  * no persisted value to sanitize, are unaffected.
  *
- * ── Board-column width cap: don't strand width the board can't use
+ * ── Board-area width cap: don't strand width the board can't use
  *    (commission row 848, "space should not be wasted") ─────────────
- * `#board-column` is a HEIGHT-bound square (App.vue's `#board-square`:
- * `height: 100%; aspect-ratio: 1/1`) — its rendered width is capped at
- * the row's own height (`#split-workspace`'s live height, the exact
- * same element the width clamp above already observes), never wider,
- * regardless of how much ROW width `#board-column`'s `flex: 1 1 auto`
+ * `#board-area` is a HEIGHT-bound square (App.vue's `#board-square`:
+ * `flex: 1 1 auto; aspect-ratio: 1/1`, sharing `#board-area`'s height
+ * with the status bar sibling since wiki2-status-bar-reparent) — its
+ * rendered width is capped at the row's own height (`#split-workspace`'s
+ * live height, the exact same element the width clamp above already
+ * observes), never wider,
+ * regardless of how much ROW width `#board-area`'s `flex: 1 1 auto`
  * would otherwise let it claim. Left uncapped, the NO-EXPLICIT-WIDTH
  * flex-fill branch (App.vue: `#tree-control-wrapper`'s `flex: '1 1
  * 0'`, engaged whenever `treeControlRegionWidthPx` has never been
  * dragged/restored) splits free row space between the two flex-grow
- * parties by their grow factor alone — `#board-column` claims its
+ * parties by their grow factor alone — `#board-area` claims its
  * "share" even past the point its own square can render into it,
  * which becomes dead centered margin around the square (`#board-
  * square`'s `align-self: center`), while `#control-panel` starves at
- * its floor. `boardColumnMaxWidthPx` (returned below) is a `max-width`
- * cap so the standard CSS flex algorithm freezes `#board-column` at
+ * its floor. `boardAreaMaxWidthPx` (returned below) is a `max-width`
+ * cap so the standard CSS flex algorithm freezes `#board-area` at
  * its actual usable width once it hits that ceiling and hands the
  * REMAINING free space to `#tree-control-wrapper`'s own `flex-grow`
  * instead — no JS-computed complement, no second writer for either
@@ -158,19 +160,19 @@
  * the OUTER pair instead of the inner one.
  *
  * Deliberately governs ONLY the flex-fill branch — see
- * `boardColumnMaxWidthPx`'s own doc for why an explicit (dragged or
- * restored) `treeControlRegionWidthPx` already leaves `#board-column`
+ * `boardAreaMaxWidthPx`'s own doc for why an explicit (dragged or
+ * restored) `treeControlRegionWidthPx` already leaves `#board-area`
  * with exactly the row's remaining share and needs no additional cap.
  * `rowHeightPx` reuses the SAME `#split-workspace` ResizeObserver the
  * width clamp above already maintains (one observer, two dimensions
  * off one `getBoundingClientRect()` read, per the imperative-escape
  * discipline's "measured once on resize, never on the hot path").
- * `computeBoardColumnMaxWidthPx` is a pure function so the cap is
+ * `computeBoardAreaMaxWidthPx` is a pure function so the cap is
  * unit-testable without mounting anything, matching
  * `sanitizeTreeControlRegionWidthPx`'s shape. When the board is
  * WIDTH-bound instead (a tall/narrow viewport, or the row is narrower
  * than its own height) the cap is simply non-binding — `rowHeightPx`
- * exceeds the available row width, so `#board-column` never reaches
+ * exceeds the available row width, so `#board-area` never reaches
  * it and keeps claiming freed space exactly as before; the un-height-
  * bound case is unchanged by construction, not by a separate branch.
  *
@@ -267,7 +269,7 @@ export function computeTreePanelWidthPx(
 /**
  * `computePaneWidthPx` specialised to the wrapper's floor — the
  * OUTER bar's math. `sign = -1`: `#tree-control-wrapper` sits to
- * `#resizer-outer`'s RIGHT (`#board-column`, then the bar, then the
+ * `#resizer-outer`'s RIGHT (`#board-area`, then the bar, then the
  * wrapper), so dragging right SHRINKS it (matching the original,
  * pre-nesting resizer-rearch convention: "drag right narrows the
  * control-side pane, grows the board").
@@ -289,7 +291,7 @@ export function computeTreeControlRegionWidthPx(
  * dragOriginPx`, i.e. the raw value itself, then clamped) — so a
  * hydrated width that was saved against a DIFFERENT (usually wider)
  * viewport, or is otherwise stale/migrated/garbage, can never leave
- * `#board-column` narrower than `MIN_BOARD_PX`. `undefined` in ⇒
+ * `#board-area` narrower than `MIN_BOARD_PX`. `undefined` in ⇒
  * `undefined` out: a workspace whose OUTER bar has never been dragged
  * keeps its `flex: 1 1 0` default (App.vue) unchanged — fresh installs
  * are unaffected by this clamp.
@@ -303,7 +305,7 @@ export function computeTreeControlRegionWidthPx(
  * the drag/restore branches above can shrink it to an explicit px width
  * smaller than its content) also applies here, where there is no
  * explicit width — so on a first paint whose available row space (after
- * `#board-column`'s flex-fill share) is narrower than the wrapper's
+ * `#board-area`'s flex-fill share) is narrower than the wrapper's
  * actual content floor, `#control-panel` overflows past the wrapper's
  * own box and off the viewport's right edge. Witnessed live at a
  * 1366×768 first paint: `#control-panel`'s rendered right edge sat
@@ -346,18 +348,20 @@ export function sanitizeTreeControlRegionWidthPx(
 }
 
 /**
- * Board-column width cap (see this file's header, "Board-column width
+ * Board-area width cap (see this file's header, "Board-area width
  * cap"). `#board-square`'s width is derived from its own HEIGHT
- * (`height: 100%; aspect-ratio: 1/1`), and its height is `#board-
- * column`'s own height, which is `#split-workspace`'s (the row's) live
- * height — so the row's height IS the board's usable-width ceiling.
- * `rowHeightPx <= 0` (not yet measured) returns `undefined` — the
- * "don't cap before we know" default that mirrors
- * `sanitizeTreeControlRegionWidthPx`'s own not-yet-measured branch in
- * `effectiveTreeControlRegionWidthPx`, so a pre-measurement render
- * doesn't spuriously squeeze `#board-column` to its floor.
+ * (`aspect-ratio: 1/1`); that height is `#board-area`'s own height
+ * (`#split-workspace`'s — the row's — live height) MINUS whatever
+ * height the status bar sibling claims (`#board-square`'s `flex: 1 1
+ * auto`, since wiki2-status-bar-reparent — see App.vue's CSS) — so the
+ * row's height, net of the status bar's own fixed height, is the
+ * board's usable-width ceiling. `rowHeightPx <= 0` (not yet measured)
+ * returns `undefined` — the "don't cap before we know" default that
+ * mirrors `sanitizeTreeControlRegionWidthPx`'s own not-yet-measured
+ * branch in `effectiveTreeControlRegionWidthPx`, so a pre-measurement
+ * render doesn't spuriously squeeze `#board-area` to its floor.
  */
-export function computeBoardColumnMaxWidthPx(rowHeightPx: number): number | undefined {
+export function computeBoardAreaMaxWidthPx(rowHeightPx: number): number | undefined {
   if (!Number.isFinite(rowHeightPx) || rowHeightPx <= 0) return undefined;
   return Math.max(MIN_BOARD_PX, Math.round(rowHeightPx));
 }
@@ -488,10 +492,10 @@ export function useResizablePanel() {
     stopResizeOuter();
   });
 
-  // ── Restore-time board-visibility clamp (ui-5-3) + board-column
+  // ── Restore-time board-visibility clamp (ui-5-3) + board-area
   //    width-cap geometry (commission row 848) ───────────────────────
   // See this file's header, "Restore-time board-visibility clamp" and
-  // "Board-column width cap", for the full rationale of each. Both
+  // "Board-area width cap", for the full rationale of each. Both
   // read off the SAME element — `rowWidthPx` / `rowHeightPx` are
   // `#split-workspace`'s own live width/height, independent of how its
   // children (board / wrapper) currently divide the row, so measuring
@@ -571,7 +575,7 @@ export function useResizablePanel() {
     // Never dragged, nothing restored: the init-vs-drag divergence fix
     // (ledger rows 1505/1510) — an EXPLICIT default width, not
     // `undefined`, so this resolves through the SAME `:style` branch
-    // (App.vue) a drag settles into, and `#board-column`'s own cap
+    // (App.vue) a drag settles into, and `#board-area`'s own cap
     // self-disables via its existing `!== undefined` guard, absorbing
     // the true remainder instead of leaving it as dead row space. See
     // `computeTreeControlRegionDefaultWidthPx`'s own doc
@@ -596,14 +600,14 @@ export function useResizablePanel() {
     freshTreeControlWrapperFloorPx(store.session.ui.treeExpanded),
   );
 
-  // Board-column width cap (see this file's header, "Board-column
+  // Board-area width cap (see this file's header, "Board-area
   // width cap", commission row 848). Governs ONLY the NO-EXPLICIT-
   // WIDTH flex-fill branch — `controlsExpanded` false means there is
   // no competing `#tree-control-wrapper` flex-grow party to hand slack
   // to (the wrapper isn't rendered), and
   // `effectiveTreeControlRegionWidthPx !== undefined` means the OUTER
   // bar's own drag/restore already gives the wrapper an explicit
-  // width, leaving `#board-column` with exactly the row's remaining
+  // width, leaving `#board-area` with exactly the row's remaining
   // share — nothing left to cap. `undefined` in either case means "no
   // max-width style", i.e. App.vue falls back to the pre-existing
   // uncapped `flex: 1 1 auto` behaviour.
@@ -621,10 +625,10 @@ export function useResizablePanel() {
   // guard is true on every steady-state render — it only still applies
   // for the one pre-measurement frame described above, same as
   // `freshTreeControlWrapperMinWidthPx`.
-  const boardColumnMaxWidthPx = computed(() => {
+  const boardAreaMaxWidthPx = computed(() => {
     if (!store.session.ui.controlsExpanded) return undefined;
     if (effectiveTreeControlRegionWidthPx.value !== undefined) return undefined;
-    return computeBoardColumnMaxWidthPx(rowHeightPx.value);
+    return computeBoardAreaMaxWidthPx(rowHeightPx.value);
   });
 
   // Phase 3 (resolution roadmap, audit finding R5): the tree panel's
@@ -640,7 +644,7 @@ export function useResizablePanel() {
   // flex-fill (never-dragged OUTER bar) branch — see
   // `computeUnsetWrapperMaxWidthCss`'s doc for the "freeze it, let
   // flexbox redistribute past it" argument this reuses from
-  // `boardColumnMaxWidthPx` above.
+  // `boardAreaMaxWidthPx` above.
   const unsetWrapperMaxWidthCss = computed(() =>
     computeUnsetWrapperMaxWidthCss(treePanelDefaultWidthPx.value, RESIZER_WIDTH_PX, PANEL_CONTENT_READING_MEASURE_CH),
   );
@@ -650,7 +654,7 @@ export function useResizablePanel() {
     startResizeOuter,
     effectiveTreeControlRegionWidthPx,
     freshTreeControlWrapperMinWidthPx,
-    boardColumnMaxWidthPx,
+    boardAreaMaxWidthPx,
     treePanelDefaultWidthPx,
     unsetWrapperMaxWidthCss,
     // #split-workspace's own live width/height (Phase 1, resolution

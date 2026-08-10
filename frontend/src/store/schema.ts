@@ -661,14 +661,14 @@ export interface UISession {
   //
   //   treeControlRegionWidthPx (this field) — `#tree-control-wrapper`'s
   //     own width (the combined tree+control region). Set ONLY by the
-  //     OUTER bar (`#resizer-outer`, sits between `#board-column` and
+  //     OUTER bar (`#resizer-outer`, sits between `#board-area` and
   //     the wrapper). `undefined` = the wrapper's default `flex: 1 1
   //     0` fill.
   //
-  // `#control-panel` and `#board-column` are BOTH fully derived, never
+  // `#control-panel` and `#board-area` are BOTH fully derived, never
   // a second writer for either persisted fact — `#control-panel` is
   // always `flex: 1 1 0` WITHIN the wrapper (native CSS flexbox, no JS
-  // width computation at all), and `#board-column` is `flex: 1 1
+  // width computation at all), and `#board-area` is `flex: 1 1
   // auto` in the outer row, absorbing whatever the wrapper didn't
   // claim. This TRUE two-level CSS nesting (an actual nested flex
   // container, not one flat row with derived JS widths) is what makes

@@ -52,12 +52,12 @@
   fully editable/visible, full stop — no anchored/floating popover
   shape is in bounds for this component regardless of opacity, because
   every anchor overlaps some board pixels at some viewport width /
-  board-column layout. Rejected, standing: (a) `position: absolute`
+  board-area layout. Rejected, standing: (a) `position: absolute`
   anchored under the trigger (the `ToolbarSliderPopover.vue` /
   `LocalePicker.vue` idiom) — opaque or not, it can cover part of
-  `#board-column`, which this ruling excludes categorically, not
+  `#board-area`, which this ruling excludes categorically, not
   merely "no transparent backdrop"; (b) dock the panel beside
-  `#board-column` itself (App.vue) — correct in spirit but couples
+  `#board-area` itself (App.vue) — correct in spirit but couples
   this leaf's open/closed state into the App-level layout grid for no
   gain the in-toolbar reservation below doesn't already give; (c) a
   modal/backdrop dialog — explicitly banned (no transparent overlay

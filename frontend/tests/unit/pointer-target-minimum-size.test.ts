@@ -266,6 +266,25 @@ describe('style.css — global input[type="checkbox"] rule clears 24x24 effectiv
   });
 });
 
+describe('SidebarWidget.vue — .board-action-btn clears 24x24 (wiki2-board-action-btn-height)', () => {
+  // Was a magic-literal `height: 20px`. Replaced with content-derived
+  // sizing (padding + `min-height: 24px`), the same idiom as
+  // `.toolbar-btn` above — no fixed height literal remains.
+  const rule = /\.board-action-btn\s*\{[^}]*\}/.exec(src('src/components/chrome/SidebarWidget.vue'))![0];
+  it('carries an explicit min-height >= 24px', () => {
+    const m = /min-height:\s*(\d+)px/.exec(rule);
+    expect(m).not.toBeNull();
+    expect(Number(m![1])).toBeGreaterThanOrEqual(24);
+  });
+  it('no longer declares a fixed height literal', () => {
+    // Strip comments first — the rule's own doc comment mentions the
+    // retired `height: 20px` literal in prose, which would otherwise
+    // false-positive this source-text assertion.
+    const withoutComments = rule.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(withoutComments).not.toMatch(/(?<!min-)height\s*:/);
+  });
+});
+
 describe('UNEXERCISED (jsdom cannot measure real layout/cascade): G30 pointer-target families', () => {
   it('checkbox/.restore-btn/.toolbar-btn/.move-numbers-btn effective hit-box sizes are pinned in source only; real rendered getBoundingClientRect (incl. native checkbox appearance quirks across engines, and CSS cascade/specificity resolution) is not exercised by this jsdom suite — verification of the actual painted/hit geometry rests on the G30 consult screenshots/measurements this fix responds to, not on an assertion in this file', () => {
     expect(true).toBe(true);

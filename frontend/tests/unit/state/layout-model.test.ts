@@ -312,13 +312,13 @@ describe('computeUnsetWrapperMaxWidthCss — Phase 3, audit finding R3 (surplus 
 
 describe('computeTreeControlRegionDefaultWidthPx — init-vs-drag divergence fix (ledger rows 1505/1510)', () => {
   // The property this whole fix exists for: given a viewport width and
-  // NO stored positions, #board-column (uncapped, absorbing whatever
+  // NO stored positions, #board-area (uncapped, absorbing whatever
   // the wrapper's default did not claim — see
   // useResizablePanel.ts's `effectiveTreeControlRegionWidthPx` and
-  // `boardColumnMaxWidthPx`) plus the resizer plus this wrapper default
+  // `boardAreaMaxWidthPx`) plus the resizer plus this wrapper default
   // sum to EXACTLY the row width — no slack left unclaimed the way the
   // reported defect (unused band right of the control panel) left it.
-  // `#board-column`'s own rendered width is not itself a pure function
+  // `#board-area`'s own rendered width is not itself a pure function
   // exported anywhere (it is CSS flex-fill, not JS-computed) — its
   // value IS the complement by construction once uncapped, so the
   // complement is what this test computes and sums back against the
