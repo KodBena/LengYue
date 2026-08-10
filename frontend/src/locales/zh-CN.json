@@ -461,5 +461,19 @@
   "wizard.palette.aggregation.mean":      "平均值",
   "wizard.palette.aggregation.min":       "最小值",
   "wizard.palette.aggregation.median":    "中位数",
-  "wizard.palette.aggregation.custom":    "自定义"
+  "wizard.palette.aggregation.custom":    "自定义",
+
+  "wizard.step.engineUri.description":    "分析需要连接 KataGo 引擎 —— 这个字段就是应用连接引擎的地方。如果已经自动填好了，说明是在你的网络上发现的，或者你的构建版本已预先配置好，直接继续即可。否则，请在下面填入你的引擎地址。",
+  "wizard.engineUri.hint":                "示例：ws://127.0.0.1:1242。以后随时可以在工具栏或设置中修改。",
+  "wizard.engineUri.test.button":         "测试连接",
+  "wizard.engineUri.test.probing":        "测试中…",
+  "wizard.engineUri.test.reachable":      "可以连接",
+  "wizard.engineUri.test.unreachable":    "无法连接 —— {reason}",
+  "wizard.engineUri.test.reason.timeout": "已超时",
+  "wizard.engineUri.test.reason.error":   "连接失败",
+  "wizard.engineUri.details.summary":     "连接原理说明",
+  "wizard.engineUri.details.docker":      "如果你使用 Docker 打包版本，KataGo 是在 compose 时通过 ENGINE_WS_URL 单独配置的 —— 这个字段只指向内置代理。",
+  "wizard.engineUri.details.desktop":     "如果你使用桌面应用，内置代理自身连接的引擎在设置中配置 —— 这个字段指向代理本身。",
+  "wizard.engineUri.details.source":      "如果你是从源码运行，这个字段可以直接指向一个 KataGo 引擎，也可以指向链路中的任意代理。",
+  "wizard.engineUri.details.docs":        "完整的配置说明随安装包附带的文档一起提供。"
 }

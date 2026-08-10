@@ -41,12 +41,18 @@
  * `.field-hint`, leaving `.step-description` capped) stayed green.
  * `EXPECTED_CAPPED_COUNT_BY_STEP` below pins the EXACT count per step
  * (verified against each `WizardStep*.vue`'s own template: EngineUri
- * has `.step-description` + `.field-hint` = 2; PvAnimation has
- * `.step-description` + `.mode-settings` = 2; Finish has
- * `.step-description` + `.finish-hint` = 2; the other four steps have
- * only `.step-description` = 1 each), and the aggregate is pinned to
- * `=== 10`, not a floor — so losing any single element's cap now
- * fails both the per-step and the aggregate assertion.
+ * has `.step-description` + `.field-hint` + the "How the connection
+ * works" disclosure's `.details-content` wrapper = 3 (copy-rewrite
+ * follow-up, ledger rows 1361/1362/1365/1366 — moving the
+ * architecture/packaging prose into a `<details>` disclosure keeps it
+ * under the same measure discipline as the always-visible paragraphs,
+ * one shared `data-prose-measure-ch` on the wrapper rather than one
+ * per `<p>`); PvAnimation has `.step-description` + `.mode-settings` =
+ * 2; Finish has `.step-description` + `.finish-hint` = 2; the other
+ * four steps have only `.step-description` = 1 each), and the
+ * aggregate is pinned to the sum of those exact counts, not a floor —
+ * so losing any single element's cap now fails both the per-step and
+ * the aggregate assertion.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -77,10 +83,10 @@ afterEach(() => {
 
 // Exact expected count of `[data-prose-measure-ch]` elements per step —
 // see file header for the per-file accounting. Total across all seven
-// steps is 10.
+// steps is 11.
 const EXPECTED_CAPPED_COUNT_BY_STEP: Record<WizardStepId, number> = {
   theme: 1,
-  engineUri: 2,
+  engineUri: 3,
   palette: 1,
   demoBoard: 1,
   pvAnimation: 2,
@@ -118,7 +124,7 @@ describe('wizard prose measure (R7) — every step\'s prose carries the declared
       }
     }
 
-    // Exact total (10), not a floor — see file header.
+    // Exact total (11), not a floor — see file header.
     expect(proseElementsSeen).toBe(EXPECTED_TOTAL_CAPPED_COUNT);
   });
 
