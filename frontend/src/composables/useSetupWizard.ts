@@ -46,6 +46,14 @@ export interface SetupWizard {
   readonly isFirstStep: ComputedRef<boolean>;
   readonly isLastStep: ComputedRef<boolean>;
   readonly totalSteps: number;
+  /** Steps the user has actually landed on this run (via next/back/
+   *  skip/goTo), including the first step shown at open. One home
+   *  for "visited" (audit M18, ledger rows 1390/1397) — the Finish
+   *  recap reads this to distinguish a step the user set from one
+   *  they never saw and is showing its seeded default. Never reset
+   *  mid-run; a fresh Set is only minted by a fresh `useSetupWizard()`
+   *  call (matches `stepIndex`'s own per-instance lifetime). */
+  readonly visitedSteps: Ref<ReadonlySet<WizardStepId>>;
   /** Advance to the next step, or finish from the last. */
   next: () => void;
   /** Same effect as `next()` — see file header for why Skip and
@@ -66,6 +74,9 @@ export interface SetupWizard {
 
 export function useSetupWizard(): SetupWizard {
   const stepIndex = ref(0);
+  // Seeded with the first step: it's on screen the instant the wizard
+  // opens, so it counts as visited even before any navigation call.
+  const visitedSteps = ref<Set<WizardStepId>>(new Set([WIZARD_STEPS[0]]));
 
   const stepId = computed<WizardStepId>(() => WIZARD_STEPS[stepIndex.value]);
   const isFirstStep = computed(() => stepIndex.value === 0);
@@ -84,14 +95,19 @@ export function useSetupWizard(): SetupWizard {
       return;
     }
     stepIndex.value++;
+    visitedSteps.value.add(stepId.value);
   }
 
   function back(): void {
     if (stepIndex.value > 0) stepIndex.value--;
+    visitedSteps.value.add(stepId.value);
   }
 
   function goTo(index: number): void {
-    if (index >= 0 && index < WIZARD_STEPS.length) stepIndex.value = index;
+    if (index >= 0 && index < WIZARD_STEPS.length) {
+      stepIndex.value = index;
+      visitedSteps.value.add(stepId.value);
+    }
   }
 
   return {
@@ -100,6 +116,7 @@ export function useSetupWizard(): SetupWizard {
     isFirstStep,
     isLastStep,
     totalSteps: WIZARD_STEPS.length,
+    visitedSteps,
     next,
     skip: next,
     back,
