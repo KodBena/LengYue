@@ -1,0 +1,299 @@
+"""Codegen: solve `current-row-repaired` (encodings/current_row_repaired.lyt)
+at every representative screen size and emit the solved rectangles as a
+GENERATED TypeScript data module for the frontend
+(`frontend/src/state/lyt-solved-layout.gen.ts`).
+
+Phase-1 "shadow mode" scope (LYT adoption roadmap): this module is data
+only. Nothing in the SPA imports it yet — it exists so the conformance
+harness (frontend/scripts/lyt-conformance.mjs) has a solved geometry to
+diff the rendered DOM against. See the umbrella CLAUDE.md's ADR-0002 /
+scope-discipline sections and `research/lyt/README.md` /
+`research/lyt/SPEC-AMENDMENTS.md` for the encoding's own provenance and
+disclosed choices; this script adds no new modeling decisions of its own
+beyond the two named below.
+
+Solve inputs, reused verbatim from `runner.py` (the CLI runner already
+solves this exact encoding at these exact sizes; this script does not
+duplicate the solving logic, just formats its own copy of the result as
+TypeScript instead of ASCII):
+
+  - the encoding: `encodings/current_row_repaired.lyt`, layout id
+    `current-row-repaired` (registered in `runner.REGISTRATIONS` as a
+    single screen class, id `default` — the encoding has no second class,
+    per runner.py's own module docstring).
+  - the four representative screen sizes: `runner.SCREEN_SIZES`.
+  - the CP-SAT lexicographic solve: `compiler.solve_lexicographic`, board
+    widget `B`, reach-preferred widgets auto-derived by
+    `runner._gather_reach_preferred_widgets` (same as the CLI runner).
+
+Disclosed choice (this script's own, not the runner's): "per screen
+class" (the build commission's phrasing) is realized here as "per
+representative size the runner already tests against the encoding's one
+registered class" — `current-row-repaired` registers a single class
+(`default`), but `solve_lexicographic` is called with the concrete
+`(w_px, h_px)` of each representative size, not the class's own
+representative point, so the four sizes genuinely produce four different
+solved geometries (confirmed by `runner.py`'s own output: 1920x1080,
+2560x1440, and 1280x1024 solve OPTIMAL with three different board
+widths; 1080x1920-portrait is INFEASIBLE — the mandatory preserve-banner
+floor plus the nav bar leaves no room for a board at portrait
+proportions, per SPEC-AMENDMENTS.md Amendment 1). An INFEASIBLE size
+still gets an entry in the emitted registry (`status: 'INFEASIBLE'`,
+`slots: {}`) rather than being silently dropped — the conformance
+harness needs to know a size was attempted and refused, not just see it
+missing.
+
+Regeneration command (also written into the generated file's own
+header):
+
+    cd research/lyt && \\
+      nice -n 19 ~/w/vdc/venvs/generic/bin/python emit_ts.py
+
+(writes to ../../frontend/src/state/lyt-solved-layout.gen.ts by default;
+pass --out PATH to redirect, e.g. for the emitter's own tests.)
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+from typing import Dict, List, Optional
+
+import lyt_ast as ast
+import loader
+from compiler import solve_lexicographic, SolveResult
+from runner import ENCODINGS_DIR, REGISTRATIONS, SCREEN_SIZES, _gather_reach_preferred_widgets
+
+DEFAULT_OUT = Path(__file__).parent.parent.parent / "frontend" / "src" / "state" / "lyt-solved-layout.gen.ts"
+
+GENERATED_HEADER_TOOL = "research/lyt/emit_ts.py"
+GENERATED_SOURCE_ENCODING = "research/lyt/encodings/current_row_repaired.lyt (layout `current-row-repaired`)"
+GENERATED_REGEN_COMMAND = (
+    "cd research/lyt && nice -n 19 ~/w/vdc/venvs/generic/bin/python emit_ts.py"
+)
+
+_REGISTRATION_NAME = "current_row_repaired.lyt"
+
+
+def _find_registration():
+    for reg in REGISTRATIONS:
+        if reg.name == _REGISTRATION_NAME:
+            return reg
+    raise LookupError(
+        f"runner.REGISTRATIONS has no entry named {_REGISTRATION_NAME!r} — "
+        "emit_ts.py's target encoding moved or was renamed; update this "
+        "script's _REGISTRATION_NAME to match."
+    )
+
+
+def _slots_from_result(result: SolveResult) -> Dict[str, Dict[str, int]]:
+    """widget id -> {x,y,w,h}, sorted by widget id for deterministic
+    emission (dict insertion order already matches sorted `leaf_names`
+    traversal order in practice, but sorting explicitly makes the
+    determinism a property of THIS function rather than an accident of
+    the solver's internal walk order)."""
+    out: Dict[str, Dict[str, int]] = {}
+    for path, widget in result.leaf_names.items():
+        rect = result.rects.get(path)
+        if rect is None:
+            continue
+        if widget in out:
+            raise ValueError(
+                f"duplicate widget id {widget!r} across leaf paths in solved "
+                f"result (paths include {path!r}) — emit_ts.py's TS `slots` "
+                "map is keyed by widget id and cannot represent two leaves "
+                "sharing one id; this encoding needs distinct widget ids."
+            )
+        out[widget] = {"x": rect.x, "y": rect.y, "w": rect.w, "h": rect.h}
+    return dict(sorted(out.items()))
+
+
+def build_solved_registrations(*, time_limit_s: float = 20.0) -> "tuple[List[dict], List[dict]]":
+    """Solve the target encoding at every representative size in
+    `runner.SCREEN_SIZES`, in that list's own order (deterministic —
+    SCREEN_SIZES is a fixed literal list, not derived from dict/set
+    iteration). Returns `(registrations, screen_classes)`:
+
+    - `registrations`: one dict per representative SIZE, JSON-serializable,
+      in the shape the TS emitter below turns into `LytSolvedRegistration`
+      literals. Its own `wPx`/`hPx` are the SOLVED-AGAINST size (e.g.
+      1080x1920 for the portrait entry), not the class's representative
+      point.
+    - `screen_classes`: one dict per registered `ast.ScreenClass` (its OWN
+      representative point, §4.4 — e.g. `default` is 1920x1080, the point
+      nearest-neighbor measures distance against), independent of which
+      size was solved. Kept separate from `registrations` deliberately: a
+      single-class registration like this one is solved at four different
+      sizes, all against the SAME one class, so folding a class's
+      representative point out of the per-size `registrations` list (as an
+      earlier draft of this function did, by reading `wPx`/`hPx` off the
+      last registration touching that class id) silently returns whichever
+      size solved last rather than the class's own declared point — this
+      split is the fix.
+    """
+    reg = _find_registration()
+    layouts: Dict[str, ast.Slot] = {}
+    for f in reg.files:
+        text = (ENCODINGS_DIR / f).read_text()
+        layouts.update(loader.load_layouts(text))
+
+    screen_classes: List[dict] = [
+        {"id": c.id, "wPx": c.w_px, "hPx": c.h_px} for c in sorted(reg.classes, key=lambda c: c.id)
+    ]
+
+    out: List[dict] = []
+    for label, w, h in SCREEN_SIZES:
+        cls: Optional[ast.ScreenClass] = reg.classes[0] if len(reg.classes) == 1 else None
+        if cls is None:
+            # This registration is documented (runner.py's module
+            # docstring) to carry exactly one class for the encodings this
+            # script targets; a multi-class registration would need
+            # nearest-neighbor selection here too. Fail loud rather than
+            # silently picking one, per ADR-0002 — this script's scope is
+            # deliberately narrower than runner.py's.
+            raise NotImplementedError(
+                f"registration {reg.name!r} carries {len(reg.classes)} "
+                "screen classes; emit_ts.py only handles single-class "
+                "registrations (current-row-repaired's own shape). "
+                "Extend this function with nearest-neighbor class "
+                "selection before pointing it at a multi-class encoding."
+            )
+        layout_name = reg.layout_by_class[cls.id]
+        slot = layouts[layout_name]
+        reach = _gather_reach_preferred_widgets(slot, reg.board_widget)
+        result = solve_lexicographic(
+            slot,
+            class_id=cls.id,
+            w_px=w,
+            h_px=h,
+            board_widget=reg.board_widget,
+            reach_preferred_widgets=reach,
+            time_limit_s=time_limit_s,
+        )
+        if result.status in ("OPTIMAL", "FEASIBLE"):
+            slots = _slots_from_result(result)
+        else:
+            slots = {}
+        out.append(
+            {
+                "classId": cls.id,
+                "label": label,
+                "wPx": w,
+                "hPx": h,
+                "status": result.status,
+                "slots": slots,
+            }
+        )
+    return out, screen_classes
+
+
+def _ts_rect_literal(rect: Dict[str, int]) -> str:
+    return f'{{ x: {rect["x"]}, y: {rect["y"]}, w: {rect["w"]}, h: {rect["h"]} }}'
+
+
+def _ts_slots_literal(slots: Dict[str, Dict[str, int]], indent: str) -> str:
+    if not slots:
+        return "{}"
+    lines = [f"{indent}  {json.dumps(widget)}: {_ts_rect_literal(rect)}," for widget, rect in slots.items()]
+    return "{\n" + "\n".join(lines) + f"\n{indent}}}"
+
+
+def render_ts(registrations: List[dict], screen_classes: List[dict]) -> str:
+    """Pure formatting: `(registrations, screen_classes)` (as returned by
+    `build_solved_registrations`) -> the full .gen.ts source text.
+    Deterministic given deterministic input — no wall-clock timestamp, no
+    hostname, no random iteration order — so re-running the emitter
+    against an unchanged solve produces a byte-identical file (verified
+    by the emitter's own tests)."""
+    lines: List[str] = []
+    lines.append("/**")
+    lines.append(" * GENERATED FILE — do not hand-edit.")
+    lines.append(f" * Tool: {GENERATED_HEADER_TOOL}")
+    lines.append(f" * Source encoding: {GENERATED_SOURCE_ENCODING}")
+    lines.append(
+        " * Solve inputs: CP-SAT lexicographic solve (research/lyt/compiler.py"
+        " solve_lexicographic), board widget 'B', reach-preferred widgets"
+        " auto-derived (research/lyt/runner.py _gather_reach_preferred_widgets),"
+        " representative sizes research/lyt/runner.py SCREEN_SIZES."
+    )
+    lines.append(f" * Regenerate: {GENERATED_REGEN_COMMAND}")
+    lines.append(
+        " * Phase-1 shadow mode (LYT adoption roadmap): plain data only, no"
+        " behaviour, no runtime import from app code yet — see"
+        " .claude/dispatch-reports/lyt-shadow-harness-build.md."
+    )
+    lines.append(" *")
+    lines.append(" * Public Domain (The Unlicense), matching research/lyt/__init__.py's")
+    lines.append(" * license line and the umbrella's ADR-0006 per-file convention.")
+    lines.append(" */")
+    lines.append("")
+    lines.append("export interface LytRect {")
+    lines.append("  readonly x: number;")
+    lines.append("  readonly y: number;")
+    lines.append("  readonly w: number;")
+    lines.append("  readonly h: number;")
+    lines.append("}")
+    lines.append("")
+    lines.append("export type LytSolveStatus = 'OPTIMAL' | 'FEASIBLE' | 'INFEASIBLE';")
+    lines.append("")
+    lines.append("export interface LytScreenClass {")
+    lines.append("  readonly id: string;")
+    lines.append("  readonly wPx: number;")
+    lines.append("  readonly hPx: number;")
+    lines.append("}")
+    lines.append("")
+    lines.append("export interface LytSolvedRegistration {")
+    lines.append("  /** LYT screen-class id this size was solved against (§4.4). */")
+    lines.append("  readonly classId: string;")
+    lines.append("  /** Representative-size label, e.g. '1920x1080' (research/lyt/runner.py SCREEN_SIZES). */")
+    lines.append("  readonly label: string;")
+    lines.append("  readonly wPx: number;")
+    lines.append("  readonly hPx: number;")
+    lines.append("  readonly status: LytSolveStatus;")
+    lines.append("  /** widget id -> solved rect, viewport-relative px. Empty when status is INFEASIBLE. */")
+    lines.append("  readonly slots: Readonly<Record<string, LytRect>>;")
+    lines.append("}")
+    lines.append("")
+    lines.append("export const LYT_SCREEN_CLASSES: readonly LytScreenClass[] = [")
+    for c in screen_classes:
+        lines.append(f'  {{ id: {json.dumps(c["id"])}, wPx: {c["wPx"]}, hPx: {c["hPx"]} }},')
+    lines.append("];")
+    lines.append("")
+    lines.append("export const LYT_SOLVED_LAYOUT: readonly LytSolvedRegistration[] = [")
+    for r in registrations:
+        lines.append("  {")
+        lines.append(f'    classId: {json.dumps(r["classId"])},')
+        lines.append(f'    label: {json.dumps(r["label"])},')
+        lines.append(f'    wPx: {r["wPx"]},')
+        lines.append(f'    hPx: {r["hPx"]},')
+        lines.append(f'    status: {json.dumps(r["status"])},')
+        lines.append(f'    slots: {_ts_slots_literal(r["slots"], "    ")},')
+        lines.append("  },")
+    lines.append("];")
+    lines.append("")
+    lines.append("export const LYT_SOLVED_BY_LABEL: Readonly<Record<string, LytSolvedRegistration>> = {")
+    for i, r in enumerate(registrations):
+        lines.append(f'  {json.dumps(r["label"])}: LYT_SOLVED_LAYOUT[{i}],')
+    lines.append("};")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    parser_ = argparse.ArgumentParser(description=__doc__)
+    parser_.add_argument("--out", type=Path, default=DEFAULT_OUT, help="output .ts path")
+    args = parser_.parse_args(argv)
+
+    registrations, screen_classes = build_solved_registrations()
+    text = render_ts(registrations, screen_classes)
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(text)
+    print(f"[emit_ts] wrote {args.out} ({len(registrations)} registrations)")
+    for r in registrations:
+        print(f"  {r['label']:22s} status={r['status']:10s} slots={len(r['slots'])}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
