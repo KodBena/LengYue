@@ -3,7 +3,14 @@
  * src/components/SettingsTab.vue
  *
  * The Settings tab's surface. Hosts six sub-tabs via the
- * project's TabWidget:
+ * project's TabWidget, rendered as a VERTICAL strip
+ * (`orientation="vertical"`, ledger rows 1404/1427) — a left-hand
+ * rail beside the pane it controls, replacing the horizontal
+ * strip's overflow-scroll now that six sub-tabs no longer fit a
+ * reasonable width. This is the only TabWidget consumer that opts
+ * in; the control-panel strip, ForestDirectory, and
+ * AnalysisDashboard remain horizontal and unchanged (TabWidget.vue's
+ * own header documents the orientation contract):
  *   - Session (UI): the RegistryEditor over `store.session.ui`.
  *   - Analysis Environment: the PaletteEditor over the KataGo
  *     analysis_env, with a Force Persistence button at the top.
@@ -117,7 +124,7 @@ function setTheme(theme: 'dark' | 'cluster'): void {
 </script>
 
 <template>
-  <TabWidget :tabs="subTabs" v-model="(activeSubTab as string /* widen the sub-tab id union to TabWidget's string v-model */)" :keep-mounted="true">
+  <TabWidget :tabs="subTabs" v-model="(activeSubTab as string /* widen the sub-tab id union to TabWidget's string v-model */)" :keep-mounted="true" orientation="vertical">
 
     <template #session>
       <div class="tab-padding settings-fill-pane">

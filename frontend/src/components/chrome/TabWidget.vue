@@ -30,6 +30,25 @@
   owns that key (witnessed: the ponder toggle firing a second time
   from a focused tab). Both handlers now carry `.stop` so activating
   a tab consumes the keypress instead of also replaying it globally.
+
+  Orientation (ledger rows 1404/1427): the Settings sub-tab strip
+  outgrew horizontal scrolling — six sub-tabs no longer fit a
+  reasonable width without a scroll affordance the commissioner
+  wants replaced, not tuned. `orientation` ('horizontal' default |
+  'vertical') is a presentation-only prop: horizontal strips (the
+  control-panel strip, ForestDirectory's Decks/Browse, the Analysis
+  dashboard's tab row) are byte-for-byte unchanged — this is exactly
+  the R2 scroll-on-overflow design described above, untouched.
+  Vertical lays the component out as a row: a column tablist (its
+  OWN `overflow-y: auto`, mirroring the horizontal strip's own
+  `overflow-x: auto` — same "the strip scrolls itself" discipline,
+  rotated) beside the tab body. `aria-orientation` on the tablist
+  follows the prop. No arrow-key traversal is added for vertical (or
+  reintroduced for horizontal): the component has never handled
+  arrow keys — Tab/Shift+Tab reaches every `<li>` via its existing
+  `tabindex="0"`, Enter/Space activates — so vertical keeps exactly
+  that same parity rather than inventing a new keyboard contract for
+  one orientation only.
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
@@ -46,6 +65,13 @@ interface Tab {
 const props = withDefaults(defineProps<{
   tabs: Tab[];
   modelValue: string; // The active tab ID from the Session store
+  /**
+   * 'horizontal' (default): today's row-of-tabs-above-a-body strip,
+   * unchanged in every existing consumer. 'vertical': a column
+   * tablist beside the body — the Settings sub-tab strip's new
+   * shape (ledger rows 1404/1427), so far the only opt-in consumer.
+   */
+  orientation?: 'horizontal' | 'vertical';
   /**
    * When true, every tab's slot is mounted eagerly and `v-show`
    * alone controls visibility; switching tabs preserves the
@@ -65,6 +91,7 @@ const props = withDefaults(defineProps<{
    */
   keepMounted?: boolean;
 }>(), {
+  orientation: 'horizontal',
   keepMounted: false,
 });
 
@@ -78,8 +105,8 @@ function selectTab(id: string) {
 </script>
 
 <template>
-  <div class="vue-tabs">
-    <ul class="tab-header" role="tablist">
+  <div class="vue-tabs" :class="{ 'vue-tabs--vertical': orientation === 'vertical' }">
+    <ul class="tab-header" role="tablist" :aria-orientation="orientation">
       <li
         v-for="tab in tabs"
         :key="tab.id"
@@ -183,5 +210,72 @@ function selectTab(id: string) {
   display: flex;
   flex-direction: column;
   min-height: 0; /* Forces children to respect viewport boundaries */
+}
+
+/* Vertical orientation (ledger rows 1404/1427): the rail sits beside
+   the body, on the left, per ADR-0019's genre convention for a
+   settings surface (VS Code / Firefox / Chrome / macOS preferences —
+   a persistent left-hand section list, always visible, never a
+   forced sequence — the ADR's own C25). Only SettingsTab.vue opts
+   in; every other consumer keeps the untouched horizontal rules
+   above. */
+.vue-tabs--vertical {
+  flex-direction: row;
+}
+
+.vue-tabs--vertical .tab-header {
+  flex-direction: column;
+  /* The rail scrolls itself vertically instead of horizontally —
+     same "the strip owns its own overflow" discipline as the
+     horizontal `overflow-x: auto` above, rotated to the axis that
+     can actually overflow here (many sub-tabs in a short pane).
+     No `overflow-x` override here: labels wrap (`white-space:
+     normal` below) rather than needing a horizontal scrollbar, and
+     this stylesheet keeps R2's own proscription (a clipped-not-
+     scrolled axis) intact for every orientation — see
+     TabWidget-overflow.test.ts's dedicated assertion on this file's
+     style block. */
+  overflow-y: auto;
+  border-bottom: none;
+  border-right: 1px solid var(--border-1);
+  flex-shrink: 0;
+  /* Genre-convention rail width: narrow enough that the control
+     panel's measured floor (270px, `computeControlPanelMinWidthPx`
+     over the 5 top-level tabs — unrelated to this sub-strip, but the
+     tightest width this rail is ever asked to live inside) still
+     leaves the body usable; wide enough for "Advanced Registry" (the
+     longest English label, 17 characters) to read on one or two
+     wrapped lines rather than a single-character sliver. Long labels
+     wrap (see `white-space: normal` below) rather than clip — an
+     ellipsis would silently hide which sub-tab a wrapped label was. */
+  width: clamp(7rem, 30%, 11rem);
+}
+
+.vue-tabs--vertical .tab-header li {
+  /* Vertical tabs stack to their own height, not a shared row
+     height; long labels wrap instead of the horizontal strip's
+     `nowrap` (there is no horizontal room to scroll INTO here — the
+     rail's own width is the constraint, not its length). */
+  white-space: normal;
+  word-break: break-word;
+  border-right: none;
+  border-bottom: 1px solid var(--border-1);
+}
+.vue-tabs--vertical .tab-header li:last-child {
+  border-bottom: none;
+}
+
+.vue-tabs--vertical .tab-header li.active {
+  /* Underline reads as horizontal-strip grammar; a vertical rail's
+     convention (VS Code / browser prefs) is a leading edge bar
+     instead, so the active indicator rotates with the axis rather
+     than keeping a bottom border that would sit flush against the
+     next tab's top edge. */
+  border-bottom: 1px solid var(--border-1);
+  border-left: 2px solid var(--accent-primary);
+}
+
+.vue-tabs--vertical .tab-body {
+  overflow-x: auto;
 }
 </style>
