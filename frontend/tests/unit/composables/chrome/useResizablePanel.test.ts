@@ -218,8 +218,14 @@ describe('computeTreeControlRegionWidthPx — no drag-start clobber', () => {
 });
 
 describe('WRAPPER_MIN_WIDTH_PX — derived, not independently chosen', () => {
-  it('equals TREE_PANEL_MIN_WIDTH_PX + resizer(4) + CONTROL_PANEL_MIN_WIDTH_PX', () => {
-    expect(WRAPPER_MIN_WIDTH_PX).toBe(TREE_PANEL_MIN_WIDTH_PX + 4 + CONTROL_PANEL_MIN_WIDTH_PX);
+  it('equals TREE_PANEL_MIN_WIDTH_PX + resizer(1) + CONTROL_PANEL_MIN_WIDTH_PX', () => {
+    // The literal 1 (not RESIZER_WIDTH_PX) is deliberate: importing the
+    // constant would make this assertion the definition restated. The
+    // literal pins the commissioner-ruled hairline width (2026-08-10,
+    // 4px -> 2px -> 1px; grab area stays ~4px via the CSS overhang in
+    // App.vue) so an unratified drift of either the constant or the
+    // derivation fails audibly here.
+    expect(WRAPPER_MIN_WIDTH_PX).toBe(TREE_PANEL_MIN_WIDTH_PX + 1 + CONTROL_PANEL_MIN_WIDTH_PX);
   });
 });
 
