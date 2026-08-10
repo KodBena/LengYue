@@ -37,8 +37,10 @@
   wants replaced, not tuned. `orientation` ('horizontal' default |
   'vertical') is a presentation-only prop: horizontal strips (the
   control-panel strip, ForestDirectory's Decks/Browse, the Analysis
-  dashboard's tab row) are byte-for-byte unchanged — this is exactly
-  the R2 scroll-on-overflow design described above, untouched.
+  dashboard's tab row) render the R2 scroll-on-overflow design
+  described above unchanged, except the tablist now carries an
+  explicit `aria-orientation="horizontal"` (ARIA's implicit tablist
+  default made explicit — semantically inert).
   Vertical lays the component out as a row: a column tablist (its
   OWN `overflow-y: auto`, mirroring the horizontal strip's own
   `overflow-x: auto` — same "the strip scrolls itself" discipline,
@@ -243,8 +245,8 @@ function selectTab(id: string) {
      panel's measured floor (270px, `computeControlPanelMinWidthPx`
      over the 5 top-level tabs — unrelated to this sub-strip, but the
      tightest width this rail is ever asked to live inside) still
-     leaves the body usable; wide enough for "Advanced Registry" (the
-     longest English label, 17 characters) to read on one or two
+     leaves the body usable; wide enough for "Analysis Environment"
+     (the longest English label, 20 characters) to read on one or two
      wrapped lines rather than a single-character sliver. Long labels
      wrap (see `white-space: normal` below) rather than clip — an
      ellipsis would silently hide which sub-tab a wrapped label was. */
