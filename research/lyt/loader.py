@@ -53,6 +53,14 @@ identifier the document uses without defining a value (§5.1 line 500,
 referencing `layout-model.ts:216`). We use 300px, matching the control-panel
 floor the same document cites at `layout-model.ts:186-191` for the
 adjacent black-box slot in the same encoding.
+
+AMENDMENT 1 (ledger row 1670, commissioner-delegated; see
+`SPEC-AMENDMENTS.md`): `_apply_preserve_reservation`, called from every
+branch of `load_slot` after a Slot's presence and sizing are both
+resolved, raises a `@toggle(_, preserve)` slot's declared `min` to
+`max(min, pref)` on its presence-bearing axis — "preserve" now genuinely
+reserves its preferred extent, not just its type. See that function's own
+docstring for the full rationale and seam-choice disclosure.
 """
 from __future__ import annotations
 
@@ -273,6 +281,85 @@ def _load_presence(rp: Optional[lytparser.RawPresence], *, where: str) -> ast.Pr
         ) from exc
 
 
+def _apply_preserve_reservation(
+    sizing: ast.Sizing, presence: ast.Presence, *, where: str
+) -> ast.Sizing:
+    """AMENDMENT 1 (ledger row 1670, commissioner-delegated): `preserve`
+    implies a genuine reservation. A slot whose presence is
+    `@toggle(_, preserve)` gets its minimum raised to its preferred extent
+    (`min := max(min, pref)`) on the presence-bearing axis. Ledger
+    rationale: a preserve slot squeezed to zero recreates the defect
+    class the language forbids (L1's "system-driven appearance may only
+    fill space already reserved for it" collapses into a no-op promise if
+    the reservation itself can shrink to nothing).
+
+    This is exactly the gap the cold review's OBSERVATION finding named
+    (`.claude/dispatch-reports/lyt-compiler-cold-review.md`,
+    "'preserve' banners can and do solve to zero height"):
+    `current_row_repaired.lyt`'s `captureBanner`/`saveBanner`/`systemLog`/
+    `setupChip` were declared `min 0px` with the spec's own prose claiming
+    they "become preserve slots of banner height" — a promise the
+    *type* (`Presence`) carried but the *sizing* did not.
+
+    SEAM CHOICE (disclosed, per build commission): implemented HERE, in
+    the loader, rather than in the compiler. `load_slot` is the one
+    choke point every `.lyt` text and (transitively, since `load_layouts`
+    is the only public entry point that returns Slot trees to callers)
+    every loaded encoding passes through — raising the floor here makes
+    the raised `min` a fact of the TYPED AST itself: `slot.sizing.min`
+    already reflects the amendment for every downstream consumer
+    (`compiler.py`, `wellformed.py`, `render.py`, a human reading a
+    loaded `Slot` in a debugger or test), not a policy invisible outside
+    the CP-SAT model. A compiler-only implementation would leave the
+    AST's own `Sizing.min` understating what `preserve` actually
+    guarantees — exactly the kind of "the type says one thing, the
+    solved geometry says another" gap the cold review flagged. This
+    mirrors the existing pattern in this module (WRAPPER_MIN resolution,
+    bare-envelope refusal): a language-level semantic completion belongs
+    at load time, not scattered into every consumer.
+
+    Edge cases (disclosed, not guessed):
+      - `min` and `pref` in DIFFERENT units (only px vs fr can actually
+        arise here — `ch` is already normalized to px earlier in this
+        same load pass) are genuinely incomparable without a resolved
+        common unit; refused loudly rather than coerced.
+      - `pref.v <= min.v` (the floor is already at or above the target)
+        is a no-op, not an error — `max` is not consulted or altered
+        here; if the raised min now exceeds a smaller `max`, that
+        surfaces as the ordinary `min > max` -> INFEASIBLE outcome at
+        solve time (same disclosed non-load-time-checked behavior this
+        prototype already has for any other min>max sizing, per the cold
+        review's own "not a ranked finding" observation).
+    """
+    if presence.kind != "toggle" or presence.hidden != "preserve":
+        return sizing
+    min_e, pref_e = sizing.min, sizing.pref
+    if min_e.unit != pref_e.unit:
+        raise LytLoadError(
+            f"preserve slot at {where} has a min/pref unit mismatch "
+            f"({min_e.unit!r} vs {pref_e.unit!r}) — the preserve "
+            "genuine-reservation rule ('min := max(min, pref)') requires "
+            "a common unit to compare; refused rather than guessed "
+            "(AMENDMENT 1, ledger row 1670)",
+            {
+                "where": where,
+                "law": "preserve-reservation",
+                "min_unit": min_e.unit,
+                "pref_unit": pref_e.unit,
+            },
+        )
+    if pref_e.v <= min_e.v:
+        return sizing
+    return ast.Sizing(
+        min=ast.Extent(unit=min_e.unit, v=pref_e.v),
+        pref=sizing.pref,
+        max=sizing.max,
+        aspect=sizing.aspect,
+        basis=sizing.basis,
+        envelope_states=sizing.envelope_states,
+    )
+
+
 def _load_leaf(rl: lytparser.RawLeaf, *, where: str) -> ast.Leaf:
     domain = rl.domain
     facets = set()
@@ -312,6 +399,7 @@ def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
         leaf = _load_leaf(node, where=f"{path}:{node.widget}")
         sizing = _load_sizing(rs.sizing, where=f"{path}:{node.widget}", node_kind="leaf")
         presence = _load_presence(rs.presence, where=f"{path}:{node.widget}")
+        sizing = _apply_preserve_reservation(sizing, presence, where=f"{path}:{node.widget}")
         return ast.Slot(node=leaf, presence=presence, sizing=sizing, violates=frozenset(rs.warns))
     if isinstance(node, lytparser.RawSplit):
         children = [
@@ -327,12 +415,14 @@ def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
         split = ast.Split(axis=node.axis, gap_px=0.0, children=children)
         sizing = _load_sizing(rs.sizing, where=path, node_kind="split")
         presence = _load_presence(rs.presence, where=path)
+        sizing = _apply_preserve_reservation(sizing, presence, where=path)
         return ast.Slot(node=split, presence=presence, sizing=sizing, violates=frozenset(rs.warns))
     if isinstance(node, lytparser.RawExclusive):
         children = [load_slot(c, path=f"{path}/T{i}") for i, c in enumerate(node.children)]
         excl = ast.Exclusive(children=children, tag=node.tag)
         sizing = _load_sizing(rs.sizing, where=path, node_kind="exclusive")
         presence = _load_presence(rs.presence, where=path)
+        sizing = _apply_preserve_reservation(sizing, presence, where=path)
         return ast.Slot(node=excl, presence=presence, sizing=sizing, violates=frozenset(rs.warns))
     raise LytLoadError("unknown raw node kind", {"path": path, "node": repr(node)})
 

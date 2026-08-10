@@ -424,3 +424,234 @@ def test_tiling_invariants_hold_on_every_solvable_encoding(filename, layout_name
     assert result.status in ("OPTIMAL", "FEASIBLE"), f"{filename}@{w}x{h}: {result.status}"
     violations = _tiling_violations(slot, result)
     assert not violations, f"{filename}@{w}x{h} tiling violations: {violations}"
+
+
+# =============================================================================
+# AMENDMENT 1 (ledger row 1670): preserve implies a genuine reservation --
+# min := max(min, pref) on the presence-bearing axis. See
+# `SPEC-AMENDMENTS.md` and `loader.py`'s `_apply_preserve_reservation`
+# docstring for the full rationale and seam-choice disclosure.
+# =============================================================================
+
+
+def test_preserve_raises_min_to_pref_in_the_loaded_ast():
+    """The floor is raised at LOAD TIME, in the typed AST itself -- not
+    merely as a compiler-internal policy. A `@toggle(_, preserve)` slot
+    whose declared `min` (0px) is below its `pref` (75px) must come out
+    of `loader.load_layouts` with `sizing.min == sizing.pref`; a plain
+    `@fixed` sibling with the identical min/pref/max numbers must be
+    left untouched (the rule is presence-conditioned, not a blanket
+    floor-raise)."""
+    prog = """
+    layout preservetest =
+      {min 0px, pref 1fr, max inf} V(
+        @toggle(system, preserve) {min 0px, pref 75px, max 75px} banner[common, info],
+        @fixed {min 0px, pref 75px, max 75px} plainFixed[common, info],
+        {min 0px, pref 1fr, max inf} filler[common, info]
+      )
+    """
+    layouts = loader.load_layouts(prog)
+    slot = layouts["preservetest"]
+    banner = slot.node.children[0]
+    plain_fixed = slot.node.children[1]
+    assert banner.sizing.min.unit == "px" and banner.sizing.min.v == 75.0, (
+        "preserve slot's min must be raised to its pref (75px), not left at "
+        f"its declared 0px floor -- got {banner.sizing.min!r}"
+    )
+    assert plain_fixed.sizing.min.v == 0.0, (
+        "the amendment is presence-conditioned -- an @fixed sibling with the "
+        "SAME declared min/pref must be left alone, not swept up by a "
+        "blanket floor-raise"
+    )
+
+
+def test_preserve_reservation_is_a_noop_when_min_already_meets_pref():
+    """A preserve slot whose min already equals (or exceeds) its pref --
+    e.g. `setup[go, action]{min 24px, pref 24px, max 24px}` in
+    `current_row_repaired.lyt` -- is untouched; `max(min, pref)` is a
+    no-op there by construction, not a special case this test needs the
+    loader to detect explicitly, but worth pinning so a future change to
+    the comparison direction (e.g. accidentally lowering min to pref)
+    would be caught."""
+    prog = """
+    layout noop =
+      {min 0px, pref 1fr, max inf} V(
+        @toggle(user, preserve) {min 24px, pref 24px, max 24px} setup[go, action]
+      )
+    """
+    layouts = loader.load_layouts(prog)
+    setup = layouts["noop"].node.children[0]
+    assert setup.sizing.min.v == 24.0
+
+
+def test_preserve_min_pref_unit_mismatch_is_refused():
+    """Disclosed edge case: `min` and `pref` in different, incomparable
+    units (px vs fr) can't be compared by 'max' without a resolved common
+    unit. Refused loudly (ADR-0002) rather than guessed."""
+    prog = """
+    layout mismatch =
+      {min 0px, pref 1fr, max inf} V(
+        @toggle(system, preserve) {min 10px, pref 1fr, max inf} weird[common, info]
+      )
+    """
+    with pytest.raises(LytLoadError) as exc_info:
+        loader.load_layouts(prog)
+    assert exc_info.value.detail.get("law") == "preserve-reservation"
+
+
+def test_preserve_banners_hold_their_reservation_in_solved_geometry():
+    """End-to-end witness closing the cold review's OBSERVATION finding
+    ("'preserve' banners can and do solve to zero height"): pre-amendment,
+    `current_row_repaired.lyt`'s captureBanner/saveBanner/systemLog
+    (declared `min 0px`, `preserve`) solved to h=0 at 1920x1080 -- the
+    ENTIRE combined pref (32+32+250=314px) became stage-2 shortfall,
+    because nothing in the compiled model actually floored their height.
+    Post-amendment, their loaded `sizing.min` already equals their `pref`
+    (see the two loader-level tests above), so the compiled model has a
+    genuine hard floor: this test re-solves the real fixture and checks
+    the SOLVED heights, not just the loaded AST, actually honor it."""
+    layouts = _load("current_row_repaired")
+    slot = layouts["current-row-repaired"]
+    result = solve_lexicographic(
+        slot, class_id="t", w_px=1920, h_px=1080, board_widget="B", reach_preferred_widgets=None
+    )
+    assert result.status in ("OPTIMAL", "FEASIBLE")
+    heights = {result.leaf_names[p]: result.rects[p].h for p in result.leaf_names}
+    assert heights["captureBanner"] == 32
+    assert heights["saveBanner"] == 32
+    assert heights["systemLog"] == 250
+    # Stage 2 (reach-preferred) must report NO shortfall for these three
+    # now that they're hard-floored -- pre-amendment this stage's
+    # objective was -314.0 (all three banners' combined pref, entirely
+    # unmet). The overall objective may still carry a small non-zero
+    # stage-2 term from OTHER reach-preferred widgets the board's own
+    # shrink now shortchanges, but it must not still contain the full
+    # 314px the banners used to account for.
+    assert result.objective_values[1] > -314.0
+
+
+def test_current_row_repaired_1920x600_is_expected_infeasible():
+    """Pinned expected-INFEASIBLE regression (AMENDMENT 1 consequence,
+    named honestly rather than dodged, per the ledger row 1670
+    instruction). Mechanism: pre-amendment, `current_row_repaired.lyt`
+    solved OPTIMAL at 1920x600 (and every height down to 330px) because
+    the three system-preserve banners' `min 0px` let the solver squeeze
+    them to nothing whenever the board-maximize stage wanted the room.
+    Post-amendment their floor is hard (32+32+250=314px combined, plus
+    the 32-64px envelope nav bar and the board composite's own minimum),
+    so a 600px-tall viewport can no longer route around the mandatory
+    314px banner reservation -- this is now correctly INFEASIBLE, not a
+    silently-shrunk board. (Bisected: the real threshold sits between
+    640px, still OPTIMAL, and 650px; 600px is comfortably inside the
+    newly-infeasible band.) None of the runner's four representative
+    screen sizes (1920x1080/2560x1440/1280x1024/1080x1920-portrait) cross
+    this threshold -- current-row-repaired stays OPTIMAL at the first
+    three and was ALREADY INFEASIBLE at portrait pre-amendment (an
+    unrelated aspect/exact-cross-fill collision, see README's "Honest
+    caveat" section) -- so this synthetic size is the regression witness
+    for the amendment's own predicted consequence."""
+    layouts = _load("current_row_repaired")
+    slot = layouts["current-row-repaired"]
+    result = solve_lexicographic(
+        slot, class_id="t", w_px=1920, h_px=600, board_widget="B", reach_preferred_widgets=None
+    )
+    assert result.status == "INFEASIBLE"
+
+
+# =============================================================================
+# AMENDMENT 2 (ledger row 1671): L2 dominance semantics -- a Split node
+# violates L2 when its direct chrome/action-leaf children's combined pref
+# is a strict majority of its total reserved extent (all direct children's
+# pref, along the split's own partition axis). See `SPEC-AMENDMENTS.md`
+# and `wellformed.py`'s module docstring for the full derivation.
+# =============================================================================
+
+
+def test_l2_decoy_construction_is_rejected():
+    """The cold review's own witness (`lyt-compiler-cold-review.md`,
+    "L2 checker is trivially defeated by a near-zero decoy sibling"):
+    wrapping a chrome/action toggle together with a near-zero non-chrome
+    decoy sibling in its OWN dedicated Split used to flip the OLD
+    tree-shape checker's verdict from VIOLATION to CONFORMS (a bare
+    non-chrome sibling was all the old check required, regardless of
+    size). The new dominance check closes this: the inner H's own
+    chrome/action content (26px) is a strict majority of its own 27px
+    total (26+1), independent of what its own outer siblings look like."""
+    prog = """
+    layout l2_sneak =
+      {min 0px, pref 1fr, max inf} H(
+        {min 27px, pref 27px, max 27px} H(
+          {min 26px, pref 26px, max 26px} sidebarToggle[chrome, action],
+          {min 1px, pref 1px, max 1px} decoy[common, info]
+        ),
+        {min 168px, pref 168px, max 168px} V(
+          {min 0px, pref 150px, max 150px} preview[common, info]
+        ),
+        {min 0px, pref 900px, max 900px} V(
+          {min 0px, pref 900px, max 900px} mainColumnPlaceholder[common, info]
+        )
+      )
+    """
+    with pytest.raises(LytLoadError) as exc_info:
+        loader.load_layouts(prog)
+    assert exc_info.value.detail.get("law") == "L2"
+    violations = exc_info.value.detail.get("violations", [])
+    assert len(violations) == 1
+    assert "dominance violation" in violations[0]
+
+
+def test_l2_mixed_toolbar_conforms():
+    """A genuine mixed toolbar -- several substantial non-chrome groups
+    plus a couple of chrome/action toggle buttons whose combined pref is
+    comfortably a minority of the row's total -- must still load clean.
+    A checker that flags every chrome/action leaf regardless of context
+    would pass `test_l2_decoy_construction_is_rejected` above for the
+    wrong reason; this is the check on that."""
+    prog = """
+    layout mixed_toolbar =
+      {min 0px, pref 1fr, max inf} H(
+        {min 0px, pref 400px, max inf} title[common, info],
+        {min 0px, pref 300px, max inf} search[common, info+action],
+        {min 24px, pref 24px, max 24px} sidebarToggle[chrome, action],
+        {min 24px, pref 24px, max 24px} boardToggle[chrome, action]
+      )
+    """
+    layouts = loader.load_layouts(prog)
+    assert "mixed_toolbar" in layouts
+
+
+def test_l2_current_row_repaired_toggle_cluster_rides_the_nav_bar():
+    """Regression for the AMENDMENT 2 restructuring of
+    `current_row_repaired.lyt` itself (see that file's own header note):
+    the toggle cluster's dedicated `H{pref 120px}` wrapper -- 96px of
+    chrome content against a 120px total, a genuine unambiguous majority
+    -- was unwrapped so its five leaves ride the nav-bar row directly.
+    The full fixture must load clean (this is the SAME assertion as
+    `test_l2_conformer_does_not_raise`, restated here to name the
+    specific mechanism this amendment's restructuring addresses)."""
+    layouts = _load("current_row_repaired")
+    assert "current-row-repaired" in layouts
+
+
+def test_l2_wrapped_toggle_cluster_would_violate():
+    """Confirms the PRE-restructuring shape (the toggle cluster still
+    wrapped in its own dedicated Split) really is a genuine, unambiguous
+    majority violation under the new semantics -- not something that
+    happened to pass only because of how `current_row_repaired.lyt` sits
+    in a bigger tree. Isolated, minimal reproduction of the wrapped
+    cluster alone."""
+    prog = """
+    layout wrapped_cluster =
+      {min 0px, pref 1fr, max inf} H(
+        {min 0px, pref 120px, max inf} H(
+          {min 24px, pref 24px, max 24px} sidebarToggle[chrome, action],
+          {min 24px, pref 24px, max 24px} boardToggle[chrome, action],
+          {min 24px, pref 24px, max 24px} treeToggle[chrome, action],
+          {min 24px, pref 24px, max 24px} ctrlToggle[chrome, action],
+          {min 24px, pref 24px, max 24px} locale[common, action]
+        )
+      )
+    """
+    with pytest.raises(LytLoadError) as exc_info:
+        loader.load_layouts(prog)
+    assert exc_info.value.detail.get("law") == "L2"

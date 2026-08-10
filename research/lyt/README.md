@@ -15,7 +15,11 @@ for the original build report and
 `.claude/dispatch-reports/lyt-compiler-prototype-review.md` for the
 adversarial review that followed it (REJECT, 2 MAJOR / 4 MODERATE / 5
 MINOR findings); the fixes for that review's findings are recorded in
-`.claude/dispatch-reports/lyt-compiler-fix1-build.md`.
+`.claude/dispatch-reports/lyt-compiler-fix1-build.md`. Two language
+amendments, adjudicated via the commissioner-delegated ledger (rows
+1670/1671), are implemented on top of that fix pass — see
+`SPEC-AMENDMENTS.md` for the rulings and their rationale, and the two
+sections below for what changed in this checker/loader as a result.
 
 ## Well-formedness checking scope (L1-L4)
 
@@ -27,16 +31,30 @@ the gap:
 
 - **L1** (control stability) is not structurally checked — it quantifies
   over runtime screen-class/toggle/drag states, not static tree shape.
+  AMENDMENT 1 (ledger row 1670, `SPEC-AMENDMENTS.md`) tightens the one
+  corner of L1 this prototype DOES touch: `preserve` presence now raises
+  a slot's `min` to its `pref` at load time (`loader.py`'s
+  `_apply_preserve_reservation`), so a `preserve` slot's promised
+  geometry is a genuine reservation the solver can no longer squeeze to
+  zero — see "AMENDMENT 1 consequence" below for what that does to the
+  reported feasibility.
 - **L2** (no band of a partition axis reserved for a hide/show affordance
-  alone) IS checked, by `wellformed.py`, but only as a local tree-shape
-  approximation of the spec's prose law — see that module's docstring for
-  the reasoning. Worth stating plainly: the check is easy to defeat. A
+  alone) IS checked, by `wellformed.py`. AMENDMENT 2 (ledger row 1671,
+  `SPEC-AMENDMENTS.md`) REPLACES the previous local tree-shape
+  approximation with a magnitude (dominance) test: a Split node violates
+  L2 when its direct chrome/action-leaf children's combined `pref`
+  exceeds half of the split's own total reserved extent (all direct
+  children's `pref`, along the split's own partition axis). The
+  previously-disclosed decoy loophole — flagged by the cold review, "a
   single near-zero non-chrome sibling (as little as 1px, under 4% of the
-  wrapped band in the review's witness) is enough to flip the checker's
-  verdict from VIOLATION to CONFORMS on a tree that is, geometrically,
-  still exactly the kind of reserved-band-for-a-toggle-alone construction
-  L2 forbids. Treat a clean L2 pass as weak assurance against adversarial
-  or accidental decoys, not a guarantee.
+  wrapped band) is enough to flip the checker's verdict from VIOLATION to
+  CONFORMS" — is now CLOSED: the near-zero decoy no longer dilutes the
+  ratio enough to hide a genuine majority. See `wellformed.py`'s module
+  docstring for the full derivation, the two witnesses (decoy flagged,
+  mixed toolbar conforms), and the one remaining disclosed gap (a
+  genuinely-incomparable case — chrome content sharing a band with an
+  elastic `fr`-pref sibling — is refused loudly rather than guessed, not
+  silently resolved either way).
 - **L3** (envelope-state coverage) is checked at load time (loader.py).
 - **L4** (a slot's extent has at most one writer among {solver constant,
   user drag}) is **entirely unimplemented**. The `drag-persisted` sizing
@@ -46,6 +64,58 @@ the gap:
   means an `.lyt` file with `drag-persisted` gets no enforcement of L4
   from this prototype at all. See `wellformed.py`'s "L4 ACCOUNTING"
   paragraph for the full disclosure.
+
+## AMENDMENT 1 consequence: preserve reservations are now genuine, and the
+## board sometimes has to shrink to pay for them
+
+Before AMENDMENT 1, `current_row_repaired.lyt`'s three system-preserve
+banners (`captureBanner`/`saveBanner`/`systemLog`, declared `min 0px`)
+solved to `h=0` at every landscape size the runner exercises — the cold
+review's own OBSERVATION finding. After the amendment, their loaded
+`min` equals their `pref` (32/32/250px), a genuine hard floor the
+compiler can no longer route around by starving it.
+
+Re-running the runner's own four representative sizes
+(`1920x1080`/`2560x1440`/`1280x1024`/`1080x1920-portrait`), the
+FEASIBILITY pattern for every registration is **unchanged** by this
+amendment — `current-row-repaired` stays `OPTIMAL` at the first three
+and was already `INFEASIBLE` at portrait pre-amendment, for the
+unrelated aspect/exact-cross-fill reason the "Honest caveat" section
+below describes. What DOES change, at the three landscape sizes, is the
+SOLVED geometry: the board-maximize stage now has to leave room for the
+banners' genuine 314px combined floor, so it settles for a smaller
+board instead of the value it found when the banners were squeezable to
+nothing:
+
+| size | board `w` before | board `w` after | stage-2 objective before | stage-2 objective after |
+|---|---|---|---|---|
+| 1920×1080 | 1024 | 710 | −314.0 | −0.0 |
+| 2560×1440 | 1384 | 1070 | −314.0 | −0.0 |
+| 1280×1024 | 664 | 654 | −10.0 | −0.0 |
+
+(Stage-2's objective is "reach-preferred shortfall, negated" — `-0.0`
+after the amendment means every reach-preferred widget, including the
+now-genuinely-floored banners, reaches its `pref` exactly; `-314.0`
+before meant the banners' entire combined `pref` was unmet shortfall,
+i.e. they were rendering at zero height while nominally "preserved".)
+
+The amendment's own predicted consequence — some encodings becoming
+INFEASIBLE at some screen sizes, which is correct behavior surfacing a
+real design choice, not a bug to dodge — is real, just not visible at
+the runner's four representative sizes for this fixture: bisecting the
+height at a fixed 1920px width finds the new infeasibility threshold
+between 640px (still `OPTIMAL`) and 650px (`INFEASIBLE`) — a viewport
+short enough that the mandatory 314px banner reservation plus the nav
+bar's own floor leaves no room for a board at all. Pre-amendment, the
+SAME fixture solved `OPTIMAL` all the way down to 340px (only going
+`INFEASIBLE` below 330px, for unrelated reasons). This is pinned as a
+regression test,
+`tests/test_lyt.py::test_current_row_repaired_1920x600_is_expected_infeasible`,
+naming the mechanism in its own docstring — this prototype does not
+silently narrow the affected screen-size range to dodge the honest
+result; a real design tradeoff (afford the reserved banner height, or
+move the banners to an overlay stratum) now surfaces as a load-bearing
+solver outcome instead of a silently-broken promise.
 
 ## Honest caveat on the "infeasibility proof" results (review finding F5)
 
