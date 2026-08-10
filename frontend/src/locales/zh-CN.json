@@ -471,6 +471,9 @@
   "wizard.palette.describe.default.name": "标准评估",
   "wizard.palette.describe.default.body": "使用与“质量”相同的稳健子节点一致性度量，但区间内以最差的一手而非中位数进行汇总——为兼容既有档案保留的更严格读数。",
   "wizard.palette.editorPointer":         "如需自由编辑，请前往“设置”中的“分析环境”标签页。",
+
+  "wizard.step.finish.description":       "这是您当前的配置——未访问过的步骤仍保留默认值。所有设置均已保存，也可在“设置”中查看。",
+  "wizard.finish.defaultBadge":           "默认 - 未访问",
   "wizard.step.engineUri.description":    "分析需要连接 KataGo 引擎 —— 这个字段就是应用连接引擎的地方。如果已经自动填好了，说明是在你的网络上发现的，或者你的构建版本已预先配置好，直接继续即可。否则，请在下面填入你的引擎地址。",
   "wizard.engineUri.hint":                "示例：ws://127.0.0.1:1242。以后随时可以在工具栏或设置中修改。",
   "wizard.engineUri.test.button":         "测试连接",

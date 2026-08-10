@@ -13,6 +13,11 @@
  *      through the SAME `mutateProfile` seam every other profile
  *      writer uses, and closes the wizard signal.
  *   4. Re-running (`openSetupWizard()`) does NOT reset `completed`.
+ *   5. `visitedSteps` (audit M18, ledger rows 1390/1397) — the first
+ *      step is visited on open with no navigation; every navigation
+ *      primitive (next/back/skip/goTo) adds the step it lands ON;
+ *      a step never landed on stays out of the set, even after a
+ *      forward `goTo` jumps past it.
  *
  * The store is the real reactive singleton (`resetWorkspace()` in
  * `beforeEach` for isolation, per `tests/CLAUDE.md`'s common gotcha).
@@ -85,6 +90,55 @@ describe('useSetupWizard — step sequence', () => {
       b.skip();
       expect(a.stepIndex.value).toBe(b.stepIndex.value);
     }
+  });
+});
+
+describe('useSetupWizard — visitedSteps', () => {
+  it('seeds with only the first step, before any navigation', () => {
+    const wizard = useSetupWizard();
+    expect([...wizard.visitedSteps.value]).toEqual(['theme']);
+  });
+
+  it('next() adds each step it lands on, in order', () => {
+    const wizard = useSetupWizard();
+    wizard.next(); // -> engineUri
+    expect(wizard.visitedSteps.value.has('engineUri')).toBe(true);
+    expect(wizard.visitedSteps.value.has('palette')).toBe(false);
+    wizard.next(); // -> palette
+    expect(wizard.visitedSteps.value.has('palette')).toBe(true);
+    expect([...wizard.visitedSteps.value]).toEqual(['theme', 'engineUri', 'palette']);
+  });
+
+  it('skip() adds the landed-on step exactly like next()', () => {
+    const wizard = useSetupWizard();
+    wizard.skip(); // -> engineUri
+    expect(wizard.visitedSteps.value.has('engineUri')).toBe(true);
+  });
+
+  it('back() adds the step it returns to', () => {
+    const wizard = useSetupWizard();
+    wizard.goTo(3); // -> demoBoard, skipping engineUri/palette entirely
+    expect(wizard.visitedSteps.value.has('engineUri')).toBe(false);
+    wizard.back(); // -> palette
+    expect(wizard.visitedSteps.value.has('palette')).toBe(true);
+    expect(wizard.visitedSteps.value.has('engineUri')).toBe(false); // still never landed on
+  });
+
+  it('a forward goTo() jump leaves the skipped-over steps unvisited', () => {
+    const wizard = useSetupWizard();
+    wizard.goTo(5); // -> finish, straight from theme
+    expect([...wizard.visitedSteps.value].sort()).toEqual(['finish', 'theme']);
+    expect(wizard.visitedSteps.value.has('engineUri')).toBe(false);
+    expect(wizard.visitedSteps.value.has('palette')).toBe(false);
+    expect(wizard.visitedSteps.value.has('demoBoard')).toBe(false);
+    expect(wizard.visitedSteps.value.has('sgfImport')).toBe(false);
+  });
+
+  it('an out-of-range goTo() is a no-op and adds nothing', () => {
+    const wizard = useSetupWizard();
+    wizard.goTo(999);
+    wizard.goTo(-1);
+    expect([...wizard.visitedSteps.value]).toEqual(['theme']);
   });
 });
 

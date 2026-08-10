@@ -797,6 +797,7 @@
   "wizard.step.sgfImport.description":    "If you have SGF files on this device, you can import them into your library now — or skip this and do it later from the Library tab.",
 
   "wizard.step.finish.title":             "You're all set",
-  "wizard.step.finish.description":       "Here's what you configured. Everything is saved and also visible in Settings.",
+  "wizard.step.finish.description":       "Here's your current setup — steps you didn't visit are still on their defaults. Everything is saved and also visible in Settings.",
+  "wizard.finish.defaultBadge":           "default — not visited",
   "wizard.finish.hint":                   "You can re-run this wizard anytime from Settings → Session (UI)."
 }

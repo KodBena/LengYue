@@ -471,6 +471,9 @@
   "wizard.palette.describe.default.name": "標準評価",
   "wizard.palette.describe.default.body": "Qualityと同じロバストチャイルド一致度を用いますが、区間内の中央値ではなく最悪の一手で集計します — 既存プロファイルとの互換性のために残された、より厳格な指標です。",
   "wizard.palette.editorPointer":         "自由な編集は、設定の「分析環境」タブをご覧ください。",
+
+  "wizard.step.finish.description":       "現在の設定内容です — 訪問しなかったステップは既定値のままです。すべて保存されており、設定画面でも確認できます。",
+  "wizard.finish.defaultBadge":           "既定値 - 未訪問",
   "wizard.step.engineUri.description":    "分析にはKataGoエンジンへの接続が必要です — この項目でアプリが接続する先を指定します。すでに入力されている場合は、ネットワーク上で見つかったか、ビルドにあらかじめ設定されているということなので、そのまま次に進んでください。そうでなければ、下にエンジンのアドレスを入力してください。",
   "wizard.engineUri.hint":                "例: ws://127.0.0.1:1242。ツールバーや設定からいつでも変更できます。",
   "wizard.engineUri.test.button":         "接続をテスト",
