@@ -6,11 +6,12 @@
  * dismissal marking the profile onboarded (same as Finish), and
  * finishing from the last step. Mounts the real component tree
  * (`SetupWizardModal` -> every step, including the real
- * `BoardWidget`-backed demo board and the PV-animation step's
- * `setInterval`-driven auto-advance) under fake timers so no test
- * depends on a real wall-clock wait (per the umbrella's "NO
- * wall-clock waits in TESTS" instruction) and no interval leaks
- * into a later test.
+ * `BoardWidget`-backed demo board — which, post-merge (ledger rows
+ * 1357/1358), also hosts the PV mode/annotation controls and the
+ * `PvAnimationPreview` leaf's animation-frame plumbing) under fake
+ * timers so no test depends on a real wall-clock wait (per the
+ * umbrella's "NO wall-clock waits in TESTS" instruction) and no
+ * timer leaks into a later test.
  *
  * License: Public Domain (The Unlicense)
  */

@@ -34,7 +34,6 @@ export const WIZARD_STEPS = [
   'engineUri',
   'palette',
   'demoBoard',
-  'pvAnimation',
   'sgfImport',
   'finish',
 ] as const;

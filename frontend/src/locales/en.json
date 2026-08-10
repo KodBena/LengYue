@@ -748,8 +748,8 @@
   "wizard.palette.aggregation.median":    "Median",
   "wizard.palette.aggregation.custom":    "Custom",
 
-  "wizard.step.demoBoard.title":          "Try the analysis overlays",
-  "wizard.step.demoBoard.description":    "This is an open middle-game position with a pre-computed analysis — no engine connection needed. Toggle the overlays and sliders below and watch the board update.",
+  "wizard.step.demoBoard.title":          "Try the analysis overlays & PV playback",
+  "wizard.step.demoBoard.description":    "This is an open middle-game position with a pre-computed analysis — no engine connection needed. Toggle the overlays and sliders below and watch the board update, then pick a principal-variation style below and hover a move suggestion on the board to see it play out live.",
   "wizard.demoBoard.loadError":           "The demo board could not be loaded: {message}",
   "wizard.demoBoard.provenance":          "Self-play by {model}, move {turn} — analysed at {visits} visits",
   "wizard.demoBoard.togglesLegend":       "Display toggles",
@@ -758,8 +758,8 @@
   "wizard.demoBoard.toggle.ownershipContinuous": "Continuous ownership fill",
   "wizard.demoBoard.slidersLegend":       "Display sliders",
 
-  "wizard.step.pvAnimation.title":        "Principal-variation display",
-  "wizard.step.pvAnimation.description":  "When you hover a move suggestion, its follow-up sequence (principal variation) can be revealed a few different ways. Pick a mode below to preview it — the same setting applies wherever a PV is shown, including on the demo board above.",
+  "wizard.pvAnimation.legend":            "Principal-variation playback",
+  "wizard.pvAnimation.description":       "When you hover a move suggestion above, its follow-up sequence (principal variation) can be revealed a few different ways. Pick a mode below to try it — the preview underneath replays it immediately, and the same setting applies to every PV shown anywhere in the app.",
   "wizard.pvAnimation.modeLabel":         "Animation style",
   "wizard.pvAnimation.mode.instant":          "Instant",
   "wizard.pvAnimation.mode.instant.settings": "All PV stones fade in together.",

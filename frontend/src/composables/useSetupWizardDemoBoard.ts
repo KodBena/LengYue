@@ -19,6 +19,20 @@
  * exposes `loadError` so the wizard step can render a visible failure
  * instead of a silently blank board.
  *
+ * Ledger reseed on every call, not just the first (found while
+ * building the merged demo-board+PV step's live-feedback witness,
+ * ledger rows 1357/1358): the parse+replay is genuinely expensive and
+ * stays cached, but the ledger WRITE is cheap and MUST re-run on every
+ * call — the shared `ledger` is a module-level singleton anything else
+ * can purge from under an already-mounted wizard (`resetWorkspace()`'s
+ * `ledger.purgeAll`, O8). Before this fix, a purge that happened after
+ * the first `useSetupWizardDemoBoard()` call left the demo board
+ * mounted but ledger-empty — its own suggestion overlay would go
+ * silently blank for the rest of the session, exactly the class of
+ * bug ADR-0002 exists to make loud instead. `cachedRawAnalysis` below
+ * is what makes the reseed replay-free: it's the same `demo.rawAnalysis`
+ * captured once, just written into the ledger again.
+ *
  * License: Public Domain (The Unlicense)
  */
 
@@ -29,7 +43,8 @@ import { compileAnalysisConfig, compileEngineOverrides, deriveAnalysisKeys } fro
 import { store } from '../store';
 import { pushSystemMessage } from '../store';
 import { i18n } from '../i18n';
-import type { BoardState } from '../types';
+import type { BoardState, NodeId } from '../types';
+import type { RawAnalysis } from '../engine/katago/types';
 
 export interface SetupWizardDemoBoard {
   /** The replayed demo board, or `null` if the asset failed to load. */
@@ -39,24 +54,46 @@ export interface SetupWizardDemoBoard {
   readonly loadError: Ref<string | null>;
   /**
    * The captured top move's PV (KataGo/GTP coordinates), unmodified
-   * from the asset — the PV-display-animation wizard step
-   * (`WizardStepPvAnimation.vue`) demonstrates the live `usePvAnimation`
-   * cfg (`session.ui.pvAnimation`) against this sequence. Empty if the
+   * from the asset — the PV-playback controls folded into
+   * `WizardStepDemoBoard.vue` (formerly the separate
+   * `WizardStepPvAnimation.vue` step, merged per ledger rows
+   * 1357/1358) demonstrate the live `usePvAnimation` cfg
+   * (`session.ui.pvAnimation`) against this sequence. Empty if the
    * asset failed to load or recorded no moveInfos.
    */
   readonly topPv: Ref<readonly string[]>;
 }
 
 let cached: SetupWizardDemoBoard | null = null;
+// Captured once alongside `cached`, replayed into the ledger on EVERY
+// call (see file header "Ledger reseed on every call") — never
+// re-derived, so the reseed carries none of the expensive parse+replay
+// cost the `cached` guard exists to avoid.
+let cachedRawAnalysisForReseed: { nodeId: NodeId; rawAnalysis: RawAnalysis } | null = null;
+
+function reseedLedger(): void {
+  if (!cachedRawAnalysisForReseed) return;
+  const { rawKey } = deriveAnalysisKeys(
+    compileAnalysisConfig(),
+    compileEngineOverrides(),
+    store.engine.selectedModel ?? undefined,
+  );
+  ledger.recordRaw(rawKey, cachedRawAnalysisForReseed.nodeId, cachedRawAnalysisForReseed.rawAnalysis);
+}
 
 /**
  * Module-memoised: every wizard-step consumer of the demo board
  * shares the SAME replayed BoardState instance (so the checkbox /
- * slider / PV-animation steps all reflect the one board), and the
- * asset is parsed + replayed at most once per session.
+ * slider / PV-playback controls all reflect the one board), and the
+ * asset is parsed + replayed at most once per session. The ledger
+ * WRITE, unlike the parse+replay, re-runs on every call — see file
+ * header.
  */
 export function useSetupWizardDemoBoard(): SetupWizardDemoBoard {
-  if (cached) return cached;
+  if (cached) {
+    reseedLedger();
+    return cached;
+  }
 
   const board = shallowRef<BoardState | null>(null);
   const provenance = ref<SetupWizardDemoProvenance | null>(null);
@@ -69,12 +106,8 @@ export function useSetupWizardDemoBoard(): SetupWizardDemoBoard {
     provenance.value = demo.provenance;
     topPv.value = demo.rawAnalysis.moveInfos[0]?.pv ?? [];
 
-    const { rawKey } = deriveAnalysisKeys(
-      compileAnalysisConfig(),
-      compileEngineOverrides(),
-      store.engine.selectedModel ?? undefined,
-    );
-    ledger.recordRaw(rawKey, demo.nodeId, demo.rawAnalysis);
+    cachedRawAnalysisForReseed = { nodeId: demo.nodeId, rawAnalysis: demo.rawAnalysis };
+    reseedLedger();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     loadError.value = message;

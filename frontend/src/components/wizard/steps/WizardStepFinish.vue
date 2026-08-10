@@ -40,7 +40,7 @@ const pvMode = computed(() => store.session.ui.pvAnimation.mode);
       <dt>{{ $t('wizard.step.palette.title') }}</dt>
       <dd>{{ paletteName }}</dd>
 
-      <dt>{{ $t('wizard.step.pvAnimation.title') }}</dt>
+      <dt>{{ $t('wizard.pvAnimation.modeLabel') }}</dt>
       <dd>{{ $t(`wizard.pvAnimation.mode.${pvMode}`) }}</dd>
     </dl>
     <p class="finish-hint" :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t('wizard.finish.hint') }}</p>

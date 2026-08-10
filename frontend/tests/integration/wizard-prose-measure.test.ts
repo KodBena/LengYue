@@ -41,12 +41,22 @@
  * `.field-hint`, leaving `.step-description` capped) stayed green.
  * `EXPECTED_CAPPED_COUNT_BY_STEP` below pins the EXACT count per step
  * (verified against each `WizardStep*.vue`'s own template: EngineUri
- * has `.step-description` + `.field-hint` = 2; PvAnimation has
- * `.step-description` + `.mode-settings` = 2; Finish has
- * `.step-description` + `.finish-hint` = 2; the other four steps have
- * only `.step-description` = 1 each), and the aggregate is pinned to
- * `=== 10`, not a floor — so losing any single element's cap now
- * fails both the per-step and the aggregate assertion.
+ * has `.step-description` + `.field-hint` = 2; Finish has
+ * `.step-description` + `.finish-hint` = 2; the other three
+ * single-paragraph steps have only `.step-description` = 1 each), and
+ * the aggregate is pinned to a fixed total, not a floor — so losing
+ * any single element's cap now fails both the per-step and the
+ * aggregate assertion.
+ *
+ * Merge update (ledger rows 1357/1358): the former `demoBoard` and
+ * `pvAnimation` steps became ONE step, still named `demoBoard`. Its
+ * prose count is the SUM of the two former steps' counts (nothing was
+ * dropped, both prose paragraphs of the merged-in PV step —
+ * `.pv-step-description` and `.mode-settings` — survive alongside the
+ * demo board's own `.step-description`): 1 + 2 = 3. The step total
+ * count (`WIZARD_STEPS.length`) drops from 7 to 6, but the aggregate
+ * `data-prose-measure-ch` element count is unchanged at 10 — the merge
+ * moved prose between steps, it did not remove any.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -76,14 +86,13 @@ afterEach(() => {
 });
 
 // Exact expected count of `[data-prose-measure-ch]` elements per step —
-// see file header for the per-file accounting. Total across all seven
-// steps is 10.
+// see file header for the per-file accounting. Total across all six
+// (post-merge) steps is still 10.
 const EXPECTED_CAPPED_COUNT_BY_STEP: Record<WizardStepId, number> = {
   theme: 1,
   engineUri: 2,
   palette: 1,
-  demoBoard: 1,
-  pvAnimation: 2,
+  demoBoard: 3, // merged demoBoard(1) + former pvAnimation(2) — see file header
   sgfImport: 1,
   finish: 2,
 };
