@@ -34,6 +34,28 @@
 /* ── Reset ─────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* G30 pointer-target floor (WCAG 2.5.8): witnessed 15x checkbox
+   `input[type="checkbox"]` at 13x13 app-wide (RegistryEditor,
+   CardMetadataPanel, PaletteEditor, AnalysisControls,
+   WizardStepDemoBoard, LoginModal, MintCardModal, ConfirmLoadModal) —
+   under the 24x24 minimum. One document-wide, element-selector rule is
+   the shared home for the whole family (P1) instead of eight per-site
+   sprinkles. Technique: pin the native widget's own paint size to its
+   current 13x13 via explicit width/height on a content-box (overriding
+   the border-box reset above just for this selector), then add padding
+   so the invisible border-box — the actual click/tap hit-test area —
+   grows to 24x24 while the painted checkbox glyph stays 13x13. Same
+   "visual size preserved, effective hit area >=24" contract as
+   KnobSlider's thumb (M16 era), using padding instead of a transparent
+   border because native checkbox rendering (unlike a custom
+   pseudo-element) does not reliably keep a CSS border unpainted. */
+input[type="checkbox"] {
+  box-sizing: content-box;
+  width: 13px;
+  height: 13px;
+  padding: 5.5px;
+}
+
 html, body {
   height: 100%;
   background:var(--default-bg);

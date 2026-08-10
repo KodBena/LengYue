@@ -61,6 +61,11 @@ const nav = useNavigation();
    SetupToolPalette's `.setup-trigger` already accept for the identical
    reason (see SetupToolPalette.vue's own comment on its copy). */
 .toolbar-cluster { display: flex; align-items: center; gap: var(--space-tight); flex-shrink: 0; }
+/* G30 (WCAG 2.5.8): witnessed at 18px tall — under the 24x24 pointer-target
+   floor. min-height is a floor only (padding/border/font-size, i.e. the
+   visual language, are untouched); flex-centering keeps the |</>| glyphs
+   centred in the taller box. Mirrored in Toolbar.vue's copy of this same
+   rule — see this file's own header note on why the two copies exist. */
 .toolbar-btn {
   background: var(--surface-0);
   border: 1px solid var(--border-3);
@@ -72,6 +77,10 @@ const nav = useNavigation();
   font-family: 'Courier New', monospace;
   text-transform: uppercase;
   letter-spacing: var(--tracking-tight);
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .toolbar-btn:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 </style>
