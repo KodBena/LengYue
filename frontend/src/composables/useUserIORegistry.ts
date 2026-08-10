@@ -15,7 +15,15 @@
  * Per-action `dispatchMode` decides immediate-vs-coalesced firing
  * (rAF coalesce for navigation, synchronous for toggles — same
  * posture perf Fix #1 introduced and the now-removed hardcoded
- * `COALESCED_NAV_KEYS` set tracked). Per-action `enabledWhen` —
+ * `COALESCED_NAV_KEYS` set tracked) — but ONLY for OS auto-repeat
+ * (`KeyboardEvent.repeat`); a coalesced-mode action's discrete
+ * (non-repeat) keydowns always fire synchronously, same as
+ * 'immediate' mode. See the `handleKeyDown` body for the 2026-08-10
+ * G25/G26/G27 fix this split closes: rAF-coalescing every keydown of
+ * a coalesced action (not just its auto-repeat stream) silently
+ * dropped discrete presses and could let a stale pending action fire
+ * after a later, unrelated keypress had already mutated state.
+ * Per-action `enabledWhen` —
  * a catalog-supplied predicate (active-board / engine-connected /
  * always today) — gates dispatch, replacing the prior global
  * `if (!activeBoard.value) return`
@@ -152,7 +160,32 @@ export function useUserIORegistry() {
 
     if (!action.enabledWhen()) return;
 
-    if (action.dispatchMode === 'coalesced') {
+    // Root-cause fix (2026-08-10, G25/G26/G27 diagnosis —
+    // `.claude/dispatch-reports/geo-a-input-build.md`): coalescing
+    // must key off OS AUTO-REPEAT (`e.repeat`), never off "this
+    // action's dispatchMode is coalesced". The prior rule coalesced
+    // every keydown of a coalesced-mode action — including two
+    // ordinary, discrete taps — via a single latest-wins pending
+    // slot. That conflates two different questions: "the user is
+    // holding this key down for continuous fast-navigation" (repeat
+    // events, where dropping intermediate frames toward the latest
+    // position is exactly the desired "fast-forward" behaviour) vs
+    // "the user pressed this key N separate times" (discrete
+    // keydowns, each `repeat: false`, where every press is a
+    // distinct intent and NONE may be silently dropped — the primary
+    // review-loop gesture, G25's "1,2,2,3,3" sequence). It also let a
+    // still-pending coalesced action from an EARLIER keypress fire
+    // AFTER a LATER, unrelated immediate-mode keypress (e.g. Pass)
+    // had already mutated the board — an ordering hazard with no
+    // guard, matching the mechanism the G26 diagnosis names for the
+    // move-5-to-mainline-tip jump. Gating on `e.repeat` closes both:
+    // every discrete press (repeat: false) fires synchronously and
+    // immediately, in dispatch order, exactly like an 'immediate'-
+    // mode action — "one keypress, one move" — while a genuinely
+    // held key (repeat: true) still rAF-coalesces so heavy downstream
+    // work can't back-pressure the input queue (perf Fix #1's
+    // original intent, preserved for the case it actually targets).
+    if (action.dispatchMode === 'coalesced' && e.repeat) {
       pendingAction = action;
       if (rafId !== null) cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
