@@ -1,5 +1,11 @@
 # LYT spec amendments
 
+LYT is this project's small layout-description language: `.lyt` source
+files describe a screen as a tree of slots with sizing reservations,
+and a constraint solver turns each description into verified pixel
+geometry (the full definition is [SPEC.md](SPEC.md); the human-readable
+rationale is [README.md](README.md)).
+
 **This file is the dated amendment RECORD — why each rule changed and
 when, as adjudicated on the work-status ledger (the project's
 append-only decision ledger, read via `./autoharn led`). [SPEC.md](SPEC.md) is the
@@ -584,6 +590,22 @@ gloss per finding, each naming the line/term it clarifies.
   counted, pre-Amendment-4 behavior) and the `default` valuation
   (`boardRail`/`previewBoard` genuinely absent), across every screen
   size the runner's fixtures exercise.
+- **The symbolic sentinels `WRAPPER_MIN`, `CONTENT`, `MAXIMIZE`, `inf`**
+  (Amendment 3's refusal list) are the named non-numeric extent tokens
+  the concrete syntax admits in *some* sizing positions: `inf` means
+  "uncapped" (legal only as a `max`), `MAXIMIZE` marks the leaf the
+  solver's stage-1 objective maximizes, `CONTENT` is the forbidden
+  content-driven-sizing token (always refused — the language's first
+  typed impossibility), and `WRAPPER_MIN` resolves to the loader's
+  minimum-wrapper constant. Their full legality table is
+  [SPEC.md](SPEC.md) §1.1; Amendment 3's point is that none of them is
+  legal in `gap` position.
+- **`runner.Registration.board_widget` / `reach_preferred_widgets`**
+  (Amendment 4's identity note) are two fields of the `Registration`
+  dataclass in `runner.py` — each names encoding leaves by their
+  widget id (the same id scheme `default_valuation` reuses): the
+  first names the aspect-locked leaf stage 1 maximizes, the second
+  the widgets stage 2 scores shortfall for.
 
 ## License
 

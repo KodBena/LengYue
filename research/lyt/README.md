@@ -86,8 +86,11 @@ for the original build report and
 adversarial review that followed it (REJECT, 2 MAJOR / 4 MODERATE / 5
 MINOR findings); the fixes for that review's findings are recorded in
 [.claude/dispatch-reports/lyt-compiler-fix1-build.md](../../.claude/dispatch-reports/lyt-compiler-fix1-build.md). Four language
-amendments, adjudicated via the commissioner-delegated ledger (rows
-1670/1671/1715/1737), are implemented on top of that fix pass — see
+amendments, adjudicated via the commissioner-delegated ledger (the
+project's append-only decision log, written and read with the
+`./autoharn led` command from the repository root; "rows
+1670/1671/1715/1737" are entries in it), are implemented on top of
+that fix pass — see
 [SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md) for the rulings and their rationale, and the two
 sections below for what AMENDMENTS 1/2 changed in this checker/loader
 (AMENDMENT 3, the split-node `gap` declaration, touches the parser/
@@ -132,10 +135,12 @@ amendment — `current-row-repaired` stays `OPTIMAL` at the first three
 and was already `INFEASIBLE` at portrait pre-amendment, for the
 unrelated aspect/exact-cross-fill reason the "Honest caveat" section
 below describes. What DOES change, at the three landscape sizes, is the
-SOLVED geometry: the board-maximize stage now has to leave room for the
-banners' genuine 314px combined floor, so it settles for a smaller
-board instead of the value it found when the banners were squeezable to
-nothing:
+SOLVED geometry: the board-maximize stage (stage 1 of the solver's
+ordered objective — maximize the board's own dimension first; stage 2
+then minimizes every other widget's shortfall from its preferred size)
+now has to leave room for the banners' genuine 314px combined floor,
+so it settles for a smaller board instead of the value it found when
+the banners were squeezable to nothing:
 
 | size | board `w` before | board `w` after | stage-2 objective before | stage-2 objective after |
 |---|---|---|---|---|
