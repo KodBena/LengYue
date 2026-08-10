@@ -655,3 +655,133 @@ def test_l2_wrapped_toggle_cluster_would_violate():
     with pytest.raises(LytLoadError) as exc_info:
         loader.load_layouts(prog)
     assert exc_info.value.detail.get("law") == "L2"
+
+
+# =============================================================================
+# emit_ts.py -- the LYT-adoption-roadmap Phase-1 "shadow mode" TS codegen
+# (commission: lyt-shadow-harness). Coverage per the build commission's own
+# required minimum: stable output shape, deterministic ordering. Also covers
+# the INFEASIBLE-size handling and the class-registry/registration split
+# (the bug the emitter's own build caught and fixed before this test was
+# written: `LYT_SCREEN_CLASSES` must report each class's OWN representative
+# point, not whichever solved-size registration happened to touch that
+# class id last).
+# =============================================================================
+
+import re
+
+import emit_ts
+
+
+def test_emit_ts_build_solved_registrations_covers_every_representative_size():
+    registrations, screen_classes = emit_ts.build_solved_registrations()
+    from runner import SCREEN_SIZES
+
+    assert [r["label"] for r in registrations] == [label for label, _, _ in SCREEN_SIZES]
+    # current-row-repaired registers exactly one screen class ('default'),
+    # solved against at every representative size (runner.py's own module
+    # docstring) -- so all four registrations share one classId.
+    assert {r["classId"] for r in registrations} == {"default"}
+    assert screen_classes == [{"id": "default", "wPx": 1920, "hPx": 1080}]
+
+
+def test_emit_ts_landscape_sizes_solve_optimal_with_nonempty_slots():
+    registrations, _ = emit_ts.build_solved_registrations()
+    by_label = {r["label"]: r for r in registrations}
+    for label in ("1920x1080", "2560x1440", "1280x1024"):
+        reg = by_label[label]
+        assert reg["status"] == "OPTIMAL", f"{label}: {reg['status']}"
+        assert reg["slots"], f"{label}: expected non-empty slots"
+        assert "B" in reg["slots"]  # the board widget always solves a rect when OPTIMAL
+
+
+def test_emit_ts_portrait_size_is_infeasible_with_empty_slots_not_dropped():
+    """1080x1920-portrait is a REAL infeasibility (SPEC-AMENDMENTS.md
+    Amendment 1's consequence: the mandatory 314px preserve-banner floor
+    plus the nav bar leaves no room for a board at portrait proportions).
+    The emitter must record it as an INFEASIBLE entry with empty slots,
+    not silently omit the size -- the conformance harness needs to know a
+    size was attempted and refused, not just see it missing from the
+    registry."""
+    registrations, _ = emit_ts.build_solved_registrations()
+    by_label = {r["label"]: r for r in registrations}
+    portrait = by_label["1080x1920-portrait"]
+    assert portrait["status"] == "INFEASIBLE"
+    assert portrait["slots"] == {}
+    assert portrait["wPx"] == 1080 and portrait["hPx"] == 1920
+
+
+def test_emit_ts_slots_from_result_rejects_duplicate_widget_ids():
+    """`_slots_from_result`'s dict is keyed by widget id; two leaf paths
+    sharing one widget id would silently drop one rect if not guarded.
+    Refused loudly instead (ADR-0002)."""
+    from compiler import SolveResult, SolvedRect
+
+    result = SolveResult(
+        class_id="t",
+        w_px=100,
+        h_px=100,
+        rects={"root/H0": SolvedRect(0, 0, 50, 50), "root/H1": SolvedRect(50, 0, 50, 50)},
+        leaf_names={"root/H0": "dup", "root/H1": "dup"},
+        objective_values=[],
+        status="OPTIMAL",
+    )
+    with pytest.raises(ValueError, match="duplicate widget id"):
+        emit_ts._slots_from_result(result)
+
+
+def test_emit_ts_render_ts_output_is_deterministic():
+    """Re-rendering the SAME solved registrations must produce a
+    byte-identical .gen.ts text -- no wall-clock timestamp, no hostname, no
+    unordered-set/dict iteration leaking into the output. This is the
+    build commission's explicit 'deterministic ordering' requirement."""
+    registrations, screen_classes = emit_ts.build_solved_registrations()
+    text_a = emit_ts.render_ts(registrations, screen_classes)
+    text_b = emit_ts.render_ts(registrations, screen_classes)
+    assert text_a == text_b
+
+
+def test_emit_ts_render_ts_slots_are_sorted_by_widget_id():
+    """`_slots_from_result` sorts its output; confirm that sortedness
+    survives into the emitted TS text for at least one non-trivial
+    registration (stable output shape, not just stable across re-runs)."""
+    registrations, screen_classes = emit_ts.build_solved_registrations()
+    text = emit_ts.render_ts(registrations, screen_classes)
+    # Isolate JUST the 1920x1080 registration's own block: from its
+    # `label:` line to the next registration-closing "  },\n" line (NOT the
+    # first "];" in the file, which only closes the WHOLE array after every
+    # registration -- an earlier version of this test split on "];" and
+    # accidentally scooped up every registration's keys concatenated,
+    # which is unsorted overall even though each one is sorted on its own).
+    after_label = text.split('label: "1920x1080"')[1]
+    landscape_block = after_label.split("\n  },\n")[0]
+    keys_in_order = re.findall(r'"\s*([A-Za-z0-9_-]+)"\s*:\s*\{ x:', landscape_block)
+    assert keys_in_order == sorted(keys_in_order)
+    assert len(keys_in_order) == 45  # sanity: matches emit_ts.py's own printed count
+
+
+def test_emit_ts_render_ts_emits_no_content_basis_and_marks_generated():
+    """Sanity checks on the header/shape a human or a CI job would look
+    for: the GENERATED marker (never-hand-edit), the regenerate command,
+    and that every LYT_SOLVED_LAYOUT entry has a status field drawn from
+    the closed LytSolveStatus vocabulary."""
+    registrations, screen_classes = emit_ts.build_solved_registrations()
+    text = emit_ts.render_ts(registrations, screen_classes)
+    assert "GENERATED FILE" in text
+    assert "do not hand-edit" in text
+    assert emit_ts.GENERATED_REGEN_COMMAND in text
+    for r in registrations:
+        assert r["status"] in ("OPTIMAL", "FEASIBLE", "INFEASIBLE")
+
+
+def test_emit_ts_main_writes_file_matching_render_ts(tmp_path):
+    """End-to-end: `main(["--out", ...])` writes a file whose content
+    equals `render_ts` applied to a fresh `build_solved_registrations()`
+    call -- confirms the CLI wiring doesn't diverge from the pure
+    functions the other tests exercise directly."""
+    out_path = tmp_path / "lyt-solved-layout.gen.ts"
+    exit_code = emit_ts.main(["--out", str(out_path)])
+    assert exit_code == 0
+    written = out_path.read_text()
+    registrations, screen_classes = emit_ts.build_solved_registrations()
+    assert written == emit_ts.render_ts(registrations, screen_classes)
