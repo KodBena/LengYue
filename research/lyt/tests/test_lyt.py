@@ -916,3 +916,145 @@ def test_emit_ts_current_row_asis_resizer_slots_agree_across_sizes():
             continue
         assert r["slots"]["resizerOuter"]["w"] == 1
         assert r["slots"]["resizerInner"]["w"] == 1
+
+
+# =============================================================================
+# emit_mockup.py -- the lyt-cleanroom-mockups commission (ledger row 1703)
+# static HTML/CSS-grid mockup generator. Coverage: the LYT-sizing -> CSS
+# grid-track mapping (the sizing shapes actually present in the two
+# clean-room encodings), the T-node componentwise-max min derivation
+# reproduced from compiler.py, and output-shape checks on the generated
+# pages (well-formed nesting, every corner-menu toggle target present,
+# the debug-overlay solved data embedded and matching the live tree).
+# =============================================================================
+
+import json
+import re
+
+import emit_mockup
+
+
+def test_track_for_child_fixed_shape():
+    fixed = ast.Sizing(min=ast.Extent(unit="px", v=28), pref=ast.Extent(unit="px", v=28), max=ast.Extent(unit="px", v=28))
+    assert emit_mockup._track_for_child(fixed, floor_override_px=None, where="t") == "28px"
+
+
+def test_track_for_child_elastic_uncapped_shape():
+    elastic = ast.Sizing(min=ast.Extent(unit="px", v=0), pref=ast.Extent(unit="fr", v=1), max="inf")
+    assert emit_mockup._track_for_child(elastic, floor_override_px=None, where="t") == "minmax(0px, 1fr)"
+
+
+def test_track_for_child_elastic_capped_shape_drops_the_fr_weight():
+    """Module docstring's own disclosed choice: CSS minmax() has only two
+    argument slots, so a capped-elastic shape (min/pref-fr/max all
+    present, e.g. the side column's `{min 340px, pref 32fr, max
+    340px+60ch}`) keeps the hard min/max and drops the fr weight."""
+    capped = ast.Sizing(min=ast.Extent(unit="px", v=340), pref=ast.Extent(unit="fr", v=32), max=ast.Extent(unit="px", v=820))
+    assert emit_mockup._track_for_child(capped, floor_override_px=None, where="t") == "minmax(340px, 820px)"
+
+
+def test_track_for_child_floor_override_wins_over_declared_min():
+    elastic = ast.Sizing(min=ast.Extent(unit="px", v=0), pref=ast.Extent(unit="fr", v=1), max="inf")
+    assert emit_mockup._track_for_child(elastic, floor_override_px=300, where="t") == "minmax(300px, 1fr)"
+
+
+def test_track_for_child_refuses_unhandled_shapes_loudly():
+    """A shape none of the two clean-room encodings actually uses (here:
+    uncapped with a plain px pref) has no disclosed mapping -- refused,
+    not guessed (ADR-0002)."""
+    weird = ast.Sizing(min=ast.Extent(unit="px", v=0), pref=ast.Extent(unit="px", v=50), max="inf")
+    with pytest.raises(NotImplementedError):
+        emit_mockup._track_for_child(weird, floor_override_px=None, where="t")
+
+
+def test_exclusive_derived_min_px_matches_compilers_componentwise_max():
+    """Reproduces compiler.py's `_constrain` Exclusive branch derivation
+    (componentwise max of children's own declared min) -- this is the
+    exact floor the T node's own track in emit_mockup's HTML must carry,
+    the same floor the CP-SAT solver enforces."""
+    children = [
+        ast.Slot(node=ast.Leaf(widget="a"), presence=ast.FIXED, sizing=ast.Sizing(min=ast.Extent(unit="px", v=200), pref=ast.Extent(unit="fr", v=1), max="inf")),
+        ast.Slot(node=ast.Leaf(widget="b"), presence=ast.FIXED, sizing=ast.Sizing(min=ast.Extent(unit="px", v=300), pref=ast.Extent(unit="fr", v=1), max="inf")),
+    ]
+    excl = ast.Exclusive(children=children)
+    assert emit_mockup._exclusive_derived_min_px(excl, where="t") == 300
+
+
+def test_exclusive_derived_min_px_empty_children_is_zero():
+    assert emit_mockup._exclusive_derived_min_px(ast.Exclusive(children=[]), where="t") == 0.0
+
+
+@pytest.fixture(scope="module")
+def mockup_pages():
+    """Solves both classes once and reuses the result across this test
+    module's assertions -- each solve is a real (if fast) CP-SAT call,
+    and there is nothing about the assertions below that requires a
+    fresh solve per test."""
+    return emit_mockup.build_all(time_limit_s=10.0)
+
+
+def test_build_all_produces_both_screen_classes(mockup_pages):
+    assert set(mockup_pages.keys()) == {"landscape", "portrait"}
+    for class_id, html_text in mockup_pages.items():
+        assert html_text.startswith("<!doctype html>")
+        assert "GENERATED FILE" in html_text
+        assert f"lengyue-{class_id}" in html_text
+
+
+def test_generated_pages_have_balanced_div_nesting(mockup_pages):
+    for class_id, html_text in mockup_pages.items():
+        opens = len(re.findall(r"<div", html_text))
+        closes = len(re.findall(r"</div>", html_text))
+        assert opens == closes, f"{class_id}: {opens} <div vs {closes} </div>"
+        assert opens > 0
+
+
+def test_generated_pages_carry_every_declared_toggle_target(mockup_pages):
+    for class_id, targets in emit_mockup.TOGGLE_TARGETS.items():
+        html_text = mockup_pages[class_id]
+        for label, presence in targets.values():
+            slug = emit_mockup._slug(label)
+            assert f'data-toggle-id="{slug}" data-presence="{presence}"' in html_text
+            assert f'data-toggle-for="{slug}"' in html_text
+            if presence == "release":
+                assert f'data-toggle-id="{slug}"' in html_text and "data-track-prop=" in html_text
+
+
+def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_pages):
+    for class_id, html_text in mockup_pages.items():
+        m = re.search(r'<script id="lyt-solved-data" type="application/json">(.*?)</script>', html_text, re.S)
+        assert m, f"{class_id}: no embedded solved-data script tag"
+        data = json.loads(m.group(1))
+        expected_sizes = emit_mockup.OVERLAY_SIZES[class_id]
+        assert [(d["label"], d["wPx"], d["hPx"]) for d in data] == expected_sizes
+        for d in data:
+            assert d["status"] == "OPTIMAL"
+            assert "B" in d["slots"]  # the board widget always solves a rect when OPTIMAL
+
+
+def test_landscape_side_column_track_is_capped_elastic(mockup_pages):
+    """Regression pin for the disclosed elastic+cap mapping (min 340px,
+    max 340px+60ch=820px) actually reaching the generated HTML."""
+    assert "minmax(340px, 820px)" in mockup_pages["landscape"]
+
+
+def test_tree_panels_t_node_track_carries_its_derived_floor(mockup_pages):
+    """The T node's own track in its parent must carry the
+    compiler-derived componentwise-max floor (300px landscape, 200px
+    portrait per the two .lyt files' own WRAPPER_MIN / literal 200px),
+    not the loader's un-derived 0px default."""
+    assert "minmax(300px, 1fr)" in mockup_pages["landscape"]
+    assert "minmax(200px, 1fr)" in mockup_pages["portrait"]
+
+
+def test_render_is_deterministic_given_the_same_overlay_data():
+    """Re-rendering the SAME (slot, overlay_data) pair must produce a
+    byte-identical page -- no wall-clock timestamp, no unordered
+    iteration leaking into the output (mirrors emit_ts's own
+    determinism test)."""
+    reg, layouts = emit_mockup.load_class_slots()
+    slot = layouts[reg.layout_by_class["landscape"]]
+    overlay = emit_mockup.build_overlay_data(reg, layouts, "landscape", time_limit_s=10.0)
+    text_a = emit_mockup.build_html_for_class("landscape", slot, overlay)
+    text_b = emit_mockup.build_html_for_class("landscape", slot, overlay)
+    assert text_a == text_b

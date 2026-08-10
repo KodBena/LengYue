@@ -1,0 +1,227 @@
+<!doctype html>
+<!--
+  GENERATED FILE -- do not hand-edit.
+  Tool: research/lyt/emit_mockup.py
+  Source encodings: research/lyt/encodings/lengyue_landscape.lyt,
+  research/lyt/encodings/lengyue_portrait.lyt (layout `lengyue-portrait`).
+  Regenerate: cd research/lyt && nice -n 19 ~/w/vdc/venvs/generic/bin/python emit_mockup.py
+  Public Domain (The Unlicense), matching research/lyt/__init__.py's
+  license line and the umbrella's ADR-0006 per-file convention.
+-->
+<html data-theme="dark">
+<head>
+<meta charset="utf-8">
+<title>LengYue clean-room mockup — portrait</title>
+<style>
+:root {
+  --surface-0: #000;
+  --surface-1: #111;
+  --surface-2: #1a1a1a;
+  --surface-3: #222;
+  --border-1: #2a2a2a;
+  --border-2: #333;
+  --border-3: #555;
+  --text-0: #fff;
+  --accent-primary: #4aaef0;
+  --state-attention: #ff4a4a;
+  --space-tight: 4px;
+  --space-default: 8px;
+  --space-medium: 12px;
+  --text-tiny: 9px;
+  --text-emphasis: 12px;
+  --text-heading: 16px;
+  --radius-default: 3px;
+  --radius-circle: 50%;
+  --tracking-default: 0.1em;
+  --z-popover: 10;
+  --z-affordance: 50;
+  --z-overlay: 99999;
+}
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: var(--surface-0); color: var(--text-0);
+  font-family: system-ui, sans-serif; font-size: var(--text-emphasis);
+  overflow: hidden;
+}
+.lyt-node { box-sizing: border-box; }
+.lyt-group {
+  border: 1px solid var(--border-1);
+  background: var(--surface-1);
+  padding: var(--space-tight);
+  position: relative;
+}
+.row-caption {
+  font-size: var(--text-tiny); letter-spacing: var(--tracking-default);
+  text-transform: uppercase; color: var(--text-0); flex: 0 0 auto;
+  padding-right: var(--space-tight); border-right: 1px solid var(--border-2);
+  margin-right: var(--space-tight);
+}
+.lyt-leaf { position: relative; }
+.info-row, .actions-row {
+  display: flex; align-items: center; height: 100%;
+  box-sizing: border-box; padding: 0 var(--space-tight);
+  gap: var(--space-default); overflow-x: auto; white-space: nowrap;
+}
+.actions-row-wrap { gap: var(--space-tight); }
+.info-row span { color: var(--text-0); font-size: var(--text-emphasis); }
+.btn {
+  background: var(--surface-3); border: 1px solid var(--border-2);
+  color: var(--text-0); border-radius: var(--radius-default);
+  padding: 0 var(--space-default); height: 24px; min-width: 24px;
+  font-size: var(--text-emphasis); display: inline-flex; align-items: center;
+  justify-content: center; flex: 0 0 auto;
+}
+.debug-pill { background: var(--surface-2); border-color: var(--border-1); }
+.board-square {
+  width: 100%; height: 100%; position: relative;
+  background: var(--surface-2); border: 1px solid var(--border-2);
+  box-sizing: border-box;
+}
+.board-grid {
+  position: absolute; inset: 5%;
+  background-image:
+    repeating-linear-gradient(var(--border-2) 0 1px, transparent 1px 5.5556%),
+    repeating-linear-gradient(90deg, var(--border-2) 0 1px, transparent 1px 5.5556%);
+}
+.board-stone {
+  position: absolute; width: 5%; height: 5%; border-radius: var(--radius-circle);
+  transform: translate(-50%, -50%);
+}
+.board-stone-b { background: #000; border: 1px solid #444; }
+.board-stone-w { background: #fff; border: 1px solid #999; }
+.lyt-tabstrip {
+  display: flex; height: 24px; box-sizing: border-box;
+  border-bottom: 1px solid var(--border-2); overflow-x: auto; white-space: nowrap;
+}
+.lyt-tab-caption {
+  padding: 0 var(--space-default); display: flex; align-items: center; flex: 0 0 auto;
+  font-size: var(--text-tiny); letter-spacing: var(--tracking-default);
+  text-transform: uppercase; color: var(--text-0);
+  border-right: 1px solid var(--border-2); box-sizing: border-box;
+}
+.lyt-tab {
+  padding: 0 var(--space-default); display: flex; align-items: center; flex: 0 0 auto;
+  font-size: var(--text-emphasis); color: var(--text-0);
+  border-right: 1px solid var(--border-1); box-sizing: border-box;
+}
+.lyt-tab.active { background: var(--surface-2); border-bottom: 2px solid var(--accent-primary); }
+.lyt-tabbody, .blackbox-body { padding: var(--space-tight); overflow: auto; color: var(--text-0); }
+.tree-row { color: var(--text-0); font-size: var(--text-emphasis); white-space: nowrap; }
+#lyt-menu-btn {
+  position: fixed; right: 8px; bottom: 8px; width: 28px; height: 28px;
+  z-index: var(--z-affordance); background: var(--surface-3);
+  border: 1px solid var(--border-2); color: var(--text-0);
+  border-radius: var(--radius-default); font-size: var(--text-heading);
+  line-height: 1; cursor: pointer;
+}
+#lyt-menu-popover {
+  position: fixed; right: 8px; bottom: 42px; z-index: var(--z-popover);
+  background: var(--surface-0); border: 1px solid var(--border-2);
+  padding: var(--space-medium); min-width: 220px; color: var(--text-0);
+}
+.lyt-menu-title { font-size: var(--text-emphasis); color: var(--text-0); margin-bottom: var(--space-tight); }
+.lyt-menu-row {
+  display: flex; align-items: center; gap: var(--space-tight);
+  min-height: 24px; color: var(--text-0); font-size: var(--text-emphasis);
+}
+.lyt-menu-row input[type="checkbox"] { width: 16px; height: 16px; }
+.lyt-overlay-status { font-size: var(--text-tiny); color: var(--text-0); margin-top: var(--space-tight); }
+#lyt-overlay-layer { position: fixed; inset: 0; pointer-events: none; z-index: var(--z-overlay); }
+.lyt-overlay-rect { position: absolute; border: 1px solid var(--state-attention); background: transparent; box-sizing: border-box; }
+.lyt-overlay-tag { position: absolute; top: 0; left: 0; font-size: var(--text-tiny); color: var(--state-attention); background: var(--surface-0); padding: 0 2px; }
+</style>
+</head>
+<body>
+<div id="lyt-root" style="width:100vw;height:100vh;overflow:hidden;position:relative;">
+<div class="lyt-node lyt-split lyt-v "  style="display:grid;grid-auto-flow:row;grid-template-rows:var(--track-0, 28px) var(--track-1, minmax(0px, 1fr)) var(--track-2, 28px) var(--track-3, minmax(200px, 1fr));grid-template-columns:1fr;column-gap:0px;row-gap:0px;width:100%;height:100%;"><div class="lyt-node lyt-leaf lyt-group" data-toggle-id="top-actions" data-presence="release" data-track-prop="--track-0" style="width:100%;height:100%;grid-row:1/2;grid-column:1;min-width:0;min-height:0;"><div class="actions-row actions-row-wrap"><span class="row-caption">Top Actions</span><button class="btn">Mint</button><button class="btn">Learn</button><button class="btn">Play</button><button class="btn">Match</button><button class="btn">Load</button><button class="btn">Save</button><button class="btn">Connect</button><button class="btn">Sliders</button><button class="btn debug-pill" title="Autonav, popover test, clear cache (dev-only, C-domain)">Debug (3)</button></div></div><div class="lyt-node lyt-split lyt-v lyt-group" data-toggle-id="board" data-presence="preserve" style="display:grid;grid-auto-flow:row;grid-template-rows:var(--track-0, minmax(0px, 100fr)) var(--track-1, 24px) var(--track-2, 28px);grid-template-columns:1fr;column-gap:0px;row-gap:0px;grid-row:2/3;grid-column:1;min-width:0;min-height:0;"><div class="lyt-node lyt-leaf "  style="width:100%;height:100%;grid-row:1/2;grid-column:1;min-width:0;min-height:0;justify-self:center;aspect-ratio:1/1;max-width:100%;max-height:100%;"><div class="board-square"><div class="board-grid"></div><div class="board-stone board-stone-b" style="left:22%;top:30%;"></div><div class="board-stone board-stone-w" style="left:35%;top:45%;"></div><div class="board-stone board-stone-b" style="left:50%;top:38%;"></div><div class="board-stone board-stone-w" style="left:44%;top:58%;"></div></div></div><div class="lyt-node lyt-leaf "  style="width:100%;height:100%;grid-row:2/3;grid-column:1;min-width:0;min-height:0;"><div class="info-row"><span>Move 47</span><span>● Black — Alice (2400)</span><span>○ White — Bob (2350)</span><span>Caps B 3 · W 5</span></div></div><div class="lyt-node lyt-leaf "  style="width:100%;height:100%;grid-row:3/4;grid-column:1;min-width:0;min-height:0;"><div class="actions-row"><button class="btn">Pass</button><button class="btn">|&lt;</button><button class="btn">&lt;</button><button class="btn">&gt;</button><button class="btn">&gt;|</button><button class="btn">Annotate</button><button class="btn">Setup</button></div></div></div><div class="lyt-node lyt-leaf lyt-group" data-toggle-id="engine-info" data-presence="release" data-track-prop="--track-2" style="width:100%;height:100%;grid-row:3/4;grid-column:1;min-width:0;min-height:0;"><div class="info-row"><span class="row-caption">Engine Info</span><span>KataGo v1.0.27</span><span>Connected</span><span>Model: b18-8192</span><span>1200 pps</span><span>40 ms</span><span>Queue 2</span></div></div><div class="lyt-node lyt-exclusive lyt-group" data-toggle-id="tree-panels" data-presence="preserve" style="display:grid;grid-template-rows:auto 1fr;grid-template-columns:1fr;column-gap:0px;row-gap:0px;grid-row:4/5;grid-column:1;min-width:0;min-height:0;"><div class="lyt-tabstrip"><div class="lyt-tab-caption">Tree &amp; Panels</div><div class="lyt-tab active">Tree</div><div class="lyt-tab">Library</div><div class="lyt-tab">Cards</div><div class="lyt-tab">Settings</div><div class="lyt-tab">Analysis</div><div class="lyt-tab">Other</div></div><div class="lyt-tabbody"><div class="tree-body"><div class="tree-row" style="padding-left:0">Game Tree</div><div class="tree-row" style="padding-left:12px">├ Move 1 (B)</div><div class="tree-row" style="padding-left:12px">├ Move 2 (W)</div><div class="tree-row" style="padding-left:24px">│ ├ Variation A</div><div class="tree-row" style="padding-left:24px">│ └ Variation B</div><div class="tree-row" style="padding-left:12px">└ Move 3 (B) — current</div></div></div></div></div>
+</div>
+<button id="lyt-menu-btn" type="button" aria-label="Panel menu">&#8942;</button>
+<div id="lyt-menu-popover" hidden>
+  <div class="lyt-menu-title">Panels</div>
+  <label class="lyt-menu-row"><input type="checkbox" data-toggle-for="top-actions" checked> Top Actions</label><label class="lyt-menu-row"><input type="checkbox" data-toggle-for="board" checked> Board</label><label class="lyt-menu-row"><input type="checkbox" data-toggle-for="engine-info" checked> Engine Info</label><label class="lyt-menu-row"><input type="checkbox" data-toggle-for="tree-panels" checked> Tree &amp; Panels</label>
+  <hr>
+  <label class="lyt-menu-row"><input type="checkbox" id="lyt-overlay-toggle"> Show solved-rect overlay</label>
+  <div id="lyt-overlay-status" class="lyt-overlay-status"></div>
+</div>
+<div id="lyt-overlay-layer"></div>
+<script id="lyt-solved-data" type="application/json">[{"label": "1080x1920-portrait", "wPx": 1080, "hPx": 1920, "status": "OPTIMAL", "slots": {"A_board": {"x": 0, "y": 1132, "w": 1080, "h": 28}, "A_top": {"x": 0, "y": 0, "w": 1080, "h": 28}, "B": {"x": 0, "y": 28, "w": 1080, "h": 1080}, "CP-analysis": {"x": 0, "y": 1188, "w": 1080, "h": 732}, "CP-cards": {"x": 0, "y": 1188, "w": 1080, "h": 732}, "CP-library": {"x": 0, "y": 1188, "w": 1080, "h": 732}, "CP-other": {"x": 0, "y": 1188, "w": 1080, "h": 732}, "CP-settings": {"x": 0, "y": 1188, "w": 1080, "h": 732}, "I_board": {"x": 0, "y": 1108, "w": 1080, "h": 24}, "I_engine": {"x": 0, "y": 1160, "w": 1080, "h": 28}, "tree": {"x": 0, "y": 1188, "w": 1080, "h": 732}}}]</script>
+<script>
+(function () {
+  var btn = document.getElementById('lyt-menu-btn');
+  var pop = document.getElementById('lyt-menu-popover');
+  btn.addEventListener('click', function () { pop.hidden = !pop.hidden; });
+
+  document.querySelectorAll('#lyt-menu-popover input[data-toggle-for]').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      var id = cb.getAttribute('data-toggle-for');
+      var el = document.querySelector('[data-toggle-id="' + id + '"]');
+      if (!el) return;
+      var presence = el.getAttribute('data-presence');
+      if (presence === 'preserve') {
+        el.style.visibility = cb.checked ? '' : 'hidden';
+      } else {
+        // 'release': collapse THIS child's own grid track (a CSS custom
+        // property on the PARENT grid container, see emit_mockup.py's
+        // render_split for why -- the parent's grid-template references
+        // var(--track-N, <original>), so removing the override restores
+        // the original track size and setting it to 0px collapses only
+        // this one track, genuinely freeing the space for siblings
+        // rather than leaving a blank gap or mis-tracking them).
+        var trackProp = el.getAttribute('data-track-prop');
+        if (trackProp && el.parentElement) {
+          if (cb.checked) {
+            el.parentElement.style.removeProperty(trackProp);
+          } else {
+            el.parentElement.style.setProperty(trackProp, '0px');
+          }
+        }
+        el.style.display = cb.checked ? '' : 'none';
+      }
+    });
+  });
+
+  var overlayData = JSON.parse(document.getElementById('lyt-solved-data').textContent);
+  var overlayToggle = document.getElementById('lyt-overlay-toggle');
+  var overlayLayer = document.getElementById('lyt-overlay-layer');
+  var overlayStatus = document.getElementById('lyt-overlay-status');
+
+  function drawOverlay() {
+    overlayLayer.innerHTML = '';
+    var w = window.innerWidth, h = window.innerHeight;
+    var match = null;
+    for (var i = 0; i < overlayData.length; i++) {
+      if (overlayData[i].wPx === w && overlayData[i].hPx === h) { match = overlayData[i]; break; }
+    }
+    if (!match) {
+      overlayStatus.textContent = 'no solve for ' + w + 'x' + h;
+      return;
+    }
+    if (match.status !== 'OPTIMAL' && match.status !== 'FEASIBLE') {
+      overlayStatus.textContent = match.label + ': ' + match.status;
+      return;
+    }
+    overlayStatus.textContent = match.label + ' (' + match.status + ')';
+    Object.keys(match.slots).forEach(function (widget) {
+      var r = match.slots[widget];
+      var div = document.createElement('div');
+      div.className = 'lyt-overlay-rect';
+      div.style.left = r.x + 'px';
+      div.style.top = r.y + 'px';
+      div.style.width = r.w + 'px';
+      div.style.height = r.h + 'px';
+      var tag = document.createElement('div');
+      tag.className = 'lyt-overlay-tag';
+      tag.textContent = widget;
+      div.appendChild(tag);
+      overlayLayer.appendChild(div);
+    });
+  }
+
+  overlayToggle.addEventListener('change', function () {
+    if (overlayToggle.checked) { drawOverlay(); } else { overlayLayer.innerHTML = ''; overlayStatus.textContent = ''; }
+  });
+  window.addEventListener('resize', function () { if (overlayToggle.checked) drawOverlay(); });
+})();
+</script>
+</body>
+</html>
