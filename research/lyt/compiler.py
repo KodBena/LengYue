@@ -174,8 +174,10 @@ def _apply_bound(
             raise LytLoadError(
                 f"'{'max' if is_max else 'min'} {extent.v}fr' at {path} "
                 f"({dim}) has no enclosing Split to denominate its share "
-                "against (root sizing is inert regardless of its declared "
-                "bounds; an Exclusive/T-node child shares its parent's "
+                "against (compatible px/inf bounds on the root ARE inert "
+                "regardless of declared bounds, but an fr bound is not — "
+                "it hits this same refusal as any other undenominated fr "
+                "bound; an Exclusive/T-node child shares its parent's "
                 "FULL rectangle on both axes, per layout-language-consult.md "
                 "line 297-298, so there is no single partition-axis length "
                 "to take a share of) — fr bounds in min/max position are "

@@ -42,7 +42,10 @@ EBNF does not cover):
     (§5.1 line 489, sugar for `pref 1fr` with no local aspect clamp — the
     real aspect constraint lives on the wrapped board leaf), and
     `drag-persisted` (§5.1 lines 500/502, a documentation flag with no
-    geometric effect in this static-solve prototype — see loader.py).
+    geometric effect in this static-solve prototype — see wellformed.py's
+    "L4 ACCOUNTING" paragraph for the disclosure of what this flag does
+    and does not do; it is dropped after parsing, never reaching
+    lyt_ast.Sizing, loader.py, or compiler.py).
     `envelope` gained an OPTIONAL `: {state, state, ...}` state list — the
     base grammar's bare `envelope` keyword (line 286) has nowhere to put
     the enumerated states L3 requires (line 381), so this parser accepts

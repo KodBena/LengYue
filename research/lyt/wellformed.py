@@ -39,10 +39,42 @@ reasoning about which axis a leaf's presence widens (a system-level
 property, not a tree-local one) and was judged out of scope for a
 prototype checker. Flagged, not silently narrowed.
 
+MAGNITUDE (cold review, lyt-compiler-cold-review.md, "L2 checker is
+trivially defeated by a near-zero decoy sibling"): the gap above is not a
+theoretical edge case. A single near-zero-width non-chrome sibling — the
+review's witness uses `{min 1px, pref 1px, max 1px}`, under 4% of the
+wrapped band — is sufficient to satisfy the "at least one OTHER bare
+non-chrome leaf sibling" test above and flip the checker's verdict from
+VIOLATION to CONFORMS, on a tree that is, geometrically, still a band of
+the partition axis reserved for a hide/show affordance alone. This
+checker is a local, tree-shape approximation of the spec's prose law; it
+provides weak assurance against adversarial or accidental decoys, not a
+guarantee that L2's intent is upheld. Strengthening the check (e.g. the
+2-D reasoning rejected above) is a language-design question, not
+addressed here.
+
 Applies to Split (H/V) nodes only, not Exclusive (T) — a T node's children
 each receive the *whole* rectangle (§4.1 line 297-298), so "a band of a
 partition axis" does not describe a T child's relationship to its
 siblings. Disclosed scoping choice.
+
+L4 ACCOUNTING (cold review, lyt-compiler-cold-review.md, "L4 has no
+accounting anywhere a reader would look for one"): this module implements
+L2 only. L4 ("a slot's extent has at most one writer among {solver
+constant, user drag}", line 350-364 region) is NOT implemented here, or
+anywhere in this prototype — not approximated, not partially checked,
+just absent. The `drag-persisted` sizing keyword parses (parser.py's
+`RawSizing.drag_persisted`) but is dropped on the floor: it is never
+copied onto `lyt_ast.Sizing` (which has no such field), and never read by
+loader.py, this module, or compiler.py. This is a defensible prototype
+scope call — this is a static, offline solver with no runtime drag state
+to arbitrate, so there is no "other writer" for a solver-only pass to
+conflict with — but, mirroring the discipline this module already applies
+to L1 elsewhere (see loader.py's F7 correction paragraph), the absence
+gets its own accounting rather than silent omission: a reader who trusts
+this module's docstring, or `errors.py`'s reference to "L1-L4" as what
+`LytLoadError` enforces, should not have to read every `.lyt` encoding's
+comments to learn that L4 is a no-op in this codebase.
 """
 from __future__ import annotations
 

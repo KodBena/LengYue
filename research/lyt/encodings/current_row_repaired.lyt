@@ -36,7 +36,15 @@
 --     dominant trigger, disclosed) (lines 484-487): all three repaired to
 --     `@toggle(system, preserve)`, matching the document's own suggested
 --     fix verbatim ("they become preserve slots of banner height", line
---     369-370).
+--     369-370). OPEN QUESTION (cold review observation, not yet
+--     adjudicated): these three are declared `min 0px` rather than
+--     `min == pref`, so nothing stops the solver from squeezing them to
+--     zero height when a higher-priority stage needs the room, which is
+--     what happens at every landscape size this file has been run
+--     against — does "preserve" here actually promise the banner-height
+--     geometry the spec's prose attaches to it, or only the Presence
+--     type? Left open pending commissioner adjudication; solver
+--     semantics unchanged.
 --
 -- Additional disclosed transcription choices (not warts, just elisions in
 -- the original "…"-shorthand lines): loadSave/addBoard/jankTest get
@@ -45,6 +53,30 @@
 -- (mint/learn/play/match/clearCache/autoNav/popStress/connect) are given
 -- a uniform 32px width, since the document elides their individual
 -- widths entirely.
+--
+-- COLD-REVIEW ADDENDA (lyt-compiler-fix2-build,
+-- .claude/dispatch-reports/lyt-compiler-cold-review.md finding 2): the
+-- above list was incomplete. Five more leaf occurrences below carry
+-- fully invented sizing not previously named here:
+--   - engineUri (line 99): spec line 470 gives only `{max 220px}` (no
+--     pref, no min); `pref 220px` is invented to satisfy Sizing's
+--     required-pref constructor.
+--   - sliders (line 102): spec line 474 elides sizing entirely (`{…}`);
+--     `{min 24px, pref 24px, max 24px}` is invented.
+--   - setup (line 103): spec line 475 gives only the `preserve` tag
+--     (`{…preserve — conformer}`), no numbers; `{min 24px, pref 24px,
+--     max 24px}` is invented (only the `preserve` presence was disclosed
+--     above, not this size).
+--   - moveNav (line 104): spec line 476 elides sizing entirely (`{…}`);
+--     `{min 96px, pref 96px, max 96px}` is invented.
+--   - boardToggle/treeToggle/ctrlToggle/locale (lines 117-120): spec
+--     lines 481-482 give this whole H(...) cluster with no sizing braces
+--     on any of the four children; `24px` uniform is invented for all
+--     four.
+-- Every one of these is a defensible completion (matching sibling
+-- patterns already present in the tree), but none was previously listed
+-- here — this addendum brings the disclosure up to the completeness the
+-- file's own stated discipline claims.
 --
 -- F4 CORRECTIONS (review row 1609,
 -- .claude/dispatch-reports/lyt-compiler-prototype-review.md finding F4):

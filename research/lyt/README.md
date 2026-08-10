@@ -17,6 +17,36 @@ adversarial review that followed it (REJECT, 2 MAJOR / 4 MODERATE / 5
 MINOR findings); the fixes for that review's findings are recorded in
 `.claude/dispatch-reports/lyt-compiler-fix1-build.md`.
 
+## Well-formedness checking scope (L1-L4)
+
+`errors.py`'s `LytLoadError` docstring references "L1-L4" as the laws it
+enforces; here is what that actually covers in this prototype, since
+neither the code nor this README stated it plainly before the cold
+review (`.claude/dispatch-reports/lyt-compiler-cold-review.md`) flagged
+the gap:
+
+- **L1** (control stability) is not structurally checked — it quantifies
+  over runtime screen-class/toggle/drag states, not static tree shape.
+- **L2** (no band of a partition axis reserved for a hide/show affordance
+  alone) IS checked, by `wellformed.py`, but only as a local tree-shape
+  approximation of the spec's prose law — see that module's docstring for
+  the reasoning. Worth stating plainly: the check is easy to defeat. A
+  single near-zero non-chrome sibling (as little as 1px, under 4% of the
+  wrapped band in the review's witness) is enough to flip the checker's
+  verdict from VIOLATION to CONFORMS on a tree that is, geometrically,
+  still exactly the kind of reserved-band-for-a-toggle-alone construction
+  L2 forbids. Treat a clean L2 pass as weak assurance against adversarial
+  or accidental decoys, not a guarantee.
+- **L3** (envelope-state coverage) is checked at load time (loader.py).
+- **L4** (a slot's extent has at most one writer among {solver constant,
+  user drag}) is **entirely unimplemented**. The `drag-persisted` sizing
+  keyword parses but is dropped after parsing — never reaching the typed
+  AST, the loader, or the compiler. This is a defensible scope call for a
+  static, offline solver with no runtime drag state to arbitrate, but it
+  means an `.lyt` file with `drag-persisted` gets no enforcement of L4
+  from this prototype at all. See `wellformed.py`'s "L4 ACCOUNTING"
+  paragraph for the full disclosure.
+
 ## Honest caveat on the "infeasibility proof" results (review finding F5)
 
 The build report's "single most interesting thing the solver revealed"
