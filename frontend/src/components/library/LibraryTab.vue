@@ -316,11 +316,32 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
   overflow: hidden;
 }
 
-/* Narrow-width stack — same pattern as the responsive arc. */
+/* Narrow-width stack — same pattern as the responsive arc.
+   Rows 1525/1526 (commissioner screenshot ~/smallscreen.png): the
+   list row was `minmax(0, 1fr)` against a preview row of
+   `minmax(0, auto)` — an intrinsically-sized `auto` track takes its
+   full content height even past the grid container's own size, so
+   when the preview pane's board had no height cap of its own (now
+   fixed in LibraryPreviewPane.vue's `.preview-board`), its content
+   height regularly exceeded the available space and the `1fr` list
+   track was squeezed to ~0px: only the single expanded preview card
+   was visible, and the game LIST — the thing this tab exists to
+   browse — had no room to render even one row. The list row now
+   carries a floor (`minmax(160px, 1fr)`, ~5 rows at
+   LibraryTable's own 32px ROW_HEIGHT_PX) so it always keeps a
+   usable share regardless of what the preview pane's content does,
+   and the preview row is capped (`minmax(0, 260px)`) so it can
+   never again claim more than a modest share even if a future edit
+   adds more content there — LibraryPreviewPane's own
+   `overflow-y: auto` (`.library-preview`) handles any overflow
+   inside that cap. Belt-and-suspenders with the preview pane's own
+   fixed-size thumbnail fix; either alone would have been enough for
+   TODAY's content, but only capping here is robust against
+   tomorrow's. */
 @container (max-width: 700px) {
   .library-split {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 1fr) minmax(0, auto);
+    grid-template-rows: minmax(160px, 1fr) minmax(0, 260px);
   }
 }
 
