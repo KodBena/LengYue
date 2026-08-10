@@ -355,6 +355,178 @@ updated to include the `(k-1)*gap` term; the pre-existing
 `test_landscape_side_column_track_carries_the_board_priority_clamp`
 pin updated for the new gap term in the clamp expression).
 
+## Amendment 4 (ledger row 1737) — per-valuation presence solving
+
+**Ruling.** This is not a new law — it is the implementation of a paragraph
+the spec's own §6 already prescribes (`layout-language-consult.md` lines
+636-641): "presence: solve the all-`preserve`-slots-present valuation ...
+`release` toggles are user-initiated only [...] so each user-reachable
+presence valuation is legitimately a *separate* solve; in practice solve
+the default valuation plus any valuation the author lists as common." The
+original build commission's own `compiler.py` disclosed the gap outright
+in its module docstring ("presence: only the 'all slots present' valuation
+is solved... no worked encoding names an alternate valuation to solve, so
+only the default is implemented; disclosed narrowing"). This amendment
+closes that narrowing. No spec text changes — same footing Amendments 1-3
+use.
+
+**Motivating finding (ledger row ~1735,
+`.claude/dispatch-reports/lyt-tree-always-visible-build.md`).** `boardRail`
+and `previewBoard` (`encodings/lengyue_landscape.lyt` /
+`lengyue_portrait.lyt`) were added as user-toggleable, DEFAULT-OFF
+`release` presence slots. Because the pre-Amendment-4 compiler always
+solved the "all slots present" valuation regardless of any slot's declared
+default-hidden state, their combined reservation (168px + 160px/96px, plus
+the gaps their presence in a split adds) was counted at EVERY size —
+including sizes where a real, default-hidden browser page renders
+perfectly fine because the tracks genuinely collapse to 0px client-side.
+Five sizes reported `INFEASIBLE` for this reason alone: landscape
+1366x768, 1024x700, 900x600, 1280x1024, and portrait 420x880.
+
+**What this amendment implements.**
+
+1. **Language surface** (`research/lyt/presence.py`, new module):
+   `PresenceValuation(name, absent_widgets: FrozenSet[str])` — a named set
+   of LEAF WIDGET IDS considered absent for one solve. Widget-id-keyed (the
+   same identity `runner.Registration.board_widget` /
+   `reach_preferred_widgets` already use), not tree-path-keyed — a
+   disclosed narrower concept than `emit_mockup.py`'s `TOGGLE_TARGETS`
+   registry, which is path-keyed because some of ITS entries name a
+   composite subtree (e.g. "Tree & Panels") with no single widget id; only
+   a bare leaf can be named in a `PresenceValuation`. `validate_valuation`
+   refuses loudly (`LytLoadError`, `detail.law == "presence-valuation"`)
+   when a named widget either doesn't exist, or exists but its declared
+   `Presence` isn't a genuine `{kind:'toggle', by:'user', hidden:'release'}`
+   — the commission's own words, "a named slot that isn't a user-release
+   toggle is an error." A `preserve` slot (keeps its rectangle by
+   definition, §4.1 line 303-306) or a `@fixed`/`@dev` slot can never be
+   named absent.
+
+   The DECLARATION itself lives at the `runner.Registration` layer (a new
+   `default_valuation: PresenceValuation` field, defaulting to
+   `presence.ALL_PRESENT` — i.e. every registration keeps today's exact
+   behavior unless it opts in), following this prototype's existing
+   precedent that registration-level facts (classes, objective, board
+   widget) are Python-declared, not concrete `.lyt` syntax
+   (`lyt_ast.Program`'s own docstring). Only the lengyue registration
+   declares one: `absent_widgets=frozenset({"boardRail", "previewBoard"})`.
+   The two encodings themselves now genuinely declare
+   `@toggle(user, release)` presence on `boardRail`/`previewBoard` (was
+   `@fixed`, with the toggle behavior living ONLY in `emit_mockup.py`'s UI
+   registry pre-amendment) — so `validate_valuation`'s "is this really a
+   release toggle" check is checking a REAL fact of the typed AST, not a
+   UI-layer convention the language itself never asserted.
+
+2. **Solver: pruning, not zeroing.** `presence.prune_absent(slot,
+   absent_widgets)` returns a NEW Slot tree with every leaf named absent
+   REMOVED from its parent Split/Exclusive's `children` list entirely —
+   not sized to zero. `compiler.py` is UNCHANGED: its existing `(k-1)*gap`
+   partition term (`_constrain`'s Split branch) already sums the gap over
+   `len(node.children)`, whatever tree it's handed, so pruning BEFORE
+   compiling is sufficient on its own to make that term use the PRESENT
+   count — verified by a hand-computed regression test
+   (`test_absent_slot_gap_arithmetic_uses_the_present_count`,
+   `tests/test_lyt.py`): a 3-child `gap 10px` split with one child pruned
+   absent solves with exactly ONE gap contribution (`(2-1)*10=10px`), not
+   two, and the reclaimed 10px + the removed leaf's own reservation flow
+   to the remaining siblings.
+
+3. **Which valuation is primary.** The registration's own
+   `default_valuation` is the PRIMARY result — what `runner.py`'s CLI
+   printer and `emit_mockup.py`'s debug overlay solve and report
+   feasibility against. `presence.ALL_PRESENT` (the spec's own §6
+   baseline) is solved too, as a reference comparison, by every consumer
+   that has a reason to show both (`emit_mockup.build_overlay_data` embeds
+   both, keyed by valuation name).
+
+**Feasibility outcome — honest result, not forced to match the motivating
+finding's predicted count.** Of the five sizes named above, solving the
+DEFAULT valuation (boardRail + previewBoard genuinely absent) flips TWO to
+`OPTIMAL`: landscape **1366x768** and portrait **420x880**. The other
+three — landscape **1024x700**, **900x600**, and **1280x1024** — remain
+`INFEASIBLE` even under the default valuation. This was verified both by
+the solver and by hand-derivation (see
+`.claude/dispatch-reports/lyt-presence-valuation-solve.md`'s own
+feasibility table for the full arithmetic): the board composite's own
+V-split forces `B.h == root.h − 52` and, via `aspect 1`, `B.w == B.h`
+EXACTLY — a hard equality independent of any sibling's width, not
+something a "maximize board width" objective term negotiates down. At
+these three sizes, the board's forced width, PLUS the tree/panels row's
+own `WRAPPER_MIN`-driven floor (300px T-node + 140px tree + 4px gap =
+444px — present in EVERY valuation, since `tree` and the `T(...)` node are
+not release-toggled and cannot be pruned by any valuation), PLUS the
+root's own 12px gap, exceeds the available width regardless of
+`boardRail`/`previewBoard`'s presence. This is a genuine,
+presence-INDEPENDENT geometry fact about the current board-composite
+shape — not a defect this amendment's scope extends to fixing (the same
+"do not shrink an already-grounded reservation just to force a
+presence-blind solve to agree" posture the tree-always-visible build
+report itself took for the ORIGINAL all-present infeasibility). Landscape
+1280x1024's own pre-Amendment-4 disclosure (`tests/test_lyt.py`'s prior
+comment: "the side column's floor, 340px, alone leaves composite less
+width than the board's forced natural size needs") is the SAME mechanism
+family — the same forced-board-width-plus-floor collision, just triggered
+by a different one of the two additive terms dominating at a different
+aspect ratio.
+
+The `all-present` valuation (nothing absent, byte-identical to
+pre-Amendment-4 behavior) legitimately stays `INFEASIBLE` at all five
+sizes, plus the two sizes that were already `INFEASIBLE` before
+boardRail/previewBoard existed at all (`1280x1024` for an unrelated
+side-column-floor reason, `1080x1920-in-landscape` — a portrait-shaped
+probe run against the landscape class — for an unrelated aspect-collision
+reason) — this is the spec's own "may legitimately remain INFEASIBLE at
+small sizes" case, kept pinned with the mechanism named
+(`tests/test_lyt.py::test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes`).
+
+| size | class | all-present | default | changed? |
+|---|---|---|---|---|
+| 1920x1080 | landscape | OPTIMAL | OPTIMAL | no |
+| 2560x1440 | landscape | OPTIMAL | OPTIMAL | no |
+| 3440x1440 | landscape | OPTIMAL | OPTIMAL | no |
+| 1280x1024 | landscape | INFEASIBLE | INFEASIBLE | no — presence-independent (side-column floor) |
+| 1366x768 | landscape | INFEASIBLE | **OPTIMAL** | **yes** |
+| 1024x700 | landscape | INFEASIBLE | INFEASIBLE | no — presence-independent (board-forced-width) |
+| 900x600 | landscape | INFEASIBLE | INFEASIBLE | no — presence-independent (board-forced-width) |
+| 1080x1920-in-landscape | landscape | INFEASIBLE | INFEASIBLE | no — presence-independent (aspect collision, pre-existing) |
+| 1080x1920 | portrait | OPTIMAL | OPTIMAL | no |
+| 1200x1600 | portrait | OPTIMAL | OPTIMAL | no |
+| 768x1024 | portrait | OPTIMAL | OPTIMAL | no |
+| 540x960 | portrait | OPTIMAL | OPTIMAL | no |
+| 420x880 | portrait | INFEASIBLE | **OPTIMAL** | **yes** |
+| 1920x1080-in-portrait | portrait | OPTIMAL | OPTIMAL | no |
+
+**Overlay/mockup behavior.** `emit_mockup.py`'s debug-overlay JSON now
+carries a solve per valuation (`{"valuations": {name: [...]}, ...}`); the
+page's own JS reads the CURRENT `boardRail`/`previewBoard` checkbox state
+and matches it to the `default` valuation (both unchecked — the page's own
+initial state), the `all-present` valuation (both checked), or — for any
+OTHER combination, which this amendment does not solve a dedicated
+valuation for — falls back to `default` with an honest on-page note
+("no solved valuation matches the current toggle state ... showing
+nearest solved valuation: default"). Disclosed choice, per the
+commission's own instruction to state it.
+
+**What it touched.** `research/lyt/presence.py` (new module —
+`PresenceValuation`, `prune_absent`, `validate_valuation`,
+`resolve_and_validate`); `encodings/lengyue_landscape.lyt` /
+`lengyue_portrait.lyt` (`boardRail`/`previewBoard` now genuinely
+`@toggle(user, release)`, was `@fixed`); `runner.py`
+(`Registration.default_valuation`/`common_valuations` fields, the
+lengyue registration's own declaration, `run_all` solves the declared
+default valuation as primary); `emit_mockup.py` (`build_overlay_data`
+solves per valuation, `build_html_for_class` embeds the new JSON shape
+plus `defaultAbsentSlugs`, `_widget_at_path` helper, `_SCRIPT`'s
+`drawOverlay` picks the matching valuation); `tests/test_lyt.py` (new
+AMENDMENT 4 section: prune-removes-and-drops-arity, prune-is-identity,
+gap-arithmetic-uses-present-count, two malformed-valuation refusal tests,
+default-valuation feasibility at the flipped sizes, the registration's
+own declared valuation, and a `TOGGLE_TARGETS`-vs-`Registration`
+cross-check regression; `known_infeasible` bookkeeping in
+`test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes`
+split by valuation); `README.md` (this section's own cross-reference, see
+that file's "AMENDMENT 4" section for the runner-output-facing framing).
+
 ## License
 
 Public Domain (The Unlicense), matching `layout-language-consult.md`'s

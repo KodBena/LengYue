@@ -24,6 +24,7 @@ import lyt_ast as ast
 import loader
 from baseline import BASELINE_WAIVERS
 from compiler import solve_lexicographic
+from presence import ALL_PRESENT, PresenceValuation, resolve_and_validate
 from render import render_ascii
 
 ENCODINGS_DIR = Path(__file__).parent / "encodings"
@@ -49,6 +50,22 @@ class Registration:
     # absent/empty map exactly like the pre-waiver `waivers=None` shape,
     # so this default changes no other registration's behavior.
     waivers: Dict[str, list] = field(default_factory=dict)
+    # AMENDMENT 4 (ledger row 1737, presence.py): the LANGUAGE SURFACE for
+    # per-valuation solving (layout-language-consult.md §6, line 636-641:
+    # "solve the default valuation plus any valuation the author lists as
+    # common"). `default_valuation` names which release-toggled widgets
+    # are ABSENT by default — `presence.ALL_PRESENT` (empty absent set) for
+    # every registration that declares no default-off toggle of its own
+    # (q5go/ogs/current-row-repaired/current-row-asis all keep this
+    # default, byte-identical to this prototype's pre-Amendment-4
+    # behavior). `common_valuations` is an optional list of further named
+    # valuations "the author lists as common" (the ruling's own phrase);
+    # empty when the author names none, which every registration below
+    # does today — no worked encoding's own header names a second common
+    # valuation, so none is invented here (disclosed narrowing, the same
+    # posture `lyt_ast.Program`'s own docstring takes for objectivesec).
+    default_valuation: PresenceValuation = field(default_factory=lambda: ALL_PRESENT)
+    common_valuations: List[PresenceValuation] = field(default_factory=list)
 
 
 REGISTRATIONS: List[Registration] = [
@@ -105,6 +122,17 @@ REGISTRATIONS: List[Registration] = [
             ast.ScreenClass(id="portrait", w_px=1080, h_px=1920),
         ],
         layout_by_class={"landscape": "lengyue-landscape", "portrait": "lengyue-portrait"},
+        # AMENDMENT 4 (ledger row 1737): boardRail and previewBoard are
+        # the two live default-OFF, user-release toggles (both encodings'
+        # own headers, `lyt-tree-always-visible-build.md`) — this is the
+        # DEFAULT valuation every downstream consumer (runner.py's own
+        # `run_all`, emit_mockup.py's overlay, a future emit_ts.py target)
+        # solves as the PRIMARY result, per §6's own line 636-641. Both
+        # widget ids are shared verbatim between the landscape and
+        # portrait trees, so one PresenceValuation covers both classes.
+        default_valuation=PresenceValuation(
+            name="default", absent_widgets=frozenset({"boardRail", "previewBoard"})
+        ),
     ),
 ]
 
@@ -161,14 +189,25 @@ def _gather_reach_preferred_widgets(slot: ast.Slot, board_widget: str, path: str
 
 
 def run_all(*, cols: int = 100, rows: int = 36, time_limit_s: float = 20.0) -> int:
+    """AMENDMENT 4 (ledger row 1737): solves the registration's own
+    DECLARED DEFAULT valuation as the primary result — for every
+    registration but `lengyue_landscape+portrait` this is
+    `presence.ALL_PRESENT` (empty absent set), so `layouts[layout_name]`
+    is solved byte-identically to this function's pre-Amendment-4
+    behavior. For the lengyue registration, the tree solved here is the
+    PRUNED one (`presence.resolve_and_validate`, boardRail/previewBoard
+    genuinely removed) — see that module's own docstring for why this
+    alone is sufficient to make the compiler's `(k-1)*gap` partition term
+    use the PRESENT count, with no compiler.py change needed."""
     exit_code = 0
     for reg in REGISTRATIONS:
         layouts: Dict[str, ast.Slot] = {}
         for f in reg.files:
             text = (ENCODINGS_DIR / f).read_text()
             layouts.update(loader.load_layouts(text, waivers=reg.waivers))
+        layouts = resolve_and_validate(layouts, reg.layout_by_class.values(), reg.default_valuation)
         print("=" * 100)
-        print(f"ENCODING {reg.name}")
+        print(f"ENCODING {reg.name}  (presence valuation: {reg.default_valuation.name!r}, absent={sorted(reg.default_valuation.absent_widgets)})")
         print("=" * 100)
         for label, w, h in SCREEN_SIZES:
             cls = nearest_class(reg.classes, w, h)

@@ -170,6 +170,36 @@ semantics and `aspect` are jointly unsatisfiable in general) is real and
 arguably the prototype's most valuable finding — it just needs to be
 named as what it is, rather than narrated as a geometry-only proof.
 
+## AMENDMENT 4: per-valuation presence solving (ledger row 1737)
+
+Pre-Amendment-4, this prototype solved exactly ONE presence valuation —
+"every slot present" — regardless of any slot's own declared default-
+hidden state (`compiler.py`'s own module docstring disclosed this
+outright). That is now closed: `presence.py` (new module) lets a
+registration declare a `default_valuation` (which release-toggled widgets
+are ABSENT by default) plus optional named "common" valuations, per the
+spec's own §6 presence paragraph (`layout-language-consult.md` line
+636-641) — implemented literally, not a new law. The lengyue registration
+declares `{"boardRail", "previewBoard"}` absent by default, matching both
+`.lyt` encodings' own now-genuine `@toggle(user, release)` presence on
+those two leaves (was `@fixed`, pre-amendment).
+
+An absent slot is PRUNED from its parent split's children entirely (not
+sized to zero) before compiling, so the existing `(k-1)*gap` partition
+term automatically uses the present count — no `compiler.py` change was
+needed. Of the five sizes the tree-always-visible commission's own build
+report named as newly, falsely `INFEASIBLE` once boardRail/previewBoard's
+always-present reservations were counted, solving the default valuation
+flips **two** to `OPTIMAL` — landscape 1366x768 and portrait 420x880. The
+other three (landscape 1024x700, 900x600, 1280x1024) remain `INFEASIBLE`
+for a genuine, presence-INDEPENDENT reason (the board composite's own
+V-split forces an exact board size from the viewport height alone, which
+collides with the tree/panels row's `WRAPPER_MIN` floor regardless of
+boardRail/previewBoard) — see `SPEC-AMENDMENTS.md`'s own Amendment 4
+section for the full derivation, before/after table, and what this means
+for the debug overlay's own solved-vs-live comparison. Build report:
+`.claude/dispatch-reports/lyt-presence-valuation-solve.md`.
+
 ## The `--baseline` load mode (lyt-constants-swap, ledger row 1687)
 
 `load_layouts` / `check_wellformed` accept an optional `waivers`

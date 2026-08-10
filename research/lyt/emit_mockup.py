@@ -233,6 +233,7 @@ import lyt_ast as ast
 import loader
 from compiler import solve_lexicographic
 from emit_ts import _find_registration, _slots_from_result
+from presence import PresenceValuation, resolve_and_validate
 from runner import ENCODINGS_DIR, _gather_reach_preferred_widgets
 
 REGISTRATION_NAME = "lengyue_landscape+portrait"
@@ -539,6 +540,28 @@ def _board_html() -> str:
 
 def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+
+def _widget_at_path(slot: ast.Slot, path: Tuple[int, ...]) -> Optional[str]:
+    """AMENDMENT 4 (ledger row 1737): resolves a `TOGGLE_TARGETS` child-
+    index path to the widget id at that path, IF the slot there is a bare
+    Leaf -- None for a composite (Split/Exclusive) target, which has no
+    single widget id (`presence.PresenceValuation` can only name a bare
+    leaf, see that module's own docstring). Used to cross-check
+    `TOGGLE_TARGETS`' default-OFF release entries against
+    `runner.Registration.default_valuation` (so the two registries -- one
+    UI-facing/path-keyed, one solver-facing/widget-keyed -- cannot
+    silently drift apart) and to build the overlay JSON's
+    `defaultAbsentSlugs` list below."""
+    node = slot.node
+    for i in path:
+        if isinstance(node, (ast.Split, ast.Exclusive)):
+            if i >= len(node.children):
+                return None
+            node = node.children[i].node
+        else:
+            return None
+    return node.widget if isinstance(node, ast.Leaf) else None
 
 
 # ---------------------------------------------------------------------------
@@ -1448,30 +1471,68 @@ _SCRIPT = """
         el.style.display = cb.checked ? '' : 'none';
         updateReleaseGuard();
       }
+      // Overlay-staleness fix (valuation review moderate finding,
+      // ledger row 1754): the overlay's valuation choice and rects
+      // depend on the CURRENT toggle state, so a presence change
+      // must re-run drawOverlay -- previously only the overlay
+      // toggle's own change event and window.resize did, leaving
+      // stale rects/status until the next resize.
+      if (overlayToggle.checked) { drawOverlay(); }
     });
   });
 
-  var overlayData = JSON.parse(document.getElementById('lyt-solved-data').textContent);
+  var overlayPayload = JSON.parse(document.getElementById('lyt-solved-data').textContent);
   var overlayToggle = document.getElementById('lyt-overlay-toggle');
   var overlayLayer = document.getElementById('lyt-overlay-layer');
   var overlayStatus = document.getElementById('lyt-overlay-status');
 
+  // AMENDMENT 4 (ledger row 1737): the overlay JSON now carries a SOLVE
+  // PER PRESENCE VALUATION (`overlayPayload.valuations`, keyed by
+  // valuation name), since a presence-blind single solve no longer
+  // matches the live page once boardRail/previewBoard can be toggled.
+  // `currentValuationName()` matches the CURRENT checkbox state against
+  // the two solved valuations this generator always computes (the
+  // registration's own declared default, and the spec's own §6
+  // all-present baseline) via `defaultAbsentSlugs` -- the checkbox slugs
+  // that differ between them. A state that matches NEITHER exactly
+  // (e.g. Board Rail checked but Preview Board not) has no solved
+  // valuation to show; disclosed choice, per the commission's own
+  // instruction ("fall back to nearest solved valuation with an honest
+  // on-page note"): falls back to the DEFAULT valuation and says so.
+  function currentValuationName() {
+    var slugs = overlayPayload.defaultAbsentSlugs || [];
+    var allChecked = true, allUnchecked = true;
+    for (var i = 0; i < slugs.length; i++) {
+      var cb = document.querySelector('[data-toggle-for="' + slugs[i] + '"]');
+      var checked = cb ? cb.checked : true;
+      if (checked) { allUnchecked = false; } else { allChecked = false; }
+    }
+    if (allUnchecked) { return { name: overlayPayload.defaultValuationName, fallback: false }; }
+    if (allChecked) { return { name: overlayPayload.allPresentValuationName, fallback: false }; }
+    return { name: overlayPayload.defaultValuationName, fallback: true };
+  }
+
   function drawOverlay() {
     overlayLayer.innerHTML = '';
     var w = window.innerWidth, h = window.innerHeight;
+    var picked = currentValuationName();
+    var overlayData = (overlayPayload.valuations || {})[picked.name] || [];
     var match = null;
     for (var i = 0; i < overlayData.length; i++) {
       if (overlayData[i].wPx === w && overlayData[i].hPx === h) { match = overlayData[i]; break; }
     }
+    var fallbackNote = picked.fallback
+      ? ' [no solved valuation matches the current toggle state -- showing nearest solved valuation: ' + picked.name + ']'
+      : '';
     if (!match) {
-      overlayStatus.textContent = 'no solve for ' + w + 'x' + h;
+      overlayStatus.textContent = 'no solve for ' + w + 'x' + h + ' (' + picked.name + ')' + fallbackNote;
       return;
     }
     if (match.status !== 'OPTIMAL' && match.status !== 'FEASIBLE') {
-      overlayStatus.textContent = match.label + ': ' + match.status;
+      overlayStatus.textContent = match.label + ' [' + picked.name + ']: ' + match.status + fallbackNote;
       return;
     }
-    overlayStatus.textContent = match.label + ' (' + match.status + ')';
+    overlayStatus.textContent = match.label + ' [' + picked.name + '] (' + match.status + ')' + fallbackNote;
     Object.keys(match.slots).forEach(function (widget) {
       var r = match.slots[widget];
       var div = document.createElement('div');
@@ -1517,21 +1578,48 @@ def load_class_slots() -> Tuple["object", Dict[str, ast.Slot]]:
     return reg, layouts
 
 
-def build_overlay_data(reg, layouts: Dict[str, ast.Slot], class_id: str, *, time_limit_s: float = 20.0) -> List[dict]:
+def build_overlay_data(
+    reg, layouts: Dict[str, ast.Slot], class_id: str, *, time_limit_s: float = 20.0
+) -> Dict[str, List[dict]]:
+    """AMENDMENT 4 (ledger row 1737): solves EVERY presence valuation that
+    matters for this registration -- its own declared `default_valuation`
+    (the PRIMARY result per the commission's own words, "what emit_ts/
+    emit_mockup embed as the overlay and what feasibility is judged by")
+    plus `presence.ALL_PRESENT` (the spec's own §6 baseline, line 636,
+    "solve the all-preserve-slots-present valuation") as a reference
+    comparison -- and returns `{valuation_name: [per-size dict, ...]}`
+    instead of a single flat list. `reg.common_valuations`, when a
+    registration declares any, are solved too (none currently do -- see
+    `runner.Registration`'s own docstring on why). Each per-size dict has
+    the SAME shape this function always returned (`label`/`wPx`/`hPx`/
+    `status`/`slots`), so the only shape change is the added outer
+    valuation-name key."""
     layout_name = reg.layout_by_class[class_id]
-    slot = layouts[layout_name]
-    reach = _gather_reach_preferred_widgets(slot, reg.board_widget)
-    out: List[dict] = []
-    for label, w, h in OVERLAY_SIZES[class_id]:
-        result = solve_lexicographic(
-            slot, class_id=class_id, w_px=w, h_px=h, board_widget=reg.board_widget, reach_preferred_widgets=reach, time_limit_s=time_limit_s
-        )
-        slots = _slots_from_result(result) if result.status in ("OPTIMAL", "FEASIBLE") else {}
-        out.append({"label": label, "wPx": w, "hPx": h, "status": result.status, "slots": slots})
+    from presence import ALL_PRESENT
+
+    valuations: Dict[str, PresenceValuation] = {reg.default_valuation.name: reg.default_valuation}
+    valuations.setdefault(ALL_PRESENT.name, ALL_PRESENT)
+    for v in reg.common_valuations:
+        valuations.setdefault(v.name, v)
+
+    out: Dict[str, List[dict]] = {}
+    for val_name, valuation in valuations.items():
+        pruned_slot = resolve_and_validate(layouts, [layout_name], valuation)[layout_name]
+        reach = _gather_reach_preferred_widgets(pruned_slot, reg.board_widget)
+        sizes_out: List[dict] = []
+        for label, w, h in OVERLAY_SIZES[class_id]:
+            result = solve_lexicographic(
+                pruned_slot, class_id=class_id, w_px=w, h_px=h, board_widget=reg.board_widget, reach_preferred_widgets=reach, time_limit_s=time_limit_s
+            )
+            slots = _slots_from_result(result) if result.status in ("OPTIMAL", "FEASIBLE") else {}
+            sizes_out.append({"label": label, "wPx": w, "hPx": h, "status": result.status, "slots": slots})
+        out[val_name] = sizes_out
     return out
 
 
-def build_html_for_class(class_id: str, root_slot: ast.Slot, overlay_data: List[dict]) -> str:
+def build_html_for_class(
+    class_id: str, root_slot: ast.Slot, overlay_data: Dict[str, List[dict]], reg
+) -> str:
     body_html = render_node(root_slot, path=(), class_id=class_id, extra_style="width:100%;height:100%;")
     menu_items = TOGGLE_TARGETS.get(class_id, {})
     # `checked` is now conditional on the registry's own default_visible
@@ -1544,7 +1632,31 @@ def build_html_for_class(class_id: str, root_slot: ast.Slot, overlay_data: List[
         f'{" checked" if default_visible else ""}> {html.escape(label)}</label>'
         for (label, _presence, default_visible) in menu_items.values()
     )
-    overlay_json = json.dumps(overlay_data)
+    # AMENDMENT 4 (ledger row 1737): the checkbox slugs whose CURRENT
+    # checked-state the debug overlay's JS needs to read to pick the
+    # matching solved valuation -- every widget named ABSENT in the
+    # registration's own `default_valuation`, resolved from
+    # `TOGGLE_TARGETS`' path-keyed entries via `_widget_at_path` (only a
+    # bare-leaf toggle target can match; see that function's own
+    # docstring for why a composite target is skipped rather than
+    # guessed).
+    default_absent_slugs = sorted(
+        {
+            _slug(label)
+            for path, (label, presence, default_visible) in menu_items.items()
+            if presence == "release"
+            and not default_visible
+            and _widget_at_path(root_slot, path) in reg.default_valuation.absent_widgets
+        }
+    )
+    overlay_json = json.dumps(
+        {
+            "valuations": overlay_data,
+            "defaultValuationName": reg.default_valuation.name,
+            "allPresentValuationName": "all-present",
+            "defaultAbsentSlugs": default_absent_slugs,
+        }
+    )
     title = f"LengYue clean-room mockup — {class_id}"
     return f"""<!doctype html>
 <!--
@@ -1598,9 +1710,15 @@ def build_all(*, time_limit_s: float = 20.0) -> Dict[str, str]:
     pages: Dict[str, str] = {}
     for cls in reg.classes:
         layout_name = reg.layout_by_class[cls.id]
+        # The LIVE page's own CSS grid tree (`render_node` below) is built
+        # from the FULL, un-pruned tree -- presence at runtime is a CSS
+        # display:none/track-collapse affordance (`_child_wrap`/
+        # `render_split`), not a removed DOM node; only the debug
+        # OVERLAY's solved-rect data (`build_overlay_data`) is computed
+        # per PRUNED valuation (AMENDMENT 4, ledger row 1737).
         slot = layouts[layout_name]
         overlay = build_overlay_data(reg, layouts, cls.id, time_limit_s=time_limit_s)
-        pages[cls.id] = build_html_for_class(cls.id, slot, overlay)
+        pages[cls.id] = build_html_for_class(cls.id, slot, overlay, reg)
     return pages
 
 

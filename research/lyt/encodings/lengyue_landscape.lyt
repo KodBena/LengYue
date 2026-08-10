@@ -106,15 +106,24 @@
 --     H(...), i.e. "the left edge as today" — the ruling's own
 --     conservative default, unchanged from the as-is app's real DOM
 --     order (`App.vue`'s sidebar rail sits left of the main H, before
---     the toggle rail even). Presence (`@toggle`, release, DEFAULT OFF)
---     is NOT expressed in this file's own concrete syntax — like the
---     rest of this encoding (see the pre-existing header note below,
---     "Neither `.lyt` source file declares an `@toggle` presence"), the
---     corner presence-menu is a generator-level (`emit_mockup.py`
+--     the toggle rail even). Presence: AMENDMENT 4 (ledger row 1737,
+--     per-valuation presence solving, SPEC-AMENDMENTS.md) makes this
+--     genuinely `@toggle(user, release)` in this file's own concrete
+--     syntax — no longer only a generator-level (`emit_mockup.py`
 --     `TOGGLE_TARGETS`) affordance layered on top of an otherwise
---     `@fixed` AST; boardRail's toggle registration, presence type, and
---     default-hidden state all live there, disclosed in that module's
---     own docstring.
+--     `@fixed` AST. The DEFAULT-OFF state itself still lives at the
+--     registration layer (`runner.py`'s `Registration.default_valuation`,
+--     a Python-declared fact — same "no objectivesec/classsec concrete
+--     syntax" precedent `lyt_ast.Program`'s own docstring already uses
+--     for classes/objective), not in this file's text — a slot's
+--     DECLARED presence type (this file) and which VALUATION solves it
+--     absent (the registration) are two different facts, only the first
+--     of which belongs in the encoding per this prototype's existing
+--     division of labor. `emit_mockup.py`'s `TOGGLE_TARGETS` entry for
+--     "Board Rail" is unchanged (still the UI-registry source of truth
+--     for the CSS mockup's corner menu) but is now cross-checked by a
+--     regression test against `runner.py`'s own declared default
+--     valuation, so the two can no longer silently drift apart.
 --
 --   - previewBoard (ledger row 1735, SECOND commissioner amendment: "a
 --     variation-preview mini board (lizzieyzy / chess-preview paradigm),
@@ -139,7 +148,11 @@
 --     `is_board_leaf` cross-axis-containment check was generalized to
 --     `is_aspect_leaf` (any leaf with a declared `aspect`, not just
 --     widget id `"B"`) for the same reason on the generator side — see
---     that module's own docstring for the disclosure.
+--     that module's own docstring for the disclosure. Presence:
+--     also AMENDMENT 4 (see boardRail's own header note above for the
+--     full rationale) -- genuinely `@toggle(user, release)` in this
+--     file's own concrete syntax now, DEFAULT-OFF state still declared
+--     at the registration layer (`runner.py`).
 --
 --     DESIGN NOTE (Vue-realization phase, no build action taken here):
 --     the commissioner separately floated boardRail-as-POPOVER (overlay
@@ -150,7 +163,7 @@
 --     version.
 layout lengyue-landscape =
   {min 0px, pref 1fr, max inf, gap 12px} H(
-    {min 168px, pref 168px, max 168px} boardRail[common, info+action],
+    @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
     {pref 1fr} V(
       {pref maximize, aspect 1} B[board],
       {min 24px, pref 24px, max 24px} I_board[board, info],
@@ -169,7 +182,7 @@ layout lengyue-landscape =
           {min WRAPPER_MIN, pref 1fr, max inf} CP-analysis[blackbox],
           {min WRAPPER_MIN, pref 1fr, max inf} CP-other[blackbox]
         )[BLACK BOX],
-        {min 160px, pref 160px, max 160px, aspect 1} previewBoard[common, info]
+        @toggle(user, release) {min 160px, pref 160px, max 160px, aspect 1} previewBoard[common, info]
       )
     )
   )

@@ -564,6 +564,241 @@ def test_unfittable_gap_is_a_loud_infeasible_not_silently_dropped():
 
 
 # =============================================================================
+# AMENDMENT 4 (ledger row 1737): per-valuation presence solving --
+# `research/lyt/presence.py`. See that module's own docstring and
+# `.claude/dispatch-reports/lyt-presence-valuation-solve.md` for the full
+# rationale; SPEC-AMENDMENTS.md's own Amendment 4 section for the ruling
+# text and diff-vs-spec-prose.
+# =============================================================================
+
+import presence as presence_mod  # noqa: E402 -- see module docstring's existing import style
+
+
+def test_prune_absent_removes_leaf_from_parent_and_drops_arity():
+    """`prune_absent` REMOVES the named leaf from its parent Split's
+    children entirely (not sized to zero) -- so a 3-child split becomes a
+    2-child split, the arity actually drops."""
+    layouts = loader.load_layouts(
+        "layout g = {min 0px, pref 1fr, max inf, gap 10px} H("
+        "@toggle(user, release) {min 50px, pref 50px, max 50px} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome],"
+        "{min 0px, pref 1fr, max inf} C[chrome])"
+    )
+    slot = layouts["g"]
+    assert len(slot.node.children) == 3
+    pruned = presence_mod.prune_absent(slot, frozenset({"A"}))
+    assert len(pruned.node.children) == 2
+    widgets = [c.node.widget for c in pruned.node.children]
+    assert widgets == ["B", "C"]
+    # the original tree is untouched (a NEW tree is returned, not mutated)
+    assert len(slot.node.children) == 3
+
+
+def test_prune_absent_is_identity_for_empty_absent_set():
+    """`absent_widgets=frozenset()` (the `ALL_PRESENT` valuation) returns
+    the SAME slot object, unchanged -- the identity case every
+    registration without a declared `default_valuation` hits."""
+    layouts = loader.load_layouts(
+        "layout g = {min 0px, pref 1fr, max inf} H("
+        "{min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome])"
+    )
+    slot = layouts["g"]
+    assert presence_mod.prune_absent(slot, frozenset()) is slot
+
+
+def test_absent_slot_gap_arithmetic_uses_the_present_count():
+    """The commission's own instruction: 'verify the (k-1)*gap term uses
+    the PRESENT count.' Three children, `gap 10px`: with all three
+    present the partition consumes 2*10=20px of gap; with one pruned
+    absent, only 1*10=10px -- and the two REMAINING children's widths
+    grow to absorb the reclaimed 10px + the removed child's own 50px
+    reservation, verified by an exact hand-computed solve (mirrors
+    `test_gap_shifts_solved_rectangles_by_the_hand_computed_amount`'s own
+    style)."""
+    layouts = loader.load_layouts(
+        "layout g = {min 0px, pref 1fr, max inf, gap 10px} H("
+        "@toggle(user, release) {min 50px, pref 50px, max 50px} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome],"
+        "{min 0px, pref 1fr, max inf} C[chrome])"
+    )
+    slot = layouts["g"]
+
+    all_present = solve_lexicographic(
+        slot, class_id="t", w_px=300, h_px=100, board_widget=None, reach_preferred_widgets=None
+    )
+    assert all_present.status == "OPTIMAL"
+    a_path = [p for p, w in all_present.leaf_names.items() if w == "A"][0]
+    b_path = [p for p, w in all_present.leaf_names.items() if w == "B"][0]
+    c_path = [p for p, w in all_present.leaf_names.items() if w == "C"][0]
+    assert all_present.rects[a_path].w == 50
+    # 300 - 50(A) - 2*10(gap) = 230, split evenly (B, C both bare {pref 1fr})
+    assert all_present.rects[b_path].w + all_present.rects[c_path].w == 230
+
+    pruned = presence_mod.prune_absent(slot, frozenset({"A"}))
+    default_result = solve_lexicographic(
+        pruned, class_id="t", w_px=300, h_px=100, board_widget=None, reach_preferred_widgets=None
+    )
+    assert default_result.status == "OPTIMAL"
+    assert "A" not in default_result.leaf_names.values()
+    b_path2 = [p for p, w in default_result.leaf_names.items() if w == "B"][0]
+    c_path2 = [p for p, w in default_result.leaf_names.items() if w == "C"][0]
+    # 300 - 1*10(gap, ONE gap now -- the (k-1)*gap term uses the PRESENT
+    # count, 2 children -> 1 gap) = 290, split between B and C.
+    assert default_result.rects[b_path2].w + default_result.rects[c_path2].w == 290
+    assert default_result.rects[b_path2].w + default_result.rects[c_path2].w > (
+        all_present.rects[b_path].w + all_present.rects[c_path].w
+    )
+
+
+def test_validate_valuation_refuses_unknown_widget():
+    layouts = loader.load_layouts(
+        "layout g = {min 0px, pref 1fr, max inf} H("
+        "{min 0px, pref 1fr, max inf} A[chrome])"
+    )
+    slot = layouts["g"]
+    bad = presence_mod.PresenceValuation(name="bad", absent_widgets=frozenset({"nonexistent"}))
+    with pytest.raises(LytLoadError) as excinfo:
+        presence_mod.validate_valuation(slot, bad, layout_name="g")
+    assert excinfo.value.detail["law"] == "presence-valuation"
+    assert excinfo.value.detail["prohibition"] == "unknown-widget"
+
+
+def test_validate_valuation_refuses_a_slot_that_is_not_a_user_release_toggle():
+    """The commission's own words: 'a named slot that isn't a user-release
+    toggle is an error.' A `@fixed` leaf (and, separately, a
+    `@toggle(user, preserve)` leaf) named ABSENT must be refused loudly,
+    not silently pruned as if it were a release toggle."""
+    layouts = loader.load_layouts(
+        "layout g = {min 0px, pref 1fr, max inf} H("
+        "@fixed {min 0px, pref 1fr, max inf} A[chrome],"
+        "@toggle(user, preserve) {min 0px, pref 10px, max 10px} B[chrome])"
+    )
+    slot = layouts["g"]
+    for widget in ("A", "B"):
+        bad = presence_mod.PresenceValuation(name="bad", absent_widgets=frozenset({widget}))
+        with pytest.raises(LytLoadError) as excinfo:
+            presence_mod.validate_valuation(slot, bad, layout_name="g")
+        assert excinfo.value.detail["law"] == "presence-valuation"
+        assert excinfo.value.detail["prohibition"] == "not-a-release-toggle"
+
+
+def test_resolve_and_validate_rejects_before_pruning():
+    """`resolve_and_validate` is a single validate-then-prune operation --
+    a malformed valuation must raise before any pruned tree is returned,
+    not silently return a partially-pruned map."""
+    layouts = loader.load_layouts(
+        "layout g = {min 0px, pref 1fr, max inf} H("
+        "@fixed {min 0px, pref 1fr, max inf} A[chrome])"
+    )
+    bad = presence_mod.PresenceValuation(name="bad", absent_widgets=frozenset({"A"}))
+    with pytest.raises(LytLoadError):
+        presence_mod.resolve_and_validate(layouts, ["g"], bad)
+
+
+@pytest.mark.parametrize(
+    "label,w,h",
+    [
+        ("1920x1080", 1920, 1080),
+        ("2560x1440", 2560, 1440),
+        ("3440x1440", 3440, 1440),
+        ("1366x768", 1366, 768),
+    ],
+)
+def test_lengyue_landscape_default_valuation_solves_optimal(label, w, h):
+    """The default valuation (boardRail + previewBoard genuinely absent)
+    must solve OPTIMAL at every landscape size that was already OPTIMAL
+    under the (unchanged) all-present valuation, PLUS 1366x768 -- one of
+    the tree-always-visible build report's five named false-INFEASIBLEs,
+    now flipped. See `test_generated_pages_embed_valid_overlay_json_
+    matching_overlay_sizes`'s own docstring for the other four named
+    sizes' disposition (two more remain genuinely INFEASIBLE for a
+    presence-independent reason, one -- portrait 420x880 -- is covered
+    below, one -- landscape 1280x1024 -- stays pinned INFEASIBLE)."""
+    layouts = loader.load_layouts((ENCODINGS_DIR / "lengyue_landscape.lyt").read_text())
+    slot = layouts["lengyue-landscape"]
+    default_valuation = presence_mod.PresenceValuation(
+        name="default", absent_widgets=frozenset({"boardRail", "previewBoard"})
+    )
+    pruned = presence_mod.resolve_and_validate(layouts, ["lengyue-landscape"], default_valuation)["lengyue-landscape"]
+    result = solve_lexicographic(
+        pruned, class_id="landscape", w_px=w, h_px=h, board_widget="B", reach_preferred_widgets=None, time_limit_s=15
+    )
+    assert result.status == "OPTIMAL", f"{label}: expected OPTIMAL under the default valuation, got {result.status}"
+    assert "boardRail" not in result.leaf_names.values()
+    assert "previewBoard" not in result.leaf_names.values()
+
+
+def test_lengyue_portrait_default_valuation_solves_optimal_at_420x880():
+    """Portrait's one named false-INFEASIBLE (420x880) flips to OPTIMAL
+    under the default valuation -- unlike the three landscape sizes that
+    stay INFEASIBLE for a presence-independent reason (see the module
+    docstring on `test_generated_pages_embed_valid_overlay_json_matching_
+    overlay_sizes`), portrait's own board composite has more slack at
+    this size (no analogous forced-width collision)."""
+    layouts = loader.load_layouts((ENCODINGS_DIR / "lengyue_portrait.lyt").read_text())
+    slot = layouts["lengyue-portrait"]
+    default_valuation = presence_mod.PresenceValuation(
+        name="default", absent_widgets=frozenset({"boardRail", "previewBoard"})
+    )
+    pruned = presence_mod.resolve_and_validate(layouts, ["lengyue-portrait"], default_valuation)["lengyue-portrait"]
+    result = solve_lexicographic(
+        pruned, class_id="portrait", w_px=420, h_px=880, board_widget="B", reach_preferred_widgets=None, time_limit_s=15
+    )
+    assert result.status == "OPTIMAL"
+
+
+def test_lengyue_default_valuation_registered_on_the_runner_registration():
+    """The LANGUAGE SURFACE: `runner.REGISTRATIONS`' lengyue entry must
+    declare its default valuation as exactly {boardRail, previewBoard}
+    absent -- the two live default-OFF release toggles named by the
+    tree-always-visible build report and re-confirmed in both `.lyt`
+    files' own headers."""
+    import runner as runner_mod
+
+    reg = [r for r in runner_mod.REGISTRATIONS if r.name == "lengyue_landscape+portrait"][0]
+    assert reg.default_valuation.name == "default"
+    assert reg.default_valuation.absent_widgets == frozenset({"boardRail", "previewBoard"})
+    # every OTHER registration keeps the spec's own §6 baseline (nothing
+    # absent) -- byte-identical to this prototype's pre-Amendment-4
+    # behavior for q5go/ogs/current-row-repaired/current-row-asis.
+    for other in runner_mod.REGISTRATIONS:
+        if other.name != "lengyue_landscape+portrait":
+            assert other.default_valuation.absent_widgets == frozenset()
+
+
+def test_toggle_targets_default_off_release_entries_match_the_registration_default_valuation():
+    """Cross-check (per this commission's own instructions on keeping the
+    UI-facing `TOGGLE_TARGETS` registry and the solver-facing
+    `Registration.default_valuation` from silently drifting apart): every
+    `TOGGLE_TARGETS` entry that is `presence='release'` AND
+    `default_visible=False` AND resolves to a bare leaf widget (via
+    `_widget_at_path`) must name a widget that IS in the registration's
+    own declared `default_valuation.absent_widgets` -- and vice versa,
+    every widget in `absent_widgets` must be reachable from at least one
+    such `TOGGLE_TARGETS` entry, in EVERY class."""
+    import runner as runner_mod
+
+    reg = [r for r in runner_mod.REGISTRATIONS if r.name == "lengyue_landscape+portrait"][0]
+    reg2, layouts = emit_mockup.load_class_slots()
+    assert reg2 is reg or reg2.name == reg.name
+    for class_id, targets in emit_mockup.TOGGLE_TARGETS.items():
+        layout_name = reg.layout_by_class[class_id]
+        slot = layouts[layout_name]
+        toggle_target_widgets = {
+            emit_mockup._widget_at_path(slot, path)
+            for path, (label, presence_kind, default_visible) in targets.items()
+            if presence_kind == "release" and not default_visible
+        }
+        toggle_target_widgets.discard(None)  # composite targets with no single widget id
+        assert toggle_target_widgets == reg.default_valuation.absent_widgets, (
+            f"{class_id}: TOGGLE_TARGETS default-off release widgets "
+            f"{toggle_target_widgets} != Registration.default_valuation.absent_widgets "
+            f"{reg.default_valuation.absent_widgets}"
+        )
+
+
+# =============================================================================
 # AMENDMENT 1 (ledger row 1670): preserve implies a genuine reservation --
 # min := max(min, pref) on the presence-bearing axis. See
 # `SPEC-AMENDMENTS.md` and `loader.py`'s `_apply_preserve_reservation`
@@ -1180,45 +1415,83 @@ def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_
     and the debug overlay's own JS already renders that status text
     instead of crashing (see `drawOverlay`).
 
-    lyt-tree-always-visible (ledger row ~1735) EXPANDS this set.
-    boardRail (168px) and previewBoard (160px landscape / 96px portrait)
-    are DEFAULT-OFF toggle targets -- at runtime, an unchecked release
-    target's grid track is collapsed to 0px, so a real browser page never
-    reserves their space unless the user opts in. But `compiler.py`'s own
-    disclosed limitation (module docstring: "only the 'all slots present'
-    valuation is solved") means the CP-SAT solve backing this debug
-    overlay treats EVERY leaf as always-present, boardRail/previewBoard
-    included -- so the solve's own feasibility envelope shrinks by their
-    combined reservation at every size, regardless of the live page's
-    default-hidden rendering. Landscape's three new entries below
-    (1366x768, 1024x700, 900x600) were OPTIMAL before this change (the
-    file's own header once tuned 900x600 specifically to stay OPTIMAL at
-    a lighter gap tier); portrait gains one (420x880), previously the
-    only entirely-OPTIMAL class. This is a solver-modeling artifact, not
-    a live-CSS regression -- disclosed here and in the build report
-    rather than shrinking the (already grounded, cited) reservations
-    further to force these back to OPTIMAL."""
-    known_infeasible = {
-        ("landscape", "1280x1024"),
-        ("landscape", "1080x1920-in-landscape"),
-        ("landscape", "1366x768"),
-        ("landscape", "1024x700"),
-        ("landscape", "900x600"),
-        ("portrait", "420x880"),
+    lyt-tree-always-visible (ledger row ~1735) EXPANDED this set the first
+    time: boardRail (168px) and previewBoard (160px landscape / 96px
+    portrait) are DEFAULT-OFF toggle targets, but `compiler.py`'s own
+    then-disclosed limitation ("only the 'all slots present' valuation is
+    solved") meant the CP-SAT solve backing this debug overlay treated
+    EVERY leaf as always-present -- so five sizes that solve OPTIMAL on
+    a real (default-hidden) browser page reported INFEASIBLE here.
+
+    AMENDMENT 4 (ledger row 1737, `research/lyt/presence.py`,
+    `.claude/dispatch-reports/lyt-presence-valuation-solve.md`) closes
+    that disclosed gap by solving PER PRESENCE VALUATION -- the embedded
+    JSON is now `{"valuations": {name: [per-size dict, ...], ...}, ...}`
+    (see `emit_mockup.build_overlay_data`'s own docstring), not a flat
+    list. `known_infeasible_by_valuation` below is keyed
+    `(valuation_name, class_id, label)`.
+
+    Of the FIVE sizes the tree-always-visible commission's own build
+    report named as newly, falsely INFEASIBLE (landscape 1366x768/
+    1024x700/900x600, landscape 1280x1024, portrait 420x880), solving
+    the DEFAULT valuation (boardRail+previewBoard genuinely absent,
+    zero reservation, zero gap contribution) flips TWO to OPTIMAL:
+    landscape 1366x768 and portrait 420x880. The other three
+    (1024x700, 900x600, 1280x1024) remain INFEASIBLE even under the
+    default valuation -- verified by hand-derivation (see
+    `.claude/dispatch-reports/lyt-presence-valuation-solve.md`'s own
+    "feasibility before/after" table): the board composite's own V-split
+    forces `B.h == root.h - 52` and (via `aspect 1`) `B.w == B.h`
+    EXACTLY, as a hard equality independent of any sibling's width --
+    so at these three sizes the board's forced width, PLUS the tree row's
+    own `WRAPPER_MIN`-driven floor (300px T-node + 140px tree + 4px gap =
+    444px, present in EVERY valuation since tree/T-node are not
+    release-toggled, so no absent-slot pruning can ever touch them), PLUS
+    the root's own 12px gap, exceeds the available width regardless of
+    boardRail/previewBoard's presence. This is a genuine, presence-
+    INDEPENDENT geometry fact about the current board-composite shape,
+    not a defect this amendment's own scope extends to fixing (same
+    "not shrinking an already-grounded reservation just to force a
+    presence-blind solve to agree" posture the prior tree-always-visible
+    build report itself took) -- landscape 1280x1024's own
+    pre-Amendment-4 disclosure (the side column's declared min alone
+    already exceeding the board's natural width need) is the SAME
+    mechanism family, just triggered by a different one of the two
+    additive terms (side-column floor vs. board-forced-width) dominating
+    at different aspect ratios.
+
+    ALL-PRESENT stays exactly the pre-Amendment-4 set (every leaf
+    reserved, matching the spec's own §6 baseline, line 636) -- this is
+    the "all-preserve-slots-present valuation may legitimately remain
+    INFEASIBLE at small sizes" case the commission's own instructions
+    name explicitly."""
+    known_infeasible_by_valuation = {
+        ("all-present", "landscape", "1280x1024"),
+        ("all-present", "landscape", "1080x1920-in-landscape"),
+        ("all-present", "landscape", "1366x768"),
+        ("all-present", "landscape", "1024x700"),
+        ("all-present", "landscape", "900x600"),
+        ("all-present", "portrait", "420x880"),
+        ("default", "landscape", "1280x1024"),
+        ("default", "landscape", "1080x1920-in-landscape"),
+        ("default", "landscape", "1024x700"),
+        ("default", "landscape", "900x600"),
     }
     for class_id, html_text in mockup_pages.items():
         m = re.search(r'<script id="lyt-solved-data" type="application/json">(.*?)</script>', html_text, re.S)
         assert m, f"{class_id}: no embedded solved-data script tag"
-        data = json.loads(m.group(1))
+        payload = json.loads(m.group(1))
+        assert set(payload["valuations"].keys()) == {"default", "all-present"}
         expected_sizes = emit_mockup.OVERLAY_SIZES[class_id]
-        assert [(d["label"], d["wPx"], d["hPx"]) for d in data] == expected_sizes
-        for d in data:
-            if (class_id, d["label"]) in known_infeasible:
-                assert d["status"] == "INFEASIBLE"
-                assert d["slots"] == {}
-            else:
-                assert d["status"] == "OPTIMAL", f"{class_id}/{d['label']}: expected OPTIMAL, got {d['status']}"
-                assert "B" in d["slots"]  # the board widget always solves a rect when OPTIMAL
+        for val_name, data in payload["valuations"].items():
+            assert [(d["label"], d["wPx"], d["hPx"]) for d in data] == expected_sizes
+            for d in data:
+                if (val_name, class_id, d["label"]) in known_infeasible_by_valuation:
+                    assert d["status"] == "INFEASIBLE", f"{val_name}/{class_id}/{d['label']}: expected INFEASIBLE, got {d['status']}"
+                    assert d["slots"] == {}
+                else:
+                    assert d["status"] == "OPTIMAL", f"{val_name}/{class_id}/{d['label']}: expected OPTIMAL, got {d['status']}"
+                    assert "B" in d["slots"]  # the board widget always solves a rect when OPTIMAL
 
 
 def test_landscape_side_column_track_carries_the_board_priority_clamp(mockup_pages):
@@ -1281,8 +1554,8 @@ def test_render_is_deterministic_given_the_same_overlay_data():
     reg, layouts = emit_mockup.load_class_slots()
     slot = layouts[reg.layout_by_class["landscape"]]
     overlay = emit_mockup.build_overlay_data(reg, layouts, "landscape", time_limit_s=10.0)
-    text_a = emit_mockup.build_html_for_class("landscape", slot, overlay)
-    text_b = emit_mockup.build_html_for_class("landscape", slot, overlay)
+    text_a = emit_mockup.build_html_for_class("landscape", slot, overlay, reg)
+    text_b = emit_mockup.build_html_for_class("landscape", slot, overlay, reg)
     assert text_a == text_b
 
 
