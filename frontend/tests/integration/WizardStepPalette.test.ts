@@ -133,7 +133,7 @@ describe('WizardStepPalette — advanced per-palette descriptions and editor poi
   it('renders a name + description for each of the four seeded palettes', () => {
     const wrapper = mountStep();
     const names = wrapper.findAll('.palette-descriptions dt').map((n) => n.text());
-    const bodies = wrapper.findAll('.palette-descriptions dd').map((n) => n.text());
+    const bodies = wrapper.findAll('.palette-descriptions .description-text').map((n) => n.text());
 
     expect(names).toEqual([
       en['wizard.palette.describe.score.name'],
@@ -163,5 +163,38 @@ describe('WizardStepPalette — advanced per-palette descriptions and editor poi
     const wrapper = mountStep();
     expect(wrapper.text()).toContain(en['wizard.palette.editorPointer']);
     expect(en['wizard.palette.editorPointer']).toContain('Analysis Environment');
+  });
+});
+
+describe('WizardStepPalette — formal definitions under each description (row 1378)', () => {
+  it('renders the live delta_fn/summary_fn for every described palette, sourced from the store, not a static string', () => {
+    const wrapper = mountStep();
+    const defs = wrapper.findAll('.palette-definition');
+    expect(defs.length).toBe(4); // score, quality, rank, default
+
+    // Rendering order matches PALETTE_DESCRIPTIONS declaration order
+    // (score, quality, rank, default) — index-correlated, NOT a text
+    // search, because two palettes (quality/default) legitimately
+    // share the same delta_fn (quality_delta) with different
+    // summary_fn, so a delta_fn-text lookup would ambiguously match
+    // either block.
+    const palettes = store.profile.settings.engine.katago.analysis_env.palettes;
+    const symbols = store.profile.settings.engine.katago.analysis_env.symbols;
+    const order = ['score', 'quality', 'rank', 'default'];
+    order.forEach((id, i) => {
+      const p = palettes.find((p) => p.id === id)!;
+      const block = defs[i];
+      expect(block.text()).toContain(`delta_fn: ${p.delta_fn}`);
+      expect(block.text()).toContain(`summary_fn: ${p.summary_fn}`);
+      const body = symbols[p.delta_fn];
+      if (body) expect(block.text()).toContain(body);
+    });
+  });
+
+  it("the 'score' palette's definition reflects the root-delta rewire (delta_fn: scoreLead_root_loss)", () => {
+    const wrapper = mountStep();
+    const scoreBlock = wrapper.findAll('.palette-definition')[0]; // score is declaration order 0
+    expect(scoreBlock.text()).toContain('delta_fn: scoreLead_root_loss');
+    expect(scoreBlock.text()).toContain('summary_fn: mean_summary');
   });
 });
