@@ -439,32 +439,48 @@ const knobSliderMaxWidthCss = computed(() => `${PANEL_CONTENT_READING_MEASURE_CH
 }
 
 /* M16 (audit finding, ledger row 1251): the native thumb measured
-   ~18x8px, under the WCAG 2.5.8 24x24 floor — this is the padding-
-   only fix applied everywhere else in this pass, translated to a
-   range input's own sizing hooks (`padding` doesn't apply to a
-   thumb; `::-webkit-slider-thumb` / `::-moz-range-thumb` are the
-   only standard way to size one). Track height/appearance is left
-   otherwise alone — a taller thumb sitting on a thin track is
-   standard native-slider rendering, not a redesign, and the grid
-   row it sits in (`.knob-slider-row`/`.knob-slider-compact` above)
-   already auto-sizes to its tallest child so this doesn't collide
-   with adjacent rows. */
+   ~18x8px, under the WCAG 2.5.8 24x24 floor — fixed by sizing the
+   thumb pseudo-elements to 24x24 directly.
+   ledger rows 1395/1396 (commissioner): at 24x24 VISUAL, the thumbs
+   read huge against the popover's compact text and visually overlap
+   between adjacent compact rows. Cut the visual circle to 0.7x
+   (16.8px = 24 * 0.7) while PRESERVING the >=24x24 effective pointer
+   target M16 established (WCAG 2.5.8) — the standard technique: the
+   pseudo-element's own box stays 24x24 total, but a `border` of
+   transparent pixels (content 16.8px + border 3.6px each side =
+   24px) shrinks only the PAINTED area via `background-clip:
+   content-box`. The border is part of the interactive hit box (same
+   as padding would be on a normal element) but paints nothing, so
+   it's invisible while still counting toward the pointer target —
+   the visible circle shrinks, the draggable/tappable region doesn't.
+   `box-sizing: content-box` is stated explicitly rather than relied
+   on as a UA default, since the width/height-is-content-only math
+   above depends on it.
+   `margin-top` stays -10px unchanged: it re-centers the *total*
+   24x24 box (content + border) on the ~4px native track, and that
+   total box is still 24px tall — only what's visible inside it
+   shrank. */
 .knob-slider-input::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-circle);
+  box-sizing: content-box;
+  width: 16.8px;
+  height: 16.8px;
+  border: 3.6px solid transparent;
   background: var(--accent-primary);
+  background-clip: content-box;
+  border-radius: var(--radius-circle);
   cursor: pointer;
-  margin-top: -10px; /* re-centers the enlarged thumb on a ~4px native track */
+  margin-top: -10px; /* re-centers the (still 24x24) box on a ~4px native track */
 }
 .knob-slider-input::-moz-range-thumb {
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-circle);
+  box-sizing: content-box;
+  width: 16.8px;
+  height: 16.8px;
+  border: 3.6px solid transparent;
   background: var(--accent-primary);
-  border: none;
+  background-clip: content-box;
+  border-radius: var(--radius-circle);
   cursor: pointer;
 }
 .knob-slider-input:disabled::-webkit-slider-thumb,
