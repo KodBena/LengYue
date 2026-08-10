@@ -1471,6 +1471,13 @@ _SCRIPT = """
         el.style.display = cb.checked ? '' : 'none';
         updateReleaseGuard();
       }
+      // Overlay-staleness fix (valuation review moderate finding,
+      // ledger row 1754): the overlay's valuation choice and rects
+      // depend on the CURRENT toggle state, so a presence change
+      // must re-run drawOverlay -- previously only the overlay
+      // toggle's own change event and window.resize did, leaving
+      // stale rects/status until the next resize.
+      if (overlayToggle.checked) { drawOverlay(); }
     });
   });
 
