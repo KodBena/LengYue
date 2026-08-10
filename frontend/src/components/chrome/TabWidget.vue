@@ -51,6 +51,22 @@
   `tabindex="0"`, Enter/Space activates — so vertical keeps exactly
   that same parity rather than inventing a new keyboard contract for
   one orientation only.
+
+  Rail side (ledger rows 1505/1509): the vertical rail was first
+  shipped on the left, a builder inference from settings-dialog
+  genre convention (ADR-0019's C25 — VS Code / Firefox / Chrome /
+  macOS preferences all place a persistent section list on the
+  left). That inference is superseded by the commissioner's own
+  stated intent: vertical tab rails sit TO THE RIGHT of the area
+  they control. The rail now renders on the right via
+  `flex-direction: row-reverse` on `.vue-tabs--vertical` rather than
+  reordering the template's `<ul>`/`<div>` markup — DOM/tab order
+  stays tablist-before-panel (Tab still reaches the rail before the
+  body, matching source order and every existing test's traversal
+  assumption), only the visual placement flips. See the `.tab-header`
+  and `.tab-header li.active` border rules below for the corresponding
+  side flip (separator border and active-edge accent both move to
+  the edge that now actually touches/faces outward).
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
@@ -214,15 +230,19 @@ function selectTab(id: string) {
   min-height: 0; /* Forces children to respect viewport boundaries */
 }
 
-/* Vertical orientation (ledger rows 1404/1427): the rail sits beside
-   the body, on the left, per ADR-0019's genre convention for a
-   settings surface (VS Code / Firefox / Chrome / macOS preferences —
-   a persistent left-hand section list, always visible, never a
-   forced sequence — the ADR's own C25). Only SettingsTab.vue opts
-   in; every other consumer keeps the untouched horizontal rules
-   above. */
+/* Vertical orientation (ledger rows 1404/1427, side per 1505/1509):
+   the rail sits beside the body as a persistent, always-visible
+   section list (never a forced sequence), but on the RIGHT — the
+   commissioner's stated intent for vertical tab rails, which
+   supersedes the left-hand placement a builder had inferred from
+   settings-dialog genre convention (ADR-0019's C25: VS Code /
+   Firefox / Chrome / macOS preferences). `row-reverse` flips the
+   visual placement only; the template keeps the tablist `<ul>`
+   before the `<div class="tab-body">` in DOM/tab order (see the
+   header comment's "Rail side" note). Only SettingsTab.vue opts in;
+   every other consumer keeps the untouched horizontal rules above. */
 .vue-tabs--vertical {
-  flex-direction: row;
+  flex-direction: row-reverse;
 }
 
 .vue-tabs--vertical .tab-header {
@@ -239,7 +259,9 @@ function selectTab(id: string) {
      style block. */
   overflow-y: auto;
   border-bottom: none;
-  border-right: 1px solid var(--border-1);
+  /* Separator faces the body, which now sits to this rail's LEFT
+     (row-reverse) — border-left, not the pre-1505/1509 border-right. */
+  border-left: 1px solid var(--border-1);
   flex-shrink: 0;
   /* Genre-convention rail width: narrow enough that the control
      panel's measured floor (270px, `computeControlPanelMinWidthPx`
@@ -272,9 +294,11 @@ function selectTab(id: string) {
      convention (VS Code / browser prefs) is a leading edge bar
      instead, so the active indicator rotates with the axis rather
      than keeping a bottom border that would sit flush against the
-     next tab's top edge. */
+     next tab's top edge. The edge itself is the rail's outer edge —
+     border-right, not the pre-1505/1509 border-left, now that the
+     rail sits on the right and its outer edge faces right. */
   border-bottom: 1px solid var(--border-1);
-  border-left: 2px solid var(--accent-primary);
+  border-right: 2px solid var(--accent-primary);
 }
 
 .vue-tabs--vertical .tab-body {

@@ -171,7 +171,7 @@ describe('TabWidget — orientation contract (ledger rows 1404/1427: Settings su
     expect(wrapper.emitted('update:modelValue')).toEqual([['analysis']]);
   });
 
-  it('the vertical modifier stylesheet lays the strip out as a column beside the body (row root, column header) — source-pinned: jsdom does no real layout, so this reads the scoped CSS text rather than a computed/measured box (UNEXERCISED: real visual side-by-side placement is not witnessed by this suite)', async () => {
+  it('the vertical modifier stylesheet lays the strip out as a row with the rail on the RIGHT (row-reverse root, column header) — ledger rows 1505/1509/1515/1516: the rail sits right of the pane it controls, not left. Source-pinned: jsdom does no real layout, so this reads the scoped CSS text rather than a computed/measured box (UNEXERCISED: real visual side-by-side placement is not witnessed by this suite)', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const src = fs.readFileSync(
@@ -179,8 +179,18 @@ describe('TabWidget — orientation contract (ledger rows 1404/1427: Settings su
       'utf-8',
     );
     const styleBlock = src.slice(src.indexOf('<style'), src.indexOf('</style>'));
-    expect(styleBlock).toMatch(/\.vue-tabs--vertical\s*{[^}]*flex-direction:\s*row/);
+    // Exact match on `row-reverse` — NOT the looser `flex-direction:\s*row`,
+    // which would incidentally match `row-reverse` too and silently pass
+    // even if the rail regressed back to plain `row` (left-side rail,
+    // pre-1505/1509). This assertion witnesses the RIGHT-side property
+    // deliberately, not by accident of substring matching.
+    expect(styleBlock).toMatch(/\.vue-tabs--vertical\s*{[^}]*flex-direction:\s*row-reverse\s*;/);
+    expect(styleBlock).not.toMatch(/\.vue-tabs--vertical\s*{[^}]*flex-direction:\s*row\s*;/);
     expect(styleBlock).toMatch(/\.vue-tabs--vertical \.tab-header\s*{[^}]*flex-direction:\s*column/);
+    // The tablist separator now faces the body on its LEFT (row-reverse
+    // puts the DOM-first `.tab-header` on the visual right) — border-left,
+    // not the pre-1505/1509 border-right.
+    expect(styleBlock).toMatch(/\.vue-tabs--vertical \.tab-header\s*{[^}]*border-left:\s*1px solid var\(--border-1\)/);
     // The vertical rail still never clips its own overflow axis — it
     // rotates to overflow-y instead of the horizontal strip's
     // overflow-x, but the "the strip scrolls itself, nothing is
