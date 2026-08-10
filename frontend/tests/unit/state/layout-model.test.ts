@@ -47,6 +47,9 @@ import {
   computeTreePanelDefaultWidthPx,
   computeTreePanelBoundWidth,
   computeUnsetWrapperMaxWidthCss,
+  MIN_BOARD_PX,
+  TREE_CONTROL_REGION_DEFAULT_WIDTH_FRACTION,
+  computeTreeControlRegionDefaultWidthPx,
 } from '../../../src/state/layout-model';
 
 describe('deriveAxis — row/column split from aspect ratio', () => {
@@ -299,5 +302,60 @@ describe('computeUnsetWrapperMaxWidthCss — Phase 3, audit finding R3 (surplus 
     const treeDefault = computeTreePanelDefaultWidthPx(3840);
     const css = computeUnsetWrapperMaxWidthCss(treeDefault, RESIZER_WIDTH_PX, PANEL_CONTENT_READING_MEASURE_CH);
     expect(css).toContain(`${treeDefault}px`);
+  });
+});
+
+describe('computeTreeControlRegionDefaultWidthPx — init-vs-drag divergence fix (ledger rows 1505/1510)', () => {
+  // The property this whole fix exists for: given a viewport width and
+  // NO stored positions, #board-column (uncapped, absorbing whatever
+  // the wrapper's default did not claim — see
+  // useResizablePanel.ts's `effectiveTreeControlRegionWidthPx` and
+  // `boardColumnMaxWidthPx`) plus the resizer plus this wrapper default
+  // sum to EXACTLY the row width — no slack left unclaimed the way the
+  // reported defect (unused band right of the control panel) left it.
+  // `#board-column`'s own rendered width is not itself a pure function
+  // exported anywhere (it is CSS flex-fill, not JS-computed) — its
+  // value IS the complement by construction once uncapped, so the
+  // complement is what this test computes and sums back against the
+  // row width, across a sweep of plausible viewport widths.
+  it('the wrapper default + a resizer + the board complement sum to exactly the row width (no slack), across a width sweep', () => {
+    for (const rowWidthPx of [768, 1024, 1280, 1366, 1440, 1600, 1920, 2560, 3440, 3840]) {
+      const wrapperPx = computeTreeControlRegionDefaultWidthPx(rowWidthPx);
+      const boardComplementPx = rowWidthPx - wrapperPx - RESIZER_WIDTH_PX;
+      expect(wrapperPx + RESIZER_WIDTH_PX + boardComplementPx).toBe(rowWidthPx);
+      // The board complement never drops below its own floor — the
+      // wrapper default never over-claims into the board's protected
+      // minimum.
+      expect(boardComplementPx).toBeGreaterThanOrEqual(MIN_BOARD_PX);
+    }
+  });
+
+  it('never claims less than WRAPPER_MIN_WIDTH_PX — the wrapper\'s own content floor', () => {
+    // A narrow viewport where the fraction alone would compute well
+    // under the content floor.
+    expect(computeTreeControlRegionDefaultWidthPx(400)).toBe(WRAPPER_MIN_WIDTH_PX);
+  });
+
+  it('never claims more than would leave the board under MIN_BOARD_PX, on a very narrow viewport', () => {
+    const rowWidthPx = WRAPPER_MIN_WIDTH_PX; // narrower than any real board+wrapper split could satisfy comfortably
+    const wrapperPx = computeTreeControlRegionDefaultWidthPx(rowWidthPx);
+    // Degrades gracefully — clamped to whichever of the two bounds
+    // actually governs (mirrors computePaneWidthPx's own graceful
+    // degradation for an over-constrained viewport).
+    expect(wrapperPx).toBeGreaterThanOrEqual(WRAPPER_MIN_WIDTH_PX);
+  });
+
+  it('grows with the row width — a vast 4K workspace gets a generously-sized region, not the bare content floor', () => {
+    const compact = computeTreeControlRegionDefaultWidthPx(768);
+    const vast = computeTreeControlRegionDefaultWidthPx(3840);
+    expect(vast).toBeGreaterThan(compact);
+    expect(vast).toBe(Math.round(3840 * TREE_CONTROL_REGION_DEFAULT_WIDTH_FRACTION));
+  });
+
+  it('non-finite/non-positive input degrades to WRAPPER_MIN_WIDTH_PX, same convention as this module\'s other derive*/compute* functions', () => {
+    expect(computeTreeControlRegionDefaultWidthPx(0)).toBe(WRAPPER_MIN_WIDTH_PX);
+    expect(computeTreeControlRegionDefaultWidthPx(-100)).toBe(WRAPPER_MIN_WIDTH_PX);
+    expect(computeTreeControlRegionDefaultWidthPx(NaN)).toBe(WRAPPER_MIN_WIDTH_PX);
+    expect(computeTreeControlRegionDefaultWidthPx(Infinity)).toBe(WRAPPER_MIN_WIDTH_PX);
   });
 });

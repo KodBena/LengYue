@@ -72,6 +72,7 @@ import {
   TREE_PANEL_MIN_WIDTH_PX,
   freshTreeControlWrapperFloorPx,
 } from '../../src/composables/chrome/useResizablePanel';
+import { computeTreeControlRegionDefaultWidthPx } from '../../src/state/layout-model';
 
 // The row `useResizablePanel`'s onMounted hook measures. Stubbing its
 // rendered width (and, for the board-column width-cap tests below,
@@ -134,13 +135,19 @@ describe('ui-5-3: hydrating a wide-viewport width on a narrow one always leaves 
     expect(boardRoomPx).toBeGreaterThanOrEqual(MIN_BOARD_PX);
   });
 
-  it('a workspace that was NEVER dragged (undefined) keeps its flex-fill default — fresh installs are unaffected', () => {
+  it('a workspace that was NEVER dragged gets the init-vs-drag-divergence-fix default once measured — fresh installs are unaffected by the STORED-value clamp above, but are no longer left undefined either (ledger rows 1505/1510)', () => {
     expect(store.session.ui.treeControlRegionWidthPx).toBeUndefined();
 
     mountSplitWorkspace(1024);
     const panel = withSetup(() => useResizablePanel());
 
-    expect(panel.effectiveTreeControlRegionWidthPx.value).toBeUndefined();
+    // Before the fix this was `undefined` (flex-fill branch, capped
+    // independently by boardColumnMaxWidthPx AND unsetWrapperMaxWidthCss
+    // — the two-cap defect). Now it's the SAME explicit default a
+    // settled drag would produce, so #board-column's own cap
+    // self-disables (see the "board-column width cap" describe block
+    // below) and absorbs the true remainder — no more dead space.
+    expect(panel.effectiveTreeControlRegionWidthPx.value).toBe(computeTreeControlRegionDefaultWidthPx(1024));
   });
 
   it('a value already comfortably narrower than the row is left unchanged (no-op on the common/healthy case)', () => {
@@ -157,22 +164,22 @@ describe('ui-5-3: hydrating a wide-viewport width on a narrow one always leaves 
   // unvalidated deepMerge — must not NaN-poison the clamp and reach
   // App.vue's :style as an invalid CSS length (the exact minimized-board
   // symptom). Treated as never-dragged: flex-fill default.
-  it('a NaN persisted value falls back to the flex-fill default instead of NaN-poisoning the clamp', () => {
+  it('a NaN persisted value falls back to the never-dragged default (same as no stored value) instead of NaN-poisoning the clamp', () => {
     store.session.ui.treeControlRegionWidthPx = Number.NaN;
 
     mountSplitWorkspace(1024);
     const panel = withSetup(() => useResizablePanel());
 
-    expect(panel.effectiveTreeControlRegionWidthPx.value).toBeUndefined();
+    expect(panel.effectiveTreeControlRegionWidthPx.value).toBe(computeTreeControlRegionDefaultWidthPx(1024));
   });
 
-  it('an Infinity persisted value likewise falls back to the flex-fill default', () => {
+  it('an Infinity persisted value likewise falls back to the never-dragged default', () => {
     store.session.ui.treeControlRegionWidthPx = Number.POSITIVE_INFINITY;
 
     mountSplitWorkspace(1024);
     const panel = withSetup(() => useResizablePanel());
 
-    expect(panel.effectiveTreeControlRegionWidthPx.value).toBeUndefined();
+    expect(panel.effectiveTreeControlRegionWidthPx.value).toBe(computeTreeControlRegionDefaultWidthPx(1024));
   });
 });
 
@@ -286,62 +293,68 @@ describe('fresh-profile first-paint floor (ledger row 802): the flex-fill branch
  * (returned by `useResizablePanel`) is the reactive cap App.vue binds
  * as `#board-column`'s `:style` `max-width`; `computeBoardColumnMaxWidthPx`
  * (tested at the pure-function tier in `tests/unit/composables/chrome/
- * useResizablePanel.test.ts`) is the arithmetic behind it. These tests
- * drive the SAME geometry inputs the composable actually reads
- * (`#split-workspace`'s live width/height via `mountSplitWorkspace`,
- * exactly as the ui-5-3 tests above do for width alone) — not the
- * browser's actual flex distribution, which jsdom does not compute; the
- * composable-level claim proven here is "the cap is (a) present and
- * strictly tighter than an even flex-fill split in the height-bound
- * case, freeing slack a browser's flexbox will hand to the wrapper" and
- * "(b) absent/non-binding in the width-bound and explicit-width cases."
+ * useResizablePanel.test.ts`) is the arithmetic behind it.
+ *
+ * NARROWED SCOPE (init-vs-drag divergence fix, ledger rows 1505/1510):
+ * this cap USED TO also engage for every never-dragged render, at the
+ * SAME TIME `unsetWrapperMaxWidthCss` capped the wrapper — two
+ * independently-computed caps on the row's only two flex-grow parties
+ * that could both saturate below the row's actual width, leaving the
+ * remainder as dead space to the right of the control panel (the
+ * reported defect). `effectiveTreeControlRegionWidthPx` now resolves to
+ * an explicit default (`computeTreeControlRegionDefaultWidthPx`,
+ * state/layout-model.ts) the instant the row is measured, so this cap's
+ * own `!== undefined` guard now fires on every steady-state render —
+ * the cap is only ever live for the single pre-measurement frame (see
+ * the last test below, which is the only one still exercising it).
  */
-describe('board-column width cap (commission row 848): height-bound vs width-bound', () => {
-  it('RED (documents the pre-fix symptom): with no cap, a height-bound board-column would keep claiming an even flex-fill share past what its own square can use', () => {
+describe('board-column width cap (commission row 848): narrowed to the pre-measurement frame by the init-vs-drag divergence fix', () => {
+  it('RED (documents the ORIGINAL pre-848 symptom this cap was built against): with no cap at all, a height-bound board-column would keep claiming an even flex-fill share past what its own square can use', () => {
     const rowWidthPx = 2400;
     const rowHeightPx = 900; // height-bound: the square can use at most 900px
-    // Pre-fix, #board-column (`flex: 1 1 auto`) and #tree-control-wrapper
+    // Pre-848, #board-column (`flex: 1 1 auto`) and #tree-control-wrapper
     // (`flex: 1 1 0`) split free row space evenly (both grow-factor 1);
     // the naive share is well past what the height-bound square needs.
     const naiveUncappedSharePx = (rowWidthPx - RESIZER_WIDTH_PX) / 2;
     expect(naiveUncappedSharePx).toBeGreaterThan(rowHeightPx);
   });
 
-  it('GREEN: height-bound case — boardColumnMaxWidthPx caps #board-column at the row height, strictly below the even flex-fill share, freeing slack for #tree-control-wrapper to grow past its own floor', () => {
+  it('once the row is measured, a never-dragged workspace now gets the explicit default width (not undefined) and the height-cap self-disables — #board-column is free to absorb the true remainder instead of being double-capped alongside the wrapper', () => {
     const rowWidthPx = 2400;
-    const rowHeightPx = 900;
+    const rowHeightPx = 900; // height-bound geometry — the OLD dual-cap scenario
     mountSplitWorkspace(rowWidthPx, rowHeightPx);
     const panel = withSetup(() => useResizablePanel());
 
-    expect(store.session.ui.controlsExpanded).toBe(true); // default; the cap only governs this branch
-    expect(panel.effectiveTreeControlRegionWidthPx.value).toBeUndefined(); // never dragged: flex-fill branch
+    expect(store.session.ui.controlsExpanded).toBe(true);
+    // No longer undefined/flex-fill — the explicit default (init-vs-drag
+    // divergence fix) takes over the instant the row is measured.
+    const wrapperPx = panel.effectiveTreeControlRegionWidthPx.value;
+    expect(wrapperPx).toBe(computeTreeControlRegionDefaultWidthPx(rowWidthPx));
 
-    const cappedPx = panel.boardColumnMaxWidthPx.value;
-    expect(cappedPx).toBe(rowHeightPx);
+    // The height-cap self-disables (same guard as the explicit-drag
+    // case below) — #board-column absorbs literally everything the
+    // wrapper default didn't claim, height-bound or not, exactly what a
+    // settled OUTER-bar drag already produced.
+    expect(panel.boardColumnMaxWidthPx.value).toBeUndefined();
 
-    const naiveUncappedSharePx = (rowWidthPx - RESIZER_WIDTH_PX) / 2;
-    expect(cappedPx as number).toBeLessThan(naiveUncappedSharePx);
-
-    // The room this frees for #tree-control-wrapper (row width minus the
-    // capped board-column minus the resizer bar) clears its own floor —
-    // "the slack flowed", the acceptance criterion in composable terms.
-    const wrapperRoomPx = rowWidthPx - (cappedPx as number) - RESIZER_WIDTH_PX;
-    expect(wrapperRoomPx).toBeGreaterThan(WRAPPER_MIN_WIDTH_PX);
+    const boardComplementPx = rowWidthPx - (wrapperPx as number) - RESIZER_WIDTH_PX;
+    expect(boardComplementPx + (wrapperPx as number) + RESIZER_WIDTH_PX).toBe(rowWidthPx); // no slack
+    expect(boardComplementPx).toBeGreaterThanOrEqual(MIN_BOARD_PX);
   });
 
-  it('width-bound case is unchanged: a row taller than it is wide yields a cap that exceeds the row entirely — non-binding, #board-column keeps claiming its full natural share exactly as before this fix', () => {
+  it('width-bound geometry (a row taller than it is wide) is likewise governed by the same explicit default — the cap remains disabled regardless of rowHeightPx once measured', () => {
     const rowWidthPx = 1200;
     const rowHeightPx = 5000; // taller than the row is wide
     mountSplitWorkspace(rowWidthPx, rowHeightPx);
     const panel = withSetup(() => useResizablePanel());
 
-    const cappedPx = panel.boardColumnMaxWidthPx.value;
-    expect(cappedPx as number).toBeGreaterThan(rowWidthPx);
+    expect(panel.effectiveTreeControlRegionWidthPx.value).toBe(computeTreeControlRegionDefaultWidthPx(rowWidthPx));
+    expect(panel.boardColumnMaxWidthPx.value).toBeUndefined();
   });
 
-  it('an explicit (dragged or restored) treeControlRegionWidthPx disables the cap entirely — the user\'s own drag settings still win, this fix only governs the NO-EXPLICIT-WIDTH flex-fill distribution', () => {
+  it('an explicit (dragged or restored) treeControlRegionWidthPx disables the cap entirely — the user\'s own drag settings still win, same guard the never-dragged default above also engages', () => {
     store.session.ui.treeControlRegionWidthPx = 500; // an explicit, already-sane width
-    mountSplitWorkspace(2400, 900); // same height-bound geometry as the GREEN case above
+    mountSplitWorkspace(2400, 900);
     const panel = withSetup(() => useResizablePanel());
 
     expect(panel.effectiveTreeControlRegionWidthPx.value).toBe(500); // explicit-width branch engaged
@@ -356,10 +369,17 @@ describe('board-column width cap (commission row 848): height-bound vs width-bou
     expect(panel.boardColumnMaxWidthPx.value).toBeUndefined();
   });
 
-  it('not yet measured (rowHeightPx still 0, mirrors the pre-ResizeObserver-attach window) does not spuriously cap the board to its floor', () => {
+  it('not yet measured (rowHeightPx still 0, mirrors the pre-ResizeObserver-attach window) does not spuriously cap the board to its floor — the ONE window this cap (and the flex-fill CSS branch it pairs with) still governs', () => {
     // No mountSplitWorkspace call: #split-workspace never appears, so
-    // the composable's row observer never attaches and rowHeightPx stays 0.
+    // the composable's row observer never attaches and rowWidthPx/
+    // rowHeightPx stay 0 — effectiveTreeControlRegionWidthPx's own
+    // `rowWidthPx.value <= 0` branch passes the (here undefined) raw
+    // value through unmodified, so this is the one case where it's
+    // still `undefined` and the height-cap's guard still reaches
+    // computeBoardColumnMaxWidthPx — which itself returns undefined for
+    // an unmeasured rowHeightPx.
     const panel = withSetup(() => useResizablePanel());
+    expect(panel.effectiveTreeControlRegionWidthPx.value).toBeUndefined();
     expect(panel.boardColumnMaxWidthPx.value).toBeUndefined();
   });
 });

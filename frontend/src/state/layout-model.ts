@@ -312,6 +312,81 @@ export function computeTreePanelDefaultWidthPx(workspaceWidthPx: number): number
   return Math.max(TREE_PANEL_MIN_WIDTH_PX, Math.round(workspaceWidthPx * TREE_PANEL_DEFAULT_WIDTH_FRACTION));
 }
 
+// ── Tree+control WRAPPER unset default (init-vs-drag divergence fix,
+//    ledger rows 1505/1510) ─────────────────────────────────────────
+
+// assumption (not spec-given): the combined tree+control wrapper's
+// UNSET (never-dragged) default width, as a fraction of the row's own
+// live width — same shape as TREE_PANEL_DEFAULT_WIDTH_FRACTION above,
+// picked generously enough that a compact/standard workspace clamps to
+// its content floor (WRAPPER_MIN_WIDTH_PX, below) while a vast 4K
+// workspace (3840 * 0.32 ≈ 1229px) gets a comfortably-sized, still
+// content-appropriate, region rather than the bare tab-strip floor.
+// Each panel's own TEXT content independently caps itself at
+// `PANEL_CONTENT_READING_MEASURE_CH` (LibraryTab.vue, ForestDirectory.vue,
+// KnobSlider.vue, RegistryEditor.vue, KnobRegistryEditor.vue all read
+// that constant directly for their own inner max-width), so a wrapper
+// wider than one reading measure does not stretch a lone text column —
+// this default is free to hand the wrapper a comfortable box without
+// re-deriving that ch-based cap into an assumed px conversion.
+export const TREE_CONTROL_REGION_DEFAULT_WIDTH_FRACTION = 0.32;
+
+/**
+ * The tree+control wrapper's UNSET (never-dragged, nothing restored)
+ * default width — the ROOT FIX for the init-vs-drag divergence (ledger
+ * rows 1505/1510: a wide band of unused space sat to the right of the
+ * control panel on first start, and dragging `#resizer-outer` snapped
+ * the layout to a correct full-width fit). Diagnosis: the never-dragged
+ * branch used to leave `session.ui.treeControlRegionWidthPx`'s
+ * projection (`effectiveTreeControlRegionWidthPx`, useResizablePanel.ts)
+ * `undefined`, which routed App.vue's `#tree-control-wrapper` into a
+ * flex-fill CSS branch capped by `unsetWrapperMaxWidthCss` (content
+ * need) WHILE `#board-column` was independently capped by
+ * `boardColumnMaxWidthPx` (its own height-bound square) — two
+ * INDEPENDENTLY-COMPUTED caps on the row's only two flex-grow parties,
+ * each one written assuming the OTHER stays unbounded and absorbs its
+ * surplus. When BOTH caps saturate below the row's actual width (any
+ * viewport wider than boardHeightCap + wrapperContentCap + one
+ * resizer — the common case on a typical wide/short monitor), CSS has
+ * no third party to hand the remainder to, and it renders as dead
+ * space. Only a DRAG produced the correct fit, because
+ * `onMouseMoveOuter` writes an EXPLICIT `treeControlRegionWidthPx`,
+ * which (a) takes the wrapper out of the capped flex-fill branch
+ * entirely and (b) disables `boardColumnMaxWidthPx` by construction
+ * (its own guard: `effectiveTreeControlRegionWidthPx.value !==
+ * undefined -> undefined`) — leaving `#board-column` fully uncapped to
+ * absorb literally everything the wrapper didn't claim.
+ *
+ * The fix gives the UNSET case an EXPLICIT width too — this function —
+ * so mount, resize, and drag all resolve through the SAME explicit-
+ * width branch (`effectiveTreeControlRegionWidthPx !== undefined`) by
+ * construction, instead of the mount-only flex-fill/dual-cap branch.
+ * `#board-column`'s own cap self-disables the moment this default
+ * exists (same guard already in place for the dragged/restored case),
+ * so board absorbs the true remainder every time, matching exactly
+ * what a settled drag already produced — one home for the fit, not
+ * two. See `useResizablePanel.ts`'s `effectiveTreeControlRegionWidthPx`
+ * for the call site (only consulted once `raw` is undefined AND the
+ * row has been measured; `sanitizeTreeControlRegionWidthPx` — the
+ * STORED-value reconciliation — is tried first and wins whenever a
+ * stored value exists, per the stored-drag-precedence rule this
+ * mirrors from `computeTreePanelBoundWidth`).
+ *
+ * Clamped the same way `sanitizeTreeControlRegionWidthPx` already
+ * clamps a restored value: never below `WRAPPER_MIN_WIDTH_PX` (the
+ * wrapper's own content floor) and never above
+ * `rowWidthPx - MIN_BOARD_PX - RESIZER_WIDTH_PX` (always leaves the
+ * board its floor). Non-finite/non-positive input (not yet measured)
+ * degrades to `WRAPPER_MIN_WIDTH_PX`, same convention as this module's
+ * other derive*() / compute*() functions.
+ */
+export function computeTreeControlRegionDefaultWidthPx(rowWidthPx: number): number {
+  if (!Number.isFinite(rowWidthPx) || rowWidthPx <= 0) return WRAPPER_MIN_WIDTH_PX;
+  const naturalWidthPx = Math.round(rowWidthPx * TREE_CONTROL_REGION_DEFAULT_WIDTH_FRACTION);
+  const maxRegionWidthPx = Math.max(WRAPPER_MIN_WIDTH_PX, Math.round(rowWidthPx - MIN_BOARD_PX - RESIZER_WIDTH_PX));
+  return Math.min(Math.max(naturalWidthPx, WRAPPER_MIN_WIDTH_PX), maxRegionWidthPx);
+}
+
 /** `computeTreePanelBoundWidth`'s result — a discriminated union rather
  *  than an `undefined`-width sentinel, so a caller can't forget to
  *  branch on `mode` (ADR-0000: type-driven design). `'full'` is the
