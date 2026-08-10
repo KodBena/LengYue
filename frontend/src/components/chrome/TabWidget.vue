@@ -264,8 +264,9 @@ function selectTab(id: string) {
   border-left: 1px solid var(--border-1);
   flex-shrink: 0;
   /* Genre-convention rail width: narrow enough that the control
-     panel's measured floor (270px, `computeControlPanelMinWidthPx`
-     over the 5 top-level tabs — unrelated to this sub-strip, but the
+     panel's measured floor (300px as of the G10 fix,
+     `computeControlPanelMinWidthPx` over the 5 top-level tabs —
+     unrelated to this sub-strip, but the
      tightest width this rail is ever asked to live inside) still
      leaves the body usable; wide enough for "Analysis Environment"
      (the longest English label, 20 characters) to read on one or two
