@@ -51,13 +51,15 @@ patterns supported, others render without hoshi).
   but no UI surface for issuing one ships today `[planned]`.
 
 - **Ghost-stone hover preview.** A translucent stone in the
-  side-to-move's colour follows the pointer to the nearest
+  side-to-move's colour follows the pointer to the nearest empty
   intersection (cgoban3 convention). Deliberately the simplest
-  preview possible: it renders identically whether the hovered
-  point is a legal placement or not, and it never previews a
-  capture — no board-evaluation affordance, just "here's where
-  and what colour a click would place." On by default; toggle
-  it off via the Session (UI) settings pane.
+  preview possible: on an empty point it renders identically
+  whether that placement is legal or not, and it never previews
+  a capture — no board-evaluation affordance, just "here's where
+  and what colour a click would place." It is hidden on an
+  already-occupied intersection rather than painting over the
+  existing stone. On by default; toggle it off via the Session
+  (UI) settings pane.
 
 - **Move-number annotation toggle.** A "#" button in the status
   bar overlays each placed stone with its ordinal (1, 2, 3, …),
