@@ -60,10 +60,18 @@
  * Merge update (ledger rows 1357/1358): the former `demoBoard` and
  * `pvAnimation` steps became ONE step, still named `demoBoard`. Its
  * prose count is the SUM of the two former steps' counts (nothing was
- * dropped): 1 + 2 = 3. The step total (`WIZARD_STEPS.length`) is 6;
- * the aggregate element count is the table's sum — 16 after the
+ * dropped): 1 + 2 = 3. The step total (`WIZARD_STEPS.length`) was 6;
+ * the aggregate element count was the table's sum — 16 after the
  * palette copy refinement, the PV/demo merge, and the engine-URI
  * copy rewrite (prose moved and added, none silently removed).
+ *
+ * Locale-step update (commission wiki2-wizard-i18n): a new `locale`
+ * step landed as WIZARD_STEPS' first entry, contributing exactly one
+ * `.step-description` (its only prose element — an option-card list
+ * carries no further capped prose). The step total is now 7; the
+ * aggregate is now 17. `EXPECTED_CAPPED_COUNT_BY_STEP`'s own `reduce`
+ * derives the total automatically — only the per-step table below
+ * needed the new row.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -93,11 +101,12 @@ afterEach(() => {
 });
 
 // Exact expected count of `[data-prose-measure-ch]` elements per step —
-// see file header for the per-file accounting. Total across all six
-// (post-merge) steps is 16 (palette copy refinement added five; the
-// PV/demo merge moved two into demoBoard; the engine-URI rewrite
-// added the disclosure wrapper).
+// see file header for the per-file accounting. Total across all seven
+// steps is 17 (palette copy refinement added five; the PV/demo merge
+// moved two into demoBoard; the engine-URI rewrite added the
+// disclosure wrapper; the locale step added its one description).
 const EXPECTED_CAPPED_COUNT_BY_STEP: Record<WizardStepId, number> = {
+  locale: 1,
   theme: 1,
   engineUri: 3,
   palette: 6,
@@ -136,7 +145,7 @@ describe('wizard prose measure (R7) — every step\'s prose carries the declared
       }
     }
 
-    // Exact total (16), not a floor — see file header.
+    // Exact total (17), not a floor — see file header.
     expect(proseElementsSeen).toBe(EXPECTED_TOTAL_CAPPED_COUNT);
   });
 

@@ -170,6 +170,7 @@ frontend/src/
 │   ├── WizardStepIndicator.vue        [B1]  Numbered step-dot row (ADR-0019 wizard genre convention); every dot but the current one is click-to-jump, forward or back (nothing gates forward progression).
 │   │
 │   └── steps/
+│       ├── WizardStepLocale.vue       [B1]  Step (new, first) — commission wiki2-wizard-i18n. Flag+native-name option cards over `useLocale` verbatim (the SAME composable `LocalePicker.vue` reads/writes); UNLIKE the theme step, the active locale IS pre-selected (a UI has no neutral "no language" state). Writes `profile.settings.appearance.locale` — picked up by `useAppBootstrap.ts`'s existing `immediate: true` mirror watch, so the rest of the wizard re-renders in the chosen language immediately, with no wizard-local i18n plumbing.
 │       ├── WizardStepTheme.vue        [B1]  Step (a) — light/dark presented neutrally side by side, no preselected favorite (commissioner ruling). Writes `profile.settings.appearance.theme` — the SAME cell RegistryEditor's Advanced Registry section edits.
 │       ├── WizardStepEngineUri.vue    [B3]  Step (b) — reuses `useEngineUriEditor` verbatim (same composable `ToolbarEngineUri.vue` mounts), input always-open instead of click-to-edit. Same cell (`engine.katago.url`), no second validator.
 │       ├── WizardStepPalette.vue      [B3]  Step (c) — the same simple `<select>` presentation `AnalysisControls.vue`'s palette selector uses, same cell (`engine.katago.analysis_env.activePaletteId`).

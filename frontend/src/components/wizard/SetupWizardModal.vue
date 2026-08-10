@@ -36,6 +36,7 @@ import { computed, ref } from 'vue';
 import { useModalKeyboard } from '../../composables/useModalKeyboard';
 import { useSetupWizard, type WizardStepId } from '../../composables/useSetupWizard';
 import WizardStepIndicator from './WizardStepIndicator.vue';
+import WizardStepLocale from './steps/WizardStepLocale.vue';
 import WizardStepTheme from './steps/WizardStepTheme.vue';
 import WizardStepEngineUri from './steps/WizardStepEngineUri.vue';
 import WizardStepPalette from './steps/WizardStepPalette.vue';
@@ -47,6 +48,7 @@ const wizard = useSetupWizard();
 const modalContentRef = ref<HTMLElement | null>(null);
 
 const STEP_COMPONENTS: Record<WizardStepId, unknown> = {
+  locale: WizardStepLocale,
   theme: WizardStepTheme,
   engineUri: WizardStepEngineUri,
   palette: WizardStepPalette,
