@@ -16,6 +16,7 @@ import {
   lerpVisits,
   DEFAULT_VISITS_LERP,
   visitsLerpParams,
+  visitsLerpAError,
   setVisitsLerpA,
   setVisitsLerpB,
   resetVisitsLerp,
@@ -92,6 +93,33 @@ describe('visitsLerpParams — reactive state', () => {
     setVisitsLerpA(NaN);
     setVisitsLerpA(Infinity);
     expect(visitsLerpParams.value.a).toBe(3);
+  });
+
+  // wiki2-card-visit-ranges (enforcement amendment, ledger row 1625):
+  // a ∈ (0, ∞) is ENFORCED by setVisitsLerpA, not just the UI hint's
+  // claim — a non-positive a is refused loudly (structured error via
+  // visitsLerpAError, last-known-good a retained), never silently
+  // clamped or coerced.
+  it('refuses a = 0, leaving the prior value in place and setting a structured error', () => {
+    setVisitsLerpA(3);
+    setVisitsLerpA(0);
+    expect(visitsLerpParams.value.a).toBe(3);
+    expect(visitsLerpAError.value).not.toBeNull();
+  });
+
+  it('refuses a < 0, leaving the prior value in place and setting a structured error', () => {
+    setVisitsLerpA(3);
+    setVisitsLerpA(-5);
+    expect(visitsLerpParams.value.a).toBe(3);
+    expect(visitsLerpAError.value).not.toBeNull();
+  });
+
+  it('accepts a small positive a and clears any prior error', () => {
+    setVisitsLerpA(-5); // seed an error first
+    expect(visitsLerpAError.value).not.toBeNull();
+    setVisitsLerpA(0.001);
+    expect(visitsLerpParams.value.a).toBe(0.001);
+    expect(visitsLerpAError.value).toBeNull();
   });
 
   it('resetVisitsLerp restores the identity transform', () => {
