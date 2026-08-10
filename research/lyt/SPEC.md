@@ -116,10 +116,16 @@ the consult document's own worked examples verbatim (disclosed in
   itself uses to flag known violations in its as-is transcription),
   preserved as `Slot.violates` metadata. This metadata is inert — no
   code reads it as an active check; it is disclosed provenance only.
-- A domain identifier may carry a trailing `?` (e.g. `common?`) marking
-  the census's own "flagged, not forced" ambiguity (consult document
-  §3); stored as `Leaf.flagged`.
+- A domain identifier **or a widget identifier** may carry a trailing
+  `?` (e.g. `common?`, `boardRail?`) marking the census's own "flagged,
+  not forced" ambiguity (consult document §3); either spelling sets the
+  same `Leaf.flagged` field.
 - Facets may be joined with `+` as well as `,` (`info+action`).
+- A bare facet name (`info` or `action`) in domain position — e.g.
+  `I[info]` — loads as domain `common` with the token folded into the
+  facet set instead: a disclosed fallback for the generic "information
+  panel" leaves the q5go/OGS comparison encodings use, which don't map
+  onto LengYue's own domain census.
 - A `[TAG]` bracket may trail a `T(...)` node (e.g. `[BLACK BOX]`) as a
   documentation-only annotation, stored as `Exclusive.tag`.
 - Extra sizing keys beyond the base grammar's `min`/`pref`/`max`/
@@ -132,7 +138,14 @@ the consult document's own worked examples verbatim (disclosed in
   `envelope` keyword has nowhere to put the states L3 (§5) requires;
   the bare keyword still parses (spec-legal syntax must not become a
   parse error) but is refused at *load* time, since only the loader
-  knows why a stateless envelope is wrong.
+  knows why a stateless envelope is wrong. An *explicit but empty*
+  state list — `envelope: {}` — is refused the same way, with its own
+  `prohibition: "empty-envelope-states"` token: an earlier build of the
+  loader treated `rs.envelope_states == []` as falsy and silently fell
+  through to `basis='reserved'`, dropping the author's envelope
+  declaration with no error at all; this was a genuine implementation
+  hole (finding S1, `.claude/dispatch-reports/lyt-spec-grammar-audit.md`,
+  ledger row 1778), now fixed in `loader.py` — see §4.3 and §12.
 - Extents may be sums (`340px+60ch`), resolved to plain px at load
   time.
 - **Amendment 3** (`SPEC-AMENDMENTS.md`, ledger row 1715): an H/V
@@ -142,12 +155,63 @@ the consult document's own worked examples verbatim (disclosed in
   architecture); the loader is where the amendment's actual law — px
   only, refused on `fr`/`ch`/any symbolic extent, and refused entirely
   on a `T` node — is enforced (§4.4).
-- Two symbolic size sentinels the consult document uses as
-  prose-in-syntax: `CONTENT` (the literal spelling of the forbidden
-  content-driven sizing basis — refused by the loader, §9.1) and
-  `WRAPPER_MIN` (a named-but-undefined constant the consult document
-  cites without a value; the loader resolves it to a disclosed 300px,
-  matching the control-panel floor the same document cites elsewhere).
+- Three symbolic size sentinels: `CONTENT` (the literal spelling of the
+  forbidden content-driven sizing basis, from the consult document —
+  refused by the loader, §9.1), `WRAPPER_MIN` (a named-but-undefined
+  constant the consult document cites without a value; the loader
+  resolves it to a disclosed 300px, matching the control-panel floor
+  the same document cites elsewhere), and `maximize` (any letter case)
+  — prose-in-syntax for "this leaf is the subject of a maximize-area
+  objective term" (§7); the loader resolves it to an elastic `pref 1fr`
+  and relies on the Python-registered objective to actually carry the
+  maximize-area term for that widget (a disclosed invention this
+  prototype adds, not present in the consult document's own symbol
+  set). §1.2's worked example uses it (`pref maximize`, the board
+  leaf); §8 stage 1 is where the registered objective term actually
+  does the maximizing.
+- A sizing block may also be written as a bare extent in braces —
+  `{28px}` — a shorthand meaning `min = pref = max` = that extent; it
+  is combinable with an `envelope: {...}` clause in the same braces
+  (the reserved extent stays that one fixed number regardless of which
+  declared state is active — see §4.2). This shorthand is used
+  throughout §1.2's worked example and is otherwise mentioned only in
+  passing, in §10. Two completion rules apply when a key is simply
+  omitted from a non-shorthand sizing block: an omitted `min` defaults
+  to `0px`; an omitted `max` defaults to `inf`; an omitted `pref` is
+  refused at load (`"missing 'pref'"` — `pref` is a target the
+  objective needs, so there is no honest least-constraining default
+  for it the way there is for `min`/`max`). Separately, a bare unitless
+  number in extent position is treated as `px` — this applies in `gap`
+  position too, so `gap 4` loads as a plain 4px gap without the author
+  ever writing a unit.
+
+A handful of further parsing/loading conventions, none named explicitly
+above, round out the concrete-syntax picture:
+
+- A sizing block is a **bag of keys**, not the ordered triple the base
+  EBNF's `sizing` production literally quotes — keys may appear in any
+  order, and a key repeated within the same block is last-write-wins
+  (`{min 5px, min 9px, ...}` resolves to `min 9px`). Amendment 3's own
+  "one more key in the same bag" phrasing implies this reading; it is
+  stated explicitly here rather than left to be inferred.
+- Presence keywords and arguments (`@TOGGLE(USER, RELEASE)`), sizing
+  keys (`MIN`/`PREF`/`MAX`/...), and the symbolic extent sentinels are
+  all case-folded by the parser/loader — this document's own examples
+  are lowercase throughout, but any letter case parses identically.
+- §4.1's "refused loudly" for an `fr` bound with no enclosing split (the
+  root slot, or a direct `T`-node child) fires at **compile** time
+  (`compiler.py`, `prohibition: "unresolvable-fr-bound"`), not at load
+  time — a program using such a bound loads without complaint and is
+  only refused when a screen class is actually solved. This differs
+  from every other refusal named in this section, which fires inside
+  `load_layouts` (§9); readers relying on §9's "loader.py is the single
+  choke point" framing should not assume this one refusal is load-time
+  too.
+- L2 violation paths and waiver paths are always rooted at the literal
+  string `root` (`root/H0`, `root/V0/T1`, ...), never at the layout's
+  own name — §9.2's "an exact tree path" means this convention. A
+  waiver written against the layout name instead of `root` is a stale
+  waiver, refused the same way an absent waiver would be.
 
 ### 1.2 Worked example — current syntax
 
@@ -394,7 +458,17 @@ differs sharply between them, and this is stated exactly, per law:**
   states (enforced by `lyt_ast.Sizing.__post_init__` itself — this is a
   construction-time invariant, not merely a loader check); a bare
   `envelope` keyword with no `: {states}` clause is refused loudly at
-  load time. What this check does *not* do — per §4.2's disclosed
+  load time (`prohibition: "bare-envelope-no-states"`), and so is an
+  *explicit but empty* `envelope: {}` clause
+  (`prohibition: "empty-envelope-states"`) — the two spellings reach the
+  loader as distinguishable raw shapes (`RawSizing.envelope_bare` vs.
+  `RawSizing.envelope_states == []`) but both are equally underspecified
+  per L3, and both are refused rather than either one being allowed to
+  silently coerce to `basis='reserved'`. (The empty-list spelling was,
+  for a time, a genuine gap: `_load_sizing`'s original guard treated an
+  empty list as falsy and let it fall through unrefused — fixed per
+  finding S1, `.claude/dispatch-reports/lyt-spec-grammar-audit.md`,
+  ledger row 1778; see §12.) What this check does *not* do — per §4.2's disclosed
   narrowing — is verify that an *observed runtime* content state
   matches one of the declared ones; that half of L3 ("an observed
   content state outside the declaration is a fail-loud event") has no
@@ -475,9 +549,15 @@ siblings; this scoping is unchanged by the amendment).
    the time this check runs. When a Split contains chrome content
    *and* a direct child (chrome or not) whose `pref` is `fr`, the total
    is genuinely incomparable without a disclosed `fr`-pref convention
-   this amendment does not introduce — refused loudly (`LytLoadError`,
-   `detail.law == "L2"`, message noting `"incomparable-fr-sibling"`)
-   rather than guessed either direction.
+   this amendment does not introduce — refused loudly: a
+   `LytLoadError` with `detail.law == "L2"`, whose `detail.violations[]`
+   entry contains the text "L2 dominance is INCOMPARABLE" (there is no
+   separate `reason` key — the earlier draft of this bullet, and of
+   `wellformed.py`'s own module docstring, quoted a
+   `"incomparable-fr-sibling"` token that appears in neither the raised
+   message nor its structured `detail`; corrected per finding M5,
+   `.claude/dispatch-reports/lyt-spec-grammar-audit.md`, ledger row
+   1778) — rather than guessed either direction.
 4. Strict majority (`chrome_px * 2 > total_px`), not `>=`.
 5. Only *bare* chrome/action leaves count toward the numerator — a
    composite child's own interior dominance is checked independently,
@@ -563,10 +643,21 @@ accumulating partition offsets (`compiler._extract_rects`).
   componentwise max of its children's declared minima (the loader
   leaves an omitted `T` `min` at a disclosed 0px default; the compiler
   is the actual source of the real floor).
-- Sizing bounds (`min ≤ extent ≤ max`) are applied **only to the axis a
-  slot's own sizing describes** — its extent along its parent's
-  partition axis, never its cross axis (which is already pinned by the
-  parent's own equality above). `fr` in `min`/`max` position resolves
+- Sizing bounds (`min ≤ extent ≤ max`) are applied to the axis a
+  slot's own sizing describes — its extent along its parent's
+  partition axis — for a Split child. For the **root slot** and for
+  **direct children of a `T` node**, which have no parent partition
+  axis to describe an "along" direction for, the bounds instead apply
+  to **both** axes (`compiler._constrain`'s `along=None` branch): a `T`
+  child's declared `min`, for instance, constrains the whole `T` group
+  on both `w` and `h`, which is how §2's componentwise-max floor
+  actually arises. (Corrected per finding M6,
+  `.claude/dispatch-reports/lyt-spec-grammar-audit.md`, ledger row
+  1778 — an earlier draft of this bullet claimed the bound "never"
+  applies to the cross axis; a `T` child with `min 120px` under a
+  100px-tall root is a counterexample, `INFEASIBLE` purely from the
+  cross axis. The reach-preferred stage below measures a `T` child's
+  shortfall on both axes for the same reason.) `fr` in `min`/`max` position resolves
   via the disclosed percentage-of-enclosing-split convention (§4.1);
   `fr` in `pref` position is a free variable within `[min, max]`, grown
   only by the reach-preferred objective stage below — there is no
@@ -925,6 +1016,15 @@ opening paragraph):
   divergence from the consult document's own "reserved extent is the
   max over declared states" framing, named rather than silently
   resolved either way.
+- **An explicit but empty `envelope: {}` state list used to load
+  silently as `basis='reserved'`, dropping the author's declaration**
+  (finding S1, `.claude/dispatch-reports/lyt-spec-grammar-audit.md`,
+  ledger row 1778) — a hole in the loader's `_load_sizing`, not merely
+  an underdocumented corner: `envelope_bare` was only set for the
+  *no-colon* spelling, so `envelope: {}` reached neither refusal path.
+  Fixed: `loader.py` now refuses it loudly (`law: "L3"`,
+  `prohibition: "empty-envelope-states"`), matching the bare-keyword
+  refusal — see §1.1 and §4.3.
 - **The CSS Grid realization's one disclosed divergence** (§10, the
   elastic-and-capped track shape) is fixed only for the one board-
   adjacent track both clean-room encodings share; any other encoding's

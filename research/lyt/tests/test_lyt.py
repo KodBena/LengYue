@@ -357,6 +357,63 @@ def test_bare_envelope_keyword_parses_but_is_refused_at_load_time():
     assert exc_info.value.detail.get("law") == "L3"
 
 
+# --- S1 regression: `envelope: {}` (explicit but EMPTY state list) must ---
+# be refused loudly too, not silently coerced to basis='reserved' ----------
+
+
+def test_empty_envelope_states_is_refused_at_load_time():
+    """S1 (SEVERE, `.claude/dispatch-reports/lyt-spec-grammar-audit.md`,
+    ledger row 1778): an explicit but EMPTY `envelope: {}` state list is
+    concrete syntax `_refuse_bare_envelope` (the F8 fix above) never sees
+    -- `parser.parse_sizing` stores it as `RawSizing.envelope_states ==
+    []`, which the pre-fix loader's `if rs.envelope_states:` guard treated
+    as falsy ("no envelope declared"), so the slot silently loaded as
+    plain `basis='reserved'` with the author's envelope declaration
+    dropped and no error at all. This is the exact silent-fallback
+    behavior `_refuse_bare_envelope`'s own docstring says is forbidden
+    (ADR-0002). Covers both concrete-syntax routes: the general sizing
+    bag (`min`/`pref`/`max`, ...) and the `{28px}` fixed shorthand, since
+    the loader has one call site per branch."""
+    prog_general = """
+    layout empty-envelope-general =
+      {pref 10px, envelope: {}} navBarRow[chrome, info]
+    """
+    with pytest.raises(LytLoadError) as exc_info:
+        loader.load_layouts(prog_general)
+    assert exc_info.value.detail.get("law") == "L3"
+    assert exc_info.value.detail.get("prohibition") == "empty-envelope-states"
+
+    prog_fixed_shorthand = """
+    layout empty-envelope-fixed =
+      {28px, envelope: {}} I_engine[common, info]
+    """
+    with pytest.raises(LytLoadError) as exc_info2:
+        loader.load_layouts(prog_fixed_shorthand)
+    assert exc_info2.value.detail.get("law") == "L3"
+    assert exc_info2.value.detail.get("prohibition") == "empty-envelope-states"
+
+    # Companion positive case, unaffected by the fix: a NON-empty state
+    # list still loads as basis='envelope' with the declared states
+    # threaded through, in both branches.
+    prog_ok_general = """
+    layout non-empty-envelope-general =
+      {pref 10px, envelope: {disconnected, connected}} navBarRow[chrome, info]
+    """
+    loaded = loader.load_layouts(prog_ok_general)
+    sizing = loaded["non-empty-envelope-general"].sizing
+    assert sizing.basis == "envelope"
+    assert sizing.envelope_states == ["disconnected", "connected"]
+
+    prog_ok_fixed = """
+    layout non-empty-envelope-fixed =
+      {28px, envelope: {disconnected, connected}} I_engine[common, info]
+    """
+    loaded2 = loader.load_layouts(prog_ok_fixed)
+    sizing2 = loaded2["non-empty-envelope-fixed"].sizing
+    assert sizing2.basis == "envelope"
+    assert sizing2.envelope_states == ["disconnected", "connected"]
+
+
 # --- F11: independent tiling-invariant walk, as a suite test --------------
 
 
