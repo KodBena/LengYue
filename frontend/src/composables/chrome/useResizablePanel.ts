@@ -353,9 +353,13 @@ export function sanitizeTreeControlRegionWidthPx(
  * (`aspect-ratio: 1/1`); that height is `#board-area`'s own height
  * (`#split-workspace`'s — the row's — live height) MINUS whatever
  * height the status bar sibling claims (`#board-square`'s `flex: 1 1
- * auto`, since wiki2-status-bar-reparent — see App.vue's CSS) — so the
- * row's height, net of the status bar's own fixed height, is the
- * board's usable-width ceiling. `rowHeightPx <= 0` (not yet measured)
+ * auto`, since wiki2-status-bar-reparent — see App.vue's CSS). This
+ * function deliberately does NOT perform that subtraction: it returns
+ * the raw row height, a deliberately LOOSE (over-estimating) ceiling —
+ * safe for a max-cap, since the true square width is strictly smaller.
+ * Threading the status bar's live height here would couple this pure
+ * function to a measured sibling; do that only if the loose cap is
+ * ever observed binding. `rowHeightPx <= 0` (not yet measured)
  * returns `undefined` — the "don't cap before we know" default that
  * mirrors `sanitizeTreeControlRegionWidthPx`'s own not-yet-measured
  * branch in `effectiveTreeControlRegionWidthPx`, so a pre-measurement
