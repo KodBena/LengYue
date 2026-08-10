@@ -21,6 +21,10 @@
  *      mean/min/median overwrites it.
  *   5. Basic and advanced are coherent views of the same two cells:
  *      picking in one is reflected in the other.
+ *   6. Advanced renders a per-palette description for each of the four
+ *      seeded palettes (score/quality/rank/default) and a pointer to
+ *      the Analysis Environment settings tab (copy refinement, ledger
+ *      rows 1349/1350).
  *
  * License: Public Domain (The Unlicense)
  */
@@ -30,6 +34,7 @@ import { mount } from '@vue/test-utils';
 import { i18n } from '../../src/i18n';
 import { store, resetWorkspace } from '../../src/store';
 import WizardStepPalette from '../../src/components/wizard/steps/WizardStepPalette.vue';
+import en from '../../src/locales/en.json';
 
 beforeEach(() => {
   resetWorkspace();
@@ -121,5 +126,42 @@ describe('WizardStepPalette — basic/advanced coherence (same two cells)', () =
     const cards = wrapper.findAll('.basic-card');
     expect(cards[1].classes()).toContain('is-selected'); // fuzzy/quality
     expect(cards[0].classes()).not.toContain('is-selected');
+  });
+});
+
+describe('WizardStepPalette — advanced per-palette descriptions and editor pointer (copy refinement, rows 1349/1350)', () => {
+  it('renders a name + description for each of the four seeded palettes', () => {
+    const wrapper = mountStep();
+    const names = wrapper.findAll('.palette-descriptions dt').map((n) => n.text());
+    const bodies = wrapper.findAll('.palette-descriptions dd').map((n) => n.text());
+
+    expect(names).toEqual([
+      en['wizard.palette.describe.score.name'],
+      en['wizard.palette.describe.quality.name'],
+      en['wizard.palette.describe.rank.name'],
+      en['wizard.palette.describe.default.name'],
+    ]);
+    expect(bodies).toEqual([
+      en['wizard.palette.describe.score.body'],
+      en['wizard.palette.describe.quality.body'],
+      en['wizard.palette.describe.rank.body'],
+      en['wizard.palette.describe.default.body'],
+    ]);
+    // Sanity: every seeded palette got a non-empty description, none
+    // are placeholder/copy-paste duplicates of each other.
+    expect(new Set(bodies).size).toBe(bodies.length);
+  });
+
+  it('the aggregation label uses summary-aggregation language, not "combine"', () => {
+    const wrapper = mountStep();
+    const label = wrapper.find('label[for="wizard-palette-aggregation"]').text();
+    expect(label).toBe(en['wizard.palette.aggregation.label']);
+    expect(label.toLowerCase()).not.toContain('combine');
+  });
+
+  it('renders a pointer to the Analysis Environment settings tab for free-form editing', () => {
+    const wrapper = mountStep();
+    expect(wrapper.text()).toContain(en['wizard.palette.editorPointer']);
+    expect(en['wizard.palette.editorPointer']).toContain('Analysis Environment');
   });
 });

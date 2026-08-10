@@ -457,9 +457,18 @@
   "wizard.palette.basic.traditional.label": "전통적/엄격 (점수 기반 보기를 선호)",
   "wizard.palette.basic.fuzzy.label":     "모호함/관대함 (통계적으로 산출된 정확도 측정을 선호)",
   "wizard.palette.advancedToggle":        "고급: 팔레트 직접 선택",
-  "wizard.palette.aggregation.label":     "점수 결합 방식:",
+  "wizard.palette.aggregation.label":     "구간 집계 방식:",
   "wizard.palette.aggregation.mean":      "평균",
   "wizard.palette.aggregation.min":       "최소값",
   "wizard.palette.aggregation.median":    "중앙값",
-  "wizard.palette.aggregation.custom":    "사용자 지정"
+  "wizard.palette.aggregation.custom":    "사용자 지정",
+  "wizard.palette.describe.score.name":   "점수 손실",
+  "wizard.palette.describe.score.body":   "KataGo의 최상위 수와 당신이 둔 수 사이의 점수 차이를, 그 수를 두기 직전 상황에서 측정합니다 — '몇 점을 잃었는지'를 직접 보여주는 지표입니다.",
+  "wizard.palette.describe.quality.name": "품질 (로버스트 차일드 보정)",
+  "wizard.palette.describe.quality.body": "당신의 수가 탐색에서 방문 횟수가 가장 많은 수('로버스트 차일드')와 얼마나 일치하는지를 측정하며, 탐색이 그 수를 얼마나 확신했는지로 보정합니다 — 여러 수가 타당해 보이는 국면에서는 편차를 더 관대하게 평가합니다.",
+  "wizard.palette.describe.rank.name":    "엔진 순위",
+  "wizard.palette.describe.rank.body":    "KataGo가 후보 수들 중 당신의 수를 얼마나 높게 평가했는지에 따라 점수를 부여합니다 — 최상위 수는 만점, 두 번째는 절반, 이런 식입니다. 실제 점수 차이가 얼마나 컸는지는 고려하지 않습니다.",
+  "wizard.palette.describe.default.name": "표준 평가",
+  "wizard.palette.describe.default.body": "Quality와 동일한 로버스트 차일드 일치도를 사용하지만, 구간을 중앙값이 아니라 가장 나쁜 한 수로 집계합니다 — 기존 프로필과의 호환성을 위해 남겨진 더 엄격한 지표입니다.",
+  "wizard.palette.editorPointer":         "자유로운 편집은 설정의 '분석 환경' 탭을 확인하세요."
 }

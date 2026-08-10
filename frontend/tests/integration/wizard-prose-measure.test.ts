@@ -43,10 +43,16 @@
  * (verified against each `WizardStep*.vue`'s own template: EngineUri
  * has `.step-description` + `.field-hint` = 2; PvAnimation has
  * `.step-description` + `.mode-settings` = 2; Finish has
- * `.step-description` + `.finish-hint` = 2; the other four steps have
- * only `.step-description` = 1 each), and the aggregate is pinned to
- * `=== 10`, not a floor — so losing any single element's cap now
- * fails both the per-step and the aggregate assertion.
+ * `.step-description` + `.finish-hint` = 2; Palette has
+ * `.step-description` + four `.palette-descriptions dd` (one per
+ * seeded palette, copy refinement rows 1349/1350) + `.field-hint`
+ * (the PaletteEditor pointer) = 6, all counted regardless of the
+ * advanced `<details>` disclosure's open/closed state since jsdom's
+ * querySelectorAll doesn't filter on computed visibility; the other
+ * three steps have only `.step-description` = 1 each), and the
+ * aggregate is pinned to the sum of that table, not a floor — so
+ * losing any single element's cap now fails both the per-step and
+ * the aggregate assertion.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -77,11 +83,12 @@ afterEach(() => {
 
 // Exact expected count of `[data-prose-measure-ch]` elements per step —
 // see file header for the per-file accounting. Total across all seven
-// steps is 10.
+// steps is 15 (was 10 before the palette copy refinement added four
+// per-palette descriptions plus one editor-pointer hint).
 const EXPECTED_CAPPED_COUNT_BY_STEP: Record<WizardStepId, number> = {
   theme: 1,
   engineUri: 2,
-  palette: 1,
+  palette: 6,
   demoBoard: 1,
   pvAnimation: 2,
   sgfImport: 1,
@@ -118,7 +125,7 @@ describe('wizard prose measure (R7) — every step\'s prose carries the declared
       }
     }
 
-    // Exact total (10), not a floor — see file header.
+    // Exact total (15), not a floor — see file header.
     expect(proseElementsSeen).toBe(EXPECTED_TOTAL_CAPPED_COUNT);
   });
 

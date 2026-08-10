@@ -36,6 +36,20 @@
  * that palette selected in the dropdown; the aggregation control always
  * reflects the CURRENTLY selected palette's live `summary_fn`, in
  * either view.
+ *
+ * Copy refinement (commissioner refinement, ledger rows 1349/1350):
+ *   - Advanced now carries an explanation of each of the four seeded
+ *     palettes (`PALETTE_DESCRIPTIONS` below), derived from
+ *     `store/defaults.ts`'s `delta_fn`/`summary_fn` definitions and
+ *     `docs/archive/dispatch/frontend-to-frontend-default-palette-metrics-spec.md`.
+ *   - The aggregation control's label was "Combine scores using:",
+ *     which the commissioner objected to verbatim ("it suggests free
+ *     monoidal compositions rather than summary aggregation"); it now
+ *     reads "Summary over interval:", matching `PaletteEditor.vue`'s
+ *     own "Summary Function:" vocabulary for the same field.
+ *   - A pointer to `PaletteEditor.vue`'s actual home — the "Analysis
+ *     Environment" sub-tab of `SettingsTab.vue` — closes the advanced
+ *     section for users who want fully custom palettes.
  */
 import { computed } from 'vue';
 import { store } from '../../../store';
@@ -77,6 +91,32 @@ const BASIC_OPTIONS: readonly BasicOption[] = [
 function selectBasic(paletteId: string): void {
   activePaletteId.value = paletteId;
 }
+
+// ── ADVANCED: per-palette descriptions (commissioner refinement,
+// ledger rows 1349/1350) ──────────────────────────────────────────
+//
+// Hardcoded to the four seeded ids (`store/defaults.ts`) the same way
+// BASIC_OPTIONS above hardcodes 'score'/'quality' — these descriptions
+// are honest prose about THOSE FOUR SPECIFIC PALETTES' delta_fn/
+// summary_fn (derived from `store/defaults.ts:241-302` and
+// `docs/archive/dispatch/frontend-to-frontend-default-palette-metrics-spec.md`),
+// not a generic renderer over whatever the user has authored. A
+// palette id outside this set (user-added via PaletteEditor, or one
+// of the four renamed/deleted) simply has no entry here and renders
+// no description — same falls-outside-scope posture BASIC_OPTIONS'
+// comment above already documents for a deleted 'score'/'quality'.
+type PaletteDescription = { paletteId: string; nameKey: string; descriptionKey: string };
+const PALETTE_DESCRIPTIONS: readonly PaletteDescription[] = [
+  { paletteId: 'score', nameKey: 'wizard.palette.describe.score.name', descriptionKey: 'wizard.palette.describe.score.body' },
+  { paletteId: 'quality', nameKey: 'wizard.palette.describe.quality.name', descriptionKey: 'wizard.palette.describe.quality.body' },
+  { paletteId: 'rank', nameKey: 'wizard.palette.describe.rank.name', descriptionKey: 'wizard.palette.describe.rank.body' },
+  { paletteId: 'default', nameKey: 'wizard.palette.describe.default.name', descriptionKey: 'wizard.palette.describe.default.body' },
+];
+// Only describe ids that are actually present in this profile's
+// palette list (a deleted seed palette gets no orphaned entry).
+const knownPaletteDescriptions = computed(() =>
+  PALETTE_DESCRIPTIONS.filter((d) => palettes.value.some((p) => p.id === d.paletteId)),
+);
 
 // ── ADVANCED: aggregation control over the selected palette's summary_fn ──
 
@@ -152,6 +192,15 @@ function setAggregation(next: KnownAggregation): void {
           <option value="median_summary">{{ $t('wizard.palette.aggregation.median') }}</option>
           <option v-if="isCustomAggregation" value="custom" disabled>{{ $t('wizard.palette.aggregation.custom') }}</option>
         </select>
+
+        <dl class="palette-descriptions">
+          <template v-for="d in knownPaletteDescriptions" :key="d.paletteId">
+            <dt>{{ $t(d.nameKey) }}</dt>
+            <dd :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t(d.descriptionKey) }}</dd>
+          </template>
+        </dl>
+
+        <p class="field-hint" :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t('wizard.palette.editorPointer') }}</p>
       </div>
     </details>
   </div>
@@ -181,4 +230,15 @@ function setAggregation(next: KnownAggregation): void {
 /* Advanced disclosure — shared-chrome.css's .settings-section idiom
    (RegistryEditor.vue's branch nodes); no bespoke toggle button. */
 .advanced-content { display: flex; flex-direction: column; gap: var(--space-default); padding-top: var(--space-default); }
+
+/* Per-palette descriptions — dt/dd pairs, same prose-measure and
+   secondary-text idiom as .field-hint (WizardStepEngineUri.vue /
+   WizardStepFinish.vue) applied to a definition list instead of a
+   lone paragraph. */
+.palette-descriptions { display: flex; flex-direction: column; gap: var(--space-tight); margin: 0; }
+.palette-descriptions dt { color: var(--text-0); font-size: var(--text-emphasis); font-weight: 600; }
+.palette-descriptions dd {
+  color: var(--text-2); margin: 0 0 var(--space-default) 0; max-width: v-bind(wizardProseMaxWidthCss);
+}
+.field-hint { color: var(--text-2); font-size: var(--text-emphasis); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 </style>

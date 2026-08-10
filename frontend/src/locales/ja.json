@@ -457,9 +457,18 @@
   "wizard.palette.basic.traditional.label": "伝統的/厳格(スコア重視の見方が好み)",
   "wizard.palette.basic.fuzzy.label":     "曖昧/寛容(統計的な精度評価が好み)",
   "wizard.palette.advancedToggle":        "詳細設定: パレットを個別に選択",
-  "wizard.palette.aggregation.label":     "スコアの集計方法:",
+  "wizard.palette.aggregation.label":     "区間の集計方法:",
   "wizard.palette.aggregation.mean":      "平均",
   "wizard.palette.aggregation.min":       "最小",
   "wizard.palette.aggregation.median":    "中央値",
-  "wizard.palette.aggregation.custom":    "カスタム"
+  "wizard.palette.aggregation.custom":    "カスタム",
+  "wizard.palette.describe.score.name":   "スコア損失",
+  "wizard.palette.describe.score.body":   "KataGoの最善手とあなたが打った手との得点差を、着手前の局面で評価します — 「何目失ったか」を直接示す指標です。",
+  "wizard.palette.describe.quality.name": "品質(ロバストチャイルド較正)",
+  "wizard.palette.describe.quality.body": "あなたの手が探索で最も訪問数の多い手(「ロバストチャイルド」)にどれだけ一致しているかを測り、探索がその手をどれだけ確信していたかで較正します — 多くの手が妥当に見える局面では、ずれはより寛容に評価されます。",
+  "wizard.palette.describe.rank.name":    "エンジン順位",
+  "wizard.palette.describe.rank.body":    "KataGoの候補手の中であなたの手が何番目に評価されたかに基づいて得点を与えます — 最善手なら満点、2位なら半分、というように。実際のスコア差がどれだけ離れていたかは問いません。",
+  "wizard.palette.describe.default.name": "標準評価",
+  "wizard.palette.describe.default.body": "Qualityと同じロバストチャイルド一致度を用いますが、区間内の中央値ではなく最悪の一手で集計します — 既存プロファイルとの互換性のために残された、より厳格な指標です。",
+  "wizard.palette.editorPointer":         "自由な編集は、設定の「分析環境」タブをご覧ください。"
 }

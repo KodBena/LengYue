@@ -457,9 +457,18 @@
   "wizard.palette.basic.traditional.label": "传统/严格(我偏好基于分数的视角)",
   "wizard.palette.basic.fuzzy.label":     "模糊/宽松(我偏好统计意义上的精度评估)",
   "wizard.palette.advancedToggle":        "高级:自由选择调色板",
-  "wizard.palette.aggregation.label":     "分数汇总方式:",
+  "wizard.palette.aggregation.label":     "区间汇总方式:",
   "wizard.palette.aggregation.mean":      "平均值",
   "wizard.palette.aggregation.min":       "最小值",
   "wizard.palette.aggregation.median":    "中位数",
-  "wizard.palette.aggregation.custom":    "自定义"
+  "wizard.palette.aggregation.custom":    "自定义",
+  "wizard.palette.describe.score.name":   "分数损失",
+  "wizard.palette.describe.score.body":   "衡量 KataGo 首选着法与你实际所下着法之间的分差，评估位置为落子前的局面——直接反映“损失了多少目”。",
+  "wizard.palette.describe.quality.name": "质量(稳健子节点校准)",
+  "wizard.palette.describe.quality.body": "衡量你的着法与搜索中访问次数最多的着法（“稳健子节点”）的接近程度，并根据搜索对该着法的确信程度进行校准——在多种着法看起来都合理的局面中，偏离会被更宽容地评判。",
+  "wizard.palette.describe.rank.name":    "引擎排名",
+  "wizard.palette.describe.rank.body":    "根据 KataGo 在候选着法中给你的着法打的排名给分——排名第一满分，第二名打五折，以此类推，不考虑实际分差有多大。",
+  "wizard.palette.describe.default.name": "标准评估",
+  "wizard.palette.describe.default.body": "使用与“质量”相同的稳健子节点一致性度量，但区间内以最差的一手而非中位数进行汇总——为兼容既有档案保留的更严格读数。",
+  "wizard.palette.editorPointer":         "如需自由编辑，请前往“设置”中的“分析环境”标签页。"
 }
