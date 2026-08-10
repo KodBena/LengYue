@@ -59,7 +59,7 @@ useModalKeyboard(modalContentRef, isOpen, () => handle(false));
 <style scoped>
 .modal-backdrop {
   position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-  background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.7);
   display: flex; align-items: center; justify-content: center; z-index: var(--z-modal);
 }
 /* magic-literal: 420px modal width — design decision shared with
@@ -68,7 +68,7 @@ useModalKeyboard(modalContentRef, isOpen, () => handle(false));
    destructive-confirm body text. */
 .modal-content {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
-  width: 420px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+  width: 420px;
   display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 .modal-header { padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); }

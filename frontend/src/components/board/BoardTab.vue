@@ -355,7 +355,6 @@ onUnmounted(() => {
 .tab-thumb-wrap {
   width: var(--tab-width); height: 32px; border: 2px solid var(--surface-3); background: var(--surface-0);
   display: flex; align-items: center; justify-content: center;
-  transition: border-color var(--duration-default) ease, background var(--duration-default) ease;
   position: relative; border-radius: var(--radius-default); overflow: visible;
 }
 
@@ -389,8 +388,8 @@ onUnmounted(() => {
 .tab-thumb-wrap.active { background: var(--surface-2); }
 .tab-thumb-wrap.active .tab-label { color: var(--accent-primary); }
 
-.tab-thumb-wrap.review-active { border-color: var(--review-active); box-shadow: 0 0 8px color-mix(in srgb, var(--review-active) 40%, transparent); }
-.tab-thumb-wrap.review-intermission { border-color: var(--review-intermission); box-shadow: 0 0 8px color-mix(in srgb, var(--review-intermission) 40%, transparent); }
+.tab-thumb-wrap.review-active { border-color: var(--review-active); }
+.tab-thumb-wrap.review-intermission { border-color: var(--review-intermission); }
 .tab-thumb-wrap.review-complete { border-color: var(--review-complete); }
 
 .tab-thumb-wrap.active.review-active { border-width: 3px; }
@@ -419,13 +418,12 @@ onUnmounted(() => {
   position: absolute; top: -10px; right: -10px;
   width: 24px; height: 24px; border: none; background: transparent; padding: 0;
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; opacity: 0; transition: opacity var(--duration-default);
+  cursor: pointer; opacity: 0;
 }
 .close-icon {
   width: 16px; height: 16px; font-size: var(--text-emphasis); line-height: 1;
   background: var(--surface-3); color: var(--text-1); border: 1px solid var(--border-3); border-radius: var(--radius-circle);
   display: flex; align-items: center; justify-content: center;
-  transition: background var(--duration-default), color var(--duration-default);
 }
 
 .tab-thumb-wrap:hover .close-board-btn { opacity: 1; }

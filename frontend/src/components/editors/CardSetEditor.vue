@@ -296,7 +296,7 @@ function updateHyperparameters(decls: HyperparamDecl[]) {
 .dark-input { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none; }
 .dark-input:focus { border-color: var(--accent-primary); }
 
-.editor-wrap { flex: 1; min-height: 150px; overflow: auto; border-top: 1px solid var(--surface-3); transition: border-color var(--duration-default); }
+.editor-wrap { flex: 1; min-height: 150px; overflow: auto; border-top: 1px solid var(--surface-3); }
 .editor-wrap.json-error { border-top: 2px solid var(--state-error); }
 .error-badge { font-size: var(--text-tiny); color: var(--state-error); font-weight: bold; }
 </style>

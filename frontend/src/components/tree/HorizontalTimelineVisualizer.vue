@@ -433,7 +433,6 @@ onUnmounted(() => {
   cursor: crosshair;
   border: 1px solid #1e293b;
   border-radius: var(--radius-default);
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
 
 .grid-lines {
@@ -468,10 +467,8 @@ onUnmounted(() => {
   border-left: 1px solid rgba(56, 189, 248, 0.5);
   border-right: 1px solid rgba(56, 189, 248, 0.5);
   background-color: rgba(56, 189, 248, 0.1);
-  backdrop-filter: blur(1px);
   pointer-events: auto;
   cursor: grab;
-  transition: background-color var(--duration-default);
 }
 
 .selection-slider:active {
@@ -508,6 +505,5 @@ onUnmounted(() => {
   width: 4px;
   background-color: #f8bdf8;
   border-radius: 9999px;
-  box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
 }
 </style>

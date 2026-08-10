@@ -265,7 +265,6 @@ async function onPin(): Promise<void> {
 }
 .pbo-metric .m-val {
   color: var(--text-2);
-  transition: color var(--duration-default);
 }
 .pbo-metric:hover .m-val {
   color: var(--accent-primary);
@@ -284,9 +283,9 @@ async function onPin(): Promise<void> {
 
 /* Floating panel — same shape as the QUEUE / SLIDERS popovers:
    absolute, flush against the badge (no margin-top gap), capped
-   width, drop shadow. The flush anchor pairs with the
-   composable's 150 ms close-grace timer for gap-free pointer
-   traversal in the common case. */
+   width, bordered (no box-shadow — ledger row 1506 ban). The flush
+   anchor pairs with the composable's 150 ms close-grace timer for
+   gap-free pointer traversal in the common case. */
 .pbo-popover {
   position: absolute;
   top: 100%;
@@ -298,7 +297,6 @@ async function onPin(): Promise<void> {
   min-width: 340px;
   max-width: 480px;
   z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
   gap: var(--space-default);

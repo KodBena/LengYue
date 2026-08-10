@@ -111,7 +111,6 @@ const count = computed(() => orderedKnobs.value.length);
 }
 .sliders-metric .m-val {
   color: var(--text-2);
-  transition: color var(--duration-default);
 }
 .sliders-metric:hover .m-val {
   color: var(--accent-primary);
@@ -136,7 +135,6 @@ const count = computed(() => orderedKnobs.value.length);
   min-width: 380px;
   max-width: 520px;
   z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 .popover-empty {
   color: var(--text-2);

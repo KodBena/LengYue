@@ -93,7 +93,7 @@ onUnmounted(() => {
 }
 .pv-stone {
   width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  font-size: var(--text-emphasis); transition: opacity 200ms ease;
+  font-size: var(--text-emphasis);
 }
 .pv-stone.is-black { background: #000; color: #fff; border: 1px solid var(--border-3); }
 .pv-stone.is-white { background: #fff; color: #000; border: 1px solid var(--border-3); }

@@ -602,10 +602,9 @@ const edges = computed(() => {
 .review-start-ring { fill: color-mix(in srgb, var(--accent-secondary) 15%, transparent); stroke: var(--accent-secondary); }
 .mint-selection-ring { fill: none; stroke: var(--accent-primary); }
 .analyzing-ring { fill: none; stroke: var(--state-attention); }
-.node-circle { cursor: pointer; transition: filter var(--duration-default); }
+.node-circle { cursor: pointer; }
 .node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px var(--accent-primary)); }
 .toggle-group { cursor: pointer; }
-.toggle-group rect { transition: stroke var(--duration-default), fill var(--duration-default); }
 .toggle-leader { stroke: var(--border-3); }
 .toggle-box { fill: var(--surface-2); stroke: var(--border-3); }
 .toggle-mark { stroke: var(--text-2); }

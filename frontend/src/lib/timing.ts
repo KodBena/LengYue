@@ -29,9 +29,13 @@
  *     report cadences, the persisted PV-animation timings
  *     (`session.ui.pvAnimation`), and the move-suggestions fade (a
  *     knob default). These are runtime-user-owned, not constants.
- *   - CSS transition durations are theme tokens
- *     (`assets/css/theme.css`: `--duration-default`, `--duration-slow`),
- *     reachable from CSS, not TS.
+ *   - Feature-carrying `@keyframes` animation durations are a theme
+ *     token (`assets/css/theme.css`: `--duration-slow`), reachable
+ *     from CSS, not TS. `--duration-default` (the former chrome
+ *     hover/state-transition token) was deleted by the ledger-row-
+ *     1506 removal sweep along with every `transition:` declaration
+ *     that referenced it — see
+ *     `.claude/dispatch-reports/effects-ban-sweep-build.md`.
  *   - `waitForAnalysis`'s timeout is caller-supplied (a parameter,
  *     not a constant).
  *

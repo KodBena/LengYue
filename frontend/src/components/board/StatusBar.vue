@@ -294,10 +294,12 @@ const gameStatus = computed(() =>
 
 /* Active-turn ring (iter-23). Replaces the prior text turn-indicator
    ("Black to play" / "White to play") which forced the status bar to
-   wrap at 1024×768 and resize the board. `box-shadow` here paints an
+   wrap at 1024×768 and resize the board. `outline` here paints an
    outer ring that takes no layout space — the chip's position
    doesn't shift, so the surrounding text and the bar's height stay
-   put. The orange (--accent-secondary, the CTA/SR colour) carries
+   put (box-shadow banned per ledger row 1506; outline is the
+   layout-neutral substitute — border would grow the chip's box).
+   The orange (--accent-secondary, the CTA/SR colour) carries
    the "this player acts next" signal in the chrome's already-
    established colour vocabulary. No transition: the swap is
    instantaneous to match the discrete nature of a move.
@@ -306,7 +308,8 @@ const gameStatus = computed(() =>
    the ring doesn't visually merge with the chip's own border on the
    white side. */
 .stone-chip.active {
-  box-shadow: 0 0 0 2px var(--accent-secondary);
+  outline: 2px solid var(--accent-secondary);
+  outline-offset: 1px;
 }
 
 /* Rules dropdown — same low-contrast register as the komi input
@@ -327,7 +330,6 @@ const gameStatus = computed(() =>
   font-family: inherit;
   padding: 0;
   outline: none;
-  transition: color var(--duration-default), border-color var(--duration-default);
 }
 .rules-select:focus, .rules-select:hover {
   color: var(--accent-primary);
@@ -349,7 +351,6 @@ const gameStatus = computed(() =>
   padding: 0;
   outline: none;
   text-align: center;
-  transition: color var(--duration-default), border-color var(--duration-default);
 }
 .komi-input:focus, .komi-input:hover {
   color: var(--accent-primary);
@@ -393,7 +394,6 @@ const gameStatus = computed(() =>
   cursor: pointer;
   padding: 1px 8px;
   line-height: 1.4;
-  transition: color var(--duration-default), border-color var(--duration-default);
 }
 .pass-btn:hover:not(:disabled) {
   color: var(--accent-primary);
@@ -431,7 +431,6 @@ const gameStatus = computed(() =>
   cursor: pointer;
   padding: 0 var(--space-tight);
   line-height: 1;
-  transition: color var(--duration-default);
 }
 .move-numbers-btn:hover { color: var(--text-0); }
 .move-numbers-btn.active { color: var(--accent-primary); }

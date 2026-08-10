@@ -63,7 +63,7 @@ function reload(): void {
 <style scoped>
 .reb-overlay {
   position: fixed; inset: 0;
-  background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.85);
   display: flex; align-items: center; justify-content: center;
   z-index: var(--z-overlay);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -71,7 +71,6 @@ function reload(): void {
 .reb-panel {
   background: var(--surface-2); border: 1px solid var(--state-attention); border-radius: var(--radius-default);
   width: min(560px, 92vw); padding: var(--space-loose);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.9);
   color: var(--text-0);
 }
 /* theme-exception: .reb-title and .reb-message use lightened-attention

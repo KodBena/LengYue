@@ -498,7 +498,6 @@ async function resetPriorStandalone(): Promise<void> {
   padding: 0;
   max-height: 160px;
   overflow-y: auto;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 .tag-suggestions li {
   padding: var(--space-tight) var(--space-default);
@@ -549,7 +548,6 @@ async function resetPriorStandalone(): Promise<void> {
   cursor: pointer;
   font-family: inherit;
   font-size: var(--text-body);
-  transition: color var(--duration-default), border-color var(--duration-default);
 }
 .action-btn:hover { color: var(--state-attention); border-color: var(--state-attention); }
 .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
