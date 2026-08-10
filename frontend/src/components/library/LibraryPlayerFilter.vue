@@ -118,7 +118,6 @@ function onBlur(): void {
   border-radius: var(--radius-default);
   max-height: 240px;
   overflow-y: auto;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 .filter-suggest-item {
   padding: var(--space-tight) var(--space-default);

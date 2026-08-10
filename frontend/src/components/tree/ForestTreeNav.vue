@@ -162,7 +162,7 @@ function hiddenCount(game: ForestNavGameNode): number {
 .forest-tree-nav { flex: 1; overflow-y: auto; padding: var(--space-tight); display: flex; flex-direction: column; gap: 2px; }
 .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-2); font-size: var(--text-emphasis); }
 .game-block { display: flex; flex-direction: column; flex-shrink: 0; }
-.game-row { display: flex; align-items: flex-start; gap: var(--space-tight); padding: var(--space-tight) var(--space-default); background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-default); cursor: pointer; transition: border-color var(--duration-default); }
+.game-row { display: flex; align-items: flex-start; gap: var(--space-tight); padding: var(--space-tight) var(--space-default); background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-default); cursor: pointer; }
 .game-row:hover { border-color: var(--border-3); }
 .game-row.selected { border-color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 5%, transparent); }
 .chevron-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: var(--text-body); padding: 0 2px; line-height: 1; flex-shrink: 0; }
@@ -177,7 +177,7 @@ function hiddenCount(game: ForestNavGameNode): number {
 .game-id, .root-id { font-size: var(--text-tiny); font-weight: normal; color: var(--text-2); font-family: var(--font-mono, monospace); flex-shrink: 0; }
 .game-aggregate { display: flex; flex-wrap: wrap; gap: var(--space-tight); font-size: var(--text-body); color: var(--text-1); }
 .root-list { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 var(--space-tight) var(--space-medium); padding-left: var(--space-tight); border-left: 1px solid var(--surface-3); }
-.root-row { background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: var(--space-tight) var(--space-default); cursor: pointer; transition: border-color var(--duration-default); flex-shrink: 0; }
+.root-row { background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: var(--space-tight) var(--space-default); cursor: pointer; flex-shrink: 0; }
 .root-row:hover { border-color: var(--border-3); }
 .root-row.selected { border-color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 5%, transparent); }
 .root-title { display: flex; align-items: baseline; gap: var(--space-tight); font-size: var(--text-emphasis); font-weight: bold; color: var(--text-0); margin-bottom: 2px; min-width: 0; }

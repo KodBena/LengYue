@@ -233,7 +233,7 @@ function colorLabel(c: StoneColor): string {
    EngineMatchModal.vue (sibling modal, intentional parity). */
 .modal-content {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
-  width: 420px; max-width: 90vw; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+  width: 420px; max-width: 90vw;
   display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 .modal-header {

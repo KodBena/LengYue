@@ -56,7 +56,6 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
   flex-direction: column;
   max-height: 250px;
   flex-shrink: 0;
-  box-shadow: inset 0 -5px 10px rgba(0,0,0,0.5);
 }
 
 .panel-header {

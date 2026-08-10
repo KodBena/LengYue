@@ -210,7 +210,6 @@ onUnmounted(rowsThrottle.cancel);
      badge reads as a passive indicator until the engine has
      something to do. */
   color: var(--text-2);
-  transition: color var(--duration-default);
 }
 .queue-metric.queue-active .m-val {
   color: var(--accent-primary);
@@ -240,9 +239,6 @@ onUnmounted(rowsThrottle.cancel);
   font-family: monospace;
   font-size: var(--text-body);
   color: var(--text-1);
-  /* Subtle elevation to lift the panel above the chart background
-     it may overlap on small viewports. */
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .popover-empty {
@@ -301,7 +297,6 @@ td {
   cursor: pointer;
   padding: 0 var(--space-tight);
   line-height: 1;
-  transition: color var(--duration-default);
 }
 .cancel-btn:hover {
   color: var(--state-attention);

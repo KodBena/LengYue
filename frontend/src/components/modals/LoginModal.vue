@@ -173,7 +173,6 @@ useModalKeyboard(modalContentRef, computed(() => true), handleCancel);
 .modal-card {
   background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   padding: var(--space-loose); width: 360px; max-width: 90vw;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
   display: flex; flex-direction: column; gap: var(--space-medium);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }

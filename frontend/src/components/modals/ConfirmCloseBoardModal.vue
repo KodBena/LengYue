@@ -95,7 +95,7 @@ useModalKeyboard(modalContentRef, isOpen, () => handle(false));
    modal-width convention; see ConfirmLoadModal.vue's magic-literal note). */
 .modal-content {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
-  width: 420px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+  width: 420px;
   display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 .modal-header { padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); }

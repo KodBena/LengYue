@@ -91,7 +91,6 @@ body {
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
-  transition: border-color var(--duration-default), color var(--duration-default);
 }
 
 /* ── Centre column content area (used by App.vue's #content) ─────── */
