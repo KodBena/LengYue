@@ -1,7 +1,8 @@
 # LYT spec amendments
 
 **This file is the dated amendment RECORD — why each rule changed and
-when, as adjudicated on the work-status ledger. [SPEC.md](SPEC.md) is the
+when, as adjudicated on the work-status ledger (the project's
+append-only decision ledger, read via `./autoharn led`). [SPEC.md](SPEC.md) is the
 consolidated, standalone, current-state specification — what the rule
 is today, reconciled across the original consult document and every
 amendment below.** This file stays exactly what it always was (an
@@ -536,6 +537,53 @@ cross-check regression; `known_infeasible` bookkeeping in
 `test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes`
 split by valuation); `README.md` (this section's own cross-reference, see
 that file's "AMENDMENT 4" section for the runner-output-facing framing).
+
+---
+
+### Reader's glosses — 2026-08-11 (appended per ADR-0005 Rule 8; the amendment bodies above stand verbatim)
+
+The amendment bodies above are an append-only historical record and are
+not edited for legibility; a fresh-context reader hits several
+unglossed terms and references while reading them. This section
+clarifies those terms without altering a single word above it — one
+gloss per finding, each naming the line/term it clarifies.
+
+- **"the cold review"** (Amendment 1, line 41; Amendment 2, line 122)
+  names the fresh-context review recorded at
+  `.claude/dispatch-reports/lyt-compiler-cold-review.md` — distinct
+  from the earlier adversarial `lyt-compiler-prototype-review.md`
+  cited elsewhere in this record and in [SPEC.md](SPEC.md) §5.
+- **"F10 disclosure" / "F10-era"** (Amendment 3, lines 245, 309, 346)
+  is finding 10 of the first adversarial review
+  (`.claude/dispatch-reports/lyt-compiler-prototype-review.md`): the
+  disclosure that `compiler.py` carried a fully general `(k-1)*gap`
+  partition term with no concrete syntax able to ever set a nonzero
+  `gap_px`, so `loader.py` hardcoded `gap_px=0.0` unconditionally.
+  Amendment 3 (the `gap <extent>` syntax) is what closes this gap.
+- **"CP-SAT"** (Amendment 1, line 86; Amendment 3, line 318) is Google
+  OR-Tools' constraint-programming solver — the engine `compiler.py`
+  drives to compile a loaded `Slot` tree into decision variables and
+  constraints and solve it in stages (see [SPEC.md](SPEC.md) §8 for the
+  full compilation contract).
+- **The `1920x1080-in-portrait` / `1080x1920-in-landscape` table rows**
+  (Amendment 4's feasibility table, near the end of that section) use a
+  `SIZE-in-CLASS` naming convention: the row names a pixel size probed
+  against a screen class's tree that isn't the size's own natural
+  class — e.g. `1080x1920-in-landscape` is the portrait-shaped
+  `1080x1920` probe solved against the *landscape* class's tree, used
+  as a cross-class feasibility check. Both mirror rows in that table
+  follow this same convention.
+- **"presence-bearing axis"** (Amendment 1, line 32) is the axis a
+  slot's sizing block constrains under its parent's split — both axes
+  for a `T` child, per [SPEC.md](SPEC.md) §8's `along=None`
+  bound-application branch (the same gloss given at that term's first
+  use in [SPEC.md](SPEC.md) §9.3, kept consistent here).
+- **Amendment 4's feasibility table** (the `size / class / all-present
+  / default / changed?` table): shows a per-size feasibility
+  comparison between the `all-present` presence valuation (every slot
+  counted, pre-Amendment-4 behavior) and the `default` valuation
+  (`boardRail`/`previewBoard` genuinely absent), across every screen
+  size the runner's fixtures exercise.
 
 ## License
 

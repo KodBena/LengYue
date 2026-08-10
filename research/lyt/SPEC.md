@@ -297,7 +297,7 @@ relaxes the cross-fill constraint from `==` to `<=` specifically for
 aspect-locked leaves, letting the leaf shrink to fit within whatever
 room its column leaves it (and centering it in the resulting slack at
 render time — §10). This is a real, load-bearing choice with a
-disclosed direction (see §11 for the fuller discussion): the *opposite*
+disclosed direction (see §12 for the fuller discussion): the *opposite*
 relaxation (loosening the along axis instead of the cross axis) would
 report a different, also-defensible feasible/infeasible split at
 several screen sizes. The literal §4.1 semantics and `aspect` are
@@ -645,8 +645,8 @@ a Google OR-Tools CP-SAT model and solves it in stages. This section is
 the normative summary of what that compiler actually builds — every
 claim below is checked against `compiler.py` as it stands.
 
-**Decision variables.** One integer `(w, h)` pair per Slot, per screen
-class, in px. There are no `x, y` position variables and no
+**Decision variables.** The compiler declares one integer `(w, h)` pair
+per Slot, per screen class, in px. There are no `x, y` position variables and no
 no-overlap constraints — the tree structure *is* the non-overlap proof
 (an ordered partition can never produce two overlapping children);
 positions are recovered afterward by walking the solved tree and
@@ -725,7 +725,7 @@ optima rather than being frozen into one arbitrary solution.
 **INFEASIBLE is an answer, not an error.** When a stage's model has no
 feasible solution, the compiler returns a `SolveResult` with
 `status="INFEASIBLE"` rather than raising — a screen class a program's
-tree genuinely cannot serve is a fact about the geometry (or, per §11,
+tree genuinely cannot serve is a fact about the geometry (or, per §12,
 about the language's own aspect/exact-cross-fill collision), reported
 honestly rather than coerced into some smaller, silently-wrong layout.
 
@@ -765,7 +765,9 @@ Omitting `waivers` (the default) is strict mode for every layout.
 
 **Ruling** ([SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md), ledger row 1670): a slot whose
 presence is `@toggle(_, preserve)` gets its `min` raised to
-`max(min, pref)` on its presence-bearing axis, at load time
+`max(min, pref)` on its presence-bearing axis (the axis its sizing
+block constrains under its parent's split — both axes for a `T`
+child, per §8's `along=None` bound-application branch), at load time
 (`loader._apply_preserve_reservation`, called from every branch of
 `load_slot`).
 
@@ -987,10 +989,10 @@ count.
 ## 12. Known limitations and open questions
 
 Stated honestly, per this document's own standard (the fresh-context
-legibility discipline this specification is written to — see the
-opening paragraph):
+legibility discipline this specification is written to —
+[ADR-0017, the zero-context reader](../../docs/adr/0017-the-zero-context-reader.md)):
 
-- **The aspect / exact-cross-fill collision (§2, §11's aspect-slack
+- **The aspect / exact-cross-fill collision (§2, §8's aspect-slack
   stage) is a genuine, unresolved spec-level tension**, not merely an
   implementation quirk. The structure stratum's literal semantics
   ("every child's [cross-axis extent] is R.[cross]") and the sizing
