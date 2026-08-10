@@ -19,6 +19,23 @@
  * button (a column: digit circle above, name below) so existing
  * `is-current` / `is-clickable` assertions elsewhere (e.g.
  * `SetupWizardModal.test.ts`) keep working unchanged.
+ *
+ * Full-name readability fix (commissioner ledger rows 1464/1465):
+ * the original `.step-label` truncated with `text-overflow: ellipsis`
+ * at standard viewport ("Try the analysis ov…"), which genre
+ * convention forbids (ADR-0019 — installer/setup-assistant step
+ * indicators show the FULL step name, never a clipped one). Fixed
+ * by letting the label WRAP onto as many lines as the longest name
+ * needs (option (a) of the fix brief, preferred over shortening the
+ * locale titles: it touches only this file, keeps the single
+ * `wizard.step.<id>.title` key doing double duty as both the
+ * indicator label and the in-step `<h3>` heading in
+ * `SetupWizardModal.vue` — which is out of this fix's fence — with
+ * no risk of the two drifting apart). No max line count is enforced;
+ * the six columns are equal-width (`flex: 1 1 0`) so the tallest
+ * wrapped label sets the row's height and the others simply have
+ * blank space below, same as any wizard whose step names vary in
+ * length.
  */
 import { WIZARD_STEPS } from '../../composables/useSetupWizard';
 
@@ -73,7 +90,7 @@ function onDotClick(index: number): void {
 }
 .step-label {
   font-size: var(--text-tiny); color: var(--text-2); text-align: center;
-  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 100%; white-space: normal; overflow-wrap: break-word; line-height: 1.3;
 }
 .step-dot.is-current .step-digit { border-color: var(--accent-primary); color: var(--text-0); font-weight: bold; }
 .step-dot.is-current .step-label { color: var(--text-0); font-weight: bold; }

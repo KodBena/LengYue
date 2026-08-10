@@ -97,6 +97,37 @@ describe('WizardStepIndicator', () => {
     });
   });
 
+  it('never clips a step label with ellipsis (ledger rows 1464/1465: full names must be readable)', () => {
+    // Regression witness for the truncation defect ("Try the analysis
+    // ov…", "Import your games…"): the label must wrap instead of
+    // being clipped, at ANY viewport. jsdom doesn't lay out text, so
+    // this can't witness actual line-wrapping pixel geometry — it
+    // pins the CSS declarations that make ellipsis-clipping
+    // impossible (no `text-overflow: ellipsis`, no `white-space:
+    // nowrap`) and, as a companion fact, that the rendered text is
+    // never shortened from the source locale string. Visual
+    // wrapping/line-count itself is UNEXERCISED here (would need a
+    // real browser layout engine).
+    const wrapper = mount(WizardStepIndicator, {
+      props: { currentIndex: 0 },
+      global: { plugins: [i18n] },
+    });
+    const labels = wrapper.findAll('.step-label');
+    for (const label of labels) {
+      const style = getComputedStyle(label.element);
+      expect(style.textOverflow).not.toBe('ellipsis');
+      expect(style.whiteSpace).not.toBe('nowrap');
+    }
+
+    // The longest title in the catalog ("Try the analysis overlays &
+    // PV playback", 41 chars) is the one that actually ellipsized in
+    // the reported defect — assert its full, untruncated text still
+    // reaches the DOM.
+    const demoBoardIndex = WIZARD_STEPS.indexOf('demoBoard');
+    expect(labels[demoBoardIndex].text()).toBe(en['wizard.step.demoBoard.title']);
+    expect(labels[demoBoardIndex].text().endsWith('…')).toBe(false);
+  });
+
   it('each dot still shows its 1-based digit alongside the name', () => {
     const wrapper = mount(WizardStepIndicator, {
       props: { currentIndex: 0 },
