@@ -213,6 +213,15 @@ function onBoardClick(e: MouseEvent) {
 const hoverPoint = ref<{ x: number; y: number } | null>(null);
 
 function onBoardPointerMove(e: PointerEvent) {
+  // Toggle-off short-circuit (ghost-stone review, expansion finding 4):
+  // with the preview disabled the per-move SVG matrix inversion in
+  // resolveBoardPoint is pure waste — skip it so disabling the toggle
+  // costs zero tracking work, not just zero rendering work. hoverPoint
+  // is left null while disabled, so re-enabling starts clean.
+  if (!(props.ghostStoneEnabled ?? false)) {
+    if (hoverPoint.value !== null) hoverPoint.value = null;
+    return;
+  }
   const svg = e.currentTarget as SVGSVGElement; // DOM: bound on the board's <svg>, so currentTarget is that element (same cast as onBoardClick above)
   hoverPoint.value = resolveBoardPoint(e, svg);
 }
