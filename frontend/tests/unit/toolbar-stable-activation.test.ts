@@ -9,11 +9,19 @@
  *
  * G6 — clicking `.setup-trigger` used to grow `.top-nav-bar` 32→93px,
  * push `#split-workspace` down 30px, and move the trigger itself 81px
- * left. The fix takes `.setup-palette` out of document flow
- * (`position: absolute`, anchored under the trigger) so opening it
- * cannot add height or width to `.toolbar`'s own layout — the same
- * idiom this codebase already uses for `ToolbarSliderPopover.vue`'s
- * `.sliders-popover` and `LocalePicker.vue`'s `.locale-menu`.
+ * left. REWORKED (orchestrator correction): an earlier revision of
+ * this guard asserted `.setup-palette` moved out of flow
+ * (`position: absolute`) — that shape silently superseded a standing
+ * COMMISSIONER ruling (the palette must never cover any board pixel,
+ * opaque or not) which no delegate or orchestrator brief may override.
+ * The corrected fix keeps `.setup-palette` in flow (`position:
+ * static`, as the ruling requires) but makes it ALWAYS mounted, so its
+ * box permanently RESERVES the space `.setup-toolkit` needs — a
+ * `.palette-closed` class toggles `visibility: hidden` (which
+ * suppresses paint without collapsing layout), never `v-if`/`v-show`
+ * (both of which collapse the box, which was the actual G6 root
+ * cause). `.setup-toolkit`'s height is therefore constant across open/
+ * close, without ever leaving the toolbar's own flow.
  *
  * G7 — clicking the sidebar-collapse button used to teleport it 168px
  * left (`{x:176}` → `{x:8}`) because it lived inside `.top-nav-bar`,
@@ -44,30 +52,46 @@ function src(path: string): string {
   return readFileSync(resolve(process.cwd(), path), 'utf-8');
 }
 
-describe('SetupToolPalette.vue — palette is out of flow (G6)', () => {
+describe('SetupToolPalette.vue — palette space is reserved in flow, never floated over the board (G6)', () => {
   const file = src('src/components/chrome/SetupToolPalette.vue');
 
-  it('.setup-palette is position: absolute, not static/in-flow', () => {
-    const rule = /\.setup-palette\s*\{[^}]*\}/.exec(file);
+  it('.setup-palette stays position: static — the commissioner ruling (never covers the board) is honoured', () => {
+    const rule = /(?:^|\n)\.setup-palette\s*\{[^}]*\}/.exec(file);
     expect(rule).not.toBeNull();
-    expect(rule![0]).toMatch(/position:\s*absolute/);
-    expect(rule![0]).not.toMatch(/position:\s*static/);
+    expect(rule![0]).toMatch(/position:\s*static/);
+    expect(rule![0]).not.toMatch(/position:\s*absolute/);
   });
 
-  it('.setup-palette anchors under the trigger (top: 100%) like the app\'s other toolbar popovers', () => {
-    const rule = /\.setup-palette\s*\{[^}]*\}/.exec(file)![0];
-    expect(rule).toMatch(/top:\s*100%/);
-  });
-
-  it('.setup-palette stays opaque (no transparent-overlay regression)', () => {
-    const rule = /\.setup-palette\s*\{[^}]*\}/.exec(file)![0];
-    expect(rule).toMatch(/background:\s*var\(--surface-0\)/);
-  });
-
-  it('.setup-toolkit no longer stacks trigger+palette in a column (the growth mechanism G6 witnessed)', () => {
+  it('.setup-toolkit stacks trigger+palette in a column, in normal flow (the reserved-space container)', () => {
     const rule = /\.setup-toolkit\s*\{[^}]*\}/.exec(file);
     expect(rule).not.toBeNull();
-    expect(rule![0]).not.toMatch(/flex-direction:\s*column/);
+    expect(rule![0]).toMatch(/flex-direction:\s*column/);
+  });
+
+  it('the palette div is unconditionally rendered — no v-if on it (v-if was the actual G6 root cause: box collapses to zero on close)', () => {
+    const paletteDivOpen = /<div\s+class="setup-palette"/.exec(file);
+    expect(paletteDivOpen).not.toBeNull();
+    // The v-if/v-show attribute, if present, would appear on the SAME
+    // opening tag as class="setup-palette" (or immediately adjacent);
+    // scan a window around the match for either directive.
+    const windowStart = Math.max(0, paletteDivOpen!.index - 200);
+    const tagWindow = file.slice(windowStart, paletteDivOpen!.index + 400);
+    // Only the class binding should govern paletteOpen on this element —
+    // no v-if="paletteOpen" and no v-show="paletteOpen" anywhere in the
+    // tag's own attribute window.
+    expect(tagWindow).not.toMatch(/v-if="paletteOpen"/);
+    expect(tagWindow).not.toMatch(/v-show="paletteOpen"/);
+  });
+
+  it('.palette-closed suppresses paint via visibility: hidden, never display: none (display:none would collapse the reserved box)', () => {
+    const rule = /\.setup-palette\.palette-closed\s*\{[^}]*\}/.exec(file);
+    expect(rule).not.toBeNull();
+    expect(rule![0]).toMatch(/visibility:\s*hidden/);
+    expect(rule![0]).not.toMatch(/display:\s*none/);
+  });
+
+  it('the palette-closed class is driven by !paletteOpen (closes when the trigger is toggled off)', () => {
+    expect(file).toMatch(/'palette-closed':\s*!paletteOpen/);
   });
 });
 
