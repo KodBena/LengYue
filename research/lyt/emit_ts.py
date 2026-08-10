@@ -63,6 +63,7 @@ from typing import Dict, List, Optional
 import lyt_ast as ast
 import loader
 from compiler import solve_lexicographic, SolveResult
+from presence import ALL_PRESENT, resolve_and_validate
 from runner import ENCODINGS_DIR, REGISTRATIONS, SCREEN_SIZES, _gather_reach_preferred_widgets
 
 DEFAULT_OUT = Path(__file__).parent.parent.parent / "frontend" / "src" / "state" / "lyt-solved-layout.gen.ts"
@@ -122,7 +123,7 @@ def _slots_from_result(result: SolveResult) -> Dict[str, Dict[str, int]]:
 
 
 def build_solved_registrations(
-    *, registration_name: str = _REGISTRATION_NAME, time_limit_s: float = 20.0
+    *, registration_name: str = _REGISTRATION_NAME, time_limit_s: float = 20.0, class_id: Optional[str] = None
 ) -> "tuple[List[dict], List[dict]]":
     """Solve the target encoding at every representative size in
     `runner.SCREEN_SIZES`, in that list's own order (deterministic —
@@ -145,12 +146,37 @@ def build_solved_registrations(
       last registration touching that class id) silently returns whichever
       size solved last rather than the class's own declared point — this
       split is the fix.
+
+    `class_id` (W1 REPAIR addition, ledger row 1781; conformance-harness
+    need — `frontend/scripts/lyt-conformance.mjs`'s new 'landscape' source):
+    solve a NAMED class of a multi-class registration explicitly, rather
+    than nearest-neighbor-selecting per size (runner.py's own job) — every
+    representative SIZE is solved against the SAME caller-chosen class,
+    matching this function's own single-class behavior below, just with
+    the class picked by name instead of being the registration's only
+    option.
+
+    Presence (W1 REPAIR, review's "Conformance harness" finding — the
+    prior rejected attempt's conformance reference was presence-BLIND,
+    solving boardRail/previewBoard as always-present even though the W1
+    Vue realization genuinely omits them by default, `lyt-layout.gen.ts`'s
+    own `presenceDefaultVisible: false`): every registration's own
+    DECLARED `default_valuation` (AMENDMENT 4, `presence.py`) is resolved
+    and pruned BEFORE solving, exactly like `runner.py.run_all` already
+    does — `presence.ALL_PRESENT` (empty absent set) for every
+    registration but `lengyue_landscape+portrait`, so this is a no-op,
+    byte-identical solve for every OTHER registration this script targets
+    (`current_row_repaired.lyt`, `current_row_asis.lyt`); only the
+    lengyue registration's reference now correctly excludes
+    boardRail/previewBoard, matching the live render it's diffed against.
     """
     reg = _find_registration(registration_name)
     layouts: Dict[str, ast.Slot] = {}
     for f in reg.files:
         text = (ENCODINGS_DIR / f).read_text()
         layouts.update(loader.load_layouts(text, waivers=reg.waivers))
+    default_valuation = getattr(reg, "default_valuation", ALL_PRESENT)
+    layouts = resolve_and_validate(layouts, reg.layout_by_class.values(), default_valuation)
 
     screen_classes: List[dict] = [
         {"id": c.id, "wPx": c.w_px, "hPx": c.h_px} for c in sorted(reg.classes, key=lambda c: c.id)
@@ -158,20 +184,27 @@ def build_solved_registrations(
 
     out: List[dict] = []
     for label, w, h in SCREEN_SIZES:
-        cls: Optional[ast.ScreenClass] = reg.classes[0] if len(reg.classes) == 1 else None
-        if cls is None:
-            # This registration is documented (runner.py's module
-            # docstring) to carry exactly one class for the encodings this
-            # script targets; a multi-class registration would need
-            # nearest-neighbor selection here too. Fail loud rather than
-            # silently picking one, per ADR-0002 — this script's scope is
-            # deliberately narrower than runner.py's.
+        cls: Optional[ast.ScreenClass]
+        if class_id is not None:
+            matches = [c for c in reg.classes if c.id == class_id]
+            if not matches:
+                raise LookupError(
+                    f"registration {reg.name!r} has no class id {class_id!r} — "
+                    f"available: {sorted(c.id for c in reg.classes)}"
+                )
+            cls = matches[0]
+        elif len(reg.classes) == 1:
+            cls = reg.classes[0]
+        else:
+            # This registration carries more than one class and no
+            # --class-id was given. Fail loud rather than silently
+            # picking one, per ADR-0002 — nearest-neighbor-per-size
+            # selection is runner.py's own job, not this script's.
             raise NotImplementedError(
                 f"registration {reg.name!r} carries {len(reg.classes)} "
-                "screen classes; emit_ts.py only handles single-class "
-                "registrations (current-row-repaired's own shape). "
-                "Extend this function with nearest-neighbor class "
-                "selection before pointing it at a multi-class encoding."
+                "screen classes and no class_id was given; pass "
+                "--class-id explicitly (e.g. 'landscape') or extend this "
+                "function with nearest-neighbor class selection."
             )
         layout_name = reg.layout_by_class[cls.id]
         slot = layouts[layout_name]
@@ -336,6 +369,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=None,
         help="output .ts path (default: REGISTRATION_OUTPUTS[--registration])",
     )
+    parser_.add_argument(
+        "--class-id",
+        default=None,
+        help="solve a NAMED screen class of a multi-class registration explicitly "
+        "(e.g. 'landscape' for lengyue_landscape+portrait) instead of relying on "
+        "the single-class default.",
+    )
     args = parser_.parse_args(argv)
     out = args.out or REGISTRATION_OUTPUTS.get(args.registration)
     if out is None:
@@ -344,7 +384,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             "add an entry to REGISTRATION_OUTPUTS or pass --out explicitly."
         )
 
-    registrations, screen_classes = build_solved_registrations(registration_name=args.registration)
+    registrations, screen_classes = build_solved_registrations(
+        registration_name=args.registration, class_id=args.class_id
+    )
     text = render_ts(registrations, screen_classes, registration_name=args.registration)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(text)

@@ -1572,9 +1572,21 @@ def test_landscape_side_column_track_carries_the_board_priority_clamp(mockup_pag
     board's `1fr` composite track would otherwise silently absorb the
     gap's width out of the board's own natural share), so the pinned
     clamp expression below gains a trailing `- 12px` term versus the
-    pre-amendment (gap-less) string."""
+    pre-amendment (gap-less) string.
+
+    W1 REPAIR update (ledger row 1781, review finding A -- see the
+    encoding's own header comment, "REPAIR PASS"): the side column's
+    `min` is raised from 340px to 480px, a measured, disclosed
+    reservation-correction for the merged Toolbar mount's real content
+    floor (480px keeps every representative landscape size the base
+    suite already pins OPTIMAL genuinely OPTIMAL -- 640px, this repair's
+    first candidate, regressed 1366x768 to INFEASIBLE; 480px is the
+    largest value that doesn't). The pinned clamp's `340px` LOWER bound
+    literal moves to `480px` accordingly; the `820px` upper bound (the
+    column's own pre-existing max, `340px+60ch` = 340+8*60) is
+    unchanged."""
     assert "minmax(340px, 820px)" not in mockup_pages["landscape"]
-    assert "clamp(340px, calc(100% - (100vh - 52px) - 12px), 820px)" in mockup_pages["landscape"]
+    assert "clamp(480px, calc(100% - (100vh - 52px) - 12px), 820px)" in mockup_pages["landscape"]
 
 
 def test_portrait_composite_row_carries_the_board_priority_cap(mockup_pages):

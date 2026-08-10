@@ -161,6 +161,64 @@
 --     open fork for whoever picks up the eventual Vue implementation —
 --     this commission was explicitly to keep building the presence-slot
 --     version.
+--
+--   - REPAIR PASS (ledger row 1781, W1 REPAIR; review finding A,
+--     `.claude/dispatch-reports/lyt-w1-skeleton-review.md` §2): the side
+--     column's own `min 340px` and A_go/I_engine/A_common's `28px` each
+--     (84px total) are BOTH raised here — a disclosed, MEASURED
+--     reservation-correction, not a re-derivation from the original
+--     §5.4 prose (which never anticipated three encoding-level bands
+--     being realized as ONE merged Toolbar.vue mount, roadmap §8 W1's
+--     own judgment call). The rejected prior W1 attempt's realization
+--     mounted the merged Toolbar unchanged into the original 340×84
+--     reservation; measured (Playwright, headless chromium, the actual
+--     merged Toolbar content: title + engine-metrics + slider/PBO/setup
+--     popovers + move-nav + the 8-button engine-controls cluster)
+--     against a WIDTH SWEEP of the realized `.lyt-toolbar-strip` box:
+--     340px -> 533px tall, 400px -> 405px, 480px -> 341px, 560px ->
+--     253px, 640px -> 238px, 720px -> 178px, 820px (the column's own
+--     max) -> 178px (no further gain past ~720px — the content's own
+--     wrapped-cluster floor). 340px is proven-infeasible without either
+--     scrolling (rejected: "never hide content" is the standing law) or
+--     silently clipping (Finding A itself).
+--
+--     The width chosen is 480px, NOT the originally-tried 640px: 640px
+--     regresses `test_lengyue_landscape_default_valuation_solves_optimal`'s
+--     1366x768 case from OPTIMAL to INFEASIBLE (verified — `pytest
+--     tests/test_lyt.py -k test_lengyue_landscape_default_valuation_
+--     solves_optimal`), because it pushes the side column's structural
+--     min past what the CP-SAT solve can still satisfy alongside the
+--     board's own `pref maximize` claim at that size. 480px is the
+--     largest of the swept widths that keeps every size the base test
+--     suite already pins OPTIMAL (1920x1080/2560x1440/3440x1440/1366x768)
+--     genuinely OPTIMAL (verified the same way) — a real, disclosed
+--     ceiling this repair pass respects rather than overrides. The
+--     tradeoff is a taller-than-ideal toolbar reservation (341px
+--     measured floor at 480px, vs. 178px at 720px+) in exchange for not
+--     touching the base suite's existing feasibility pins.
+--
+--     84px -> 384px (128px x 3, keeping the three-leaf structure the
+--     roadmap's own A_go/I_engine/A_common merge note already commits
+--     to displaying as one spanning mount) covers the measured 341px
+--     synthetic-sweep floor at 480px, revised up once more (122px x 3 =
+--     366px) after the REAL running app (every component actually
+--     mounted, not the width-forced sweep harness) measured 374px at
+--     1280x1024/1024x700 -- 8px over the 366px reservation. 128px x 3 =
+--     384px leaves a genuine ~10px margin over the real-app floor. This
+--     is a REAL, disclosed regression in available board
+--     width/height at the narrowest viewports the mandate tests
+--     (1024x700, 1280x1024) relative to the original 340px/84px
+--     transcription — flagged for commissioner ratification in the
+--     repair build report as the single biggest open concern; a
+--     from-scratch CP-SAT re-solve incorporating the merged-mount
+--     reality as a modeled constraint (rather than this measured,
+--     hand-set correction bounded by NOT regressing the existing
+--     feasibility pins) is the more rigorous fix a follow-up wave
+--     should pursue if the commissioner wants a tighter number than
+--     this repair pass's conservative one — or wants to spend the
+--     1366x768 OPTIMAL pin to buy back a narrower/shorter toolbar
+--     reservation, a tradeoff this repair pass declined to make
+--     unilaterally.
 layout lengyue-landscape =
   {min 0px, pref 1fr, max inf, gap 12px} H(
     @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
@@ -169,10 +227,10 @@ layout lengyue-landscape =
       {min 24px, pref 24px, max 24px} I_board[board, info],
       {min 28px, pref 28px, max 28px} A_board[board, action]
     ),
-    {min 340px, pref 32fr, max 340px+60ch, gap 4px} V(
-      {28px} A_go[go, action],
-      {28px, envelope: {disconnected, connected_5digit_latency}} I_engine[common, info],
-      {28px} A_common[common, action],
+    {min 480px, pref 32fr, max 340px+60ch, gap 4px} V(
+      {128px} A_go[go, action],
+      {128px, envelope: {disconnected, connected_5digit_latency}} I_engine[common, info],
+      {128px} A_common[common, action],
       {pref 1fr, gap 4px} H(
         {min 140px, pref 140px, max 140px} tree[board, info+action],
         {pref 1fr} T(
