@@ -51,7 +51,8 @@ vi.mock('../../src/services/analysis-service', async () => {
 });
 
 import { useUserIORegistry } from '../../src/composables/useUserIORegistry';
-import { store, resetWorkspace } from '../../src/store';
+import { store, resetWorkspace, updateBoardState, mutateBoard } from '../../src/store';
+import { applyGoMove } from '../../src/logic';
 import { ACTIONS } from '../../src/composables/keybindings-catalog';
 import {
   cancelCapture,
@@ -119,20 +120,79 @@ describe('useUserIORegistry — immediate dispatch', () => {
 });
 
 // ── Coalesced dispatch ───────────────────────────────────
+//
+// 2026-08-10 G25/G26/G27 fix: coalescing keys off `KeyboardEvent.repeat`,
+// not off "this action's dispatchMode is coalesced" — see
+// `useUserIORegistry.ts`'s `handleKeyDown` for the full rationale. A
+// discrete (non-repeat) keydown of a coalesced-mode action now fires
+// synchronously, exactly like an immediate-mode action: "one keypress,
+// one move," and no rAF is scheduled at all. Only OS auto-repeat
+// (`repeat: true`, the real "key held down" signal) still rAF-coalesces,
+// preserving perf Fix #1's original back-pressure protection for a
+// sustained hold.
 
 describe('useUserIORegistry — coalesced dispatch', () => {
-  it('schedules an rAF on keydown of a coalesced-mode key', () => {
+  it('a discrete (non-repeat) keydown of a coalesced-mode key fires synchronously — no rAF scheduled', () => {
+    // A move to navigate to, so the handler's synchronous fire is
+    // observable, not just "no rAF was scheduled."
+    const board = store.boards[0];
+    const next = applyGoMove(board, 3, 3);
+    if (!next) throw new Error('illegal move in fixture');
+    updateBoardState(0, next);
+    mutateBoard(next.id, draft => { draft.currentNodeId = draft.rootNodeId; });
+
     const rafSpy = vi.spyOn(globalThis, 'requestAnimationFrame');
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', repeat: false }));
+    expect(rafSpy).not.toHaveBeenCalled();
+    expect(store.boards.find(b => b.id === next.id)?.currentNodeId).not.toBe(next.rootNodeId);
+    rafSpy.mockRestore();
+  });
+
+  it('5 discrete presses produce 5 navigations — none dropped (G25: the "1,2,2,3,3" defect)', () => {
+    // Build a short mainline so 5 successive ArrowDown presses have
+    // somewhere to go.
+    let board = store.boards[0];
+    for (let i = 0; i < 5; i++) {
+      const next = applyGoMove(board, i, 0);
+      if (!next) throw new Error('illegal move in fixture');
+      board = next;
+    }
+    updateBoardState(0, board);
+    mutateBoard(board.id, draft => { draft.currentNodeId = draft.rootNodeId; });
+
+    for (let i = 0; i < 5; i++) {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', repeat: false }));
+    }
+
+    // Root + 5 place moves along the mainline: 5 discrete presses
+    // must land exactly 5 steps deep, not fewer.
+    const live = store.boards.find(b => b.id === board.id)!;
+    let depth = 0;
+    let currId = live.currentNodeId;
+    while (live.nodes[currId]?.parent) {
+      depth++;
+      currId = live.nodes[currId]!.parent!;
+    }
+    expect(depth).toBe(5);
+  });
+
+  it('OS auto-repeat (repeat: true) rAF-coalesces: schedules on the first repeat keydown', () => {
+    const rafSpy = vi.spyOn(globalThis, 'requestAnimationFrame');
+    // First keydown of a hold is repeat:false (fires synchronously,
+    // no rAF); the browser's auto-repeat stream that follows is
+    // repeat:true.
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', repeat: false }));
+    expect(rafSpy).not.toHaveBeenCalled();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', repeat: true }));
     expect(rafSpy).toHaveBeenCalledTimes(1);
     rafSpy.mockRestore();
   });
 
-  it('rapid presses cancel-and-reschedule the rAF (5 presses → 5 rAFs / 4 cancellations)', () => {
+  it('rapid REPEAT presses cancel-and-reschedule the rAF (5 repeats → 5 rAFs / 4 cancellations)', () => {
     const rafSpy = vi.spyOn(globalThis, 'requestAnimationFrame');
     const cafSpy = vi.spyOn(globalThis, 'cancelAnimationFrame');
     for (let i = 0; i < 5; i++) {
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', repeat: true }));
     }
     expect(rafSpy).toHaveBeenCalledTimes(5);
     expect(cafSpy).toHaveBeenCalledTimes(4);
