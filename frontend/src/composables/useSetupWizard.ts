@@ -57,6 +57,7 @@ import { closeSetupWizard } from './useSetupWizardSignal';
 import { useWizardImportStaging, type WizardImportStaging } from './library/useWizardImportStaging';
 
 export const WIZARD_STEPS = [
+  'locale',
   'theme',
   'engineUri',
   'palette',

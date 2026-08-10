@@ -82,7 +82,12 @@ describe('SetupWizardModal — Finish recap distinguishes visited-and-changed fr
   it('a walked-and-changed step reads its real value with no default badge; a skipped step is marked default', async () => {
     wrapper = mount(SetupWizardModal, { global: { plugins: [i18n] }, attachTo: document.body });
 
-    // Visit + CHANGE step 1 (theme): default is 'cluster' (light) —
+    // Navigate to the theme step first (locale is now the first step —
+    // step 0 — so the theme step's own card isn't on screen at mount).
+    const themeDot = wrapper.findAll('.step-dot')[WIZARD_STEPS.indexOf('theme')];
+    await themeDot.trigger('click');
+
+    // Visit + CHANGE the theme step: default is 'cluster' (light) —
     // click the 'dark' card so the cell actually differs from seed.
     expect(store.profile.settings.appearance.theme).toBe('cluster');
     const darkCard = wrapper.findAll('.theme-card')[0];
@@ -90,10 +95,11 @@ describe('SetupWizardModal — Finish recap distinguishes visited-and-changed fr
     expect(store.profile.settings.appearance.theme).toBe('dark');
 
     // Jump straight to Finish via the step indicator's random-access
-    // dot (index 5) — engineUri/palette/demoBoard/sgfImport are never
-    // landed on, so they stay OUT of visitedSteps.
+    // dot — engineUri/palette/demoBoard/sgfImport are never landed on,
+    // so they stay OUT of visitedSteps (locale/theme were, from the
+    // navigation above).
     const dots = wrapper.findAll('.step-dot');
-    await dots[5].trigger('click');
+    await dots[WIZARD_STEPS.indexOf('finish')].trigger('click');
     expect(wrapper.find('#setup-wizard-title').text()).toBe(en['wizard.step.finish.title']);
 
     const dts = wrapper.findAll('.summary-list dt');

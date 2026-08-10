@@ -68,10 +68,10 @@ beforeEach(() => {
 });
 
 describe('useSetupWizard — step sequence', () => {
-  it('starts at step 0 (theme) and exposes the full step list', () => {
+  it('starts at step 0 (locale) and exposes the full step list', () => {
     const wizard = useSetupWizard();
     expect(wizard.stepIndex.value).toBe(0);
-    expect(wizard.stepId.value).toBe('theme');
+    expect(wizard.stepId.value).toBe('locale');
     expect(wizard.totalSteps).toBe(WIZARD_STEPS.length);
     expect(wizard.isFirstStep.value).toBe(true);
     expect(wizard.isLastStep.value).toBe(false);
@@ -102,7 +102,7 @@ describe('useSetupWizard — step sequence', () => {
 
   it('goTo() jumps directly and ignores an out-of-range index', () => {
     const wizard = useSetupWizard();
-    wizard.goTo(3);
+    wizard.goTo(4);
     expect(wizard.stepId.value).toBe('demoBoard');
     wizard.goTo(-1);
     expect(wizard.stepId.value).toBe('demoBoard'); // unchanged
@@ -124,29 +124,29 @@ describe('useSetupWizard — step sequence', () => {
 describe('useSetupWizard — visitedSteps', () => {
   it('seeds with only the first step, before any navigation', () => {
     const wizard = useSetupWizard();
-    expect([...wizard.visitedSteps.value]).toEqual(['theme']);
+    expect([...wizard.visitedSteps.value]).toEqual(['locale']);
   });
 
   it('next() adds each step it lands on, in order', () => {
     const wizard = useSetupWizard();
+    wizard.next(); // -> theme
+    expect(wizard.visitedSteps.value.has('theme')).toBe(true);
+    expect(wizard.visitedSteps.value.has('engineUri')).toBe(false);
     wizard.next(); // -> engineUri
     expect(wizard.visitedSteps.value.has('engineUri')).toBe(true);
-    expect(wizard.visitedSteps.value.has('palette')).toBe(false);
-    wizard.next(); // -> palette
-    expect(wizard.visitedSteps.value.has('palette')).toBe(true);
-    expect([...wizard.visitedSteps.value]).toEqual(['theme', 'engineUri', 'palette']);
+    expect([...wizard.visitedSteps.value]).toEqual(['locale', 'theme', 'engineUri']);
   });
 
   it('skip() adds the landed-on step exactly like next()', () => {
     const wizard = useSetupWizard();
-    wizard.skip(); // -> engineUri
-    expect(wizard.visitedSteps.value.has('engineUri')).toBe(true);
+    wizard.skip(); // -> theme
+    expect(wizard.visitedSteps.value.has('theme')).toBe(true);
   });
 
   it('back() adds the step it returns to', () => {
     const wizard = useSetupWizard();
-    wizard.goTo(3); // -> demoBoard, skipping engineUri/palette entirely
-    expect(wizard.visitedSteps.value.has('engineUri')).toBe(false);
+    wizard.goTo(4); // -> demoBoard, skipping theme/engineUri/palette entirely
+    expect(wizard.visitedSteps.value.has('palette')).toBe(false);
     wizard.back(); // -> palette
     expect(wizard.visitedSteps.value.has('palette')).toBe(true);
     expect(wizard.visitedSteps.value.has('engineUri')).toBe(false); // still never landed on
@@ -154,8 +154,9 @@ describe('useSetupWizard — visitedSteps', () => {
 
   it('a forward goTo() jump leaves the skipped-over steps unvisited', () => {
     const wizard = useSetupWizard();
-    wizard.goTo(5); // -> finish, straight from theme
-    expect([...wizard.visitedSteps.value].sort()).toEqual(['finish', 'theme']);
+    wizard.goTo(6); // -> finish, straight from locale
+    expect([...wizard.visitedSteps.value].sort()).toEqual(['finish', 'locale']);
+    expect(wizard.visitedSteps.value.has('theme')).toBe(false);
     expect(wizard.visitedSteps.value.has('engineUri')).toBe(false);
     expect(wizard.visitedSteps.value.has('palette')).toBe(false);
     expect(wizard.visitedSteps.value.has('demoBoard')).toBe(false);
@@ -166,7 +167,7 @@ describe('useSetupWizard — visitedSteps', () => {
     const wizard = useSetupWizard();
     wizard.goTo(999);
     wizard.goTo(-1);
-    expect([...wizard.visitedSteps.value]).toEqual(['theme']);
+    expect([...wizard.visitedSteps.value]).toEqual(['locale']);
   });
 });
 
@@ -190,7 +191,7 @@ describe('useSetupWizard — finish', () => {
   it('an explicit finish() also marks onboarded', async () => {
     const wizard = useSetupWizard();
     openSetupWizard();
-    expect(wizard.stepId.value).toBe('theme'); // still on the first step
+    expect(wizard.stepId.value).toBe('locale'); // still on the first step
     await wizard.finish();
     expect(store.profile.settings.onboarding.completed).toBe(true);
     expect(setupWizardOpen.value).toBe(false);
@@ -207,7 +208,7 @@ describe('useSetupWizard — cancel (dismiss: backdrop/×/Escape)', () => {
   it('marks onboarded and closes, synchronously, from any step', () => {
     const wizard = useSetupWizard();
     openSetupWizard();
-    expect(wizard.stepId.value).toBe('theme'); // still on the first step
+    expect(wizard.stepId.value).toBe('locale'); // still on the first step
     wizard.cancel();
     expect(store.profile.settings.onboarding.completed).toBe(true);
     expect(setupWizardOpen.value).toBe(false);

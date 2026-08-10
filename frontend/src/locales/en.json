@@ -729,6 +729,9 @@
   "wizard.button.finish":                 "Finish",
   "wizard.button.close":                  "Close",
 
+  "wizard.step.locale.title":             "Language",
+  "wizard.step.locale.description":       "Pick the language the wizard and the rest of the app display in — it takes effect immediately, and you can change it anytime from the toolbar's language picker.",
+
   "wizard.step.theme.title":              "Choose a theme",
   "wizard.step.theme.description":        "Pick whichever reads better on your screen — there's no default we recommend.",
   "wizard.theme.dark":                    "Dark",

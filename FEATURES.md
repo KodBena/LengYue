@@ -622,7 +622,11 @@ backend; flip the env-var to opt in.
   Japanese, and Korean ship as LLM-drafted catalogs with a
   machine-translation notice — native-speaker review is the
   remaining gate per locale. Locale picker in the toolbar;
-  selection persists across sessions.
+  selection persists across sessions. The first-run setup
+  wizard's opening step offers the same choice — picking a
+  language there takes effect immediately, so the rest of the
+  wizard (and the app) renders in the chosen language right
+  away.
 
 - **System log.** Always-visible bar at the bottom showing
   errors, warnings, and info messages. Collapsible; when
