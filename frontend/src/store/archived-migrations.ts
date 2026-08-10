@@ -5,7 +5,7 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-08-09: migrations 1 → 2 through 68 → 69 (68
+ * Scope as of 2026-08-10: migrations 1 → 2 through 69 → 70 (69
  * entries). The first eight covered pre-v1.0.0 schema evolution;
  * the rest are the v1.0.x – v1.1.x active cycle, archived in
  * per-PR rolling fashion under the same archive contract.
@@ -2884,6 +2884,38 @@ export const archivedMigrations: Migration[] = [
       const valid = ['off', 'deltaVisits', 'perPlayer'];
       if (typeof u.moveDeltaAnnotation !== 'string' || !valid.includes(u.moveDeltaAnnotation)) {
         u.moveDeltaAnnotation = 'off';
+      }
+    }
+    return out;
+  },
+  // 69 → 70: backfill `profile.settings.onboarding.completed = true`
+  // (ledger slug swz-setup-wizard) — the first-run setup wizard's
+  // "has this profile already been onboarded" flag. A blob reaching
+  // this migration necessarily existed before the wizard shipped, so
+  // it is by definition not a fresh profile; backfilling `true` here
+  // is what keeps an existing user from seeing the wizard pop up
+  // unbidden on their next load. A genuinely fresh profile never
+  // walks this migration — `defaultAppSettings()` seeds
+  // `onboarding.completed: false` directly (see `defaults.ts`), which
+  // is the wizard's actual trigger condition (`useSetupWizard.ts`).
+  //
+  // Container witnessed against the runtime shape: `profile.settings`
+  // exists from v1, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version.
+  //
+  // Idempotent: a pre-existing boolean `completed` value (true or
+  // false) is preserved unchanged; only a missing / wrong-typed leaf
+  // is backfilled to `true`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = witnessedContainer(out, 'profile.settings');
+    if (settings) {
+      const s = settings as { onboarding?: unknown };
+      const existing = s.onboarding && typeof s.onboarding === 'object'
+        ? (s.onboarding as { completed?: unknown })
+        : undefined;
+      if (!existing || typeof existing.completed !== 'boolean') {
+        s.onboarding = { completed: true };
       }
     }
     return out;

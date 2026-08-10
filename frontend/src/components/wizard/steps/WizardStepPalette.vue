@@ -118,6 +118,36 @@ const knownPaletteDescriptions = computed(() =>
   PALETTE_DESCRIPTIONS.filter((d) => palettes.value.some((p) => p.id === d.paletteId)),
 );
 
+// ── ADVANCED: the FORMAL definition under each description (row 1378) ──
+//
+// Every palette entry shows both the human description above AND its
+// actual formal definition — the live `delta_fn`/`summary_fn` this
+// profile's cells actually hold, rendered in the app's code idiom
+// (a small monospace line), not a hardcoded/translated string. Reading
+// live off `store` (rather than duplicating the expression into i18n
+// catalogs) keeps this truthful if the user later hand-edits a
+// palette via PaletteEditor — the formal definition shown here is
+// always what the cell actually computes, never a stale translated
+// snapshot. `symbols` supplies the delta_fn's underlying expression
+// body when the palette's `delta_fn` names a known symbol; an
+// unrecognised name (hand-authored inline expression) falls back to
+// showing the bare name with no body line, rather than fabricating one.
+const symbols = computed(() => store.profile.settings.engine.katago.analysis_env.symbols);
+type PaletteDefinition = { paletteId: string; deltaFn: string; deltaFnBody: string | undefined; summaryFn: string };
+const paletteDefinitions = computed<PaletteDefinition[]>(() =>
+  palettes.value
+    .filter((p) => PALETTE_DESCRIPTIONS.some((d) => d.paletteId === p.id))
+    .map((p) => ({
+      paletteId: p.id,
+      deltaFn: p.delta_fn,
+      deltaFnBody: symbols.value[p.delta_fn],
+      summaryFn: p.summary_fn,
+    })),
+);
+function definitionFor(paletteId: string): PaletteDefinition | undefined {
+  return paletteDefinitions.value.find((d) => d.paletteId === paletteId);
+}
+
 // ── ADVANCED: aggregation control over the selected palette's summary_fn ──
 
 const KNOWN_AGGREGATIONS = ['mean_summary', 'min_summary', 'median_summary'] as const;
@@ -196,7 +226,14 @@ function setAggregation(next: KnownAggregation): void {
         <dl class="palette-descriptions">
           <template v-for="d in knownPaletteDescriptions" :key="d.paletteId">
             <dt>{{ $t(d.nameKey) }}</dt>
-            <dd :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t(d.descriptionKey) }}</dd>
+            <dd :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">
+              <span class="description-text">{{ $t(d.descriptionKey) }}</span>
+              <code v-if="definitionFor(d.paletteId)" class="palette-definition">
+                <span class="definition-label">{{ $t('wizard.palette.definitionLabel') }}</span>
+                <span class="definition-line">delta_fn: {{ definitionFor(d.paletteId)!.deltaFn }}<template v-if="definitionFor(d.paletteId)!.deltaFnBody"> = {{ definitionFor(d.paletteId)!.deltaFnBody }}</template></span>
+                <span class="definition-line">summary_fn: {{ definitionFor(d.paletteId)!.summaryFn }}</span>
+              </code>
+            </dd>
           </template>
         </dl>
 
@@ -240,5 +277,17 @@ function setAggregation(next: KnownAggregation): void {
 .palette-descriptions dd {
   color: var(--text-2); margin: 0 0 var(--space-default) 0; max-width: v-bind(wizardProseMaxWidthCss);
 }
+.palette-descriptions .description-text { display: block; }
+
+/* Formal definition (row 1378) — the actual delta_fn/summary_fn this
+   profile's cell holds, rendered in the app's code idiom: monospace,
+   muted, distinct from the prose description above it. */
+.palette-definition {
+  display: flex; flex-direction: column; gap: 2px; margin-top: var(--space-tight);
+  font-family: var(--font-mono, monospace); font-size: var(--text-tiny);
+  color: var(--text-2); word-break: break-word;
+}
+.definition-label { text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; }
+.definition-line { display: block; }
 .field-hint { color: var(--text-2); font-size: var(--text-emphasis); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 </style>
