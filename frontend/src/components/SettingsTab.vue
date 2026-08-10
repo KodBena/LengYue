@@ -187,7 +187,17 @@ function setSettingsTabsOrientation(orientation: 'horizontal' | 'vertical'): voi
              WizardStepEngineUri.vue mounts (one rendering, one home;
              see ProxyUpstreamSettingField.vue's header). -->
         <ProxyUpstreamSettingField field-id="settings-proxy-upstream" class="proxy-upstream-row" />
-        <div class="registry-container" style="margin-top: var(--space-medium);">
+        <!-- wiki2-registry-group-label: a heading above the scrollable
+             registry container, so it doesn't read as an unlabelled
+             continuation of the non-scrolling rows above it (theme
+             select / tabs-layout select / proxy-upstream field). Same
+             heading idiom as KnobRegistryEditor.vue's per-domain
+             `.knob-registry-domain-label` (uppercase, --text-emphasis,
+             600 weight) — this is the same "labelled group heading"
+             genre, just one level up (labelling the whole registry
+             pane rather than a domain bucket within it). -->
+        <h4 class="registry-group-label" style="margin-top: var(--space-medium);">{{ $t('settings.label.sessionRegistry') }}</h4>
+        <div class="registry-container">
           <RegistryEditor :registry="store.session.ui" :defaults="DEFAULTS.session" @update="handleSessionUpdate"/>
         </div>
       </div>
@@ -287,4 +297,17 @@ function setSettingsTabsOrientation(orientation: 'horizontal' | 'vertical'): voi
    positions that child's root within Session's layout, same family as
    .theme-row above. */
 .proxy-upstream-row { margin-top: var(--space-medium); max-width: 32rem; }
+
+/* wiki2-registry-group-label: same heading idiom as KnobRegistryEditor.vue's
+   `.knob-registry-domain-label` (uppercase, --text-emphasis, 600 weight) —
+   consistent "labelled group heading" look across the two registry-adjacent
+   surfaces. */
+.registry-group-label {
+  margin: 0 0 var(--space-tight) 0;
+  font-size: var(--text-emphasis);
+  font-weight: 600;
+  color: var(--text-0);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-tight);
+}
 </style>

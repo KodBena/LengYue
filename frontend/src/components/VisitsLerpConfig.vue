@@ -58,6 +58,12 @@ const isDefault = computed(
         :title="t('visitsLerp.multiplierHint')"
       />
     </div>
+    <!-- wiki2-card-visit-ranges: explicate the allowed range next to each
+         input as plain math-style text — a ∈ (0, ∞), i.e. a positive
+         multiplier (zero or negative would floor every result to the
+         minimum visits count via lerpVisits's clamp, defeating the
+         multiplier's purpose). -->
+    <p class="range-hint">{{ t('visitsLerp.multiplierRange') }}</p>
 
     <div class="field">
       <label :title="t('visitsLerp.offsetHint')">{{ t('visitsLerp.offsetLabel') }}</label>
@@ -69,6 +75,10 @@ const isDefault = computed(
         :title="t('visitsLerp.offsetHint')"
       />
     </div>
+    <!-- b ∈ (−∞, ∞): unlike a, b is unrestricted — a negative offset is
+         a deliberately supported subtraction (see visits-lerp.ts's
+         clamp discipline for how a below-1 raw result floors safely). -->
+    <p class="range-hint">{{ t('visitsLerp.offsetRange') }}</p>
 
     <div class="actions">
       <button
@@ -88,6 +98,10 @@ const isDefault = computed(
 .field { display: flex; align-items: center; justify-content: space-between; gap: var(--space-medium); margin-bottom: var(--space-tight); }
 .field label { font-size: var(--text-emphasis); color: var(--text-0); }
 .num-input { width: 100px; }
+/* wiki2-card-visit-ranges: allowed-range hint under each field's input.
+   --text-0 per the max-contrast rule (de-emphasis is by size, not by a
+   dimmer color token — --text-1/--text-2 no longer exist). */
+.range-hint { font-size: var(--text-body); color: var(--text-0); margin: 0 0 var(--space-medium) 0; text-align: right; }
 .actions { margin-top: var(--space-medium); }
 .action-btn.reset-btn { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-tight) var(--space-default); font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 .action-btn.reset-btn:disabled { opacity: 0.5; cursor: default; }

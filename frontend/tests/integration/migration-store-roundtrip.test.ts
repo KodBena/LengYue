@@ -270,22 +270,20 @@ const EXPECTED_DEFAULTS_ONLY_PATHS: string[] = [
   'profile.settings.knobs.display.mistake-finder-threshold.label',
   'profile.settings.knobs.display.mistake-finder-threshold.outputs',
   'profile.settings.knobs.display.mistake-finder-threshold.priority',
-  // [no-backfill] The two animation KnobDecls the 46 → 47 body
-  // deliberately declined to inject (its inline comment defers to
-  // the defaults-side seed for fresh profiles); persisted blobs see
-  // them only via the deepMerge against defaults.
+  // [no-backfill] The animation KnobDecl the 46 → 47 body deliberately
+  // declined to inject (its inline comment defers to the defaults-side
+  // seed for fresh profiles); persisted blobs see it only via the
+  // deepMerge against defaults. (46 → 47 also seeded a sibling
+  // `display.pv-fade-ms` decl here; that knob was removed outright by
+  // the 73 → 74 strip migration — wiki2-pv-fade-knob — rather than
+  // left as a defaults-only entry, so it no longer appears in this
+  // pinned set.)
   'profile.settings.knobs.display.move-suggestions-fade-ms.domain',
   'profile.settings.knobs.display.move-suggestions-fade-ms.id',
   'profile.settings.knobs.display.move-suggestions-fade-ms.inputs',
   'profile.settings.knobs.display.move-suggestions-fade-ms.label',
   'profile.settings.knobs.display.move-suggestions-fade-ms.outputs',
   'profile.settings.knobs.display.move-suggestions-fade-ms.priority',
-  'profile.settings.knobs.display.pv-fade-ms.domain',
-  'profile.settings.knobs.display.pv-fade-ms.id',
-  'profile.settings.knobs.display.pv-fade-ms.inputs',
-  'profile.settings.knobs.display.pv-fade-ms.label',
-  'profile.settings.knobs.display.pv-fade-ms.outputs',
-  'profile.settings.knobs.display.pv-fade-ms.priority',
 ];
 
 /**

@@ -51,6 +51,7 @@
   "settings.button.rerunWizard":          "Re-run setup wizard",
   "settings.label.theme":                 "Theme:",
   "settings.label.settingsTabsOrientation": "Settings tabs layout:",
+  "settings.label.sessionRegistry":       "Session settings registry",
   "settings.option.settingsTabsOrientation.horizontal": "Horizontal",
   "settings.option.settingsTabsOrientation.vertical":   "Vertical (right rail)",
 
@@ -64,8 +65,10 @@
   "visitsLerp.hint":                      "Session-only — resets on reload. Transforms each card's visit count x into a·x + b before it reaches the engine (e.g. to compensate for KataGo model strength drift, or to dial visits up/down as you learn the deck). Defaults (a=1, b=0) leave visit counts unchanged.",
   "visitsLerp.multiplierLabel":           "Visit count multiplier:",
   "visitsLerp.multiplierHint":            "Coefficient a in a·x + b — scales every card's visit count (e.g. to compensate for KataGo model strength drift).",
+  "visitsLerp.multiplierRange":           "Allowed range: a ∈ (0, ∞)",
   "visitsLerp.offsetLabel":               "Visit count offset:",
   "visitsLerp.offsetHint":                "Coefficient b in a·x + b — adds to (or subtracts from) every card's visit count (e.g. to dial visits up or down as you learn the deck).",
+  "visitsLerp.offsetRange":               "Allowed range: b ∈ (−∞, ∞) — negative values subtract",
   "visitsLerp.resetButton":               "Reset to Defaults",
   "visitsLerp.resetTooltip":              "Restore a=1, b=0 (no change to visit counts).",
 
@@ -791,7 +794,7 @@
   "wizard.pvAnimation.mode.sequential":          "Sequential",
   "wizard.pvAnimation.mode.sequential.settings": "Stones fade in one by one (stepDelayMs between each).",
   "wizard.pvAnimation.mode.window":              "Sliding window",
-  "wizard.pvAnimation.mode.window.settings":     "Each stone fades in, holds (windowDurationMs), then fades out (fadeDurationMs).",
+  "wizard.pvAnimation.mode.window.settings":     "Each stone fades in, holds (windowDurationMs), then fades out.",
   "wizard.pvAnimation.noPreview":         "No preview available for this demo position.",
   "wizard.pvAnimation.annotationLabel":   "Move numbering",
   "wizard.pvAnimation.annotation.none":        "Off",

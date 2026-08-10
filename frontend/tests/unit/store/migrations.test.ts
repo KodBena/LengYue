@@ -3490,3 +3490,80 @@ describe('71 → 72: scoreLead_root_loss symbol + score-palette root-delta rewir
     expect(ae.palettes.find((p: any) => p.id === 'score').delta_fn).toBe('scoreLead_root_loss');
   });
 });
+
+describe('73 → 74: strip the dead PV-fade knob (wiki2-pv-fade-knob)', () => {
+  function blobWithKnobsAndPv(overrides: { knobs?: any; pvAnimation?: any } = {}): any {
+    return {
+      profile: {
+        settings: {
+          knobs: overrides.knobs ?? {},
+        },
+      },
+      session: {
+        ui: {
+          pvAnimation: overrides.pvAnimation ?? {},
+        },
+      },
+    };
+  }
+
+  it('deletes the registered display.pv-fade-ms knob decl', () => {
+    const blob = blobWithKnobsAndPv({
+      knobs: {
+        'display.pv-fade-ms': {
+          id: 'display.pv-fade-ms',
+          label: 'PV preview fade (ms)',
+          domain: 'display',
+          inputs: [{ range: [0, 500] }],
+          outputs: [{ path: 'session.ui.pvAnimation.fadeDurationMs' }],
+          priority: 47,
+        },
+        'display.move-filter-threshold': { id: 'display.move-filter-threshold' },
+      },
+    });
+    const out = step(73)(blob);
+    expect(out.profile.settings.knobs['display.pv-fade-ms']).toBeUndefined();
+    // A sibling decl is untouched — the strip is by-key, not a wipe.
+    expect(out.profile.settings.knobs['display.move-filter-threshold']).toEqual({ id: 'display.move-filter-threshold' });
+  });
+
+  it('deletes the persisted session.ui.pvAnimation.fadeDurationMs leaf', () => {
+    const blob = blobWithKnobsAndPv({
+      pvAnimation: { mode: 'window', stepDelayMs: 350, windowDurationMs: 600, fadeDurationMs: 250, cycle: false, pvOpacity: 1, annotation: 'from1' },
+    });
+    const out = step(73)(blob);
+    expect(out.session.ui.pvAnimation.fadeDurationMs).toBeUndefined();
+    // Sibling pvAnimation fields survive the strip untouched.
+    expect(out.session.ui.pvAnimation.mode).toBe('window');
+    expect(out.session.ui.pvAnimation.windowDurationMs).toBe(600);
+  });
+
+  it('is idempotent — a blob that never had either key passes through unchanged', () => {
+    const blob = blobWithKnobsAndPv();
+    const out = step(73)(blob);
+    expect(out.profile.settings.knobs['display.pv-fade-ms']).toBeUndefined();
+    expect(out.session.ui.pvAnimation.fadeDurationMs).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v73 blob reaches CURRENT with both dead keys stripped', () => {
+    const blob: any = {
+      schemaVersion: 73,
+      profile: {
+        settings: {
+          knobs: {
+            'display.pv-fade-ms': { id: 'display.pv-fade-ms', outputs: [{ path: 'session.ui.pvAnimation.fadeDurationMs' }] },
+          },
+        },
+      },
+      session: {
+        ui: {
+          pvAnimation: { mode: 'instant', fadeDurationMs: 0 },
+        },
+      },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.profile.settings.knobs['display.pv-fade-ms']).toBeUndefined();
+    expect(out.session.ui.pvAnimation.fadeDurationMs).toBeUndefined();
+  });
+});

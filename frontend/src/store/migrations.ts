@@ -128,13 +128,13 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 73;
+export const CURRENT_SCHEMA_VERSION = 74;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 70 → 71) are
+ * The first `N` entries (currently 1 → 2 through 71 → 72) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -156,73 +156,6 @@ export const CURRENT_SCHEMA_VERSION = 73;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 71 → 72: root-delta score loss (ledger rows 1380/1381/1383/1378,
-  // commissioner-defined) — the same two-concern shape as 70 → 71
-  // immediately above: "add the new capability, repoint only what
-  // nobody has customised away."
-  //
-  //  (a) Seed expansion: add the `scoreLead_root_loss` symbol
-  //      (`store/defaults.ts`'s derivation comment on the symbol has
-  //      the full perspective derivation) to `analysis_env.symbols`
-  //      only when absent — same add-if-absent-BY-KEY shape as
-  //      70 → 71's `median_summary` seed (commissioner clarification,
-  //      ledger row 1235, applies identically here): a profile that
-  //      already carries a `scoreLead_root_loss` key — even a
-  //      hand-authored one with a different body — keeps that body
-  //      verbatim.
-  //
-  //  (b) Conditional repoint: the `score` palette's `delta_fn` moves
-  //      from `scoreLead_loss_topvsuser` to `scoreLead_root_loss`
-  //      ONLY when it still reads exactly `scoreLead_loss_topvsuser`
-  //      — a user who repointed that palette's `delta_fn` elsewhere
-  //      (via PaletteEditor) keeps their choice untouched. Same
-  //      by-id-lookup-then-conditional-field shape as 70 → 71's
-  //      `quality`/`summary_fn` repoint, scoped here to the `score`
-  //      id and the `delta_fn` field.
-  //
-  //  `delta_ordering` is deliberately NOT touched: `scoreLead_root_loss`
-  //  is a higher-is-worse loss form exactly like the symbol it
-  //  replaces (see the derivation comment), so the `score` palette's
-  //  existing `delta_ordering: 'higher_is_worse'` stays correct
-  //  as-is — no migration action needed for that field.
-  //
-  // Container witnessed against the runtime shape:
-  // `profile.settings.engine.katago.analysis_env` exists from the
-  // framework's introduction, so a typo'd path fails loudly here rather
-  // than no-oping and stamping the version.
-  //
-  // Idempotent: a pre-existing `scoreLead_root_loss` symbol is
-  // preserved unchanged; a `score` palette whose `delta_fn` is
-  // anything other than the exact string `scoreLead_loss_topvsuser`
-  // (including an already-repointed `scoreLead_root_loss`, or a
-  // user's own customisation) is left untouched.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const ae = witnessedContainer(out, 'profile.settings.engine.katago.analysis_env');
-    if (ae) {
-      const a = ae as { symbols?: unknown; palettes?: unknown };
-
-      // (a) Seed expansion — add only if absent.
-      if (a.symbols && typeof a.symbols === 'object') {
-        const symbols = a.symbols as Record<string, unknown>;
-        if (symbols.scoreLead_root_loss === undefined) {
-          symbols.scoreLead_root_loss =
-            'player_sign(x[0]) * (x[1]["rootInfo"]["scoreLead"] - x[0]["rootInfo"]["scoreLead"])';
-        }
-      }
-
-      // (b) Conditional repoint of the `score` palette's `delta_fn`.
-      if (Array.isArray(a.palettes)) {
-        const scorePalette = a.palettes.find(
-          (p: any) => p && typeof p === 'object' && p.id === 'score',
-        );
-        if (scorePalette && scorePalette.delta_fn === 'scoreLead_loss_topvsuser') {
-          scorePalette.delta_fn = 'scoreLead_root_loss';
-        }
-      }
-    }
-    return out;
-  },
   // 72 → 73: backfill `session.ui.settingsTabsOrientation` (string enum
   // 'horizontal' | 'vertical', default 'horizontal') — ledger rows
   // 1505/1509/1515/1516. The Settings sub-tab strip's vertical
@@ -254,6 +187,54 @@ export const migrations: Migration[] = [
       if (typeof u.settingsTabsOrientation !== 'string' || !valid.includes(u.settingsTabsOrientation)) {
         u.settingsTabsOrientation = 'horizontal';
       }
+    }
+    return out;
+  },
+  // 73 → 74: strip the dead PV-fade knob (wiki2-pv-fade-knob). CSS
+  // transitions were banned and purged from `frontend/src`, which left
+  // `display.pv-fade-ms` — a `KnobDecl` registered under
+  // `profile.settings.knobs` targeting `session.ui.pvAnimation.fadeDurationMs`
+  // — controlling only inert JS-scheduling padding with no observable
+  // effect (see `use-pv-animation.ts`'s file header for the full
+  // account). Both the knob's registered decl and the field it wrote
+  // are removed from the persisted blob:
+  //
+  //   (a) `profile.settings.knobs['display.pv-fade-ms']` — the
+  //       registered decl. Without this strip, a pre-existing blob's
+  //       decl would survive `updateFromRemote`'s deepMerge as a stray
+  //       runtime key (defaults.ts no longer seeds it), and keep
+  //       getting re-persisted forever — the same "half-defeating the
+  //       move" failure the 57 → 58 archived body's `knownTags` strip
+  //       named for a different field.
+  //
+  //   (b) `session.ui.pvAnimation.fadeDurationMs` — the persisted
+  //       value the knob used to write. `defaults.ts`'s `pvAnimation`
+  //       default object no longer carries this leaf either, so
+  //       leaving it in old blobs would be a stray key the runtime
+  //       type (`PvAnimationSettings`, now without `fadeDurationMs`)
+  //       doesn't describe.
+  //
+  // No value is carried forward from either field — there is nothing
+  // downstream to migrate a fadeDurationMs number INTO now that the
+  // knob and the field are both gone; we just delete the dead keys.
+  //
+  // Idempotent: `delete` is a no-op when a key is already absent.
+  //
+  // Container access goes through `witnessedContainer`: both
+  // `profile.settings.knobs` and `session.ui.pvAnimation` exist from
+  // well before this migration (the former seeded at the framework's
+  // knob-registry introduction, the latter backfilled by the archived
+  // 9 → 10 body), so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const knobs = witnessedContainer(out, 'profile.settings.knobs');
+    if (knobs) {
+      delete (knobs as Record<string, unknown>)['display.pv-fade-ms'];
+    }
+    const pvAnimation = witnessedContainer(out, 'session.ui.pvAnimation');
+    if (pvAnimation) {
+      delete (pvAnimation as { fadeDurationMs?: unknown }).fadeDurationMs;
     }
     return out;
   },

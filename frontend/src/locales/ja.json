@@ -35,6 +35,7 @@
   "settings.section.sessionUI":           "セッション (UI)",
   "settings.button.forcePersistence":     "強制保存",
   "settings.label.settingsTabsOrientation": "設定タブのレイアウト:",
+  "settings.label.sessionRegistry":       "セッション設定レジストリ",
   "settings.option.settingsTabsOrientation.horizontal": "横",
   "settings.option.settingsTabsOrientation.vertical":   "縦(右レール)",
 

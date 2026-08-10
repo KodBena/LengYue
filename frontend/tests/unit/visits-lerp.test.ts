@@ -59,6 +59,20 @@ describe('lerpVisits — pure transform', () => {
     expect(lerpVisits(10, { a: 1, b: -10 })).toBe(1); // raw = 0
     expect(lerpVisits(10, { a: 1, b: -9.6 })).toBe(1); // raw = 0.4 → rounds to 0 → floored to 1
   });
+
+  // wiki2-card-visit-ranges: "b ∈ (−∞, ∞) ... make sure that the
+  // underlying mechanics doesn't fail to parse the signedness of b."
+  // The tests above only exercise negative b at the floor-to-1 edge
+  // (where a sign-parsing bug and a correct subtraction would look
+  // identical — both land on 1). This one keeps the result comfortably
+  // above the floor so a genuine subtraction is the only way to reach
+  // the expected value; a `b` whose sign silently dropped (e.g. an
+  // `Math.abs` or a `parseInt`-without-sign-support regression) would
+  // fail this assertion instead of coincidentally passing.
+  it('a negative b genuinely subtracts (not just a floor-to-1 coincidence)', () => {
+    expect(lerpVisits(100, { a: 1, b: -30 })).toBe(70);
+    expect(lerpVisits(1000, { a: 2, b: -500 })).toBe(1500);
+  });
 });
 
 describe('visitsLerpParams — reactive state', () => {
