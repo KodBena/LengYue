@@ -664,4 +664,7 @@
 }
 *::-webkit-scrollbar-thumb {
   background: var(--accent-peach);
+  /* Rounding commissioned explicitly (2026-08-10, follow-up to the
+   * row-1626 color-only correction) — width/hover remain untouched. */
+  border-radius: var(--radius-default);
 }
