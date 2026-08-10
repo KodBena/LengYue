@@ -5,8 +5,8 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-08-10 (wiki2-pv-fade-knob): migrations 1 → 2
- * through 71 → 72 (71 entries). The first eight covered pre-v1.0.0
+ * Scope as of 2026-08-10 (wiki2-ghost-stone): migrations 1 → 2
+ * through 72 → 73 (72 entries). The first eight covered pre-v1.0.0
  * schema evolution; the rest are the v1.0.x – v1.1.x active cycle,
  * archived in per-PR rolling fashion under the same archive contract.
  *
@@ -3057,6 +3057,40 @@ export const archivedMigrations: Migration[] = [
         if (scorePalette && scorePalette.delta_fn === 'scoreLead_loss_topvsuser') {
           scorePalette.delta_fn = 'scoreLead_root_loss';
         }
+      }
+    }
+    return out;
+  },
+  // 72 → 73: backfill `session.ui.settingsTabsOrientation` (string enum
+  // 'horizontal' | 'vertical', default 'horizontal') — ledger rows
+  // 1505/1509/1515/1516. The Settings sub-tab strip's vertical
+  // right-rail (TabWidget.vue orientation="vertical") was first
+  // shipped hardcoded on; the commissioner's ruling keeps it as a
+  // quiet opt-in instead, defaulting existing and fresh users alike
+  // back to the horizontal strip until they flip the Session (UI)
+  // pane's "Settings tabs layout" select. Same shape as the 68 → 69
+  // archived body's `moveDeltaAnnotation` backfill (`session.ui`
+  // string-enum leaf, default on absence or bad type) — see that
+  // migration's comment for the identical rationale ("a persisted
+  // blob predating this field would otherwise carry no value and
+  // rely on `updateFromRemote`'s deepMerge to surface the default;
+  // backfilling explicitly keeps the persisted shape honest").
+  //
+  // Container witnessed against the runtime shape: `session.ui`
+  // exists from the framework's introduction, so a typo'd path fails
+  // loudly here rather than no-oping and stamping the version.
+  //
+  // Idempotent: a pre-existing valid `settingsTabsOrientation` is
+  // preserved unchanged; only a missing / wrong-typed / out-of-enum
+  // leaf is backfilled to `'horizontal'`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { settingsTabsOrientation?: unknown };
+      const valid = ['horizontal', 'vertical'];
+      if (typeof u.settingsTabsOrientation !== 'string' || !valid.includes(u.settingsTabsOrientation)) {
+        u.settingsTabsOrientation = 'horizontal';
       }
     }
     return out;

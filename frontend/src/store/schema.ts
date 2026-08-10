@@ -880,6 +880,37 @@ export interface UISession {
   // "Settings tabs layout" select. Schema-version 73 introduces the
   // field.
   settingsTabsOrientation: 'horizontal' | 'vertical';
+  // Ghost-stone hover preview (wiki2-ghost-stone, cgoban3 convention):
+  // a translucent flat-color stone in the side-to-move's color follows
+  // the pointer to the nearest intersection. Deliberately the most
+  // rudimentary preview possible — the commission's own words are "the
+  // simplest and most rudimentary stone placement preview imaginable":
+  // no legality gating (renders over an occupied point, or a genuinely
+  // illegal one, identically to a legal empty one — `computeGhostStone`
+  // in `composables/board/ghost-stone.ts` takes no BoardState to gate
+  // on) and no capture preview (nothing else on the board changes).
+  //
+  // Exposed ONLY through the Session (UI) `RegistryEditor` — no
+  // dedicated StatusBar button. This mirrors `showActiveNextMove` and
+  // `showTranspositionRings` (both registry-only board-display
+  // toggles) rather than `showStoneMoveNumbers` (the one board toggle
+  // with its own StatusBar button + keybinding): two of the three
+  // existing precedents are registry-only, and the commission's text
+  // says only "should be optional" — it doesn't ask for quick board-
+  // chrome access the way the move-number annotation's persistent,
+  // frequently-toggled-mid-review nature earned its own button. A
+  // registry-only toggle also sidesteps StatusBar's narrow-mode
+  // segment-priority collapse and 24px-floor bookkeeping entirely for
+  // a preference most users will set once and leave.
+  //
+  // Default `true` — the common cgoban3/most-GUIs posture, and low
+  // visual cost (a single translucent disc, only while hovering),
+  // matching the other low-cost board affordances that default on
+  // (`showActiveNextMove`, `showTranspositionRings`) rather than
+  // `showStoneMoveNumbers`'s opt-in default (which exists because
+  // that annotation persistently crowds the board, not because it's
+  // momentary). Schema-version 75 introduces the field.
+  showGhostStone: boolean;
 }
 
 // ── Forest Directory navigator persistence (UISession.forestNav) ─────────────

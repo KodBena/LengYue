@@ -3567,3 +3567,54 @@ describe('73 → 74: strip the dead PV-fade knob (wiki2-pv-fade-knob)', () => {
     expect(out.session.ui.pvAnimation.fadeDurationMs).toBeUndefined();
   });
 });
+
+describe('74 → 75: backfill session.ui.showGhostStone (wiki2-ghost-stone)', () => {
+  // The new ghost-stone hover-preview toggle. Written through the
+  // witnessed `session.ui` parent container; default true.
+  function blobWithSessionUi(): any {
+    return {
+      session: { ui: { activeTab: 'cards' } },
+    };
+  }
+
+  it('backfills showGhostStone = true when the leaf is absent', () => {
+    const out = step(74)(blobWithSessionUi());
+    expect(out.session.ui.showGhostStone).toBe(true);
+  });
+
+  it('preserves a pre-existing boolean showGhostStone (idempotent / hand-edited)', () => {
+    const blob = blobWithSessionUi();
+    blob.session.ui.showGhostStone = false;
+    const out = step(74)(blob);
+    expect(out.session.ui.showGhostStone).toBe(false);
+  });
+
+  it('replaces a non-boolean showGhostStone with the default', () => {
+    const blob = blobWithSessionUi();
+    blob.session.ui.showGhostStone = 'yes';
+    const out = step(74)(blob);
+    expect(out.session.ui.showGhostStone).toBe(true);
+  });
+
+  it('is a no-op when the session.ui container is absent (partial blob)', () => {
+    const blob: any = { session: {} };
+    const out = step(74)(blob);
+    expect(out.session.ui).toBeUndefined();
+  });
+
+  it('is a no-op when session is absent (very-legacy blob)', () => {
+    const blob: any = { profile: {} };
+    const out = step(74)(blob);
+    expect(out.session).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v74 blob reaches CURRENT with showGhostStone backfilled', () => {
+    const blob: any = {
+      schemaVersion: 74,
+      session: { ui: { activeTab: 'cards' } },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.session.ui.showGhostStone).toBe(true);
+  });
+});
