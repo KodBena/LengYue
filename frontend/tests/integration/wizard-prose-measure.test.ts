@@ -41,18 +41,26 @@
  * `.field-hint`, leaving `.step-description` capped) stayed green.
  * `EXPECTED_CAPPED_COUNT_BY_STEP` below pins the EXACT count per step
  * (verified against each `WizardStep*.vue`'s own template: EngineUri
- * has `.step-description` + `.field-hint` = 2; PvAnimation has
- * `.step-description` + `.mode-settings` = 2; Finish has
+ * has `.step-description` + `.field-hint` = 2; Finish has
  * `.step-description` + `.finish-hint` = 2; Palette has
  * `.step-description` + four `.palette-descriptions dd` (one per
  * seeded palette, copy refinement rows 1349/1350) + `.field-hint`
  * (the PaletteEditor pointer) = 6, all counted regardless of the
  * advanced `<details>` disclosure's open/closed state since jsdom's
- * querySelectorAll doesn't filter on computed visibility; the other
- * three steps have only `.step-description` = 1 each), and the
+ * querySelectorAll doesn't filter on computed visibility; and the
  * aggregate is pinned to the sum of that table, not a floor — so
  * losing any single element's cap now fails both the per-step and
  * the aggregate assertion.
+ *
+ * Merge update (ledger rows 1357/1358): the former `demoBoard` and
+ * `pvAnimation` steps became ONE step, still named `demoBoard`. Its
+ * prose count is the SUM of the two former steps' counts (nothing was
+ * dropped, both prose paragraphs of the merged-in PV step —
+ * `.pv-step-description` and `.mode-settings` — survive alongside the
+ * demo board's own `.step-description`): 1 + 2 = 3. The step total
+ * count (`WIZARD_STEPS.length`) drops from 7 to 6; the aggregate
+ * element count is the table's sum (15 after both the palette copy
+ * refinement and this merge — prose moved between steps, none removed).
  *
  * License: Public Domain (The Unlicense)
  */
@@ -82,15 +90,14 @@ afterEach(() => {
 });
 
 // Exact expected count of `[data-prose-measure-ch]` elements per step —
-// see file header for the per-file accounting. Total across all seven
-// steps is 15 (was 10 before the palette copy refinement added four
-// per-palette descriptions plus one editor-pointer hint).
+// see file header for the per-file accounting. Total across all six
+// (post-merge) steps is 15 (palette copy refinement added five;
+// the PV/demo merge moved two into demoBoard, removing none).
 const EXPECTED_CAPPED_COUNT_BY_STEP: Record<WizardStepId, number> = {
   theme: 1,
   engineUri: 2,
   palette: 6,
-  demoBoard: 1,
-  pvAnimation: 2,
+  demoBoard: 3, // merged demoBoard(1) + former pvAnimation(2) — see file header
   sgfImport: 1,
   finish: 2,
 };

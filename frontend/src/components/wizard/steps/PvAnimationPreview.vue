@@ -22,12 +22,14 @@
  * that WRITES `mode` on its own schedule is exactly the kind of
  * high-frequency state this leaf isolation was built to keep out of
  * a template that also renders a `<select>`. The mode picker (a
- * `<select>`) now lives in the PARENT (`WizardStepPvAnimation.vue`),
- * alongside the annotation `<select>` it already hosts safely,
- * because the parent's template reads no animation-frame state —
- * see that file's header for why co-locating the two selects there
- * is the isolation-preserving placement. This leaf only READS the
- * mode (to know when to restart the preview) and never renders it.
+ * `<select>`) now lives in the PARENT — formerly `WizardStepPvAnimation.vue`,
+ * merged into `WizardStepDemoBoard.vue` (ledger rows 1357/1358, so
+ * the demo board and the PV controls read as one screen) — alongside
+ * the annotation `<select>` it already hosts safely, because the
+ * parent's template reads no animation-frame state — see that file's
+ * header for why co-locating the two selects there is the
+ * isolation-preserving placement. This leaf only READS the mode (to
+ * know when to restart the preview) and never renders it.
  */
 import { computed, onUnmounted, watch } from 'vue';
 import { usePvAnimation, type PvMode, type PvMove } from '../../../composables/board/use-pv-animation';

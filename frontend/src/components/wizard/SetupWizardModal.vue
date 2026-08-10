@@ -27,7 +27,6 @@ import WizardStepTheme from './steps/WizardStepTheme.vue';
 import WizardStepEngineUri from './steps/WizardStepEngineUri.vue';
 import WizardStepPalette from './steps/WizardStepPalette.vue';
 import WizardStepDemoBoard from './steps/WizardStepDemoBoard.vue';
-import WizardStepPvAnimation from './steps/WizardStepPvAnimation.vue';
 import WizardStepSgfImport from './steps/WizardStepSgfImport.vue';
 import WizardStepFinish from './steps/WizardStepFinish.vue';
 
@@ -39,7 +38,6 @@ const STEP_COMPONENTS: Record<WizardStepId, unknown> = {
   engineUri: WizardStepEngineUri,
   palette: WizardStepPalette,
   demoBoard: WizardStepDemoBoard,
-  pvAnimation: WizardStepPvAnimation,
   sgfImport: WizardStepSgfImport,
   finish: WizardStepFinish,
 };
