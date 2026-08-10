@@ -196,9 +196,124 @@ export const defaultSettings = {
           // not `moveInfos[0]["visits"]`.
           visit_ratio:      '_uservisits(x[0]) / _maxvisits(x[0])',
           quality_delta:    'visit_ratio(x) ** (decisiveness(x[0]) ** alpha)',
+          // Perspective-naive raw root-eval swing across the move
+          // boundary (spec's own documented design — see
+          // `docs/archive/dispatch/frontend-to-frontend-default-palette-metrics-spec.md`
+          // Part 2, "mandatory inclusion"). Alternates sign by mover
+          // under the spec's assumed SIDETOMOVE framing; under this
+          // profile's ACTUAL seeded framing (`overrideSettings.
+          // reportAnalysisWinratesAs: 'WHITE'`, absolute White-favours-
+          // positive across every packet — see the override's own
+          // comment above and `engine/katago/winrate-framing.ts`'s
+          // file header for the wire-framing contract this depends
+          // on) it alternates sign by mover just the same, only for a
+          // different mechanical reason (absolute framing, not a
+          // per-packet re-origin). Left AS-SPECIFIED and dead (no
+          // palette references it) rather than repointed in place —
+          // see `scoreLead_root_loss` below for the corrected,
+          // stably-signed sibling and its derivation.
           scoreLead_delta:  'x[1]["rootInfo"]["scoreLead"] - x[0]["rootInfo"]["scoreLead"]',
+          // ── scoreLead_root_loss — the commissioner's root-delta loss (ledger rows 1380/1381/1383/1378) ──
+          //
+          // Rationale for existing (row 1380/1381, verbatim): "The
+          // reason it *MUST* use the root deltas, is that often times
+          // (especially with weaker players), the human players move
+          // isn't even in the move list." `scoreLead_loss_topvsuser`
+          // below reads `x[0]["userMoveInfo"]`, which is `None` (→ 0
+          // loss) exactly when the user's move wasn't among the
+          // engine's analysed candidates — the case a weak player's
+          // move most often falls into. This symbol instead diffs the
+          // ROOT eval before vs. after the move actually played, which
+          // is defined for every move regardless of whether the
+          // engine ever ranked it.
+          //
+          // Perspective derivation. `store.profile.settings.engine.
+          // katago.overrideSettings.reportAnalysisWinratesAs` is
+          // seeded `'WHITE'` (this file, above) — the wire framing
+          // `extra.*` palette evaluation actually sees is therefore
+          // ABSOLUTE (positive favours White on every packet,
+          // regardless of who's to move), not the spec's assumed
+          // per-packet SIDETOMOVE re-origin (see
+          // `engine/katago/winrate-framing.ts`'s file-header comment:
+          // "`extra.*`... are computed on the proxy in the wire's
+          // framing before normalisation"). Under that ABSOLUTE
+          // framing, `x[1].rootInfo.scoreLead - x[0].rootInfo.
+          // scoreLead` (`scoreLead_delta` above) is the raw White-
+          // signed swing caused by the move played between the two
+          // packets — a "higher is worse" reading needs it corrected
+          // to be positive whenever the MOVER's own position got
+          // worse, for both colours:
+          //
+          //   - White to move (x[0].rootInfo.currentPlayer == 'W'):
+          //     a bad White move REDUCES White's absolute scoreLead,
+          //     so the raw swing is already negative-when-bad; loss
+          //     = -(raw swing).
+          //     Worked example: root.scoreLead = +5.0 (White ahead by
+          //     5), White blunders, post-move root.scoreLead = +2.0.
+          //     raw swing = 2.0 - 5.0 = -3.0. loss = -(-3.0) = +3.0
+          //     (positive: a 3-point-worse move for White).
+          //   - Black to move (x[0].rootInfo.currentPlayer == 'B'):
+          //     a bad Black move INCREASES White's absolute scoreLead
+          //     (Black gave ground), so the raw swing is already
+          //     positive-when-bad; loss = +(raw swing).
+          //     Worked example: root.scoreLead = +5.0 (White ahead by
+          //     5, i.e. Black is behind and about to move), Black
+          //     blunders further, post-move root.scoreLead = +8.0.
+          //     raw swing = 8.0 - 5.0 = +3.0. loss = +3.0 (positive: a
+          //     3-point-worse move for Black).
+          //
+          //   loss = -(raw swing) when White moves, +(raw swing) when
+          //   Black moves — exactly `player_sign(x[0])` (defined
+          //   above: +1.0 for Black to move, -1.0 for White to move)
+          //   times the raw swing:
+          //
+          //     scoreLead_root_loss(x)
+          //       = player_sign(x[0]) * (x[1].rootInfo.scoreLead - x[0].rootInfo.scoreLead)
+          //
+          // Minted as a NEW sibling rather than rewriting
+          // `scoreLead_delta`'s body in place: `scoreLead_delta` is
+          // documented spec-shipped content (Part 2, "mandatory
+          // inclusion") with an intentionally perspective-naive
+          // definition meant for the BSA pipeline's own per-colour
+          // segregation treatment downstream — overwriting its body
+          // would silently change what that documented, independently
+          // named symbol means for any future consumer that reaches
+          // for it by that name, for zero migration benefit (it's
+          // currently dead — no `delta_fn`/`summary_fn`/`state_fn`
+          // references it). A new name costs nothing (purely
+          // additive seed expansion, migration 71 → 72) and reads
+          // honestly on its own: "root scoreLead loss", paired
+          // naturally with `scoreLead_loss_topvsuser`'s existing
+          // `*_loss` naming idiom.
+          scoreLead_root_loss:
+            'player_sign(x[0]) * (x[1]["rootInfo"]["scoreLead"] - x[0]["rootInfo"]["scoreLead"])',
           winrate_loss_topvsuser:
             '(x[0]["moveInfos"][0]["winrate"] - x[0]["userMoveInfo"]["winrate"]) if x[0]["userMoveInfo"] else 0',
+          // scoreLead_loss_topvsuser — TRUTH-IN-COMMENT (row 1383):
+          // despite the `_topvsuser` name (and despite the spec's own
+          // proposed body, `moveInfos[0].scoreLead - userMoveInfo.
+          // scoreLead`, "top vs user" — see the spec's Part 3 Axis 1),
+          // this shipped body compares the ROOT's scoreLead (the
+          // pre-move position's overall evaluation) against the
+          // user's OWN chosen move's predicted scoreLead
+          // (`userMoveInfo`), sign-corrected by `player_sign(x[0])` —
+          // i.e. "root vs user", not "top vs user". Gated entirely on
+          // `x[0]["userMoveInfo"]` being present.
+          // UNLISTED-MOVE BLIND: when the user's actual move wasn't
+          // among the engine's analysed candidates (`userMoveInfo is
+          // None` — disproportionately the case for weaker players'
+          // moves, commissioner ruling rows 1380/1381), this returns
+          // a flat `0`, i.e. "no loss" — indistinguishable from
+          // having played the engine's own top choice. This is the
+          // blind spot `scoreLead_root_loss` (above) exists to avoid;
+          // the 'score' palette's `delta_fn` now points at
+          // `scoreLead_root_loss` instead (migration 71 → 72). Key
+          // kept as-is rather than renamed: renaming risks stranding
+          // any user profile that hand-authored a palette or
+          // downstream reference against this exact symbol name
+          // (PaletteEditor lets users type arbitrary `delta_fn`
+          // strings referencing any symbol by name); a truthful
+          // comment is the cheaper honest fix and costs no migration.
           scoreLead_loss_topvsuser:
             'player_sign(x[0]) * ((x[0]["rootInfo"]["scoreLead"] - x[0]["userMoveInfo"]["scoreLead"]) if x[0]["userMoveInfo"] else 0)',
           // magic-literal: 999 user_order fallback — the convention for
@@ -271,14 +386,19 @@ export const defaultSettings = {
               'Score Advantage': 'score_lead',
             }
           },
-          // Palette B — points-loss alternative. Cleaner semantic
-          // ("points left on the table at the pre-move position"), no
-          // SIDETOMOVE perspective ambiguity. `mean_summary` is the
-          // natural aggregator for a positive-only loss metric.
+          // Palette B — root-delta loss (commissioner ruling, ledger
+          // rows 1380/1381/1383/1378): the ROOT-EVAL swing the move
+          // actually caused, correctly signed for whichever colour
+          // moved (see `scoreLead_root_loss`'s derivation comment
+          // above the symbol definition). Defined for every move,
+          // including ones the engine's search never listed as a
+          // candidate — the case `scoreLead_loss_topvsuser` reads as
+          // a flat, wrong `0`. `mean_summary` is the natural
+          // aggregator for a positive-only loss metric.
           {
             id: 'score',
             name: 'Score Loss',
-            delta_fn: 'scoreLead_loss_topvsuser',
+            delta_fn: 'scoreLead_root_loss',
             delta_ordering: 'higher_is_worse',
             summary_fn: 'mean_summary',
             state_fns: {

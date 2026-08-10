@@ -3373,3 +3373,120 @@ describe('70 → 71: median-summary symbol (ledger rows 1204/1213/1229)', () => 
     expect(ae.palettes.find((p: any) => p.id === 'quality').summary_fn).toBe('median_summary');
   });
 });
+
+describe('71 → 72: scoreLead_root_loss symbol + score-palette root-delta rewire (ledger rows 1380/1381/1383/1378)', () => {
+  // (a) seed-expansion of the `scoreLead_root_loss` symbol, add-if-absent.
+  // (b) conditional repoint of the `score` palette's `delta_fn` from
+  //     `scoreLead_loss_topvsuser` to `scoreLead_root_loss`, only when
+  //     uncustomised.
+  function blobWithAnalysisEnv(overrides: { symbols?: any; palettes?: any } = {}): any {
+    return {
+      profile: {
+        settings: {
+          engine: {
+            katago: {
+              analysis_env: {
+                symbols: overrides.symbols ?? {},
+                palettes: overrides.palettes ?? [],
+              },
+            },
+          },
+        },
+      },
+    };
+  }
+
+  const EXPECTED_BODY = 'player_sign(x[0]) * (x[1]["rootInfo"]["scoreLead"] - x[0]["rootInfo"]["scoreLead"])';
+
+  it('backfills scoreLead_root_loss when the symbol is absent', () => {
+    const out = step(71)(blobWithAnalysisEnv());
+    expect(out.profile.settings.engine.katago.analysis_env.symbols.scoreLead_root_loss)
+      .toBe(EXPECTED_BODY);
+  });
+
+  it('preserves a pre-existing scoreLead_root_loss symbol (idempotent / hand-edited)', () => {
+    const blob = blobWithAnalysisEnv({ symbols: { scoreLead_root_loss: 'my_custom_body(x)' } });
+    const out = step(71)(blob);
+    expect(out.profile.settings.engine.katago.analysis_env.symbols.scoreLead_root_loss)
+      .toBe('my_custom_body(x)');
+  });
+
+  it('adding the symbol coexists with, and does not disturb, an unrelated hand-written symbol under a different key', () => {
+    const blob = blobWithAnalysisEnv({
+      symbols: { my_root_loss: 'player_sign(x[0]) * (x[1]["rootInfo"]["scoreLead"] - x[0]["rootInfo"]["scoreLead"]) + 0.001' },
+    });
+    const out = step(71)(blob);
+    const symbols = out.profile.settings.engine.katago.analysis_env.symbols;
+    expect(symbols.my_root_loss).toBe('player_sign(x[0]) * (x[1]["rootInfo"]["scoreLead"] - x[0]["rootInfo"]["scoreLead"]) + 0.001');
+    expect(symbols.scoreLead_root_loss).toBe(EXPECTED_BODY);
+  });
+
+  it("repoints the 'score' palette's delta_fn from scoreLead_loss_topvsuser to scoreLead_root_loss", () => {
+    const blob = blobWithAnalysisEnv({
+      palettes: [{ id: 'score', name: 'Score Loss', delta_fn: 'scoreLead_loss_topvsuser', delta_ordering: 'higher_is_worse' }],
+    });
+    const out = step(71)(blob);
+    const score = out.profile.settings.engine.katago.analysis_env.palettes
+      .find((p: any) => p.id === 'score');
+    expect(score.delta_fn).toBe('scoreLead_root_loss');
+  });
+
+  it("leaves a 'score' palette that is already repointed at scoreLead_root_loss untouched (idempotent)", () => {
+    const blob = blobWithAnalysisEnv({
+      palettes: [{ id: 'score', name: 'Score Loss', delta_fn: 'scoreLead_root_loss' }],
+    });
+    const out = step(71)(blob);
+    const score = out.profile.settings.engine.katago.analysis_env.palettes
+      .find((p: any) => p.id === 'score');
+    expect(score.delta_fn).toBe('scoreLead_root_loss');
+  });
+
+  it("leaves a customised 'score' palette delta_fn untouched (PaletteEditor hand-edit)", () => {
+    const blob = blobWithAnalysisEnv({
+      palettes: [{ id: 'score', name: 'Score Loss', delta_fn: 'my_own_score_fn' }],
+    });
+    const out = step(71)(blob);
+    const score = out.profile.settings.engine.katago.analysis_env.palettes
+      .find((p: any) => p.id === 'score');
+    expect(score.delta_fn).toBe('my_own_score_fn');
+  });
+
+  it('does not touch delta_ordering', () => {
+    const blob = blobWithAnalysisEnv({
+      palettes: [{ id: 'score', name: 'Score Loss', delta_fn: 'scoreLead_loss_topvsuser', delta_ordering: 'higher_is_worse' }],
+    });
+    const out = step(71)(blob);
+    const score = out.profile.settings.engine.katago.analysis_env.palettes
+      .find((p: any) => p.id === 'score');
+    expect(score.delta_ordering).toBe('higher_is_worse');
+  });
+
+  it('is a no-op when the analysis_env container is absent (partial blob)', () => {
+    const blob: any = { profile: { settings: {} } };
+    const out = step(71)(blob);
+    expect(out.profile.settings.engine).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v71 blob reaches CURRENT with scoreLead_root_loss backfilled and score repointed', () => {
+    const blob: any = {
+      schemaVersion: 71,
+      profile: {
+        settings: {
+          engine: {
+            katago: {
+              analysis_env: {
+                symbols: {},
+                palettes: [{ id: 'score', name: 'Score Loss', delta_fn: 'scoreLead_loss_topvsuser', delta_ordering: 'higher_is_worse' }],
+              },
+            },
+          },
+        },
+      },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    const ae = out.profile.settings.engine.katago.analysis_env;
+    expect(ae.symbols.scoreLead_root_loss).toBe(EXPECTED_BODY);
+    expect(ae.palettes.find((p: any) => p.id === 'score').delta_fn).toBe('scoreLead_root_loss');
+  });
+});
