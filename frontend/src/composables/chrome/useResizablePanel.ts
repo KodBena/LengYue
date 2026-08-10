@@ -187,6 +187,7 @@ import {
   PANEL_CONTENT_READING_MEASURE_CH,
   computeTreePanelDefaultWidthPx,
   computeUnsetWrapperMaxWidthCss,
+  computeTreeControlRegionDefaultWidthPx,
 } from '../../state/layout-model';
 
 // Phase 0 (resolution roadmap, audit finding R2): these five floors
@@ -557,17 +558,40 @@ export function useResizablePanel() {
     // Geometry not yet known (observer not attached — pre-load, or the
     // one tick between load and attach): clamping against a fantasy
     // width of 0 would pin the region to its minimum. Pass the value
-    // through with only the non-finite guard; the real clamp engages
-    // as soon as the row is measured.
+    // through with only the non-finite guard; the real clamp/default
+    // engages as soon as the row is measured.
     if (rowWidthPx.value <= 0) {
       return raw !== undefined && Number.isFinite(raw) ? raw : undefined;
     }
-    return sanitizeTreeControlRegionWidthPx(raw, rowWidthPx.value);
+    // Stored (dragged or restored) value: reconcile against the row's
+    // CURRENT live width and win verbatim if it already fits —
+    // stored-drag-precedence, unchanged.
+    const sanitized = sanitizeTreeControlRegionWidthPx(raw, rowWidthPx.value);
+    if (sanitized !== undefined) return sanitized;
+    // Never dragged, nothing restored: the init-vs-drag divergence fix
+    // (ledger rows 1505/1510) — an EXPLICIT default width, not
+    // `undefined`, so this resolves through the SAME `:style` branch
+    // (App.vue) a drag settles into, and `#board-column`'s own cap
+    // self-disables via its existing `!== undefined` guard, absorbing
+    // the true remainder instead of leaving it as dead row space. See
+    // `computeTreeControlRegionDefaultWidthPx`'s own doc
+    // (state/layout-model.ts) for the full diagnosis.
+    return computeTreeControlRegionDefaultWidthPx(rowWidthPx.value);
   });
 
   // Fresh-profile floor for the flex-fill branch (see
   // `freshTreeControlWrapperFloorPx`'s doc above) — recomputed off
   // `treeExpanded` so a tree-collapsed first paint doesn't over-reserve.
+  //
+  // NARROWED SCOPE (init-vs-drag divergence fix, ledger rows
+  // 1505/1510): `effectiveTreeControlRegionWidthPx` above now supplies
+  // an EXPLICIT default the instant the row is measured
+  // (`computeTreeControlRegionDefaultWidthPx`), so App.vue's flex-fill
+  // `:style` branch this floor governs is only ever reached for the
+  // single frame before that first measurement lands (`rowWidthPx.value
+  // <= 0`) — same transient window the bare CSS 140px tree-panel
+  // fallback already covers. Left in place for that frame; not a
+  // second "steady-state" fit mechanism.
   const freshTreeControlWrapperMinWidthPx = computed(() =>
     freshTreeControlWrapperFloorPx(store.session.ui.treeExpanded),
   );
@@ -583,6 +607,20 @@ export function useResizablePanel() {
   // share — nothing left to cap. `undefined` in either case means "no
   // max-width style", i.e. App.vue falls back to the pre-existing
   // uncapped `flex: 1 1 auto` behaviour.
+  //
+  // NARROWED SCOPE (init-vs-drag divergence fix, ledger rows
+  // 1505/1510): this cap and `unsetWrapperMaxWidthCss` below used to
+  // BOTH apply simultaneously in the never-dragged case — two
+  // independently-computed caps on the row's only two flex-grow
+  // parties, each written assuming the OTHER stayed unbounded and
+  // absorbed the surplus. When both saturated below the row's actual
+  // width, neither did, and the remainder rendered as dead space to
+  // the right of the control panel (the reported defect). Now that
+  // `effectiveTreeControlRegionWidthPx` is non-`undefined` the instant
+  // the row is measured (see its own comment above), this cap's second
+  // guard is true on every steady-state render — it only still applies
+  // for the one pre-measurement frame described above, same as
+  // `freshTreeControlWrapperMinWidthPx`.
   const boardColumnMaxWidthPx = computed(() => {
     if (!store.session.ui.controlsExpanded) return undefined;
     if (effectiveTreeControlRegionWidthPx.value !== undefined) return undefined;

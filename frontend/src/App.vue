@@ -774,7 +774,25 @@ const activeTab = computed<string>({
              an oversized #control-panel — the "surplus flows back to
              the board" half of R3. Applies ONLY to this never-dragged
              default branch; an explicit (dragged/restored)
-             treeControlRegionWidthPx above is untouched. -->
+             treeControlRegionWidthPx above is untouched.
+
+             Init-vs-drag divergence fix (ledger rows 1505/1510): this
+             flex-fill/maxWidth branch and #board-column's own
+             boardColumnMaxWidthPx cap used to BOTH engage for every
+             never-dragged render, and could both saturate below the
+             row's actual width, leaving the remainder as dead space
+             (the reported defect — a wide unused band right of the
+             control panel, fixed only by a drag). effectiveTreeControl
+             RegionWidthPx (useResizablePanel.ts) now resolves to an
+             EXPLICIT default the instant the row is measured
+             (computeTreeControlRegionDefaultWidthPx, state/layout-
+             model.ts), so the branch above (line 791) is taken on
+             every steady-state render instead of this one — this
+             flex-fill branch, and boardColumnMaxWidthPx, now apply
+             only for the single frame before that first measurement
+             lands (rowWidthPx still 0), same transient window the
+             bare CSS 140px #vue-tree-panel fallback below already
+             covers. -->
         <!-- Phase 1: in column axis this wrapper's width comes from
              the `.axis-column` CSS rule (100%, flex-direction:
              column — tree above control, each full-width, natural
