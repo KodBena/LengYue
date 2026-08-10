@@ -199,6 +199,39 @@ const SLOT_SELECTORS = {
   'CP-other':    { selector: '#control-panel' },
 };
 
+// ── W1 skeleton-rework selector table ("landscape" source) ────────────────
+// `.claude/dispatch-reports/lyt-vue-realization-roadmap.md` §8 W1 item 6.
+// Maps `research/lyt/encodings/lengyue_landscape.lyt`'s 14 leaf widget ids
+// to the App.vue DOM the W1 LytNode-realized skeleton actually produces
+// (see `state/lyt-widget-registry.ts` for the mount-disposition table
+// this selector table is a direct reflection of). `selector: null` means
+// "correctly unmappable this wave" (an absorbed leaf with no separate DOM
+// element, or a `presenceDefaultVisible: false` leaf that never mounts) —
+// recorded with a reason, per this harness's own pre-existing discipline,
+// not silently skipped.
+const SLOT_SELECTORS_LANDSCAPE = {
+  B:            { selector: '#board-square' },
+  I_board:      { selector: '.status-bar' },
+  A_board:      { selector: null, reason: 'W1 registry decision: absorbed into I_board\'s StatusBar mount (state/lyt-widget-registry.ts) — StatusBar already carries both the info readout and the action row internally, no separate DOM element for A_board' },
+  A_go:         { selector: '.lyt-toolbar-strip' },
+  I_engine:     { selector: null, reason: 'W1 registry decision: absorbed into A_go\'s Toolbar mount — no separate DOM element' },
+  A_common:     { selector: null, reason: 'W1 registry decision: absorbed into A_go\'s Toolbar mount — no separate DOM element' },
+  tree:         { selector: '#vue-tree-panel' },
+  // T() (Exclusive) semantics, same convention the pre-rework table used:
+  // every CP-* child solves to the SAME rectangle; #control-panel
+  // (TabWidget's own wrapper) is the one DOM container all five
+  // legitimately measure against — see lyt-layout.gen.ts's own header
+  // for why this program collapses the T node to one 'controlPanel'
+  // blackbox leaf rather than expanding these five separately.
+  'CP-library':  { selector: '#control-panel' },
+  'CP-cards':    { selector: '#control-panel' },
+  'CP-settings': { selector: '#control-panel' },
+  'CP-analysis': { selector: '#control-panel' },
+  'CP-other':    { selector: '#control-panel' },
+  boardRail:     { selector: null, reason: 'presenceDefaultVisible: false this wave (ledger row ~1735 ruling) — LytNode.vue does not render it; a component exists (SidebarWidget) but is unmounted, not merely hidden' },
+  previewBoard:  { selector: null, reason: 'presenceDefaultVisible: false this wave AND no current component (state/lyt-widget-registry.ts: status "absent") — the MiniBoard machinery previewBoard will eventually mount is W2 scope' },
+};
+
 // ── CLI args ─────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
 function flag(name, fallback) {
@@ -230,6 +263,16 @@ const SOURCES = {
     encodingLabel: 'current-row-asis',
     encodingPath: 'research/lyt/encodings/current_row_asis.lyt',
   },
+  // W1 skeleton rework (roadmap §8 W1 item 6): the clean-room landscape
+  // program this build actually realizes. Solved via `emit_ts.py
+  // --registration "lengyue_landscape+portrait" --class-id landscape`
+  // (that registration carries two classes — landscape/portrait — so the
+  // class must be named explicitly; see emit_ts.py's own --class-id doc).
+  landscape: {
+    module: '../src/state/lyt-solved-layout-landscape.gen.ts',
+    encodingLabel: 'lengyue-landscape',
+    encodingPath: 'research/lyt/encodings/lengyue_landscape.lyt',
+  },
 };
 const sourceKey = flag('source', 'repaired');
 const source = SOURCES[sourceKey];
@@ -237,6 +280,10 @@ if (!source) {
   console.error(`[lyt-conformance] unknown --source '${sourceKey}' -- expected one of: ${Object.keys(SOURCES).join(', ')}`);
   process.exit(2);
 }
+// The 'landscape' source targets the W1-realized DOM (a different App.vue
+// skeleton than 'repaired'/'asis' measure against); every other source
+// keeps the pre-existing table unchanged.
+const selectors = sourceKey === 'landscape' ? SLOT_SELECTORS_LANDSCAPE : SLOT_SELECTORS;
 const { LYT_SOLVED_LAYOUT, LYT_SCREEN_CLASSES } = await import(source.module);
 
 function run(cmd, args, opts = {}) {
@@ -285,7 +332,7 @@ async function measureAtSize(browser, { label, wPx, hPx }) {
 
   const measurements = {};
   if (workspaceReached) {
-    for (const [widget, { selector }] of Object.entries(SLOT_SELECTORS)) {
+    for (const [widget, { selector }] of Object.entries(selectors)) {
       if (selector === null) continue;
       // eslint-disable-next-line no-await-in-loop -- sequential DOM reads, not a hot path
       const rect = await page.evaluate((sel) => {
@@ -358,10 +405,10 @@ function renderReportMarkdown(runs, meta) {
   lines.push('');
   lines.push('| widget | selector | note |');
   lines.push('|---|---|---|');
-  for (const [widget, { selector, reason }] of Object.entries(SLOT_SELECTORS)) {
+  for (const [widget, { selector, reason }] of Object.entries(selectors)) {
     lines.push(`| \`${widget}\` | ${selector ? '\`' + selector + '\`' : '*(none)*'} | ${reason ?? ''} |`);
   }
-  const unmappableByDesign = Object.entries(SLOT_SELECTORS).filter(([, v]) => v.selector === null);
+  const unmappableByDesign = Object.entries(selectors).filter(([, v]) => v.selector === null);
   lines.push('');
   lines.push(`**Unmappable by design (no selector at all): ${unmappableByDesign.length}** — ${unmappableByDesign.map(([w]) => `\`${w}\``).join(', ')}.`);
   lines.push('');
@@ -388,7 +435,7 @@ function renderReportMarkdown(runs, meta) {
     lines.push('| widget | solved | measured | classification | delta (dx,dy,dw,dh) |');
     lines.push('|---|---|---|---|---|');
     let nMatch = 0, nDivergent = 0, nUnmappable = 0;
-    for (const [widget, sel] of Object.entries(SLOT_SELECTORS)) {
+    for (const [widget, sel] of Object.entries(selectors)) {
       const solved = run.solvedSlots[widget];
       if (sel.selector === null) {
         nUnmappable++;
@@ -404,7 +451,7 @@ function renderReportMarkdown(runs, meta) {
       lines.push(`| \`${widget}\` | ${fmtRect(solved)} | ${fmtRect(measured)} | ${verdict} | ${deltaStr} |`);
     }
     lines.push('');
-    lines.push(`**Headline: ${nMatch} match / ${nDivergent} divergent / ${nUnmappable} unmappable** (of ${Object.keys(SLOT_SELECTORS).length} slots).`);
+    lines.push(`**Headline: ${nMatch} match / ${nDivergent} divergent / ${nUnmappable} unmappable** (of ${Object.keys(selectors).length} slots).`);
     lines.push('');
   }
 
@@ -478,7 +525,7 @@ async function main() {
         continue;
       }
       let nMatch = 0, nDivergent = 0, nUnmappable = 0;
-      for (const [widget, sel] of Object.entries(SLOT_SELECTORS)) {
+      for (const [widget, sel] of Object.entries(selectors)) {
         if (sel.selector === null) { nUnmappable++; continue; }
         const { verdict } = classify(run.solvedSlots[widget], run.measurements[widget]);
         if (verdict === 'match') nMatch++;

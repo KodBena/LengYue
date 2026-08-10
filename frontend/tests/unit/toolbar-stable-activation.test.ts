@@ -95,7 +95,23 @@ describe('SetupToolPalette.vue — palette space is reserved in flow, never floa
   });
 });
 
-describe('App.vue — sidebar-collapse button sits in a stable rail (G7)', () => {
+// RETIRED, W1 skeleton rework (`.claude/dispatch-reports/lyt-vue-realization-
+// roadmap.md`, `.claude/dispatch-reports/lyt-w1-repair-build.md`): the
+// `.sidebar-collapse-rail` button + `.top-nav-bar` shape G7 guards against
+// no longer exists at all. `boardRail` (the sidebar's LYT identity) is now
+// a `presenceDefaultVisible: false` slot in `state/lyt-layout.gen.ts` —
+// LytNode.vue does not render it, and there is no toggle affordance this
+// wave (roadmap §8 W1: "NO toggles this wave"). `toggleChrome('sidebarExpanded')`
+// and `<SidebarWidget` do not appear in App.vue at all post-rework, so
+// every assertion below would fail on an absent subject, not a regressed
+// one. `describe.skip` (not deletion) per the pre-merge-checklist's test-
+// triage discipline: the ORIGINAL G7 finding (activating a control
+// teleports it via ancestor reflow) remains valid institutional knowledge,
+// it just has no current subject to guard. Expected to return, REWRITTEN
+// (not merely re-enabled — the mechanism is now a presence-menu checkbox,
+// not an always-rendered rail button), when W2 wires boardRail's presence-
+// menu toggle.
+describe.skip('App.vue — sidebar-collapse button sits in a stable rail (G7) [RETIRED W1 — see comment above]', () => {
   const file = src('src/App.vue');
 
   it('.sidebar-collapse-rail is a non-shrinking flex child (immune to sibling width changes)', () => {
