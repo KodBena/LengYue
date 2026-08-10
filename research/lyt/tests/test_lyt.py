@@ -1203,3 +1203,156 @@ def test_board_priority_tracks_is_a_noop_when_no_composite_child_matches():
     tracks = ["28px"]
     sizings = [plain.children[0].sizing]
     assert emit_mockup._board_priority_tracks(plain, tracks, sizings) == tracks
+
+
+# =============================================================================
+# Fix pass 2 regressions (lyt-mockups-opus-review.md's "Re-review --
+# 2026-08-10" section, ledger rows 1717-1720): N1 (the release-toggle
+# track-property collision blocker), the X2 residual (caption gutter
+# min-width), N2 (the all-off guard's silent revert), and N3 (the board's
+# own strips not aligning to the board square).
+# =============================================================================
+
+
+def test_track_prop_naming_is_collision_free_by_construction():
+    """N1's own root cause (review's diagnosis): `--track-{i}`, a bare
+    per-level index, is an ORDINARY INHERITED CSS custom property -- an
+    override set via `.style.setProperty` on one grid container is
+    visible to every DESCENDANT grid's `var(--track-{i}, ...)` lookup
+    too, not only that container's own template. Two unrelated nodes at
+    different nesting depths that happened to reuse the same per-level
+    index (the board composite's own row 0 and the portrait root's own
+    column 0, in the specimen the review measured) collided: releasing
+    the root's track silently rewrote the composite's unrelated one.
+
+    The fix namespaces the property by the child's own FULL PATH FROM
+    THE TREE ROOT. This test does not merely assert the review's two
+    known-colliding paths no longer collide -- it walks BOTH classes'
+    real trees, computes every Split child's track_prop the exact way
+    `render_split` does, and asserts the WHOLE per-class set is
+    collision-free. This holds by construction (distinct tuples path-
+    join to distinct strings, since digits never contain the `-`
+    delimiter -- an injective encoding, not a coincidence of the two
+    specific trees), but pinning it against the real trees also catches
+    a future change to the join scheme (e.g. a delimiter that could
+    appear inside an index) that would silently break the guarantee.
+    """
+    reg, layouts = emit_mockup.load_class_slots()
+
+    def walk(slot, path, acc):
+        node = slot.node
+        if isinstance(node, ast.Split):
+            for i, child in enumerate(node.children):
+                cpath = path + (i,)
+                acc.append("--track-" + "-".join(str(p) for p in cpath))
+                walk(child, cpath, acc)
+        # ast.Exclusive children are tab labels, not grid tracks of their
+        # own (render_exclusive's own template is a plain literal, never
+        # parameterized by var(--track-...)) -- nothing to walk into.
+
+    for cls in reg.classes:
+        props = []
+        walk(layouts[reg.layout_by_class[cls.id]], (), props)
+        assert props, f"{cls.id}: no Split tracks found -- test fixture assumption broken"
+        dupes = sorted({p for p in props if props.count(p) > 1})
+        assert not dupes, f"{cls.id}: collision in emitted track-property names: {dupes}"
+
+
+def test_generated_pages_declare_every_track_prop_exactly_once(mockup_pages):
+    """Concrete regression pin (complementing the abstract walk above):
+    the actual EMITTED page must declare exactly one `var(--track-<path>,
+    ...)` fragment per Split child in the real tree -- the same count the
+    abstract walk computes -- and every declared name must be unique
+    within that page. A regression that reintroduced a bare per-level
+    index (or any other scheme that could alias two different nodes)
+    would either shrink this count (two children silently sharing one
+    declaration slot never happens structurally, but a future refactor
+    that flattened a level could) or produce a duplicate name; either
+    failure mode is caught here directly against the generator's own
+    output, not just the tree-walking model of it."""
+    reg, layouts = emit_mockup.load_class_slots()
+
+    def count_split_children(slot):
+        node = slot.node
+        if isinstance(node, ast.Split):
+            return len(node.children) + sum(count_split_children(c) for c in node.children)
+        return 0
+
+    for cls in reg.classes:
+        expected = count_split_children(layouts[reg.layout_by_class[cls.id]])
+        html_text = mockup_pages[cls.id]
+        declared = re.findall(r"var\((--track-[0-9-]+),", html_text)
+        assert len(declared) == expected, f"{cls.id}: expected {expected} track declarations, found {len(declared)}"
+        dupes = sorted({p for p in declared if declared.count(p) > 1})
+        assert not dupes, f"{cls.id}: duplicate track-property declaration(s) in emitted HTML: {dupes}"
+
+
+def test_release_toggle_track_prop_is_path_namespaced(mockup_pages):
+    """N1 regression pin, concrete specimen: the review's own measured
+    collision was the board composite's row-0 track and the root's
+    column-0 track both being named the bare `--track-0`. Every
+    `data-track-prop` this generator emits must now be a multi-segment,
+    path-namespaced name (contains a `-` after `--track`), not a bare
+    single-level index -- pinning the exact defect shape the review
+    found, not just its abstract precondition."""
+    for class_id, html_text in mockup_pages.items():
+        props = re.findall(r'data-track-prop="(--track-[0-9-]+)"', html_text)
+        assert props, f"{class_id}: no data-track-prop attributes found"
+        for p in props:
+            assert re.match(r"^--track-\d+-\d+", p) or p.count("-") >= 3, (
+                f"{class_id}: {p!r} looks like a bare per-level index, not a path-namespaced name"
+            )
+
+
+def test_x2_caption_gutter_clips_overflow_and_tabstrip_matches_row_padding():
+    """X2 residual fix: `flex: 0 0 92px` alone does not stop a longer
+    caption's own content from winning past the 92px basis (the review's
+    measured 97.55px for "COMMON ACTIONS") -- `min-width: 0` is required
+    to make the basis a real ceiling. `.lyt-tabstrip` must also carry the
+    same 4px left padding the info/action rows declare, or its own
+    caption starts 4px earlier than the other three strips'."""
+    assert "min-width: 0;" in emit_mockup._STYLE
+    caption_rule = re.search(r"\.row-caption,\s*\.lyt-tab-caption\s*\{([^}]*)\}", emit_mockup._STYLE)
+    assert caption_rule, "shared .row-caption/.lyt-tab-caption rule not found in _STYLE"
+    assert "min-width: 0" in caption_rule.group(1)
+    assert "overflow: hidden" in caption_rule.group(1)
+    tabstrip_rule = re.search(r"\.lyt-tabstrip\s*\{([^}]*)\}", emit_mockup._STYLE)
+    assert tabstrip_rule, ".lyt-tabstrip rule not found in _STYLE"
+    assert "padding-left: var(--space-tight)" in tabstrip_rule.group(1)
+    # Matches the rows' own `gap: var(--space-default)` -- without it the
+    # tab strip's first content item starts 8px earlier than the three
+    # row strips' (the caption box + its margin lines up, but the rows'
+    # additional flex `gap` after every child, including the caption,
+    # has no tabstrip counterpart otherwise).
+    assert "gap: var(--space-default)" in tabstrip_rule.group(1)
+
+
+def test_n2_release_guard_disables_last_checkbox_instead_of_reverting():
+    """N2 regression pin: the first fix pass's guard silently REVERTED an
+    accepted click on the last remaining checked release checkbox
+    (`cb.checked = true; return;`, with zero visible feedback) -- the
+    review named this indistinguishable from a bug. The fix disables
+    that checkbox (with an explanatory `title`) so the click is refused
+    up front instead of accepted-then-undone."""
+    assert "updateReleaseGuard" in emit_mockup._SCRIPT
+    assert "cb.disabled = true" in emit_mockup._SCRIPT
+    assert "cb.title = 'At least one panel must stay visible'" in emit_mockup._SCRIPT
+    # The old silent-revert pattern must be gone, not merely supplemented.
+    assert "cb.checked = true; return;" not in emit_mockup._SCRIPT
+    assert "anyStillOn" not in emit_mockup._SCRIPT
+
+
+def test_n3_board_composite_marker_and_fixed_sum_are_emitted(mockup_pages):
+    """N3 regression pin: the board composite (the Split wrapping the
+    board leaf plus its own fixed info/action rows) must carry the
+    `board-composite` class and an inline `--board-fixed-sum` custom
+    property equal to the SAME fixed-sibling total
+    `_find_board_composite_child` already derives (52px in both classes:
+    the 24px info row + 28px action row) -- the one input the
+    `.board-composite` CSS rule needs to reproduce the board square's own
+    sizing formula one level up."""
+    for class_id, html_text in mockup_pages.items():
+        assert "board-composite" in html_text
+        assert "--board-fixed-sum:52px;" in html_text
+    assert ".board-composite { container-type: size; }" in emit_mockup._STYLE
+    assert "max-width: min(100cqw, calc(100cqh - var(--board-fixed-sum, 0px)));" in emit_mockup._STYLE

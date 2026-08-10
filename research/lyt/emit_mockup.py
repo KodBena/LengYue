@@ -26,6 +26,33 @@ board-priority block below -- ONLY for the one board-composite shape
 both encodings use, and is otherwise still accurate for any other
 elastic+capped track) is unchanged from the first draft.
 
+SECOND FIX PASS (ledger rows 1717-1720, re-review at commit `41a71cd9`,
+`.claude/dispatch-reports/lyt-mockups-opus-review.md`'s "Re-review --
+2026-08-10" section; own build report
+`.claude/dispatch-reports/lyt-mockups-fix2-build.md`): the first fix
+pass's own topology change (Tree & Panels `preserve` -> `release`, M1)
+introduced a new blocker (N1) that the first fix pass's own
+re-verification missed because it re-checked per-viewport geometry but
+not the full presence power set. N1, and three named residuals (X2's
+`min-width:0` gap, N2, N3), are fixed below:
+  - N1: `render_split`'s per-track CSS custom property is now namespaced
+    by the child's own FULL path from the tree root (`--track-<p0>-
+    <p1>-...`), not a bare per-level index -- see that function's own
+    comment for why a bare index collided across nesting depths.
+  - X2 residual: `.row-caption, .lyt-tab-caption` gains `min-width:0` (a
+    flex `flex-basis` alone does not clip a longer caption's rendered
+    content) plus a shared `margin-right`, and `.lyt-tabstrip` gains the
+    rows' own 4px left padding -- see `_STYLE`'s own comments at each
+    rule.
+  - N2: the presence-menu's last-remaining-panel guard now DISABLES the
+    checkbox (with a `title`) instead of silently reverting an accepted
+    click -- see `_SCRIPT`'s `updateReleaseGuard`.
+  - N3: the board's own info/action rows are centered under the board
+    SQUARE itself (not the composite's own box) via a `.board-composite`
+    container-query rule that reproduces `.board-square`'s own sizing
+    formula one level up -- see the `.board-composite` rule in `_STYLE`
+    and its emission in `render_split`.
+
 Two commissioner amendments landed while this script was being designed
 and are both incorporated (there was no code to convert -- this is the
 first draft):
@@ -608,15 +635,26 @@ def _find_board_composite_child(node: ast.Split) -> Optional[Tuple[int, ast.Spli
     return matches[0] if len(matches) == 1 else None
 
 
-def _board_priority_tracks(node: ast.Split, tracks: List[str], sizings: List[ast.Sizing]) -> List[str]:
+def _board_priority_tracks(
+    node: ast.Split, tracks: List[str], sizings: List[ast.Sizing], *, match: Optional[Tuple[int, ast.Split, float]] = None
+) -> List[str]:
     """Applies the CASE A / CASE B override described above, in place on a
     COPY of `tracks` (the caller's own list is left untouched), only when
     `node` matches the one recognized board-composite shape. Called only
     for the tree's ROOT split (see `render_split`'s call site) -- the
     100vw/100vh constants below are only valid when `node` itself is
     hard-pinned to the full viewport, which is true for the root and is
-    NOT generally true for a split nested deeper in the tree."""
-    match = _find_board_composite_child(node)
+    NOT generally true for a split nested deeper in the tree.
+
+    `match` lets the caller pass a precomputed `_find_board_composite_
+    child(node)` result (SECOND FIX PASS, N3: `render_split` also needs
+    this same match to tag the composite child for the board-strip-
+    alignment CSS, so it computes it once and shares it here rather than
+    this function silently re-deriving its own copy). `None` (the
+    default) re-derives it, unchanged from the first fix pass -- every
+    existing caller that doesn't know about the match keeps working."""
+    if match is None:
+        match = _find_board_composite_child(node)
     if match is None:
         return tracks
     board_idx, composite, fixed_sum = match
@@ -680,7 +718,9 @@ def _child_wrap(
     """Returns (extra_style, extra_data, extra_class, caption) for a Split
     child, folding in the board-leaf square-containment marker and any
     corner-menu toggle target at this path. `track_prop` (e.g.
-    "--track-1") is the CSS custom property this child's OWN track is
+    "--track-1-0", namespaced by the child's own full tree path -- see
+    render_split's N1 fix comment for why a bare per-level index is not
+    safe) is the CSS custom property this child's OWN track is
     parameterized by in its parent's grid-template -- see render_split's
     own comment for why a 'release' toggle needs it (collapsing the track
     itself, not just hiding the item) to avoid mis-tracking the remaining
@@ -741,8 +781,14 @@ def render_split(
     # 100vw/100vh constants it relies on are only valid there. A no-op for
     # every other Split in the tree, and for a root that doesn't match the
     # one recognized board-composite shape.
+    #
+    # `composite_match` is computed once here (rather than letting
+    # `_board_priority_tracks` re-derive its own copy) so the SECOND FIX
+    # PASS's N3 fix, below, can reuse it to tag the composite child without
+    # a second, possibly-diverging, `_find_board_composite_child` call.
+    composite_match = _find_board_composite_child(node) if path == () else None
     if path == ():
-        raw_track_values = _board_priority_tracks(node, raw_track_values, sizings)
+        raw_track_values = _board_priority_tracks(node, raw_track_values, sizings, match=composite_match)
 
     tracks: List[str] = []
     kids: List[str] = []
@@ -754,14 +800,46 @@ def render_split(
         # computed value -- this is what lets the 'release' toggle
         # collapse EXACTLY this track to 0px at runtime (see the JS
         # below) without touching the template string or any sibling's
-        # track. `--track-N` is scoped to THIS grid container's own
-        # inline style (set via `parentElement.style.setProperty` from
-        # the toggled child), so reusing bare index-based names across
-        # different nesting levels is safe -- each grid container reads
-        # only its own inline declarations first.
-        track_prop = f"--track-{i}"
+        # track.
+        #
+        # BLOCKER N1 fix (fix pass 2, lyt-mockups-opus-review.md
+        # re-review): this property used to be the bare per-level index
+        # `--track-{i}`, on the theory that "each grid container reads
+        # only its own inline declarations first" made reuse across
+        # nesting levels safe. That reasoning missed that a CSS custom
+        # property is an ORDINARY INHERITED property -- an override set
+        # via `.style.setProperty` on a PARENT grid container is visible
+        # to every descendant's `var(--track-N, ...)` lookup too, not just
+        # the parent's own template. Releasing a strip at the root whose
+        # track happened to share an index with an unrelated track inside
+        # a NESTED grid (e.g. the board composite's own `--track-0`
+        # bleeding into a released `--track-0` at the root) silently
+        # rewrote that nested track instead: the review's measured
+        # portrait damage was the board group's row template collapsing
+        # to `0px 24px 28px` (board gone) or `1106px 24px 0px` (board's
+        # own action strip gone), neither one caused by anything the user
+        # actually toggled. Namespacing the property by the child's own
+        # FULL path from the tree root (unique per node, by construction
+        # of how paths are built) makes an accidental collision
+        # impossible rather than merely unlikely: no two different nodes
+        # in the whole tree can ever share a `cpath`, so no override can
+        # ever land on a track it wasn't meant for.
+        track_prop = "--track-" + "-".join(str(p) for p in cpath)
         tracks.append(f"var({track_prop}, {track_value})")
         c_style, c_data, c_class, c_caption = _child_wrap(child, cpath=cpath, class_id=class_id, axis=axis, track_prop=track_prop)
+        if composite_match is not None and i == composite_match[0]:
+            # N3 fix: mark this child (the board composite -- the Split
+            # wrapping the board leaf plus its own fixed info/action
+            # rows) so the `.board-composite` CSS rule in `_STYLE` can
+            # center THOSE rows under the board square itself, using the
+            # same closed-form sizing formula `.board-square` uses one
+            # level down -- see that rule's own comment for the
+            # derivation. `--board-fixed-sum` is the composite's own
+            # fixed-sibling total (already computed by
+            # `_find_board_composite_child`), the one input the CSS
+            # formula needs that isn't otherwise visible at runtime.
+            c_class = (c_class + " board-composite").strip()
+            c_style = c_style + f"--board-fixed-sum:{composite_match[2]:g}px;"
         # Explicit placement (not implicit grid-auto-flow order): a
         # corner-menu 'release' toggle sets one sibling's own box to
         # display:none, which removes it from the auto-placement item
@@ -938,16 +1016,35 @@ html, body {
    the review measured four different content-start x-positions because
    `.row-caption`/`.lyt-tab-caption` were sized to their own text
    (`flex: 0 0 auto`). Both now share ONE fixed gutter width, so every
-   strip's content starts at the same x regardless of caption length. */
+   strip's content starts at the same x regardless of caption length.
+   X2 RESIDUAL fix (fix pass 2, lyt-mockups-opus-review.md re-review):
+   `flex: 0 0 92px` alone only sets the flex-basis -- a longer caption's
+   own rendered content still won a fight against that basis (measured:
+   "COMMON ACTIONS" rendered 97.55px, not 92), because a flex item's
+   automatic minimum size defaults to its content's min-content size,
+   which can exceed an explicit basis. `min-width: 0` overrides that
+   default so the 92px basis is actually the box's hard ceiling, and
+   `overflow: hidden` (plus `text-overflow`/`white-space` below) turns
+   the now-genuinely-possible clipped case into a clean truncation
+   instead of a broken layout. `margin-right` moves here (shared by both
+   selectors, not just `.row-caption`) so `.lyt-tab-caption` -- which
+   previously had no analogous margin -- gets the SAME gap before its
+   first content item that the info/action rows already had; without it
+   the tab strip's content still started 4px earlier than the other
+   three rows' even with the caption boxes themselves aligned. */
 .row-caption, .lyt-tab-caption {
   flex: 0 0 var(--caption-gutter);
   box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: var(--space-tight);
 }
 .row-caption {
   font-size: var(--text-tiny); letter-spacing: var(--tracking-default);
   text-transform: uppercase; color: var(--text-0);
   padding-right: var(--space-tight); border-right: 1px solid var(--border-2);
-  margin-right: var(--space-tight);
 }
 .lyt-leaf { position: relative; }
 .info-row, .actions-row {
@@ -1020,9 +1117,48 @@ html, body {
 .board-coord { position: absolute; font-size: var(--text-tiny); color: var(--text-0); line-height: 1; }
 .board-coord-col { top: 1.6%; transform: translateX(-50%); }
 .board-coord-row { left: 1.6%; transform: translateY(-50%); }
+/* N3 fix (fix pass 2, lyt-mockups-opus-review.md re-review): the board's
+   own info/action rows (I_board/A_board) used to be flush against the
+   COMPOSITE's own box (a fixed `var(--space-tight)` inset), independent
+   of where the aspect-locked `.board-square` actually renders inside its
+   own centered cell -- at most viewports the square is inset by tens of
+   px on each side (whichever axis has slack), so "Pass"/"Move 47"
+   started well to the left of the board they describe (measured: board
+   x=37, "Pass" x=8 at 1920x1080, a gap that SCALES with viewport width
+   since the square's own inset does). Fix: give the composite its own
+   container-query context (`container-type:size`, same mechanism
+   `.board-cell` already uses one level down) and reproduce
+   `.board-square`'s own sizing formula against THAT box --
+   `min(cross-dimension, along-dimension-minus-fixed-siblings)` -- so the
+   rows are capped to the exact width the square resolves to, not an
+   independently guessed inset, and centered under it with `margin:
+   auto`. `--board-fixed-sum` is the composite's own fixed-sibling
+   total (the info/action rows' own declared px heights), set inline per
+   composite by `render_split` -- see that function's own N3 comment. */
+.board-composite { container-type: size; }
+.board-composite > .lyt-leaf > .info-row,
+.board-composite > .lyt-leaf > .actions-row {
+  max-width: min(100cqw, calc(100cqh - var(--board-fixed-sum, 0px)));
+  margin-left: auto;
+  margin-right: auto;
+}
 .lyt-tabstrip {
   display: flex; height: 24px; box-sizing: border-box;
   border-bottom: 1px solid var(--border-2); overflow-x: auto; white-space: nowrap;
+  /* X2 residual fix: the rows (.info-row/.actions-row) already carry
+     `padding: 0 var(--space-tight)` (4px each side); the tab strip had
+     no counterpart, so its caption's left edge sat 4px earlier than the
+     other three strips' (measured: 1105 vs 1109 at 1920x1080). */
+  padding-left: var(--space-tight);
+  /* X2 residual fix, continued: `.info-row`/`.actions-row` also declare
+     `gap: var(--space-default)` between EVERY flex child (including
+     after the caption, on top of its own `margin-right`), which the tab
+     strip did not -- so even after the caption boxes and their margins
+     matched, the first item after a row's caption still started 8px
+     further right than the first tab (measured: 1212 vs 1204 at
+     1920x1080, both down from the original 21px-ragged spread, but not
+     yet EXACT). Matching the same gap here closes that last 8px. */
+  gap: var(--space-default);
 }
 .lyt-tab-caption {
   /* X4 fix: a distinct fill (chrome surface-1, not the tabstrip's own
@@ -1117,16 +1253,23 @@ _SCRIPT = """
     closeMenu(false);
   });
 
-  // M3 fix (partial -- prevent the all-off terminal state): the review's
-  // finding was that unchecking every panel leaves a pure-black screen
-  // with no product identity and no way back except the popover already
-  // open. The product-identity half is fixed in the popover's own title
-  // (see build_html_for_class); this half refuses the LAST release-panel
-  // uncheck that would leave every managed release target off,
-  // reverting the checkbox rather than letting the terminal state occur.
-  // 'preserve' targets (Board & Controls, Tree & Panels) are excluded
+  // M3 fix (partial -- prevent the all-off terminal state), refined by
+  // the N2 fix (fix pass 2, lyt-mockups-opus-review.md re-review): the
+  // review's original finding was that unchecking every panel leaves a
+  // pure-black screen with no product identity and no way back except
+  // the popover already open. The product-identity half is fixed in the
+  // popover's own title (see build_html_for_class). The first fix
+  // pass's guard refused the LAST release-panel uncheck by silently
+  // REVERTING the checkbox -- accepted the click, then undid it with
+  // zero feedback, which N2 correctly named as indistinguishable from a
+  // bug (a control that springs back and explains nothing). Fixed
+  // properly here: the last remaining CHECKED release checkbox is
+  // DISABLED (with a `title` naming why) so that click is never
+  // accepted in the first place. 'preserve' targets (Board & Controls,
+  // Tree & Panels in landscape / portrait respectively) are excluded
   // from this guard -- they never remove content from the DOM, only
-  // hide painting, so they can't produce a truly blank page on their own.
+  // hide painting, so they can't produce a truly blank page on their
+  // own.
   var releaseCheckboxes = Array.prototype.filter.call(
     document.querySelectorAll('#lyt-menu-popover input[data-toggle-for]'),
     function (cb) {
@@ -1135,26 +1278,36 @@ _SCRIPT = """
     }
   );
 
+  function updateReleaseGuard() {
+    var checkedOnes = releaseCheckboxes.filter(function (cb) { return cb.checked; });
+    releaseCheckboxes.forEach(function (cb) {
+      if (checkedOnes.length === 1 && cb === checkedOnes[0]) {
+        cb.disabled = true;
+        cb.title = 'At least one panel must stay visible';
+      } else {
+        cb.disabled = false;
+        cb.title = '';
+      }
+    });
+  }
+  updateReleaseGuard();
+
   document.querySelectorAll('#lyt-menu-popover input[data-toggle-for]').forEach(function (cb) {
     cb.addEventListener('change', function () {
       var id = cb.getAttribute('data-toggle-for');
       var el = document.querySelector('[data-toggle-id="' + id + '"]');
       if (!el) return;
       var presence = el.getAttribute('data-presence');
-      if (presence === 'release' && !cb.checked) {
-        var anyStillOn = releaseCheckboxes.some(function (other) { return other !== cb && other.checked; });
-        if (!anyStillOn) { cb.checked = true; return; }
-      }
       if (presence === 'preserve') {
         el.style.visibility = cb.checked ? '' : 'hidden';
       } else {
         // 'release': collapse THIS child's own grid track (a CSS custom
         // property on the PARENT grid container, see emit_mockup.py's
         // render_split for why -- the parent's grid-template references
-        // var(--track-N, <original>), so removing the override restores
-        // the original track size and setting it to 0px collapses only
-        // this one track, genuinely freeing the space for siblings
-        // rather than leaving a blank gap or mis-tracking them).
+        // var(--track-<path>, <original>), so removing the override
+        // restores the original track size and setting it to 0px
+        // collapses only this one track, genuinely freeing the space for
+        // siblings rather than leaving a blank gap or mis-tracking them).
         var trackProp = el.getAttribute('data-track-prop');
         if (trackProp && el.parentElement) {
           if (cb.checked) {
@@ -1164,6 +1317,7 @@ _SCRIPT = """
           }
         }
         el.style.display = cb.checked ? '' : 'none';
+        updateReleaseGuard();
       }
     });
   });

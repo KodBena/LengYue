@@ -110,16 +110,35 @@ html, body {
    the review measured four different content-start x-positions because
    `.row-caption`/`.lyt-tab-caption` were sized to their own text
    (`flex: 0 0 auto`). Both now share ONE fixed gutter width, so every
-   strip's content starts at the same x regardless of caption length. */
+   strip's content starts at the same x regardless of caption length.
+   X2 RESIDUAL fix (fix pass 2, lyt-mockups-opus-review.md re-review):
+   `flex: 0 0 92px` alone only sets the flex-basis -- a longer caption's
+   own rendered content still won a fight against that basis (measured:
+   "COMMON ACTIONS" rendered 97.55px, not 92), because a flex item's
+   automatic minimum size defaults to its content's min-content size,
+   which can exceed an explicit basis. `min-width: 0` overrides that
+   default so the 92px basis is actually the box's hard ceiling, and
+   `overflow: hidden` (plus `text-overflow`/`white-space` below) turns
+   the now-genuinely-possible clipped case into a clean truncation
+   instead of a broken layout. `margin-right` moves here (shared by both
+   selectors, not just `.row-caption`) so `.lyt-tab-caption` -- which
+   previously had no analogous margin -- gets the SAME gap before its
+   first content item that the info/action rows already had; without it
+   the tab strip's content still started 4px earlier than the other
+   three rows' even with the caption boxes themselves aligned. */
 .row-caption, .lyt-tab-caption {
   flex: 0 0 var(--caption-gutter);
   box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: var(--space-tight);
 }
 .row-caption {
   font-size: var(--text-tiny); letter-spacing: var(--tracking-default);
   text-transform: uppercase; color: var(--text-0);
   padding-right: var(--space-tight); border-right: 1px solid var(--border-2);
-  margin-right: var(--space-tight);
 }
 .lyt-leaf { position: relative; }
 .info-row, .actions-row {
@@ -192,9 +211,48 @@ html, body {
 .board-coord { position: absolute; font-size: var(--text-tiny); color: var(--text-0); line-height: 1; }
 .board-coord-col { top: 1.6%; transform: translateX(-50%); }
 .board-coord-row { left: 1.6%; transform: translateY(-50%); }
+/* N3 fix (fix pass 2, lyt-mockups-opus-review.md re-review): the board's
+   own info/action rows (I_board/A_board) used to be flush against the
+   COMPOSITE's own box (a fixed `var(--space-tight)` inset), independent
+   of where the aspect-locked `.board-square` actually renders inside its
+   own centered cell -- at most viewports the square is inset by tens of
+   px on each side (whichever axis has slack), so "Pass"/"Move 47"
+   started well to the left of the board they describe (measured: board
+   x=37, "Pass" x=8 at 1920x1080, a gap that SCALES with viewport width
+   since the square's own inset does). Fix: give the composite its own
+   container-query context (`container-type:size`, same mechanism
+   `.board-cell` already uses one level down) and reproduce
+   `.board-square`'s own sizing formula against THAT box --
+   `min(cross-dimension, along-dimension-minus-fixed-siblings)` -- so the
+   rows are capped to the exact width the square resolves to, not an
+   independently guessed inset, and centered under it with `margin:
+   auto`. `--board-fixed-sum` is the composite's own fixed-sibling
+   total (the info/action rows' own declared px heights), set inline per
+   composite by `render_split` -- see that function's own N3 comment. */
+.board-composite { container-type: size; }
+.board-composite > .lyt-leaf > .info-row,
+.board-composite > .lyt-leaf > .actions-row {
+  max-width: min(100cqw, calc(100cqh - var(--board-fixed-sum, 0px)));
+  margin-left: auto;
+  margin-right: auto;
+}
 .lyt-tabstrip {
   display: flex; height: 24px; box-sizing: border-box;
   border-bottom: 1px solid var(--border-2); overflow-x: auto; white-space: nowrap;
+  /* X2 residual fix: the rows (.info-row/.actions-row) already carry
+     `padding: 0 var(--space-tight)` (4px each side); the tab strip had
+     no counterpart, so its caption's left edge sat 4px earlier than the
+     other three strips' (measured: 1105 vs 1109 at 1920x1080). */
+  padding-left: var(--space-tight);
+  /* X2 residual fix, continued: `.info-row`/`.actions-row` also declare
+     `gap: var(--space-default)` between EVERY flex child (including
+     after the caption, on top of its own `margin-right`), which the tab
+     strip did not -- so even after the caption boxes and their margins
+     matched, the first item after a row's caption still started 8px
+     further right than the first tab (measured: 1212 vs 1204 at
+     1920x1080, both down from the original 21px-ragged spread, but not
+     yet EXACT). Matching the same gap here closes that last 8px. */
+  gap: var(--space-default);
 }
 .lyt-tab-caption {
   /* X4 fix: a distinct fill (chrome surface-1, not the tabstrip's own
@@ -257,7 +315,7 @@ html, body {
 </head>
 <body>
 <div id="lyt-root" style="width:100vw;height:100vh;overflow:hidden;position:relative;">
-<div class="lyt-node lyt-split lyt-h "  style="display:grid;grid-auto-flow:column;grid-template-columns:var(--track-0, minmax(0px, 1fr)) var(--track-1, clamp(340px, calc(100% - (100vh - 52px)), 820px));grid-template-rows:1fr;column-gap:0px;row-gap:0px;width:100%;height:100%;"><div class="lyt-node lyt-split lyt-v lyt-group" data-toggle-id="board-controls" data-presence="preserve" style="display:grid;grid-auto-flow:row;grid-template-rows:var(--track-0, minmax(0px, 1fr)) var(--track-1, 24px) var(--track-2, 28px);grid-template-columns:1fr;column-gap:0px;row-gap:0px;grid-column:1/2;grid-row:1;min-width:0;min-height:0;"><div class="lyt-node lyt-leaf board-cell"  style="width:100%;height:100%;grid-row:1/2;grid-column:1;min-width:0;min-height:0;"><div class="board-square"><div class="board-grid"></div><div class="board-star" style="left:20%;top:20%;"></div><div class="board-star" style="left:50%;top:20%;"></div><div class="board-star" style="left:80%;top:20%;"></div><div class="board-star" style="left:20%;top:50%;"></div><div class="board-star" style="left:50%;top:50%;"></div><div class="board-star" style="left:80%;top:50%;"></div><div class="board-star" style="left:20%;top:80%;"></div><div class="board-star" style="left:50%;top:80%;"></div><div class="board-star" style="left:80%;top:80%;"></div><div class="board-coord board-coord-col" style="left:5%;">A</div><div class="board-coord board-coord-col" style="left:10%;">B</div><div class="board-coord board-coord-col" style="left:15%;">C</div><div class="board-coord board-coord-col" style="left:20%;">D</div><div class="board-coord board-coord-col" style="left:25%;">E</div><div class="board-coord board-coord-col" style="left:30%;">F</div><div class="board-coord board-coord-col" style="left:35%;">G</div><div class="board-coord board-coord-col" style="left:40%;">H</div><div class="board-coord board-coord-col" style="left:45%;">J</div><div class="board-coord board-coord-col" style="left:50%;">K</div><div class="board-coord board-coord-col" style="left:55%;">L</div><div class="board-coord board-coord-col" style="left:60%;">M</div><div class="board-coord board-coord-col" style="left:65%;">N</div><div class="board-coord board-coord-col" style="left:70%;">O</div><div class="board-coord board-coord-col" style="left:75%;">P</div><div class="board-coord board-coord-col" style="left:80%;">Q</div><div class="board-coord board-coord-col" style="left:85%;">R</div><div class="board-coord board-coord-col" style="left:90%;">S</div><div class="board-coord board-coord-col" style="left:95%;">T</div><div class="board-coord board-coord-row" style="top:5%;">1</div><div class="board-coord board-coord-row" style="top:10%;">2</div><div class="board-coord board-coord-row" style="top:15%;">3</div><div class="board-coord board-coord-row" style="top:20%;">4</div><div class="board-coord board-coord-row" style="top:25%;">5</div><div class="board-coord board-coord-row" style="top:30%;">6</div><div class="board-coord board-coord-row" style="top:35%;">7</div><div class="board-coord board-coord-row" style="top:40%;">8</div><div class="board-coord board-coord-row" style="top:45%;">9</div><div class="board-coord board-coord-row" style="top:50%;">10</div><div class="board-coord board-coord-row" style="top:55%;">11</div><div class="board-coord board-coord-row" style="top:60%;">12</div><div class="board-coord board-coord-row" style="top:65%;">13</div><div class="board-coord board-coord-row" style="top:70%;">14</div><div class="board-coord board-coord-row" style="top:75%;">15</div><div class="board-coord board-coord-row" style="top:80%;">16</div><div class="board-coord board-coord-row" style="top:85%;">17</div><div class="board-coord board-coord-row" style="top:90%;">18</div><div class="board-coord board-coord-row" style="top:95%;">19</div><div class="board-stone board-stone-b" style="left:50%;top:50%;"></div><div class="board-stone board-stone-w" style="left:55%;top:50%;"></div><div class="board-stone board-stone-b" style="left:55%;top:45%;"></div><div class="board-stone board-stone-w" style="left:50%;top:55%;"></div><div class="board-stone board-stone-b" style="left:60%;top:55%;"></div><div class="board-stone board-stone-w" style="left:55%;top:60%;"></div><div class="board-stone board-stone-b" style="left:50%;top:40%;"></div></div></div><div class="lyt-node lyt-leaf "  style="width:100%;height:100%;grid-row:2/3;grid-column:1;min-width:0;min-height:0;"><div class="info-row"><span>Move 47</span><span>● Black — Alice (2400)</span><span>○ White — Bob (2350)</span><span>Caps B 3 · W 5</span><span>Win B 54.2%</span><span>Score B +3.5</span></div></div><div class="lyt-node lyt-leaf "  style="width:100%;height:100%;grid-row:3/4;grid-column:1;min-width:0;min-height:0;"><div class="actions-row"><button class="btn">Pass</button><button class="btn">|&lt;</button><button class="btn">&lt;</button><button class="btn">&gt;</button><button class="btn">&gt;|</button><button class="btn">Annotate</button><button class="btn">Setup</button></div></div></div><div class="lyt-node lyt-split lyt-v "  style="display:grid;grid-auto-flow:row;grid-template-rows:var(--track-0, 28px) var(--track-1, 28px) var(--track-2, 28px) var(--track-3, minmax(300px, 1fr));grid-template-columns:1fr;column-gap:0px;row-gap:0px;grid-column:2/3;grid-row:1;min-width:0;min-height:0;"><div class="lyt-node lyt-leaf lyt-group" data-toggle-id="go-actions" data-presence="release" data-track-prop="--track-0" style="width:100%;height:100%;grid-row:1/2;grid-column:1;min-width:0;min-height:0;"><div class="actions-row"><span class="row-caption">Go Actions</span><button class="btn">Mint Card</button><button class="btn">Learn Path</button><button class="btn">Play</button><button class="btn">Match</button><button class="btn">Load SGF</button><button class="btn">Save SGF</button></div></div><div class="lyt-node lyt-leaf lyt-group" data-toggle-id="engine-info" data-presence="release" data-track-prop="--track-1" style="width:100%;height:100%;grid-row:2/3;grid-column:1;min-width:0;min-height:0;"><div class="info-row"><span class="row-caption">Engine Info</span><span>KataGo v1.0.27</span><span>Connected</span><span>Model: b18-8192</span><span>1200 pps</span><span>40 ms</span><span>Queue 2</span></div></div><div class="lyt-node lyt-leaf lyt-group" data-toggle-id="common-actions" data-presence="release" data-track-prop="--track-2" style="width:100%;height:100%;grid-row:3/4;grid-column:1;min-width:0;min-height:0;"><div class="actions-row"><span class="row-caption">Common Actions</span><button class="btn">Connect</button><button class="btn">Sliders</button><button class="btn debug-pill" title="Autonav, popover test, clear cache (dev-only, C-domain)">Debug (3)</button></div></div><div class="lyt-node lyt-exclusive lyt-group" data-toggle-id="tree-panels" data-presence="release" data-track-prop="--track-3" style="display:grid;grid-template-rows:auto 1fr;grid-template-columns:1fr;column-gap:0px;row-gap:0px;grid-row:4/5;grid-column:1;min-width:0;min-height:0;"><div class="lyt-tabstrip"><div class="lyt-tab-caption">Tree &amp; Panels</div><div class="lyt-tab active">Tree</div><div class="lyt-tab">Library</div><div class="lyt-tab">Cards</div><div class="lyt-tab">Settings</div><div class="lyt-tab">Analysis</div><div class="lyt-tab">Other</div></div><div class="lyt-tabbody"><div class="tree-body"><div class="tree-row" style="padding-left:0">Game Tree — 187 moves</div><div class="tree-row" style="padding-left:12px">├ Move 41 (B) 51.2%</div><div class="tree-row" style="padding-left:12px">├ Move 42 (W) 49.0%</div><div class="tree-row" style="padding-left:24px">│ ├ Move 43 (B) 52.8%</div><div class="tree-row" style="padding-left:24px">│ │ └ Variation: 3-3 invasion</div><div class="tree-row" style="padding-left:24px">│ └ Move 43 (B) 50.1% (alt)</div><div class="tree-row" style="padding-left:12px">├ Move 44 (W) 48.6%</div><div class="tree-row" style="padding-left:12px">├ Move 45 (B) 53.4%</div><div class="tree-row" style="padding-left:12px">├ Move 46 (W) 46.9%</div><div class="tree-row" style="padding-left:24px">│ └ Variation: hane instead</div><div class="tree-row" style="padding-left:12px">└ Move 47 (B) 54.2% — current</div></div></div></div></div></div>
+<div class="lyt-node lyt-split lyt-h "  style="display:grid;grid-auto-flow:column;grid-template-columns:var(--track-0, minmax(0px, 1fr)) var(--track-1, clamp(340px, calc(100% - (100vh - 52px)), 820px));grid-template-rows:1fr;column-gap:0px;row-gap:0px;width:100%;height:100%;"><div class="lyt-node lyt-split lyt-v lyt-group board-composite" data-toggle-id="board-controls" data-presence="preserve" style="display:grid;grid-auto-flow:row;grid-template-rows:var(--track-0-0, minmax(0px, 1fr)) var(--track-0-1, 24px) var(--track-0-2, 28px);grid-template-columns:1fr;column-gap:0px;row-gap:0px;grid-column:1/2;grid-row:1;min-width:0;min-height:0;--board-fixed-sum:52px;"><div class="lyt-node lyt-leaf board-cell"  style="width:100%;height:100%;grid-row:1/2;grid-column:1;min-width:0;min-height:0;"><div class="board-square"><div class="board-grid"></div><div class="board-star" style="left:20%;top:20%;"></div><div class="board-star" style="left:50%;top:20%;"></div><div class="board-star" style="left:80%;top:20%;"></div><div class="board-star" style="left:20%;top:50%;"></div><div class="board-star" style="left:50%;top:50%;"></div><div class="board-star" style="left:80%;top:50%;"></div><div class="board-star" style="left:20%;top:80%;"></div><div class="board-star" style="left:50%;top:80%;"></div><div class="board-star" style="left:80%;top:80%;"></div><div class="board-coord board-coord-col" style="left:5%;">A</div><div class="board-coord board-coord-col" style="left:10%;">B</div><div class="board-coord board-coord-col" style="left:15%;">C</div><div class="board-coord board-coord-col" style="left:20%;">D</div><div class="board-coord board-coord-col" style="left:25%;">E</div><div class="board-coord board-coord-col" style="left:30%;">F</div><div class="board-coord board-coord-col" style="left:35%;">G</div><div class="board-coord board-coord-col" style="left:40%;">H</div><div class="board-coord board-coord-col" style="left:45%;">J</div><div class="board-coord board-coord-col" style="left:50%;">K</div><div class="board-coord board-coord-col" style="left:55%;">L</div><div class="board-coord board-coord-col" style="left:60%;">M</div><div class="board-coord board-coord-col" style="left:65%;">N</div><div class="board-coord board-coord-col" style="left:70%;">O</div><div class="board-coord board-coord-col" style="left:75%;">P</div><div class="board-coord board-coord-col" style="left:80%;">Q</div><div class="board-coord board-coord-col" style="left:85%;">R</div><div class="board-coord board-coord-col" style="left:90%;">S</div><div class="board-coord board-coord-col" style="left:95%;">T</div><div class="board-coord board-coord-row" style="top:5%;">1</div><div class="board-coord board-coord-row" style="top:10%;">2</div><div class="board-coord board-coord-row" style="top:15%;">3</div><div class="board-coord board-coord-row" style="top:20%;">4</div><div class="board-coord board-coord-row" style="top:25%;">5</div><div class="board-coord board-coord-row" style="top:30%;">6</div><div class="board-coord board-coord-row" style="top:35%;">7</div><div class="board-coord board-coord-row" style="top:40%;">8</div><div class="board-coord board-coord-row" style="top:45%;">9</div><div class="board-coord board-coord-row" style="top:50%;">10</div><div class="board-coord board-coord-row" style="top:55%;">11</div><div class="board-coord board-coord-row" style="top:60%;">12</div><div class="board-coord board-coord-row" style="top:65%;">13</div><div class="board-coord board-coord-row" style="top:70%;">14</div><div class="board-coord board-coord-row" style="top:75%;">15</div><div class="board-coord board-coord-row" style="top:80%;">16</div><div class="board-coord board-coord-row" style="top:85%;">17</div><div class="board-coord board-coord-row" style="top:90%;">18</div><div class="board-coord board-coord-row" style="top:95%;">19</div><div class="board-stone board-stone-b" style="left:50%;top:50%;"></div><div class="board-stone board-stone-w" style="left:55%;top:50%;"></div><div class="board-stone board-stone-b" style="left:55%;top:45%;"></div><div class="board-stone board-stone-w" style="left:50%;top:55%;"></div><div class="board-stone board-stone-b" style="left:60%;top:55%;"></div><div class="board-stone board-stone-w" style="left:55%;top:60%;"></div><div class="board-stone board-stone-b" style="left:50%;top:40%;"></div></div></div><div class="lyt-node lyt-leaf "  style="width:100%;height:100%;grid-row:2/3;grid-column:1;min-width:0;min-height:0;"><div class="info-row"><span>Move 47</span><span>● Black — Alice (2400)</span><span>○ White — Bob (2350)</span><span>Caps B 3 · W 5</span><span>Win B 54.2%</span><span>Score B +3.5</span></div></div><div class="lyt-node lyt-leaf "  style="width:100%;height:100%;grid-row:3/4;grid-column:1;min-width:0;min-height:0;"><div class="actions-row"><button class="btn">Pass</button><button class="btn">|&lt;</button><button class="btn">&lt;</button><button class="btn">&gt;</button><button class="btn">&gt;|</button><button class="btn">Annotate</button><button class="btn">Setup</button></div></div></div><div class="lyt-node lyt-split lyt-v "  style="display:grid;grid-auto-flow:row;grid-template-rows:var(--track-1-0, 28px) var(--track-1-1, 28px) var(--track-1-2, 28px) var(--track-1-3, minmax(300px, 1fr));grid-template-columns:1fr;column-gap:0px;row-gap:0px;grid-column:2/3;grid-row:1;min-width:0;min-height:0;"><div class="lyt-node lyt-leaf lyt-group" data-toggle-id="go-actions" data-presence="release" data-track-prop="--track-1-0" style="width:100%;height:100%;grid-row:1/2;grid-column:1;min-width:0;min-height:0;"><div class="actions-row"><span class="row-caption">Go Actions</span><button class="btn">Mint Card</button><button class="btn">Learn Path</button><button class="btn">Play</button><button class="btn">Match</button><button class="btn">Load SGF</button><button class="btn">Save SGF</button></div></div><div class="lyt-node lyt-leaf lyt-group" data-toggle-id="engine-info" data-presence="release" data-track-prop="--track-1-1" style="width:100%;height:100%;grid-row:2/3;grid-column:1;min-width:0;min-height:0;"><div class="info-row"><span class="row-caption">Engine Info</span><span>KataGo v1.0.27</span><span>Connected</span><span>Model: b18-8192</span><span>1200 pps</span><span>40 ms</span><span>Queue 2</span></div></div><div class="lyt-node lyt-leaf lyt-group" data-toggle-id="common-actions" data-presence="release" data-track-prop="--track-1-2" style="width:100%;height:100%;grid-row:3/4;grid-column:1;min-width:0;min-height:0;"><div class="actions-row"><span class="row-caption">Common Actions</span><button class="btn">Connect</button><button class="btn">Sliders</button><button class="btn debug-pill" title="Autonav, popover test, clear cache (dev-only, C-domain)">Debug (3)</button></div></div><div class="lyt-node lyt-exclusive lyt-group" data-toggle-id="tree-panels" data-presence="release" data-track-prop="--track-1-3" style="display:grid;grid-template-rows:auto 1fr;grid-template-columns:1fr;column-gap:0px;row-gap:0px;grid-row:4/5;grid-column:1;min-width:0;min-height:0;"><div class="lyt-tabstrip"><div class="lyt-tab-caption">Tree &amp; Panels</div><div class="lyt-tab active">Tree</div><div class="lyt-tab">Library</div><div class="lyt-tab">Cards</div><div class="lyt-tab">Settings</div><div class="lyt-tab">Analysis</div><div class="lyt-tab">Other</div></div><div class="lyt-tabbody"><div class="tree-body"><div class="tree-row" style="padding-left:0">Game Tree — 187 moves</div><div class="tree-row" style="padding-left:12px">├ Move 41 (B) 51.2%</div><div class="tree-row" style="padding-left:12px">├ Move 42 (W) 49.0%</div><div class="tree-row" style="padding-left:24px">│ ├ Move 43 (B) 52.8%</div><div class="tree-row" style="padding-left:24px">│ │ └ Variation: 3-3 invasion</div><div class="tree-row" style="padding-left:24px">│ └ Move 43 (B) 50.1% (alt)</div><div class="tree-row" style="padding-left:12px">├ Move 44 (W) 48.6%</div><div class="tree-row" style="padding-left:12px">├ Move 45 (B) 53.4%</div><div class="tree-row" style="padding-left:12px">├ Move 46 (W) 46.9%</div><div class="tree-row" style="padding-left:24px">│ └ Variation: hane instead</div><div class="tree-row" style="padding-left:12px">└ Move 47 (B) 54.2% — current</div></div></div></div></div></div>
 </div>
 <button id="lyt-menu-btn" type="button" aria-label="Panel menu" aria-haspopup="true">&#8942;</button>
 <div id="lyt-menu-popover" hidden role="menu" aria-label="LengYue panel menu">
@@ -305,16 +363,23 @@ html, body {
     closeMenu(false);
   });
 
-  // M3 fix (partial -- prevent the all-off terminal state): the review's
-  // finding was that unchecking every panel leaves a pure-black screen
-  // with no product identity and no way back except the popover already
-  // open. The product-identity half is fixed in the popover's own title
-  // (see build_html_for_class); this half refuses the LAST release-panel
-  // uncheck that would leave every managed release target off,
-  // reverting the checkbox rather than letting the terminal state occur.
-  // 'preserve' targets (Board & Controls, Tree & Panels) are excluded
+  // M3 fix (partial -- prevent the all-off terminal state), refined by
+  // the N2 fix (fix pass 2, lyt-mockups-opus-review.md re-review): the
+  // review's original finding was that unchecking every panel leaves a
+  // pure-black screen with no product identity and no way back except
+  // the popover already open. The product-identity half is fixed in the
+  // popover's own title (see build_html_for_class). The first fix
+  // pass's guard refused the LAST release-panel uncheck by silently
+  // REVERTING the checkbox -- accepted the click, then undid it with
+  // zero feedback, which N2 correctly named as indistinguishable from a
+  // bug (a control that springs back and explains nothing). Fixed
+  // properly here: the last remaining CHECKED release checkbox is
+  // DISABLED (with a `title` naming why) so that click is never
+  // accepted in the first place. 'preserve' targets (Board & Controls,
+  // Tree & Panels in landscape / portrait respectively) are excluded
   // from this guard -- they never remove content from the DOM, only
-  // hide painting, so they can't produce a truly blank page on their own.
+  // hide painting, so they can't produce a truly blank page on their
+  // own.
   var releaseCheckboxes = Array.prototype.filter.call(
     document.querySelectorAll('#lyt-menu-popover input[data-toggle-for]'),
     function (cb) {
@@ -323,26 +388,36 @@ html, body {
     }
   );
 
+  function updateReleaseGuard() {
+    var checkedOnes = releaseCheckboxes.filter(function (cb) { return cb.checked; });
+    releaseCheckboxes.forEach(function (cb) {
+      if (checkedOnes.length === 1 && cb === checkedOnes[0]) {
+        cb.disabled = true;
+        cb.title = 'At least one panel must stay visible';
+      } else {
+        cb.disabled = false;
+        cb.title = '';
+      }
+    });
+  }
+  updateReleaseGuard();
+
   document.querySelectorAll('#lyt-menu-popover input[data-toggle-for]').forEach(function (cb) {
     cb.addEventListener('change', function () {
       var id = cb.getAttribute('data-toggle-for');
       var el = document.querySelector('[data-toggle-id="' + id + '"]');
       if (!el) return;
       var presence = el.getAttribute('data-presence');
-      if (presence === 'release' && !cb.checked) {
-        var anyStillOn = releaseCheckboxes.some(function (other) { return other !== cb && other.checked; });
-        if (!anyStillOn) { cb.checked = true; return; }
-      }
       if (presence === 'preserve') {
         el.style.visibility = cb.checked ? '' : 'hidden';
       } else {
         // 'release': collapse THIS child's own grid track (a CSS custom
         // property on the PARENT grid container, see emit_mockup.py's
         // render_split for why -- the parent's grid-template references
-        // var(--track-N, <original>), so removing the override restores
-        // the original track size and setting it to 0px collapses only
-        // this one track, genuinely freeing the space for siblings
-        // rather than leaving a blank gap or mis-tracking them).
+        // var(--track-<path>, <original>), so removing the override
+        // restores the original track size and setting it to 0px
+        // collapses only this one track, genuinely freeing the space for
+        // siblings rather than leaving a blank gap or mis-tracking them).
         var trackProp = el.getAttribute('data-track-prop');
         if (trackProp && el.parentElement) {
           if (cb.checked) {
@@ -352,6 +427,7 @@ html, body {
           }
         }
         el.style.display = cb.checked ? '' : 'none';
+        updateReleaseGuard();
       }
     });
   });
