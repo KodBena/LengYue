@@ -3618,3 +3618,98 @@ describe('74 → 75: backfill session.ui.showGhostStone (wiki2-ghost-stone)', ()
     expect(out.session.ui.showGhostStone).toBe(true);
   });
 });
+
+describe('75 → 76: LYT corner presence-menu state migration (lyt-w2-presence)', () => {
+  // sidebarExpanded -> lytPresence.boardRail, controlsExpanded ->
+  // lytPresence.controlPanel, boardExpanded retires with no successor,
+  // lytPresence.previewBoard + railStyle are fresh backfills. See
+  // migrations.ts's own comment for the full mapping table and why
+  // treeExpanded/systemLogExpanded are untouched.
+  function legacyBlobWithUi(extra: Record<string, unknown> = {}): any {
+    return {
+      session: {
+        ui: {
+          activeTab: 'cards',
+          sidebarExpanded: true,
+          treeExpanded: true,
+          controlsExpanded: true,
+          boardExpanded: true,
+          systemLogExpanded: false,
+          ...extra,
+        },
+      },
+    };
+  }
+
+  it('carries sidebarExpanded forward into lytPresence.boardRail', () => {
+    const out = step(75)(legacyBlobWithUi({ sidebarExpanded: true }));
+    expect(out.session.ui.lytPresence.boardRail).toBe(true);
+    const out2 = step(75)(legacyBlobWithUi({ sidebarExpanded: false }));
+    expect(out2.session.ui.lytPresence.boardRail).toBe(false);
+  });
+
+  it('carries controlsExpanded forward into lytPresence.controlPanel', () => {
+    const out = step(75)(legacyBlobWithUi({ controlsExpanded: false }));
+    expect(out.session.ui.lytPresence.controlPanel).toBe(false);
+  });
+
+  it('backfills lytPresence.boardRail=false / controlPanel=true (LYT registration defaults) when the legacy fields are absent or non-boolean', () => {
+    const blob: any = { session: { ui: { activeTab: 'cards' } } };
+    const out = step(75)(blob);
+    expect(out.session.ui.lytPresence.boardRail).toBe(false);
+    expect(out.session.ui.lytPresence.controlPanel).toBe(true);
+  });
+
+  it('backfills lytPresence.previewBoard=false (no legacy predecessor) and railStyle=\'slot\'', () => {
+    const out = step(75)(legacyBlobWithUi());
+    expect(out.session.ui.lytPresence.previewBoard).toBe(false);
+    expect(out.session.ui.railStyle).toBe('slot');
+  });
+
+  it('deletes sidebarExpanded / controlsExpanded / boardExpanded', () => {
+    const out = step(75)(legacyBlobWithUi());
+    expect('sidebarExpanded' in out.session.ui).toBe(false);
+    expect('controlsExpanded' in out.session.ui).toBe(false);
+    expect('boardExpanded' in out.session.ui).toBe(false);
+  });
+
+  it('leaves treeExpanded and systemLogExpanded untouched', () => {
+    const out = step(75)(legacyBlobWithUi({ treeExpanded: false, systemLogExpanded: true }));
+    expect(out.session.ui.treeExpanded).toBe(false);
+    expect(out.session.ui.systemLogExpanded).toBe(true);
+  });
+
+  it('is idempotent — re-running against an already-migrated blob leaves lytPresence/railStyle unchanged', () => {
+    const once = step(75)(legacyBlobWithUi());
+    const twice = step(75)(once);
+    expect(twice.session.ui.lytPresence).toEqual(once.session.ui.lytPresence);
+    expect(twice.session.ui.railStyle).toBe(once.session.ui.railStyle);
+  });
+
+  it('preserves a pre-existing lytPresence entry rather than clobbering it with the legacy-field carry-forward', () => {
+    const blob = legacyBlobWithUi({ sidebarExpanded: true });
+    blob.session.ui.lytPresence = { boardRail: false };
+    const out = step(75)(blob);
+    // The explicit lytPresence.boardRail (false) wins over the legacy
+    // sidebarExpanded carry-forward (true) — a blob that already has the
+    // new shape is never re-derived from the old one.
+    expect(out.session.ui.lytPresence.boardRail).toBe(false);
+  });
+
+  it('is a no-op when session.ui is absent (very-legacy / partial blob)', () => {
+    const blob: any = { session: {} };
+    expect(step(75)(blob).session.ui).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v75 blob reaches CURRENT with the presence map + railStyle backfilled', () => {
+    const blob: any = {
+      schemaVersion: 75,
+      session: { ui: { activeTab: 'cards', sidebarExpanded: false, controlsExpanded: true } },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.session.ui.lytPresence).toEqual({ boardRail: false, controlPanel: true, previewBoard: false });
+    expect(out.session.ui.railStyle).toBe('slot');
+    expect('sidebarExpanded' in out.session.ui).toBe(false);
+  });
+});

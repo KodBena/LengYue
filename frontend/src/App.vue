@@ -138,6 +138,10 @@ import LibraryTab       from './components/library/LibraryTab.vue';
 import SystemLogPanel   from './components/chrome/SystemLogPanel.vue';
 import RootErrorBoundary from './components/chrome/RootErrorBoundary.vue';
 import LocalePicker     from './components/chrome/LocalePicker.vue';
+import SidebarWidget     from './components/chrome/SidebarWidget.vue';
+import LytPresenceMenu   from './components/chrome/LytPresenceMenu.vue';
+import BoardRailPopoverTrigger from './components/chrome/BoardRailPopoverTrigger.vue';
+import PreviewBoardPanel from './components/board/PreviewBoardPanel.vue';
 
 import { useReviewSession } from './composables/review/useReviewSession';
 import ColorDebugStrip  from './components/charts/ColorDebugStrip.vue';
@@ -466,6 +470,31 @@ const LYT_DOM_ID_BY_PATH: Record<string, string> = {
   '2.3.1': 'control-panel',
 };
 
+// LytNode runtime presence overrides (W2, roadmap §8 W2 item 1). Reads
+// straight off the persisted `session.ui.lytPresence` map for
+// `previewBoard`/`controlPanel` — LytNode.vue's own fallback
+// (`presenceOverrides[id] ?? child.presenceDefaultVisible`) already
+// degrades correctly for any id this map doesn't mention.
+//
+// `boardRail` gets ONE extra rule beyond a straight pass-through: when
+// `railStyle === 'popover'` (style B, roadmap §7 ruling 2), the
+// boardRail LEAF's own grid track must stay permanently collapsed
+// regardless of the stored `lytPresence.boardRail` value — in that
+// style the rail is realized entirely by `BoardRailPopoverTrigger.vue`
+// (a separate, ungridded popover mount), so the grid leaf must never
+// claim standing space. `lytPresence.boardRail` itself is still
+// preserved untouched in the store either way (only the OVERRIDE this
+// computed feeds to LytNode is style-conditioned, not the persisted
+// preference) — flipping back to 'slot' style restores the user's own
+// prior boardRail checkbox state exactly, not a reset default.
+const lytPresenceOverrides = computed<Record<string, boolean>>(() => {
+  const presence = store.session.ui.lytPresence;
+  if (store.session.ui.railStyle === 'popover') {
+    return { ...presence, boardRail: false };
+  }
+  return presence;
+});
+
 const { sync } = useAppBootstrap(auth);
 
 // Transient auto-reveal of the system-log panel on error/warning
@@ -610,7 +639,24 @@ const activeTab = computed<string>({
              is the program ROOT call — no `path` prop given, so
              LytNode.vue's own default (`''`) applies, matching
              `LYT_DOM_ID_BY_PATH['']`. -->
-        <LytNode :node="LYT_LANDSCAPE.root" :dom-ids-by-path="LYT_DOM_ID_BY_PATH">
+        <LytNode
+          :node="LYT_LANDSCAPE.root"
+          :dom-ids-by-path="LYT_DOM_ID_BY_PATH"
+          :presence-overrides="lytPresenceOverrides"
+        >
+
+          <!-- W2: style A only (railStyle === 'slot') actually shows this
+               leaf visible — in 'popover' style App.vue's own
+               `lytPresenceOverrides` forces this leaf's track collapsed,
+               so this slot never actually mounts (LytNode's v-else-if
+               gate never reaches it) regardless of what's declared here.
+               Reuses the SAME @load-sgf/@save-sgf handlers the toolbar's
+               own SGF buttons already call (lyt-widget-registry.ts's
+               boardRail note discloses the two-affordance judgment
+               call). -->
+          <template #leaf-boardRail>
+            <SidebarWidget @load-sgf="openFileDialog" @save-sgf="downloadActiveBoard" />
+          </template>
 
           <template #leaf-B>
             <div id="content">
@@ -748,7 +794,34 @@ const activeTab = computed<string>({
             </TabWidget>
           </template>
 
+          <!-- W2 (roadmap §8 W2 item 3): previewBoard's first real
+               content — see PreviewBoardPanel.vue's own header for the
+               disclosed active-board-placeholder scope narrowing. -->
+          <template #leaf-previewBoard>
+            <PreviewBoardPanel />
+          </template>
+
         </LytNode>
+
+        <!-- Corner presence menu + (style-B-only) board-rail popover
+             trigger — W2, roadmap §8 W2 items 1/2. Overlays, NOT LYT
+             tree nodes (SPEC.md §2: "Overlays... contribute no
+             constraints and occupy no standing space"), positioned
+             fixed at the extreme lower-right of the chrome, riding on
+             top of the existing workspace with zero grid-track cost.
+             The button cluster itself never covers #board-square (a
+             small fixed-size corner cluster, not a spreading overlay);
+             each popover opens ABOVE its own trigger (see each
+             component's own `<style>` — `bottom: 100%` anchors), so
+             opening either one still never occludes the board. -->
+        <div id="lyt-corner-chrome">
+          <BoardRailPopoverTrigger
+            v-if="store.session.ui.railStyle === 'popover'"
+            @load-sgf="openFileDialog"
+            @save-sgf="downloadActiveBoard"
+          />
+          <LytPresenceMenu />
+        </div>
       </template>
 
       <div
@@ -857,6 +930,27 @@ const activeTab = computed<string>({
   min-width: 0;
   min-height: 0;
   height: 100%;
+}
+
+/* Corner presence-menu / board-rail-popover cluster (W2). `position:
+   fixed` takes it out of #main-workspace's flex column flow entirely —
+   it does not add a row, does not participate in any LYT grid track,
+   and rides ABOVE whatever chrome happens to be underneath it (SPEC.md
+   §2's "overlays contribute no constraints and occupy no standing
+   space", realized literally). Anchored to the viewport's own
+   lower-right corner, matching the encoding's own placement rationale
+   for previewBoard (`encodings/lengyue_landscape.lyt`'s own comment:
+   "the rightmost slot of the new tree/panels row... IS the page's
+   lower-right corner (already home to the corner presence-menu
+   button..."). */
+#lyt-corner-chrome {
+  position: fixed;
+  bottom: var(--space-medium);
+  right: var(--space-medium);
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: var(--space-tight);
 }
 
 /* #board-area (root child 1, the board/info/action V-composite): under

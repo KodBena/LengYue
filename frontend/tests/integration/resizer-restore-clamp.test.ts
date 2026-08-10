@@ -325,7 +325,8 @@ describe('board-area width cap (commission row 848): narrowed to the pre-measure
     mountSplitWorkspace(rowWidthPx, rowHeightPx);
     const panel = withSetup(() => useResizablePanel());
 
-    expect(store.session.ui.controlsExpanded).toBe(true);
+    // Renamed from controlsExpanded (lyt-w2-presence, migration 75 -> 76).
+    expect(store.session.ui.lytPresence.controlPanel).toBe(true);
     // No longer undefined/flex-fill — the explicit default (init-vs-drag
     // divergence fix) takes over the instant the row is measured.
     const wrapperPx = panel.effectiveTreeControlRegionWidthPx.value;
@@ -361,8 +362,8 @@ describe('board-area width cap (commission row 848): narrowed to the pre-measure
     expect(panel.boardAreaMaxWidthPx.value).toBeUndefined(); // cap does not apply
   });
 
-  it('controlsExpanded false disables the cap — no competing #tree-control-wrapper flex-grow party to hand slack to', () => {
-    store.session.ui.controlsExpanded = false;
+  it('lytPresence.controlPanel false disables the cap — no competing #tree-control-wrapper flex-grow party to hand slack to (renamed from controlsExpanded, lyt-w2-presence)', () => {
+    store.session.ui.lytPresence.controlPanel = false;
     mountSplitWorkspace(2400, 900);
     const panel = withSetup(() => useResizablePanel());
 

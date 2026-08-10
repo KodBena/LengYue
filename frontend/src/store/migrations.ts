@@ -128,7 +128,7 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 75;
+export const CURRENT_SCHEMA_VERSION = 76;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -156,54 +156,6 @@ export const CURRENT_SCHEMA_VERSION = 75;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 73 → 74: strip the dead PV-fade knob (wiki2-pv-fade-knob). CSS
-  // transitions were banned and purged from `frontend/src`, which left
-  // `display.pv-fade-ms` — a `KnobDecl` registered under
-  // `profile.settings.knobs` targeting `session.ui.pvAnimation.fadeDurationMs`
-  // — controlling only inert JS-scheduling padding with no observable
-  // effect (see `use-pv-animation.ts`'s file header for the full
-  // account). Both the knob's registered decl and the field it wrote
-  // are removed from the persisted blob:
-  //
-  //   (a) `profile.settings.knobs['display.pv-fade-ms']` — the
-  //       registered decl. Without this strip, a pre-existing blob's
-  //       decl would survive `updateFromRemote`'s deepMerge as a stray
-  //       runtime key (defaults.ts no longer seeds it), and keep
-  //       getting re-persisted forever — the same "half-defeating the
-  //       move" failure the 57 → 58 archived body's `knownTags` strip
-  //       named for a different field.
-  //
-  //   (b) `session.ui.pvAnimation.fadeDurationMs` — the persisted
-  //       value the knob used to write. `defaults.ts`'s `pvAnimation`
-  //       default object no longer carries this leaf either, so
-  //       leaving it in old blobs would be a stray key the runtime
-  //       type (`PvAnimationSettings`, now without `fadeDurationMs`)
-  //       doesn't describe.
-  //
-  // No value is carried forward from either field — there is nothing
-  // downstream to migrate a fadeDurationMs number INTO now that the
-  // knob and the field are both gone; we just delete the dead keys.
-  //
-  // Idempotent: `delete` is a no-op when a key is already absent.
-  //
-  // Container access goes through `witnessedContainer`: both
-  // `profile.settings.knobs` and `session.ui.pvAnimation` exist from
-  // well before this migration (the former seeded at the framework's
-  // knob-registry introduction, the latter backfilled by the archived
-  // 9 → 10 body), so a typo'd path fails loudly here rather than
-  // no-oping and stamping the version.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const knobs = witnessedContainer(out, 'profile.settings.knobs');
-    if (knobs) {
-      delete (knobs as Record<string, unknown>)['display.pv-fade-ms'];
-    }
-    const pvAnimation = witnessedContainer(out, 'session.ui.pvAnimation');
-    if (pvAnimation) {
-      delete (pvAnimation as { fadeDurationMs?: unknown }).fadeDurationMs;
-    }
-    return out;
-  },
   // 74 → 75: backfill `session.ui.showGhostStone` (boolean, default
   // true) — the new toggle for the ghost-stone hover preview
   // (wiki2-ghost-stone). The leaf is read by `BoardWidget` (threaded
@@ -235,6 +187,88 @@ export const migrations: Migration[] = [
       if (typeof u.showGhostStone !== 'boolean') {
         u.showGhostStone = true;
       }
+    }
+    return out;
+  },
+  // 75 → 76: LYT corner presence-menu state migration (W2,
+  // `.claude/dispatch-reports/lyt-vue-realization-roadmap.md` §5 +
+  // ledger row 1743). Introduces `session.ui.lytPresence` (per-widget-id
+  // boolean map) and `session.ui.railStyle` ('slot' | 'popover'),
+  // superseding three of the five pre-LYT-rework `*Expanded` toggles:
+  //
+  //   - `sidebarExpanded`  -> `lytPresence.boardRail`   (value carried
+  //     forward when boolean; the boardRail LYT leaf's own registration
+  //     default, `false`, otherwise — see schema.ts's own doc comment).
+  //   - `controlsExpanded` -> `lytPresence.controlPanel` (same carry-
+  //     forward rule; registration default `true`).
+  //   - `boardExpanded` retires outright, no successor — the board
+  //     composite is architecturally always-mounted (roadmap §5); no
+  //     value is carried forward anywhere, matching the 65 → 66 archived
+  //     body's own "strip with no successor" precedent for a dead field.
+  //   - `lytPresence.previewBoard` is a genuinely NEW target (no
+  //     pre-LYT-rework predecessor) — backfilled straight to its own
+  //     registration default, `false`.
+  //   - `railStyle` is likewise new — backfilled to `'slot'` (roadmap §7
+  //     ruling 2's own default; the user flips it explicitly).
+  //
+  // `sidebarExpanded` / `controlsExpanded` / `boardExpanded` are then
+  // deleted — the runtime `UISession` type (schema.ts) no longer
+  // describes them, so leaving any of the three in a migrated blob
+  // would be a stray key.
+  //
+  // DELIBERATELY NOT migrated: `treeExpanded` (untouched, still a real
+  // schema field — see schema.ts's own doc comment on why: blind-
+  // review-mode's unrelated, load-bearing reuse of that field name,
+  // outside W2's scope to touch) and `systemLogExpanded` (W4's overlay-
+  // stratum ruling owns that field's eventual home, per the roadmap's
+  // own commission text — untouched here).
+  //
+  // Container access goes through `witnessedContainer` (step 3 of the
+  // add-a-migration recipe): `session.ui` is witnessed against the
+  // runtime shape, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version. The blob-side resolution keeps
+  // the sibling bodies' non-null-object tolerance: a partial / legacy
+  // blob whose container is absent no-ops (both new fields stay
+  // unset — `updateFromRemote`'s deepMerge against `defaultSessionUI`
+  // supplies them on the next hydrate, same fallback every other
+  // additive field in this file relies on).
+  //
+  // Idempotent: re-running against an already-migrated blob (no
+  // `sidebarExpanded`/`controlsExpanded`/`boardExpanded` keys present,
+  // `lytPresence`/`railStyle` already set) leaves both new fields
+  // untouched — the boolean/string-typed guards below only backfill a
+  // MISSING or wrong-typed leaf, never overwrite a valid one.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as {
+        sidebarExpanded?: unknown;
+        controlsExpanded?: unknown;
+        boardExpanded?: unknown;
+        lytPresence?: unknown;
+        railStyle?: unknown;
+      };
+      const presence: Record<string, boolean> =
+        typeof u.lytPresence === 'object' && u.lytPresence !== null
+          ? { ...(u.lytPresence as Record<string, unknown>) } as Record<string, boolean>
+          : {};
+      if (typeof presence.boardRail !== 'boolean') {
+        presence.boardRail = typeof u.sidebarExpanded === 'boolean' ? u.sidebarExpanded : false;
+      }
+      if (typeof presence.controlPanel !== 'boolean') {
+        presence.controlPanel = typeof u.controlsExpanded === 'boolean' ? u.controlsExpanded : true;
+      }
+      if (typeof presence.previewBoard !== 'boolean') {
+        presence.previewBoard = false;
+      }
+      u.lytPresence = presence;
+      if (u.railStyle !== 'slot' && u.railStyle !== 'popover') {
+        u.railStyle = 'slot';
+      }
+      delete u.sidebarExpanded;
+      delete u.controlsExpanded;
+      delete u.boardExpanded;
     }
     return out;
   },

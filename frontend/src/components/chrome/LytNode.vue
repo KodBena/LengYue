@@ -40,10 +40,44 @@
   `research/lyt/emit_mockup.py`'s own proven `.board-cell` pattern —
   that module's docstring has the full B1-fix derivation).
 
-  A `presenceDefaultVisible: false` child (W1: boardRail, previewBoard)
-  renders nothing and its own track collapses to `0px` — there is no
-  presence menu this wave (roadmap §8: "NO presence menu this wave"), so
-  a default-off leaf is simply absent, not a toggle target.
+  Runtime presence overrides (W2, `.claude/dispatch-reports/lyt-vue-
+  realization-roadmap.md` §8 W2): the `presenceOverrides` prop is a
+  path-independent widget-id -> boolean map (App.vue threads
+  `store.session.ui.lytPresence` straight through, unchanged reference,
+  forwarded verbatim to every recursive instance the same way
+  `domIdsByPath` already is). `isPresent(child)` resolves a leaf/blackbox
+  child's visibility as `presenceOverrides[widgetId] ?? child.
+  presenceDefaultVisible` — an id absent from the override map (the
+  common case: most leaves are never presence-menu targets) falls back to
+  the compiled program's own static default, so W1's behavior is exactly
+  reproduced for every widget the presence menu doesn't govern. A Split
+  child has no single widget id of its own (only its DESCENDANT leaves
+  can be individually toggled) and is therefore always present — an
+  entire Split subtree collapsing as a unit is not a presence concept
+  this program's compiled shape expresses; only leaf/blackbox children
+  are ever toggle targets, per LYT SPEC.md §11's own "only a bare leaf
+  can be named" scoping (this realization additionally treats the
+  collapsed `controlPanel` blackbox as a toggle target too, a disclosed
+  Vue-level extension beyond the static `.lyt` encoding's own release-
+  toggle declarations — see `composables/chrome/useLytPresenceMenu.ts`'s
+  header for why). A toggled-off leaf's track collapses to `0px`
+  (release semantics, SPEC.md §3) and its slot content unmounts entirely
+  (the `v-else-if="isPresent(...)"` gate below is a real `v-if`, not a
+  `visibility:hidden` — Vue destroys the component instance, matching
+  `release` rather than `preserve`).
+
+  boardRail reservation generalization (W2): the `board-priority-clamp`
+  track (the side control column, root child '2') now needs to know
+  boardRail's OWN current reserved width to size correctly once boardRail
+  can genuinely be visible — see `useLytTrackCss.ts`'s own header for the
+  full derivation. `boardRailReservedPx` below finds a `boardRail` leaf
+  among THIS node's own children (a hardcoded, disclosed cross-reference
+  — this generalization is scoped to the one shape it's needed for, not a
+  fully generic "any preceding sibling" mechanism; a `find()` over a
+  small children array costs nothing and returns immediately for every
+  non-root recursion, where no `boardRail` sibling exists) and reports its
+  live reserved px (own fixed px + this split's gap) when visible, 0
+  otherwise — 0 reproduces the pre-W2 formula exactly.
 
   DOM-id wiring (repair pass, ledger row 1781, W1 REPAIR — review finding
   B, `.claude/dispatch-reports/lyt-w1-skeleton-review.md` §3): the
@@ -86,8 +120,13 @@ const props = withDefaults(
      *  …) commission item 4 requires preserved — see App.vue's own
      *  `LYT_DOM_ID_BY_PATH` for the concrete map. */
     domIdsByPath?: Record<string, string>;
+    /** widget id -> visible, forwarded verbatim to every recursive
+     *  instance (W2). An id absent from this map falls back to that
+     *  leaf/blackbox's own compiled `presenceDefaultVisible` — see the
+     *  file header's "Runtime presence overrides" note. */
+    presenceOverrides?: Record<string, boolean>;
   }>(),
-  { path: '', domIdsByPath: () => ({}) },
+  { path: '', domIdsByPath: () => ({}), presenceOverrides: () => ({}) },
 );
 
 const slots = useSlots();
@@ -138,8 +177,46 @@ const groups = computed<Group[]>(() => {
   return out;
 });
 
+// A Split child has no single widget id of its own — only its
+// descendant leaves are individually toggle targets (file header,
+// "Runtime presence overrides"). `null` here means "always present."
+function widgetIdOf(child: LytChild): string | null {
+  return child.node.kind === 'split' ? null : child.node.widget;
+}
+
+function isPresent(child: LytChild): boolean {
+  const id = widgetIdOf(child);
+  if (id === null) return true;
+  const override = props.presenceOverrides[id];
+  return override ?? child.presenceDefaultVisible;
+}
+
+// boardRail reservation generalization — see file header. Finds a
+// `boardRail` leaf among THIS node's own children (present only at the
+// program root; every other recursion's `find` returns undefined
+// immediately) and reports its live reserved px when visible.
+const boardRailReservedPx = computed<number>(() => {
+  const rail = props.node.children.find(
+    (c) => c.node.kind === 'leaf' && c.node.widget === 'boardRail',
+  );
+  if (!rail || rail.node.kind !== 'leaf' || rail.track.kind !== 'fixed') return 0;
+  if (!isPresent(rail)) return 0;
+  return rail.track.px + props.node.gapPx;
+});
+
 const trackList = computed<string[]>(() =>
-  props.node.children.map((c) => (c.presenceDefaultVisible ? trackCssValue(c.track) : '0px')),
+  props.node.children.map((c) => {
+    if (!isPresent(c)) return '0px';
+    // board-priority-clamp is carried by the side column child, which is
+    // itself a nested Split (node.kind === 'split') — the reservation
+    // generalization applies regardless of the child's own node kind,
+    // since `track` describes the child's OWN reserved extent along
+    // THIS split's axis either way.
+    if (c.track.kind === 'board-priority-clamp') {
+      return trackCssValue(c.track, boardRailReservedPx.value);
+    }
+    return trackCssValue(c.track);
+  }),
 );
 
 const gapCss = computed(() => gapCssFor(props.node.axis, props.node.gapPx));
@@ -205,7 +282,12 @@ const slotNames = computed(() => Object.keys(slots));
         class="lyt-node-slot"
         style="min-width: 0; min-height: 0; width: 100%; height: 100%"
       >
-        <LytNode :node="group.rep.node" :path="group.rep.path" :dom-ids-by-path="domIdsByPath">
+        <LytNode
+          :node="group.rep.node"
+          :path="group.rep.path"
+          :dom-ids-by-path="domIdsByPath"
+          :presence-overrides="presenceOverrides"
+        >
           <!-- Forward every named slot App.vue supplied at the top of the
                recursion. None of LytNode's leaf slots are SCOPED (App.vue
                passes plain content, never `v-bind`-ed props into a leaf),
@@ -216,13 +298,15 @@ const slotNames = computed(() => Object.keys(slots));
         </LytNode>
       </div>
 
-      <!-- Leaf / blackbox: terminal. Not rendered at all when default-off
-           this wave (roadmap §8 W1 item 1) or when the registry has no
+      <!-- Leaf / blackbox: terminal. Not rendered at all when presence
+           says absent (W1: static `presenceDefaultVisible`; W2: the
+           runtime `presenceOverrides` map — see the file header's
+           "Runtime presence overrides" note) or when the registry has no
            component for it yet ('absent' with no visible placeholder
-           needed since W1's only absent widget, previewBoard, is also
-           default-off). -->
+           needed). A real `v-if`, not `visibility:hidden` — toggling off
+           unmounts the component instance (release semantics). -->
       <div
-        v-else-if="group.rep.presenceDefaultVisible"
+        v-else-if="isPresent(group.rep)"
         :id="domId(group.rep.path)"
         :style="{ ...placementStyle(group), minWidth: '0', minHeight: '0' }"
         :class="['lyt-leaf-cell', { 'lyt-board-cell': isAspectLeaf(group.rep) }]"

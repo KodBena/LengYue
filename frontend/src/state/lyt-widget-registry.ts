@@ -141,23 +141,22 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     note: 'The collapsed T(CP-*) black-box node (see lyt-layout.gen.ts header). TabWidget.vue already owns the tab-strip-plus-body realization internally with its own five named slots (#library/#cards/#settings/#analysis/#other) — those are unchanged, App.vue\'s existing tab-body templates ride along verbatim inside this one mount.',
   },
 
-  // ── Default-off presence slots (roadmap §8 W1 item 1: "simply not
-  //    rendered this wave") ───────────────────────────────────────────────
+  // ── Corner presence-menu targets (default-off; roadmap §8 W2) ──────────
   boardRail: {
     widget: 'boardRail',
     component: 'SidebarWidget',
     status: 'mounted',
     slotName: '#leaf-boardRail',
     absorbedInto: null,
-    note: 'A real component exists (SidebarWidget.vue), but this leaf\'s presenceDefaultVisible is false in lyt-layout.gen.ts (ledger row ~1735 ruling) — LytNode.vue does not render a default-off leaf at all this wave (no presence menu until W2), so this slot is never actually invoked. Registered mounted (not absent) to distinguish "component exists, just off by default" from previewBoard\'s genuine absence below.',
+    note: 'W2: mounts SidebarWidget.vue into this leaf when `session.ui.railStyle === \'slot\'` AND `session.ui.lytPresence.boardRail` is true (style A, roadmap §7 ruling 2). Style B (`railStyle === \'popover\'`) keeps this leaf\'s runtime presence override forced false regardless of `lytPresence.boardRail` — App.vue computes the override map, not LytNode.vue — so the grid track never claims standing space in that style; the rail instead renders inside `BoardRailPopoverTrigger.vue`\'s own popover, reusing the SAME SidebarWidget instance shape (a second mount, not a shared component instance — Vue components are not multiply-homed).',
   },
   previewBoard: {
     widget: 'previewBoard',
-    component: null,
-    status: 'absent',
-    slotName: null,
+    component: 'PreviewBoardPanel',
+    status: 'mounted',
+    slotName: '#leaf-previewBoard',
     absorbedInto: null,
-    note: 'No current component. The roadmap names the MiniBoard machinery as previewBoard\'s eventual content (W2: "previewBoard mounts the MiniBoard machinery as its first content") — out of W1 scope, and also presenceDefaultVisible: false, so doubly unrendered this wave.',
+    note: 'W2: mounts PreviewBoardPanel.vue (components/board/PreviewBoardPanel.vue), a read-only MiniBoard-based preview reusing LibraryPreviewPane\'s boardSnapshot-projection machinery. DISCLOSED SCOPE NARROWING (commission item 3, P1/P2): the variation-to-display fact ("what is the user currently hovering/considering in the tree/analysis surfaces") does not exist as readable derived state yet, so this mounts the ACTIVE BOARD\'s current position as a placeholder — a real, honest preview of *something* (today\'s board), not a stub — rather than inventing new analysis plumbing. Upgrading to true variation-hover content is a later, disclosed arc.',
   },
 };
 
