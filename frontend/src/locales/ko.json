@@ -478,6 +478,9 @@
   "wizard.palette.describe.default.body": "Quality와 동일한 로버스트 차일드 일치도를 사용하지만, 구간을 중앙값이 아니라 가장 나쁜 한 수로 집계합니다 — 기존 프로필과의 호환성을 위해 남겨진 더 엄격한 지표입니다.",
   "wizard.palette.editorPointer":         "자유로운 편집은 설정의 '분석 환경' 탭을 확인하세요.",
 
+  "wizard.step.locale.title":             "언어 (Language)",
+  "wizard.step.locale.description":       "마법사와 앱 전체의 표시 언어를 선택하세요 — 선택하면 즉시 적용되며, 툴바의 언어 선택기에서 언제든지 변경할 수 있습니다.",
+
   "wizard.step.sgfImport.title":          "대국 가져오기 (선택)",
   "wizard.step.sgfImport.description":    "이 기기에 SGF 파일이 있다면 지금 라이브러리로 가져올 수 있습니다 — 또는 건너뛰고 나중에 라이브러리 탭에서 가져올 수도 있습니다.",
   "wizard.sgfImport.dropHint":            "SGF 파일이나 SGF가 담긴 폴더를 여기로 끌어다 놓거나, 아래에서 선택하세요:",

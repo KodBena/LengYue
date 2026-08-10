@@ -478,6 +478,9 @@
   "wizard.palette.describe.default.body": "Qualityと同じロバストチャイルド一致度を用いますが、区間内の中央値ではなく最悪の一手で集計します — 既存プロファイルとの互換性のために残された、より厳格な指標です。",
   "wizard.palette.editorPointer":         "自由な編集は、設定の「分析環境」タブをご覧ください。",
 
+  "wizard.step.locale.title":             "言語 (Language)",
+  "wizard.step.locale.description":       "ウィザードとアプリ全体の表示言語を選択します — 選択するとすぐに反映され、ツールバーの言語ピッカーからいつでも変更できます。",
+
   "wizard.step.sgfImport.title":          "対局を取り込む(任意)",
   "wizard.step.sgfImport.description":    "この端末に SGF ファイルがあれば、今すぐライブラリに取り込めます — またはスキップして、後でライブラリタブから取り込むこともできます。",
   "wizard.sgfImport.dropHint":            "SGF ファイル、または SGF が入ったフォルダをここにドラッグするか、以下から選んでください:",
