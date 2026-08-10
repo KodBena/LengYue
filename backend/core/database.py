@@ -33,14 +33,26 @@ from sqlalchemy.ext.asyncio import (
 
 # Ledger rows 1341-1343 (THE CONCURRENCY CONTRACT):
 #
-# aiosqlite/sqlite3 default to journal_mode=DELETE (the classic rollback
-# journal) with NO busy timeout — a connection that finds the database
-# locked raises SQLITE_BUSY immediately instead of waiting. 16 concurrent
-# `PUT /documents/{key}` requests reproduced 3x unhandled 500
-# (OperationalError: database is locked) under exactly this config,
-# because DELETE-mode writers take an exclusive lock on the whole
-# database file for the duration of a write transaction, and any second
-# writer arriving mid-transaction has nothing to wait on.
+# The prior state was NOT "no busy timeout" — aiosqlite/sqlite3 default
+# to journal_mode=DELETE (the classic rollback journal) plus stdlib
+# sqlite3's own default 5.0s busy-wait (sqlite3.connect()'s `timeout`
+# parameter, applied even with no explicit connect_args). 16 concurrent
+# `PUT /documents/{key}` requests still reproduced 3x unhandled 500
+# (OperationalError: database is locked) under that config. Two things
+# make that consistent: (1) in rollback-journal (non-WAL) mode, the
+# SELECT-then-write shape this app's upsert uses can hit a lock
+# *upgrade* (shared -> reserved/exclusive) that fails immediately on
+# collision without honoring the connection's busy-wait at all (the
+# row-1367 mechanism — the 5.0s default only governs waiting to
+# *open* a lock, not every upgrade path), and (2) DELETE-mode writers
+# take an exclusive lock on the whole database file for the duration
+# of a write transaction, so under real request load the actual
+# contention windows exceeded what the 5.0s default absorbed even
+# where it did apply. The contract below replaces that implicit,
+# partially-effective default with an explicit policy: WAL (so
+# readers/writers stop contending for the same whole-file lock and the
+# row-1367 upgrade-failure shape no longer applies) plus a deliberate
+# 30s busy timeout and synchronous=NORMAL.
 #
 # The fix has two independent parts, both declared here (the single home
 # where every SQLite connection this application opens is constructed):
