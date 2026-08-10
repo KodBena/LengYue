@@ -164,14 +164,24 @@ report boundary):
     two `.lyt` source files declare only default (`@fixed`) presence --
     neither encodes an `@toggle`. The commissioned corner menu is an
     ADDED UI affordance, not a rendering of a declared presence. Targets
-    chosen: the five (four in portrait) top-level consolidated groups
-    that already get the census's A/B/C/D-style visual grouping. Board
-    and the tree/control-panel tab group use `preserve` (CSS
-    `visibility:hidden` -- the codebase's own SetupToolPalette
-    precedent, layout-language-consult.md line 213-214); the three
-    action/info strips use `release` (CSS `display:none`, space
-    redistributes to the grid's other tracks) -- matching the census's
-    own sidebar-collapse-rail / board-tree-controls-toggle family.
+    chosen (as of the original commission): the five (four in portrait)
+    top-level consolidated groups that already get the census's
+    A/B/C/D-style visual grouping. Board and the tree/control-panel tab
+    group use `preserve` (CSS `visibility:hidden` -- the codebase's own
+    SetupToolPalette precedent, layout-language-consult.md line 213-214);
+    the three action/info strips use `release` (CSS `display:none`,
+    space redistributes to the grid's other tracks) -- matching the
+    census's own sidebar-collapse-rail / board-tree-controls-toggle
+    family.
+  - lyt-tree-always-visible (ledger row ~1735) EXTENDS this registry with
+    two more `release` targets, both DEFAULT OFF (`TOGGLE_TARGETS`'
+    third tuple element): "Board Rail" (the reinstated boardRail leaf)
+    and "Preview Board" (the new previewBoard leaf). Landscape now
+    carries 7 targets (2^7=128 power-set states), portrait 6 (2^6=64) --
+    `verify_power_set.mjs` reads the live checkbox list from the DOM, so
+    it needed no target-COUNT change, only a baseline-capture fix (see
+    its own updated header) for the fact that the initial page load no
+    longer equals the all-checked state.
   - Debug-class (C) widgets (autoNav, popStress, clearCache dev-only
     per the census, folded into `A_common`'s own comment "`@dev C
     strip`" in the .lyt source) render as a single relegated, inert
@@ -258,8 +268,9 @@ OVERLAY_SIZES: Dict[str, List[Tuple[str, int, int]]] = {
     ],
 }
 
-# path-tuple (child index chain from the class's root Split) -> (label, presence).
-# See the module docstring's "Corner presence-menu targets" paragraph.
+# path-tuple (child index chain from the class's root Split) -> (label,
+# presence, default_visible). See the module docstring's "Corner
+# presence-menu targets" paragraph.
 #
 # M1 fix (fix pass): "Tree & Panels" flips preserve -> release on both
 # classes. The review's finding was that the two largest regions on the
@@ -275,19 +286,42 @@ OVERLAY_SIZES: Dict[str, List[Tuple[str, int, int]]] = {
 # (board + info row + action row, i.e. Pass/move-nav/Annotate/Setup ride
 # along too), which the bare word "Board" doesn't disclose. Renaming is
 # the review's own offered cheap alternative to splitting the target.
-TOGGLE_TARGETS: Dict[str, Dict[Tuple[int, ...], Tuple[str, str]]] = {
+#
+# TREE-ALWAYS-VISIBLE fix (ledger row ~1735): "Tree & Panels" now names
+# ONLY the T(CP-*) node (tree itself is pulled out into a permanent
+# sibling and is no longer a toggle target at all -- "always visible" per
+# the commissioner's own words means it does not appear in this registry
+# in the first place, not that it appears with some special presence).
+# Landscape's path shifts from (1,3) to (1,3,1) since the tree/panels
+# row picked up a new H(...) wrapper (tree, T(CP-*), previewBoard);
+# portrait's shifts from (3,) to (3,1) for the same reason.
+#
+# boardRail / previewBoard (same ledger row): two NEW default-OFF
+# release targets. `default_visible=False` is the third tuple element --
+# every pre-existing entry keeps `True` (unchanged behavior, explicitly
+# spelled out rather than left to an implicit default, so a reader can
+# see at a glance which targets are new). See `_child_wrap` and
+# `render_split` for how a `False` here seeds the generated page's
+# INITIAL html/css (unchecked checkbox, collapsed track, `display:none`)
+# without waiting for a click -- the mechanism this dict previously had
+# no need for, since every prior target defaulted to shown.
+TOGGLE_TARGETS: Dict[str, Dict[Tuple[int, ...], Tuple[str, str, bool]]] = {
     "landscape": {
-        (0,): ("Board & Controls", "preserve"),
-        (1, 0): ("Go Actions", "release"),
-        (1, 1): ("Engine Info", "release"),
-        (1, 2): ("Common Actions", "release"),
-        (1, 3): ("Tree & Panels", "release"),
+        (0,): ("Board Rail", "release", False),
+        (1,): ("Board & Controls", "preserve", True),
+        (2, 0): ("Go Actions", "release", True),
+        (2, 1): ("Engine Info", "release", True),
+        (2, 2): ("Common Actions", "release", True),
+        (2, 3, 1): ("Tree & Panels", "release", True),
+        (2, 3, 2): ("Preview Board", "release", False),
     },
     "portrait": {
-        (0,): ("Top Actions", "release"),
-        (1,): ("Board & Controls", "preserve"),
-        (2,): ("Engine Info", "release"),
-        (3,): ("Tree & Panels", "release"),
+        (0,): ("Board Rail", "release", False),
+        (1,): ("Top Actions", "release", True),
+        (2,): ("Board & Controls", "preserve", True),
+        (3,): ("Engine Info", "release", True),
+        (4, 1): ("Tree & Panels", "release", True),
+        (4, 2): ("Preview Board", "release", False),
     },
 }
 
@@ -303,12 +337,15 @@ TAB_LABELS: Dict[str, str] = {
 # Widget id -> honest-proxy inner HTML (fixed sample content sized to the
 # slot's own reservation, never content that would vary -- per the
 # commission's own "LATENCY '40 ms', never content that would vary").
-# The board leaf ('B') is handled separately by `_board_html` since it is
-# not text content. Only the T-node's own children (tree, CP-*) live here
-# -- the single-line info/actions strips are `ROW_WIDGETS` below instead,
-# so their optional corner-menu caption can be spliced into the SAME flex
-# row rather than overlapping the content vertically (see that dict's
-# own docstring).
+# The board leaf ('B') and previewBoard are handled separately (by
+# `_board_html`, see `render_leaf`) since they are not text content.
+# Block-shaped leaf content lives here: the T-node's own children (CP-*),
+# tree (a plain leaf since the TREE-ALWAYS-VISIBLE fix, ledger row ~1735
+# -- still block-shaped, so it stays in this dict unchanged), and
+# boardRail (same ledger row). The single-line info/actions strips are
+# `ROW_WIDGETS` below instead, so their optional corner-menu caption can
+# be spliced into the SAME flex row rather than overlapping the content
+# vertically (see that dict's own docstring).
 WIDGET_CONTENT: Dict[str, str] = {
     # M2/X8 fix (fix pass): denser, more realistic tree content -- a real
     # game tree at move ~47 (I_board's own sample "Move 47", kept
@@ -342,6 +379,20 @@ WIDGET_CONTENT: Dict[str, str] = {
     "CP-settings": '<div class="blackbox-body">Settings (control-panel tab — black box, SS2 census)</div>',
     "CP-analysis": '<div class="blackbox-body">Analysis (control-panel tab — black box, SS2 census)</div>',
     "CP-other": '<div class="blackbox-body">Other (control-panel tab — black box, SS2 census)</div>',
+    # boardRail (ledger row ~1735): the open-boards thumbnail rail, back
+    # in the tree as a default-OFF toggleable slot (see
+    # `encodings/lengyue_landscape.lyt`'s own header). Honest-proxy
+    # content, same discipline as every other WIDGET_CONTENT entry --
+    # reuses `.blackbox-body`/`.tree-row` rather than inventing a third
+    # near-identical CSS rule pair for one more list-of-rows widget.
+    "boardRail": (
+        '<div class="blackbox-body">'
+        '<div class="tree-row">Board 1 — current</div>'
+        '<div class="tree-row">Board 2 — Handicap study</div>'
+        '<div class="tree-row">Board 3 — Joseki review</div>'
+        '<div class="tree-row">Board 4 — vs KataGo</div>'
+        "</div>"
+    ),
 }
 
 # Row-shaped leaf widgets (single-line info/actions strips): widget id ->
@@ -762,25 +813,46 @@ def _child_wrap(
     -- the largest square that fits the cell on EITHER axis, centered by
     the cell's own `place-items:center`. This is exact (not an
     approximation) at every viewport, not just the ones a live-resize
-    happened to be eyeballed at."""
+    happened to be eyeballed at.
+
+    GENERALIZATION (ledger row ~1735, previewBoard): the containment
+    class used to be gated on `child.node.widget == "B"` -- the ONE
+    aspect-locked leaf either encoding had. previewBoard is a second one
+    (a modest 160px/96px fixed-and-square leaf, not a maximize target),
+    so the gate is now `child.sizing.aspect is not None` -- ANY
+    aspect-locked leaf gets the same cross-axis container-query
+    containment, not just the board. The CSS class name (`board-cell`)
+    is kept as-is rather than renamed: it is a rendering-mechanism hook
+    (container-type:size + the sizing formula in `_STYLE`), not a
+    board-specific identity marker, and renaming it would touch every
+    pinned test string for no behavioral gain.
+
+    DEFAULT-HIDDEN (same ledger row, boardRail/previewBoard): a release
+    target whose registry entry's third element is `False` starts the
+    page COLLAPSED -- `display:none` on the element itself, seeded here;
+    the matching parent-grid track override (`{track_prop}:0px`) is
+    seeded by the caller, `render_split`, since that override lives on
+    the PARENT's own style attribute, not this child's."""
     parts = ["min-width:0", "min-height:0"]
-    is_board_leaf = isinstance(child.node, ast.Leaf) and child.node.widget == "B"
-    extra_style = ";".join(parts) + ";"
+    is_aspect_leaf = isinstance(child.node, ast.Leaf) and child.sizing.aspect is not None
 
     toggle = TOGGLE_TARGETS.get(class_id, {}).get(cpath)
     class_parts: List[str] = []
-    if is_board_leaf:
+    if is_aspect_leaf:
         class_parts.append("board-cell")
     if toggle:
-        label, presence = toggle
+        label, presence, default_visible = toggle
         extra_data = f'data-toggle-id="{_slug(label)}" data-presence="{presence}"'
         if presence == "release":
             extra_data += f' data-track-prop="{track_prop}"'
+            if not default_visible:
+                parts.append("display:none")
         class_parts.append("lyt-group")
         caption: Optional[str] = label
     else:
         extra_data = ""
         caption = None
+    extra_style = ";".join(parts) + ";"
     extra_class = " ".join(class_parts)
     return extra_style, extra_data, extra_class, caption
 
@@ -812,6 +884,18 @@ def render_split(
 
     tracks: List[str] = []
     kids: List[str] = []
+    # DEFAULT-HIDDEN track overrides (ledger row ~1735, boardRail/
+    # previewBoard): a release toggle target registered with
+    # `default_visible=False` must render COLLAPSED on first paint, not
+    # just after a click. The `var(--track-<p>, <computed>)` fallback
+    # baked into `tracks` below must stay the FULL computed value (so
+    # re-checking the box restores it via `removeProperty`, exactly the
+    # JS toggle handler's own `else` branch) -- so the collapse is
+    # applied as an inline CUSTOM-PROPERTY OVERRIDE on THIS split's own
+    # `style`, the same mechanism `_SCRIPT`'s release handler uses at
+    # runtime (`el.parentElement.style.setProperty(trackProp, '0px')`),
+    # just pre-seeded at generation time instead of deferred to a click.
+    default_hidden_overrides: List[str] = []
     for i, child in enumerate(node.children):
         cpath = path + (i,)
         track_value = raw_track_values[i]
@@ -846,6 +930,9 @@ def render_split(
         # ever land on a track it wasn't meant for.
         track_prop = "--track-" + "-".join(str(p) for p in cpath)
         tracks.append(f"var({track_prop}, {track_value})")
+        toggle_here = TOGGLE_TARGETS.get(class_id, {}).get(cpath)
+        if toggle_here and toggle_here[1] == "release" and not toggle_here[2]:
+            default_hidden_overrides.append(f"{track_prop}:0px;")
         c_style, c_data, c_class, c_caption = _child_wrap(child, cpath=cpath, class_id=class_id, axis=axis, track_prop=track_prop)
         if composite_match is not None and i == composite_match[0]:
             # N3 fix: mark this child (the board composite -- the Split
@@ -893,7 +980,7 @@ def render_split(
     else:
         template = f"grid-auto-flow:row;grid-template-rows:{' '.join(tracks)};grid-template-columns:1fr;"
         gap_style = f"column-gap:0px;row-gap:{gap_px:g}px;"
-    style = f"display:grid;{template}{gap_style}{extra_style}"
+    style = f"display:grid;{template}{gap_style}{''.join(default_hidden_overrides)}{extra_style}"
     # No text caption at the Split level: a Split group's toggle target in
     # this mockup (only "Board", the V-wrapper of B/I_board/A_board) has no
     # single row to splice a label into without either overlapping the
@@ -934,6 +1021,15 @@ def render_exclusive(
 
 def render_leaf(node: ast.Leaf, *, extra_style: str, extra_data: str, extra_class: str, caption: Optional[str]) -> str:
     if node.widget == "B":
+        content = _board_html()
+    elif node.widget == "previewBoard":
+        # Ledger row ~1735: the variation-preview mini board reuses the
+        # SAME honest-proxy goban content as the main board -- it is a
+        # square Go-board rendering, just a second, smaller reservation
+        # (see `_child_wrap`'s `is_aspect_leaf` generalization); the
+        # `.board-square` div's own sizing is percentage/cq-based, so it
+        # scales correctly to this leaf's smaller cell without a second
+        # content function.
         content = _board_html()
     elif node.widget in ROW_WIDGETS:
         row_class, inner = ROW_WIDGETS[node.widget]
@@ -1438,9 +1534,15 @@ def build_overlay_data(reg, layouts: Dict[str, ast.Slot], class_id: str, *, time
 def build_html_for_class(class_id: str, root_slot: ast.Slot, overlay_data: List[dict]) -> str:
     body_html = render_node(root_slot, path=(), class_id=class_id, extra_style="width:100%;height:100%;")
     menu_items = TOGGLE_TARGETS.get(class_id, {})
+    # `checked` is now conditional on the registry's own default_visible
+    # flag (ledger row ~1735) -- previously every target defaulted to
+    # shown, so the attribute was unconditional; boardRail/previewBoard
+    # are the first entries to start unchecked, matching the collapsed
+    # initial CSS state `render_split`/`_child_wrap` seed for them.
     checklist_html = "".join(
-        f'<label class="lyt-menu-row"><input type="checkbox" data-toggle-for="{_slug(label)}" checked> {html.escape(label)}</label>'
-        for (label, _presence) in menu_items.values()
+        f'<label class="lyt-menu-row"><input type="checkbox" data-toggle-for="{_slug(label)}"'
+        f'{" checked" if default_visible else ""}> {html.escape(label)}</label>'
+        for (label, _presence, default_visible) in menu_items.values()
     )
     overlay_json = json.dumps(overlay_data)
     title = f"LengYue clean-room mockup — {class_id}"

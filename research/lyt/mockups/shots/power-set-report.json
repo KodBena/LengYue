@@ -2,10 +2,14 @@
   "summaries": [
     {
       "className": "landscape",
-      "statesWalked": 32,
-      "total": 32,
-      "guardChecks": 8,
+      "statesWalked": 128,
+      "total": 128,
+      "guardChecks": 12,
       "targets": [
+        {
+          "id": "board-rail",
+          "presence": "release"
+        },
         {
           "id": "board-controls",
           "presence": "preserve"
@@ -25,15 +29,23 @@
         {
           "id": "tree-panels",
           "presence": "release"
+        },
+        {
+          "id": "preview-board",
+          "presence": "release"
         }
       ]
     },
     {
       "className": "portrait",
-      "statesWalked": 16,
-      "total": 16,
-      "guardChecks": 6,
+      "statesWalked": 64,
+      "total": 64,
+      "guardChecks": 10,
       "targets": [
+        {
+          "id": "board-rail",
+          "presence": "release"
+        },
         {
           "id": "top-actions",
           "presence": "release"
@@ -48,6 +60,10 @@
         },
         {
           "id": "tree-panels",
+          "presence": "release"
+        },
+        {
+          "id": "preview-board",
           "presence": "release"
         }
       ]
