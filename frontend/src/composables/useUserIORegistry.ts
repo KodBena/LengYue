@@ -178,7 +178,12 @@ export function useUserIORegistry() {
     // AFTER a LATER, unrelated immediate-mode keypress (e.g. Pass)
     // had already mutated the board — an ordering hazard with no
     // guard, matching the mechanism the G26 diagnosis names for the
-    // move-5-to-mainline-tip jump. Gating on `e.repeat` closes both:
+    // move-5-to-mainline-tip jump. Gating on `e.repeat` closes the
+    // hazard structurally for DISCRETE presses; a pending rAF from a
+    // genuinely held key is not cancelled by a later immediate press
+    // (its late fire is a harmless re-dispatch of the same held
+    // action — witnessed as a no-op in the interleaving test, not
+    // proven never to fire). For discrete input:
     // every discrete press (repeat: false) fires synchronously and
     // immediately, in dispatch order, exactly like an 'immediate'-
     // mode action — "one keypress, one move" — while a genuinely
