@@ -66,7 +66,7 @@
  * direct writes did, so SyncService's deep `store.profile` watch
  * observes them identically — no version counter is needed for the
  * profile subtree. `writeStoreKnobValue` is the one exception: the
- * knob seam may target `session.ui.*` leaves (two seeded knobs do),
+ * knob seam may target `session.ui.*` leaves (one seeded knob does),
  * and SyncService watches `store.session` via the `sessionVersion`
  * counter rather than a deep watch (the per-board session dicts made
  * a deep `session` traversal O(open-board count) — see

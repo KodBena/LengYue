@@ -47,7 +47,7 @@ import type { useAuth } from './useAuth';
 // coupled vocabulary of subtrees the profile-owner knob seam is
 // sanctioned to drive. Every seeded KnobDecl output path begins with
 // one of these (`profile.settings.*` for the profile-document knobs,
-// `session.ui.*` for the two move-filter / pv-fade session knobs). A
+// `session.ui.*` for the move-filter session knob). A
 // decl targeting any other subtree — arriving in a persisted blob, a
 // migration, or a future decl-editor surface — is refused loudly at
 // `validateRegistry`, since that leaf belongs to its own owner, not the
@@ -238,7 +238,7 @@ export function useAppBootstrap(
   // arriving in a persisted blob could otherwise target a store subtree
   // (`engine.*`, `boards.*`) the profile-owner knob seam has no
   // business writing. The seam is sanctioned for the profile document
-  // and the two seeded `session.ui.*` knobs only; an out-of-prefix decl
+  // and the one seeded `session.ui.*` knob only; an out-of-prefix decl
   // is a loud startup failure at the data-validation boundary, where
   // the lint (which cannot see runtime path strings) can't reach.
   watch(
