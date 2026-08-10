@@ -390,7 +390,7 @@ const knobSliderMaxWidthCss = computed(() => `${PANEL_CONTENT_READING_MEASURE_CH
 }
 .knob-slider-label-text {
   grid-area: label;
-  color: var(--text-1);
+  color: var(--text-0);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -427,7 +427,7 @@ const knobSliderMaxWidthCss = computed(() => `${PANEL_CONTENT_READING_MEASURE_CH
   flex-shrink: 0;
   font-family: monospace;
   font-size: var(--text-tiny);
-  color: var(--text-2);
+  color: var(--text-0);
 }
 .knob-slider-input {
   flex: 1 1 auto;

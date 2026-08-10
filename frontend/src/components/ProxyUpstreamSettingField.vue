@@ -127,7 +127,7 @@ async function choosePicked(event: Event): Promise<void> {
 
 <style scoped>
 .proxy-upstream-field { display: flex; flex-direction: column; gap: var(--space-tight); }
-.proxy-upstream-field-label { color: var(--text-1); font-size: var(--text-emphasis); }
+.proxy-upstream-field-label { color: var(--text-0); font-size: var(--text-emphasis); }
 .proxy-upstream-field input {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
   padding: var(--space-default); font-size: var(--text-emphasis); font-family: monospace;
@@ -140,10 +140,10 @@ async function choosePicked(event: Event): Promise<void> {
   padding: var(--space-default); font-size: var(--text-emphasis); font-family: inherit;
   border-radius: var(--radius-default); outline: none; width: 100%; box-sizing: border-box;
 }
-.proxy-upstream-field-msg { color: var(--text-2); font-size: var(--text-emphasis); margin: 0; }
+.proxy-upstream-field-msg { color: var(--text-0); font-size: var(--text-emphasis); margin: 0; }
 .proxy-upstream-field-msg.proxy-upstream-field-error { color: var(--state-error); }
 .proxy-upstream-field-rescan {
-  align-self: flex-start; background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-1);
+  align-self: flex-start; background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
   padding: var(--space-tight) var(--space-default); font-size: var(--text-emphasis);
   border-radius: var(--radius-default); cursor: pointer;
 }

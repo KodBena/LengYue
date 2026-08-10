@@ -103,7 +103,7 @@ function onDragOver(ev: DragEvent): void {
 .import-hint {
   margin: 0;
   font-size: var(--text-body);
-  color: var(--text-2);
+  color: var(--text-0);
 }
 .import-buttons {
   display: flex;
@@ -115,7 +115,7 @@ function onDragOver(ev: DragEvent): void {
   background: var(--surface-0);
   border: 1px solid var(--border-1);
   border-radius: var(--radius-default);
-  color: var(--text-1);
+  color: var(--text-0);
   cursor: pointer;
 }
 .import-btn:hover {
@@ -126,8 +126,8 @@ function onDragOver(ev: DragEvent): void {
   flex-direction: column;
   gap: var(--space-tight);
 }
-.import-counts { font-size: var(--text-tiny); color: var(--text-2); }
+.import-counts { font-size: var(--text-tiny); color: var(--text-0); }
 .ok { color: var(--accent-positive, var(--accent-primary)); }
 .err { color: var(--accent-negative, #c75450); }
-.muted { color: var(--text-2); }
+.muted { color: var(--text-0); }
 </style>

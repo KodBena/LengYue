@@ -134,7 +134,7 @@ useModalKeyboard(modalContentRef, computed(() => true), wizard.cancel);
 .wizard-header { display: flex; align-items: center; justify-content: space-between; flex: none; }
 .wizard-title { color: var(--text-0); margin: 0; font-size: var(--text-heading); }
 .close-btn {
-  background: none; border: none; color: var(--text-2); font-size: var(--text-heading);
+  background: none; border: none; color: var(--text-disabled); font-size: var(--text-heading);
   cursor: pointer; line-height: 1; padding: 0 var(--space-tight);
 }
 .close-btn:hover { color: var(--text-0); }
@@ -165,6 +165,6 @@ useModalKeyboard(modalContentRef, computed(() => true), wizard.cancel);
   border: 1px solid transparent; border-radius: var(--radius-default); cursor: pointer;
 }
 .btn:disabled { cursor: not-allowed; opacity: var(--alpha-disabled); }
-.btn-secondary { background: var(--surface-0); border-color: var(--border-2); color: var(--text-1); /* rows 681/742: surface bg + border edge */ }
+.btn-secondary { background: var(--surface-0); border-color: var(--border-2); color: var(--text-0); /* rows 681/742: surface bg + border edge */ }
 .btn-primary { background: var(--surface-0); border-color: var(--border-2); color: var(--accent-primary); font-weight: bold; /* standard SPA button shape (rows 609/681): NOT an accent-filled slab — commissioner directive 2026-08-07 */ }
 </style>

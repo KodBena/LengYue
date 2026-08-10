@@ -22,7 +22,17 @@
  * License: Public Domain (The Unlicense)
  */
 
-/** Chrome anchors read by the render-count subjects (extend as needed). */
+/**
+ * Chrome anchors read by the render-count subjects (extend as needed).
+ * Rows 1478/1479/1481/1497 retired `--text-1`/`--text-2` as text-
+ * emphasis tiers (theme.css's "Text tier retirement" docstring) —
+ * `--text-1` had no direct successor (its former consumers now read
+ * `--text-0`, the sole readable-text tier) and its entry here is
+ * simply dropped; `--text-2`'s entry becomes `--text-disabled` (the
+ * minted disabled/inactive-control tone), matching what the current
+ * render-count subjects (BoardTab.vue, TreeWidget.vue,
+ * ToolbarEngineMetrics.vue) actually reference post-migration.
+ */
 const STUBBED_VARS: Record<string, string> = {
   '--border-2': '#666666',
   '--border-3': '#888888',
@@ -31,8 +41,7 @@ const STUBBED_VARS: Record<string, string> = {
   '--surface-1': '#181818',
   '--surface-3': '#303030',
   '--text-0': '#ffffff',
-  '--text-1': '#e0e0e0',
-  '--text-2': '#a0a0a0',
+  '--text-disabled': '#a0a0a0',
 };
 
 /**

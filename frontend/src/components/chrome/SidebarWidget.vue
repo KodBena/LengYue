@@ -318,7 +318,7 @@ const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
   border: none;
   border-radius: 0%;
   background: var(--surface-2);
-  color: var(--text-1);
+  color: var(--text-0);
   font-family: monospace;
   font-size: var(--text-tiny);
   text-transform: uppercase;

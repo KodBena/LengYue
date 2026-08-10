@@ -84,7 +84,7 @@ useModalKeyboard(modalContentRef, isOpen, cancel);
 }
 .modal-header { padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); }
 .modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); }
-.modal-body { padding: var(--space-medium); color: var(--text-1); font-size: var(--text-emphasis); }
+.modal-body { padding: var(--space-medium); color: var(--text-0); font-size: var(--text-emphasis); }
 .modal-body p { margin: 0; white-space: pre-line; }
 .modal-footer {
   display: flex; justify-content: flex-end; gap: var(--space-default); padding: var(--space-medium);
@@ -95,7 +95,7 @@ useModalKeyboard(modalContentRef, isOpen, cancel);
   padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); font-family: inherit;
   border: 1px solid transparent; border-radius: var(--radius-default); cursor: pointer;
 }
-.btn-secondary { background: var(--surface-0); border-color: var(--border-2); color: var(--text-1); }
+.btn-secondary { background: var(--surface-0); border-color: var(--border-2); color: var(--text-0); }
 .btn-primary { background: var(--surface-0); border-color: var(--border-2); color: var(--accent-primary); font-weight: bold; }
 .btn-danger { background: var(--surface-0); border-color: var(--state-error); color: var(--state-error); font-weight: bold; }
 </style>

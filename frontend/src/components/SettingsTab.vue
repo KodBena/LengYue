@@ -233,7 +233,7 @@ function setTheme(theme: 'dark' | 'cluster'): void {
 
 /* Session (UI) theme selector row (row 748). surface-0 control per rows 681/742. */
 .theme-row { display: flex; align-items: center; gap: var(--space-default); margin-top: var(--space-medium); }
-.theme-row label { color: var(--text-1); font-size: var(--text-emphasis); }
+.theme-row label { color: var(--text-0); font-size: var(--text-emphasis); }
 .theme-row select {
   background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2);
   border-radius: var(--radius-default); padding: 2px var(--space-tight); font-family: inherit;

@@ -130,7 +130,7 @@ const knobRegistryMeasureMaxWidthCss = computed(() => `${PANEL_CONTENT_READING_M
   max-width: v-bind(knobRegistryMeasureMaxWidthCss);
 }
 .knob-registry-empty {
-  color: var(--text-2);
+  color: var(--text-0);
   font-style: italic;
   margin: 0;
 }
@@ -142,7 +142,7 @@ const knobRegistryMeasureMaxWidthCss = computed(() => `${PANEL_CONTENT_READING_M
   margin: 0 0 var(--space-tight) 0;
   font-size: var(--text-emphasis);
   font-weight: 600;
-  color: var(--text-2);
+  color: var(--text-0);
   text-transform: uppercase;
   letter-spacing: var(--tracking-tight);
 }

@@ -170,7 +170,7 @@ function selectTab(id: string) {
   display: flex;
   align-items: center;
   font-size: var(--text-emphasis);
-  color: var(--text-2);
+  color: var(--text-0);
   cursor: pointer;
   border-right: 1px solid var(--border-1);
   /* Never shrink below natural label width — R2's finding was a

@@ -107,7 +107,7 @@ function onDragOver(ev: DragEvent): void {
 
 <style scoped>
 .wizard-step-sgf-import { display: flex; flex-direction: column; gap: var(--space-default); }
-.step-description { color: var(--text-1); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
+.step-description { color: var(--text-0); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 
 .staging-panel {
   display: flex;
@@ -130,7 +130,7 @@ function onDragOver(ev: DragEvent): void {
 .import-hint {
   margin: 0;
   font-size: var(--text-body);
-  color: var(--text-2);
+  color: var(--text-0);
 }
 .import-buttons {
   display: flex;
@@ -142,7 +142,7 @@ function onDragOver(ev: DragEvent): void {
   background: var(--surface-0);
   border: 1px solid var(--border-1);
   border-radius: var(--radius-default);
-  color: var(--text-1);
+  color: var(--text-0);
   cursor: pointer;
   align-self: flex-start;
 }
@@ -150,7 +150,7 @@ function onDragOver(ev: DragEvent): void {
   border-color: var(--accent-primary);
 }
 
-.reading-status { color: var(--text-2); font-size: var(--text-body); margin: 0; }
+.reading-status { color: var(--text-0); font-size: var(--text-body); margin: 0; }
 .error-row { display: flex; flex-direction: column; gap: var(--space-tight); align-items: flex-start; }
 .err { color: var(--state-error); font-weight: bold; margin: 0; }
 
@@ -167,7 +167,7 @@ function onDragOver(ev: DragEvent): void {
   gap: 2px;
 }
 .staged-item {
-  color: var(--text-1);
+  color: var(--text-0);
   font-size: var(--text-tiny);
   font-family: monospace;
 }

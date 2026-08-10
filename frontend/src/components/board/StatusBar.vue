@@ -230,7 +230,7 @@ const gameStatus = computed(() =>
   align-items: center;
   padding: 0 var(--space-default);
   font-size: var(--text-emphasis);
-  color: var(--text-1);
+  color: var(--text-0);
   flex-shrink: 0;
 }
 
@@ -325,7 +325,7 @@ const gameStatus = computed(() =>
   background: transparent;
   border: none;
   border-bottom: 1px dashed var(--border-3);
-  color: var(--text-1);
+  color: var(--text-0);
   font-size: var(--text-body);
   font-family: inherit;
   padding: 0;
@@ -337,7 +337,7 @@ const gameStatus = computed(() =>
 }
 .rules-select.defaulted {
   font-style: italic;
-  color: var(--text-2);
+  color: var(--text-0);
 }
 
 .komi-input {
@@ -345,7 +345,7 @@ const gameStatus = computed(() =>
   background: transparent;
   border: none;
   border-bottom: 1px dashed var(--border-3);
-  color: var(--text-1);
+  color: var(--text-0);
   font-size: var(--text-body);
   font-family: inherit;
   padding: 0;
@@ -373,7 +373,7 @@ const gameStatus = computed(() =>
    capture count (or a narrower viewport) can't wrap this block onto a
    second line and grow the bar's `min-height` (the original ledger
    row 811 reflow mechanism). */
-.caps { font-family: monospace; color: var(--text-2); font-size: var(--text-body); white-space: nowrap; }
+.caps { font-family: monospace; color: var(--text-0); font-size: var(--text-body); white-space: nowrap; }
 
 /* Pass affordance — always-visible board-chrome control per genre
    convention (Sabaki/KaTrain/OGS survey, design-engine-features.md
@@ -388,7 +388,7 @@ const gameStatus = computed(() =>
   background: transparent;
   border: 1px solid var(--border-3);
   border-radius: var(--radius-default);
-  color: var(--text-1);
+  color: var(--text-0);
   font-size: var(--text-body);
   font-family: inherit;
   cursor: pointer;
@@ -400,7 +400,7 @@ const gameStatus = computed(() =>
   border-color: var(--accent-primary);
 }
 .pass-btn:disabled {
-  color: var(--text-2);
+  color: var(--text-disabled);
   border-color: var(--border-2);
   cursor: default;
   opacity: 0.5;
@@ -415,16 +415,19 @@ const gameStatus = computed(() =>
   font-size: var(--text-body);
 }
 
-/* Move-number toggle. Inactive: muted text-2, no background.
+/* Move-number toggle. Inactive: --text-disabled (rows 1478/1479/
+   1481/1497 — an on/off toggle affordance, not readable prose; the
+   commissioner's disabled-control exception), no background.
    Active: accent-primary, hinting "on" without a separate
    indicator (the board itself is the indicator). Borderless to
-   match the chrome's low-contrast register; the same tonal scale
-   as `.caps` for the resting state so the button doesn't draw
-   the eye when off. */
+   match the chrome's low-contrast register; `.caps` nearby is now
+   --text-0 (readable capture-count text, rows 1478/1479/1481), so
+   this button's resting state is deliberately dimmer than its
+   neighbor — the toggle-off signal, not a shared tonal scale. */
 .move-numbers-btn {
   background: transparent;
   border: none;
-  color: var(--text-2);
+  color: var(--text-disabled);
   font-family: monospace;
   font-size: var(--text-body);
   font-weight: bold;
@@ -486,7 +489,7 @@ const gameStatus = computed(() =>
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text-2);
+  color: var(--text-0);
   font-style: italic;
   font-size: var(--text-body);
 }

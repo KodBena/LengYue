@@ -134,7 +134,7 @@ onUnmounted(() => {
 <style scoped>
 .section { background: var(--surface-2); border: 1px solid var(--surface-3); border-radius: var(--radius-default); overflow: hidden; }
 .header { padding: 0 var(--space-medium); display: flex; justify-content: space-between; cursor: pointer; font-size: var(--text-body); font-weight: bold; color: var(--text-0); text-transform: uppercase; background: var(--surface-3); letter-spacing: var(--tracking-default); }
-.header:hover { background: var(--surface-3); color: var(--text-1); }
+.header:hover { background: var(--surface-3); color: var(--text-0); }
 .content { border-top: 1px solid var(--surface-3); background: var(--surface-0); }
 /* The preview-box hides when this row is too narrow for both the chart and the
    140px thumbnail (else the chart collapses to a sliver — the preview-box has no
@@ -163,7 +163,7 @@ onUnmounted(() => {
   justify-content: center;
   text-align: center;
   padding: var(--space-medium);
-  color: var(--text-2);
+  color: var(--text-0);
   font-size: var(--text-body);
   font-style: italic;
 }

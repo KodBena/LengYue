@@ -78,7 +78,7 @@ function reload(): void {
    panel's distinct urgency-but-readable text colors aren't covered
    by the saturated --state-attention anchor. */
 .reb-title { margin: 0 0 var(--space-medium); font-size: var(--text-heading); color: #ff7070; }
-.reb-text { margin: 0 0 var(--space-medium); font-size: var(--text-emphasis); color: var(--text-1); line-height: 1.5; }
+.reb-text { margin: 0 0 var(--space-medium); font-size: var(--text-emphasis); color: var(--text-0); line-height: 1.5; }
 .reb-message {
   background: var(--surface-0); border: 1px solid var(--border-1); border-radius: var(--radius-default);
   padding: var(--space-medium) var(--space-medium); font-family: monospace; font-size: var(--text-emphasis);

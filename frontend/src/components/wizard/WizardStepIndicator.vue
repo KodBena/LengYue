@@ -75,21 +75,28 @@ function onDotClick(index: number): void {
 .wizard-step-indicator {
   display: flex; align-items: flex-start; gap: var(--space-tight);
 }
+/* rows 1478/1479/1481/1497: non-current step digits/labels are still
+   READABLE text (every dot is clickable — `is-clickable` — nothing
+   gates forward progression, per this file's own header docstring),
+   not a disabled control, so they read at --text-0 like the current
+   step. The current step keeps its own distinguishing marker via
+   accent border + font-weight (see `.step-dot.is-current` below),
+   not via a separate, lower-contrast color tier. */
 .step-dot {
   flex: 1 1 0; min-width: 0;
   display: flex; flex-direction: column; align-items: center; gap: var(--space-tight);
-  border: none; background: none; color: var(--text-2); font-family: inherit;
+  border: none; background: none; color: var(--text-0); font-family: inherit;
   cursor: default; padding: 0;
 }
 .step-dot.is-clickable { cursor: pointer; }
 .step-digit {
   width: 24px; height: 24px; border-radius: 50%;
-  border: 1px solid var(--border-3); background: var(--surface-0); color: var(--text-2); /* surface-0 per rows 681/742 */
+  border: 1px solid var(--border-3); background: var(--surface-0); color: var(--text-0); /* surface-0 per rows 681/742 */
   font-size: var(--text-emphasis); line-height: 1;
   display: flex; align-items: center; justify-content: center;
 }
 .step-label {
-  font-size: var(--text-tiny); color: var(--text-2); text-align: center;
+  font-size: var(--text-tiny); color: var(--text-0); text-align: center;
   max-width: 100%; white-space: normal; overflow-wrap: break-word; line-height: 1.3;
 }
 .step-dot.is-current .step-digit { border-color: var(--accent-primary); color: var(--text-0); font-weight: bold; }

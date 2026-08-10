@@ -565,7 +565,7 @@ function rowTitle(idx: number): string {
   text-align: left;
   font-size: var(--text-tiny);
   font-weight: 600;
-  color: var(--text-2);
+  color: var(--text-0);
   background: none;
   border: none;
   padding: 0;
@@ -581,7 +581,7 @@ function rowTitle(idx: number): string {
    surface, including `--text-muted` here, were rewritten to their
    real theme.css equivalents). */
 .col-indicator {
-  color: var(--text-2);
+  color: var(--text-0);
   font-size: var(--text-tiny);
   font-style: italic;
   white-space: nowrap;
@@ -651,10 +651,10 @@ function rowTitle(idx: number): string {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.loading-cell { color: var(--text-2); }
+.loading-cell { color: var(--text-0); }
 .library-empty {
   padding: var(--space-loose);
   text-align: center;
-  color: var(--text-2);
+  color: var(--text-0);
 }
 </style>

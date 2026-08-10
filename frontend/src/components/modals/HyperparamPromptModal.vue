@@ -148,12 +148,12 @@ useModalKeyboard(modalContentRef, isOpen, cancel);
 }
 .modal-header { padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); }
 .modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); text-transform: uppercase; }
-.modal-body { padding: var(--space-medium); color: var(--text-1); font-size: var(--text-emphasis); display: flex; flex-direction: column; gap: var(--space-default); }
-.lede { margin: 0 0 var(--space-default); color: var(--text-2); font-size: var(--text-body); }
+.modal-body { padding: var(--space-medium); color: var(--text-0); font-size: var(--text-emphasis); display: flex; flex-direction: column; gap: var(--space-default); }
+.lede { margin: 0 0 var(--space-default); color: var(--text-0); font-size: var(--text-body); }
 .field-row { display: flex; flex-direction: column; gap: var(--space-tight); }
 .field-row label { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-default); }
-.field-label { color: var(--text-1); font-size: var(--text-emphasis); }
-.field-name { color: var(--text-2); font-family: monospace; font-size: var(--text-tiny); }
+.field-label { color: var(--text-0); font-size: var(--text-emphasis); }
+.field-name { color: var(--text-0); font-family: monospace; font-size: var(--text-tiny); }
 .dark-input {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
   padding: var(--space-default); border-radius: var(--radius-default);
@@ -166,7 +166,7 @@ useModalKeyboard(modalContentRef, isOpen, cancel);
   display: flex; justify-content: flex-end; gap: var(--space-medium); padding: var(--space-medium) var(--space-medium);
   border-top: 1px solid var(--surface-3); background: var(--surface-2);
 }
-.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-0); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

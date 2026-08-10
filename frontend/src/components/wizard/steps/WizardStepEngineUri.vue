@@ -170,8 +170,8 @@ const wizardProseMaxWidthCss = computed(() => `${WIZARD_PROSE_MEASURE_CH}ch`);
 
 <style scoped>
 .wizard-step-engine-uri { display: flex; flex-direction: column; gap: var(--space-default); }
-.step-description { color: var(--text-1); margin: 0 0 var(--space-default) 0; max-width: v-bind(wizardProseMaxWidthCss); }
-.field-label { color: var(--text-2); font-size: var(--text-emphasis); text-transform: uppercase; }
+.step-description { color: var(--text-0); margin: 0 0 var(--space-default) 0; max-width: v-bind(wizardProseMaxWidthCss); }
+.field-label { color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase; }
 .proxy-upstream-slot { margin-top: var(--space-default); }
 .uri-row { display: flex; gap: var(--space-default); align-items: stretch; }
 .text-input {
@@ -181,7 +181,7 @@ const wizardProseMaxWidthCss = computed(() => `${WIZARD_PROSE_MEASURE_CH}ch`);
   flex: 1; min-width: 0;
 }
 .text-input:focus { border-color: var(--accent-primary); }
-.field-hint { color: var(--text-2); font-size: var(--text-emphasis); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
+.field-hint { color: var(--text-0); font-size: var(--text-emphasis); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 
 .test-btn {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
@@ -201,11 +201,11 @@ const wizardProseMaxWidthCss = computed(() => `${WIZARD_PROSE_MEASURE_CH}ch`);
   border: 1px solid currentColor; font-weight: bold; font-size: var(--text-body);
   align-self: flex-start;
 }
-.test-status-chip.is-probing { color: var(--text-2); }
+.test-status-chip.is-probing { color: var(--text-0); }
 .test-status-chip.is-reachable { color: var(--state-success); }
 .test-status-chip.is-unreachable { color: var(--state-error); }
 .test-status-icon { font-size: var(--text-emphasis); line-height: 1; }
 
 .details-content { display: flex; flex-direction: column; gap: var(--space-default); padding-top: var(--space-default); }
-.details-content p { color: var(--text-1); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
+.details-content p { color: var(--text-0); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 </style>

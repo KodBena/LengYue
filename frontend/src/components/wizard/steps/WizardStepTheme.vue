@@ -65,7 +65,7 @@ function selectTheme(theme: Theme): void {
 
 <style scoped>
 .wizard-step-theme { display: flex; flex-direction: column; gap: var(--space-medium); }
-.step-description { color: var(--text-1); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
+.step-description { color: var(--text-0); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 
 .theme-options { display: flex; gap: var(--space-medium); }
 .theme-card {

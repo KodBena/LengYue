@@ -89,7 +89,7 @@ const buildOptions = () => {
       type: 'category',
       data: categories,
       show: true,
-      axisLabel: { fontSize: 9, color: themeColor('--text-2') },
+      axisLabel: { fontSize: 9, color: themeColor('--text-0') },
       min: props.zoomRange ? Math.floor(props.zoomRange[0]/2) : 0,
       max: props.zoomRange ? Math.ceil(props.zoomRange[1]/2) : props.maxMoveIndex
     },
@@ -97,7 +97,7 @@ const buildOptions = () => {
       type: 'category',
       data: categories,
       show: true,
-      axisLabel: { fontSize: 9, color: themeColor('--text-2') },
+      axisLabel: { fontSize: 9, color: themeColor('--text-0') },
       min: props.zoomRange ? Math.floor(props.zoomRange[0]/2) : 0,
       max: props.zoomRange ? Math.ceil(props.zoomRange[1]/2) : props.maxMoveIndex
     },
@@ -113,7 +113,7 @@ const buildOptions = () => {
       // (accent-primary) -> --heatmap-high (state-error). Defined as
       // chart-derived helpers in theme.css.
       inRange: { color: [themeColor('--heatmap-low'), themeColor('--heatmap-mid'), themeColor('--heatmap-high')] },
-      textStyle: { color: themeColor('--text-2'), fontSize: 9 }
+      textStyle: { color: themeColor('--text-0'), fontSize: 9 }
     },
     series: [{
       type: 'heatmap',

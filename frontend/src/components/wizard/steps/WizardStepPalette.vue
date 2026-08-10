@@ -267,7 +267,7 @@ function setAggregation(next: KnownAggregation): void {
      shell contract — kept alive it would silently duplicate (and could
      drift from) the modal's real scroll boundary. */
 }
-.step-description { color: var(--text-1); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
+.step-description { color: var(--text-0); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 .field-label { color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase; }
 .dark-select {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);

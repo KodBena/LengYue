@@ -431,9 +431,9 @@ const registryMeasureMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READ
 
 .registry-leaf { padding: 0; border-bottom: 1px solid var(--surface-2); }
 .registry-leaf.scalar, .registry-leaf.symbol-ref, .registry-leaf.enum { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-medium); }
-.leaf-label { color: var(--text-2); font-size: var(--text-emphasis); }
+.leaf-label { color: var(--text-0); font-size: var(--text-emphasis); }
 
-.restore-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: var(--text-emphasis); }
+.restore-btn { background: none; border: none; color: var(--text-disabled); cursor: pointer; font-size: var(--text-emphasis); }
 .delete-btn { background: none; border: none; color: var(--border-3); cursor: pointer; font-size: var(--text-heading); }
 
 .add-key-row { display: flex; padding: var(--space-default); gap: var(--space-tight); background: rgba(0,0,0,0.2); }

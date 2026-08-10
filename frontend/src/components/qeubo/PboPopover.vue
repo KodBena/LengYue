@@ -264,7 +264,7 @@ async function onPin(): Promise<void> {
   gap: var(--space-tight);
 }
 .pbo-metric .m-val {
-  color: var(--text-2);
+  color: var(--text-0);
 }
 .pbo-metric:hover .m-val {
   color: var(--accent-primary);
@@ -272,7 +272,7 @@ async function onPin(): Promise<void> {
 .pbo-phase {
   font-family: monospace;
 }
-.pbo-phase-idle { color: var(--text-2); }
+.pbo-phase-idle { color: var(--text-0); }
 /* Reuses the QeuboToolbar busy-dot pulse exactly — same
    keyframe envelope (0.4 trough → 1.0 peak), same duration
    anchor, same accent colour. magic-literal: 0.4 trough is the
@@ -306,24 +306,24 @@ async function onPin(): Promise<void> {
   letter-spacing: var(--tracking-tight);
 }
 .seg-toggle { display: flex; border: 1px solid var(--border-3); border-radius: var(--radius-default); overflow: hidden; }
-.seg-btn { background: var(--surface-0); border: none; border-right: 1px solid var(--border-3); color: var(--text-1); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; font-family: inherit; text-transform: inherit; letter-spacing: inherit; }
+.seg-btn { background: var(--surface-0); border: none; border-right: 1px solid var(--border-3); color: var(--text-0); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; font-family: inherit; text-transform: inherit; letter-spacing: inherit; }
 .seg-btn:last-child { border-right: none; }
 .seg-btn.active { background: var(--surface-0); color: var(--accent-primary); }
 .seg-btn:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 .verdict-pair { display: flex; gap: var(--space-tight); }
 .action-row { display: flex; gap: var(--space-tight); align-items: center; }
-.verdict-btn, .apply-btn, .pin-btn { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-1); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: inherit; letter-spacing: inherit; }
+.verdict-btn, .apply-btn, .pin-btn { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-0); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: inherit; letter-spacing: inherit; }
 .verdict-btn:disabled, .apply-btn:disabled, .pin-btn:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 /* theme-exception: .apply-btn border uses #2a5a7a — designer-
    intentional muted-cyan accent matching the legacy QeuboToolbar
    and Toolbar's .highlight-btn vocabulary. */
 .apply-btn { border-color: #2a5a7a; color: var(--accent-primary); }
-.debug-toggle { background: none; border: none; color: var(--text-2); font-size: var(--text-emphasis); cursor: pointer; padding: 0 var(--space-tight); font-family: inherit; line-height: 1; }
+.debug-toggle { background: none; border: none; color: var(--text-disabled); font-size: var(--text-emphasis); cursor: pointer; padding: 0 var(--space-tight); font-family: inherit; line-height: 1; }
 .debug-toggle.active { color: var(--accent-primary); }
 /* About-PBO `?` chip — circle outline carrying the long phase
    tooltip. Matches the QeuboToolbar's prior phase-help glyph
    vocabulary; theme-exception border (#2a5a7a) consistent with
    the muted-cyan accent used by the action buttons. */
 .phase-help { color: var(--accent-primary); border: 1px solid #2a5a7a; border-radius: var(--radius-circle); width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: var(--text-tiny); cursor: help; margin-left: auto; }
-.params-debug { color: var(--text-2); font-size: var(--text-tiny); text-transform: none; letter-spacing: var(--tracking-default); white-space: nowrap; overflow-wrap: anywhere; }
+.params-debug { color: var(--text-0); font-size: var(--text-tiny); text-transform: none; letter-spacing: var(--tracking-default); white-space: nowrap; overflow-wrap: anywhere; }
 </style>

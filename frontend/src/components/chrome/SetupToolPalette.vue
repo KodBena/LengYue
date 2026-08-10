@@ -188,7 +188,7 @@ const TOOLS: ReadonlyArray<{ id: SetupTool; labelKey: string; swatch: 'black' | 
 .setup-trigger {
   background: var(--surface-0);
   border: 1px solid var(--border-3);
-  color: var(--text-1);
+  color: var(--text-0);
   padding: 1px 5px;
   font-size: var(--text-emphasis);
   cursor: pointer;
@@ -233,7 +233,7 @@ const TOOLS: ReadonlyArray<{ id: SetupTool; labelKey: string; swatch: 'black' | 
   gap: var(--space-tight);
   background: var(--surface-0);
   border: 1px solid var(--border-2);
-  color: var(--text-1);
+  color: var(--text-0);
   padding: var(--space-tight) var(--space-default);
   cursor: pointer;
   border-radius: var(--radius-default);
@@ -247,7 +247,7 @@ const TOOLS: ReadonlyArray<{ id: SetupTool; labelKey: string; swatch: 'black' | 
   width: 100%;
   background: var(--surface-0);
   border: 1px solid var(--border-2);
-  color: var(--text-1);
+  color: var(--text-0);
   padding: var(--space-tight) var(--space-default);
   cursor: pointer;
   border-radius: var(--radius-default);

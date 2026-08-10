@@ -299,7 +299,7 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
 }
 .moves-made { margin-bottom: var(--space-medium); }
 .visits-override-row { display: flex; align-items: center; gap: var(--space-default); margin-bottom: var(--space-medium); }
-.visits-override-row label { font-size: var(--text-body); color: var(--text-2); white-space: nowrap; }
+.visits-override-row label { font-size: var(--text-body); color: var(--text-0); white-space: nowrap; }
 .visits-input { width: 100%; }
 .advance-btn { margin-bottom: var(--space-medium); margin-top: var(--space-medium); }
 /* End-session affordance — de-emphasised against Skip/Next so the

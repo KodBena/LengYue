@@ -84,11 +84,11 @@ const isDefault = computed(
 
 <style scoped>
 .visits-lerp-config { font-family: 'Consolas', monospace; }
-.hint { font-size: var(--text-body); color: var(--text-2); line-height: 1.5; margin: 0 0 var(--space-medium) 0; }
+.hint { font-size: var(--text-body); color: var(--text-0); line-height: 1.5; margin: 0 0 var(--space-medium) 0; }
 .field { display: flex; align-items: center; justify-content: space-between; gap: var(--space-medium); margin-bottom: var(--space-tight); }
-.field label { font-size: var(--text-emphasis); color: var(--text-1); }
+.field label { font-size: var(--text-emphasis); color: var(--text-0); }
 .num-input { width: 100px; }
 .actions { margin-top: var(--space-medium); }
-.action-btn.reset-btn { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-1); padding: var(--space-tight) var(--space-default); font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
+.action-btn.reset-btn { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-tight) var(--space-default); font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 .action-btn.reset-btn:disabled { opacity: 0.5; cursor: default; }
 </style>

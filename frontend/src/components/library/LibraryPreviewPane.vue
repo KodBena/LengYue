@@ -113,7 +113,7 @@ const scrubMax = computed(() => props.preview.totalMoves.value);
 .preview-empty {
   padding: var(--space-loose);
   text-align: center;
-  color: var(--text-2);
+  color: var(--text-0);
 }
 .preview-meta { display: flex; flex-direction: column; gap: var(--space-tight); }
 .meta-players {
@@ -125,12 +125,12 @@ const scrubMax = computed(() => props.preview.totalMoves.value);
 }
 .meta-vs {
   font-size: var(--text-tiny);
-  color: var(--text-2);
+  color: var(--text-0);
   font-weight: normal;
 }
 .meta-details {
   font-size: var(--text-tiny);
-  color: var(--text-2);
+  color: var(--text-0);
 }
 .preview-board {
   /* Reserve a square so the SVG mini-board renders aspect-1:1 */
@@ -149,7 +149,7 @@ const scrubMax = computed(() => props.preview.totalMoves.value);
 .scrub-slider { flex: 1 1 0; }
 .scrub-position {
   font-size: var(--text-tiny);
-  color: var(--text-2);
+  color: var(--text-0);
   font-variant-numeric: tabular-nums;
   min-width: 5em;
   text-align: right;
@@ -164,7 +164,7 @@ const scrubMax = computed(() => props.preview.totalMoves.value);
   background: var(--surface-0);
   border: 1px solid var(--border-1);
   border-radius: var(--radius-default);
-  color: var(--text-1);
+  color: var(--text-0);
   cursor: pointer;
 }
 .preview-btn:hover { border-color: var(--accent-primary); }

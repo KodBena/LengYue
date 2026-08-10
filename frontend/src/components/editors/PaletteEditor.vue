@@ -576,7 +576,7 @@ async function deleteItem() {
 .section { border-bottom: 1px solid var(--surface-2); }
 .section-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-1); font-size: var(--text-body); text-transform: uppercase;
+  padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-0); font-size: var(--text-body); text-transform: uppercase;
 }
 .add-btn { background: none; border: none; color: var(--accent-primary); cursor: pointer; font-weight: bold; font-size: var(--text-heading); }
 /* M24: label + "+" adjacent, not spread to the row's opposite ends. */
@@ -584,7 +584,7 @@ async function deleteItem() {
 
 .item-list { list-style: none; padding: 0; margin: 0; }
 .item-list li {
-  padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); color: var(--text-1); cursor: pointer; border-left: 2px solid transparent;
+  padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); color: var(--text-0); cursor: pointer; border-left: 2px solid transparent;
 }
 .item-list li:hover { background: var(--surface-2); }
 .item-list li.active { background: var(--surface-0); border-left-color: var(--accent-primary); color: var(--accent-primary); }
@@ -627,7 +627,7 @@ async function deleteItem() {
   margin: 0;
   padding: var(--space-medium);
   border-bottom: 1px solid var(--surface-3);
-  color: var(--text-1);
+  color: var(--text-0);
   font-size: var(--text-body);
   line-height: 1.5;
   flex-shrink: 0;
@@ -636,7 +636,7 @@ async function deleteItem() {
 
 .palette-form, .form-grid { padding: var(--space-medium); }
 .form-grid { display: grid; grid-template-columns: 120px 1fr; gap: var(--space-medium); align-items: center; }
-.form-grid label { font-size: var(--text-emphasis); color: var(--text-2); }
+.form-grid label { font-size: var(--text-emphasis); color: var(--text-0); }
 
 /* Top-level editor forms scroll when their content exceeds the
    400px PaletteEditor container — the .palette-form for a palette
@@ -673,10 +673,10 @@ async function deleteItem() {
 .range-sep { color: var(--border-3); }
 .dark-input.invalid { border-color: var(--state-error); }
 .qeubo-control { display: flex; flex-direction: column; gap: var(--space-tight); }
-.checkbox-label { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-emphasis); color: var(--text-1); cursor: pointer; }
+.checkbox-label { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-emphasis); color: var(--text-0); cursor: pointer; }
 .checkbox-label input[type=checkbox] { cursor: pointer; }
 .checkbox-label input[type=checkbox]:disabled { cursor: not-allowed; }
 .checkbox-label input[type=checkbox]:disabled + span { color: var(--border-3); }
 .validation-error { font-size: var(--text-body); color: var(--state-error); }
-.validation-hint { font-size: var(--text-body); color: var(--text-2); font-style: italic; }
+.validation-hint { font-size: var(--text-body); color: var(--text-0); font-style: italic; }
 </style>
