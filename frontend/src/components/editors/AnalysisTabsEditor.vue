@@ -109,9 +109,11 @@ function reassignPanel(panelId: AnalysisPanelId, toTabId: string): void {
           :placeholder="t('analysisTabs.tabNamePlaceholder')"
           @change="renameTab(tab.id, ($event.target as HTMLInputElement /* the tab-name <input> */).value)"
         />
-        <button type="button" class="icon-btn" :disabled="ti === 0" :title="t('analysisTabs.moveUp')" @click="moveTab(ti, -1)">↑</button>
-        <button type="button" class="icon-btn" :disabled="ti === props.tabs.length - 1" :title="t('analysisTabs.moveDown')" @click="moveTab(ti, 1)">↓</button>
-        <button type="button" class="icon-btn danger" :disabled="props.tabs.length <= 1" :title="t('analysisTabs.deleteTab')" @click="deleteTab(tab.id)">✕</button>
+        <div class="row-actions">
+          <button type="button" class="icon-btn" :disabled="ti === 0" :title="t('analysisTabs.moveUp')" @click="moveTab(ti, -1)">↑</button>
+          <button type="button" class="icon-btn" :disabled="ti === props.tabs.length - 1" :title="t('analysisTabs.moveDown')" @click="moveTab(ti, 1)">↓</button>
+          <button type="button" class="icon-btn danger" :disabled="props.tabs.length <= 1" :title="t('analysisTabs.deleteTab')" @click="deleteTab(tab.id)">✕</button>
+        </div>
       </div>
 
       <div v-if="tab.panelIds.length === 0" class="empty-hint">{{ t('analysisTabs.emptyTab') }}</div>
@@ -121,8 +123,10 @@ function reassignPanel(panelId: AnalysisPanelId, toTabId: string): void {
           <option v-for="opt in props.tabs" :key="opt.id" :value="opt.id">{{ opt.label }}</option>
           <option value="">{{ t('analysisTabs.hide') }}</option>
         </select>
-        <button type="button" class="icon-btn" :disabled="pi === 0" :title="t('analysisTabs.moveUp')" @click="movePanel(tab.id, pi, -1)">↑</button>
-        <button type="button" class="icon-btn" :disabled="pi === tab.panelIds.length - 1" :title="t('analysisTabs.moveDown')" @click="movePanel(tab.id, pi, 1)">↓</button>
+        <div class="row-actions">
+          <button type="button" class="icon-btn" :disabled="pi === 0" :title="t('analysisTabs.moveUp')" @click="movePanel(tab.id, pi, -1)">↑</button>
+          <button type="button" class="icon-btn" :disabled="pi === tab.panelIds.length - 1" :title="t('analysisTabs.moveDown')" @click="movePanel(tab.id, pi, 1)">↓</button>
+        </div>
       </div>
     </div>
 
@@ -195,6 +199,29 @@ function reassignPanel(panelId: AnalysisPanelId, toTabId: string): void {
 .icon-btn:hover:not(:disabled) { color: var(--text-0); border-color: var(--accent-primary); }
 .icon-btn:disabled { opacity: 0.35; cursor: default; }
 .icon-btn.danger:hover:not(:disabled) { color: var(--state-error); border-color: var(--state-error); }
+/* G20 (audit finding, opus-uiux-geometry-consult.md): the group row
+   (name + up/down/delete) and the child row (name + move-select +
+   up/down) each packed their trailing icon-buttons with a plain flex
+   gap, so up/down landed at whatever x the row's OWN mix of
+   preceding siblings produced — 26px apart between the two row
+   kinds, because the child row's extra `.move-select` (variable
+   width) sits between the name and its buttons while the group row
+   has none. `.row-actions` reserves the group row's full 3-button
+   width as a fixed, right-flush block; `justify-content: flex-start`
+   packs its buttons from the block's LEFT edge, so up/down start at
+   the same offset from the row's right edge in both row kinds
+   whether or not a delete button follows — one shared column for the
+   repeated action, per the finding's ask. */
+.row-actions {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 4px;
+  /* magic-literal: 80px = 3 * 24px icon-btn + 2 * 4px gaps — the
+     group row's full up/down/delete cluster width. */
+  width: 80px;
+  flex-shrink: 0;
+}
 .empty-hint { font-size: var(--text-tiny); color: var(--text-0); font-style: italic; padding-left: var(--space-medium); }
 .unassigned { border-top: 1px solid var(--surface-3); padding-top: var(--space-default); }
 .unassigned-head {

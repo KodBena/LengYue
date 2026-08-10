@@ -92,9 +92,21 @@ function onEscape(): void {
   border-radius: var(--radius-default);
   padding: 0 var(--space-tight);
 }
-.uri-display:hover, .uri-display:focus-visible {
+.uri-display:hover {
   border-color: var(--border-3);
-  outline: none;
+}
+/* G29 (audit finding, opus-uiux-geometry-consult.md): this span is a
+   `role="button" tabindex="0"` stop in the tab order, but the prior
+   rule set `outline: none` on `:focus-visible` itself, so keyboard
+   focus landed here with zero visible indicator. Restores the app's
+   existing :focus-visible outline idiom (TabWidget.vue's
+   `.tab-header li:focus-visible`) — accent outline — while leaving
+   the hover border-color untouched. Visibility only: tabindex and
+   tab order are unchanged. */
+.uri-display:focus-visible {
+  border-color: var(--border-3);
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
 }
 .uri-input {
   width: 220px;

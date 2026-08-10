@@ -369,13 +369,24 @@ const knobSliderMaxWidthCss = computed(() => `${PANEL_CONTENT_READING_MEASURE_CH
 
 <style scoped>
 /* Default (spacious) layout — used by the Other tab's
-   KnobRegistryEditor. Label sits above the slider; value badge
-   shares the label row at the right edge via the order property
-   below. */
+   KnobRegistryEditor. Label and value sit on one line, ADJACENT
+   (G19, opus-uiux-geometry-consult.md — the value badge previously
+   sat ~330px from its label because the label column was `1fr`,
+   stretching to the row's full bounded width and pushing the value
+   flush to the far right; label and value read as one object only
+   when they're close). `minmax(0, max-content)` on the label column
+   lets it size to its own text (so it sits right next to the value)
+   while still being able to shrink — and ellipsize via
+   `.knob-slider-label-text`'s own overflow rules below — if a long
+   store-derived label plus the value would overflow the row's
+   existing `PANEL_CONTENT_READING_MEASURE_CH` cap; the trailing `1fr`
+   column absorbs the row's leftover width instead of it landing
+   between label and value. The slider row below is unchanged — it
+   still spans the full width via `"slider slider slider"`. */
 .knob-slider-row {
   display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-areas: "label value" "slider slider";
+  grid-template-columns: minmax(0, max-content) max-content 1fr;
+  grid-template-areas: "label value ." "slider slider slider";
   column-gap: var(--space-default);
   row-gap: var(--space-tight);
   margin-bottom: var(--space-default);
@@ -390,6 +401,7 @@ const knobSliderMaxWidthCss = computed(() => `${PANEL_CONTENT_READING_MEASURE_CH
 }
 .knob-slider-label-text {
   grid-area: label;
+  min-width: 0;
   color: var(--text-0);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -416,11 +428,21 @@ const knobSliderMaxWidthCss = computed(() => `${PANEL_CONTENT_READING_MEASURE_CH
    `.knob-slider-track` wrapper (the min/max endpoint labels flank
    the input inside it); the input itself now just flex-fills the
    space between the two endpoint labels. */
+/* G19: the min/max endpoint captions collided with the track they
+   annotate. The M16/ledger-1395 thumb hit-box is a LAW-fixed 24x24px
+   total box (16.8px painted circle + 3.6px transparent border each
+   side, untouched by this pass); at the slider's min/max extreme the
+   thumb centers exactly on the input's own edge, so half that box
+   (12px) overflows the `<input>`'s rendered bounds into whatever sits
+   next to it. A `--space-tight` (4px) gap let that 12px overflow land
+   on top of the endpoint text. `--space-loose` (20px) clears the
+   12px overflow with an 8px buffer to spare, composing with the
+   thumb's existing geometry rather than shrinking it. */
 .knob-slider-track {
   grid-area: slider;
   display: flex;
   align-items: center;
-  gap: var(--space-tight);
+  gap: var(--space-loose);
   min-width: 0;
 }
 .knob-slider-endpoint {
