@@ -275,7 +275,7 @@ function setSettingsTabsOrientation(orientation: 'horizontal' | 'vertical'): voi
 /* Settings tabs layout row (rows 1505/1509/1515/1516) — same row shape
    as .theme-row above, surface-0 control per rows 681/742. */
 .orientation-row { display: flex; align-items: center; gap: var(--space-default); margin-top: var(--space-medium); }
-.orientation-row label { color: var(--text-1); font-size: var(--text-emphasis); }
+.orientation-row label { color: var(--text-0); font-size: var(--text-emphasis); }
 .orientation-row select {
   background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2);
   border-radius: var(--radius-default); padding: 2px var(--space-tight); font-family: inherit;
