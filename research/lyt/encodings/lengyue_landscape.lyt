@@ -1,0 +1,62 @@
+-- Transcription of layout-language-consult.md §5.4 (lines 545-583),
+-- clean-room LengYue, landscape class. Disclosed adjustments:
+--   - no-op root sizing supplied (document elides it, same as all five
+--     encodings — see q5go.lyt's comment for the full reasoning).
+--   - `T(...)[BLACK BOX]{pref 1fr, min envelope over tabs}`: the bare
+--     "min envelope over tabs" prose isn't a literal value, so 'min' is
+--     omitted here and the compiler derives the T-node's structural
+--     minimum as the componentwise max of its children (§4.1 line
+--     298-302).
+--   - the five bare `CP-library, CP-cards, CP-settings, CP-analysis,
+--     CP-other` names inside T(...) (line 576) aren't bracketed
+--     `widgetid[domain,...]` leaves at all — they're prose naming the
+--     control-panel tabs, which §2 explicitly commissions as an opaque
+--     black box outside the A/go|common|debug|board classification. We
+--     give each one domain='blackbox' (the sixth domain literal added in
+--     lyt_ast.py specifically for this region) and no facets.
+--   - `A_go[go, action]{28px}`, `A_common[common, action]{28px}`: the
+--     bare-fixed-extent shorthand (min=pref=max=28px).
+--   - `I_engine[...]{28px, envelope: {...}}`: fixed 28px reservation with
+--     an attached (documentation-only, for this 1-D sizing model) content
+--     state list; states renamed to valid identifiers
+--     (`connected_5digit_latency` for the document's
+--     "connected×latency≤5digits", since '×' and '≤' aren't legal
+--     identifier characters).
+--   - F4 DISCLOSURE (review row 1609,
+--     .claude/dispatch-reports/lyt-compiler-prototype-review.md finding
+--     F4 item 4): every one of the T(...)'s six children below is given
+--     its own `min WRAPPER_MIN` (300px). §5.4's own text (line 577) gives
+--     no such per-child min — the bare "min envelope over tabs" phrase is
+--     prose, not a value, and the compiler derives the T-node's OWN
+--     structural min as the componentwise max of its children's declared
+--     mins (§4.1 line 298-302). Left with no per-child min at all, that
+--     derivation would yield T's own min = 0px, which reads as "the
+--     black-box region gets no floor at all" — an equally unfaithful
+--     reading of the same prose. We import WRAPPER_MIN onto every child
+--     instead, so the derived T floor is a real, if approximate, 300px —
+--     the SAME choice lengyue_portrait.lyt already makes (with 200px,
+--     disclosed there). An earlier version of this file made the same
+--     choice WITHOUT disclosing it; this paragraph brings the two files'
+--     disclosure to parity rather than removing the (functionally
+--     necessary) per-child mins.
+layout lengyue-landscape =
+  {min 0px, pref 1fr, max inf} H(
+    {pref 1fr} V(
+      {pref maximize, aspect 1} B[board],
+      {min 24px, pref 24px, max 24px} I_board[board, info],
+      {min 28px, pref 28px, max 28px} A_board[board, action]
+    ),
+    {min 340px, pref 32fr, max 340px+60ch} V(
+      {28px} A_go[go, action],
+      {28px, envelope: {disconnected, connected_5digit_latency}} I_engine[common, info],
+      {28px} A_common[common, action],
+      {pref 1fr} T(
+        {min WRAPPER_MIN, pref 1fr, max inf} tree[board, info+action],
+        {min WRAPPER_MIN, pref 1fr, max inf} CP-library[blackbox],
+        {min WRAPPER_MIN, pref 1fr, max inf} CP-cards[blackbox],
+        {min WRAPPER_MIN, pref 1fr, max inf} CP-settings[blackbox],
+        {min WRAPPER_MIN, pref 1fr, max inf} CP-analysis[blackbox],
+        {min WRAPPER_MIN, pref 1fr, max inf} CP-other[blackbox]
+      )[BLACK BOX]
+    )
+  )

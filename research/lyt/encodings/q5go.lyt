@@ -1,0 +1,28 @@
+-- Transcription of layout-language-consult.md §5.2 (lines 521-529),
+-- H(V(B,A),I). Disclosed adjustments (full list in the build report):
+--   - the document elides sizing on the ROOT slot entirely (it just
+--     writes `layout q5go = H(...)` with no leading `{...}`) for all five
+--     §5 encodings. Every Slot in lyt_ast requires a Sizing, and the
+--     compiler pins the root's width/height to the screen class's
+--     dimensions regardless of its declared Sizing (§6 "Root:
+--     w_root = W_c, h_root = H_c", line 626) — so the root's sizing values
+--     are inert. We supply a no-op placeholder, {min 0, pref 1fr, max inf}.
+--   - sizing moved to precede its node (`{pref 1fr} V(...)` instead of the
+--     document's `V(...) {pref 1fr}`), matching the EBNF's own stated
+--     production order `slot ::= presence? sizing node` (line 277).
+--   - `pref maximize` resolved by the loader to `pref 1fr`; the actual
+--     maximize-area objective term is wired in Python by the runner
+--     (objectivesec has no worked concrete syntax anywhere in §5).
+--   - `I[info]` puts a facet name where the grammar expects a domain
+--     (see loader.py `_load_leaf`); resolved to domain='common',
+--     facets={'info'}.
+--   - min/max omitted on B's sizing default to 0px / inf (disclosed
+--     general completion rule).
+layout q5go =
+  {min 0px, pref 1fr, max inf} H(
+    {pref 1fr} V(
+      {pref maximize, aspect 1} B[board],
+      {min 28px, pref 28px, max 28px} A[board, action]
+    ),
+    {min 40ch, pref 48ch, max 60ch} I[info]
+  )

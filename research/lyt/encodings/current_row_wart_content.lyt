@@ -1,0 +1,9 @@
+-- Isolated, VERBATIM fragment of layout-language-consult.md §5.1 line 467:
+--     ⚠L1 {min 32px, pref 32px, max CONTENT}
+-- This is the document's own spelling-out of the forbidden content-driven
+-- sizing basis. It is NOT expected to load — see current_row_repaired.lyt
+-- for the same slot with this wart fixed, and tests/test_lyt.py for the
+-- pytest assertion that loading this file raises LytLoadError with
+-- detail.prohibition == 'content-driven-sizing'.
+layout current-row-wart-content =
+  {min 32px, pref 32px, max CONTENT} navBarRow[chrome, info]

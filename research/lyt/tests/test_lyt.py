@@ -1,0 +1,426 @@
+"""pytest coverage for the LYT prototype, per the build commission's
+required minimum: a well-formed encoding solves; a content-driven-sizing
+description is rejected; an L2-violating description is rejected. Also
+covers the third typed prohibition this prototype independently
+discovered/enforces (untypable system+release presence) and one
+end-to-end CP-SAT solve sanity check (board is square, root fills the
+viewport, no negative rectangles).
+
+F11 fix (review row 1609,
+.claude/dispatch-reports/lyt-compiler-prototype-review.md): the review's
+own count of test gaps — no regression test for either axis-conflation
+bug the original builder found and fixed, no test that stage 2 actually
+moves anything (which would have caught F1), no test of fr bounds (F2),
+no independent tiling/partition invariant check on solved output — is
+closed by the tests below, plus regression coverage for F3 (Sizing/Extent
+runtime vocabulary refusal) and F8 (bare `envelope` refused at load time,
+not parse time).
+"""
+import lyt_ast as ast
+import pytest
+from pathlib import Path
+
+import loader
+from errors import LytLoadError, LytParseError
+from compiler import solve_lexicographic
+
+ENCODINGS_DIR = Path(__file__).parent.parent / "encodings"
+
+
+def _load(name: str):
+    text = (ENCODINGS_DIR / f"{name}.lyt").read_text()
+    return loader.load_layouts(text)
+
+
+@pytest.mark.parametrize(
+    "filename,layout_name",
+    [
+        ("q5go", "q5go"),
+        ("ogs", "ogs"),
+        ("lengyue_landscape", "lengyue-landscape"),
+        ("lengyue_portrait", "lengyue-portrait"),
+        ("current_row_repaired", "current-row-repaired"),
+    ],
+)
+def test_well_formed_encoding_loads(filename, layout_name):
+    layouts = _load(filename)
+    assert layout_name in layouts
+
+
+def test_well_formed_encoding_solves():
+    """A well-formed encoding (q5go, at a screen size where it's
+    geometrically feasible — see the build report for why landscape sizes
+    are NOT all feasible for every encoding) actually solves via CP-SAT,
+    end to end, with a sane board rectangle."""
+    layouts = _load("q5go")
+    slot = layouts["q5go"]
+    result = solve_lexicographic(
+        slot,
+        class_id="test",
+        w_px=1920,
+        h_px=1080,
+        board_widget="B",
+        reach_preferred_widgets=["A", "I"],
+        time_limit_s=30,
+    )
+    assert result.status in ("OPTIMAL", "FEASIBLE")
+    board_path = [p for p, w in result.leaf_names.items() if w == "B"][0]
+    board_rect = result.rects[board_path]
+    assert board_rect.w == board_rect.h  # aspect 1
+    assert board_rect.w > 0
+    root_rect = result.rects["root"]
+    assert root_rect.w == 1920
+    assert root_rect.h == 1080
+    for rect in result.rects.values():
+        assert rect.x >= 0 and rect.y >= 0 and rect.w >= 0 and rect.h >= 0
+
+
+def test_content_driven_sizing_is_rejected():
+    """Typed prohibition #1 (§4.2 line 344-345): 'max CONTENT' is the
+    document's own spelling-out of content-driven sizing. It must be
+    refused at load time with a structured, machine-checkable error."""
+    with pytest.raises(LytLoadError) as exc_info:
+        _load("current_row_wart_content")
+    assert exc_info.value.detail.get("prohibition") == "content-driven-sizing"
+
+
+def test_system_release_presence_is_rejected():
+    """Typed prohibition #2 (§4.1 line 268): the (by='system',
+    hidden='release') presence combination is untypable."""
+    with pytest.raises(LytLoadError) as exc_info:
+        _load("current_row_wart_presence")
+    assert exc_info.value.detail.get("prohibition") == "system-release-presence"
+
+
+def test_l2_violation_is_rejected():
+    """L2 (zero-standing-cost affordances, §4.2 line 371-380): the
+    sidebar-collapse rail standing alone as a dedicated split child is the
+    document's own worked example of a violation."""
+    with pytest.raises(LytLoadError) as exc_info:
+        _load("current_row_wart_l2")
+    assert exc_info.value.detail.get("law") == "L2"
+    assert len(exc_info.value.detail.get("violations", [])) == 1
+
+
+def test_l2_conformer_does_not_raise():
+    """The board/tree/controls toggle cluster riding the nav bar (§5.1
+    line 481-482) is the document's own named L2 CONFORMER — make sure the
+    checker doesn't flag it (a checker that flags everything chrome/action
+    would pass the violation test above for the wrong reason)."""
+    layouts = _load("current_row_repaired")
+    assert "current-row-repaired" in layouts  # loads clean, i.e. no L2 raise anywhere in the tree
+
+
+def test_unknown_domain_is_rejected():
+    """A basic ADR-0002 sanity check independent of the two named
+    prohibitions: an unrecognized domain literal must be refused, not
+    silently coerced."""
+    from parser import parse_layouts
+
+    raws = parse_layouts("layout bogus = {min 0px, pref 0px, max inf} X[not-a-real-domain]")
+    with pytest.raises(LytLoadError):
+        loader.load_slot(raws[0].slot)
+
+
+# --- F1 regression: reach-preferred must measure shortfall on the -----------
+# widget's own ALONG axis, not on `w` unconditionally --------------------
+
+
+def test_reach_preferred_measures_shortfall_on_along_axis():
+    """F1 (MAJOR, review row 1609): a V-split child's declared `pref`
+    describes its HEIGHT (§4.2/Slot docstring: "the slot's extent ALONG
+    ITS PARENT'S AXIS"), not its width. The pre-fix stage-2 objective
+    measured shortfall on `w` unconditionally, so a V-stack whose combined
+    height prefs exceed the available height reported a false "no
+    shortfall" (-0.0) instead of the true lexicographic optimum.
+
+    Witness (identical to the review's own reproduction, `probe7.py`): a
+    500x400 V-stack with prefs 100 (top) + 350 (mid) = 450 > 400 — a
+    genuine, unavoidable 50px total shortfall. Also asserts stage 2
+    actually MOVED something (closing the review's related F11 gap: "no
+    test that stage 2 actually moves anything")."""
+    prog = """
+    layout squeeze =
+      {min 0px, pref 1fr, max inf} V(
+        {min 10px, pref 100px, max inf} top[common, info],
+        {min 10px, pref 350px, max inf} mid[common, info]
+      )
+    """
+    layouts = loader.load_layouts(prog)
+    result = solve_lexicographic(
+        layouts["squeeze"],
+        class_id="t",
+        w_px=500,
+        h_px=400,
+        board_widget=None,
+        reach_preferred_widgets=["top", "mid"],
+    )
+    assert result.status in ("OPTIMAL", "FEASIBLE")
+    heights = {result.leaf_names[p]: result.rects[p].h for p in result.leaf_names}
+    true_shortfall = max(0, 100 - heights["top"]) + max(0, 350 - heights["mid"])
+    assert true_shortfall == 50, f"expected the true lexicographic-optimum shortfall (50), got {true_shortfall} from heights {heights}"
+    assert heights["top"] + heights["mid"] == 400  # V-partition equality still holds
+    # The pre-fix bug reported this stage's objective as -0.0 (false
+    # zero); post-fix it must report the true -50.
+    assert result.objective_values == [-50.0]
+
+
+def test_axis_conflation_regression_min_max_applies_only_to_along_axis():
+    """Regression test for the FIRST of the two axis-conflation bugs the
+    original builder self-reported as found-and-fixed but never covered
+    with a test (review F11): a leaf's own min/max sizing bounds only its
+    extent ALONG ITS PARENT'S axis, never the cross axis (which is
+    pinned by the parent's own cross-fill equality instead). Before that
+    fix, a `{min 28px, max 28px}` leaf under a V-parent whose actual width
+    (from the H-split it sits in) is 500px would ALSO get its WIDTH
+    bounded to [28,28] — an unsatisfiable conflict with the 500px cross-
+    fill equality, making the whole program spuriously INFEASIBLE."""
+    prog = """
+    layout axistest =
+      {min 0px, pref 1fr, max inf} H(
+        {min 500px, pref 500px, max 500px} wide[common, info],
+        {min 0px, pref 1fr, max inf} V(
+          {min 28px, pref 28px, max 28px} shortRow[common, info],
+          {min 0px, pref 1fr, max inf} filler[common, info]
+        )
+      )
+    """
+    layouts = loader.load_layouts(prog)
+    result = solve_lexicographic(
+        layouts["axistest"], class_id="t", w_px=1000, h_px=100, board_widget=None
+    )
+    assert result.status in ("OPTIMAL", "FEASIBLE"), (
+        "spuriously INFEASIBLE -- shortRow's {min 28px, max 28px} sizing "
+        "(its ALONG axis is height, under its V parent) must not also "
+        "bound its width, which the cross-fill equality forces to 500"
+    )
+    short_row_path = [p for p, w in result.leaf_names.items() if w == "shortRow"][0]
+    rect = result.rects[short_row_path]
+    assert rect.h == 28  # bounded, correctly, on its along axis
+    assert rect.w == 500  # NOT bounded to 28 -- cross-fill equality wins
+
+
+def test_axis_conflation_regression_slack_measured_on_along_axis():
+    """Regression test for the SECOND axis-conflation bug (review F11,
+    same self-reported-but-untested gap as above): stage 3's slack term
+    (`_collect_slack_terms`) must measure `max - actual` on the SAME axis
+    a slot's sizing describes. Reusing `axistest` from the along-axis test
+    above: shortRow's max (28px) applies to its HEIGHT; if slack were
+    measured on its WIDTH (500px actual) instead, the slack IntVar's
+    non-negative domain [0, 10_000] could not represent `28 - 500`,
+    making stage 3 spuriously INFEASIBLE even once stage 1's hard
+    constraints are satisfiable."""
+    prog = """
+    layout axistest2 =
+      {min 0px, pref 1fr, max inf} H(
+        {min 500px, pref 500px, max 500px} wide[common, info],
+        {min 0px, pref 1fr, max inf} V(
+          {min 28px, pref 28px, max 28px} shortRow[common, info],
+          {min 0px, pref 1fr, max inf} filler[common, info]
+        )
+      )
+    """
+    layouts = loader.load_layouts(prog)
+    result = solve_lexicographic(
+        layouts["axistest2"], class_id="t", w_px=1000, h_px=100, board_widget=None
+    )
+    assert result.status in ("OPTIMAL", "FEASIBLE")
+    # stage 3 (minimize-slack) ran and produced a real objective value,
+    # i.e. it didn't silently no-op or blow up.
+    assert len(result.objective_values) >= 1
+
+
+# --- F2 regression: fr in min/max position must not silently vanish --------
+
+
+def test_fr_min_bound_not_silently_dropped():
+    """F2 (MAJOR, review row 1609): `{min 100fr}` on an H-split child
+    used to silently drop to no bound at all (`_extent_px` returned None,
+    every caller treated None as "unconstrained"), so a slot whose
+    declared minimum is "ALL the free space" could solve to w=0 (witness
+    program identical to the review's own `probes.py` PROBE 3). Post-fix,
+    `100fr` resolves to 100% of the enclosing Split's own along-length —
+    the whole split — so `wide` must claim the entire 1000px width and
+    `other` is left with 0."""
+    prog = """
+    layout frdrop =
+      {min 0px, pref 1fr, max inf} H(
+        {min 100fr, pref 100fr, max inf} wide[common, info],
+        {min 0px, pref 1fr, max inf} other[common, info]
+      )
+    """
+    layouts = loader.load_layouts(prog)
+    result = solve_lexicographic(
+        layouts["frdrop"], class_id="t", w_px=1000, h_px=500, board_widget=None
+    )
+    assert result.status in ("OPTIMAL", "FEASIBLE")
+    widths = {result.leaf_names[p]: result.rects[p].w for p in result.leaf_names}
+    assert widths["wide"] == 1000, f"'min 100fr' must never silently solve to 0 -- got {widths}"
+    assert widths["other"] == 0
+
+
+def test_fr_max_bound_caps_as_a_percentage_of_the_split():
+    """F2 companion: an `fr` MAX behaves symmetrically -- `max 25fr` caps
+    a slot to 25% of its enclosing Split's own length, a real, checkable
+    number, not an unbounded escape hatch. Mirrors the real §5.3 OGS
+    encoding's `I[info]{..., max 25fr}` (consult-doc line 537), which
+    pre-fix solved to 46% of the viewport height (888/1920) at
+    1080x1920 -- see the fix report for that exact before/after."""
+    prog = """
+    layout frcap =
+      {min 0px, pref 1fr, max inf} V(
+        {min 0px, pref 1fr, max inf} rest[common, info],
+        {min 0px, pref 0px, max 25fr} capped[common, info]
+      )
+    """
+    layouts = loader.load_layouts(prog)
+    result = solve_lexicographic(
+        layouts["frcap"], class_id="t", w_px=200, h_px=1000, board_widget=None
+    )
+    assert result.status in ("OPTIMAL", "FEASIBLE")
+    heights = {result.leaf_names[p]: result.rects[p].h for p in result.leaf_names}
+    assert heights["capped"] <= 250, f"'max 25fr' of a 1000px-tall split must cap at <=250px, got {heights}"
+
+
+def test_fr_bound_without_enclosing_split_is_refused():
+    """F2 companion: an fr min/max bound has no defined denominator for
+    the ROOT slot or a direct Exclusive/T-node child (which shares its
+    parent's FULL rectangle on both axes -- no single partition-axis
+    length to take a share of). Rather than silently drop it (the
+    original defect) or guess an arbitrary meaning, this is refused
+    loudly at compile time."""
+    prog = """
+    layout frnodenom =
+      {min 0px, pref 1fr, max inf} T(
+        {min 50fr, pref 1fr, max inf} a[blackbox],
+        {min 0px, pref 1fr, max inf} b[blackbox]
+      )
+    """
+    layouts = loader.load_layouts(prog)
+    with pytest.raises(LytLoadError) as exc_info:
+        solve_lexicographic(
+            layouts["frnodenom"], class_id="t", w_px=1000, h_px=500, board_widget=None
+        )
+    assert exc_info.value.detail.get("prohibition") == "unresolvable-fr-bound"
+
+
+# --- F3 regression: Sizing/Extent runtime vocabulary validation ------------
+
+
+def test_extent_content_unit_construction_is_rejected():
+    """F3 (MODERATE, review row 1609): `Extent.unit`'s `Literal["px","ch",
+    "fr"]` annotation is a typecheck-only promise -- the raw Python
+    constructor used to accept `unit='content'` silently (the review's own
+    `probes.py` PROBE 2). `__post_init__` now refuses it, mirroring
+    `Presence.__post_init__`'s existing runtime guard."""
+    with pytest.raises(ValueError):
+        ast.Extent(unit="content", v=5)
+
+
+def test_sizing_content_basis_construction_is_rejected():
+    """F3 companion: same gap, `Sizing.basis`."""
+    with pytest.raises(ValueError):
+        ast.Sizing(
+            min=ast.Extent(unit="px", v=0),
+            pref=ast.Extent(unit="px", v=100),
+            max="inf",
+            basis="content",
+        )
+
+
+# --- F8 regression: bare `envelope` keyword is spec-legal syntax, --------
+# refused (correctly) at LOAD time, not a PARSE error -----------------------
+
+
+def test_bare_envelope_keyword_parses_but_is_refused_at_load_time():
+    """F8 (MINOR, review row 1609): the base EBNF's `envelope` production
+    (consult-doc line 286) has no required state list -- a bare
+    `envelope` keyword is spec-legal syntax. An earlier version of this
+    parser made the `: {states}` clause mandatory, so the document's own
+    legal syntax was a PARSE error, which the review named as an
+    undisclosed breaking change. It must now parse, and be refused
+    instead at LOAD time, for the more precise reason that L3 requires
+    the enumerated states it doesn't have."""
+    prog = """
+    layout bare-envelope-test =
+      {min 0px, pref 0px, max 32px, envelope} navBarRow[chrome, info]
+    """
+    from parser import parse_layouts
+
+    # Parsing alone must succeed -- this is the part that used to raise
+    # LytParseError.
+    raws = parse_layouts(prog)
+    assert raws[0].slot.sizing.envelope_bare is True
+
+    with pytest.raises(LytLoadError) as exc_info:
+        loader.load_layouts(prog)
+    assert exc_info.value.detail.get("law") == "L3"
+
+
+# --- F11: independent tiling-invariant walk, as a suite test --------------
+
+
+def _tiling_violations(slot, result, *, path="root"):
+    """Recompute partition invariants directly from the solved rects
+    (containment, exact partition sums, cross-axis fill modulo the
+    disclosed aspect relaxation, T-children sharing one rectangle) —
+    ported from the review's own independent verification (`probes.py`
+    PROBE 4) into the suite per its own recommendation ("I ran that last
+    one myself ... it should be in the suite", F11)."""
+    bad = []
+
+    def walk(slot, path):
+        node = slot.node
+        r = result.rects[path]
+        if isinstance(node, ast.Split):
+            along = 0
+            for i, child in enumerate(node.children):
+                cp = f"{path}/{node.axis.upper()}{i}"
+                cr = result.rects[cp]
+                if not (
+                    cr.x >= r.x
+                    and cr.y >= r.y
+                    and cr.x + cr.w <= r.x + r.w
+                    and cr.y + cr.h <= r.y + r.h
+                ):
+                    bad.append(f"{cp}: child rect escapes parent")
+                along += cr.w if node.axis == "h" else cr.h
+                is_aspect_leaf = isinstance(child.node, ast.Leaf) and child.sizing.aspect is not None
+                cross_child = cr.h if node.axis == "h" else cr.w
+                cross_parent = r.h if node.axis == "h" else r.w
+                if not is_aspect_leaf and cross_child != cross_parent:
+                    bad.append(f"{cp}: cross {cross_child} != parent {cross_parent}")
+                walk(child, cp)
+            parent_along = r.w if node.axis == "h" else r.h
+            if along != parent_along:
+                bad.append(f"{path}: partition sum {along} != parent {parent_along}")
+        elif isinstance(node, ast.Exclusive):
+            for i, child in enumerate(node.children):
+                cp = f"{path}/T{i}"
+                cr = result.rects[cp]
+                if (cr.w, cr.h) != (r.w, r.h):
+                    bad.append(f"{cp}: T child rect != T rect")
+                walk(child, cp)
+
+    walk(slot, path)
+    return bad
+
+
+@pytest.mark.parametrize(
+    "filename,layout_name,w,h",
+    [
+        ("q5go", "q5go", 1920, 1080),
+        ("current_row_repaired", "current-row-repaired", 1920, 1080),
+        ("lengyue_landscape", "lengyue-landscape", 1920, 1080),
+        ("lengyue_portrait", "lengyue-portrait", 1080, 1920),
+    ],
+)
+def test_tiling_invariants_hold_on_every_solvable_encoding(filename, layout_name, w, h):
+    layouts = _load(filename)
+    slot = layouts[layout_name]
+    result = solve_lexicographic(
+        slot, class_id="t", w_px=w, h_px=h, board_widget="B", reach_preferred_widgets=None
+    )
+    assert result.status in ("OPTIMAL", "FEASIBLE"), f"{filename}@{w}x{h}: {result.status}"
+    violations = _tiling_violations(slot, result)
+    assert not violations, f"{filename}@{w}x{h} tiling violations: {violations}"

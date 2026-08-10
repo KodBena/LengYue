@@ -1,0 +1,39 @@
+-- Transcription of layout-language-consult.md §5.5 (lines 588-599),
+-- clean-room LengYue, portrait class. Disclosed adjustments beyond the
+-- ones already covered in lengyue_landscape.lyt's header comment:
+--   - `A_top[*, action]` uses '*' as a domain wildcard (the document's own
+--     comment reads "A_go (+) A_common on one reserved strip", i.e. this
+--     leaf merges two census domains into one strip). LYT's Domain type
+--     has no wildcard/union member; we pick 'common' as the representative
+--     domain, consistent with §4.3's own position that domain tagging is
+--     advisory, not load-bearing for geometry.
+--   - `I_engine[...]{28px, envelope as above}`: "as above" is prose
+--     referencing §5.4's envelope states; spelled out explicitly here
+--     rather than parsed literally (no such backreference exists in the
+--     grammar).
+--   - `T( tree, CP-* )[BLACK BOX]{pref 1fr, min 200px}` abbreviates the
+--     black box further than §5.4 (bare `tree` with no bracket, and a
+--     `CP-*` wildcard standing in for all five tabs). Expanded here to the
+--     same six children as the landscape encoding — the census entities
+--     are the same, only the prose shorthand differs — with each child's
+--     own min set to 200px so the T node's structurally-derived min
+--     (componentwise max of children, §4.1 line 298-302) reproduces the
+--     document's explicit `min 200px` for the whole group.
+layout lengyue-portrait =
+  {min 0px, pref 1fr, max inf} V(
+    {28px} A_top[common, action],
+    {pref 1fr} V(
+      {width 100fr, aspect 1} B[board],
+      {24px} I_board[board, info],
+      {28px} A_board[board, action]
+    ),
+    {28px, envelope: {disconnected, connected_5digit_latency}} I_engine[common, info],
+    {pref 1fr} T(
+      {min 200px, pref 1fr, max inf} tree[board, info+action],
+      {min 200px, pref 1fr, max inf} CP-library[blackbox],
+      {min 200px, pref 1fr, max inf} CP-cards[blackbox],
+      {min 200px, pref 1fr, max inf} CP-settings[blackbox],
+      {min 200px, pref 1fr, max inf} CP-analysis[blackbox],
+      {min 200px, pref 1fr, max inf} CP-other[blackbox]
+    )[BLACK BOX]
+  )

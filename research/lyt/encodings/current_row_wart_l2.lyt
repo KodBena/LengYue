@@ -1,0 +1,19 @@
+-- Isolated, near-verbatim fragment of layout-language-consult.md §5.1
+-- lines 454-465: the sidebar-collapse rail standing alone as a dedicated
+-- top-level split child, next to two big composite siblings. This is the
+-- document's own worked ⚠L2 example ("the sidebar-collapse rail — a
+-- full-height split child containing one button", line 377-378). It loads
+-- syntactically and type-checks fine (unlike the two typed-prohibition
+-- fragments) — the refusal here comes from the SEPARATE structural pass,
+-- wellformed.check_wellformed(), not from the typed-AST constructors.
+layout current-row-wart-l2 =
+  {min 0px, pref 1fr, max inf} H(
+    {min 27px, pref 27px, max 27px} sidebarToggle[chrome, action],
+    {min 168px, pref 168px, max 168px} V(
+      {min 0px, pref 1fr, max inf} boardRail[common, info],
+      {min 150px, pref 150px, max 150px} preview[common, info]
+    ),
+    {min 0px, pref 1fr, max inf} V(
+      {min 0px, pref 1fr, max inf} mainColumnPlaceholder[chrome, info]
+    )
+  )
