@@ -41,25 +41,45 @@
   square / circle / label tool adds a case — named here as the visible
   seam, not built.
 
-  Placement (setup-palette-defects, commission row 756, occlusion
-  defect): the palette is DOCKED to the toolbar, not floated over the
-  board. `.setup-toolkit` stacks its trigger and (when open) its panel
-  in a column, in normal document flow — opening it grows the
-  toolbar's own row height (the same vertical-growth mechanism
-  `Toolbar.vue`'s `flex-wrap` already uses at narrow viewports), which
-  pushes `#board-column` down rather than covering any part of it.
-  Genre precedent (q5go/cgoban): a compact toolstrip attached to the
-  chrome, never a transparent or opaque layer over the grid — every
-  intersection must stay clickable while a tool is armed. Rejected:
-  (a) keep `position: absolute` but move the anchor — no anchor is
-  overlay-safe at every viewport width/board-column layout, so this
-  only relocates the occlusion, doesn't remove it; (b) dock the panel
-  beside `#board-column` itself (App.vue) — correct in spirit but
-  couples this leaf's open/closed state into the App-level layout
-  grid for no gain the in-toolbar growth doesn't already give;
-  (c) a modal/backdrop dialog — explicitly banned (no transparent
-  overlay backdrops) and wrong genre besides (a modal blocks the very
-  board clicks the tool exists to receive).
+  Placement, SUPERSEDED (stable-activation, commission rows 1556/1559,
+  finding G6): the in-flow docked panel this comment previously
+  specified ("`.setup-toolkit` stacks its trigger and panel in a
+  column ... opening it grows the toolbar's own row height") IS the
+  "activating a control displaces that control" class defect the
+  current commission fixes — WITNESSED by the independent geometry
+  consult (`.claude/dispatch-reports/opus-uiux-geometry-consult.md`,
+  finding G6): one click on `.setup-trigger` grew `.top-nav-bar`
+  32→93px, pushed `#split-workspace` down 30px, and moved the trigger
+  itself 81px left, out from under the pointer. The in-flow growth
+  this file previously defended (against an EARLIER occlusion defect,
+  commission row 756) was itself the root cause of a worse one.
+
+  Current placement: `.setup-palette` is `position: absolute`,
+  anchored under `.setup-trigger` — the SAME idiom this codebase
+  already uses for `ToolbarSliderPopover.vue`'s `.sliders-popover` and
+  `LocalePicker.vue`'s `.locale-menu` (both `position: absolute; top:
+  100%`, opaque `--surface-0` background, no backdrop, genre-precedent
+  q5go/cgoban toolstrip popovers). Being out of flow, it adds no
+  height or width to `.toolbar`'s own layout — neither the trigger nor
+  any toolbar sibling moves when it opens or closes (the rect-
+  stability property this commission requires). It stays OPAQUE, never
+  a transparent overlay — that standing rule is unchanged; only the
+  reflow-avoidance strategy is. It CAN sit over the top-left corner of
+  `#board-column` while open, same as any anchored toolbar popover in
+  this app overlapping whatever renders beneath it — accepted here
+  because the alternative (in-flow growth) demonstrably broke a worse
+  property (control identity under activation) to avoid it. Rejected
+  for THIS defect: (a) keep the in-flow column layout but permanently
+  reserve a fixed two-row `.toolbar` height so opening never changes
+  it — sound in principle, but pays a constant strip of dead vertical
+  space on every load to host a rarely-open panel, for no benefit the
+  anchored popover doesn't already give; (b) dock the panel beside
+  `#board-column` itself (App.vue) — correct in spirit but couples
+  this leaf's open/closed state into the App-level layout grid for no
+  gain the anchored popover doesn't already give; (c) a modal/backdrop
+  dialog — still wrong genre (a modal blocks the very board clicks the
+  tool exists to receive) and still excluded by the no-transparent-
+  overlay rule if it used a scrim.
 
   License: Public Domain (The Unlicense)
 -->
@@ -174,12 +194,11 @@ const TOOLS: ReadonlyArray<{ id: SetupTool; labelKey: string; swatch: 'black' | 
 </template>
 
 <style scoped>
-/* column, not row: the trigger and (when open) the palette panel
-   stack vertically WITHIN this element's own box, in normal document
-   flow — see the header's "Placement" note. `align-items: flex-start`
-   keeps both the trigger and the wider panel left-edge-aligned rather
-   than the row default of stretching/centering. */
-.setup-toolkit { position: relative; display: flex; flex-direction: column; align-items: flex-start; }
+/* Anchor for the absolutely-positioned `.setup-palette` below — see
+   the header's "Placement" note (stable-activation, G6). The trigger
+   is the toolkit's only in-flow child now; the palette floats off it
+   and never affects this element's own box size. */
+.setup-toolkit { position: relative; display: flex; align-items: center; }
 
 /* Matches Toolbar.vue's `.toolbar-btn` look (styles can't cross the
    scoped-CSS boundary between SFCs, so this mirrors rather than
@@ -204,21 +223,22 @@ const TOOLS: ReadonlyArray<{ id: SetupTool; labelKey: string; swatch: 'black' | 
 }
 
 .setup-palette {
-  /* In-flow, not a floating overlay (see the header's "Placement"
-     note) — `position: static` (the default; named explicitly here
-     because `.setup-toolkit`'s `position: relative` would otherwise
-     read as a hint that this child is positioned against it). Opening
-     the palette grows `.setup-toolkit`'s own column height, which
-     grows the toolbar row it sits in, which pushes the board down —
-     it never draws on top of any board pixel, so every intersection
-     stays clickable while a tool is armed. */
-  position: static;
+  /* Anchored popover, out of flow (see the header's "Placement"
+     note, stable-activation G6) — matches `ToolbarSliderPopover.vue`'s
+     `.sliders-popover` / `LocalePicker.vue`'s `.locale-menu` exactly:
+     `position: absolute; top: 100%`, opaque background, no backdrop.
+     Adds no height or width to `.setup-toolkit`'s own box, so opening
+     it cannot move the trigger or any toolbar sibling. */
+  position: absolute;
+  top: 100%;
+  left: 0;
   margin-top: 4px;
   background: var(--surface-0);
   border: 1px solid var(--border-3);
   border-radius: var(--radius-default);
   padding: var(--space-default);
   min-width: 180px;
+  z-index: 1000;
 }
 
 .tool-grid {

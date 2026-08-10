@@ -504,6 +504,26 @@ const activeTab = computed<string>({
       @start-game="handleStartGame"
       @end-game="handleEndGame"
     />
+    <!-- Sidebar-collapse toggle, stable-activation fix (rows 1556/1559,
+         finding G7): this button used to live inside `.top-nav-bar`,
+         AFTER `SidebarWidget` in `#main-area`'s flex row — clicking it
+         to hide the (168px-wide) sidebar removed that width from the
+         row, and everything after it (including this button's own
+         `.top-nav-bar` ancestor) slid 168px left underneath the
+         pointer that just clicked it (WITNESSED by the geometry
+         consult: `{x:176,...}` → `{x:8,...}`). Pulling the button out
+         to its own always-rendered rail, BEFORE the conditionally-
+         hidden `SidebarWidget`, makes it the first flex child of
+         `#main-area` in both states — a fixed edge slot the sidebar's
+         own width never touches. Rendered outside the `v-if`/`v-show`
+         pair below deliberately: the toggle must stay clickable (to
+         re-expand) even while the region it controls is collapsed. -->
+    <div v-if="store.workspaceLoadState.kind === 'loaded'" class="sidebar-collapse-rail">
+      <button class="collapse-btn" @click="toggleChrome('sidebarExpanded')" :title="$t('app.chrome.toggleSidebar')">
+        {{ store.session.ui.sidebarExpanded ? '◀' : '▶' }}
+      </button>
+    </div>
+
     <SidebarWidget
       v-if="store.workspaceLoadState.kind === 'loaded'"
       v-show="store.session.ui.sidebarExpanded"
@@ -527,10 +547,6 @@ const activeTab = computed<string>({
            button opens one. -->
       <template v-if="store.workspaceLoadState.kind === 'loaded'">
         <div class="top-nav-bar">
-          <button class="collapse-btn" @click="toggleChrome('sidebarExpanded')" :title="$t('app.chrome.toggleSidebar')">
-            {{ store.session.ui.sidebarExpanded ? '◀' : '▶' }}
-          </button>
-
           <Toolbar
             :is-match-running="matchControls.isRunning.value"
             @toggle-engine="engineControls.toggle"
@@ -999,6 +1015,26 @@ const activeTab = computed<string>({
 
 .resizing * { user-select: none !important; -webkit-user-select: none !important; }
 #main-area { display: flex; flex-direction: row; height: 100%; width: 100%; overflow: hidden; }
+
+/* Sidebar-collapse rail (stable-activation fix, rows 1556/1559, G7):
+   always-rendered, fixed-width flex child, positioned BEFORE
+   `SidebarWidget` in `#main-area`'s row — see the template comment at
+   this element's usage for why. `flex-shrink: 0` keeps its width from
+   ever being squeezed by a sibling; `padding-top: 7px` reproduces the
+   button's old vertical offset inside the 32px `.top-nav-bar` (the
+   `(32 - 18) / 2` centering the button used to get for free from that
+   bar's `align-items: center`), so the button's on-screen position is
+   unchanged from before this fix in the sidebar-EXPANDED state, and
+   IDENTICAL to that in the sidebar-collapsed state too — the point of
+   the fix. */
+.sidebar-collapse-rail {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  padding: 7px var(--space-tight) 0;
+  background: var(--surface-0);
+  border-right: 1px solid var(--surface-1);
+}
 
 /* The new main workspace column */
 #main-workspace {
