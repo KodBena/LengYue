@@ -335,6 +335,17 @@ const gameStatus = computed(() =>
   color: var(--accent-primary);
   border-bottom: 1px solid var(--accent-primary);
 }
+/* G29 (audit finding, opus-uiux-geometry-consult.md): the base rule's
+   `outline: none` applied at every focus, including keyboard focus,
+   leaving this tab stop with no visible indicator. Restores the
+   app's existing :focus-visible outline idiom (TabWidget.vue's
+   `.tab-header li:focus-visible`) — accent outline — on top of, not
+   instead of, the existing focus/hover colour change above.
+   Visibility only: tabindex and tab order are unchanged. */
+.rules-select:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
 .rules-select.defaulted {
   font-style: italic;
   color: var(--text-0);
@@ -355,6 +366,14 @@ const gameStatus = computed(() =>
 .komi-input:focus, .komi-input:hover {
   color: var(--accent-primary);
   border-bottom: 1px solid var(--accent-primary);
+}
+/* G29 (audit finding, opus-uiux-geometry-consult.md): same defect and
+   same fix as `.rules-select:focus-visible` above — the base rule's
+   `outline: none` left this tab stop with no visible keyboard-focus
+   indicator. Visibility only: tabindex and tab order are unchanged. */
+.komi-input:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
 }
 
 /* Hide number arrows for a cleaner look */
