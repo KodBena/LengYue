@@ -1380,17 +1380,15 @@ const activeTab = computed<string>({
   border-top: 1px solid var(--border-1);
 }
 
-/* theme-exception: .panel-resizer's peach accent is outside the
-   substrate vocabulary (the chrome substrate has --accent-primary
-   cyan and --accent-secondary orange #f0a04a; this peach is distinct
-   from both). Used as a visual handle for both nested-splitter
-   divider bars (#resizer-outer, board↔tree; #resizer-inner,
-   tree↔control — see useResizablePanel.ts). Sourced from
-   `--accent-peach` (theme.css, minted wiki2-scrollbar-color) rather
-   than its own literal — the app-wide scrollbar styling needed the
-   same peach, so the value now has one named home instead of two
-   independent copies of the same hex. */
-.panel-resizer { width: 4px; background: var(--accent-peach); cursor: col-resize; z-index: var(--z-affordance); flex-shrink: 0; }
+/* Max-contrast splitter handle (commissioner ruling 2026-08-10):
+   the resizer sits flush against the peach app-wide scrollbar
+   (theme.css, wiki2-scrollbar-color), and sharing that peach made
+   the two adjacent affordances read as one. `--resizer-contrast`
+   (white on dark, palette near-black on cluster — see theme.css)
+   separates them without introducing dead space between. Used for
+   both nested-splitter divider bars (#resizer-outer, board↔tree;
+   #resizer-inner, tree↔control — see useResizablePanel.ts). */
+.panel-resizer { width: 4px; background: var(--resizer-contrast); cursor: col-resize; z-index: var(--z-affordance); flex-shrink: 0; }
 .panel-resizer:hover, .panel-resizer:active { background: var(--accent-primary); }
 
 .collapse-btn { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-disabled); height: 18px; padding: 0 var(--space-tight); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-default); font-size: var(--text-body); }

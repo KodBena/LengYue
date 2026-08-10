@@ -157,6 +157,13 @@
   --border-2: #333;      /* default — input edge, panel edge */
   --border-3: #555;      /* strong — focus, hover, active */
 
+  /* Splitter/divider handle — max-contrast against the theme ground
+   * (commissioner ruling 2026-08-10: the resizer sits flush against
+   * the peach scrollbar; a max-contrast bar separates the two
+   * affordances without dead space). White on dark, near-black on
+   * the light theme (see the cluster block's copy). */
+  --resizer-contrast: #fff;
+
   /* ── Text (2) ────────────────────────────────────────────── */
   /* rows 1478/1479/1481/1497: --text-1 (medium) and --text-2 (low)
    * are RETIRED — see this file's header docstring, "Text tier
@@ -274,6 +281,13 @@
   --border-1: var(--cluster-12-6);  /* subtle (taupe) */
   --border-2: var(--cluster-12-6);  /* default (taupe) */
   --border-3: var(--cluster-12-4);  /* strong / focus (purple) */
+
+  /* Splitter/divider handle — max-contrast against the theme ground
+   * (commissioner ruling 2026-08-10; see the dark block's copy).
+   * Palette-strict: the canonical near-black text entry, not a raw
+   * #000 (this block uses ONLY the 12 palette entries — see the
+   * block docstring). */
+  --resizer-contrast: var(--cluster-12-4);
 
   /* ── Text (2) — rows 1478/1479/1481/1497: --text-1/--text-2
    * RETIRED (see this file's header docstring, "Text tier
@@ -619,13 +633,13 @@
    * (--accent-primary is cyan, --accent-secondary is orange
    * #f0a04a — this peach is distinct from both), theme-invariant
    * by design: same category as the ~14 documented
-   * `theme-exception` blocks this file's header names (App.vue's
-   * panel-resizer, RegistryEditor's amber/pink role indicators,
-   * QeuboToolbar's muted-cyan buttons, …). Minted here
-   * (wiki2-scrollbar-color) so the scrollbar styling below and
-   * App.vue's pre-existing `.panel-resizer` (which carried this
-   * exact literal already) share one named anchor instead of two
-   * independent copies of the same magic-literal hex. */
+   * `theme-exception` blocks this file's header names
+   * (RegistryEditor's amber/pink role indicators, QeuboToolbar's
+   * muted-cyan buttons, …). Minted (wiki2-scrollbar-color) for the
+   * scrollbar styling below; App.vue's `.panel-resizer` briefly
+   * shared it but moved to `--resizer-contrast` (commissioner
+   * ruling 2026-08-10 — adjacent same-color affordances read as
+   * one), leaving the scrollbar as the sole consumer. */
   --accent-peach: #eba46d;
 }
 
