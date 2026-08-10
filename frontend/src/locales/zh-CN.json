@@ -478,6 +478,9 @@
   "wizard.palette.describe.default.body": "使用与“质量”相同的稳健子节点一致性度量，但区间内以最差的一手而非中位数进行汇总——为兼容既有档案保留的更严格读数。",
   "wizard.palette.editorPointer":         "如需自由编辑，请前往“设置”中的“分析环境”标签页。",
 
+  "wizard.step.locale.title":             "语言 (Language)",
+  "wizard.step.locale.description":       "选择向导和应用其余部分的显示语言——选择后立即生效，您也可以随时通过工具栏的语言选择器进行更改。",
+
   "wizard.step.sgfImport.title":          "导入棋谱(可选)",
   "wizard.step.sgfImport.description":    "如果此设备上有 SGF 文件，您现在可以将它们导入到棋谱库——也可以跳过此步骤，以后再从棋谱库标签页导入。",
   "wizard.sgfImport.dropHint":            "将 SGF 文件或包含 SGF 的文件夹拖到此处，或：",
