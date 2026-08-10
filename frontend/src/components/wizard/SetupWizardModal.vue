@@ -103,12 +103,22 @@ useModalKeyboard(modalContentRef, computed(() => true), wizard.finish);
 
 .wizard-card {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); /* surface-0 per rows 681/742; was surface-2 = page-bg pink on cluster */
-  padding: var(--space-loose); width: 640px; max-width: 92vw; max-height: 88vh; overflow-y: auto;
+  padding: var(--space-loose); width: 640px; max-width: 92vw; max-height: 88vh;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
   display: flex; flex-direction: column; gap: var(--space-medium);
+  /* The overall size cap (88vh) lives here, on the modal — never on a
+     step. This card is deliberately NOT scrollable itself: the card
+     is not the scroll contract owner. That job belongs solely to
+     `.wizard-body` below (ledger rows 1498/1499/1500, ADR-0011 Rule 2
+     mechanism dispatch, third witnessed instance of step content
+     occluded by the footer). A step growing past its share of the
+     card's height must scroll INSIDE `.wizard-body`, never bleed the
+     whole card — which previously dragged the footer out of view
+     along with the content instead of keeping it pinned below a
+     contained scroll region. */
 }
 
-.wizard-header { display: flex; align-items: center; justify-content: space-between; }
+.wizard-header { display: flex; align-items: center; justify-content: space-between; flex: none; }
 .wizard-title { color: var(--text-0); margin: 0; font-size: var(--text-heading); }
 .close-btn {
   background: none; border: none; color: var(--text-2); font-size: var(--text-heading);
@@ -116,9 +126,25 @@ useModalKeyboard(modalContentRef, computed(() => true), wizard.finish);
 }
 .close-btn:hover { color: var(--text-0); }
 
-.wizard-body { min-height: 200px; }
+/* THE SCROLL CONTRACT (ledger rows 1498/1499/1500): the ONE region
+   that scrolls. `flex: 1 1 auto` lets it claim/yield space as the
+   step's own content and the surrounding chrome (header, step
+   indicator, footer) demand; `min-height: 0` is load-bearing — without
+   it a flex item's default `min-height: auto` refuses to shrink below
+   its content's natural height, which is exactly the failure mode that
+   let content run under the footer in all three prior instances.
+   `overflow-y: auto` makes overflow a contained scrollbar INSIDE this
+   region instead of a card-wide scroll (which dragged the footer out
+   of view) or a step-local budget (which the two now-deleted
+   `calc(88vh - 156px)` rules in WizardStepDemoBoard.vue /
+   WizardStepPalette.vue tried and re-broke on the next content growth
+   — an instance guard, not a structural guarantee). The footer below
+   is a DOM sibling rendered AFTER this region, `flex: none` so it
+   never shrinks, and normal document flow puts it below the scroll
+   region's box — never overlaid on top of it. */
+.wizard-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 
-.wizard-footer { display: flex; align-items: center; gap: var(--space-default); }
+.wizard-footer { display: flex; align-items: center; gap: var(--space-default); flex: none; }
 .footer-spacer { flex: 1; }
 
 .btn {
