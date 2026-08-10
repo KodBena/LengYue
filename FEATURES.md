@@ -77,13 +77,23 @@ patterns supported, others render without hoshi).
   proportionally to the board so the labels stay readable
   across 9-line, 13-line, and 19-line boards.
 
-- **Multiple boards in tabs.** A board rail along the left side
-  hosts each open board as a tab — name, close button, an
-  inline analysis-meter rugplot showing recent visit pressure,
-  and an activity dot ("geiger counter") indicating real-time
-  engine work. Hover a tab to preview that board's current
-  position in a docked preview shelf at the foot of the rail —
-  without switching to it.
+- **Multiple boards in tabs.** A board rail hosts each open
+  board as a tab — name, close button, an inline analysis-meter
+  rugplot showing recent visit pressure, and an activity dot
+  ("geiger counter") indicating real-time engine work. Hover a
+  tab to preview that board's current position in a docked
+  preview shelf at the foot of the rail — without switching to
+  it. Off by default; reachable via the corner presence menu's
+  "Board Rail" checkbox (bottom-right of the workspace), which
+  also offers a choice between docking the rail in the layout
+  or opening it as a popover from a corner-adjacent button.
+
+- **Position preview panel.** `[experimental]` A small square
+  board mounted in the lower-right of the workspace, off the
+  corner presence menu (default off). Today it mirrors the
+  active board's current position; a planned upgrade will make
+  it follow the position under the cursor as you hover
+  variations elsewhere in the app (tree, analysis charts).
 
 - **SGF import and export.** Load via the toolbar's file dialog;
   export the active board to an SGF file via the same surface.

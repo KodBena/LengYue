@@ -5,8 +5,8 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-08-10 (wiki2-ghost-stone): migrations 1 → 2
- * through 72 → 73 (72 entries). The first eight covered pre-v1.0.0
+ * Scope as of 2026-08-11 (lyt-w2-presence): migrations 1 → 2
+ * through 73 → 74 (73 entries). The first eight covered pre-v1.0.0
  * schema evolution; the rest are the v1.0.x – v1.1.x active cycle,
  * archived in per-PR rolling fashion under the same archive contract.
  *
@@ -3092,6 +3092,54 @@ export const archivedMigrations: Migration[] = [
       if (typeof u.settingsTabsOrientation !== 'string' || !valid.includes(u.settingsTabsOrientation)) {
         u.settingsTabsOrientation = 'horizontal';
       }
+    }
+    return out;
+  },
+  // 73 → 74: strip the dead PV-fade knob (wiki2-pv-fade-knob). CSS
+  // transitions were banned and purged from `frontend/src`, which left
+  // `display.pv-fade-ms` — a `KnobDecl` registered under
+  // `profile.settings.knobs` targeting `session.ui.pvAnimation.fadeDurationMs`
+  // — controlling only inert JS-scheduling padding with no observable
+  // effect (see `use-pv-animation.ts`'s file header for the full
+  // account). Both the knob's registered decl and the field it wrote
+  // are removed from the persisted blob:
+  //
+  //   (a) `profile.settings.knobs['display.pv-fade-ms']` — the
+  //       registered decl. Without this strip, a pre-existing blob's
+  //       decl would survive `updateFromRemote`'s deepMerge as a stray
+  //       runtime key (defaults.ts no longer seeds it), and keep
+  //       getting re-persisted forever — the same "half-defeating the
+  //       move" failure the 57 → 58 archived body's `knownTags` strip
+  //       named for a different field.
+  //
+  //   (b) `session.ui.pvAnimation.fadeDurationMs` — the persisted
+  //       value the knob used to write. `defaults.ts`'s `pvAnimation`
+  //       default object no longer carries this leaf either, so
+  //       leaving it in old blobs would be a stray key the runtime
+  //       type (`PvAnimationSettings`, now without `fadeDurationMs`)
+  //       doesn't describe.
+  //
+  // No value is carried forward from either field — there is nothing
+  // downstream to migrate a fadeDurationMs number INTO now that the
+  // knob and the field are both gone; we just delete the dead keys.
+  //
+  // Idempotent: `delete` is a no-op when a key is already absent.
+  //
+  // Container access goes through `witnessedContainer`: both
+  // `profile.settings.knobs` and `session.ui.pvAnimation` exist from
+  // well before this migration (the former seeded at the framework's
+  // knob-registry introduction, the latter backfilled by the archived
+  // 9 → 10 body), so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const knobs = witnessedContainer(out, 'profile.settings.knobs');
+    if (knobs) {
+      delete (knobs as Record<string, unknown>)['display.pv-fade-ms'];
+    }
+    const pvAnimation = witnessedContainer(out, 'session.ui.pvAnimation');
+    if (pvAnimation) {
+      delete (pvAnimation as { fadeDurationMs?: unknown }).fadeDurationMs;
     }
     return out;
   },

@@ -764,10 +764,20 @@ export const defaultKnownTags: string[] = ['$mistake', '$opening', '$joseki', '$
 
 export const defaultSessionUI: UISession = {
   activeTab: 'cards',
-  sidebarExpanded: true,
+  // LYT corner presence-menu defaults (W2). Mirrors `lyt-layout.gen.ts`'s
+  // own `presenceDefaultVisible` for the three menu-governed widget ids —
+  // `boardRail` (path '0') and `previewBoard` (path '2.3.2') both false,
+  // `controlPanel` (path '2.3.1') true — see
+  // `composables/chrome/useLytPresenceMenu.ts`'s own `LYT_PRESENCE_DEFAULT`
+  // for the single other place this triple is named (the migration
+  // 75 -> 76 fallback for a key a legacy blob never wrote at all).
+  lytPresence: { boardRail: false, previewBoard: false, controlPanel: true },
+  // 'slot' (style A): the presence-menu checkbox mounts SidebarWidget
+  // into the boardRail LYT leaf. Roadmap §7 ruling 2's own default —
+  // the user flips to 'popover' (style B) from the Session (UI) registry
+  // or the presence-menu's own inline selector.
+  railStyle: 'slot',
   treeExpanded: true,
-  controlsExpanded: true,
-  boardExpanded: true,
   // System-log bar default-hidden — it's a debugging surface, and
   // its 30px vertical footprint eats space the analysis dashboard
   // would rather have. Users can re-enable via the Session (UI)

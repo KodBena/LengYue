@@ -27,25 +27,35 @@
  *       grid's own track-sizing algorithm reproduces the CP-SAT solver's
  *       lexicographic board-maximize priority exactly, not approximately.
  *
- * Disclosed limitation (inherited from the emit_mockup.py formula this
- * ports, not introduced here): the clamp's `fixedSiblingSumPx` accounts
- * only for the board composite's OWN fixed internal siblings (e.g.
- * I_board+A_board), not any OTHER root-level sibling's width (boardRail).
- * This is exact for W1 (boardRail's `presenceDefaultVisible` is `false` —
- * LytNode.vue never renders it, so its track is always 0px this wave) but
- * would need generalizing before boardRail becomes toggleable (W2's
- * presence-menu work) — see LYT_WIDGET_REGISTRY's own boardRail note.
+ * Formerly-disclosed limitation, GENERALIZED (lyt-w2-presence, W2): the
+ * clamp's `fixedSiblingSumPx` accounts only for the board composite's OWN
+ * fixed internal siblings (e.g. I_board+A_board) — it never knew about any
+ * OTHER root-level sibling's width. Exact so long as `boardRail` (the one
+ * other root sibling with a variable width) stayed `presenceDefaultVisible:
+ * false` (W1: LytNode.vue never rendered it, so its track was always 0px).
+ * Now that the corner presence menu can make boardRail genuinely 168px
+ * wide, the side column's clamp formula would over-claim boardRail's own
+ * footprint unless told about it — `trackCssValue`'s second parameter,
+ * `leadingReservedPx`, is that generalization: LytNode.vue's own trackList
+ * computed (the one caller in a position to know a sibling's CURRENT
+ * presence-resolved width) passes boardRail's live reserved px (its own
+ * fixed px plus one split gap, or 0 when hidden) only for the
+ * `board-priority-clamp` track; every other call site passes nothing and
+ * gets byte-identical output to before this change (the parameter defaults
+ * to 0, a pure additive extension — see LytNode.vue's own header for the
+ * generalization's scope and the disclosed judgment call it names).
  *
  * A collapsed track (`presenceDefaultVisible: false` on the owning
- * LytChild) is handled by the CALLER (LytNode.vue passes `"0px"` instead
- * of calling into this module for that child) — this module only ever
- * compiles a VISIBLE child's own declared shape.
+ * LytChild, or a runtime presence override saying the same) is handled by
+ * the CALLER (LytNode.vue passes `"0px"` instead of calling into this
+ * module for that child) — this module only ever compiles a VISIBLE
+ * child's own declared shape.
  *
  * License: Public Domain (The Unlicense)
  */
 import type { LytTrackShape } from '../../state/lyt-layout.gen';
 
-export function trackCssValue(shape: LytTrackShape): string {
+export function trackCssValue(shape: LytTrackShape, leadingReservedPx = 0): string {
   switch (shape.kind) {
     case 'fixed':
       return `${shape.px}px`;
@@ -55,7 +65,12 @@ export function trackCssValue(shape: LytTrackShape): string {
       return `minmax(${shape.minPx}px, ${shape.maxPx}px)`;
     case 'board-priority-clamp': {
       const natural = `calc(100${shape.naturalBoardCrossUnit} - ${shape.fixedSiblingSumPx}px)`;
-      const available = `calc(100% - (${natural}) - ${shape.parentGapPx}px)`;
+      // leadingReservedPx (see this file's header) accounts for a
+      // PRECEDING root-level sibling (boardRail) whose own width this
+      // track's original derivation never modeled — 0 reproduces the
+      // pre-W2 formula exactly.
+      const leading = leadingReservedPx > 0 ? ` - ${leadingReservedPx}px` : '';
+      const available = `calc(100% - (${natural}) - ${shape.parentGapPx}px${leading})`;
       return `clamp(${shape.minPx}px, ${available}, ${shape.maxPx}px)`;
     }
     /* istanbul ignore next -- exhaustiveness guard, ADR-0002 */

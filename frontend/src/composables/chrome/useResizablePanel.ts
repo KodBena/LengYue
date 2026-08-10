@@ -630,7 +630,13 @@ export function useResizablePanel() {
   // for the one pre-measurement frame described above, same as
   // `freshTreeControlWrapperMinWidthPx`.
   const boardAreaMaxWidthPx = computed(() => {
-    if (!store.session.ui.controlsExpanded) return undefined;
+    // Renamed from `controlsExpanded` (lyt-w2-presence, migration
+    // 75 -> 76): the LYT presence menu's controlPanel checkbox is the
+    // current home for "is the control-panel region shown at all" —
+    // `?? true` mirrors the old field's `defaults.ts` default (a blob
+    // that never set this key, or a partial blob missing the
+    // `lytPresence` container entirely, reads as shown).
+    if (!(store.session.ui.lytPresence?.controlPanel ?? true)) return undefined;
     if (effectiveTreeControlRegionWidthPx.value !== undefined) return undefined;
     return computeBoardAreaMaxWidthPx(rowHeightPx.value);
   });

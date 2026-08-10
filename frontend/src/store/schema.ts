@@ -638,10 +638,69 @@ export interface AppSettings {
 
 export interface UISession {
   activeTab: string;
-  sidebarExpanded: boolean;
+  /**
+   * Corner presence-menu state (W2, `.claude/dispatch-reports/lyt-vue-
+   * realization-roadmap.md` §5/§8). Per-widget-id boolean map for every
+   * LYT leaf/blackbox the corner presence menu can toggle:
+   * `'boardRail'`, `'previewBoard'`, `'controlPanel'` — see
+   * `composables/chrome/useLytPresenceMenu.ts`'s `LYT_PRESENCE_TARGETS`
+   * for the authoritative id list and each id's LYT-registration
+   * default. A key's ABSENCE is not a distinct state: every reader
+   * falls back to that widget's own default (the same fallback
+   * `LytNode.vue`'s `presenceOverrides` prop uses against
+   * `LytChild.presenceDefaultVisible`), so a legacy or partial blob
+   * degrades to the LYT registration's own default rather than to a
+   * silently-different "undefined" state.
+   *
+   * Migration 75 -> 76 (`store/migrations.ts`) supersedes two of the
+   * five pre-LYT-rework `*Expanded` toggles into this map:
+   * `sidebarExpanded` -> `lytPresence.boardRail`, `controlsExpanded` ->
+   * `lytPresence.controlPanel`. `boardExpanded` retires outright with no
+   * successor (the board is architecturally always-mounted, roadmap
+   * §5). `treeExpanded` is DELIBERATELY UNTOUCHED by this migration —
+   * see this field's own doc comment below for why (blind-review-mode's
+   * unrelated, load-bearing reuse of that field name).
+   */
+  lytPresence: Record<string, boolean>;
+  /**
+   * Board-rail realization style (roadmap §7 ruling 2, ledger row 1743).
+   * `'slot'` (default) mounts `SidebarWidget` into the `boardRail` LYT
+   * leaf's own grid track when `lytPresence.boardRail` is true — the
+   * presence-menu checkbox's natural effect (style A). `'popover'`
+   * instead keeps that leaf's track permanently collapsed (zero
+   * standing cost, `lytPresence.boardRail` is not consulted for the
+   * grid track in this style) and surfaces the rail through a separate,
+   * edge-clamped, anchored popover trigger co-located with the corner
+   * presence-menu button (style B) — see `LytPresenceMenu.vue`'s
+   * `BoardRailPopoverTrigger` sibling. A Session (UI) registry setting
+   * (this field, exposed generically by `RegistryEditor`) and the
+   * presence-menu popover's own inline selector both write it, through
+   * `touchSession()`.
+   */
+  railStyle: 'slot' | 'popover';
+  // Blind-review-mode's own snapshot/restore target (`composables/review/
+  // blind-mode-prefs.ts`, `useReviewSession.ts`'s `finishCard`) — hides
+  // the tree panel's CONTENT during a review's blind phase and restores
+  // the user's own prior value on exit. UNRELATED to the LYT presence
+  // menu: this field predates the LYT rework and the roadmap's §5
+  // "tree always visible, field retires" ruling does not reach it,
+  // because retiring it here would also require rewriting blind-mode-
+  // prefs.ts / useReviewSession.ts's typed key lists and their ~15
+  // pinned assertions in `tests/integration/useReviewSession.test.ts`
+  // — real, load-bearing behavior well outside W2's named scope
+  // (presence menu + boardRail/previewBoard + state migration).
+  // Disclosed judgment call, W2 build report: kept as-is rather than
+  // silently narrowing a wider ruling into a change that would break
+  // an unrelated subsystem. Grep-verified (W2 build): no `.vue` under
+  // `src/components/` reads this field at all any more — the tree
+  // panel's own visibility is unconditional per roadmap §5 (`App.vue`'s
+  // W1 header), so blind-mode's write/restore of this field is already
+  // a pre-existing, W1-introduced no-op for the tree panel's actual
+  // on-screen visibility. That gap predates this migration and is
+  // outside W2's scope to fix (see the build report); this field is
+  // preserved purely so blind-mode-prefs.ts / useReviewSession.ts and
+  // their pinned tests keep compiling and passing unchanged.
   treeExpanded: boolean;
-  controlsExpanded: boolean;
-  boardExpanded: boolean;
   // Persistent system-log bar below the top nav. Default true — hidden
   // only when the user explicitly unchecks it in the Session (UI) registry.
   systemLogExpanded: boolean;
