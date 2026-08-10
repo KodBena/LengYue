@@ -252,8 +252,14 @@ function onMatchClick() {
 .engine-controls { display: flex; gap: var(--space-tight); flex-shrink: 0; }
 /* magic-literal: .toolbar-btn padding `1px 5px` — toolbar buttons are
    visually-compact one-line action triggers; tighter than the substrate's
-   --space-tight (4px) on both axes for the dense top-toolbar's aesthetic. */
-.toolbar-btn { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-0); padding: 1px 5px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
+   --space-tight (4px) on both axes for the dense top-toolbar's aesthetic.
+   G30 (WCAG 2.5.8): witnessed at 18px tall (widths 20-106px) — under the
+   24x24 pointer-target floor. min-height is a floor only (padding/border/
+   font-size, i.e. the visual language, are untouched); flex-centering
+   keeps single-line button text centred in the taller box. Mirrored in
+   ToolbarMoveNav.vue's copy of this same rule — Vue scoped styles don't
+   cross the SFC boundary (see that file's own duplication note). */
+.toolbar-btn { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-0); padding: 1px 5px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: var(--tracking-tight); min-height: 24px; display: inline-flex; align-items: center; justify-content: center; }
 .btn-connected { border-color: var(--state-success) !important; color: var(--state-success) !important; }
 /* Match-running attention border on the same slot the MATCH button
    normally occupies. Reuses the existing attention substrate so the

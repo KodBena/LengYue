@@ -433,7 +433,13 @@ const registryMeasureMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READ
 .registry-leaf.scalar, .registry-leaf.symbol-ref, .registry-leaf.enum { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-medium); }
 .leaf-label { color: var(--text-0); font-size: var(--text-emphasis); }
 
-.restore-btn { background: none; border: none; color: var(--text-disabled); cursor: pointer; font-size: var(--text-emphasis); }
+/* G30 (WCAG 2.5.8): witnessed at 10x14 — under the 24x24 pointer-target
+   floor. min-width/min-height is the same transparent-expansion floor
+   KeybindingRow's .row-btn already carries (M16 era) — no background/
+   border painted, so the glyph's visual size is unchanged and only the
+   invisible hit box grows; flex-centering keeps the glyph centred in
+   the taller/wider box. */
+.restore-btn { background: none; border: none; color: var(--text-disabled); cursor: pointer; font-size: var(--text-emphasis); min-width: 24px; min-height: 24px; display: inline-flex; align-items: center; justify-content: center; }
 .delete-btn { background: none; border: none; color: var(--border-3); cursor: pointer; font-size: var(--text-heading); }
 
 .add-key-row { display: flex; padding: var(--space-default); gap: var(--space-tight); background: rgba(0,0,0,0.2); }

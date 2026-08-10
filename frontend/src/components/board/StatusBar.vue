@@ -424,6 +424,11 @@ const gameStatus = computed(() =>
    --text-0 (readable capture-count text, rows 1478/1479/1481), so
    this button's resting state is deliberately dimmer than its
    neighbor — the toggle-off signal, not a shared tonal scale. */
+/* G30 (WCAG 2.5.8): witnessed at 14x10 — under the 24x24 pointer-target
+   floor. min-width/min-height is the same transparent-expansion floor
+   KeybindingRow's .row-btn already carries (M16 era) — background stays
+   transparent and border stays none, so the "#" glyph's visual size is
+   unchanged; flex-centering keeps it centred in the taller/wider box. */
 .move-numbers-btn {
   background: transparent;
   border: none;
@@ -434,6 +439,11 @@ const gameStatus = computed(() =>
   cursor: pointer;
   padding: 0 var(--space-tight);
   line-height: 1;
+  min-width: 24px;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .move-numbers-btn:hover { color: var(--text-0); }
 .move-numbers-btn.active { color: var(--accent-primary); }

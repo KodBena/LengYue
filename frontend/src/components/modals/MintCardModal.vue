@@ -740,7 +740,13 @@ async function submit() {
    checkbox sits next to its explanatory hint without inheriting the
    form-grid label's letter-spacing / uppercase transform. */
 .checkbox-cell { display: flex; align-items: center; gap: var(--space-default); text-transform: none; }
-.calibrate-checkbox { width: auto; accent-color: var(--accent-primary); cursor: pointer; }
+/* G30 (WCAG 2.5.8): no `width`/`height` override here — the global
+   `input[type="checkbox"]` rule (style.css) pins those to the 24x24
+   effective pointer-target floor; a scoped `width: auto` here would
+   win on specificity ([data-v-*] beats the element+attribute global
+   selector) and silently reopen the sub-24px target on this checkbox
+   alone. */
+.calibrate-checkbox { accent-color: var(--accent-primary); cursor: pointer; }
 
 .tag-label-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-default); margin-bottom: var(--space-default); }
 .tag-label { font-size: var(--text-emphasis); color: var(--text-0); text-transform: uppercase; display: block; margin-bottom: 0; }
