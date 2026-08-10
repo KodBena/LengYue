@@ -67,23 +67,35 @@ from runner import ENCODINGS_DIR, REGISTRATIONS, SCREEN_SIZES, _gather_reach_pre
 
 DEFAULT_OUT = Path(__file__).parent.parent.parent / "frontend" / "src" / "state" / "lyt-solved-layout.gen.ts"
 
+# lyt-constants-swap commission (ledger row 1687): generalized from a
+# single hardcoded target so this script can also emit the AS-IS baseline
+# (`current_row_asis.lyt`) as a SIBLING generated module, not just the
+# repaired encoding. `--registration` selects which `runner.REGISTRATIONS`
+# entry to solve; `--out` still overrides the output path (its own
+# default now derived from the registration, below).
+REGISTRATION_OUTPUTS = {
+    "current_row_repaired.lyt": Path(__file__).parent.parent.parent
+    / "frontend" / "src" / "state" / "lyt-solved-layout.gen.ts",
+    "current_row_asis.lyt": Path(__file__).parent.parent.parent
+    / "frontend" / "src" / "state" / "lyt-solved-layout-asis.gen.ts",
+}
+
 GENERATED_HEADER_TOOL = "research/lyt/emit_ts.py"
-GENERATED_SOURCE_ENCODING = "research/lyt/encodings/current_row_repaired.lyt (layout `current-row-repaired`)"
-GENERATED_REGEN_COMMAND = (
-    "cd research/lyt && nice -n 19 ~/w/vdc/venvs/generic/bin/python emit_ts.py"
+GENERATED_REGEN_COMMAND_TMPL = (
+    "cd research/lyt && nice -n 19 ~/w/vdc/venvs/generic/bin/python emit_ts.py --registration {reg}"
 )
 
-_REGISTRATION_NAME = "current_row_repaired.lyt"
+_REGISTRATION_NAME = "current_row_repaired.lyt"  # default, overridable via --registration
 
 
-def _find_registration():
+def _find_registration(name: str = _REGISTRATION_NAME):
     for reg in REGISTRATIONS:
-        if reg.name == _REGISTRATION_NAME:
+        if reg.name == name:
             return reg
     raise LookupError(
-        f"runner.REGISTRATIONS has no entry named {_REGISTRATION_NAME!r} — "
-        "emit_ts.py's target encoding moved or was renamed; update this "
-        "script's _REGISTRATION_NAME to match."
+        f"runner.REGISTRATIONS has no entry named {name!r} — "
+        "emit_ts.py's target encoding moved or was renamed, or --registration "
+        "was given a value that doesn't match any runner.py Registration.name."
     )
 
 
@@ -109,7 +121,9 @@ def _slots_from_result(result: SolveResult) -> Dict[str, Dict[str, int]]:
     return dict(sorted(out.items()))
 
 
-def build_solved_registrations(*, time_limit_s: float = 20.0) -> "tuple[List[dict], List[dict]]":
+def build_solved_registrations(
+    *, registration_name: str = _REGISTRATION_NAME, time_limit_s: float = 20.0
+) -> "tuple[List[dict], List[dict]]":
     """Solve the target encoding at every representative size in
     `runner.SCREEN_SIZES`, in that list's own order (deterministic —
     SCREEN_SIZES is a fixed literal list, not derived from dict/set
@@ -132,11 +146,11 @@ def build_solved_registrations(*, time_limit_s: float = 20.0) -> "tuple[List[dic
       size solved last rather than the class's own declared point — this
       split is the fix.
     """
-    reg = _find_registration()
+    reg = _find_registration(registration_name)
     layouts: Dict[str, ast.Slot] = {}
     for f in reg.files:
         text = (ENCODINGS_DIR / f).read_text()
-        layouts.update(loader.load_layouts(text))
+        layouts.update(loader.load_layouts(text, waivers=reg.waivers))
 
     screen_classes: List[dict] = [
         {"id": c.id, "wPx": c.w_px, "hPx": c.h_px} for c in sorted(reg.classes, key=lambda c: c.id)
@@ -199,30 +213,57 @@ def _ts_slots_literal(slots: Dict[str, Dict[str, int]], indent: str) -> str:
     return "{\n" + "\n".join(lines) + f"\n{indent}}}"
 
 
-def render_ts(registrations: List[dict], screen_classes: List[dict]) -> str:
+def render_ts(
+    registrations: List[dict],
+    screen_classes: List[dict],
+    *,
+    registration_name: str = _REGISTRATION_NAME,
+) -> str:
     """Pure formatting: `(registrations, screen_classes)` (as returned by
     `build_solved_registrations`) -> the full .gen.ts source text.
     Deterministic given deterministic input — no wall-clock timestamp, no
     hostname, no random iteration order — so re-running the emitter
     against an unchanged solve produces a byte-identical file (verified
     by the emitter's own tests)."""
+    reg = _find_registration(registration_name)
+    layout_name = next(iter(reg.layout_by_class.values()))
+    source_encoding = (
+        f"research/lyt/encodings/{reg.files[0]} (layout `{layout_name}`)"
+    )
     lines: List[str] = []
     lines.append("/**")
     lines.append(" * GENERATED FILE — do not hand-edit.")
     lines.append(f" * Tool: {GENERATED_HEADER_TOOL}")
-    lines.append(f" * Source encoding: {GENERATED_SOURCE_ENCODING}")
+    lines.append(f" * Source encoding: {source_encoding}")
     lines.append(
         " * Solve inputs: CP-SAT lexicographic solve (research/lyt/compiler.py"
         " solve_lexicographic), board widget 'B', reach-preferred widgets"
         " auto-derived (research/lyt/runner.py _gather_reach_preferred_widgets),"
         " representative sizes research/lyt/runner.py SCREEN_SIZES."
     )
-    lines.append(f" * Regenerate: {GENERATED_REGEN_COMMAND}")
-    lines.append(
-        " * Phase-1 shadow mode (LYT adoption roadmap): plain data only, no"
-        " behaviour, no runtime import from app code yet — see"
-        " .claude/dispatch-reports/lyt-shadow-harness-build.md."
-    )
+    if reg.waivers:
+        lines.append(
+            " * Loaded via the --baseline waiver mechanism (research/lyt/"
+            "baseline.py BASELINE_WAIVERS) — this encoding is a disclosed,"
+            " honestly non-conformant AS-IS transcription, not a design"
+            " proposal; see the source .lyt file's own header."
+        )
+    lines.append(f" * Regenerate: {GENERATED_REGEN_COMMAND_TMPL.format(reg=reg.name)}")
+    if registration_name == "current_row_asis.lyt":
+        lines.append(
+            " * Phase 2 (lyt-constants-swap, ledger row 1687): plain data,"
+            " but no longer shadow-only — layout-model.ts imports"
+            " RESIZER_WIDTH_PX from this module (the one slot the"
+            " conformance harness showed solved+measured geometry agreeing"
+            " on exactly, at every measured size). See"
+            " .claude/dispatch-reports/lyt-constants-swap-build.md."
+        )
+    else:
+        lines.append(
+            " * Phase-1 shadow mode (LYT adoption roadmap): plain data only, no"
+            " behaviour, no runtime import from app code yet — see"
+            " .claude/dispatch-reports/lyt-shadow-harness-build.md."
+        )
     lines.append(" *")
     lines.append(" * Public Domain (The Unlicense), matching research/lyt/__init__.py's")
     lines.append(" * license line and the umbrella's ADR-0006 per-file convention.")
@@ -282,14 +323,32 @@ def render_ts(registrations: List[dict], screen_classes: List[dict]) -> str:
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser_ = argparse.ArgumentParser(description=__doc__)
-    parser_.add_argument("--out", type=Path, default=DEFAULT_OUT, help="output .ts path")
+    parser_.add_argument(
+        "--registration",
+        default=_REGISTRATION_NAME,
+        help="runner.REGISTRATIONS entry name to solve+emit "
+        "(default: current_row_repaired.lyt; also supports "
+        "current_row_asis.lyt, the --baseline AS-IS encoding)",
+    )
+    parser_.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="output .ts path (default: REGISTRATION_OUTPUTS[--registration])",
+    )
     args = parser_.parse_args(argv)
+    out = args.out or REGISTRATION_OUTPUTS.get(args.registration)
+    if out is None:
+        raise LookupError(
+            f"no default output path registered for {args.registration!r} — "
+            "add an entry to REGISTRATION_OUTPUTS or pass --out explicitly."
+        )
 
-    registrations, screen_classes = build_solved_registrations()
-    text = render_ts(registrations, screen_classes)
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(text)
-    print(f"[emit_ts] wrote {args.out} ({len(registrations)} registrations)")
+    registrations, screen_classes = build_solved_registrations(registration_name=args.registration)
+    text = render_ts(registrations, screen_classes, registration_name=args.registration)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text)
+    print(f"[emit_ts] wrote {out} ({len(registrations)} registrations)")
     for r in registrations:
         print(f"  {r['label']:22s} status={r['status']:10s} slots={len(r['slots'])}")
     return 0

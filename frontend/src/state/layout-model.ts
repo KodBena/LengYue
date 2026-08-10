@@ -71,6 +71,7 @@
  * License: Public Domain (The Unlicense)
  */
 import { ref, watch, type Ref } from 'vue';
+import { LYT_SOLVED_BY_LABEL } from './lyt-solved-layout-asis.gen.ts';
 
 // ── LayoutClass: the discriminated type ──────────────────────────────
 
@@ -211,15 +212,68 @@ export interface PanelGeometryPolicy {
 const MIN_BOARD_PX = 300;
 const TREE_PANEL_MIN_WIDTH_PX = 140;
 const TREE_PANEL_DEFAULT_WIDTH_PX = 140;
-// Mirrors App.vue's `.panel-resizer { width: 1px }` (commissioner
-// ruling 2026-08-10, narrowed from 4px alongside the max-contrast
-// recolor; the grab area stays ~4px via the CSS pseudo-element
-// overhang, which occupies no layout space) — the layout model's
-// budget math must count the same pixels the CSS actually occupies.
-const RESIZER_WIDTH_PX = 1;
+
+// lyt-constants-swap (ledger row 1687): sourced from the LYT AS-IS
+// conformance baseline's generated solve
+// (`lyt-solved-layout-asis.gen.ts`, from `research/lyt/encodings/
+// current_row_asis.lyt` via `research/lyt/emit_ts.py`) rather than a
+// hand literal — the ONE structurally-shared panel slot the shadow
+// harness's divergence report showed the solve and the live-rendered
+// DOM agreeing on EXACTLY (dw=0px) at every measured representative
+// size (1920x1080/2560x1440/1280x1024 — see
+// `research/lyt/divergence/2026-08-10T16-55-25-840Z-current-row-asis.md`).
+// `resizerOuter` and `resizerInner` are two separate LYT leaves for the
+// same real CSS rule (`.panel-resizer { width: 1px }`) and must solve
+// to the same width; read from `resizerOuter`'s '1920x1080' registration
+// (arbitrary — all three OPTIMAL sizes agree) and cross-checked against
+// `resizerInner` at load time, failing loudly (ADR-0002) rather than
+// silently trusting one leaf if the encoding or solve ever drifts the
+// two apart. Mirrors App.vue's `.panel-resizer { width: 1px }`
+// (commissioner ruling 2026-08-10, narrowed from 4px alongside the
+// max-contrast recolor; the grab area stays ~4px via the CSS
+// pseudo-element overhang, which occupies no layout space).
+function _resolveResizerWidthPxFromLyt(): number {
+  const reg = LYT_SOLVED_BY_LABEL['1920x1080'];
+  const outer = reg?.slots.resizerOuter;
+  const inner = reg?.slots.resizerInner;
+  if (!outer || !inner) {
+    throw new Error(
+      'layout-model.ts: LYT as-is solved geometry is missing resizerOuter/' +
+      'resizerInner at the 1920x1080 registration -- regenerate ' +
+      'lyt-solved-layout-asis.gen.ts (research/lyt/emit_ts.py --registration ' +
+      'current_row_asis.lyt) before this module can resolve RESIZER_WIDTH_PX.'
+    );
+  }
+  if (outer.w !== inner.w) {
+    throw new Error(
+      `layout-model.ts: LYT as-is solve disagrees with itself on resizer ` +
+      `width (resizerOuter.w=${outer.w} vs resizerInner.w=${inner.w}) -- ` +
+      'the two leaves model the same CSS rule and must solve identically; ' +
+      'refusing to pick one silently (ADR-0002).'
+    );
+  }
+  return outer.w;
+}
+
+const RESIZER_WIDTH_PX = _resolveResizerWidthPxFromLyt();
 const CONTROL_PANEL_MIN_WIDTH_PX = computeControlPanelMinWidthPx(CONTROL_PANEL_TAB_IDS.length);
 const WRAPPER_MIN_WIDTH_PX = TREE_PANEL_MIN_WIDTH_PX + RESIZER_WIDTH_PX + CONTROL_PANEL_MIN_WIDTH_PX;
 
+// lyt-constants-swap (ledger row 1687) EXCLUDED from the swap above,
+// evidence in research/lyt/divergence/2026-08-10T16-55-25-840Z-
+// current-row-asis.md: minBoardPx ('B'), treePanelMinWidthPx/
+// treePanelDefaultWidthPx ('tree'), controlPanelMinWidthPx ('CP-*'), and
+// therefore wrapperMinWidthPx (derived from two of those) all show
+// LARGE, viewport-varying divergence between the as-is solve and the
+// live-rendered DOM (hundreds of px at every measured size) — driven by
+// the tree/control-panel split's real drag-persisted state (which this
+// harness's fresh, never-dragged page load doesn't control) and by the
+// solver's own elastic (`max inf`/`fr`) reach-preferred behavior
+// absorbing leftover width differently than the live app's actual
+// flex-basis math. Per the commission's own instruction ("do NOT swap
+// anything the harness shows structurally disagreeing"), none of these
+// four qualify — only `resizerWidthPx` (above) showed exact agreement.
+//
 // Single row-axis policy object — see this module's header for why all
 // four width-class entries below currently point at the same object
 // rather than four independently-tuned ones.

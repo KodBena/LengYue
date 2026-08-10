@@ -769,7 +769,11 @@ def test_emit_ts_render_ts_emits_no_content_basis_and_marks_generated():
     text = emit_ts.render_ts(registrations, screen_classes)
     assert "GENERATED FILE" in text
     assert "do not hand-edit" in text
-    assert emit_ts.GENERATED_REGEN_COMMAND in text
+    # emit_ts.py's --registration generalization (lyt-constants-swap,
+    # ledger row 1687) turned the regen command into a per-registration
+    # template; the assertion's MEANING (a regen command is present and
+    # correct) is unchanged, only the constant's name/shape.
+    assert emit_ts.GENERATED_REGEN_COMMAND_TMPL.format(reg=emit_ts._REGISTRATION_NAME) in text
     for r in registrations:
         assert r["status"] in ("OPTIMAL", "FEASIBLE", "INFEASIBLE")
 
@@ -785,3 +789,130 @@ def test_emit_ts_main_writes_file_matching_render_ts(tmp_path):
     written = out_path.read_text()
     registrations, screen_classes = emit_ts.build_solved_registrations()
     assert written == emit_ts.render_ts(registrations, screen_classes)
+
+
+# =============================================================================
+# --baseline waiver mechanism + current-row-asis (lyt-constants-swap
+# commission, ledger row 1687): the AS-IS conformance baseline
+# (`encodings/current_row_asis.lyt`) is honestly L2-non-conformant at two
+# disclosed sites -- `wellformed.Waiver` + `check_wellformed`'s waiver
+# arbitration is the mechanism that lets it load anyway, loudly, without
+# weakening the checker for every OTHER encoding. `baseline.py`'s
+# `BASELINE_WAIVERS` registry is the one place the citations for those two
+# sites live.
+# =============================================================================
+
+import baseline
+from wellformed import Waiver, check_wellformed
+
+
+def test_current_row_asis_fails_strict_load_without_waivers():
+    """Loading the as-is baseline with NO waivers (strict mode, the
+    default every other encoding uses) must still raise L2 -- confirms
+    the fixture genuinely IS non-conformant, not accidentally clean."""
+    text = (ENCODINGS_DIR / "current_row_asis.lyt").read_text()
+    with pytest.raises(LytLoadError) as exc_info:
+        loader.load_layouts(text)
+    assert exc_info.value.detail.get("law") == "L2"
+    assert len(exc_info.value.detail.get("violations", [])) == 2
+
+
+def test_current_row_asis_loads_via_baseline_waivers():
+    """The `--baseline` load mode: the SAME text loads clean once the
+    two disclosed L2 sites are waived via `baseline.BASELINE_WAIVERS`."""
+    text = (ENCODINGS_DIR / "current_row_asis.lyt").read_text()
+    layouts = loader.load_layouts(text, waivers=baseline.BASELINE_WAIVERS)
+    assert "current-row-asis" in layouts
+
+
+def test_current_row_asis_registered_in_runner():
+    """`runner.REGISTRATIONS` carries the as-is registration with its
+    waivers wired up -- the CLI runner (not just ad-hoc test code) can
+    solve it without hitting the strict-mode L2 refusal."""
+    from runner import REGISTRATIONS
+
+    reg = next(r for r in REGISTRATIONS if r.name == "current_row_asis.lyt")
+    assert reg.waivers is baseline.BASELINE_WAIVERS
+    assert reg.layout_by_class["default"] == "current-row-asis"
+
+
+def test_waiver_requires_law_path_and_citation():
+    """A `Waiver` with any field empty is refused at construction --
+    "a waiver must name the law and the citation" (commission's own
+    instruction), enforced the same way `Sizing`/`Presence` enforce their
+    own closed vocabularies (F3 fix precedent)."""
+    with pytest.raises(ValueError):
+        Waiver(law="", path="root", citation="cite")
+    with pytest.raises(ValueError):
+        Waiver(law="L2", path="", citation="cite")
+    with pytest.raises(ValueError):
+        Waiver(law="L2", path="root", citation="")
+
+
+def test_check_wellformed_stale_waiver_is_refused():
+    """A waiver that names a `(law, path)` not actually present in the
+    violations found THIS load is refused loudly (`law:
+    'waiver-integrity'`) rather than silently accepted as decorative --
+    a waiver that silences nothing real is exactly as dishonest as an
+    unwaived violation passing silently."""
+    prog = """
+    layout mixed_toolbar =
+      {min 0px, pref 1fr, max inf} H(
+        {min 0px, pref 400px, max inf} title[common, info],
+        {min 0px, pref 300px, max inf} search[common, info+action],
+        {min 24px, pref 24px, max 24px} sidebarToggle[chrome, action],
+        {min 24px, pref 24px, max 24px} boardToggle[chrome, action]
+      )
+    """
+    raws = __import__("parser").parse_layouts(prog)
+    slot = loader.load_slot(raws[0].slot, path=raws[0].name)
+    stale_waiver = Waiver(law="L2", path="root/H0", citation="nothing lives here")
+    with pytest.raises(LytLoadError) as exc_info:
+        check_wellformed(slot, layout_name="mixed_toolbar", waivers=[stale_waiver])
+    assert exc_info.value.detail.get("law") == "waiver-integrity"
+
+
+def test_check_wellformed_unwaived_violation_still_raises_with_waivers_present():
+    """A waiver for ONE of two real violations does not silence the
+    other -- waivers are matched exactly by `(law, path)`, never
+    globally weakening the check once any waiver is present."""
+    text = (ENCODINGS_DIR / "current_row_asis.lyt").read_text()
+    raws = __import__("parser").parse_layouts(text)
+    slot = loader.load_slot(raws[0].slot, path=raws[0].name)
+    only_one = [baseline.CURRENT_ROW_ASIS_L2_WAIVERS[0]]
+    with pytest.raises(LytLoadError) as exc_info:
+        check_wellformed(slot, layout_name="current-row-asis", waivers=only_one)
+    assert exc_info.value.detail.get("law") == "L2"
+    assert len(exc_info.value.detail.get("violations", [])) == 1
+
+
+def test_emit_ts_current_row_asis_solves_same_feasibility_pattern_as_repaired():
+    """The as-is baseline must solve OPTIMAL at the same three landscape
+    representative sizes and INFEASIBLE at portrait -- the same
+    feasibility pattern `current_row_repaired.lyt` has (SPEC-AMENDMENTS.md
+    Amendment 1's mandatory preserve-banner floor applies identically to
+    both encodings, since both spell the banners `@toggle(system,
+    preserve)` -- the only loadable option, per the as-is file's own
+    TYPE-LEVEL NOTE)."""
+    registrations, _ = emit_ts.build_solved_registrations(registration_name="current_row_asis.lyt")
+    by_label = {r["label"]: r for r in registrations}
+    assert by_label["1920x1080"]["status"] == "OPTIMAL"
+    assert by_label["2560x1440"]["status"] == "OPTIMAL"
+    assert by_label["1280x1024"]["status"] == "OPTIMAL"
+    assert by_label["1080x1920-portrait"]["status"] == "INFEASIBLE"
+    assert by_label["1080x1920-portrait"]["slots"] == {}
+    for label in ("1920x1080", "2560x1440", "1280x1024"):
+        assert len(by_label[label]["slots"]) > 0
+
+
+def test_emit_ts_current_row_asis_resizer_slots_agree_across_sizes():
+    """The specific finding the constants-swap build report relies on:
+    `resizerOuter`/`resizerInner` solve to the SAME width (1px, matching
+    the real `.panel-resizer` CSS) at every OPTIMAL representative size
+    -- the evidence `layout-model.ts`'s `RESIZER_WIDTH_PX` swap rests on."""
+    registrations, _ = emit_ts.build_solved_registrations(registration_name="current_row_asis.lyt")
+    for r in registrations:
+        if r["status"] != "OPTIMAL":
+            continue
+        assert r["slots"]["resizerOuter"]["w"] == 1
+        assert r["slots"]["resizerInner"]["w"] == 1
