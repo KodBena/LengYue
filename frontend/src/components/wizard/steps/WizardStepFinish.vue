@@ -17,6 +17,18 @@
  * for visit-tracking) is marked as still on its seeded default rather
  * than something the user actually chose — the heading no longer
  * claims blanket credit for values the user never saw.
+ *
+ * SGF-IMPORT ROW (commission rows 1404/1407/1464/1468): unlike every
+ * other row here, this one is deliberately NOT read from a real store
+ * cell — an SGF import has no store cell, and per the commission it
+ * must not exist in the backend yet either; the plan is still staged,
+ * not committed (`useSetupWizard.ts`'s `finish()` is what commits it,
+ * which fires AFTER this recap is read, when the user clicks
+ * Finish). Stating "N files ready to import" here — never "imported"
+ * — is what keeps this step's description ("Everything is saved…")
+ * honest for the one step whose effect genuinely hasn't happened yet.
+ * `stagedImportCount` is passed in by `SetupWizardModal.vue`, sourced
+ * from `wizard.importStaging.plan.value.length`.
  */
 import { computed } from 'vue';
 import { store } from '../../../store';
@@ -25,6 +37,7 @@ import type { WizardStepId } from '../../../composables/useSetupWizard';
 
 const props = defineProps<{
   visitedSteps: ReadonlySet<WizardStepId>;
+  stagedImportCount: number;
 }>();
 
 // R7 measure cap — see `WizardStepEngineUri.vue`'s header comment for
@@ -71,6 +84,12 @@ const pvMode = computed(() => store.session.ui.pvAnimation.mode);
       <dd :class="{ 'is-default': !wasVisited('demoBoard') }">
         {{ $t(`wizard.pvAnimation.mode.${pvMode}`) }}
         <span v-if="!wasVisited('demoBoard')" class="default-badge">{{ $t('wizard.finish.defaultBadge') }}</span>
+      </dd>
+
+      <dt :class="{ 'is-default': !wasVisited('sgfImport') }">{{ $t('wizard.step.sgfImport.title') }}</dt>
+      <dd :class="{ 'is-default': !wasVisited('sgfImport') }">
+        {{ $t('wizard.finish.sgfImport.staged', stagedImportCount) }}
+        <span v-if="!wasVisited('sgfImport')" class="default-badge">{{ $t('wizard.finish.defaultBadge') }}</span>
       </dd>
     </dl>
     <p class="finish-hint" :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t('wizard.finish.hint') }}</p>

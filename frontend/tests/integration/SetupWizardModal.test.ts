@@ -134,7 +134,7 @@ describe('SetupWizardModal — Finish recap distinguishes visited-and-changed fr
   });
 });
 
-describe('SetupWizardModal — dismissal marks onboarded', () => {
+describe('SetupWizardModal — dismissal marks onboarded (cancel(), not finish() — commission rows 1404/1407/1464/1468)', () => {
   it('the × close button marks the profile onboarded (same as Finish)', async () => {
     wrapper = mount(SetupWizardModal, { global: { plugins: [i18n] } });
     expect(store.profile.settings.onboarding.completed).toBe(false);
@@ -150,5 +150,34 @@ describe('SetupWizardModal — dismissal marks onboarded', () => {
     const backdrop = wrapper.find('.modal-backdrop');
     await backdrop.trigger('click');
     expect(store.profile.settings.onboarding.completed).toBe(true);
+  });
+});
+
+describe('SetupWizardModal — SGF import step wiring (commission rows 1404/1407/1464/1468)', () => {
+  it('reaching the sgfImport step renders the pure-staging UI (no LibraryImportPanel "done"/"uploading" copy)', async () => {
+    wrapper = mount(SetupWizardModal, { global: { plugins: [i18n] } });
+    const idx = WIZARD_STEPS.indexOf('sgfImport');
+    for (let i = 0; i < idx; i++) {
+      await wrapper.findAll('.wizard-footer .btn-primary')[0].trigger('click');
+    }
+    expect(wrapper.find('#setup-wizard-title').text()).toBe(en['wizard.step.sgfImport.title']);
+    expect(wrapper.find('.staging-panel').exists()).toBe(true);
+    expect(wrapper.text()).toContain(en['wizard.sgfImport.pickFiles']);
+    // The old effectful panel's "Imported N new games" copy must never
+    // appear pre-finish — that was the exact defect the commission
+    // filed (an immediate DB write on pick/drop).
+    expect(wrapper.text()).not.toMatch(/imported \d+ new game/i);
+  });
+
+  it("the Finish recap's SGF-import row reads \"nothing staged\" (default) when the step was never visited, never a false \"imported\" claim", async () => {
+    wrapper = mount(SetupWizardModal, { global: { plugins: [i18n] } });
+    const dots = wrapper.findAll('.step-dot');
+    await dots[WIZARD_STEPS.indexOf('finish')].trigger('click');
+    const dts = wrapper.findAll('.summary-list dt');
+    const dds = wrapper.findAll('.summary-list dd');
+    const sgfRowIndex = dts.findIndex(dt => dt.text() === en['wizard.step.sgfImport.title']);
+    expect(sgfRowIndex).toBeGreaterThanOrEqual(0);
+    expect(dts[sgfRowIndex].classes()).toContain('is-default');
+    expect(dds[sgfRowIndex].text()).not.toMatch(/imported/i);
   });
 });

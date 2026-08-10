@@ -240,6 +240,7 @@ export type {
   LibraryFilter,
   LibraryImportInput,
   LibraryImportOutcome,
+  StagedImportFile,
 } from './types/library';
 
 // ── Application-shell value objects ───────────────────────────────────────────

@@ -32,6 +32,15 @@
  * (or `errored`). `reset()` returns to `idle`. The component
  * renders progress + a final summary off this state.
  *
+ * Exported pure helpers (`isSgfFile`, `filesToInputs`,
+ * `collectDroppedFiles`, `openNativeFilePicker`): the file-gathering
+ * and parse-to-`LibraryImportInput` logic below touches no store and
+ * no backend, so `useWizardImportStaging.ts` (the setup wizard's
+ * pure-staging core, commission rows 1404/1407/1464/1468) reuses it
+ * verbatim rather than forking a second parser — this file's own
+ * EFFECTFUL `importFiles`/pickers/`dropItems` path (and the Library
+ * tab's import UI that drives it) is otherwise unchanged.
+ *
  * License: Public Domain (The Unlicense)
  */
 
@@ -96,7 +105,7 @@ export interface LibraryImport {
 // Case-insensitive `.sgf` extension check. Filters out
 // `.DS_Store`, READMEs, thumbnails, and any other directory
 // detritus.
-function isSgfFile(name: string): boolean {
+export function isSgfFile(name: string): boolean {
   return name.toLowerCase().endsWith('.sgf');
 }
 
@@ -105,7 +114,7 @@ function isSgfFile(name: string): boolean {
 // picker, `file.webkitRelativePath` is "<root>/sub/.../name.sgf";
 // for plain file-pickers, it's the empty string — we map to
 // null so the wire shape stays clean.
-async function filesToInputs(
+export async function filesToInputs(
   files: readonly File[],
   onProgress: (filesRead: number) => void,
 ): Promise<LibraryImportInput[]> {
@@ -194,6 +203,56 @@ async function walkEntry(entry: FsEntry, out: File[]): Promise<void> {
   }
 }
 
+/**
+ * Walk `DataTransferItemList` entries (from a `drop` event) into a
+ * flat `File[]`, recursing into dropped directories via `walkEntry`.
+ * Pure gather step — no filtering, no read, no upload — extracted so
+ * `useWizardImportStaging.ts` can drive the identical drop-walk logic
+ * without going through this file's EFFECTFUL `dropItems`/`importFiles`.
+ */
+export async function collectDroppedFiles(items: DataTransferItemList): Promise<File[]> {
+  const collected: File[] = [];
+  // DataTransferItemList isn't iterable in older lib.dom; index manually.
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    // `webkitGetAsEntry` is the cross-browser shape; the
+    // standardised `getAsEntry` is not yet ubiquitous.
+    const entry = (item as unknown as {
+      webkitGetAsEntry?: () => FsEntry | null;
+    }).webkitGetAsEntry?.();
+    if (entry) await walkEntry(entry, collected);
+  }
+  return collected;
+}
+
+/**
+ * Open the OS file picker (multi-file `.sgf` mode, or directory mode
+ * via `webkitdirectory`) and hand the chosen `File[]` to `onFiles`.
+ * Pure DOM plumbing, no read/upload — shared by this file's own
+ * `pickFiles`/`pickDirectory` and by `useWizardImportStaging.ts`'s
+ * identical pickers.
+ */
+export function openNativeFilePicker(
+  opts: { readonly directory: boolean },
+  onFiles: (files: File[]) => void,
+): void {
+  const input = document.createElement('input');
+  input.type = 'file';
+  if (opts.directory) {
+    // `webkitdirectory` is the standardised attribute today
+    // despite the prefix; supported in Chrome / Firefox / Safari.
+    (input as unknown as { webkitdirectory: boolean }).webkitdirectory = true;
+  } else {
+    input.multiple = true;
+    input.accept = '.sgf';
+  }
+  input.onchange = (e) => {
+    const files = Array.from((e.target as HTMLInputElement).files ?? []); // DOM: onchange set on the file <input> just created, so target is it
+    onFiles(files);
+  };
+  input.click();
+}
+
 const INITIAL_PROGRESS: ImportProgressState = {
   filesRead: 0,
   filesTotal: 0,
@@ -251,43 +310,15 @@ export function useLibraryImport(onImportComplete?: () => void): LibraryImport {
   }
 
   function pickFiles(): void {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.accept = '.sgf';
-    input.onchange = (e) => {
-      const files = Array.from((e.target as HTMLInputElement).files ?? []); // DOM: onchange set on the file <input> just created, so target is it
-      void importFiles(files);
-    };
-    input.click();
+    openNativeFilePicker({ directory: false }, files => { void importFiles(files); });
   }
 
   function pickDirectory(): void {
-    const input = document.createElement('input');
-    input.type = 'file';
-    // `webkitdirectory` is the standardised attribute today
-    // despite the prefix; supported in Chrome / Firefox / Safari.
-    (input as unknown as { webkitdirectory: boolean }).webkitdirectory = true;
-    input.onchange = (e) => {
-      const files = Array.from((e.target as HTMLInputElement).files ?? []); // DOM: onchange set on the file <input> just created, so target is it
-      void importFiles(files);
-    };
-    input.click();
+    openNativeFilePicker({ directory: true }, files => { void importFiles(files); });
   }
 
   async function dropItems(items: DataTransferItemList): Promise<void> {
-    const collected: File[] = [];
-    // DataTransferItemList isn't iterable in older lib.dom; index manually.
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      // `webkitGetAsEntry` is the cross-browser shape; the
-      // standardised `getAsEntry` is not yet ubiquitous.
-      const entry = (item as unknown as {
-        webkitGetAsEntry?: () => FsEntry | null;
-      }).webkitGetAsEntry?.();
-      if (entry) await walkEntry(entry, collected);
-    }
-    await importFiles(collected);
+    await importFiles(await collectDroppedFiles(items));
   }
 
   return {

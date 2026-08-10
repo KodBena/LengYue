@@ -152,3 +152,20 @@ export type LibraryImportOutcome =
   | { readonly status: 'created'; readonly gameId: GameSourceId; readonly clientGameId: BoardId; readonly displayOrdinal: GameDisplayOrdinal }
   | { readonly status: 'deduplicated'; readonly gameId: GameSourceId; readonly clientGameId: BoardId; readonly displayOrdinal: GameDisplayOrdinal }
   | { readonly status: 'errored'; readonly error: string };
+
+// A parsed SGF file staged by the setup wizard's optional import step,
+// not yet sent to the backend (commission rows 1404/1407/1464/1468:
+// the wizard's import step is a PURE STAGING core — no backend/DB
+// mutation before wizard finish — with the actual upload living in an
+// imperative shell that commits only when the wizard finishes;
+// cancelling/closing the wizard simply never calls that shell, so the
+// staged plan evaporates with zero externally-visible effect). Owned
+// by the wizard session (`useSetupWizard.ts`), not by
+// `useLibraryImport.ts` — that composable stays the EFFECTFUL path the
+// Library tab's own import UI uses unchanged. `fileName` is
+// display-only (progress/list rendering); `input` is the exact wire
+// payload `LibraryService.importGames` sends when the plan commits.
+export interface StagedImportFile {
+  readonly fileName: string;
+  readonly input: LibraryImportInput;
+}

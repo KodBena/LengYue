@@ -797,9 +797,20 @@
 
   "wizard.step.sgfImport.title":          "Import your games (optional)",
   "wizard.step.sgfImport.description":    "If you have SGF files on this device, you can import them into your library now — or skip this and do it later from the Library tab.",
+  "wizard.sgfImport.dropHint":            "Drag an SGF file or a folder of SGFs here, or:",
+  "wizard.sgfImport.pickFiles":           "Pick files…",
+  "wizard.sgfImport.pickDirectory":       "Pick directory…",
+  "wizard.sgfImport.reading":             "Reading files…",
+  "wizard.sgfImport.staged":              "no files staged | one file staged — it will be imported when you finish the wizard | {count} files staged — they will be imported when you finish the wizard",
+  "wizard.sgfImport.clear":               "Clear staged files",
+  "wizard.sgfImport.error":               "Could not read those files: {message}",
+  "wizard.sgfImport.dismiss":             "Dismiss",
+  "wizard.sgfImport.result.errored":      "Import finished with {count} of {total} file(s) failed — check the Library tab for details.",
+  "wizard.sgfImport.result.failed":       "SGF import failed: {detail}",
 
   "wizard.step.finish.title":             "You're all set",
   "wizard.step.finish.description":       "Here's your current setup — steps you didn't visit are still on their defaults. Everything is saved and also visible in Settings.",
   "wizard.finish.defaultBadge":           "default — not visited",
+  "wizard.finish.sgfImport.staged":       "no files staged | one file staged for import | {count} files staged for import",
   "wizard.finish.hint":                   "You can re-run this wizard anytime from Settings → Session (UI)."
 }
