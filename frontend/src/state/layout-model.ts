@@ -143,13 +143,47 @@ export function deriveLayoutClass(widthPx: number, heightPx: number): LayoutClas
 export const CONTROL_PANEL_TAB_IDS = ['library', 'cards', 'settings', 'analysis', 'other'] as const;
 export type ControlPanelTabId = (typeof CONTROL_PANEL_TAB_IDS)[number];
 
-// assumption (not spec-given): per-tab natural width + strip gap
-// allowance, reverse-derived from the PRE-existing 220px literal's own
-// comment ("4 tabs × ~50px each + gaps"): 4 × 50 + 20 = 220. Kept as
-// the two declared facts that literal was already claiming to be made
-// of, rather than inventing new numbers — a tab strip of any other
-// count now projects consistently through the same formula.
-export const TAB_STRIP_PER_TAB_WIDTH_PX = 50;
+// G10 (opus-uiux-geometry-consult.md, rows 1556/1563): the 50px/tab
+// literal above (superseded by this fix) was itself reverse-derived
+// from an OLDER hand literal's own comment, not from the tab strip's
+// actual rendered content — "wrong currency" per ADR-0000 (a pixel
+// guess standing in for a text-content fact). WITNESSED via an
+// in-page geometry probe (playwright, `.claude/dispatch-reports/
+// geo-d-overflow-build.md`) against the five REAL `CONTROL_PANEL_TAB_IDS`
+// labels at their default (English) i18n strings: natural per-tab
+// widths (border-box, incl. padding/border) were Library 53.7px,
+// Cards 49.0px, Settings 60.4px, Analysis 61.7px, Other 47.0px — sum
+// 271.8px, against the OLD floor's 270px (5×50+20). That ~2px deficit
+// is exactly what G10 witnessed: the strip's own `overflow-x: auto`
+// (TabWidget.vue, audit finding R2) never gets a chance to engage
+// before the last tab's trailing pixels are already clipped, because
+// the floor sits fractionally BELOW the content it's meant to protect
+// rather than above it with any margin.
+//
+// TAB_STRIP_PER_TAB_WIDTH_PX is the WITNESSED total natural content need
+// (271.8px, all five tabs summed) divided back across the tab count and
+// rounded up (54.36 -> 56px/tab) — a per-tab AVERAGE, not a per-tab
+// dedicated worst-case slot: tabs pack sequentially in one strip, so
+// what has to fit is the STRIP's total width, not each tab individually
+// out-sizing its own equal share. A uniform per-tab estimate also stays
+// consistent with this module's existing `tabCount`-only signature and
+// `computeControlPanelMinWidthPx`'s existing monotonic-per-tab-count
+// contract (a 6th tab moves the floor by exactly one more slot).
+// TAB_STRIP_GAP_PX is unchanged (20px) — it was already a reasonable
+// header border/padding allowance, not implicated in G10's ~2px
+// deficit. Together the new floor (5x56+20 = 300px) clears the
+// witnessed 271.8px need with ~28px of margin: enough for normal font-
+// rendering/sub-pixel variance without reopening G10, while staying
+// small enough that `WRAPPER_MIN_WIDTH_PX` (below) still leaves
+// `MIN_BOARD_PX` its own floor at every viewport width this module's
+// own test sweep exercises (768px and up) — a uniform per-tab MAXIMUM
+// (e.g. the witnessed 61.7px "Analysis" tab) was tried first and
+// rejected: it pushed the floor to 344px, which left less than
+// `MIN_BOARD_PX` for the board at a 768px compact viewport once the
+// tree panel and both resizers were also accounted for — a real
+// conflict between two floors, not a rounding artifact, and the wrong
+// one to let win.
+export const TAB_STRIP_PER_TAB_WIDTH_PX = 56;
 export const TAB_STRIP_GAP_PX = 20;
 
 export function computeControlPanelMinWidthPx(tabCount: number): number {

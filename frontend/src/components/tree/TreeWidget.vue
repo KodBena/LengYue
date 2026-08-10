@@ -592,7 +592,33 @@ const edges = computed(() => {
 </template>
 
 <style scoped>
-.tree-widget-wrapper { position: relative; width: 100%; height: 100%; background: var(--surface-2); }
+/* G13 (opus-uiux-geometry-consult.md): `height: 100%` on a plain block
+   child of `#vue-tree-panel`'s flex COLUMN (App.vue) resolves against
+   the CONTAINING BLOCK's full height — the same 100% `#tree-panel-header`
+   (20px, `flex-shrink: 0`) already claimed a slice of — not against the
+   space actually left over after that header. Flex column layout still
+   stacks the header THEN this wrapper, so the wrapper's own box (100%
+   of the full height) rendered 20px TALLER than the room its parent
+   had left for it, and `#main-area`'s `overflow: hidden` (an ancestor
+   several levels up) clipped exactly that trailing 20px — landing the
+   current-node marker flush against the clip with no padding.
+   WITNESSED: `#vue-tree-panel` 167×1048 (bottom 1080), header 20px, yet
+   `.tree-widget-wrapper`/`.tree-widget-outer` both rendered 1048px tall
+   at y=52 (bottom 1100) — the header's own 20px, uncounted.
+   `flex: 1 1 auto` + `min-height: 0` is the fix at the class, not a
+   `calc(100% - 20px)` offset that would silently drift the moment the
+   header's own height changes: it asks flexbox for "whatever's left
+   after my siblings," which is what every other header+body split in
+   this codebase already does (e.g. `TabWidget.vue`'s `.tab-body`,
+   `ForestDirectory.vue`'s `.tree-panel`) — `#vue-tree-panel` was ALREADY
+   `display: flex; flex-direction: column`, so this makes the wrapper a
+   proper flex item instead of a percentage-sized block that happened to
+   be the second flex child. `min-height: 0` overrides the flex default
+   (`min-height: auto`, i.e. content-based), the same override every
+   flex-fill body in this codebase already carries, so the tree's own
+   (frequently taller-than-its-box) SVG content doesn't push the wrapper
+   back past its allotted share the way `min-height: auto` would. */
+.tree-widget-wrapper { position: relative; width: 100%; flex: 1 1 auto; min-height: 0; background: var(--surface-2); }
 .tree-widget-outer { width: 100%; height: 100%; overflow: auto; }
 .tree-svg { display: block; }
 .tree-edges { fill: none; stroke: var(--border-3); }

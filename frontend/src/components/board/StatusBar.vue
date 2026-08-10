@@ -19,16 +19,73 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import type { StoneColor, BoardState, GameNode, NodeId } from '../../types';
 import UserBadge from '../chrome/UserBadge.vue';
 import { useTransientHint } from '../../composables/useTransientHint';
 import { useSetupTools, SETUP_TOOL_LABEL_KEYS } from '../../composables/board/useSetupTools';
+import { useDeferredContainerBreakpoint } from '../../composables/chrome/useDeferredContainerBreakpoint';
 import { store, touchSession } from '../../store';
 import { getRulesetResolution, getGameEndStatus } from '../../engine/util';
 import { getPath } from '../../engine/navigator';
 import { RULESET_NAMES, type RulesetName } from '../../engine/rulesets';
 import { komiDomainStep } from '../../engine/katago/komi-calibration';
+
+// G12 (opus-uiux-geometry-consult.md): the bar had NO overflow policy —
+// below ~1000px the Pass button, capture counts and the user badge fell
+// past the viewport edge with no scroll/wrap/collapse, and `.player-names`
+// wrapped onto three lines (growing `.status-bar`'s own height, which the
+// board derives its square from — see `min-height`'s own doc above).
+// Genre fix (status bars in Sabaki/CGoban3/KaTrain): priority collapse,
+// not scroll — right-side OPTIONAL segments yield first; the primary
+// action (Pass) and core game state (move number, captures) are never
+// removed. `narrow` collapses the three lowest-priority segments in one
+// step — the rules/komi editors (`.game-info`, editable from Settings ▸
+// Session too, so losing this copy loses no unique capability), the
+// move-numbers toggle (`.move-numbers-btn`, a display preference), and
+// the user badge (`UserBadge`, identity chrome, not game state) — and
+// caps `.player-names` to a single ellipsized line instead of letting it
+// wrap. `.pass-btn`, `.move-badge` and `.caps` are NEVER hidden by this
+// class (see the CSS below): they stay in the DOM and in flow regardless
+// of tier, satisfying "Pass must never be unreachable" by construction
+// rather than by convention.
+//
+// Threshold (assumption, not spec-given): WITNESSED natural (unforced)
+// content width at 1920px — `.status-left` 447px + `.status-right` 256px
+// + the bar's own 16px horizontal padding ≈ 719px (playwright geometry
+// probe, `.claude/dispatch-reports/geo-d-overflow-build.md`). 700px
+// engages narrow mode fractionally BEFORE that natural need is reached,
+// so the collapse lands before any wrap/clip is visible rather than
+// after. `useDeferredContainerBreakpoint` reuses the SAME drag-continuity
+// discipline `useResizablePanel.ts`'s splitter drags already established
+// elsewhere in this app (`isAnyPanelResizing`-gated commit, frozen mid-
+// drag, committed once on release) — the board (and so this bar) resizes
+// live while the outer splitter is dragged, so this bar's own discrete
+// reorganization must not flip superimposed on that gesture either.
+const STATUS_BAR_NARROW_THRESHOLD_PX = 700;
+
+const statusBarRef = ref<HTMLElement | null>(null);
+const { committed: statusBarNarrow, observe: observeStatusBarWidth, stop: stopObservingStatusBarWidth } =
+  useDeferredContainerBreakpoint(STATUS_BAR_NARROW_THRESHOLD_PX);
+
+// `typeof ResizeObserver !== 'undefined'` guard: mirrors
+// `useResizablePanel.ts`'s `attachRowObserver` convention — jsdom (this
+// codebase's unit/integration test substrate, `vite.config.ts`) has no
+// ResizeObserver global, and the many existing StatusBar mounts across
+// the test suite (setup-mode-indicator, hint-no-reflow, tool-label-
+// consistency, …) never stubbed one because this bar had no observer
+// before G12. `committed` degrades to its `ref(false)` default (wide/
+// not-narrow) under that guard — the same "no narrow mode" behaviour
+// this bar always had — so unrelated tests asserting on its OTHER
+// markup stay unaffected instead of crashing at mount.
+onMounted(() => {
+  if (statusBarRef.value && typeof ResizeObserver !== 'undefined') {
+    observeStatusBarWidth(statusBarRef.value);
+  }
+});
+onUnmounted(() => {
+  stopObservingStatusBarWidth();
+});
 
 // Toggle the persisted `session.ui.showStoneMoveNumbers` flag and bump
 // the session counter SyncService keys persistence on (it no longer
@@ -147,7 +204,7 @@ const gameStatus = computed(() =>
 </script>
 
 <template>
-  <div class="status-bar">
+  <div class="status-bar" ref="statusBarRef" :class="{ 'status-bar--narrow': statusBarNarrow }">
     <div class="status-left">
       <!-- M8(b): persistent setup-mode indicator. Opaque chip (no
            translucent overlay — standing ruling), visible for as long
@@ -393,6 +450,33 @@ const gameStatus = computed(() =>
    second line and grow the bar's `min-height` (the original ledger
    row 811 reflow mechanism). */
 .caps { font-family: monospace; color: var(--text-0); font-size: var(--text-body); white-space: nowrap; }
+
+/* G12 narrow-mode collapse (see the `statusBarNarrow` doc in <script>):
+   the three lowest-priority segments are removed from flow entirely
+   (not just visually hidden) so their claimed width goes back to
+   `.pass-btn`/`.caps`/`.player-names`, and `.player-names` — never
+   hidden, only truncated — gets a single-line ellipsis instead of the
+   wrap that used to grow the bar's own height (and so the board's
+   square, which derives its size from the bar's remaining height
+   budget — see this file's `min-height` comment). `.move-badge`,
+   `.pass-btn` and `.caps` carry NO rule in this block: they are never
+   touched by narrow mode, which is what makes "Pass never unreachable"
+   a structural property of this stylesheet rather than a threshold
+   someone has to keep tuned. `:deep()` reaches `UserBadge`'s own root
+   class from this scoped stylesheet — the component has no narrow-mode
+   concept of its own, this bar's overflow policy owns the decision to
+   drop it. */
+.status-bar--narrow .game-info,
+.status-bar--narrow .move-numbers-btn,
+.status-bar--narrow :deep(.user-badge) {
+  display: none;
+}
+.status-bar--narrow .player-names {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40%;
+}
 
 /* Pass affordance — always-visible board-chrome control per genre
    convention (Sabaki/KaTrain/OGS survey, design-engine-features.md

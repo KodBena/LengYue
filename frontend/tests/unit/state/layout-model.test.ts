@@ -128,8 +128,13 @@ describe('CONTROL_PANEL_TAB_IDS -> CONTROL_PANEL_MIN_WIDTH_PX — audit finding 
     expect(sixTabsPx - fiveTabsPx).toBe(TAB_STRIP_PER_TAB_WIDTH_PX);
   });
 
-  it('reproduces the OLD hand literal (220) for the OLD tab count (4) — the formula is a faithful reverse-derivation, not a new number', () => {
-    expect(computeControlPanelMinWidthPx(4)).toBe(220);
+  it('G10 fix (opus-uiux-geometry-consult.md): the floor for the CURRENT 5-tab strip clears the WITNESSED natural content need (271.8px, geo-d-overflow-build.md geometry probe) with margin — the old 270px floor sat fractionally BELOW that need, which is exactly what let the last tab clip before TabWidget.vue\'s own overflow-x:auto (R2) ever got a chance to engage', () => {
+    const WITNESSED_FIVE_TAB_NATURAL_CONTENT_WIDTH_PX = 271.8;
+    expect(CONTROL_PANEL_MIN_WIDTH_PX).toBeGreaterThan(WITNESSED_FIVE_TAB_NATURAL_CONTENT_WIDTH_PX);
+  });
+
+  it('computeControlPanelMinWidthPx(4) now exceeds the OLD hand literal (220) — G10 raised the per-tab/gap constants, so the pre-fix reverse-derivation no longer reproduces verbatim (by design: 220 was already shown too tight for real rendered labels)', () => {
+    expect(computeControlPanelMinWidthPx(4)).toBeGreaterThan(220);
   });
 });
 
