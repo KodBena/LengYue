@@ -24,7 +24,7 @@
 --     identifier characters).
 --   - F4 DISCLOSURE (review row 1609,
 --     .claude/dispatch-reports/lyt-compiler-prototype-review.md finding
---     F4 item 4): every one of the T(...)'s six children below is given
+--     F4 item 4): every one of the T(...)'s children below is given
 --     its own `min WRAPPER_MIN` (300px). §5.4's own text (line 577) gives
 --     no such per-child min — the bare "min envelope over tabs" phrase is
 --     prose, not a value, and the compiler derives the T-node's OWN
@@ -35,43 +35,122 @@
 --     reading of the same prose. We import WRAPPER_MIN onto every child
 --     instead, so the derived T floor is a real, if approximate, 300px —
 --     the SAME choice lengyue_portrait.lyt already makes (with 200px,
---     disclosed there). An earlier version of this file made the same
---     choice WITHOUT disclosing it; this paragraph brings the two files'
---     disclosure to parity rather than removing the (functionally
---     necessary) per-child mins.
---   - AMENDMENT 3 (ledger row 1715, gap-amendment-build): two `gap`
---     declarations, both mapped onto `frontend/src/assets/css/theme.css`'s
+--     disclosed there).
+--   - AMENDMENT 3 (ledger row 1715, gap-amendment-build): three `gap`
+--     declarations, all mapped onto `frontend/src/assets/css/theme.css`'s
 --     `--space-*` tier scale (that file's own §"Four tiers for gap,
 --     padding, margin", read in full):
---       - the OUTER H(...) (board area vs. the side control column) gets
---         `gap 12px`, `--space-medium` ("section-level gap, content-block
---         separation") — for the split between the page's two MAJOR
---         REGIONS. DISCLOSED DOWN-TIER FROM `--space-loose` (20px): the
---         first probe used `--space-loose`, which re-solves OPTIMAL at
---         every representative/OVERLAY_SIZES size EXCEPT `900x600`
---         (landscape), a size that solved OPTIMAL pre-amendment (gap 0)
---         and regresses to INFEASIBLE at `--space-loose` specifically
---         because of the extra reserved gap width — a real, measured
---         finding, not silently dropped. `--space-medium` (12px) restores
---         `900x600` to OPTIMAL while every OTHER size's feasibility
---         status is unchanged from BOTH the gap-0 baseline and the
---         `--space-loose` probe (see build report's feasibility table for
---         the full before/after grid, including the two INFEASIBLE sizes
---         — `1280x1024` and the `1080x1920`-viewport-fed-to-the-landscape-
---         class probe — that were ALREADY infeasible before this
---         amendment, per fix1's own X6 disclosure, and remain so
---         independent of gap tier).
+--       - the OUTER H(...) (boardRail vs. board area vs. the side control
+--         column) gets `gap 12px`, `--space-medium` ("section-level gap,
+--         content-block separation") — for the split between the page's
+--         MAJOR REGIONS. DISCLOSED DOWN-TIER FROM `--space-loose` (20px),
+--         per the original build report's finding (900x600 regresses to
+--         INFEASIBLE at the wider tier); unchanged by the additions
+--         below.
 --       - the side column's own V(...) (the go-actions/engine-info/
---         common-actions strip stack feeding the black-box T node) gets
+--         common-actions strip stack feeding the tree/panels row) keeps
 --         `gap 4px`, `--space-tight` ("button-cluster gaps, icon
---         spacing, tight rows") — the narrowest tier, matching that
---         comment's own words almost verbatim: this IS a stack of tight
---         control rows. Already the smallest tier, so no down-tier
---         probe was possible for this one; it did not need one --
---         re-solving with only this gap (root gap held at 0) never
---         introduced a new infeasibility at any tested size.
+--         spacing, tight rows").
+--       - NEW: the tree/panels/preview row (see the "TREE ALWAYS
+--         VISIBLE" note below) is itself an H(...) needing its own gap
+--         between tree, the control-panel tab group, and the preview
+--         board — `gap 4px`, `--space-tight` again, matching the
+--         side column's own tier (this row IS one of the side column's
+--         "tight rows").
+--
+--   - TREE ALWAYS VISIBLE (ledger row ~1735, commissioner review of the
+--     clean-room mockups: "'Tree & Panels' look like it has tabs, one
+--     for tree and one for the other stuff in the control panel, but the
+--     tree should always be visible"). The tree leaf is pulled OUT of
+--     the T(...) exclusive group and made a permanent sibling of it,
+--     inside a new H(...) row: `H(tree, T(CP-*), previewBoard)`. This
+--     is NOT a new invention — it reproduces, almost exactly, the SHAPE
+--     the as-is encoding already transcribes for the real app
+--     (`encodings/current_row_asis.lyt`'s own
+--     `H(tree{140px,drag-persisted}, resizerInner, T(CP-*){WRAPPER_MIN})`
+--     — this file omits the resizer leaf, since the census census
+--     doesn't carry a dedicated resizer widget in this consolidated
+--     tree, and drops `drag-persisted` since this prototype's L4
+--     accounting is unimplemented (README.md's L4 section) and neither
+--     clean-room encoding used it before). Tree's reservation, 140px
+--     fixed (`min=pref=max=140px`), is grounded directly in
+--     `frontend/src/state/layout-model.ts`'s `TREE_PANEL_MIN_WIDTH_PX`
+--     AND `TREE_PANEL_DEFAULT_WIDTH_PX` (both 140, the row-axis policy
+--     object every width class currently shares) — the "sensible
+--     reservation" the commission asked to ground against the live app.
+--     The T(...) node keeps `{pref 1fr}` (elastic, min still derived from
+--     its now-five children's own WRAPPER_MIN, unchanged), and picks up
+--     what's left of the row after tree, the tight gaps, and the new
+--     preview board below claim their fixed shares. The T node's own
+--     `[BLACK BOX]` tag is, if anything, MORE accurate now than before —
+--     every one of its remaining children is domain='blackbox', where
+--     previously the tag covered tree too (domain='board', never
+--     actually blackbox).
+--
+--   - boardRail (ledger row 1735, commissioner ruling: "the clean-room
+--     encodings OMITTED the boardRail... it returns as a
+--     USER-TOGGLEABLE presence slot — user-initiated, space-releasing
+--     ... wired into the corner presence-menu... DEFAULT OFF"). Identity
+--     and ~168px reservation grounded in
+--     `encodings/current_row_asis.lyt`'s own transcription: that file's
+--     `@toggle(user, release) {min 168px, pref 168px, max 168px} V(
+--     loadSave, boardRail, addBoard, jankTest, preview )` is the real
+--     app's sidebar rail. This clean-room file, being function-
+--     consolidated (per the original commission), does not carry
+--     loadSave/addBoard/jankTest/preview as separate leaves — those are
+--     out of THIS commission's naming (only "boardRail (the open-boards
+--     thumbnail rail)" was named), so only `boardRail` itself is added,
+--     at the SAME 168px width the whole rail column occupied (the one
+--     concrete number the ruling supplies: "reservation grounded in the
+--     as-is encoding's value"). Placement: leftmost child of the root
+--     H(...), i.e. "the left edge as today" — the ruling's own
+--     conservative default, unchanged from the as-is app's real DOM
+--     order (`App.vue`'s sidebar rail sits left of the main H, before
+--     the toggle rail even). Presence (`@toggle`, release, DEFAULT OFF)
+--     is NOT expressed in this file's own concrete syntax — like the
+--     rest of this encoding (see the pre-existing header note below,
+--     "Neither `.lyt` source file declares an `@toggle` presence"), the
+--     corner presence-menu is a generator-level (`emit_mockup.py`
+--     `TOGGLE_TARGETS`) affordance layered on top of an otherwise
+--     `@fixed` AST; boardRail's toggle registration, presence type, and
+--     default-hidden state all live there, disclosed in that module's
+--     own docstring.
+--
+--   - previewBoard (ledger row 1735, SECOND commissioner amendment: "a
+--     variation-preview mini board (lizzieyzy / chess-preview paradigm),
+--     LOWER RIGHT of the layout... aspect-1 leaf... modest reservation,
+--     grounded against the existing library MiniBoard's 160x160
+--     precedent... user-toggleable... DEFAULT OFF"). Placement: the
+--     rightmost slot of the new tree/panels row (`H(tree, T(CP-*),
+--     previewBoard)`) — that row is the bottom-most element of the side
+--     column, which is itself the page's rightmost region in landscape,
+--     so its own rightmost slot IS the page's lower-right corner
+--     (already home to the corner presence-menu button per the prior
+--     build report's own WITNESSED claim #4). Reservation: 160px fixed
+--     on BOTH axes (`min=pref=max=160px, aspect 1`), the exact square
+--     grounded in `frontend/src/components/library/LibraryPreviewPane.
+--     vue`'s own "160×160 box (both dimensions capped, not just width)"
+--     precedent (that file's own comment, read in full). This is the
+--     SECOND aspect-locked leaf in this program (the board `B` is the
+--     first) — `compiler.py`'s aspect-slack machinery
+--     (`_collect_aspect_slack_terms`, Stage 1.5) is written generically
+--     over every aspect leaf in the tree, not hardcoded to one, so no
+--     compiler change was needed; `emit_mockup.py`'s own board-only
+--     `is_board_leaf` cross-axis-containment check was generalized to
+--     `is_aspect_leaf` (any leaf with a declared `aspect`, not just
+--     widget id `"B"`) for the same reason on the generator side — see
+--     that module's own docstring for the disclosure.
+--
+--     DESIGN NOTE (Vue-realization phase, no build action taken here):
+--     the commissioner separately floated boardRail-as-POPOVER (overlay
+--     stratum, zero standing cost, triggered from chrome) as an
+--     alternative to the presence-slot shape built here. Recorded as an
+--     open fork for whoever picks up the eventual Vue implementation —
+--     this commission was explicitly to keep building the presence-slot
+--     version.
 layout lengyue-landscape =
   {min 0px, pref 1fr, max inf, gap 12px} H(
+    {min 168px, pref 168px, max 168px} boardRail[common, info+action],
     {pref 1fr} V(
       {pref maximize, aspect 1} B[board],
       {min 24px, pref 24px, max 24px} I_board[board, info],
@@ -81,13 +160,16 @@ layout lengyue-landscape =
       {28px} A_go[go, action],
       {28px, envelope: {disconnected, connected_5digit_latency}} I_engine[common, info],
       {28px} A_common[common, action],
-      {pref 1fr} T(
-        {min WRAPPER_MIN, pref 1fr, max inf} tree[board, info+action],
-        {min WRAPPER_MIN, pref 1fr, max inf} CP-library[blackbox],
-        {min WRAPPER_MIN, pref 1fr, max inf} CP-cards[blackbox],
-        {min WRAPPER_MIN, pref 1fr, max inf} CP-settings[blackbox],
-        {min WRAPPER_MIN, pref 1fr, max inf} CP-analysis[blackbox],
-        {min WRAPPER_MIN, pref 1fr, max inf} CP-other[blackbox]
-      )[BLACK BOX]
+      {pref 1fr, gap 4px} H(
+        {min 140px, pref 140px, max 140px} tree[board, info+action],
+        {pref 1fr} T(
+          {min WRAPPER_MIN, pref 1fr, max inf} CP-library[blackbox],
+          {min WRAPPER_MIN, pref 1fr, max inf} CP-cards[blackbox],
+          {min WRAPPER_MIN, pref 1fr, max inf} CP-settings[blackbox],
+          {min WRAPPER_MIN, pref 1fr, max inf} CP-analysis[blackbox],
+          {min WRAPPER_MIN, pref 1fr, max inf} CP-other[blackbox]
+        )[BLACK BOX],
+        {min 160px, pref 160px, max 160px, aspect 1} previewBoard[common, info]
+      )
     )
   )

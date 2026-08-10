@@ -196,6 +196,17 @@ async function verifyClass({ class: className, file, w, h }, browser, violations
   const total = 2 ** n;
   console.log(`[verify_power_set] ${className}: ${n} targets, ${total} states -- ${targets.map((t) => `${t.id}(${t.presence})`).join(', ')}`);
 
+  // lyt-tree-always-visible (ledger row ~1735): boardRail/previewBoard
+  // are registered DEFAULT OFF, so the page's raw initial-load state no
+  // longer equals the all-checked state `restoreAll` produces -- (c)'s
+  // deep-equal-to-baseline check would spuriously fail on every mask
+  // once any target starts unchecked. Baseline is now captured AFTER
+  // forcing every checkbox checked (mirroring what `restoreAll` itself
+  // does), so it is well-defined regardless of which targets default to
+  // off; this is a superset of the pre-existing behavior (when every
+  // target defaults on, forcing all-checked is a no-op and baseline is
+  // unchanged from before this fix).
+  await setCombo(page, targets, (1 << targets.length) - 1);
   const baseline = await measure(page);
   let statesWalked = 0;
   let guardChecks = 0;

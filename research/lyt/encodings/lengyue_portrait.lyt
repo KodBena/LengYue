@@ -25,15 +25,48 @@
 --     separation"). Landscape's OUTER split uses the wider `--space-loose`
 --     tier (20px) for its board-vs-side-column split, a clean two-way
 --     major-region seam with generous width to spare; portrait's root
---     stacks FOUR bands in a narrower viewport (the top action strip, the
---     board group, the engine-info strip, and the black-box tree/panels
---     T node) — the same `--space-loose` gap three times over would cost
---     60px of vertical rhythm the portrait class can less afford, so the
---     next tier down is the disclosed, deliberate choice here, not an
---     infeasibility workaround (this class stayed OPTIMAL at `--space-
---     loose` too when probed — see build report).
+--     stacks bands in a narrower viewport, so the next tier down is the
+--     disclosed, deliberate choice here, not an infeasibility workaround
+--     (this class stayed OPTIMAL at `--space-loose` too when probed — see
+--     build report). The new tree/panels/preview row below gets its own
+--     `gap 4px` (`--space-tight`), matching landscape's identical row.
+--
+--   - TREE ALWAYS VISIBLE / boardRail / previewBoard (ledger row ~1735):
+--     same three commissioner-driven changes as lengyue_landscape.lyt —
+--     read that file's header in full for the shared rationale
+--     (grounding citations, presence-menu mechanism disclosure, the
+--     aspect-leaf generalization, the boardRail-as-popover open fork).
+--     This file's own class-specific choices, not covered there:
+--       - boardRail: the as-is app's 168px reservation is a WIDTH (a
+--         left-edge rail column); portrait's root V partitions on
+--         HEIGHT, so there is no literal "left edge" in a single-column
+--         stack. Reinterpreted as a 168px-tall HORIZONTAL strip at the
+--         TOP of the page (root V's new first child, before A_top) —
+--         "top" being the portrait analog of "leftmost/first" in the
+--         root's own child ORDER (matching the ruling's own "left edge
+--         as today is the conservative choice": same numeric value,
+--         same leading structural position, axis reinterpreted the way
+--         every other shared-identity leaf in this pair of files already
+--         is between classes). No stronger portrait-specific precedent
+--         exists to ground a different number against — flagged as a
+--         judgment call, not a re-derivation.
+--       - previewBoard: reservation scaled DOWN from landscape's 160px to
+--         96px (`min=pref=max=96px, aspect 1`) — "modest... scaled
+--         sensibly to the region" (the ruling's own phrasing). Portrait's
+--         tree/panels/preview row shares its width budget with the
+--         tree's fixed 140px and the T node's 200px floor inside the
+--         FULL VIEWPORT WIDTH (no elastic side-column buffer the way
+--         landscape has); 96px is the down-scaled choice that keeps this
+--         row's fixed+floor total (140+96+200=436px plus two 4px gaps)
+--         comfortably under every representative portrait width this
+--         prototype's own OVERLAY_SIZES table tests at 768px and up,
+--         while genuinely tightening the narrowest two probes (540x960,
+--         420x880) — see the build report's before/after feasibility
+--         table for the measured outcome at each size, disclosed rather
+--         than silently absorbed either way.
 layout lengyue-portrait =
   {min 0px, pref 1fr, max inf, gap 12px} V(
+    {min 168px, pref 168px, max 168px} boardRail[common, info+action],
     {28px} A_top[common, action],
     {pref 1fr} V(
       {width 100fr, aspect 1} B[board],
@@ -41,12 +74,15 @@ layout lengyue-portrait =
       {28px} A_board[board, action]
     ),
     {28px, envelope: {disconnected, connected_5digit_latency}} I_engine[common, info],
-    {pref 1fr} T(
-      {min 200px, pref 1fr, max inf} tree[board, info+action],
-      {min 200px, pref 1fr, max inf} CP-library[blackbox],
-      {min 200px, pref 1fr, max inf} CP-cards[blackbox],
-      {min 200px, pref 1fr, max inf} CP-settings[blackbox],
-      {min 200px, pref 1fr, max inf} CP-analysis[blackbox],
-      {min 200px, pref 1fr, max inf} CP-other[blackbox]
-    )[BLACK BOX]
+    {pref 1fr, gap 4px} H(
+      {min 140px, pref 140px, max 140px} tree[board, info+action],
+      {pref 1fr} T(
+        {min 200px, pref 1fr, max inf} CP-library[blackbox],
+        {min 200px, pref 1fr, max inf} CP-cards[blackbox],
+        {min 200px, pref 1fr, max inf} CP-settings[blackbox],
+        {min 200px, pref 1fr, max inf} CP-analysis[blackbox],
+        {min 200px, pref 1fr, max inf} CP-other[blackbox]
+      )[BLACK BOX],
+      {min 96px, pref 96px, max 96px, aspect 1} previewBoard[common, info]
+    )
   )

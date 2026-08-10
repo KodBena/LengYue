@@ -1149,12 +1149,20 @@ def test_generated_pages_have_balanced_div_nesting(mockup_pages):
 def test_generated_pages_carry_every_declared_toggle_target(mockup_pages):
     for class_id, targets in emit_mockup.TOGGLE_TARGETS.items():
         html_text = mockup_pages[class_id]
-        for label, presence in targets.values():
+        for label, presence, default_visible in targets.values():
             slug = emit_mockup._slug(label)
             assert f'data-toggle-id="{slug}" data-presence="{presence}"' in html_text
             assert f'data-toggle-for="{slug}"' in html_text
             if presence == "release":
                 assert f'data-toggle-id="{slug}"' in html_text and "data-track-prop=" in html_text
+            # lyt-tree-always-visible (ledger row ~1735): a default-OFF
+            # target's checkbox must NOT carry the `checked` attribute,
+            # and a default-ON one must -- the initial-load HTML has to
+            # agree with the registry, not just with itself.
+            checkbox_tag_re = re.escape(f'<input type="checkbox" data-toggle-for="{slug}"')
+            m = re.search(checkbox_tag_re + r'([^>]*)>', html_text)
+            assert m, f"{class_id}/{slug}: checkbox tag not found"
+            assert ("checked" in m.group(1)) == default_visible
 
 
 def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_pages):
@@ -1170,10 +1178,33 @@ def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_
     board rect; an INFEASIBLE entry carries no slots (matching
     build_overlay_data's own `if status in (OPTIMAL, FEASIBLE) else {}`)
     and the debug overlay's own JS already renders that status text
-    instead of crashing (see `drawOverlay`)."""
+    instead of crashing (see `drawOverlay`).
+
+    lyt-tree-always-visible (ledger row ~1735) EXPANDS this set.
+    boardRail (168px) and previewBoard (160px landscape / 96px portrait)
+    are DEFAULT-OFF toggle targets -- at runtime, an unchecked release
+    target's grid track is collapsed to 0px, so a real browser page never
+    reserves their space unless the user opts in. But `compiler.py`'s own
+    disclosed limitation (module docstring: "only the 'all slots present'
+    valuation is solved") means the CP-SAT solve backing this debug
+    overlay treats EVERY leaf as always-present, boardRail/previewBoard
+    included -- so the solve's own feasibility envelope shrinks by their
+    combined reservation at every size, regardless of the live page's
+    default-hidden rendering. Landscape's three new entries below
+    (1366x768, 1024x700, 900x600) were OPTIMAL before this change (the
+    file's own header once tuned 900x600 specifically to stay OPTIMAL at
+    a lighter gap tier); portrait gains one (420x880), previously the
+    only entirely-OPTIMAL class. This is a solver-modeling artifact, not
+    a live-CSS regression -- disclosed here and in the build report
+    rather than shrinking the (already grounded, cited) reservations
+    further to force these back to OPTIMAL."""
     known_infeasible = {
         ("landscape", "1280x1024"),
         ("landscape", "1080x1920-in-landscape"),
+        ("landscape", "1366x768"),
+        ("landscape", "1024x700"),
+        ("landscape", "900x600"),
+        ("portrait", "420x880"),
     }
     for class_id, html_text in mockup_pages.items():
         m = re.search(r'<script id="lyt-solved-data" type="application/json">(.*?)</script>', html_text, re.S)
@@ -1301,28 +1332,43 @@ def test_board_stones_sit_on_grid_intersections(mockup_pages):
 
 
 def test_board_has_star_points_and_coordinates(mockup_pages):
-    """B1 secondary finding ('no star points and no coordinates')."""
+    """B1 secondary finding ('no star points and no coordinates').
+
+    lyt-tree-always-visible (ledger row ~1735): previewBoard reuses
+    `_board_html()` verbatim (same honest-proxy goban content, see
+    `render_leaf`'s own comment for why), so each page now emits TWO
+    boards' worth of hoshi/coordinate markup (the main board B plus
+    previewBoard) -- counts doubled from the pre-existing single-board
+    figures, not a change to what this test verifies (every emitted
+    board still carries a full standard 19x19 hoshi/coordinate set)."""
     for class_id, html_text in mockup_pages.items():
-        assert html_text.count('class="board-star"') == 9  # standard 19x19 hoshi count
-        assert html_text.count('class="board-coord board-coord-col"') == 19
-        assert html_text.count('class="board-coord board-coord-row"') == 19
+        assert html_text.count('class="board-star"') == 18  # 2 boards x 9 standard 19x19 hoshi
+        assert html_text.count('class="board-coord board-coord-col"') == 38  # 2 boards x 19
+        assert html_text.count('class="board-coord board-coord-row"') == 38
 
 
 def test_find_board_composite_child_recognizes_both_encodings_shapes():
     """`_find_board_composite_child` must find exactly the board-bearing
     child at both classes' roots, with the fixed-sibling sum matching
-    the .lyt source's own declared 24px + 28px info/action rows."""
+    the .lyt source's own declared 24px + 28px info/action rows.
+
+    lyt-tree-always-visible (ledger row ~1735): boardRail is now the new
+    FIRST child of both roots (see each .lyt file's own header), shifting
+    the board composite's own index by one at both classes -- an index
+    shift caused by a legitimate new leading sibling, not a change to
+    which child is recognized as the composite (still uniquely matched
+    by shape, per `_find_board_composite_child`'s own docstring)."""
     reg, layouts = emit_mockup.load_class_slots()
     landscape_root = layouts[reg.layout_by_class["landscape"]].node
     portrait_root = layouts[reg.layout_by_class["portrait"]].node
     l_match = emit_mockup._find_board_composite_child(landscape_root)
     assert l_match is not None
-    assert l_match[0] == 0  # composite is the FIRST child of landscape's H root
+    assert l_match[0] == 1  # composite is the SECOND child of landscape's H root (after boardRail)
     assert l_match[2] == 52.0  # 24px + 28px
 
     p_match = emit_mockup._find_board_composite_child(portrait_root)
     assert p_match is not None
-    assert p_match[0] == 1  # composite is the SECOND child of portrait's V root (after A_top)
+    assert p_match[0] == 2  # composite is the THIRD child of portrait's V root (after boardRail, A_top)
     assert p_match[2] == 52.0
 
 
