@@ -250,22 +250,15 @@ function getPvMoves(): PvMove[] {
 <style scoped>
 .wizard-step-demo-board {
   display: flex; flex-direction: column; gap: var(--space-default);
-  /* Height budget — coupled to SetupWizardModal.vue's card metrics
-     (measured 2026-08-10): the card caps at 88vh with ~152px of fixed
-     chrome around the step (header 18 + step indicator 24 + footer 32
-     + 2×20px card padding + 3×12px card gaps). The step budgets itself
-     to the remainder so the card never scrolls and `.wizard-body`
-     (a shrinkable flex child with no overflow handling of its own)
-     never shrink-bleeds the step's content under the footer buttons —
-     the defect this style block repairs. Below ~630px viewport height
-     the board floor + control minimums exceed the budget and this
-     becomes a deliberate, visible scroll region (ADR-0019 last resort:
-     the modal's own width/height and the step registry are fenced to
-     concurrent builders, so neither widening the dialog nor splitting
-     the step was available; surfaced in the build report, not silently
-     resolved). */
-  max-height: calc(88vh - 156px);
-  overflow-y: auto;
+  /* No height budget / overflow here — superseded by the modal shell's
+     own scroll contract (ledger rows 1498/1499/1500): SetupWizardModal
+     .vue's `.wizard-body` is now the single scroll owner for every
+     step's content, with `min-height: 0` so it actually shrinks to
+     cede space rather than pushing the step to grow unbounded. This
+     step's own `calc(88vh - 156px)` budget was an instance guard for
+     one symptom of the same defect and is dead under the shell
+     contract — kept alive it would silently duplicate (and could
+     drift from) the modal's real scroll boundary. */
 }
 .step-description { color: var(--text-1); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 .load-error { color: var(--state-error); font-weight: bold; }

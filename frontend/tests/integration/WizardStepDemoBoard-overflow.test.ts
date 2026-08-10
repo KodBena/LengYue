@@ -24,14 +24,23 @@
  * IS honestly testable from this harness:
  *
  *   1. Source-pinned CSS assertions (read the artifact, not a
- *      simulation of it) that the height-budget rule, the width-cap
- *      rule, and the wrap-safety rules are present and unchanged by
- *      any future edit made without touching this test.
+ *      simulation of it) that the width-cap rule and the wrap-safety
+ *      rules are present and unchanged by any future edit made without
+ *      touching this test.
  *   2. A real mount proving the PV region actually renders as ONE
  *      structural row (preview + both selects as `.pv-row` siblings)
  *      rather than the old stacked arrangement — the structural half
  *      of the layout change, which IS DOM-observable without a layout
  *      engine.
+ *
+ * The step's own `calc(88vh - 156px)` height budget this file used to
+ * pin was DELETED (ledger rows 1498/1499/1500): the modal shell now
+ * owns the scroll contract via SetupWizardModal.vue's `.wizard-body`
+ * (see SetupWizardModal-scroll-contract.test.ts, the mechanism that
+ * supersedes this instance guard — including its own grep-style
+ * source-pin asserting this step's budget rule stays gone). Re-adding
+ * a step-local budget would silently duplicate the modal's real scroll
+ * boundary and is exactly the regression that new test polices.
  *
  * UNEXERCISED: no real-browser/visual confirmation that the modal is
  * overflow-free at 1920x1080 or that it degrades sanely at the modal's
@@ -68,13 +77,6 @@ afterEach(() => {
 });
 
 describe('WizardStepDemoBoard — overflow fix (source-pinned; jsdom cannot lay these out)', () => {
-  it('the step budgets its own height off the modal card\'s 88vh cap, with a scroll fallback', () => {
-    const rule = DEMO_BOARD_SOURCE.match(/\.wizard-step-demo-board\s*\{[^]*?\n\}/);
-    expect(rule).not.toBeNull();
-    expect(rule![0]).toMatch(/max-height:\s*calc\(88vh\s*-\s*156px\)/);
-    expect(rule![0]).toMatch(/overflow-y:\s*auto/);
-  });
-
   it('the board mount caps its width (and thus its square height) instead of growing unbounded', () => {
     const rule = DEMO_BOARD_SOURCE.match(/\.demo-board-mount\s*\{[^}]*\}/);
     expect(rule).not.toBeNull();

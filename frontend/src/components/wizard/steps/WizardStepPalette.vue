@@ -257,25 +257,15 @@ function setAggregation(next: KnownAggregation): void {
 <style scoped>
 .wizard-step-palette {
   display: flex; flex-direction: column; gap: var(--space-medium);
-  /* Height budget — same modal-chrome constant WizardStepDemoBoard.vue's
-     overflow fix derived (see that file's header comment): SetupWizardModal
-     .vue's `.wizard-card` caps at 88vh with ~156px of fixed chrome around
-     whichever step is mounted (header ~18 + step indicator ~24 + footer
-     ~32 + 2×20px card padding + 3×12px card gaps ≈ 150px, rounded to 156px
-     for the same measured-safety margin the demo-board fix used). That
-     chrome is a property of the MODAL, not of this step, so the same
-     156px applies here unchanged — it is not "copied blindly", it is the
-     one shared constant every step step budgets its own content against.
-     This step overflowed because the ADVANCED disclosure's per-palette
-     descriptions (row 1349/1350) plus the formal delta_fn/summary_fn
-     definition lines (row 1378) can grow past the remaining ~(88vh-156px)
-     once a user expands <details> and every one of the four seeded
-     palettes renders both its prose and its definition block — content
-     was then running under the wizard's own footer. `overflow-y: auto`
-     makes the overflow a deliberate, contained scroll region inside the
-     step instead of a bleed under the footer. */
-  max-height: calc(88vh - 156px);
-  overflow-y: auto;
+  /* No height budget / overflow here — superseded by the modal shell's
+     own scroll contract (ledger rows 1498/1499/1500): SetupWizardModal
+     .vue's `.wizard-body` is now the single scroll owner for every
+     step's content, with `min-height: 0` so it actually shrinks to
+     cede space rather than pushing the step to grow unbounded. This
+     step's own `calc(88vh - 156px)` budget was an instance guard for
+     one symptom of the same defect (row 1460) and is dead under the
+     shell contract — kept alive it would silently duplicate (and could
+     drift from) the modal's real scroll boundary. */
 }
 .step-description { color: var(--text-1); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 .field-label { color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase; }

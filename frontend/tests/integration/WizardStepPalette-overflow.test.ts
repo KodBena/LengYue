@@ -25,10 +25,18 @@
  * so "does this actually avoid overflow at 1920x1080" cannot be proven
  * by a rendered-geometry assertion here — same posture
  * `WizardStepDemoBoard-overflow.test.ts` documents. What IS honestly
- * testable from this harness: a source-pinned CSS assertion (read the
- * artifact, not a simulation of it) that the height-budget rule is
- * present and unchanged by any future edit made without touching this
- * test.
+ * testable from this harness: source-pinned CSS assertions (read the
+ * artifact, not a simulation of it) for the rules below that are still
+ * live.
+ *
+ * The step's own `calc(88vh - 156px)` height budget this file used to
+ * pin was DELETED (ledger rows 1498/1499/1500): the modal shell now
+ * owns the scroll contract via SetupWizardModal.vue's `.wizard-body`
+ * (see SetupWizardModal-scroll-contract.test.ts, the mechanism that
+ * supersedes this instance guard — including its own grep-style
+ * source-pin asserting this step's budget rule stays gone). Re-adding
+ * a step-local budget would silently duplicate the modal's real scroll
+ * boundary and is exactly the regression that new test polices.
  *
  * UNEXERCISED: no real-browser/visual confirmation that the modal is
  * overflow-free at 1920x1080, nor that it degrades sanely at the
@@ -50,13 +58,6 @@ const PALETTE_STEP_SOURCE = readFileSync(
 );
 
 describe('WizardStepPalette — overflow fix (source-pinned; jsdom cannot lay these out)', () => {
-  it('the step budgets its own height off the modal card\'s 88vh cap, with a scroll fallback', () => {
-    const rule = PALETTE_STEP_SOURCE.match(/\.wizard-step-palette\s*\{[^]*?\n\}/);
-    expect(rule).not.toBeNull();
-    expect(rule![0]).toMatch(/max-height:\s*calc\(88vh\s*-\s*156px\)/);
-    expect(rule![0]).toMatch(/overflow-y:\s*auto/);
-  });
-
   // Row 1464 amendment (DESCRIPTION | DEFINITION table): wide-content
   // discipline — the table must never grow the step (or the modal)
   // wider; a genuinely unbreakable definition token is contained by a
