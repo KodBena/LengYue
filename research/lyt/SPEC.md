@@ -2,7 +2,7 @@
 
 LYT is a small language for describing the shape of a screen. It exists
 so that the layout of LengYue's SPA (the Go-study application this
-umbrella project builds — see the umbrella `README.md` for what LengYue
+umbrella project builds — see the umbrella [README.md](../../README.md) for what LengYue
 is) can be written down and checked independently of the code that
 renders it. A person or program that reads a `.lyt` file should be able
 to answer, without running the app: which rectangles will appear on
@@ -16,13 +16,13 @@ classes into refusals at load time, not style advice a reviewer might
 miss.
 
 LYT was designed by an external documentation/design consult
-(`.claude/dispatch-reports/layout-language-consult.md`, hereafter "the
+([.claude/dispatch-reports/layout-language-consult.md](../../.claude/dispatch-reports/layout-language-consult.md), hereafter "the
 consult document") and has since been implemented, exercised, and
 amended by a Python prototype living in this directory
 (`research/lyt/`). **This file is the current-state specification —
 what LYT means and how it behaves today**, reconciling the consult
 document's original design with four ledger-adjudicated amendments
-(`SPEC-AMENDMENTS.md`) and with the prototype's own disclosed narrowings
+([SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)) and with the prototype's own disclosed narrowings
 and inventions where the two sources diverge. Every claim below about
 implemented behavior is checked against the code in this directory as
 it stands (`parser.py`, `lyt_ast.py`, `loader.py`, `wellformed.py`,
@@ -33,8 +33,8 @@ divergence is named, never silently resolved one way.
 This document does not itself decide anything about `frontend/` — LYT
 is, today, research tooling: a language and a solver, not application
 code. See "Status of the other LYT documents" at the end of this file
-for how this specification relates to `README.md` and
-`SPEC-AMENDMENTS.md`.
+for how this specification relates to [README.md](README.md) and
+[SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md).
 
 ## 1. Structure stratum
 
@@ -49,7 +49,9 @@ Slot wraps exactly one of three node kinds:
   both, and a **domain** drawn from `{go, common, debug, board, chrome,
   blackbox}` describing which subject-matter region of the app it
   belongs to. (`blackbox` is the implementation's own addition to the
-  consult document's five-member domain union — see §7.)
+  consult document's five-member domain union — a placeholder domain for
+  content this prototype does not model further, such as the five-tab
+  control-panel group in §1.2's worked example below.)
 - **Split** (`H` or `V`) — an ordered, variable-arity partition of its
   own rectangle among its children, along one axis. `H` partitions
   width (every child gets the split's full height); `V` partitions
@@ -69,7 +71,7 @@ per §7's own note that its cross-check is advisory, not a gate.
 
 ### 1.1 Concrete syntax
 
-The consult document's base EBNF (`layout-language-consult.md`, lines
+The consult document's base EBNF ([layout-language-consult.md](../../.claude/dispatch-reports/layout-language-consult.md), lines
 274–287) is:
 
 ```
@@ -124,8 +126,9 @@ the consult document's own worked examples verbatim (disclosed in
 - A bare facet name (`info` or `action`) in domain position — e.g.
   `I[info]` — loads as domain `common` with the token folded into the
   facet set instead: a disclosed fallback for the generic "information
-  panel" leaves the q5go/OGS comparison encodings use, which don't map
-  onto LengYue's own domain census.
+  panel" leaves the q5go/OGS comparison encodings (§6 names what these
+  two reference encodings are) use, which don't map onto LengYue's own
+  domain census.
 - A `[TAG]` bracket may trail a `T(...)` node (e.g. `[BLACK BOX]`) as a
   documentation-only annotation, stored as `Exclusive.tag`.
 - Extra sizing keys beyond the base grammar's `min`/`pref`/`max`/
@@ -144,17 +147,17 @@ the consult document's own worked examples verbatim (disclosed in
   loader treated `rs.envelope_states == []` as falsy and silently fell
   through to `basis='reserved'`, dropping the author's envelope
   declaration with no error at all; this was a genuine implementation
-  hole (finding S1, `.claude/dispatch-reports/lyt-spec-grammar-audit.md`,
+  hole (finding S1, [.claude/dispatch-reports/lyt-spec-grammar-audit.md](../../.claude/dispatch-reports/lyt-spec-grammar-audit.md),
   ledger row 1778), now fixed in `loader.py` — see §4.3 and §12.
 - Extents may be sums (`340px+60ch`), resolved to plain px at load
   time.
-- **Amendment 3** (`SPEC-AMENDMENTS.md`, ledger row 1715): an H/V
+- **Amendment 3** ([SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md), ledger row 1715): an H/V
   split's sizing block may carry an optional `gap <extent>` term — one
   more key in the same bag every other sizing key already uses. The
   parser accepts any extent unit here (permissive, per its own
   architecture); the loader is where the amendment's actual law — px
   only, refused on `fr`/`ch`/any symbolic extent, and refused entirely
-  on a `T` node — is enforced (§4.4).
+  on a `T` node — is enforced (§9.4).
 - Three symbolic size sentinels: `CONTENT` (the literal spelling of the
   forbidden content-driven sizing basis, from the consult document —
   refused by the loader, §9.1), `WRAPPER_MIN` (a named-but-undefined
@@ -216,7 +219,7 @@ above, round out the concrete-syntax picture:
 ### 1.2 Worked example — current syntax
 
 The clean-room landscape encoding (`encodings/lengyue_landscape.lyt`),
-as it stands today (after Amendments 3 and 4 — see §4.4 and §5.2):
+as it stands today (after Amendments 3 and 4 — see §9.4 and §11):
 
 ```
 layout lengyue-landscape =
@@ -252,8 +255,9 @@ side control column with its own `max` cap (`340px + 60ch`). The board
 composite is itself a `V` — a square, aspect-locked board leaf plus two
 fixed-height info/action strips. The side column is a `V` of three
 28px action/info strips and a final elastic row, itself an `H` of the
-tree panel, a five-tab exclusive group (the control-panel "black box",
-§7), and a togglable square preview board. Every extent in the tree is
+tree panel, a five-tab exclusive group (the control-panel "black box" —
+its five tabs are all `blackbox`-domain leaves, §1's placeholder-domain
+note above), and a togglable square preview board. Every extent in the tree is
 either a constant, a `ch`-measured constant, an aspect-derived
 constraint, or an `fr` share — never a function of rendered content
 (§4.1's "no `basis: 'content'`" prohibition, §9.1).
@@ -334,10 +338,12 @@ constructor-level fact, not merely documented prose: there is no code
 path, anywhere in this implementation, that can produce a `Presence`
 value with that combination. The rationale, per the consult document
 (line 268 in the original numbering): a system-driven appearance may
-only fill space already reserved for it (this is what L1, §5, is for);
+only fill space already reserved for it (this is what L1, §4.3, is for);
 letting it also *release* space when hidden would let a network event
 or an error arrival silently move every sibling, which is exactly the
-first defect class (§0) LYT exists to forbid.
+first defect class named in this document's opening paragraph above
+(a control jumping sideways when the network connects) that LYT exists
+to forbid.
 
 `hidden: 'preserve'` means the slot's rectangle survives across the
 transition — it keeps its reserved size and merely stops painting.
@@ -347,6 +353,9 @@ remaining siblings (per §2's partition equality, now over one fewer
 child).
 
 ## 4. Sizing stratum
+
+Every Slot also carries a sizing block — the typed shape below is what a
+`.lyt` file's `{min ..., pref ..., max ..., ...}` clause loads into:
 
 ```
 interface Sizing {
@@ -438,7 +447,7 @@ differs sharply between them, and this is stated exactly, per law:**
   states, user drags" — not over static tree shape, so a genuine L1
   checker would need to reason about behavior across time, which this
   static, offline tree-walker does not attempt. The **one corner of L1
-  this prototype does touch** is Amendment 1 (`SPEC-AMENDMENTS.md`,
+  this prototype does touch** is Amendment 1 ([SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md),
   ledger row 1670): a `preserve` slot's `min` is raised to `max(min,
   pref)` at load time (`loader._apply_preserve_reservation`), so that
   "preserve" is a genuine floor the solver cannot squeeze to zero — see
@@ -449,7 +458,7 @@ differs sharply between them, and this is stated exactly, per law:**
   all; a violating `.lyt` file loads without complaint unless one of
   its slots also happens to be a non-conforming `preserve`.
 - **L2 (zero-standing-cost affordances).** *Checked*, by
-  `wellformed.py`, in the form Amendment 2 (`SPEC-AMENDMENTS.md`,
+  `wellformed.py`, in the form Amendment 2 ([SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md),
   ledger row 1671) gives it — see §5 for the full derivation and its
   checkable form.
 - **L3 (envelope honesty).** *Checked* at load time
@@ -467,7 +476,7 @@ differs sharply between them, and this is stated exactly, per law:**
   silently coerce to `basis='reserved'`. (The empty-list spelling was,
   for a time, a genuine gap: `_load_sizing`'s original guard treated an
   empty list as falsy and let it fall through unrefused — fixed per
-  finding S1, `.claude/dispatch-reports/lyt-spec-grammar-audit.md`,
+  finding S1, [.claude/dispatch-reports/lyt-spec-grammar-audit.md](../../.claude/dispatch-reports/lyt-spec-grammar-audit.md),
   ledger row 1778; see §12.) What this check does *not* do — per §4.2's disclosed
   narrowing — is verify that an *observed runtime* content state
   matches one of the declared ones; that half of L3 ("an observed
@@ -500,13 +509,16 @@ hide/show affordances alone."*
 The **original implementation** approximated this as a local
 tree-shape test: a bare chrome/action leaf standing as a split child
 conformed the instant *any* other bare non-chrome leaf sat beside it in
-the same split, regardless of size. A cold review demonstrated this is
+the same split, regardless of size. An adversarial review of the prototype
+([.claude/dispatch-reports/lyt-compiler-prototype-review.md](../../.claude/dispatch-reports/lyt-compiler-prototype-review.md),
+REJECT verdict, 2 MAJOR / 4 MODERATE / 5 MINOR findings — see
+[README.md](README.md) for the fuller build/review trail) demonstrated this is
 trivially defeatable — a `{min 1px, pref 1px, max 1px}` decoy sibling,
 under 4% of the wrapped band, flips the verdict from violation to
 conforms on a construction that is, geometrically, still exactly the
 kind of "band reserved for a toggle alone" L2 forbids.
 
-**Amendment 2** (`SPEC-AMENDMENTS.md`, ledger row 1671) replaces the
+**Amendment 2** ([SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md), ledger row 1671) replaces the
 tree-shape test with a magnitude (dominance) test, implemented in
 `wellformed.find_l2_violations`:
 
@@ -556,7 +568,7 @@ siblings; this scoping is unchanged by the amendment).
    `wellformed.py`'s own module docstring, quoted a
    `"incomparable-fr-sibling"` token that appears in neither the raised
    message nor its structured `detail`; corrected per finding M5,
-   `.claude/dispatch-reports/lyt-spec-grammar-audit.md`, ledger row
+   [.claude/dispatch-reports/lyt-spec-grammar-audit.md](../../.claude/dispatch-reports/lyt-spec-grammar-audit.md), ledger row
    1778) — rather than guessed either direction.
 4. Strict majority (`chrome_px * 2 > total_px`), not `>=`.
 5. Only *bare* chrome/action leaves count toward the numerator — a
@@ -582,6 +594,9 @@ regression tests), not silently absorbed.
 
 ## 6. Screen classes and nearest-neighbor selection
 
+A screen class is the unit a Program's tree is compiled against — the
+typed shape a screen class carries is:
+
 ```
 interface ScreenClass { id: ClassId; w_px: number; h_px: number }
 ```
@@ -596,12 +611,18 @@ each class's representative point. `runner.py` implements the
 class-selection machinery for its own CLI-driven "solve at these
 representative sizes" purpose; only `lengyue_landscape.lyt` /
 `lengyue_portrait.lyt` register two classes (landscape and portrait) —
-the other four reference encodings (`q5go`, `ogs`,
-`current_row_repaired`, `current_row_asis`) each register exactly one
+the other four reference encodings (`q5go` and `ogs`, LYT transcriptions
+of two existing third-party Go client UIs — q5go, a desktop SGF editor,
+and OGS, the Online Go Server's own web UI — used as outside comparison
+points; `current_row_repaired` and `current_row_asis`, transcriptions of
+LengYue's own current row-axis layout) each register exactly one
 default class that always wins, since the consult document never
 demonstrates a second class for them.
 
 ## 7. Objective
+
+A Program also carries an objective — an ordered list of terms the
+compiler solves in priority order (§8), typed as:
 
 ```
 type Objective = ObjectiveTerm[];
@@ -652,7 +673,7 @@ accumulating partition offsets (`compiler._extract_rects`).
   child's declared `min`, for instance, constrains the whole `T` group
   on both `w` and `h`, which is how §2's componentwise-max floor
   actually arises. (Corrected per finding M6,
-  `.claude/dispatch-reports/lyt-spec-grammar-audit.md`, ledger row
+  [.claude/dispatch-reports/lyt-spec-grammar-audit.md](../../.claude/dispatch-reports/lyt-spec-grammar-audit.md), ledger row
   1778 — an earlier draft of this bullet claimed the bound "never"
   applies to the cross axis; a `T` child with `min 120px` under a
   100px-tall root is a counterexample, `INFEASIBLE` purely from the
@@ -742,7 +763,7 @@ Omitting `waivers` (the default) is strict mode for every layout.
 
 ### 9.3 Amendment 1 — `preserve` implies a genuine reservation
 
-**Ruling** (`SPEC-AMENDMENTS.md`, ledger row 1670): a slot whose
+**Ruling** ([SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md), ledger row 1670): a slot whose
 presence is `@toggle(_, preserve)` gets its `min` raised to
 `max(min, pref)` on its presence-bearing axis, at load time
 (`loader._apply_preserve_reservation`, called from every branch of
@@ -788,7 +809,7 @@ time, not a load-time check.
 
 ### 9.4 Amendment 3 — split-node uniform gap
 
-**Ruling** (`SPEC-AMENDMENTS.md`, ledger row 1715): split nodes gain an
+**Ruling** ([SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md), ledger row 1715): split nodes gain an
 optional uniform, constant-px gap declaration — never solvable or
 elastic, since "rhythm is not negotiable under board-maximization."
 `compiler.py` had carried a fully general `(k−1)·gap` partition term
@@ -893,7 +914,7 @@ on demand, not to hide it.
 
 ## 11. Presence valuations (Amendment 4) — per-valuation solving
 
-**Ruling** (`SPEC-AMENDMENTS.md`, ledger row 1737): this is not a new
+**Ruling** ([SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md), ledger row 1737): this is not a new
 law but the implementation of a paragraph the consult document's own §6
 already prescribes: "solve the all-`preserve`-slots-present valuation
 ... `release` toggles are user-initiated only [...] so each
@@ -919,8 +940,8 @@ that has no single widget id. Only a bare leaf can be named in a
 widget either does not exist in the tree, or exists but its declared
 `Presence` is not a genuine `{kind: 'toggle', by: 'user', hidden:
 'release'}` — a `preserve` slot (keeps its rectangle by definition) or
-a `@fixed`/`@dev` slot can never be named absent. This is the
-commission's own words, quoted verbatim: "a named slot that isn't a
+a `@fixed`/`@dev` slot can never be named absent. This is Amendment 4's
+own ledger-row-1737 ruling, quoted verbatim: "a named slot that isn't a
 user-release toggle is an error."
 
 **Pruning, not zeroing.** `presence.prune_absent` returns a *new* Slot
@@ -1018,7 +1039,7 @@ opening paragraph):
   resolved either way.
 - **An explicit but empty `envelope: {}` state list used to load
   silently as `basis='reserved'`, dropping the author's declaration**
-  (finding S1, `.claude/dispatch-reports/lyt-spec-grammar-audit.md`,
+  (finding S1, [.claude/dispatch-reports/lyt-spec-grammar-audit.md](../../.claude/dispatch-reports/lyt-spec-grammar-audit.md),
   ledger row 1778) — a hole in the loader's `_load_sizing`, not merely
   an underdocumented corner: `envelope_bare` was only set for the
   *no-colon* spelling, so `envelope: {}` reached neither refusal path.
@@ -1037,24 +1058,24 @@ This file is the **current-state, standalone specification**. The two
 other documents in this history now serve narrower, explicitly
 different roles:
 
-- **`.claude/dispatch-reports/layout-language-consult.md`** is the
+- **[.claude/dispatch-reports/layout-language-consult.md](../../.claude/dispatch-reports/layout-language-consult.md)** is the
   original external design consult — the historical record of LYT's
   first design. It is cited above wherever this specification traces a
   claim back to it, and quoted where its own prose is the subject of a
   divergence; it is not restated or rewritten, and it is not itself
   kept current — this file is.
-- **`SPEC-AMENDMENTS.md`** is the append-only, dated **amendment
+- **[SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)** is the append-only, dated **amendment
   record**: the four ledger-adjudicated rulings, their rationale as
   recorded on each ledger row, and each amendment's diff against the
   consult document's original prose. It remains the place to find *why*
   a rule changed and *when*; this specification is the place to find
   *what the rule is today*.
-- **`README.md`** is the **operational guide** — how to run the
+- **[README.md](README.md)** is the **operational guide** — how to run the
   prototype, what its CLI does, what a `--baseline` load does, and the
   build/review-report trail. Language-definition prose that used to
   live there now points here instead.
 
 ## License
 
-Public Domain (The Unlicense), matching `layout-language-consult.md`'s
+Public Domain (The Unlicense), matching [layout-language-consult.md](../../.claude/dispatch-reports/layout-language-consult.md)'s
 own license and the umbrella's ADR-0006 per-file convention.
