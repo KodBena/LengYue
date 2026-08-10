@@ -881,6 +881,12 @@ export const defaultSessionUI: UISession = {
   // surprising every board with new on-stone chrome. Schema-version 69
   // introduces the field.
   moveDeltaAnnotation: 'off',
+  // Settings sub-tab strip orientation (ledger rows 1505/1509/1515/1516).
+  // Default 'horizontal' — the commissioner's ruling keeps the vertical
+  // right-rail available as a quiet opt-in rather than the shipped
+  // default; see the field's doc comment on `UISession` in schema.ts.
+  // Schema-version 73 introduces the field.
+  settingsTabsOrientation: 'horizontal',
 };
 
 export const DEFAULTS = {

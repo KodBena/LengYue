@@ -2920,4 +2920,78 @@ export const archivedMigrations: Migration[] = [
     }
     return out;
   },
+  // 70 → 71: median-summary symbol (ledger rows 1204/1213/1229,
+  // commissioner-defined) — two concerns under the discipline "add the
+  // new capability, repoint only what nobody has customised away."
+  //
+  //  (a) Seed expansion: add the `median_summary` symbol
+  //      (`float(median(x))`) to `analysis_env.symbols` only when
+  //      absent — same add-if-absent shape as the 6 → 7 archived
+  //      body's `mean_summary` seed-expansion precedent
+  //      (`archived-migrations.ts`'s `NEW_SYMBOLS` table). `median` is
+  //      curated stdlib on both sides of the bit-equivalence contract
+  //      (see the doc comment above `defaults.ts`'s summary-functions
+  //      block; verified against `engine/analysis-config-curation.ts`'s
+  //      curated-name list), so the body is a direct `min_summary` /
+  //      `mean_summary` sibling, not a bespoke formula. Add-if-absent is
+  //      BY KEY, never by inferred intent (commissioner clarification,
+  //      ledger row 1235): a profile that already carries a
+  //      `median_summary` key — even a hand-authored one with a
+  //      different body — keeps that body verbatim; a hand-written
+  //      median under any OTHER key (e.g. `my_median`) simply coexists
+  //      with the newly-seeded `median_summary` default, untouched and
+  //      unmerged.
+  //
+  //  (b) Conditional repoint: the `quality` palette's `summary_fn`
+  //      moves from `min_summary` to `median_summary` ONLY when it
+  //      still reads exactly `min_summary` — a user who customised
+  //      that palette's summary function keeps their choice untouched.
+  //      Same by-id-lookup-then-conditional-field shape as the 6 → 7
+  //      archived body's broken-seed detection
+  //      (`archived-migrations.ts`'s `defaultPalette.summary_fn ===
+  //      'min_summary'` check), scoped here to the `quality` id instead
+  //      of `default`.
+  //
+  //  `activePaletteId` is deliberately NOT touched here: existing users
+  //  keep whatever palette they're on. The default-for-fresh-profiles
+  //  change (`quality` → `score`) lives only in `defaults.ts` and reaches
+  //  new profiles through `defaultAppSettings()`, per the "wizard binds
+  //  this cell for fresh profiles only" ratified design.
+  //
+  // Container witnessed against the runtime shape:
+  // `profile.settings.engine.katago.analysis_env` exists from the
+  // framework's introduction, so a typo'd path fails loudly here rather
+  // than no-oping and stamping the version.
+  //
+  // Idempotent: a pre-existing `median_summary` symbol is preserved
+  // unchanged; a `quality` palette whose `summary_fn` is anything other
+  // than the exact string `min_summary` (including an already-repointed
+  // `median_summary`, or a user's own customisation such as
+  // `mean_summary`) is left untouched.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ae = witnessedContainer(out, 'profile.settings.engine.katago.analysis_env');
+    if (ae) {
+      const a = ae as { symbols?: unknown; palettes?: unknown };
+
+      // (a) Seed expansion — add only if absent.
+      if (a.symbols && typeof a.symbols === 'object') {
+        const symbols = a.symbols as Record<string, unknown>;
+        if (symbols.median_summary === undefined) {
+          symbols.median_summary = 'float(median(x))';
+        }
+      }
+
+      // (b) Conditional repoint of the `quality` palette's `summary_fn`.
+      if (Array.isArray(a.palettes)) {
+        const qualityPalette = a.palettes.find(
+          (p: any) => p && typeof p === 'object' && p.id === 'quality',
+        );
+        if (qualityPalette && qualityPalette.summary_fn === 'min_summary') {
+          qualityPalette.summary_fn = 'median_summary';
+        }
+      }
+    }
+    return out;
+  },
 ];

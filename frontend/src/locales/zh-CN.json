@@ -34,6 +34,9 @@
   "settings.section.advancedRegistry":    "高级注册表",
   "settings.section.sessionUI":           "会话(界面)",
   "settings.button.forcePersistence":     "强制持久化",
+  "settings.label.settingsTabsOrientation": "设置标签页布局:",
+  "settings.option.settingsTabsOrientation.horizontal": "水平",
+  "settings.option.settingsTabsOrientation.vertical":   "垂直(右侧栏)",
 
   "other.section.knobRegistry":           "旋钮注册表",
   "other.section.gradientCalibration":    "渐变校准",

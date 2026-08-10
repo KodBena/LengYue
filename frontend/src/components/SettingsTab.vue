@@ -2,15 +2,22 @@
 /**
  * src/components/SettingsTab.vue
  *
- * The Settings tab's surface. Hosts six sub-tabs via the
- * project's TabWidget, rendered as a VERTICAL strip
- * (`orientation="vertical"`, ledger rows 1404/1427) — a left-hand
- * rail beside the pane it controls, replacing the horizontal
- * strip's overflow-scroll now that six sub-tabs no longer fit a
- * reasonable width. This is the only TabWidget consumer that opts
- * in; the control-panel strip, ForestDirectory, and
- * AnalysisDashboard remain horizontal and unchanged (TabWidget.vue's
- * own header documents the orientation contract):
+ * The Settings tab's surface. Hosts six sub-tabs via the project's
+ * TabWidget. Orientation (ledger rows 1404/1427, side/default per
+ * 1505/1509/1515/1516) is now a QUIET, user-owned, persisted choice
+ * — `store.session.ui.settingsTabsOrientation` — rather than
+ * hardcoded. Default `'horizontal'` (the commissioner's ruling:
+ * keep vertical tabs available, but "leave it quietly as an option
+ * ... default to the bad old times with horizontal tabs") restores
+ * the pre-vtabs strip for everyone who hasn't opted in via the
+ * Session (UI) pane's "Settings tabs layout" select (below). Opting
+ * into `'vertical'` renders a right-hand rail beside the pane it
+ * controls (TabWidget.vue's own header documents the orientation +
+ * side contract) — replacing the horizontal strip's overflow-scroll
+ * for users who find six sub-tabs cramped at a reasonable width.
+ * The control-panel strip, ForestDirectory, and AnalysisDashboard
+ * remain horizontal and unchanged; this is still the only TabWidget
+ * consumer with a vertical option at all:
  *   - Session (UI): the RegistryEditor over `store.session.ui`.
  *   - Analysis Environment: the PaletteEditor over the KataGo
  *     analysis_env, with a Force Persistence button at the top.
@@ -121,10 +128,22 @@ function setTheme(theme: 'dark' | 'cluster'): void {
     profile.settings.appearance.theme = theme;
   });
 }
+
+// Settings sub-tab strip orientation (ledger rows 1505/1509/1515/1516):
+// a persisted `session.ui` field, so write + bump the session counter —
+// same idiom as `handleActiveCardSet` above (direct assignment then
+// `touchSession()`), NOT the `deltaViewMode` accessor's bare
+// `set: (v) => { store.session.ui.deltaViewMode = v; }` (a known defect —
+// that setter never bumps the session counter, so the change silently
+// doesn't persist until some other write happens to touch the session).
+function setSettingsTabsOrientation(orientation: 'horizontal' | 'vertical'): void {
+  store.session.ui.settingsTabsOrientation = orientation;
+  touchSession();
+}
 </script>
 
 <template>
-  <TabWidget :tabs="subTabs" v-model="(activeSubTab as string /* widen the sub-tab id union to TabWidget's string v-model */)" :keep-mounted="true" orientation="vertical">
+  <TabWidget :tabs="subTabs" v-model="(activeSubTab as string /* widen the sub-tab id union to TabWidget's string v-model */)" :keep-mounted="true" :orientation="store.session.ui.settingsTabsOrientation">
 
     <template #session>
       <div class="tab-padding settings-fill-pane">
@@ -146,6 +165,21 @@ function setTheme(theme: 'dark' | 'cluster'): void {
           >
             <option value="cluster">{{ $t('wizard.theme.cluster') }}</option>
             <option value="dark">{{ $t('wizard.theme.dark') }}</option>
+          </select>
+        </div>
+        <!-- Settings sub-tab strip layout (ledger rows 1505/1509/1515/1516):
+             quiet, default-horizontal opt-in for the vertical right-rail.
+             Matches .theme-row's own idiom immediately above (label +
+             native select, same row layout). -->
+        <div class="orientation-row">
+          <label for="settings-tabs-orientation-select">{{ $t('settings.label.settingsTabsOrientation') }}</label>
+          <select
+            id="settings-tabs-orientation-select"
+            :value="store.session.ui.settingsTabsOrientation"
+            @change="setSettingsTabsOrientation(($event.target as HTMLSelectElement).value as 'horizontal' | 'vertical')"
+          >
+            <option value="horizontal">{{ $t('settings.option.settingsTabsOrientation.horizontal') }}</option>
+            <option value="vertical">{{ $t('settings.option.settingsTabsOrientation.vertical') }}</option>
           </select>
         </div>
         <!-- Desktop-only: bundled-proxy upstream (ledger rows 860-862).
@@ -235,6 +269,14 @@ function setTheme(theme: 'dark' | 'cluster'): void {
 .theme-row { display: flex; align-items: center; gap: var(--space-default); margin-top: var(--space-medium); }
 .theme-row label { color: var(--text-1); font-size: var(--text-emphasis); }
 .theme-row select {
+  background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2);
+  border-radius: var(--radius-default); padding: 2px var(--space-tight); font-family: inherit;
+}
+/* Settings tabs layout row (rows 1505/1509/1515/1516) — same row shape
+   as .theme-row above, surface-0 control per rows 681/742. */
+.orientation-row { display: flex; align-items: center; gap: var(--space-default); margin-top: var(--space-medium); }
+.orientation-row label { color: var(--text-1); font-size: var(--text-emphasis); }
+.orientation-row select {
   background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2);
   border-radius: var(--radius-default); padding: 2px var(--space-tight); font-family: inherit;
 }

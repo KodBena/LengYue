@@ -34,6 +34,9 @@
   "settings.section.advancedRegistry":    "고급 레지스트리",
   "settings.section.sessionUI":           "세션 (UI)",
   "settings.button.forcePersistence":     "강제 저장",
+  "settings.label.settingsTabsOrientation": "설정 탭 레이아웃:",
+  "settings.option.settingsTabsOrientation.horizontal": "가로",
+  "settings.option.settingsTabsOrientation.vertical":   "세로 (오른쪽 레일)",
 
   "other.section.knobRegistry":           "노브 레지스트리",
   "other.section.gradientCalibration":    "그라디언트 보정",

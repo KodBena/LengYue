@@ -50,6 +50,9 @@
   "settings.button.forcePersistence":     "Force Persistence",
   "settings.button.rerunWizard":          "Re-run setup wizard",
   "settings.label.theme":                 "Theme:",
+  "settings.label.settingsTabsOrientation": "Settings tabs layout:",
+  "settings.option.settingsTabsOrientation.horizontal": "Horizontal",
+  "settings.option.settingsTabsOrientation.vertical":   "Vertical (right rail)",
 
   "other.section.knobRegistry":           "Knob Registry",
   "other.section.gradientCalibration":    "Gradient Calibration",

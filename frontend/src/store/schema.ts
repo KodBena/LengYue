@@ -868,6 +868,18 @@ export interface UISession {
   // `composables/board/useMoveDeltaAnnotation.ts` for the derivation.
   // Schema-version 69 introduces the field.
   moveDeltaAnnotation: 'off' | 'deltaVisits' | 'perPlayer';
+  // Settings sub-tab strip orientation (ledger rows 1505/1509/1515/1516).
+  // 'horizontal' (default) restores the pre-vertical-tabs strip for
+  // everyone who hasn't opted in — the commissioner's ruling was to
+  // keep vertical tabs available but quietly, not force them on every
+  // user. 'vertical' renders the sub-tab rail to the RIGHT of the pane
+  // it controls (TabWidget.vue's `.vue-tabs--vertical`, `row-reverse`)
+  // — the commissioner's stated placement, superseding the left-rail
+  // ADR-0019 genre-convention inference the feature first shipped
+  // with. Read by `SettingsTab.vue`, written by the Session (UI) pane's
+  // "Settings tabs layout" select. Schema-version 73 introduces the
+  // field.
+  settingsTabsOrientation: 'horizontal' | 'vertical';
 }
 
 // ── Forest Directory navigator persistence (UISession.forestNav) ─────────────
