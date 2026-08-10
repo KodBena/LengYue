@@ -30,13 +30,20 @@ engine/store/service layer. Engine data remains one stream with consumers as tap
 
 ## 3. Compilation story
 
-The mockups' generated per-node grid CSS is the skeleton's blueprint. Realization shape:
-a new `AppLayout` chrome component (or small family, one per orientation class) whose
-grid structure is derived mechanically from the encoding — hand-authored but
-line-for-line traceable to the LYT declaration, with the conformance harness verifying
-rendered-vs-solved per class as the drift gate. Full SFC codegen is deliberately NOT
-committed to in this phase (premature; revisit if hand-derivation drifts twice —
-ADR-0011 Rule 2). The existing `useDeferredLayoutClass` hysteresis machinery is retained
+The mockups' generated per-node grid CSS is the skeleton's blueprint. Realization shape
+(amended 2026-08-10 per the commissioner's no-lock-in direction — the Foobar2000-style
+fully-customizable-UI vision is explicitly NOT pursued now, but must not be foreclosed):
+**layout as data, not template.** Three pieces: (a) the compiled LYT program per screen
+class as a plain data structure (initially a checked-in constant — ADR-0012 P10: the
+layout is content with its own editor identity, never baked into a template); (b) a
+widget registry, leaf name → component, one home; (c) a generic recursive `LytNode`
+renderer interpreting H/V/T nodes as per-node grids and resolving leaves through the
+registry. Moving a widget between a tab and an H/V sibling is then a data edit, not a
+template refactor, and future user-customization reduces to making the layout data
+user-editable — with LYT's well-formedness laws as the validating guardrail defining
+the admissible design space. The conformance harness verifies rendered-vs-solved per
+class as the drift gate. Full SFC codegen is moot under this shape (the renderer IS the
+compiler's last stage, at runtime). The existing `useDeferredLayoutClass` hysteresis machinery is retained
 with its derivation swapped to nearest-neighbor over the encoding's screen classes
 (spec §4.4: the composable keeps its commit discipline).
 
