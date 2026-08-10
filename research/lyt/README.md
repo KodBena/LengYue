@@ -1,5 +1,10 @@
 # LYT compiler prototype
 
+This directory holds a research prototype that checks whether a proposed
+screen layout for LengYue's SPA is even geometrically possible, before
+anyone builds it — for a reader (human or LLM) orienting to the LYT
+project cold.
+
 Exploratory research tooling implementing the LYT layout-description
 language from [.claude/dispatch-reports/layout-language-consult.md](../../.claude/dispatch-reports/layout-language-consult.md)
 end to end: a concrete-syntax parser (`parser.py`), a raw-tree → typed-AST
@@ -109,13 +114,14 @@ is checked at load time; L4 is entirely unimplemented (the
 `wellformed.py`'s own module docstring for the code-level derivation
 this README no longer duplicates.
 
-## AMENDMENT 1 consequence: preserve reservations are now genuine, and the
-## board sometimes has to shrink to pay for them
+## AMENDMENT 1 consequence: preserve reservations are now genuine, and the board sometimes has to shrink to pay for them
 
 Before AMENDMENT 1, `current_row_repaired.lyt`'s three system-preserve
 banners (`captureBanner`/`saveBanner`/`systemLog`, declared `min 0px`)
 solved to `h=0` at every landscape size the runner exercises — the
-adversarial review's own OBSERVATION finding. After the amendment, their loaded
+adversarial review's own OBSERVATION finding (an OBSERVATION — a
+non-blocking note outside the review's MAJOR/MODERATE/MINOR severity
+scale). After the amendment, their loaded
 `min` equals their `pref` (32/32/250px), a genuine hard floor the
 compiler can no longer route around by starving it.
 
@@ -235,9 +241,12 @@ named as newly, falsely `INFEASIBLE` once boardRail/previewBoard's
 always-present reservations were counted, solving the default valuation
 flips **two** to `OPTIMAL` — landscape 1366x768 and portrait 420x880. The
 other three (landscape 1024x700, 900x600, 1280x1024) remain `INFEASIBLE`
-for a genuine, presence-INDEPENDENT reason (the board composite's own
-V-split forces an exact board size from the viewport height alone, which
-collides with the tree/panels row's `WRAPPER_MIN` floor regardless of
+for a genuine, presence-INDEPENDENT reason (the board composite — the
+V-split subtree containing the board leaf and its info/action strips —
+forces an exact board size from the viewport height alone, which
+collides with the tree/panels row's `WRAPPER_MIN` floor — the
+tree/panels row's own minimum-width constant, `loader.WRAPPER_MIN_PX`;
+see [SPEC.md](SPEC.md) §11's infeasibility discussion — regardless of
 boardRail/previewBoard) — see [SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)'s own Amendment 4
 section for the full derivation, before/after table, and what this means
 for the debug overlay's own solved-vs-live comparison. Build report:
@@ -258,7 +267,10 @@ unaffected.
 
 `research/lyt/baseline.py`'s `BASELINE_WAIVERS` is the one registry this
 mechanism is populated from today, covering
-`encodings/current_row_asis.lyt` — the LYT shadow-harness's AS-IS
+`encodings/current_row_asis.lyt` — the LYT shadow-harness's (a
+"shadow" measurement rig, `frontend/scripts/lyt-conformance.mjs`, that
+measures the LIVE SPA's rendered DOM geometry and diffs it against
+LYT's solved layout, without altering the app) AS-IS
 conformance baseline (today's SPA row-axis layout transcribed
 warts-and-all, unlike `current_row_repaired.lyt`, which structurally
 repairs its L1/L2 warts). `runner.py`'s `Registration.waivers` field and
