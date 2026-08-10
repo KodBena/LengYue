@@ -5,7 +5,7 @@
  * roadmap Phase 1) is real Vue reactivity (`ref`/`watch`) over plain
  * width/height refs — App.vue feeds it `useResizablePanel.ts`'s own
  * `rowWidthPx`/`rowHeightPx` (the SAME ResizeObserver-cached geometry
- * the board-column-cap and restore-time clamps already read), so this
+ * the board-area-cap and restore-time clamps already read), so this
  * composable itself owns no ResizeObserver and needs none faked here
  * (contrast `useDeferredContainerBreakpoint.test.ts`, which does fake
  * one — that composable owns its own observer).

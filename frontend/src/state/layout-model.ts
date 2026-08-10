@@ -375,8 +375,8 @@ export const TREE_CONTROL_REGION_DEFAULT_WIDTH_FRACTION = 0.32;
  * projection (`effectiveTreeControlRegionWidthPx`, useResizablePanel.ts)
  * `undefined`, which routed App.vue's `#tree-control-wrapper` into a
  * flex-fill CSS branch capped by `unsetWrapperMaxWidthCss` (content
- * need) WHILE `#board-column` was independently capped by
- * `boardColumnMaxWidthPx` (its own height-bound square) — two
+ * need) WHILE `#board-area` was independently capped by
+ * `boardAreaMaxWidthPx` (its own height-bound square) — two
  * INDEPENDENTLY-COMPUTED caps on the row's only two flex-grow parties,
  * each one written assuming the OTHER stays unbounded and absorbs its
  * surplus. When BOTH caps saturate below the row's actual width (any
@@ -386,16 +386,16 @@ export const TREE_CONTROL_REGION_DEFAULT_WIDTH_FRACTION = 0.32;
  * space. Only a DRAG produced the correct fit, because
  * `onMouseMoveOuter` writes an EXPLICIT `treeControlRegionWidthPx`,
  * which (a) takes the wrapper out of the capped flex-fill branch
- * entirely and (b) disables `boardColumnMaxWidthPx` by construction
+ * entirely and (b) disables `boardAreaMaxWidthPx` by construction
  * (its own guard: `effectiveTreeControlRegionWidthPx.value !==
- * undefined -> undefined`) — leaving `#board-column` fully uncapped to
+ * undefined -> undefined`) — leaving `#board-area` fully uncapped to
  * absorb literally everything the wrapper didn't claim.
  *
  * The fix gives the UNSET case an EXPLICIT width too — this function —
  * so mount, resize, and drag all resolve through the SAME explicit-
  * width branch (`effectiveTreeControlRegionWidthPx !== undefined`) by
  * construction, instead of the mount-only flex-fill/dual-cap branch.
- * `#board-column`'s own cap self-disables the moment this default
+ * `#board-area`'s own cap self-disables the moment this default
  * exists (same guard already in place for the dragged/restored case),
  * so board absorbs the true remainder every time, matching exactly
  * what a settled drag already produced — one home for the fit, not
@@ -466,11 +466,11 @@ export function computeTreePanelBoundWidth(input: {
 /**
  * `#tree-control-wrapper`'s max-width in its flex-fill (never-dragged
  * OUTER bar) branch — the mechanism that sends R3's surplus back to
- * `#board-column` instead of leaving it as dead space inside an
- * oversized control panel. Mirrors `computeBoardColumnMaxWidthPx`
+ * `#board-area` instead of leaving it as dead space inside an
+ * oversized control panel. Mirrors `computeBoardAreaMaxWidthPx`
  * (`useResizablePanel.ts`): freeze the flex-grow item at its actual
  * content need, and let the OTHER flex-grow party in the row
- * (`#board-column`, `flex: 1 1 auto`) absorb what's left — no
+ * (`#board-area`, `flex: 1 1 auto`) absorb what's left — no
  * JS-computed complement, native flexbox redistribution past a frozen
  * item. The cap is expressed as a CSS `calc()` string mixing `px`
  * (the tree default + resizer, both already pixel facts) and `ch` (the

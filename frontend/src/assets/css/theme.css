@@ -4,7 +4,9 @@
  * Chrome substrate — the SSOT for chrome design decisions in the
  * codebase. Color anchors (16 base: 4 surface, 3 border, 2 text,
  * 2 accent, 1 text-on-accent, 4 semantic state; plus 6 chart-derived
- * helpers and 5 role aliases). Z-index ladder (4 layering tiers). Animation
+ * helpers, 5 role aliases, and 1 theme-invariant theme-exception
+ * literal accent — `--accent-peach`, wiki2-scrollbar-color). Z-index
+ * ladder (4 layering tiers). Animation
  * durations (2 timing tiers). Spacing scale (4 spacing tiers).
  * Font-size scale (4 typographic tiers). Border-radius scale (2
  * rounding tiers). Letter-spacing scale (3 tracking tiers).
@@ -611,4 +613,63 @@
    * obviously-disabled-enough in a future tuning pass, lower
    * to 0.4 here without disturbing consumers. */
   --alpha-disabled: 0.5;
+
+  /* ── Theme-exception accent (1) ──────────────────────────────
+   * A peach accent outside the chrome substrate's own vocabulary
+   * (--accent-primary is cyan, --accent-secondary is orange
+   * #f0a04a — this peach is distinct from both), theme-invariant
+   * by design: same category as the ~14 documented
+   * `theme-exception` blocks this file's header names (App.vue's
+   * panel-resizer, RegistryEditor's amber/pink role indicators,
+   * QeuboToolbar's muted-cyan buttons, …). Minted here
+   * (wiki2-scrollbar-color) so the scrollbar styling below and
+   * App.vue's pre-existing `.panel-resizer` (which carried this
+   * exact literal already) share one named anchor instead of two
+   * independent copies of the same magic-literal hex. */
+  --accent-peach: #eba46d;
+}
+
+/* ── App-wide scrollbar color (wiki2-scrollbar-color) ────────────
+ * Commissioned literally as "#eba46d" — the same peach
+ * `--accent-peach` token above already carries for App.vue's
+ * `.panel-resizer` handles, reused here rather than minting a
+ * second token for the identical value. Theme-invariant (declared
+ * outside any `[data-theme="…"]` block) to match that precedent —
+ * scrollbars read as a chrome-affordance accent, not a
+ * per-theme-tunable surface.
+ *
+ * Two mechanisms, both included since this app ships both as a Vite/
+ * Chromium web build and as a Tauri desktop shell (`package.json`'s
+ * `tauri:dev`/`tauri:build`, `src-tauri/`) whose embedded webview
+ * varies by OS — the exact per-OS webview engine is not re-verified
+ * here (out of scope for this pass), so both the standard property and
+ * the longer-standing WebKit-specific pseudo-elements are declared
+ * rather than assuming either alone covers every shell: `scrollbar-color`
+ * is the standard property (Firefox and current WebKit/Chromium both
+ * honor it); the `::-webkit-scrollbar*` pseudo-elements are kept
+ * alongside for any embedded engine that supports the pseudo-elements
+ * but not yet (or only partially) the standard property. `thin` matches
+ * this app's
+ * existing dense-chrome visual language (no other scrollbar-width
+ * declaration exists yet, so this is the first and only one to
+ * reconcile). The track uses `--surface-1` (the default-panel
+ * surface token) rather than a hardcoded value, per the surface-token
+ * discipline the rest of this file follows. */
+* {
+  scrollbar-color: var(--accent-peach) var(--surface-1);
+  scrollbar-width: thin;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: var(--surface-1);
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--accent-peach);
+  border-radius: var(--radius-default);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
 }

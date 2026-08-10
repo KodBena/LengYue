@@ -377,8 +377,16 @@ const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
   margin-bottom: var(--space-tight);
 }
 .board-action-btn {
+  /* Content-derived sizing (was a magic-literal `height: 20px`,
+     wiki2-board-action-btn-height): height follows padding + line
+     content, same idiom as `.toolbar-btn` (Toolbar.vue) — no fixed
+     height literal. `min-height: 24px` is the WCAG 2.5.8 effective
+     pointer-target floor (see tests/unit/pointer-target-minimum-size.test.ts),
+     not a disguised fixed height — at this font-size/padding, the
+     floor is what actually determines the rendered height, exactly
+     as it does for `.toolbar-btn`. */
   width: 100%;
-  height: 20px;
+  min-height: 24px;
   border-radius: 0%;
   border: none;
   background: var(--surface-2);
@@ -388,8 +396,11 @@ const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
   text-transform: uppercase;
   letter-spacing: var(--tracking-tight);
   cursor: pointer;
-  padding: 0 var(--space-tight);
+  padding: var(--space-tight);
   min-width: 0;
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

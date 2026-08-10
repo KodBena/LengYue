@@ -56,7 +56,7 @@ import {
   computeTreeControlRegionWidthPx,
   computePaneWidthPx,
   sanitizeTreeControlRegionWidthPx,
-  computeBoardColumnMaxWidthPx,
+  computeBoardAreaMaxWidthPx,
   TREE_PANEL_MIN_WIDTH_PX,
   WRAPPER_MIN_WIDTH_PX,
   CONTROL_PANEL_MIN_WIDTH_PX,
@@ -273,7 +273,7 @@ describe('sanity: the board floor composes with both bars\' max-clamp derivation
 // ── ui-5-3: restore-time board-visibility clamp ──────────────────────
 // "The board comes back minimized after upgrading" — a persisted
 // treeControlRegionWidthPx saved against one viewport, hydrated
-// verbatim against a narrower one, used to leave #board-column far
+// verbatim against a narrower one, used to leave #board-area far
 // below MIN_BOARD_PX because only an in-progress DRAG clamped against
 // live geometry. sanitizeTreeControlRegionWidthPx re-derives that same
 // clamp from the row's CURRENT width at render time — RED against the
@@ -329,47 +329,47 @@ describe('sanitizeTreeControlRegionWidthPx — ui-5-3 restore-time clamp', () =>
   });
 });
 
-// ── commission row 848: board-column width cap ────────────────────────
-// "Space should not be wasted" — a HEIGHT-bound #board-column (the
+// ── commission row 848: board-area width cap ────────────────────────
+// "Space should not be wasted" — a HEIGHT-bound #board-area (the
 // square is `height: 100%; aspect-ratio: 1/1`) must not claim row WIDTH
 // past what its own square can render into; the excess used to become
 // dead centered margin around the square while #tree-control-wrapper
-// starved at its floor. computeBoardColumnMaxWidthPx is the pure
-// function behind the App.vue :style cap on #board-column — see
-// useResizablePanel.ts's header, "Board-column width cap", for the full
+// starved at its floor. computeBoardAreaMaxWidthPx is the pure
+// function behind the App.vue :style cap on #board-area — see
+// useResizablePanel.ts's header, "Board-area width cap", for the full
 // mechanism (native flexbox redistributes past a frozen max-width item,
 // same idiom the rest of this file's OUTER/INNER bars rely on).
-describe('computeBoardColumnMaxWidthPx — the pure function behind the #board-column max-width cap', () => {
+describe('computeBoardAreaMaxWidthPx — the pure function behind the #board-area max-width cap', () => {
   it('equals the row height, floored at MIN_BOARD_PX (a height-bound board can never render wider than the row is tall)', () => {
-    expect(computeBoardColumnMaxWidthPx(900)).toBe(900);
-    expect(computeBoardColumnMaxWidthPx(1275)).toBe(1275);
+    expect(computeBoardAreaMaxWidthPx(900)).toBe(900);
+    expect(computeBoardAreaMaxWidthPx(1275)).toBe(1275);
   });
 
   it('never returns below MIN_BOARD_PX, even for a very short row (the board floor composes with the height derivation)', () => {
-    expect(computeBoardColumnMaxWidthPx(50)).toBe(MIN_BOARD_PX);
-    expect(computeBoardColumnMaxWidthPx(0.1)).toBe(MIN_BOARD_PX);
+    expect(computeBoardAreaMaxWidthPx(50)).toBe(MIN_BOARD_PX);
+    expect(computeBoardAreaMaxWidthPx(0.1)).toBe(MIN_BOARD_PX);
   });
 
   it('rounds to a whole pixel (a fractional getBoundingClientRect height must not reach App.vue\'s :style as a fractional CSS length)', () => {
-    expect(computeBoardColumnMaxWidthPx(900.6)).toBe(901);
-    expect(computeBoardColumnMaxWidthPx(900.4)).toBe(900);
+    expect(computeBoardAreaMaxWidthPx(900.6)).toBe(901);
+    expect(computeBoardAreaMaxWidthPx(900.4)).toBe(900);
   });
 
   it('rowHeightPx <= 0 (not yet measured — pre-ResizeObserver-attach, mirrors sanitizeTreeControlRegionWidthPx\'s own not-yet-measured branch) returns undefined, never a spurious floor clamp', () => {
-    expect(computeBoardColumnMaxWidthPx(0)).toBeUndefined();
-    expect(computeBoardColumnMaxWidthPx(-10)).toBeUndefined();
+    expect(computeBoardAreaMaxWidthPx(0)).toBeUndefined();
+    expect(computeBoardAreaMaxWidthPx(-10)).toBeUndefined();
   });
 
   it('non-finite input (NaN/Infinity — the same unvalidated-deepMerge reachability class ui-5-3 guards) falls back to undefined rather than NaN/Infinity-poisoning the :style binding', () => {
-    expect(computeBoardColumnMaxWidthPx(Number.NaN)).toBeUndefined();
-    expect(computeBoardColumnMaxWidthPx(Number.POSITIVE_INFINITY)).toBeUndefined();
+    expect(computeBoardAreaMaxWidthPx(Number.NaN)).toBeUndefined();
+    expect(computeBoardAreaMaxWidthPx(Number.POSITIVE_INFINITY)).toBeUndefined();
   });
 
-  it('a height-bound scenario (row height well under an even width split) caps #board-column strictly BELOW what an uncapped 50/50 flex-fill split would have given it — the "slack flows to the wrapper" claim at the pure-function level', () => {
+  it('a height-bound scenario (row height well under an even width split) caps #board-area strictly BELOW what an uncapped 50/50 flex-fill split would have given it — the "slack flows to the wrapper" claim at the pure-function level', () => {
     const rowWidthPx = 2400;
     const uncappedEvenSharePx = (rowWidthPx - RESIZER_WIDTH_PX) / 2; // ~1198
     const rowHeightPx = 900; // height-bound: well under the even share
-    const cappedPx = computeBoardColumnMaxWidthPx(rowHeightPx);
+    const cappedPx = computeBoardAreaMaxWidthPx(rowHeightPx);
     expect(cappedPx).toBe(900);
     expect(cappedPx as number).toBeLessThan(uncappedEvenSharePx);
     // The slack this frees up is large enough that #tree-control-wrapper
@@ -382,9 +382,9 @@ describe('computeBoardColumnMaxWidthPx — the pure function behind the #board-c
   it('a width-bound scenario (row height far exceeds the row\'s own width) yields a cap that exceeds the entire row — non-binding, the un-height-bound case is unchanged by construction', () => {
     const rowWidthPx = 1200;
     const rowHeightPx = 5000; // taller than the row is wide
-    const cappedPx = computeBoardColumnMaxWidthPx(rowHeightPx);
+    const cappedPx = computeBoardAreaMaxWidthPx(rowHeightPx);
     // A max-width larger than the row itself can never be the tighter
-    // constraint — native flexbox still allocates #board-column its full
+    // constraint — native flexbox still allocates #board-area its full
     // natural share, exactly as before this cap existed.
     expect(cappedPx as number).toBeGreaterThan(rowWidthPx);
   });
