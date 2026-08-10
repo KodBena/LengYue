@@ -164,6 +164,13 @@ class Leaf:
 class Split:
     kind: Literal["split"] = field(default="split", init=False)
     axis: Literal["h", "v"] = "h"
+    # AMENDMENT 3 (ledger row 1715, SPEC-AMENDMENTS.md): an optional
+    # uniform, constant px gap between this split's children — never
+    # solvable/elastic. 0.0 (the pre-amendment default) means no gap.
+    # Populated from the `gap <extent>` concrete syntax by loader.py's
+    # `_load_gap_px`; consumed by compiler.py's `_constrain` (the
+    # `(k-1)*gap` partition term) and `_extract_rects` (offset
+    # accumulation), and by emit_mockup.py as CSS grid's native `gap`.
     gap_px: float = 0.0
     children: List["Slot"] = field(default_factory=list)
 

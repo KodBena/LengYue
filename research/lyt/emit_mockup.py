@@ -671,6 +671,26 @@ def _board_priority_tracks(
         out[board_idx] = f"minmax(0px, {natural})"
     else:
         # CASE A: cap the non-board, elastic+capped sibling(s).
+        #
+        # AMENDMENT 3 (ledger row 1715): if `node` (the root split) itself
+        # declares a `gap`, that gap is consumed BETWEEN node's own
+        # children regardless of which track is flexible -- CSS Grid's
+        # native `column-gap`/`row-gap` (see `render_split`'s own gap
+        # wiring) subtracts it from the space available to distribute,
+        # the same way it subtracts every other non-flexible track's own
+        # width before an `fr` track grows. Since the board composite's
+        # own track is left an uncapped `1fr` (untouched by this branch --
+        # only the SIBLING's track is overridden below), the sibling's
+        # clamp must ALSO subtract the gap from what it claims, or the
+        # 1fr composite track would silently absorb the gap's width out
+        # of the board's own natural share -- the exact "board shrinks by
+        # the gap" regression this comment exists to prevent. Hand-
+        # verified against `compiler.py`'s own gap-aware partition
+        # equality (`_constrain`'s Split branch): `composite.w + sibling.w
+        # + gap == node.w`, so `sibling.w := node.w - natural_board - gap`
+        # is exactly what leaves `composite.w` (and hence board.w, once
+        # bounded by its own aspect ceiling) at its full natural share.
+        gap_term = f" - {node.gap_px:g}px" if node.gap_px else ""
         natural_board_expr = f"100{node_cross_vunit} - {fixed_sum:g}px"
         for j, sibling_sizing in enumerate(sizings):
             if j == board_idx:
@@ -679,7 +699,7 @@ def _board_priority_tracks(
                 continue  # not the elastic+capped shape this override is for -- leave alone
             min_px = _px(sibling_sizing.min, where=f"board-priority/sibling-min@{j}")
             max_px = _px(sibling_sizing.max, where=f"board-priority/sibling-max@{j}")
-            out[j] = f"clamp({min_px:g}px, calc(100% - ({natural_board_expr})), {max_px:g}px)"
+            out[j] = f"clamp({min_px:g}px, calc(100% - ({natural_board_expr}){gap_term}), {max_px:g}px)"
     return out
 
 
@@ -860,11 +880,20 @@ def render_split(
             c_style = f"grid-row:{i + 1}/{i + 2};grid-column:1;{c_style}"
         kids.append(render_node(child, path=cpath, class_id=class_id, extra_style=c_style, extra_data=c_data, extra_class=c_class, caption=c_caption))
 
+    # AMENDMENT 3 (ledger row 1715): `node.gap_px` realizes 1:1 as CSS
+    # grid's own native `column-gap`/`row-gap` on the matching axis --
+    # the same axis the compiler's own `(k-1)*gap` partition term
+    # (`compiler.py`'s `_constrain`, Split branch) sums along. 0.0 (no
+    # `gap` declared) reproduces the pre-amendment `0px` on both, byte-
+    # identical to every encoding that doesn't use the new syntax.
+    gap_px = node.gap_px
     if axis == "h":
         template = f"grid-auto-flow:column;grid-template-columns:{' '.join(tracks)};grid-template-rows:1fr;"
+        gap_style = f"column-gap:{gap_px:g}px;row-gap:0px;"
     else:
         template = f"grid-auto-flow:row;grid-template-rows:{' '.join(tracks)};grid-template-columns:1fr;"
-    style = f"display:grid;{template}column-gap:0px;row-gap:0px;{extra_style}"
+        gap_style = f"column-gap:0px;row-gap:{gap_px:g}px;"
+    style = f"display:grid;{template}{gap_style}{extra_style}"
     # No text caption at the Split level: a Split group's toggle target in
     # this mockup (only "Board", the V-wrapper of B/I_board/A_board) has no
     # single row to splice a label into without either overlapping the

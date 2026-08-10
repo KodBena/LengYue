@@ -391,6 +391,14 @@ def _tiling_violations(slot, result, *, path="root"):
                 if not is_aspect_leaf and cross_child != cross_parent:
                     bad.append(f"{cp}: cross {cross_child} != parent {cross_parent}")
                 walk(child, cp)
+            # AMENDMENT 3 (ledger row 1715): the partition sum must include
+            # the split's own (k-1)*gap term, the same quantity
+            # compiler.py's `_constrain` (Split branch) sums into its own
+            # partition equality -- an independent re-derivation, not a
+            # re-use of the compiler's own arithmetic, matching this
+            # helper's own stated purpose ("recompute ... directly from
+            # the solved rects").
+            along += int(round(node.gap_px)) * max(len(node.children) - 1, 0)
             parent_along = r.w if node.axis == "h" else r.h
             if along != parent_along:
                 bad.append(f"{path}: partition sum {along} != parent {parent_along}")
@@ -424,6 +432,135 @@ def test_tiling_invariants_hold_on_every_solvable_encoding(filename, layout_name
     assert result.status in ("OPTIMAL", "FEASIBLE"), f"{filename}@{w}x{h}: {result.status}"
     violations = _tiling_violations(slot, result)
     assert not violations, f"{filename}@{w}x{h} tiling violations: {violations}"
+
+
+# =============================================================================
+# AMENDMENT 3 (ledger row 1715): an H/V split may declare an optional
+# uniform `gap` -- a constant px reservation between its children, never
+# solvable/elastic. See `SPEC-AMENDMENTS.md` and `loader.py`'s
+# `_load_gap_px` docstring for the full rationale and law.
+# =============================================================================
+
+
+def test_gap_parses_and_loads_onto_the_split_node():
+    """The `gap <extent>` sizing term round-trips through parser.py ->
+    loader.py into `lyt_ast.Split.gap_px`. Absence still defaults to 0.0
+    (the pre-amendment behavior, unchanged for every un-amended
+    encoding)."""
+    with_gap = loader.load_layouts(
+        "layout g = {min 0px, pref 1fr, max inf, gap 8px} H("
+        "{min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome])"
+    )
+    assert with_gap["g"].node.gap_px == 8.0
+    without_gap = loader.load_layouts(
+        "layout g = {min 0px, pref 1fr, max inf} H("
+        "{min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome])"
+    )
+    assert without_gap["g"].node.gap_px == 0.0
+
+
+@pytest.mark.parametrize("bad_gap", ["8fr", "8ch"])
+def test_gap_refuses_elastic_or_ch_units_loudly(bad_gap):
+    """The ruling's own words: a gap is 'never solvable/elastic' -- `fr`
+    is refused outright, and `ch` is refused too even though it IS
+    otherwise resolvable to px elsewhere in this loader (min/pref/max),
+    because gap position deliberately does not inherit that resolution
+    (loader.py's `_load_gap_px` docstring)."""
+    with pytest.raises(LytLoadError) as exc_info:
+        loader.load_layouts(
+            f"layout g = {{min 0px, pref 1fr, max inf, gap {bad_gap}}} H("
+            "{min 0px, pref 1fr, max inf} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome])"
+        )
+    assert exc_info.value.detail.get("law") == "gap-declaration"
+    assert exc_info.value.detail.get("prohibition") == "non-px-gap"
+
+
+def test_gap_refuses_symbolic_extent_loudly():
+    """`gap WRAPPER_MIN` (a symbolic sentinel, legal in other extent
+    positions) is refused the same way `fr`/`ch` are -- gap position
+    accepts nothing but a bare px literal."""
+    with pytest.raises(LytLoadError) as exc_info:
+        loader.load_layouts(
+            "layout g = {min 0px, pref 1fr, max inf, gap WRAPPER_MIN} H("
+            "{min 0px, pref 1fr, max inf} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome])"
+        )
+    assert exc_info.value.detail.get("law") == "gap-declaration"
+    assert exc_info.value.detail.get("prohibition") == "non-px-gap"
+
+
+def test_gap_refuses_on_t_node():
+    """T (Exclusive) nodes take no gap: every child shares one rectangle
+    (§4.1 line 297-298), so there is nothing 'between' them to reserve."""
+    with pytest.raises(LytLoadError) as exc_info:
+        loader.load_layouts(
+            "layout g = {min 0px, pref 1fr, max inf, gap 8px} T("
+            "{min 0px, pref 1fr, max inf} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome])"
+        )
+    assert exc_info.value.detail.get("law") == "gap-declaration"
+    assert exc_info.value.detail.get("node_kind") == "exclusive"
+
+
+def test_gap_refuses_on_leaf():
+    """A leaf has no children at all, so `gap` is refused there too,
+    rather than silently dropped."""
+    with pytest.raises(LytLoadError) as exc_info:
+        loader.load_layouts(
+            "layout g = {min 0px, pref 0px, max 0px, gap 8px} A[chrome]"
+        )
+    assert exc_info.value.detail.get("law") == "gap-declaration"
+    assert exc_info.value.detail.get("node_kind") == "leaf"
+
+
+_GAP_HAND_COMPUTED_PROGRAM = """
+layout gaptest =
+  {min 0px, pref 1fr, max inf, gap 10px} V(
+    {min 100px, pref 100px, max 100px} top[chrome],
+    {min 200px, pref 200px, max 200px} mid[chrome]
+  )
+"""
+
+
+def test_gap_shifts_solved_rectangles_by_the_hand_computed_amount():
+    """Pins the `(k-1)*gap` partition term (compiler.py's `_constrain`,
+    Split branch) AND the offset accumulation (`_extract_rects`) against
+    a hand-computed case: a V-split root with two FIXED children (100px,
+    200px) and `gap 10px`, solved at a viewport whose height is EXACTLY
+    100+200+10=310 -- zero slack, so the gap must be neither silently
+    absorbed into a child's own extent nor dropped from either child's
+    solved offset."""
+    layouts = loader.load_layouts(_GAP_HAND_COMPUTED_PROGRAM)
+    slot = layouts["gaptest"]
+    assert slot.node.gap_px == 10.0
+    result = solve_lexicographic(
+        slot, class_id="t", w_px=500, h_px=310, board_widget=None, reach_preferred_widgets=None
+    )
+    assert result.status in ("OPTIMAL", "FEASIBLE")
+    top = result.rects["root/V0"]
+    mid = result.rects["root/V1"]
+    assert (top.x, top.y, top.w, top.h) == (0, 0, 500, 100)
+    # mid.y = 100 (top's own height) + 10 (the gap) = 110, NOT 100 -- the
+    # hand-computed pin that would catch a gap silently dropped from the
+    # offset accumulation while still being counted in the partition sum
+    # (or vice versa).
+    assert (mid.x, mid.y, mid.w, mid.h) == (0, 110, 500, 200)
+
+
+def test_unfittable_gap_is_a_loud_infeasible_not_silently_dropped():
+    """Same hand-computed shape, one px too short: the ruling's own
+    words -- 'an unfittable gap = loud INFEASIBLE' -- a gap is a hard
+    constant reservation the solver may not silently squeeze or drop to
+    make an otherwise-tight fit work."""
+    layouts = loader.load_layouts(_GAP_HAND_COMPUTED_PROGRAM)
+    slot = layouts["gaptest"]
+    result = solve_lexicographic(
+        slot, class_id="t", w_px=500, h_px=309, board_widget=None, reach_preferred_widgets=None
+    )
+    assert result.status == "INFEASIBLE"
 
 
 # =============================================================================
@@ -1064,9 +1201,19 @@ def test_landscape_side_column_track_carries_the_board_priority_clamp(mockup_pag
     rows) from the available width, so the board structurally wins its
     natural share before the side column grows toward its own declared
     max -- see `_board_priority_tracks`'s own docstring for the full
-    derivation."""
+    derivation.
+
+    AMENDMENT 3 (ledger row 1715) update: the landscape encoding now
+    declares `gap 12px` on its own outer H(...) split (see that file's
+    own header comment for the `--space-medium` tier-mapping rationale).
+    `_board_priority_tracks`'s CASE A branch subtracts that gap from the
+    clamp's middle term (its own updated docstring covers why: the
+    board's `1fr` composite track would otherwise silently absorb the
+    gap's width out of the board's own natural share), so the pinned
+    clamp expression below gains a trailing `- 12px` term versus the
+    pre-amendment (gap-less) string."""
     assert "minmax(340px, 820px)" not in mockup_pages["landscape"]
-    assert "clamp(340px, calc(100% - (100vh - 52px)), 820px)" in mockup_pages["landscape"]
+    assert "clamp(340px, calc(100% - (100vh - 52px) - 12px), 820px)" in mockup_pages["landscape"]
 
 
 def test_portrait_composite_row_carries_the_board_priority_cap(mockup_pages):

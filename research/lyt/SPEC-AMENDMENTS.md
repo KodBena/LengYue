@@ -1,17 +1,18 @@
 # LYT spec amendments
 
-Two language amendments to `layout-language-consult.md`, adjudicated via
+Three language amendments to `layout-language-consult.md`, adjudicated via
 the work-status store's ledger (commissioner-delegated), implemented on
 top of the fix pass recorded in
 `.claude/dispatch-reports/lyt-compiler-fix1-build.md` /
 `lyt-compiler-fix2-build.md`. `layout-language-consult.md` itself is
 **untouched** — it stays the historical record of the original consult.
-This file is the living amendment record: the two rulings, their
+This file is the living amendment record: the three rulings, their
 rationale (as recorded on the ledger rows), and a diff against the
 original document's prose.
 
-Build report for the implementation:
-`.claude/dispatch-reports/lyt-language-amendments-build.md`.
+Build report for the implementation of Amendments 1/2:
+`.claude/dispatch-reports/lyt-language-amendments-build.md`. Build
+report for Amendment 3: `.claude/dispatch-reports/lyt-gap-amendment-build.md`.
 
 ---
 
@@ -215,6 +216,144 @@ still violate in isolation); `README.md` (L2 scope section rewritten,
 decoy caveat retired).
 
 ---
+
+## Amendment 3 (ledger row 1715) — split nodes may declare a uniform,
+## constant gap
+
+**Ruling, verbatim adjudication.** Split nodes gain an optional uniform
+gap declaration — constant px reservation, never solvable/elastic
+(rhythm is not negotiable under board-maximization; an unfittable gap =
+loud INFEASIBLE); maps 1:1 onto the compiler's existing `(k-1)·gap`
+partition term and CSS grid's native `gap`. Nonuniform spacing remains
+an explicit spacer leaf.
+
+**Rationale, as recorded on the ledger row.** The compiler has carried a
+`gap_px` field on every `Split` node (`lyt_ast.py`) and a fully general
+`(k-1)*gap` partition term (`compiler.py`'s `_constrain`, Split branch)
+since the original build — but no concrete syntax in this parser (and
+none in the base EBNF, `layout-language-consult.md` line 279) ever set
+it, so `loader.py` hardcoded `gap_px=0.0` unconditionally (the "F10
+disclosure", review row 1609). The mockup fix-pass work
+(`.claude/dispatch-reports/lyt-mockups-fix1-build.md`, finding X3) named
+the concrete cost of that gap directly: "a real spacing-rhythm gap would
+change the LIVE geometry away from what `compiler.py` solves ... left
+unfixed" — the language had no way to say "put 8px between these rows"
+that the solver, the loader, and the CSS realization would all agree on
+simultaneously. This amendment closes that gap (the pun is unavoidable):
+the machinery to CONSUME a gap already existed and was already correct
+end to end; only the machinery to DECLARE one was missing.
+
+**Syntax.** An H/V split's own sizing block (the same `{...}` that
+already carries `min`/`pref`/`max`/`aspect`/`envelope`/`width`) may
+carry one additional optional term, `gap <extent>`, following the exact
+"bare `key <extent>`" shape every other extent-valued sizing key already
+uses:
+
+```
+{min 340px, pref 32fr, max 340px+60ch, gap 8px} V( ... )
+```
+
+**Why this spelling, not a new production.** The base EBNF's `sizing`
+production (`layout-language-consult.md` line 279-280) is already a
+comma-separated bag of `key value` terms inside one `{...}` block, and
+this parser has repeatedly extended that same bag rather than inventing
+new syntax shapes for new sizing-adjacent concepts — `aspect <number>`,
+`envelope: {states}`, `width <extent>` (a `pref` alias), `aspect-coupled`,
+`drag-persisted` are all the same "one more recognized key" move,
+already disclosed in `parser.py`'s own module docstring as this
+parser's house style for extension. `gap` follows that precedent
+exactly: no grammar production changes, one more branch in
+`Parser.parse_sizing`. The alternative — a dedicated `gap(...)` clause
+outside the sizing braces, or a positional term between `H`/`V` and
+`(` — would be a genuinely new shape with no precedent in either the
+base grammar or this parser's own disclosed extensions, for a concept
+(a split-local numeric setting) that the sizing block already exists to
+carry.
+
+**Semantics.**
+
+1. **Legal only on H/V split nodes.** A T (Exclusive) node's children
+   all receive the SAME rectangle (§4.1 line 297-298) — there is no
+   "between children" for a gap to reserve, so `gap` on a T node is
+   refused loudly (`LytLoadError`, `detail.law == "gap-declaration"`,
+   `detail.node_kind == "exclusive"`), not silently ignored. Refused on
+   a bare leaf for the same reason (no children at all).
+2. **Constant px only — never solvable/elastic.** The resolved extent
+   must be a bare `px` literal. `fr` is refused outright (the ruling's
+   own words: rhythm is not a negotiable, competing-for-space quantity
+   the way an `fr`-weighted track is). `ch` is refused too, even though
+   `ch` IS otherwise resolvable to px elsewhere in this loader (via the
+   `PX_PER_CH` constant, for `min`/`pref`/`max`) — gap position
+   deliberately does NOT inherit that resolution, so a `ch`-declared
+   gap is never silently reinterpreted through a constant the author
+   didn't name in gap position. Extent sums (`8px+4ch`) and symbolic
+   sentinels (`WRAPPER_MIN`, `CONTENT`, `MAXIMIZE`, `inf`) are refused
+   the same way. All four refusals share `detail.law ==
+   "gap-declaration"`, `detail.prohibition == "non-px-gap"`.
+3. **Maps 1:1 onto the existing `(k-1)*gap` partition term and CSS
+   grid's native `gap`.** No new compiler mechanism was needed —
+   `compiler.py`'s `_constrain` (Split branch) already summed
+   `gap * max(n-1, 0)` into its own partition equality, and
+   `_extract_rects` already accumulated `gap` into each child's offset;
+   both were "modeled but only ever exercised in the degenerate gap=0
+   case" (the retired F10 disclosure this amendment obsoletes).
+   `emit_mockup.py`'s `render_split` realizes the SAME `gap_px` as CSS
+   Grid's native `column-gap`/`row-gap` on the matching axis — a
+   pre-existing browser primitive that already means exactly "constant,
+   non-elastic space between grid tracks," so no CSS-side invention was
+   needed either.
+4. **An unfittable gap is a loud INFEASIBLE, never silently absorbed.**
+   Because the partition equality is a hard `==` constraint (not a
+   soft objective term), a `gap` too large for its split's own resolved
+   extent makes the whole model infeasible — CP-SAT reports
+   `INFEASIBLE`, the same honest failure mode every other over-
+   constrained sizing already produces in this prototype (see
+   `README.md`'s "AMENDMENT 1 consequence" section for the precedent:
+   a genuine new-infeasibility surface is a real design tradeoff to
+   report, not a bug to route around).
+5. **Nonuniform spacing remains an explicit spacer leaf,** per the
+   ruling's own closing clause — this amendment does not introduce a
+   per-child gap list, alternating rhythm, or any other non-uniform
+   variant. A layout wanting different spacing between different child
+   pairs still expresses that the way the pre-amendment language always
+   could: an explicit zero-content leaf between the two slots that need
+   the wider gap, sized to the desired extent. `gap` is strictly the
+   uniform, whole-split case.
+
+**Diff vs. the original consult document's prose.** The base EBNF (line
+279-286) has no `gap` term in its `sizing` production at all, and no
+prose anywhere in `layout-language-consult.md` discusses inter-child
+spacing as a first-class concept — every one of the document's own §5
+worked encodings is transcribed with implicit zero gap (the compiler's
+own pre-amendment `gap_px=0.0` default is a faithful reading of that
+silence, not a workaround). This amendment is a genuine language
+extension, not a reading recovered from existing text — same footing
+as Amendments 1 and 2 above.
+
+**What it touched.** `parser.py` (`RawSizing.gap` field + one more
+`parse_sizing` branch); `loader.py` (`_load_gap_px`, called from every
+`load_slot` branch — split resolves it into `Split.gap_px`, leaf/T
+refuse it; replaces the retired F10-era hardcoded-0.0 comment);
+`lyt_ast.py` (`Split.gap_px`'s own doc comment, pointing at this
+amendment instead of being silent); `compiler.py` (unchanged —
+`_constrain`/`_extract_rects` already consumed `gap_px` generically,
+confirmed by a new hand-computed regression test rather than
+re-derived); `emit_mockup.py` (`render_split` emits `gap_px` as native
+CSS `column-gap`/`row-gap`; `_board_priority_tracks`'s CASE A branch
+gains a `- {gap}px` term so its closed-form CSS reproduction of the
+CP-SAT board-maximize stage stays exact when the tree's own ROOT split
+declares a gap — see that function's own updated docstring for the
+derivation); `encodings/lengyue_landscape.lyt` /
+`lengyue_portrait.lyt` (tasteful gaps added, mapped onto
+`frontend/src/assets/css/theme.css`'s `--space-*` tier scale — see
+each file's own header comment for the tier-mapping rationale and the
+one disclosed down-tier finding); `tests/test_lyt.py` (new regression
+section: parse, refuse-`fr`/`ch`, refuse-symbolic, refuse-on-T,
+refuse-on-leaf, hand-computed partition/offset pin, INFEASIBLE-on-unfit
+pin; `_tiling_violations`' own independent partition-sum re-derivation
+updated to include the `(k-1)*gap` term; the pre-existing
+`test_landscape_side_column_track_carries_the_board_priority_clamp`
+pin updated for the new gap term in the clamp expression).
 
 ## License
 
