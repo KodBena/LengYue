@@ -298,6 +298,8 @@ function onShiftClick(x: number, y: number) {
       :underlay-cells="continuousCells"
       :underlay-color-map="ownershipColor"
       :triangles="triangleMarks"
+      :ghost-stone-enabled="store.session.ui.showGhostStone"
+      :turn="state.turn"
       @click="onBoardClick"
       @shift-click="onShiftClick"
     />

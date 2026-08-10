@@ -4,7 +4,7 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import {
   BOARD_COLOR, LINE_COLOR, LABEL_COLOR,
   LABEL_BAND, LABEL_FONT_SIZE, LABEL_INSET_RATIO, TOTAL_PX,
@@ -12,10 +12,11 @@ import {
   ALL_X_LABELS,
 } from '../../engine/constants';
 import { boardGeometry, gridLines } from '../../engine/board-geometry';
+import { computeGhostStone } from '../../composables/board/ghost-stone';
 import type { StoneColor, Move } from '../../types';
 import type { HeatmapCell, HeatmapStyle } from './BoardHeatmapOverlay.vue';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   size?: number;
   stones: Record<string, StoneColor>;
   lastMove?: Move | null;
@@ -49,7 +50,22 @@ const props = defineProps<{
   // with streamed data). Optional; BoardWidget omits it when there
   // are none, matching `moveNumbers`' v-if-friendly convention.
   triangles?: readonly { x: number; y: number }[];
-}>();
+  // Ghost-stone hover preview (wiki2-ghost-stone). `session.ui.showGhostStone`
+  // and the board's current `turn` are threaded down as plain values — the
+  // render/visibility decision itself lives in the imported pure
+  // `computeGhostStone`, called below against this component's own
+  // pointer-tracked hover position. Both default falsy so any other future
+  // caller of BoardDisplay that doesn't pass them gets the feature fully
+  // off, matching how `lastMove` and the other optional overlay props
+  // behave when omitted.
+  ghostStoneEnabled?: boolean;
+  turn?: StoneColor;
+}>(), {
+  // Omission means "off" (per local/gate-prop-needs-default: Vue casts an
+  // omitted boolean prop to `false` already, but the lint requires this
+  // stated explicitly rather than relying on that cast silently).
+  ghostStoneEnabled: false,
+});
 
 const emit = defineEmits<{
   (e: 'click', x: number, y: number): void;
@@ -143,8 +159,14 @@ function trianglePoints(cx: number, cy: number): string {
   return [top, bottomLeft, bottomRight].map(([x, y]) => `${x},${y}`).join(' ');
 }
 
-function onBoardClick(e: MouseEvent) {
-  const svg = e.currentTarget as SVGSVGElement; // DOM: the handler is bound on the board's <svg>, so currentTarget is that element
+/**
+ * Shared pointer → board-coordinate resolution for click placement and
+ * the ghost-stone hover preview (both need the same "nearest
+ * intersection, or off-grid" math). Returns board coordinates (y=0 at
+ * the bottom, matching `applyGoMove`), or `null` when the pointer is
+ * outside the grid (over the label band / margins).
+ */
+function resolveBoardPoint(e: MouseEvent, svg: SVGSVGElement): { x: number; y: number } | null {
   const pt = svg.createSVGPoint();
   pt.x = e.clientX;
   pt.y = e.clientY;
@@ -156,15 +178,52 @@ function onBoardClick(e: MouseEvent) {
   const row = Math.round((cursor.y - LABEL_BAND - pad.value) / cell.value);
   const s = boardSize.value;
 
-  if (col >= 0 && col < s && row >= 0 && row < s) {
-    const boardY = s - 1 - row;
-    if (e.shiftKey) {
-      emit('shift-click', col, boardY);
-    } else {
-      emit('click', col, boardY);
-    }
+  if (col < 0 || col >= s || row < 0 || row >= s) return null;
+  return { x: col, y: s - 1 - row };
+}
+
+function onBoardClick(e: MouseEvent) {
+  const svg = e.currentTarget as SVGSVGElement; // DOM: the handler is bound on the board's <svg>, so currentTarget is that element
+  const p = resolveBoardPoint(e, svg);
+  if (!p) return;
+  if (e.shiftKey) {
+    emit('shift-click', p.x, p.y);
+  } else {
+    emit('click', p.x, p.y);
   }
 }
+
+// ── Ghost-stone hover preview (wiki2-ghost-stone) ──────────────────────────
+// `hoverPoint` only needs to be CORRECT while visible; visibility itself is
+// gated in CSS below (`.board-svg:hover .ghost-stone`), not by this ref, so a
+// modal opening on top of the board hides the ghost the instant it paints
+// over the board — every modal backdrop under `components/modals/*.vue` is a
+// `position: fixed` full-viewport element with normal (non-`none`)
+// pointer-events (verified against the current tree: `grep -rn
+// 'pointer-events' src/components/modals/*.vue` finds no override), so the
+// browser's own hover hit-testing stops matching `:hover` against a covered
+// element regardless of whether any pointer event fires. Without this, a
+// modal opened via a keybinding (no mouse movement) while hovering the board
+// would leave a stale ghost bleeding through the backdrop. This is the one
+// mode-gate this feature needs; it's mechanical (native CSS hover
+// semantics), not a bespoke "is a modal open" flag threaded through the
+// store — no such global signal exists in this codebase to compose with,
+// and inventing one for this alone would be a bigger footprint than the CSS
+// rule.
+const hoverPoint = ref<{ x: number; y: number } | null>(null);
+
+function onBoardPointerMove(e: PointerEvent) {
+  const svg = e.currentTarget as SVGSVGElement; // DOM: bound on the board's <svg>, so currentTarget is that element (same cast as onBoardClick above)
+  hoverPoint.value = resolveBoardPoint(e, svg);
+}
+
+function onBoardPointerLeave() {
+  hoverPoint.value = null;
+}
+
+const ghostStone = computed(() =>
+  computeGhostStone(props.ghostStoneEnabled ?? false, props.turn ?? 'B', hoverPoint.value),
+);
 </script>
 
 <template>
@@ -172,6 +231,8 @@ function onBoardClick(e: MouseEvent) {
     :viewBox="`0 0 ${TOTAL_PX} ${TOTAL_PX}`"
     class="board-svg"
     @click="onBoardClick"
+    @pointermove="onBoardPointerMove"
+    @pointerleave="onBoardPointerLeave"
   >
     <!-- Assets Definition -->
     <defs>
@@ -283,6 +344,33 @@ function onBoardClick(e: MouseEvent) {
         />
       </g>
 
+      <!-- 3d-bis. Ghost-stone hover preview (wiki2-ghost-stone, optional
+           via session.ui.showGhostStone, registry-only). Deliberately
+           the simplest possible preview per the commission: a flat
+           translucent disc in the side-to-move's color at the hovered
+           intersection — no gradient/stroke (contrast with the real
+           stones' polish in 3c), no legality gating (renders over an
+           occupied point, or a genuinely illegal one, exactly like a
+           legal empty one — `computeGhostStone` takes no BoardState to
+           gate on), and no capture preview (nothing else on the board
+           changes). `pointer-events="none"` so it never becomes the
+           click target — placement is resolved by the outer `<svg>`'s
+           own `@click`, whose hit target doesn't matter since
+           `onBoardClick` reads `e.clientX`/`clientY` via
+           `getScreenCTM()`, not the DOM event target. Visibility is
+           CSS-gated (`.ghost-stone` below); see `hoverPoint`'s
+           declaration in the script for why that's not a plain `v-if`
+           on a JS "is hovering" flag. -->
+      <circle
+        v-if="ghostStone"
+        class="ghost-stone"
+        :cx="toSVG(ghostStone.x, ghostStone.y).x"
+        :cy="toSVG(ghostStone.x, ghostStone.y).y"
+        :r="stoneR"
+        :fill="ghostStone.color === 'B' ? '#000' : '#fff'"
+        pointer-events="none"
+      />
+
       <!-- 3e. Move-number annotations (rendered above stones AND
            the last-move marker so the number is always legible).
            Font size shrinks with digit count so 3-digit numbers
@@ -337,6 +425,34 @@ function onBoardClick(e: MouseEvent) {
   width: 100%;
   height: 100%;
   user-select: none;
-  cursor: crosshair;
+  /* wiki2-ghost-stone, commission verbatim: "The pointer over the board
+     should be a normal pointer, except that there should be a 'ghost
+     stone' ... that shows the color and placement if the stone were to
+     be put at that intersection." The ghost stone (below) is now the
+     placement affordance; a crosshair cursor duplicated that signal and
+     is dropped in favor of the plain system arrow. Applies regardless
+     of whether the toggle is on — `showGhostStone: false` removes the
+     preview, not the cursor; the commission ties the normal-pointer
+     requirement to the feature's presence on the board, not to the
+     per-user toggle state, and reverting to a crosshair only while the
+     preview is off would make the cursor flicker between styles as the
+     user flips a Settings-pane checkbox mid-session. */
+  cursor: default;
 }
+
+/* Ghost-stone visibility gate (wiki2-ghost-stone). Default hidden;
+   raised only while the pointer is genuinely over `.board-svg` per the
+   browser's own hover hit-testing — see `hoverPoint`'s declaration in
+   the script for why this (not a JS boolean) is the defensive layer
+   against a modal's backdrop covering the board without a pointerleave
+   ever firing. No `transition` (standing design law bans it here); the
+   preview snaps with the hover boundary instead of fading. A flat-fill
+   translucent disc, not a diffuse overlay — the standing ban is on
+   box-shadow/blur/backdrop-style washes, not a sprite's own alpha.
+   magic-literal: 0.4 opacity — translucent enough to read as "preview,
+   not placed" against the wood texture, opaque enough to identify the
+   color at a glance; not a substrate anchor candidate since the
+   relationship is local to this one preview glyph. */
+.ghost-stone { opacity: 0; }
+.board-svg:hover .ghost-stone { opacity: 0.4; }
 </style>

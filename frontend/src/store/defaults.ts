@@ -882,6 +882,11 @@ export const defaultSessionUI: UISession = {
   // default; see the field's doc comment on `UISession` in schema.ts.
   // Schema-version 73 introduces the field.
   settingsTabsOrientation: 'horizontal',
+  // Ghost-stone hover preview (wiki2-ghost-stone). Default true — see
+  // schema.ts's field comment for the on-by-default rationale and for
+  // why this is registry-only (no StatusBar button). Schema-version 75
+  // introduces the field.
+  showGhostStone: true,
 };
 
 export const DEFAULTS = {

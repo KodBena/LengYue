@@ -50,6 +50,15 @@ patterns supported, others render without hoshi).
   Pass moves are representable in the data model and SGF I/O
   but no UI surface for issuing one ships today `[planned]`.
 
+- **Ghost-stone hover preview.** A translucent stone in the
+  side-to-move's colour follows the pointer to the nearest
+  intersection (cgoban3 convention). Deliberately the simplest
+  preview possible: it renders identically whether the hovered
+  point is a legal placement or not, and it never previews a
+  capture — no board-evaluation affordance, just "here's where
+  and what colour a click would place." On by default; toggle
+  it off via the Session (UI) settings pane.
+
 - **Move-number annotation toggle.** A "#" button in the status
   bar overlays each placed stone with its ordinal (1, 2, 3, …),
   scaling font size with digit count so three-digit numbers
