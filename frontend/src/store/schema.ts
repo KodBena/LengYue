@@ -885,10 +885,13 @@ export interface UISession {
   // the pointer to the nearest intersection. Deliberately the most
   // rudimentary preview possible — the commission's own words are "the
   // simplest and most rudimentary stone placement preview imaginable":
-  // no legality gating (renders over an occupied point, or a genuinely
-  // illegal one, identically to a legal empty one — `computeGhostStone`
-  // in `composables/board/ghost-stone.ts` takes no BoardState to gate
-  // on) and no capture preview (nothing else on the board changes).
+  // no legality gating (renders over a genuinely illegal EMPTY point
+  // identically to a legal empty one — `computeGhostStone` in
+  // `composables/board/ghost-stone.ts` takes no BoardState to gate
+  // legality on) and no capture preview (nothing else on the board
+  // changes). Occupancy amendment (row 1635): it is NOT shown over an
+  // already-occupied point — an occupancy view (not a legality-capable
+  // one) gates that case; see `computeGhostStone`'s header.
   //
   // Exposed ONLY through the Session (UI) `RegistryEditor` — no
   // dedicated StatusBar button. This mirrors `showActiveNextMove` and

@@ -230,8 +230,19 @@ function onBoardPointerLeave() {
   hoverPoint.value = null;
 }
 
+// Occupancy view for the occupancy amendment (row 1635): a closure over
+// `props.stones` — the same source `stoneList` above renders real stones
+// from — answering only "is there a stone at this point?" for whatever
+// point `computeGhostStone` asks about. It cannot answer a legality
+// question (no capture/suicide/ko logic reads through it), so passing it
+// preserves the module's no-legality-affordance guarantee while letting
+// `computeGhostStone` hide the preview over an existing stone.
+function isOccupied(point: { x: number; y: number }): boolean {
+  return props.stones[`${point.x},${point.y}`] !== undefined;
+}
+
 const ghostStone = computed(() =>
-  computeGhostStone(props.ghostStoneEnabled ?? false, props.turn ?? 'B', hoverPoint.value),
+  computeGhostStone(props.ghostStoneEnabled ?? false, props.turn ?? 'B', hoverPoint.value, isOccupied),
 );
 </script>
 
@@ -358,18 +369,21 @@ const ghostStone = computed(() =>
            the simplest possible preview per the commission: a flat
            translucent disc in the side-to-move's color at the hovered
            intersection — no gradient/stroke (contrast with the real
-           stones' polish in 3c), no legality gating (renders over an
-           occupied point, or a genuinely illegal one, exactly like a
-           legal empty one — `computeGhostStone` takes no BoardState to
-           gate on), and no capture preview (nothing else on the board
-           changes). `pointer-events="none"` so it never becomes the
-           click target — placement is resolved by the outer `<svg>`'s
-           own `@click`, whose hit target doesn't matter since
-           `onBoardClick` reads `e.clientX`/`clientY` via
-           `getScreenCTM()`, not the DOM event target. Visibility is
-           CSS-gated (`.ghost-stone` below); see `hoverPoint`'s
-           declaration in the script for why that's not a plain `v-if`
-           on a JS "is hovering" flag. -->
+           stones' polish in 3c), no legality gating (renders over a
+           genuinely illegal EMPTY point exactly like a legal empty
+           one — `computeGhostStone` takes no BoardState to gate legality
+           on), and no capture preview (nothing else on the board
+           changes). Occupancy amendment (row 1635): it does NOT render
+           over an already-occupied point — `isOccupied` above is a
+           visibility-only view (no legality reasoning reads through
+           it), not a relaxation of the no-legality-gating guarantee.
+           `pointer-events="none"` so it never becomes the click target —
+           placement is resolved by the outer `<svg>`'s own `@click`,
+           whose hit target doesn't matter since `onBoardClick` reads
+           `e.clientX`/`clientY` via `getScreenCTM()`, not the DOM event
+           target. Visibility is CSS-gated (`.ghost-stone` below); see
+           `hoverPoint`'s declaration in the script for why that's not a
+           plain `v-if` on a JS "is hovering" flag. -->
       <circle
         v-if="ghostStone"
         class="ghost-stone"
