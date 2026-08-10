@@ -170,7 +170,7 @@ function formatXTooltip(val: number): string {
 // wording so the user can tell "no signal" from "computation
 // blocked" at a glance.
 //
-// Colors stay on var(--text-1) (the body default per style.css and
+// Colors stay on var(--text-0) (the body default per style.css and
 // the SPA's canonical popover convention; matches EngineQueueTooltip).
 // BaseChart's containerBackgroundColor handles the surrounding
 // surface-0 background; this formatter contributes the body only.
@@ -287,7 +287,7 @@ function tooltipFormatter(params: any[]): string {
   flex: 1;
   min-width: 0;
   background: var(--surface-0);
-  color: var(--text-1);
+  color: var(--text-0);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
   padding: 4px 8px;
@@ -301,7 +301,7 @@ function tooltipFormatter(params: any[]): string {
   height: 20px;
   border-radius: 50%;
   background: var(--surface-0);
-  color: var(--text-1);
+  color: var(--text-0);
   border: 1px solid var(--border-2);
   display: inline-flex;
   align-items: center;

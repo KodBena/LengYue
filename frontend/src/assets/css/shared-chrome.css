@@ -32,7 +32,7 @@
 
 .tab-padding { padding: var(--space-default); }
 .section-divider { border-top: 1px solid var(--surface-3); margin-top: 0; padding-top: 0; }
-.sub-header { color: var(--text-2); font-size: var(--text-heading); margin-bottom: var(--space-medium); }
+.sub-header { color: var(--text-0); font-size: var(--text-heading); margin-bottom: var(--space-medium); }
 
 /* Native <details> subsections in the Settings tab. Override default
    marker, render a custom chevron that rotates on open. The h3
@@ -59,15 +59,15 @@
 .settings-section[open] > summary::before { transform: rotate(90deg); }
 .settings-section > summary > h3 { margin: 0; flex: 1; }
 .settings-section > summary > .toolbar-btn-sm { margin-left: var(--space-default); }
-.settings-section > summary:hover > h3 { color: var(--text-2); }
+.settings-section > summary:hover > h3 { color: var(--text-0); }
 
 .deck-selector-box { background: var(--surface-2); padding: var(--space-medium); border-radius: var(--radius-default); border: 1px solid var(--surface-3); margin-bottom: var(--space-loose); text-align: left; }
-.deck-selector-box label { font-size: var(--text-emphasis); color: var(--text-2); display: block; margin-bottom: var(--space-default); text-transform: uppercase; }
+.deck-selector-box label { font-size: var(--text-emphasis); color: var(--text-0); display: block; margin-bottom: var(--space-default); text-transform: uppercase; }
 .deck-dropdown { width: 100%; padding: var(--space-default); font-size: var(--text-emphasis); margin-bottom: var(--space-default); background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); outline: none; }
 .deck-dropdown:focus { border-color: var(--accent-primary); }
 
 .action-btn-large { background: var(--accent-primary); color: var(--text-0); border: none; padding: var(--space-tight) var(--space-medium); cursor: pointer; border-radius: var(--radius-default); font-weight: bold; width: 100%; }
-.toolbar-btn-sm { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 4px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); }
+.toolbar-btn-sm { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-0); padding: 1px 4px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); }
 /* M3 (audit finding, ledger row 1290): the prior rule capped
    `.registry-container` at `clamp(400px, 60vh, 800px)` regardless of
    how tall its own tab-pane actually was — measured 646/1444
@@ -108,13 +108,13 @@
 }
 .visits-override-row label {
   font-size: var(--text-emphasis);
-  color: var(--text-2);
+  color: var(--text-0);
   text-transform: uppercase;
 }
 .dark-input {
   background: var(--surface-0);
   border: 1px solid var(--border-2);
-  color: var(--text-1);
+  color: var(--text-0);
   font-size: var(--text-emphasis);
 }
 .visits-input {

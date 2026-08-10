@@ -207,7 +207,7 @@ export function toEChartsNode(
       label: {
         show: true,
         position: 'right',
-        color: themeColor('--text-2'),
+        color: themeColor('--text-0'),
         fontSize: 10,
         formatter: `+${node.subtreeSize}`,
       },
@@ -230,7 +230,7 @@ export function toEChartsNode(
     label: {
       show: true,
       position: 'right',
-      color: themeColor('--text-2'),
+      color: themeColor('--text-0'),
       fontSize: 10,
       formatter: `×${node.childCardIds.length}`,
     },
@@ -248,8 +248,8 @@ export function tooltipFor(
   payload: NodePayload,
   cards: ReadonlyMap<CardId, ReviewCard>,
 ): string {
-  const cText1 = themeColor('--text-1');
-  const cText2 = themeColor('--text-2');
+  const cText1 = themeColor('--text-0');
+  const cText2 = themeColor('--text-0');
   // Mirrors `colors.active` above (the node-role fill this tooltip
   // header echoes) — chart-series-locked canonical, not '--accent-primary'.
   const cAccent = themeColor('--accent-primary-canonical');

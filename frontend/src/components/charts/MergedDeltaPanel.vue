@@ -445,7 +445,7 @@ function formatXTooltip(val: number): string {
 }
 .mode-cycle-button {
   background: var(--surface-0);
-  color: var(--text-1);
+  color: var(--text-0);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
   padding: 4px 12px;

@@ -112,7 +112,7 @@ useModalKeyboard(modalContentRef, isOpen, cancel);
 }
 .modal-header { padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); }
 .modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); }
-.modal-body { padding: var(--space-medium); color: var(--text-1); font-size: var(--text-emphasis); display: flex; flex-direction: column; gap: var(--space-default); }
+.modal-body { padding: var(--space-medium); color: var(--text-0); font-size: var(--text-emphasis); display: flex; flex-direction: column; gap: var(--space-default); }
 .prompt-label { display: block; margin: 0; }
 .dark-input {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
@@ -128,6 +128,6 @@ useModalKeyboard(modalContentRef, isOpen, cancel);
   padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); font-family: inherit;
   border: 1px solid transparent; border-radius: var(--radius-default); cursor: pointer;
 }
-.btn-secondary { background: var(--surface-0); border-color: var(--border-2); color: var(--text-1); }
+.btn-secondary { background: var(--surface-0); border-color: var(--border-2); color: var(--text-0); }
 .btn-primary { background: var(--surface-0); border-color: var(--border-2); color: var(--accent-primary); font-weight: bold; }
 </style>

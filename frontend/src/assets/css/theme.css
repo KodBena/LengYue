@@ -376,7 +376,13 @@
   --heatmap-mid:  var(--accent-primary-canonical);
   --heatmap-high: var(--state-error);
   --chart-grid:   var(--border-1);
-  --chart-axis:   var(--text-2);
+  /* rows 1478/1479/1481: chart axis tick text is read by users like
+   * any other label, so this alias now routes to --text-0 (max
+   * contrast), not --text-2. Flipped here — the alias's one home —
+   * not at each consumer; no consumer currently references
+   * --chart-axis (they read --text-1/--text-2 directly, each
+   * reclassified at its own site in this same sweep). */
+  --chart-axis:   var(--text-0);
   --chart-marker: var(--accent-primary-canonical);
 
   /* ── Role aliases for implicit handles (decouple-via-alias) ─

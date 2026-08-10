@@ -310,7 +310,7 @@ onUnmounted(() => {
      explicit widths), so left-alignment here is a genuine shared
      column, not a per-row centering artifact. */
   text-align: left;
-  color: var(--text-1);
+  color: var(--text-0);
   font-family: monospace;
   white-space: nowrap;
   /* Fixed, identical-across-sections column width — see
@@ -364,7 +364,7 @@ onUnmounted(() => {
 .row-btn {
   background: transparent;
   border: 1px solid var(--border-3);
-  color: var(--text-1);
+  color: var(--text-0);
   /* M16 (>=24x24 pointer targets) + M5 (ghost-token fix): the prior
      padding referenced --space-tiny/--space-small, neither a
      defined token (theme.css has --space-tight/--space-default/

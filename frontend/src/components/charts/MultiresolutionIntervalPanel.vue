@@ -145,7 +145,7 @@ watch(hoveredCell, () => {
 <style scoped>
 .section { background: var(--surface-2); border: 1px solid var(--surface-3); border-radius: var(--radius-default); overflow: hidden; margin-bottom: var(--space-medium); }
 .header { padding: var(--space-default) var(--space-medium); display: flex; justify-content: space-between; cursor: pointer; font-size: var(--text-body); font-weight: bold; color: var(--text-0); text-transform: uppercase; background: var(--surface-3); letter-spacing: var(--tracking-default); }
-.header:hover { background: var(--surface-3); color: var(--text-1); }
+.header:hover { background: var(--surface-3); color: var(--text-0); }
 .content { border-top: 1px solid var(--surface-3); background: var(--surface-0); }
 
 /* Increased height and allowed flex-growth for full-screen mode */
@@ -168,7 +168,7 @@ watch(hoveredCell, () => {
 }
 .preview-caption {
   font-size: var(--text-body);
-  color: var(--text-1);
+  color: var(--text-0);
   text-align: center;
   min-height: 1.2em;
 }

@@ -209,7 +209,7 @@ const canSubmit = computed(() => {
   border-radius: var(--radius-default);
   padding: var(--space-default) var(--space-medium);
   font-size: var(--text-emphasis);
-  color: var(--text-1);
+  color: var(--text-0);
   margin-bottom: var(--space-medium);
   font-family: monospace;
 }
@@ -222,7 +222,7 @@ const canSubmit = computed(() => {
 }
 .form-grid label {
   font-size: var(--text-emphasis);
-  color: var(--text-2);
+  color: var(--text-0);
   text-transform: uppercase;
 }
 .dark-input {
@@ -237,18 +237,18 @@ const canSubmit = computed(() => {
 }
 .dark-input:focus, .dark-select:focus { border-color: var(--accent-primary); }
 
-.hint { font-size: var(--text-body); color: var(--text-2); margin: var(--space-tight) 0 0 0; }
+.hint { font-size: var(--text-body); color: var(--text-0); margin: var(--space-tight) 0 0 0; }
 .modal-body .hint:first-child { margin-bottom: var(--space-medium); margin-top: 0; }
 
 .overrides-section { margin-top: var(--space-medium); padding-top: var(--space-medium); border-top: 1px solid var(--surface-3); }
-.section-title { margin: 0 0 var(--space-default) 0; font-size: var(--text-emphasis); color: var(--text-2); text-transform: uppercase; letter-spacing: var(--tracking-tight); }
+.section-title { margin: 0 0 var(--space-default) 0; font-size: var(--text-emphasis); color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 .overrides-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-medium); }
 
 .modal-footer {
   display: flex; justify-content: flex-end; gap: var(--space-medium);
   padding: var(--space-medium); border-top: 1px solid var(--surface-3); background: var(--surface-2);
 }
-.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-0); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 </style>

@@ -210,10 +210,10 @@ function runDiscard() {
 .close-btn { background: none; border: none; color: var(--text-2); font-size: var(--text-heading); cursor: pointer; }
 
 .modal-body { padding: var(--space-medium); }
-.hint { font-size: var(--text-body); color: var(--text-2); margin: 0 0 var(--space-medium) 0; }
+.hint { font-size: var(--text-body); color: var(--text-0); margin: 0 0 var(--space-medium) 0; }
 
 .form-grid { display: grid; grid-template-columns: 110px 1fr; gap: var(--space-medium); align-items: center; }
-.form-grid label { font-size: var(--text-emphasis); color: var(--text-2); text-transform: uppercase; }
+.form-grid label { font-size: var(--text-emphasis); color: var(--text-0); text-transform: uppercase; }
 .dark-input {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default);
   border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
@@ -234,7 +234,7 @@ function runDiscard() {
   border: 1px solid color-mix(in srgb, var(--state-success) 30%, transparent);
   border-radius: var(--radius-default);
 }
-.result-line { margin: 0 0 var(--space-tight) 0; font-size: var(--text-emphasis); color: var(--text-1); }
+.result-line { margin: 0 0 var(--space-tight) 0; font-size: var(--text-emphasis); color: var(--text-0); }
 .result-line:last-child { margin-bottom: 0; }
 .result-line-attention { color: var(--state-attention); }
 
@@ -242,7 +242,7 @@ function runDiscard() {
   display: flex; justify-content: flex-end; gap: var(--space-medium); padding: var(--space-medium) var(--space-medium);
   border-top: 1px solid var(--surface-3); background: var(--surface-2);
 }
-.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-0); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 </style>

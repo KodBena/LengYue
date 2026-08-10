@@ -97,5 +97,5 @@ onUnmounted(() => {
 }
 .pv-stone.is-black { background: #000; color: #fff; border: 1px solid var(--border-3); }
 .pv-stone.is-white { background: #fff; color: #000; border: 1px solid var(--border-3); }
-.pv-empty { color: var(--text-2); font-size: var(--text-emphasis); }
+.pv-empty { color: var(--text-0); font-size: var(--text-emphasis); }
 </style>

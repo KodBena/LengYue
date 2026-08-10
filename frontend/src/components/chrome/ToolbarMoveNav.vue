@@ -64,7 +64,7 @@ const nav = useNavigation();
 .toolbar-btn {
   background: var(--surface-0);
   border: 1px solid var(--border-3);
-  color: var(--text-1);
+  color: var(--text-0);
   padding: 1px 5px;
   font-size: var(--text-emphasis);
   cursor: pointer;

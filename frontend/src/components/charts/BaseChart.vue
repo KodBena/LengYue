@@ -311,7 +311,7 @@ const updateOptions = () => {
       // the gate belongs here as the shared floor.
       show: seriesHasData(props.series),
       selected: getSelectionMap(),
-      textStyle: { color: themeColor('--text-2'), fontSize: 10 },
+      textStyle: { color: themeColor('--text-0'), fontSize: 10 },
       top: '0%',
       left: 'center'
     },
@@ -326,7 +326,7 @@ const updateOptions = () => {
       // convention).
       backgroundColor: themeColor('--surface-0'),
       borderColor: themeColor('--border-2'),
-      textStyle: { color: themeColor('--text-1'), fontSize: 8 },
+      textStyle: { color: themeColor('--text-0'), fontSize: 8 },
       confine: true,
       padding: 0,
       formatter: props.tooltipFormatter ?? ((params: any[]) => {
@@ -334,7 +334,7 @@ const updateOptions = () => {
         const firstParam = params[0];
         const xVal = Array.isArray(firstParam.value) ? firstParam.value[0] : firstParam.value;
         const xHeader = props.formatXTooltip ? props.formatXTooltip(xVal) : `Move ${xVal}`;
-        res += `<b style="font-size: var(--text-body); color: ${themeColor('--text-1')};">${xHeader}</b>`;
+        res += `<b style="font-size: var(--text-body); color: ${themeColor('--text-0')};">${xHeader}</b>`;
         params.forEach(item => {
           // When per-series-normalised, the plotted Y is in [0, 1] and
           // the absolute magnitude is carried on the datum as `rawY`.
@@ -347,7 +347,7 @@ const updateOptions = () => {
           res += `
             <div style="margin-top: 2px; display: flex; align-items: center; gap: var(--space-tight);">
               ${item.marker.replace('width:10px;height:10px', 'width:6px;height:6px')}
-              <span style="color: ${themeColor('--text-1')};">${item.seriesName}:</span>
+              <span style="color: ${themeColor('--text-0')};">${item.seriesName}:</span>
               <b style="margin-left: auto;">${val}</b>
             </div>`;
         });
@@ -389,7 +389,7 @@ const updateOptions = () => {
       max: bounds.max,
       axisLabel: {
         fontSize: 9,
-        color: themeColor('--text-2'),
+        color: themeColor('--text-0'),
         // Hide the axis labels in per-series mode: a number in [0, 1]
         // doesn't tell the operator which series's scale they're
         // reading, so the label is actively misleading. Hover restores

@@ -241,7 +241,7 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
   cursor: pointer;
   padding: var(--space-tight) var(--space-default);
   font-size: var(--text-tiny);
-  color: var(--text-2);
+  color: var(--text-0);
   list-style: none;
   user-select: none;
 }
@@ -280,7 +280,7 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
   background: var(--surface-0);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
-  color: var(--text-1);
+  color: var(--text-0);
   cursor: pointer;
   text-align: left;
   font-family: inherit;
@@ -295,7 +295,7 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
   text-overflow: ellipsis;
 }
 .library-player-count {
-  color: var(--text-2);
+  color: var(--text-0);
   font-variant-numeric: tabular-nums;
 }
 .library-player-row:hover .library-player-count {

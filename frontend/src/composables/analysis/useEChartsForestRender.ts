@@ -147,7 +147,7 @@ export function useEChartsForestRender<P>(): ForestChartHandle<P> {
         // (tests/unit/chart-accent-primary-lock.test.ts) allowlists this
         // exact line.
         borderColor: themeColor('--accent-primary'),
-        textStyle: { color: themeColor('--text-1'), fontSize: 11 },
+        textStyle: { color: themeColor('--text-0'), fontSize: 11 },
         enterable: true,
         // Keep the tooltip inside the chart's bounding rect — without
         // this, ECharts positions the tooltip outside the chart when
@@ -184,7 +184,7 @@ export function useEChartsForestRender<P>(): ForestChartHandle<P> {
             show: !isMassive,
             position: cfg.orient === 'TB' ? 'top' : 'left',
             fontSize: 9,
-            color: themeColor('--text-1'),
+            color: themeColor('--text-0'),
           },
           leaves: {
             label: {

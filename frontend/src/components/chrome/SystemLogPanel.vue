@@ -71,7 +71,7 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 .title {
   font-size: var(--text-body);
   text-transform: uppercase;
-  color: var(--text-2);
+  color: var(--text-0);
   letter-spacing: var(--tracking-default);
   font-weight: bold;
 }
@@ -120,7 +120,7 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 
 .msg-time {
   font-size: var(--text-tiny);
-  color: var(--text-2);
+  color: var(--text-0);
   font-family: monospace;
 }
 
@@ -135,7 +135,7 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 .dismiss-btn {
   background: none;
   border: none;
-  color: var(--text-2);
+  color: var(--text-0);
   font-size: var(--text-heading);
   cursor: pointer;
   padding: 0;

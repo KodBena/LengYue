@@ -142,7 +142,7 @@ function reassignPanel(panelId: AnalysisPanelId, toTabId: string): void {
 
 <style scoped>
 .tabs-editor { display: flex; flex-direction: column; gap: var(--space-default); }
-.intro { font-size: var(--text-small); color: var(--text-2); margin: 0 0 var(--space-default); line-height: 1.4; }
+.intro { font-size: var(--text-small); color: var(--text-0); margin: 0 0 var(--space-default); line-height: 1.4; }
 .tab-block {
   border: 1px solid var(--surface-3);
   border-radius: var(--radius-default);
@@ -169,11 +169,11 @@ function reassignPanel(panelId: AnalysisPanelId, toTabId: string): void {
   gap: 6px;
   padding: 2px 0 2px var(--space-medium);
 }
-.panel-name { flex: 1; font-size: var(--text-small); color: var(--text-1); }
-.panel-name.muted { color: var(--text-2); font-style: italic; }
+.panel-name { flex: 1; font-size: var(--text-small); color: var(--text-0); }
+.panel-name.muted { color: var(--text-0); font-style: italic; }
 .move-select {
   background: var(--surface-0);
-  color: var(--text-1);
+  color: var(--text-0);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
   padding: 1px 4px;
@@ -195,11 +195,11 @@ function reassignPanel(panelId: AnalysisPanelId, toTabId: string): void {
 .icon-btn:hover:not(:disabled) { color: var(--text-0); border-color: var(--accent-primary); }
 .icon-btn:disabled { opacity: 0.35; cursor: default; }
 .icon-btn.danger:hover:not(:disabled) { color: var(--state-error); border-color: var(--state-error); }
-.empty-hint { font-size: var(--text-tiny); color: var(--text-2); font-style: italic; padding-left: var(--space-medium); }
+.empty-hint { font-size: var(--text-tiny); color: var(--text-0); font-style: italic; padding-left: var(--space-medium); }
 .unassigned { border-top: 1px solid var(--surface-3); padding-top: var(--space-default); }
 .unassigned-head {
   font-size: var(--text-tiny);
-  color: var(--text-2);
+  color: var(--text-0);
   text-transform: uppercase;
   letter-spacing: var(--tracking-default);
   margin-bottom: 4px;

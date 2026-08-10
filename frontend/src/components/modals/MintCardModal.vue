@@ -698,7 +698,7 @@ async function submit() {
 .lineage-box.root { background: color-mix(in srgb, var(--state-success) 10%, transparent); border-color: color-mix(in srgb, var(--state-success) 30%, transparent); }
 .lineage-box.branch { background: color-mix(in srgb, var(--accent-primary) 10%, transparent); border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent); }
 .lineage-icon { font-size: var(--text-heading); }
-.lineage-text { display: flex; flex-direction: column; font-size: var(--text-emphasis); color: var(--text-1); }
+.lineage-text { display: flex; flex-direction: column; font-size: var(--text-emphasis); color: var(--text-0); }
 .lineage-text strong { color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase; }
 
 /* card-position-annotations Stage A: duplicate-position notice. A
@@ -713,7 +713,7 @@ async function submit() {
   font-size: var(--text-emphasis);
 }
 .duplicate-checking {
-  color: var(--text-2);
+  color: var(--text-0);
   background: color-mix(in srgb, var(--text-2) 8%, transparent);
   border-color: color-mix(in srgb, var(--text-2) 20%, transparent);
 }
@@ -724,7 +724,7 @@ async function submit() {
 }
 
 .form-grid { display: grid; grid-template-columns: 110px 1fr; gap: var(--space-medium); align-items: center; }
-.form-grid label { font-size: var(--text-emphasis); color: var(--text-2); text-transform: uppercase; }
+.form-grid label { font-size: var(--text-emphasis); color: var(--text-0); text-transform: uppercase; }
 .dark-input {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default);
   border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
@@ -743,10 +743,10 @@ async function submit() {
 .calibrate-checkbox { width: auto; accent-color: var(--accent-primary); cursor: pointer; }
 
 .tag-label-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-default); margin-bottom: var(--space-default); }
-.tag-label { font-size: var(--text-emphasis); color: var(--text-2); text-transform: uppercase; display: block; margin-bottom: 0; }
+.tag-label { font-size: var(--text-emphasis); color: var(--text-0); text-transform: uppercase; display: block; margin-bottom: 0; }
 .tag-mode-toggle {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
-  color: var(--text-2); font-size: var(--text-emphasis); padding: 2px var(--space-default); cursor: pointer;
+  color: var(--text-0); font-size: var(--text-emphasis); padding: 2px var(--space-default); cursor: pointer;
   text-transform: none;
 }
 .tag-mode-toggle:hover { border-color: var(--accent-primary); color: var(--text-0); }
@@ -775,16 +775,16 @@ async function submit() {
   border: 1px solid var(--border-2); border-top: none; border-radius: 0 0 var(--radius-default) var(--radius-default);
   list-style: none; padding: 0; margin: 0; max-height: 150px; overflow-y: auto; z-index: var(--z-popover);
 }
-.suggestions-list li { padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); font-family: monospace; color: var(--text-1); cursor: pointer; }
+.suggestions-list li { padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); font-family: monospace; color: var(--text-0); cursor: pointer; }
 .suggestions-list li:hover { background: var(--border-1); color: var(--accent-primary); }
 
-.hint { font-size: var(--text-body); color: var(--text-2); margin: var(--space-tight) 0 0 0; }
+.hint { font-size: var(--text-body); color: var(--text-0); margin: var(--space-tight) 0 0 0; }
 
 .modal-footer {
   display: flex; justify-content: flex-end; gap: var(--space-medium); padding: var(--space-medium) var(--space-medium);
   border-top: 1px solid var(--surface-3); background: var(--surface-2);
 }
-.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-0); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 </style>

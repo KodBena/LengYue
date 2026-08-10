@@ -209,7 +209,7 @@ onUnmounted(rowsThrottle.cancel);
      The active class transitions both colour and weight so the
      badge reads as a passive indicator until the engine has
      something to do. */
-  color: var(--text-2);
+  color: var(--text-0);
   transition: color var(--duration-default);
 }
 .queue-metric.queue-active .m-val {
@@ -239,14 +239,14 @@ onUnmounted(rowsThrottle.cancel);
   max-width: 480px;
   font-family: monospace;
   font-size: var(--text-body);
-  color: var(--text-1);
+  color: var(--text-0);
   /* Subtle elevation to lift the panel above the chart background
      it may overlap on small viewports. */
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .popover-empty {
-  color: var(--text-2);
+  color: var(--text-0);
   padding: var(--space-tight);
   font-style: italic;
 }
@@ -265,7 +265,7 @@ table {
 }
 th {
   text-align: left;
-  color: var(--text-2);
+  color: var(--text-0);
   font-weight: normal;
   font-size: var(--text-tiny);
   letter-spacing: var(--tracking-default);
@@ -273,7 +273,7 @@ th {
 }
 td {
   padding: 1px var(--space-default) 1px 0;
-  color: var(--text-1);
+  color: var(--text-0);
 }
 .eta-col {
   text-align: right;
@@ -284,7 +284,7 @@ td {
 }
 .kind-suffix {
   margin-left: var(--space-tight);
-  color: var(--text-2);
+  color: var(--text-0);
 }
 
 .cancel-col {
@@ -295,7 +295,7 @@ td {
 .cancel-btn {
   background: transparent;
   border: none;
-  color: var(--text-2);
+  color: var(--text-0);
   font-family: monospace;
   font-size: var(--text-body);
   cursor: pointer;

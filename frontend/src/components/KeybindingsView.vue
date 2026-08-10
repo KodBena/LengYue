@@ -159,7 +159,7 @@ async function handleResetAll(): Promise<void> {
 
 .reserved-keys-disclosure > summary {
   cursor: pointer;
-  color: var(--text-1);
+  color: var(--text-0);
   /* Ghost-token fix: --text-small isn't a defined token. */
   font-size: var(--text-body);
   user-select: none;
@@ -167,7 +167,7 @@ async function handleResetAll(): Promise<void> {
 
 .reserved-keys-body {
   margin-top: var(--space-tight);
-  color: var(--text-2);
+  color: var(--text-0);
   font-size: var(--text-body);
   line-height: 1.5;
 }

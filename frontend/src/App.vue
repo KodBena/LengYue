@@ -1030,7 +1030,7 @@ const activeTab = computed<string>({
   flex: 1; min-width: 0; min-height: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: var(--space-default);
-  color: var(--text-2); font-size: var(--text-emphasis);
+  color: var(--text-0); font-size: var(--text-emphasis);
 }
 
 /* Save-failure banner (menus-ui audit M14). Slim, non-blocking strip —
@@ -1195,7 +1195,7 @@ const activeTab = computed<string>({
    padding-right: 5px (the "grey bar" the background used to show
    through) was removed by commissioner directive the same day. */
 #vue-tree-panel { width: 140px; flex-shrink: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border-1); background: var(--surface-2); min-height: 0; }
-#tree-panel-header { height: 20px; background: var(--surface-0); border-bottom: 1px solid var(--border-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: var(--text-tiny); letter-spacing: var(--tracking-wide); color: var(--text-2); text-transform: uppercase; flex-shrink: 0; }
+#tree-panel-header { height: 20px; background: var(--surface-0); border-bottom: 1px solid var(--border-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: var(--text-tiny); letter-spacing: var(--tracking-wide); color: var(--text-0); text-transform: uppercase; flex-shrink: 0; }
 #control-panel { border-left: 1px solid var(--border-1); background: var(--surface-3); min-width: 0; display: flex; flex-direction: column; }
 
 /* Phase 1 (resolution roadmap, audit findings R1/R2/R6) — column
@@ -1276,5 +1276,5 @@ const activeTab = computed<string>({
    the cross-domain knob registry; see Other-tab Knob Registry's
    Display group). The preview strip below stays — it's the
    calibration view the slider feeds. */
-.hue-slider-hint { font-size: var(--text-body); color: var(--text-1); margin: 0 0 var(--space-default) 0; }
+.hue-slider-hint { font-size: var(--text-body); color: var(--text-0); margin: 0 0 var(--space-default) 0; }
 </style>

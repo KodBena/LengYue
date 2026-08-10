@@ -110,7 +110,7 @@ const count = computed(() => orderedKnobs.value.length);
   cursor: default;
 }
 .sliders-metric .m-val {
-  color: var(--text-2);
+  color: var(--text-0);
   transition: color var(--duration-default);
 }
 .sliders-metric:hover .m-val {
@@ -139,7 +139,7 @@ const count = computed(() => orderedKnobs.value.length);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 .popover-empty {
-  color: var(--text-2);
+  color: var(--text-0);
   font-style: italic;
 }
 .popover-body {

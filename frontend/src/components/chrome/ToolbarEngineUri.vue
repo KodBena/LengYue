@@ -84,7 +84,7 @@ function onEscape(): void {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text-1);
+  color: var(--text-0);
   font-family: monospace;
   font-size: var(--text-emphasis);
   cursor: text;
@@ -100,7 +100,7 @@ function onEscape(): void {
   width: 220px;
   background: var(--surface-0);
   border: 1px solid var(--accent-primary);
-  color: var(--text-1);
+  color: var(--text-0);
   font-family: monospace;
   font-size: var(--text-emphasis);
   padding: 0 var(--space-tight);

@@ -179,13 +179,13 @@ useModalKeyboard(modalContentRef, computed(() => true), handleCancel);
 }
 
 .modal-title { color: var(--text-0); margin: 0; font-size: var(--text-heading); }
-.current-identity { color: var(--text-2); font-size: var(--text-emphasis); margin: 0 0 var(--space-tight) 0; font-family: monospace; }
+.current-identity { color: var(--text-0); font-size: var(--text-emphasis); margin: 0 0 var(--space-tight) 0; font-family: monospace; }
 
 .form-row { display: flex; flex-direction: column; gap: var(--space-tight); }
-.form-row label { color: var(--text-2); font-size: var(--text-emphasis); text-transform: uppercase; }
+.form-row label { color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase; }
 
 .form-row.checkbox-row { flex-direction: row; align-items: center; gap: var(--space-default); }
-.form-row.checkbox-row label { text-transform: none; font-size: var(--text-emphasis); color: var(--text-1); }
+.form-row.checkbox-row label { text-transform: none; font-size: var(--text-emphasis); color: var(--text-0); }
 
 .text-input {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
@@ -204,7 +204,7 @@ useModalKeyboard(modalContentRef, computed(() => true), handleCancel);
 }
 .btn:disabled { cursor: not-allowed; opacity: var(--alpha-disabled); }
 
-.btn-secondary { background: var(--border-2); border-color: var(--border-3); color: var(--text-1); }
+.btn-secondary { background: var(--border-2); border-color: var(--border-3); color: var(--text-0); }
 
 .btn-primary { background: var(--accent-primary); border-color: var(--accent-primary); color: var(--text-0); font-weight: bold; }
 

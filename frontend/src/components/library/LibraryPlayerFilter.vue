@@ -90,7 +90,7 @@ function onBlur(): void {
 }
 .filter-label {
   font-size: var(--text-tiny);
-  color: var(--text-2);
+  color: var(--text-0);
 }
 .filter-input {
   padding: var(--space-tight) var(--space-default);
@@ -98,7 +98,7 @@ function onBlur(): void {
   background: var(--surface-0);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
-  color: var(--text-1);
+  color: var(--text-0);
 }
 .filter-input:focus {
   outline: none;

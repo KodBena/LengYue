@@ -90,14 +90,14 @@ useModalKeyboard(modalContentRef, isOpen, () => handle('cancel'));
 }
 .modal-header { padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); }
 .modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); text-transform: uppercase; }
-.modal-body { padding: var(--space-medium); color: var(--text-1); font-size: var(--text-emphasis); }
+.modal-body { padding: var(--space-medium); color: var(--text-0); font-size: var(--text-emphasis); }
 .checkbox-row { margin-top: var(--space-medium); display: flex; align-items: center; gap: var(--space-default); }
-.checkbox-row label { cursor: pointer; color: var(--text-1); }
+.checkbox-row label { cursor: pointer; color: var(--text-0); }
 .modal-footer {
   display: flex; justify-content: flex-end; gap: var(--space-medium); padding: var(--space-medium) var(--space-medium);
   border-top: 1px solid var(--surface-3); background: var(--surface-2);
 }
-.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-0); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-overwrite { background: transparent; border: 1px solid var(--state-attention); color: var(--state-attention); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 </style>

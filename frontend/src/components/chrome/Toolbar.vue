@@ -253,7 +253,7 @@ function onMatchClick() {
 /* magic-literal: .toolbar-btn padding `1px 5px` — toolbar buttons are
    visually-compact one-line action triggers; tighter than the substrate's
    --space-tight (4px) on both axes for the dense top-toolbar's aesthetic. */
-.toolbar-btn { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 5px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
+.toolbar-btn { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-0); padding: 1px 5px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 .btn-connected { border-color: var(--state-success) !important; color: var(--state-success) !important; }
 /* Match-running attention border on the same slot the MATCH button
    normally occupies. Reuses the existing attention substrate so the

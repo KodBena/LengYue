@@ -212,21 +212,21 @@ onUnmounted(() => {
 /* Elision indicator (audit R1 fix shape) — a visible, not silent,
    signal that columns were dropped for width. */
 .indicator-cell {
-  color: var(--text-2);
+  color: var(--text-0);
   font-size: var(--text-tiny);
   font-style: italic;
   white-space: nowrap;
 }
 .summary-table th {
   text-align: left;
-  color: var(--text-2);
+  color: var(--text-0);
   font-weight: normal;
   padding: 2px var(--space-default) 4px 0;
   border-bottom: 1px solid var(--surface-3);
 }
 .summary-table td {
   padding: 4px var(--space-default) 4px 0;
-  color: var(--text-1);
+  color: var(--text-0);
 }
 .player-cell { font-weight: bold; }
 .player-black { color: var(--player-black); }

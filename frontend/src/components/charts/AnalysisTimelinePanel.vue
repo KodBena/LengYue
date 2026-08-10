@@ -162,7 +162,7 @@ function onAnalyze(): void {
   width: 72px;
   background: var(--surface-0);
   border: 1px solid var(--border-2);
-  color: var(--text-1);
+  color: var(--text-0);
   padding: 3px 6px;
   border-radius: var(--radius-default);
   font-size: var(--text-emphasis);

@@ -79,17 +79,17 @@ const pvMode = computed(() => store.session.ui.pvAnimation.mode);
 
 <style scoped>
 .wizard-step-finish { display: flex; flex-direction: column; gap: var(--space-default); }
-.step-description { color: var(--text-1); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
+.step-description { color: var(--text-0); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 .summary-list { display: grid; grid-template-columns: auto 1fr; gap: var(--space-tight) var(--space-medium); margin: 0; }
-.summary-list dt { color: var(--text-2); font-size: var(--text-emphasis); text-transform: uppercase; }
+.summary-list dt { color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase; }
 .summary-list dd { color: var(--text-0); font-size: var(--text-emphasis); margin: 0; }
 .summary-list dd.mono { font-family: monospace; }
 .summary-list dt.is-default,
-.summary-list dd.is-default { color: var(--text-2); font-style: italic; }
+.summary-list dd.is-default { color: var(--text-0); font-style: italic; }
 .default-badge {
-  font-size: var(--text-tiny); color: var(--text-2); font-style: normal; font-weight: normal;
+  font-size: var(--text-tiny); color: var(--text-0); font-style: normal; font-weight: normal;
   text-transform: uppercase; border: 1px solid var(--border-3); border-radius: var(--radius-default);
   padding: 0 var(--space-tight); margin-left: var(--space-tight);
 }
-.finish-hint { color: var(--text-2); font-size: var(--text-emphasis); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
+.finish-hint { color: var(--text-0); font-size: var(--text-emphasis); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 </style>

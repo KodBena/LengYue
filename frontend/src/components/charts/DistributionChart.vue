@@ -236,23 +236,23 @@ function buildOption() {
       itemHeight: 8,
       top: 0,
       left: 'center',
-      textStyle: { color: themeColor('--text-2'), fontSize: 10 },
+      textStyle: { color: themeColor('--text-0'), fontSize: 10 },
     },
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: props.variant === 'kde' ? 'line' : 'shadow' },
       backgroundColor: themeColor('--surface-0'),
       borderColor: themeColor('--border-2'),
-      textStyle: { color: themeColor('--text-1'), fontSize: 10 },
+      textStyle: { color: themeColor('--text-0'), fontSize: 10 },
     },
     xAxis: {
       type: 'value' as const,
       name: props.xAxisLabel ?? '',
       nameLocation: 'middle' as const,
       nameGap: 24,
-      nameTextStyle: { color: themeColor('--text-2'), fontSize: 10 },
+      nameTextStyle: { color: themeColor('--text-0'), fontSize: 10 },
       axisLine: { lineStyle: { color: themeColor('--border-2') } },
-      axisLabel: { color: themeColor('--text-2'), fontSize: 10 },
+      axisLabel: { color: themeColor('--text-0'), fontSize: 10 },
       splitLine: { lineStyle: { color: themeColor('--border-1') } },
     },
     yAxis: {
@@ -260,9 +260,9 @@ function buildOption() {
       name: props.yAxisLabel ?? (props.variant === 'kde' ? 'density' : 'count'),
       nameLocation: 'middle' as const,
       nameGap: 36,
-      nameTextStyle: { color: themeColor('--text-2'), fontSize: 10 },
+      nameTextStyle: { color: themeColor('--text-0'), fontSize: 10 },
       axisLine: { lineStyle: { color: themeColor('--border-2') } },
-      axisLabel: { color: themeColor('--text-2'), fontSize: 10 },
+      axisLabel: { color: themeColor('--text-0'), fontSize: 10 },
       splitLine: { lineStyle: { color: themeColor('--border-1') } },
     },
     series,
@@ -381,7 +381,7 @@ watch(expanded, async (now) => {
   background: var(--surface-3);
   letter-spacing: var(--tracking-default);
 }
-.header:hover { background: var(--surface-3); color: var(--text-1); }
+.header:hover { background: var(--surface-3); color: var(--text-0); }
 .content {
   border-top: 1px solid var(--surface-3);
   background: var(--surface-0);

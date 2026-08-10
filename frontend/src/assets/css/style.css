@@ -37,7 +37,7 @@
 html, body {
   height: 100%;
   background:var(--default-bg);
-  color: var(--text-1);
+  color: var(--text-0);
   font-family: 'Courier New', monospace;
   font-size: var(--text-body);
   overflow: hidden;
@@ -145,7 +145,7 @@ body {
   padding: 0 var(--space-medium);
   font-size: var(--text-tiny);
   letter-spacing: var(--tracking-wide);
-  color: var(--text-2);
+  color: var(--text-0);
   text-transform: uppercase;
   flex-shrink: 0;
 }

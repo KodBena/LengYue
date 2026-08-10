@@ -230,7 +230,7 @@ const gameStatus = computed(() =>
   align-items: center;
   padding: 0 var(--space-default);
   font-size: var(--text-emphasis);
-  color: var(--text-1);
+  color: var(--text-0);
   flex-shrink: 0;
 }
 
@@ -322,7 +322,7 @@ const gameStatus = computed(() =>
   background: transparent;
   border: none;
   border-bottom: 1px dashed var(--border-3);
-  color: var(--text-1);
+  color: var(--text-0);
   font-size: var(--text-body);
   font-family: inherit;
   padding: 0;
@@ -335,7 +335,7 @@ const gameStatus = computed(() =>
 }
 .rules-select.defaulted {
   font-style: italic;
-  color: var(--text-2);
+  color: var(--text-0);
 }
 
 .komi-input {
@@ -343,7 +343,7 @@ const gameStatus = computed(() =>
   background: transparent;
   border: none;
   border-bottom: 1px dashed var(--border-3);
-  color: var(--text-1);
+  color: var(--text-0);
   font-size: var(--text-body);
   font-family: inherit;
   padding: 0;
@@ -372,7 +372,7 @@ const gameStatus = computed(() =>
    capture count (or a narrower viewport) can't wrap this block onto a
    second line and grow the bar's `min-height` (the original ledger
    row 811 reflow mechanism). */
-.caps { font-family: monospace; color: var(--text-2); font-size: var(--text-body); white-space: nowrap; }
+.caps { font-family: monospace; color: var(--text-0); font-size: var(--text-body); white-space: nowrap; }
 
 /* Pass affordance — always-visible board-chrome control per genre
    convention (Sabaki/KaTrain/OGS survey, design-engine-features.md
@@ -387,7 +387,7 @@ const gameStatus = computed(() =>
   background: transparent;
   border: 1px solid var(--border-3);
   border-radius: var(--radius-default);
-  color: var(--text-1);
+  color: var(--text-0);
   font-size: var(--text-body);
   font-family: inherit;
   cursor: pointer;
@@ -487,7 +487,7 @@ const gameStatus = computed(() =>
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text-2);
+  color: var(--text-0);
   font-style: italic;
   font-size: var(--text-body);
 }

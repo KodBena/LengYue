@@ -370,7 +370,7 @@ async function resetPriorStandalone(): Promise<void> {
   border-radius: var(--radius-default);
   background: var(--surface-0);
   font-size: var(--text-body);
-  color: var(--text-1);
+  color: var(--text-0);
   margin-top: var(--space-medium);
 }
 .card-metadata-panel.disabled { opacity: 0.6; pointer-events: none; }
@@ -408,7 +408,7 @@ async function resetPriorStandalone(): Promise<void> {
   gap: var(--space-default);
 }
 .field label {
-  color: var(--text-2);
+  color: var(--text-0);
   font-size: var(--text-emphasis);
   text-transform: uppercase;
   letter-spacing: var(--tracking-default);
@@ -431,7 +431,7 @@ async function resetPriorStandalone(): Promise<void> {
   display: flex;
   align-items: center;
   gap: var(--space-tight);
-  color: var(--text-1);
+  color: var(--text-0);
   text-transform: none;
   letter-spacing: normal;
   font-size: var(--text-body);
@@ -503,7 +503,7 @@ async function resetPriorStandalone(): Promise<void> {
 .tag-suggestions li {
   padding: var(--space-tight) var(--space-default);
   cursor: pointer;
-  color: var(--text-1);
+  color: var(--text-0);
 }
 .tag-suggestions li:hover { background: var(--surface-2); color: var(--text-0); }
 
@@ -530,10 +530,10 @@ async function resetPriorStandalone(): Promise<void> {
   cursor: pointer;
 }
 .reset-prompt-text { font-weight: normal; }
-.hint { margin: var(--space-tight) 0 0 0; font-size: var(--text-tiny); color: var(--text-2); }
+.hint { margin: var(--space-tight) 0 0 0; font-size: var(--text-tiny); color: var(--text-0); }
 
-.readonly-field { color: var(--text-2); cursor: help; }
-.readonly-value { color: var(--text-2); font-style: italic; }
+.readonly-field { color: var(--text-0); cursor: help; }
+.readonly-value { color: var(--text-0); font-style: italic; }
 
 .actions {
   display: flex;
@@ -543,7 +543,7 @@ async function resetPriorStandalone(): Promise<void> {
 .action-btn {
   background: transparent;
   border: 1px solid var(--border-3);
-  color: var(--text-2);
+  color: var(--text-0);
   padding: var(--space-tight) var(--space-default);
   border-radius: var(--radius-default);
   cursor: pointer;

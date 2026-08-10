@@ -267,7 +267,7 @@ function getPvMoves(): PvMove[] {
   max-height: calc(88vh - 156px);
   overflow-y: auto;
 }
-.step-description { color: var(--text-1); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
+.step-description { color: var(--text-0); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 .load-error { color: var(--state-error); font-weight: bold; }
 
 .demo-board-layout { display: flex; gap: var(--space-medium); align-items: flex-start; flex-wrap: wrap; }
@@ -279,26 +279,26 @@ function getPvMoves(): PvMove[] {
    small viewports (a floor breach falls back to the root scroll
    region above rather than a sub-legible board). */
 .demo-board-mount { flex: 1 1 300px; min-width: 220px; max-width: min(380px, calc(88vh - 420px)); }
-.demo-provenance { color: var(--text-2); font-size: var(--text-emphasis); margin: var(--space-tight) 0 0 0; }
+.demo-provenance { color: var(--text-0); font-size: var(--text-emphasis); margin: var(--space-tight) 0 0 0; }
 
 .demo-board-controls { flex: 1 1 240px; min-width: 220px; display: flex; flex-direction: column; gap: var(--space-medium); }
 .control-group { border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: var(--space-tight) var(--space-default); display: flex; flex-direction: column; gap: var(--space-tight); }
-.control-group legend { color: var(--text-2); font-size: var(--text-emphasis); text-transform: uppercase; padding: 0 var(--space-tight); }
-.checkbox-row { display: flex; align-items: center; gap: var(--space-tight); color: var(--text-1); font-size: var(--text-emphasis); }
+.control-group legend { color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase; padding: 0 var(--space-tight); }
+.checkbox-row { display: flex; align-items: center; gap: var(--space-tight); color: var(--text-0); font-size: var(--text-emphasis); }
 
-.pv-step-description { color: var(--text-1); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
+.pv-step-description { color: var(--text-0); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 /* Preview + the two selects side by side (wrap-safe): the horizontal
    arrangement is what compresses the PV region from ~310px (stacked)
    to ~150px so the step fits the modal's height budget. */
 .pv-row { display: flex; flex-wrap: wrap; gap: var(--space-medium); align-items: flex-start; }
 .pv-row > .pv-animation-preview { flex: 1 1 200px; min-width: 180px; }
 .pv-select-field { flex: 1 1 150px; min-width: 140px; display: flex; flex-direction: column; gap: var(--space-tight); }
-.field-label { color: var(--text-2); font-size: var(--text-emphasis); text-transform: uppercase; }
+.field-label { color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase; }
 .dark-select {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
   padding: var(--space-default); font-size: var(--text-emphasis); font-family: inherit;
   border-radius: var(--radius-default); outline: none;
   width: 100%; box-sizing: border-box;
 }
-.mode-settings { color: var(--text-2); font-size: var(--text-emphasis); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
+.mode-settings { color: var(--text-0); font-size: var(--text-emphasis); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 </style>

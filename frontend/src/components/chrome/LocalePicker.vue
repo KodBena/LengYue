@@ -124,7 +124,7 @@ onBeforeUnmount(() => {
 .locale-trigger {
   background: var(--surface-0);
   border: 1px solid var(--border-2);
-  color: var(--text-1);
+  color: var(--text-0);
   height: 18px;
   padding: 0 var(--space-tight);
   cursor: pointer;
@@ -167,7 +167,7 @@ onBeforeUnmount(() => {
   gap: var(--space-default);
   padding: var(--space-tight) var(--space-default);
   cursor: pointer;
-  color: var(--text-1);
+  color: var(--text-0);
   font-size: var(--text-emphasis);
 }
 .locale-option:hover { background: var(--surface-2); color: var(--text-0); }

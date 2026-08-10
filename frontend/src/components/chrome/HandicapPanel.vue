@@ -45,7 +45,7 @@ const { availableCounts, selectHandicap } = useHandicap();
 
 .handicap-empty {
   font-size: var(--text-emphasis);
-  color: var(--text-2);
+  color: var(--text-0);
 }
 
 .handicap-grid {
@@ -58,7 +58,7 @@ const { availableCounts, selectHandicap } = useHandicap();
   min-width: 28px;
   background: var(--surface-0);
   border: 1px solid var(--border-2);
-  color: var(--text-1);
+  color: var(--text-0);
   padding: var(--space-tight) var(--space-default);
   cursor: pointer;
   border-radius: var(--radius-default);

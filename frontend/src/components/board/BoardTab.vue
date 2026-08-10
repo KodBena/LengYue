@@ -377,7 +377,7 @@ onUnmounted(() => {
   outline: 2px solid var(--accent-primary); outline-offset: 1px;
 }
 
-.tab-label { font-size: var(--text-emphasis); color: var(--text-2); font-weight: bold; pointer-events: none; }
+.tab-label { font-size: var(--text-emphasis); color: var(--text-0); font-weight: bold; pointer-events: none; }
 /* The "Board N" ordinal as a CSS counter: `.thumb-list` (SidebarWidget) resets
    `boardtab`, each `.thumb-container` increments it, so the number is the tab's
    1-based DOM position and renumbers on a close-induced reflow WITHOUT a Vue
@@ -423,7 +423,7 @@ onUnmounted(() => {
 }
 .close-icon {
   width: 16px; height: 16px; font-size: var(--text-emphasis); line-height: 1;
-  background: var(--surface-3); color: var(--text-1); border: 1px solid var(--border-3); border-radius: var(--radius-circle);
+  background: var(--surface-3); color: var(--text-0); border: 1px solid var(--border-3); border-radius: var(--radius-circle);
   display: flex; align-items: center; justify-content: center;
   transition: background var(--duration-default), color var(--duration-default);
 }

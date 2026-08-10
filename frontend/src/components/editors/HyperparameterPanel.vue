@@ -259,7 +259,7 @@ function optionsStr(decl: HyperparamDecl): string {
   align-items: center;
   font-size: var(--text-body);
   text-transform: uppercase;
-  color: var(--text-1);
+  color: var(--text-0);
 }
 .add-btn {
   background: none; border: none; color: var(--accent-primary); cursor: pointer;
@@ -277,7 +277,7 @@ function optionsStr(decl: HyperparamDecl): string {
 }
 .harness-table th {
   text-align: left;
-  color: var(--text-2);
+  color: var(--text-0);
   font-weight: normal;
   font-size: var(--text-tiny);
   padding: var(--space-tight) var(--space-default);
