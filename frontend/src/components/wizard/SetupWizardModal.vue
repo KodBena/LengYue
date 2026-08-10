@@ -12,18 +12,25 @@
  *
  * Genre convention (ADR-0019): numbered step indicator, Back / Skip /
  * Next footer, a distinct Finish on the last step. Escape and the
- * backdrop/× both call `finish()`, not a bare `closeSetupWizard()` —
- * dismissing the wizard at any point is itself "skipping the rest",
- * and per the commission this is a first-RUN wizard: closing it
- * still marks the profile onboarded so it doesn't reappear on the
- * next load. `useModalKeyboard` supplies focus-trap / initial-focus /
+ * backdrop/× call `cancel()`, NOT `finish()` (commission rows
+ * 1404/1407/1464/1468) — dismissing the wizard at any point is still
+ * "skipping the rest" and still marks the profile onboarded so it
+ * doesn't reappear on the next load (that part is unchanged), but it
+ * must NOT commit a staged-but-not-reviewed SGF import to the
+ * backend; only the last step's own Next/Finish button — the genuine
+ * "I'm done" affordance — calls `finish()` and thereby commits it.
+ * See `useSetupWizard.ts`'s header for the full irreversible-effect
+ * rationale. `useModalKeyboard` supplies focus-trap / initial-focus /
  * focus-restoration, same as every other modal in the app.
  *
  * The Finish step alone also needs `wizard.visitedSteps` (audit M18,
  * ledger rows 1390/1397) to distinguish a value the user set from a
- * seeded default they never saw — passed in conditionally by step id
- * rather than to every step, since it's a `WizardStepFinish`-only
- * prop and the other five steps don't declare it.
+ * seeded default they never saw, and a staged-import count (commission
+ * rows 1404/1407/1464/1468) so its recap doesn't claim an import
+ * already happened. The SGF-import step alone needs
+ * `wizard.importStaging` to drive its pick/drop UI. Both are passed
+ * in conditionally by step id rather than to every step, since
+ * they're single-step-only props the other steps don't declare.
  */
 import { computed, ref } from 'vue';
 import { useModalKeyboard } from '../../composables/useModalKeyboard';
@@ -51,10 +58,10 @@ const STEP_COMPONENTS: Record<WizardStepId, unknown> = {
 const currentStepComponent = computed(() => STEP_COMPONENTS[wizard.stepId.value]);
 
 function handleBackdropClick(e: MouseEvent): void {
-  if (e.target === e.currentTarget) wizard.finish();
+  if (e.target === e.currentTarget) wizard.cancel();
 }
 
-useModalKeyboard(modalContentRef, computed(() => true), wizard.finish);
+useModalKeyboard(modalContentRef, computed(() => true), wizard.cancel);
 </script>
 
 <template>
@@ -62,7 +69,7 @@ useModalKeyboard(modalContentRef, computed(() => true), wizard.finish);
     <div ref="modalContentRef" class="wizard-card" role="dialog" aria-modal="true" aria-labelledby="setup-wizard-title" tabindex="-1">
       <div class="wizard-header">
         <h3 id="setup-wizard-title" class="wizard-title">{{ $t(`wizard.step.${wizard.stepId.value}.title`) }}</h3>
-        <button type="button" class="close-btn" :title="$t('wizard.button.close')" @click="wizard.finish()">×</button>
+        <button type="button" class="close-btn" :title="$t('wizard.button.close')" @click="wizard.cancel()">×</button>
       </div>
 
       <WizardStepIndicator :current-index="wizard.stepIndex.value" @jump="wizard.goTo" />
@@ -70,19 +77,25 @@ useModalKeyboard(modalContentRef, computed(() => true), wizard.finish);
       <div class="wizard-body">
         <component
           :is="currentStepComponent"
-          v-bind="wizard.stepId.value === 'finish' ? { visitedSteps: wizard.visitedSteps.value } : {}"
+          v-bind="
+            wizard.stepId.value === 'finish'
+              ? { visitedSteps: wizard.visitedSteps.value, stagedImportCount: wizard.importStaging.plan.value.length }
+              : wizard.stepId.value === 'sgfImport'
+                ? { staging: wizard.importStaging }
+                : {}
+          "
         />
       </div>
 
       <div class="wizard-footer">
-        <button type="button" class="btn btn-secondary" :disabled="wizard.isFirstStep.value" @click="wizard.back()">
+        <button type="button" class="btn btn-secondary" :disabled="wizard.isFirstStep.value || wizard.isFinishing.value" @click="wizard.back()">
           {{ $t('wizard.button.back') }}
         </button>
         <div class="footer-spacer"></div>
-        <button v-if="!wizard.isLastStep.value" type="button" class="btn btn-secondary" @click="wizard.skip()">
+        <button v-if="!wizard.isLastStep.value" type="button" class="btn btn-secondary" :disabled="wizard.isFinishing.value" @click="wizard.skip()">
           {{ $t('wizard.button.skip') }}
         </button>
-        <button type="button" class="btn btn-primary" @click="wizard.next()">
+        <button type="button" class="btn btn-primary" :disabled="wizard.isFinishing.value" @click="wizard.next()">
           {{ wizard.isLastStep.value ? $t('wizard.button.finish') : $t('wizard.button.next') }}
         </button>
       </div>
