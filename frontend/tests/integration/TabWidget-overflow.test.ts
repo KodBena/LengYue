@@ -117,3 +117,74 @@ describe('TabWidget — never overflow-x: hidden (audit R1/R2 shared proscriptio
     expect(styleBlock).toMatch(/overflow-x:\s*auto/);
   });
 });
+
+describe('TabWidget — orientation contract (ledger rows 1404/1427: Settings sub-tab strip goes vertical)', () => {
+  it('default (no orientation prop) renders exactly the pre-existing horizontal structure: no vertical modifier class, aria-orientation="horizontal"', () => {
+    const wrapper = mountWidget();
+    const root = wrapper.find('.vue-tabs');
+    expect(root.classes()).not.toContain('vue-tabs--vertical');
+    expect(wrapper.find('.tab-header').attributes('aria-orientation')).toBe('horizontal');
+  });
+
+  it('orientation="horizontal" explicit is identical to the default (no vertical modifier class)', () => {
+    const wrapper = mount(TabWidget, {
+      props: { tabs: TABS, modelValue: 'library', orientation: 'horizontal' },
+      slots: { library: '<div>Library content</div>' },
+    });
+    expect(wrapper.find('.vue-tabs').classes()).not.toContain('vue-tabs--vertical');
+    expect(wrapper.find('.tab-header').attributes('aria-orientation')).toBe('horizontal');
+  });
+
+  it('orientation="vertical" adds the vertical modifier class and aria-orientation="vertical" on the tablist', () => {
+    const wrapper = mount(TabWidget, {
+      props: { tabs: TABS, modelValue: 'library', orientation: 'vertical' },
+      slots: {
+        library: '<div>Library content</div>',
+        cards: '<div>Cards content</div>',
+        settings: '<div>Settings content</div>',
+        analysis: '<div>Analysis content</div>',
+        other: '<div>Other content</div>',
+      },
+    });
+    expect(wrapper.find('.vue-tabs').classes()).toContain('vue-tabs--vertical');
+    expect(wrapper.find('.tab-header').attributes('aria-orientation')).toBe('vertical');
+  });
+
+  it('vertical orientation preserves every tab (role=tab, tabindex=0, activation) — the contract R2 fixed is not lost by the new axis', async () => {
+    const wrapper = mount(TabWidget, {
+      props: { tabs: TABS, modelValue: 'library', orientation: 'vertical' },
+      slots: {
+        library: '<div>Library content</div>',
+        cards: '<div>Cards content</div>',
+        settings: '<div>Settings content</div>',
+        analysis: '<div>Analysis content</div>',
+        other: '<div>Other content</div>',
+      },
+    });
+    const items = wrapper.findAll('.tab-header li');
+    expect(items.length).toBe(TABS.length);
+    for (const item of items) {
+      expect(item.attributes('role')).toBe('tab');
+      expect(item.attributes('tabindex')).toBe('0');
+    }
+    await items[3]!.trigger('keydown.enter'); // "Analysis"
+    expect(wrapper.emitted('update:modelValue')).toEqual([['analysis']]);
+  });
+
+  it('the vertical modifier stylesheet lays the strip out as a column beside the body (row root, column header) — source-pinned: jsdom does no real layout, so this reads the scoped CSS text rather than a computed/measured box (UNEXERCISED: real visual side-by-side placement is not witnessed by this suite)', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const src = fs.readFileSync(
+      path.resolve(__dirname, '../../src/components/chrome/TabWidget.vue'),
+      'utf-8',
+    );
+    const styleBlock = src.slice(src.indexOf('<style'), src.indexOf('</style>'));
+    expect(styleBlock).toMatch(/\.vue-tabs--vertical\s*{[^}]*flex-direction:\s*row/);
+    expect(styleBlock).toMatch(/\.vue-tabs--vertical \.tab-header\s*{[^}]*flex-direction:\s*column/);
+    // The vertical rail still never clips its own overflow axis — it
+    // rotates to overflow-y instead of the horizontal strip's
+    // overflow-x, but the "the strip scrolls itself, nothing is
+    // amputated" discipline the R2 tests above assert still holds.
+    expect(styleBlock).toMatch(/\.vue-tabs--vertical \.tab-header\s*{[^}]*overflow-y:\s*auto/);
+  });
+});

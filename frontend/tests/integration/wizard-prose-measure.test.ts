@@ -46,9 +46,11 @@
  * follow-up, ledger rows 1361/1362/1365/1366 — one shared
  * `data-prose-measure-ch` on the disclosure wrapper rather than one
  * per `<p>`); Finish has `.step-description` + `.finish-hint` = 2;
- * Palette has `.step-description` + four `.palette-descriptions dd`
- * (one per seeded palette, copy refinement rows 1349/1350) +
- * `.field-hint` (the PaletteEditor pointer) = 6, all counted
+ * Palette has `.step-description` + four `.description-text` (one per
+ * seeded palette, now a DESCRIPTION|DEFINITION table cell per the
+ * row-1464 overflow-fix amendment, still one per seeded palette, copy
+ * refinement rows 1349/1350) + `.field-hint` (the PaletteEditor
+ * pointer) = 6, all counted
  * regardless of any `<details>` disclosure's open/closed state since
  * jsdom's querySelectorAll doesn't filter on computed visibility; and
  * the aggregate is pinned to the sum of that table, not a floor — so

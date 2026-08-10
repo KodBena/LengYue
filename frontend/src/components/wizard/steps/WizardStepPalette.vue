@@ -223,19 +223,30 @@ function setAggregation(next: KnownAggregation): void {
           <option v-if="isCustomAggregation" value="custom" disabled>{{ $t('wizard.palette.aggregation.custom') }}</option>
         </select>
 
-        <dl class="palette-descriptions">
-          <template v-for="d in knownPaletteDescriptions" :key="d.paletteId">
-            <dt>{{ $t(d.nameKey) }}</dt>
-            <dd :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">
-              <span class="description-text">{{ $t(d.descriptionKey) }}</span>
-              <code v-if="definitionFor(d.paletteId)" class="palette-definition">
-                <span class="definition-label">{{ $t('wizard.palette.definitionLabel') }}</span>
-                <span class="definition-line">delta_fn: {{ definitionFor(d.paletteId)!.deltaFn }}<template v-if="definitionFor(d.paletteId)!.deltaFnBody"> = {{ definitionFor(d.paletteId)!.deltaFnBody }}</template></span>
-                <span class="definition-line">summary_fn: {{ definitionFor(d.paletteId)!.summaryFn }}</span>
-              </code>
-            </dd>
-          </template>
-        </dl>
+        <div class="palette-table-scroll">
+          <table class="palette-table">
+            <thead>
+              <tr>
+                <th scope="col">{{ $t('wizard.palette.table.descriptionHeader') }}</th>
+                <th scope="col">{{ $t('wizard.palette.definitionLabel') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="d in knownPaletteDescriptions" :key="d.paletteId">
+                <td>
+                  <span class="palette-name">{{ $t(d.nameKey) }}</span>
+                  <span class="description-text" :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t(d.descriptionKey) }}</span>
+                </td>
+                <td>
+                  <code v-if="definitionFor(d.paletteId)" class="palette-definition">
+                    <span class="definition-line">delta_fn: {{ definitionFor(d.paletteId)!.deltaFn }}<template v-if="definitionFor(d.paletteId)!.deltaFnBody"> = {{ definitionFor(d.paletteId)!.deltaFnBody }}</template></span>
+                    <span class="definition-line">summary_fn: {{ definitionFor(d.paletteId)!.summaryFn }}</span>
+                  </code>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         <p class="field-hint" :data-prose-measure-ch="WIZARD_PROSE_MEASURE_CH">{{ $t('wizard.palette.editorPointer') }}</p>
       </div>
@@ -244,9 +255,30 @@ function setAggregation(next: KnownAggregation): void {
 </template>
 
 <style scoped>
-.wizard-step-palette { display: flex; flex-direction: column; gap: var(--space-medium); }
+.wizard-step-palette {
+  display: flex; flex-direction: column; gap: var(--space-medium);
+  /* Height budget — same modal-chrome constant WizardStepDemoBoard.vue's
+     overflow fix derived (see that file's header comment): SetupWizardModal
+     .vue's `.wizard-card` caps at 88vh with ~156px of fixed chrome around
+     whichever step is mounted (header ~18 + step indicator ~24 + footer
+     ~32 + 2×20px card padding + 3×12px card gaps ≈ 150px, rounded to 156px
+     for the same measured-safety margin the demo-board fix used). That
+     chrome is a property of the MODAL, not of this step, so the same
+     156px applies here unchanged — it is not "copied blindly", it is the
+     one shared constant every step step budgets its own content against.
+     This step overflowed because the ADVANCED disclosure's per-palette
+     descriptions (row 1349/1350) plus the formal delta_fn/summary_fn
+     definition lines (row 1378) can grow past the remaining ~(88vh-156px)
+     once a user expands <details> and every one of the four seeded
+     palettes renders both its prose and its definition block — content
+     was then running under the wizard's own footer. `overflow-y: auto`
+     makes the overflow a deliberate, contained scroll region inside the
+     step instead of a bleed under the footer. */
+  max-height: calc(88vh - 156px);
+  overflow-y: auto;
+}
 .step-description { color: var(--text-1); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
-.field-label { color: var(--text-2); font-size: var(--text-emphasis); text-transform: uppercase; }
+.field-label { color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase; }
 .dark-select {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
   padding: var(--space-default); font-size: var(--text-emphasis); font-family: inherit;
@@ -268,26 +300,49 @@ function setAggregation(next: KnownAggregation): void {
    (RegistryEditor.vue's branch nodes); no bespoke toggle button. */
 .advanced-content { display: flex; flex-direction: column; gap: var(--space-default); padding-top: var(--space-default); }
 
-/* Per-palette descriptions — dt/dd pairs, same prose-measure and
-   secondary-text idiom as .field-hint (WizardStepEngineUri.vue /
-   WizardStepFinish.vue) applied to a definition list instead of a
-   lone paragraph. */
-.palette-descriptions { display: flex; flex-direction: column; gap: var(--space-tight); margin: 0; }
-.palette-descriptions dt { color: var(--text-0); font-size: var(--text-emphasis); font-weight: 600; }
-.palette-descriptions dd {
-  color: var(--text-2); margin: 0 0 var(--space-default) 0; max-width: v-bind(wizardProseMaxWidthCss);
+/* Per-palette table (row 1464 amendment): DESCRIPTION | DEFINITION
+   columns, one row per seeded palette, replacing the former stacked
+   dt/dd + definition-under-description layout. The scroll wrapper is
+   the wide-content containment idiom (ADR-0010-adjacent discipline for
+   data-dense rows): this table lives INSIDE the step's own vertical
+   scroll region (`.wizard-step-palette`'s max-height above), and a
+   genuinely unbreakable long definition token scrolls HORIZONTALLY
+   within this wrapper alone — it never grows the step (or the modal)
+   wider, since `table-layout: fixed` plus each column's own wrap rule
+   below is the first line of defense and this wrapper is strictly a
+   fallback for whatever wrap can't absorb. */
+.palette-table-scroll { overflow-x: auto; max-width: 100%; }
+.palette-table {
+  width: 100%; min-width: 420px; border-collapse: collapse; table-layout: fixed;
 }
-.palette-descriptions .description-text { display: block; }
+.palette-table th, .palette-table td {
+  text-align: left; vertical-align: top; padding: var(--space-tight) var(--space-default);
+  border-bottom: 1px solid var(--border-2);
+}
+.palette-table th {
+  color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase;
+}
+.palette-table td { color: var(--text-0); font-size: var(--text-emphasis); }
+.palette-table td:first-child, .palette-table td:last-child { width: 50%; }
+.palette-name { display: block; color: var(--text-0); font-weight: 600; margin-bottom: 2px; }
+/* Description prose — same secondary-text idiom as .field-hint
+   (WizardStepEngineUri.vue / WizardStepFinish.vue), wraps within its
+   cell instead of relying on a max-width measure cap (the cell IS the
+   measure here). */
+.description-text { display: block; overflow-wrap: break-word; max-width: v-bind(wizardProseMaxWidthCss); }
 
 /* Formal definition (row 1378) — the actual delta_fn/summary_fn this
    profile's cell holds, rendered in the app's code idiom: monospace,
-   muted, distinct from the prose description above it. */
+   muted, distinct from the prose description in the first column. Wraps
+   within its own cell (`overflow-wrap: anywhere` — code tokens have no
+   natural break points a plain word-wrap would find) rather than
+   pushing the table wider; `.palette-table-scroll` above is the
+   fallback for whatever this can't absorb. */
 .palette-definition {
-  display: flex; flex-direction: column; gap: 2px; margin-top: var(--space-tight);
+  display: flex; flex-direction: column; gap: 2px;
   font-family: var(--font-mono, monospace); font-size: var(--text-tiny);
-  color: var(--text-2); word-break: break-word;
+  color: var(--text-0); overflow-wrap: anywhere;
 }
-.definition-label { text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; }
 .definition-line { display: block; }
-.field-hint { color: var(--text-2); font-size: var(--text-emphasis); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
+.field-hint { color: var(--text-0); font-size: var(--text-emphasis); margin: 0; max-width: v-bind(wizardProseMaxWidthCss); }
 </style>
