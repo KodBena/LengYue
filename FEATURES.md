@@ -626,17 +626,58 @@ backend; flip the env-var to opt in.
 
 ## Workspace and chrome
 
-- **Resizable layout.** Sidebar, board area, control panel —
-  the boundary between board column and control panel is
-  user-draggable; the drag mutates a registry setting that
-  caps the board square's max width. Tree panel within the
-  Cards tab is also resizable.
+The chrome is compiled from a small layout-as-data language (LYT):
+a per-screen-class grid program, checked in as a plain data
+structure, that a generic renderer interprets — moving a widget
+between a tab and a side-by-side split is a data edit, not a
+template rewrite. Two screen classes exist today, **landscape**
+and **portrait**; the app measures its own aspect ratio and swaps
+between the two compiled programs automatically (with hysteresis,
+so a window sitting near the boundary doesn't flicker between
+them), each with its own resizer/tab/rail arrangement suited to
+the shape.
 
-- **Tabs.** The control panel hosts four named tabs: Cards
-  (the primary surface above), Settings (managed registry +
-  palette + deck editors + analysis environment), Analysis
-  (the chart cluster), Other (gradient calibration, qEUBO
-  bookmarks).
+- **Resizers.** Two independent drag handles: one between the
+  board column and the tree-plus-control-panel region (landscape
+  only — portrait's single-column stack has no equivalent split to
+  own), and one between the game-tree panel and the control panel
+  (both screen classes). Drags persist across sessions. The Cards
+  tab's own tree-forest resizer (inside Browse mode) is a separate,
+  unrelated control.
+
+- **Corner presence menu.** A small button in the bottom-right
+  corner opens a popover listing the panels that can be toggled
+  on or off — the board rail, the position preview panel (see
+  "Multiple boards in tabs" and "Position preview panel" above) —
+  plus the board-rail style selector (docked-in-layout vs.
+  popover-from-a-corner-button, described there too). The menu is
+  the one home for panel visibility; it replaced a set of
+  individually-scattered collapse toggles.
+
+- **Tabs.** The control panel hosts five named tabs: Library (the
+  SGF repository above), Cards (the primary study surface above),
+  Settings (managed registry + palette + deck editors + analysis
+  environment), Analysis (the chart cluster), Other (gradient
+  calibration, qEUBO bookmarks).
+
+- **Overlay banners and alerts.** Transient chrome — the
+  keybinding-capture banner, a workspace-save-error banner — and
+  the system log (below) render in a fixed overlay layer anchored
+  above the corner presence menu, never as in-flow chrome that
+  would push the board or tree smaller. The layer contributes no
+  layout cost and is verified never to overlap the board.
+
+- **Setup tool palette.** The classic Go-editor setup mode (place
+  a BLACK/WHITE setup stone, or a triangle mark, without it
+  counting as a played move) docks as a fixed-space toolbar
+  cluster — its trigger and open panel never cover the board,
+  by standing design rule.
+
+- **Debug menu** *(development builds only)*. A pill-shaped
+  trigger consolidating cache-clearing, perf-scenario, popover-
+  stress, and jank-test affordances used while developing the
+  chrome itself. Absent from production builds; not a
+  user-facing feature.
 
 - **Internationalisation.** Vue-i18n with bundled catalogs.
   English source is fully populated. Simplified Chinese,
@@ -649,10 +690,12 @@ backend; flip the env-var to opt in.
   wizard (and the app) renders in the chosen language right
   away.
 
-- **System log.** Always-visible bar at the bottom showing
-  errors, warnings, and info messages. Collapsible; when
-  collapsed, error / warning arrivals briefly auto-reveal the
-  panel so the user notices.
+- **System log.** A panel showing errors, warnings, and info
+  messages; renders in the overlay layer described above. Error /
+  warning arrivals briefly auto-reveal it so the user notices. No
+  manual open/close control ships today — the auto-reveal is
+  currently the only way to see it; a deliberate toggle is a
+  reasonable near-term addition, not a scope decision against one.
 
 - **Theme substrate.** All chrome colours and typography route
   through CSS variables. A "Gradient Calibration" surface in
