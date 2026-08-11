@@ -1,4 +1,24 @@
 <script lang="ts">
+/**
+ * src/components/charts/BaseChart.vue
+ *
+ * Shared ECharts line/scatter chart shell for the analysis dashboard's
+ * per-metric panels (winrate, score lead, distributions, delta panels,
+ * etc.): container-size-gated init with a bounded, fail-loud retry
+ * (`lib/capped-retry.ts`, cardtrees-fix-next / ledger row 1937),
+ * ResizeObserver-driven resize, throttled data/marker redraw, zoom-range
+ * and active-index click/hover wiring. Two `<script>` blocks: this one
+ * (module scope) holds `globalLegendState`, a true cross-instance
+ * singleton; `<script setup>` below holds the per-instance chart logic.
+ *
+ * ADR-0006 retrofit note (cardtrees-fix-next review finding 2): this
+ * header was added when the file was touched under full visibility for
+ * the capped-retry mechanization above — it was missing before, which
+ * an earlier delivery report in this same arc incorrectly claimed was
+ * not the case; see that report's amendment for the correction.
+ *
+ * License: Public Domain (The Unlicense)
+ */
 import { reactive } from 'vue';
 
 /**
@@ -609,6 +629,15 @@ const initChart = async () => {
     intervalMs: CHART_INIT_RETRY_MS,
     timeoutMs: CHART_RENDER_RETRY_TIMEOUT_MS,
     label: 'BaseChart',
+    // Escalation-time size read (review finding 1 — the diagnosis's own
+    // closure statement names "the container and its measured size" as
+    // the minimum loudness bar). `chartRef.value` may have gone away
+    // between the last failed attempt and escalation (component
+    // unmounted mid-retry, though onUnmounted's cancel() ordinarily
+    // pre-empts that) — null-guarded rather than assumed present.
+    readSize: () => chartRef.value
+      ? { width: chartRef.value.clientWidth, height: chartRef.value.clientHeight }
+      : null,
   });
 };
 

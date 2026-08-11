@@ -226,6 +226,11 @@ export function useEChartsForestRender<P>(): ForestChartHandle<P> {
       intervalMs: FOREST_RENDER_RETRY_MS,
       timeoutMs: CHART_RENDER_RETRY_TIMEOUT_MS,
       label: `forest-chart:${cfg.treeKey}`,
+      // Escalation-time size read (review finding 1 — the diagnosis's own
+      // closure statement names "the container and its measured size" as
+      // the minimum loudness bar). `cfg.el` is the container the whole
+      // gate is keyed on, so it's always available to measure.
+      readSize: () => ({ width: cfg.el.clientWidth, height: cfg.el.clientHeight }),
     });
     pendingRetries.set(cfg.treeKey, handle);
   }

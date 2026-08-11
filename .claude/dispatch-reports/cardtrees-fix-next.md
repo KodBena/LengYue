@@ -11,6 +11,42 @@
   codes below). Diff: 6 files changed, 1 new file
   (`frontend/src/lib/capped-retry.ts`), 2 new test files.
 
+## 0. Amendment (post-review corrective, commit sha in §7)
+
+An independent review (`.claude/dispatch-reports/cardtrees-fix-next-review.md`,
+verdict ACCEPT-WITH-NOTES) returned two findings against the original
+delivery (commits `fba2e4c5` + `def2f9b4`), both addressed in a
+follow-up commit:
+
+1. **MEDIUM — the retry escalation didn't name the container's
+   measured size**, which the diagnosis's own closure statement
+   (§4, invariant 1) named as the minimum loudness bar: *"at minimum a
+   `console.warn` naming the container and its measured size."* The
+   originally-shipped `defaultOnExhausted(label, elapsedMs, attempts)`
+   structurally could not carry a size, and none of the three call
+   sites injected one via a custom `onExhausted`. **Fixed**: see §2
+   below (now current, not historical — the rest of §2 describes the
+   corrected shape).
+2. **LOW — this report's §4 falsely claimed `BaseChart.vue` already
+   carried an ADR-0006 header before this session's edits.** It did
+   not (verified by the reviewer with `grep -in license
+   frontend/src/components/charts/BaseChart.vue` against both the
+   base commit and the original delivery — no hits either way). This
+   was a genuine misreport, not a rounding error: I did not
+   individually re-verify each of the four touched files' headers
+   before writing that sentence in the original report, and the
+   claim was wrong for one of the four. **Corrected**: the header is
+   now retrofitted (§4 below reflects the current, accurate state),
+   and this amendment states plainly that the original claim was
+   false rather than silently fixing the file and leaving the false
+   sentence standing.
+
+The rest of this report is left as originally written EXCEPT where a
+section is explicitly marked "(amended)" below, so the document's
+history stays legible per ADR-0002 Rule 6 (design-time drift surfaces
+too) rather than silently rewriting past claims into agreement with
+the corrected code.
+
 ## 1. Fix shape chosen, and why (against the closure statement)
 
 The investigation report offered two fix shapes: (i) drop the
@@ -64,14 +100,31 @@ own isolation of the trigger.
 ## 2. Retry-class mechanization — the three sites' dispositions
 
 New shared helper: `frontend/src/lib/capped-retry.ts` — `cappedRetry(attempt,
-{ intervalMs, timeoutMs, label }, onExhausted?)`. Polls `attempt()` on
-`intervalMs` until it returns `true` or `timeoutMs` wall-clock has
-elapsed since the first call, then calls `onExhausted` (default:
-`console.warn` naming the label, elapsed time, and attempt count —
-ADR-0002's developer-visible-console-warning rung) instead of
-scheduling another retry. Returns a `{ cancel }` handle so the caller's
-teardown can release a pending timer (ADR-0010 imperative-escape step
-4 / resource-ownership-at-mutation-sites).
+{ intervalMs, timeoutMs, label, readSize? }, onExhausted?)`. Polls
+`attempt()` on `intervalMs` until it returns `true` or `timeoutMs`
+wall-clock has elapsed since the first call, then calls `onExhausted`
+(default: `console.warn` naming the label, elapsed time, attempt
+count, **and the container's measured size** — ADR-0002's
+developer-visible-console-warning rung) instead of scheduling another
+retry. Returns a `{ cancel }` handle so the caller's teardown can
+release a pending timer (ADR-0010 imperative-escape step 4 /
+resource-ownership-at-mutation-sites).
+
+**(amended, post-review finding 1)** `readSize?: () => { width;
+height } | null` is an optional escalation-time accessor, called
+exactly once — only if the cap is reached — so the default
+`console.warn` can name "the container and its measured size" per the
+diagnosis's own closure-statement minimum bar
+(`.claude/dispatch-reports/lyt-cardtrees-regression.md` §4, invariant
+1), instead of the label-only message the original delivery shipped.
+`onExhausted`'s signature grew a fourth parameter
+(`size: {width,height} | null | undefined`, `undefined` when no
+`readSize` was supplied at all, `null` when it was supplied but
+reported the container as unavailable) so a caller with a custom
+`onExhausted` can distinguish "not applicable" from "measured and
+found empty." All three call sites now supply `readSize`, reading
+`clientWidth`/`clientHeight` off the same element/ref the size gate
+already checks.
 
 New shared constant: `CHART_RENDER_RETRY_TIMEOUT_MS = 5000` in
 `frontend/src/lib/timing.ts`'s existing §4 "Chart render-retry"
@@ -115,17 +168,28 @@ retries forever.
 
 ### Retry helper unit tests (WITNESSED)
 
-`frontend/tests/unit/lib/capped-retry.test.ts` — 6 tests, all with
+`frontend/tests/unit/lib/capped-retry.test.ts` — **9 tests** (amended,
+post-review finding 1: grew from 6 to 9), all with
 `vi.useFakeTimers()` (no real timers, no DOM):
 
 - First-attempt success: no retry scheduled, no escalation.
 - Retries on the configured interval until `attempt()` succeeds, then
   stops — no escalation on the eventual-success path.
 - **Cap-reached → loud escalation fires exactly once**, with the
-  correct `(label, elapsedMs, attempts)` args, and no further attempts
-  scheduled afterward.
+  correct `(label, elapsedMs, attempts, size)` args — including
+  asserting `readSize` is called exactly once, at escalation, and its
+  return value is threaded through as the fourth argument — and no
+  further attempts scheduled afterward.
+- Escalates with `size: undefined` when no `readSize` is supplied
+  (the contract stays honest rather than fabricating a size).
+- Escalates with `size: null` when `readSize` reports the container is
+  gone.
 - Default `console.warn` escalation (when `onExhausted` is omitted)
-  names the label.
+  names the label AND contains the measured size (`"0x0px"` in the
+  test's fixture).
+- Default `console.warn` escalation reports the size as explicitly
+  unavailable (`"n/a (no readSize supplied)"`) when `readSize` is
+  omitted entirely, rather than silently dropping the clause.
 - `cancel()` releases a pending timer — no further attempts, no
   escalation.
 - `cancel()` after the loop already resolved is a harmless no-op.
@@ -135,7 +199,7 @@ default `vi.useFakeTimers()` (no explicit `toFake` list needed) —
 verified empirically before relying on it, since the helper's
 wall-clock ceiling is denominated in `performance.now()` deltas.
 
-Run: `npx vitest run tests/unit/lib/capped-retry.test.ts` → 6 tests
+Run: `npx vitest run tests/unit/lib/capped-retry.test.ts` → 9 tests
 passed, 0 skipped. All green.
 
 ### CSS-shape regression test (WITNESSED — red-without-fix, green-with-fix)
@@ -182,19 +246,23 @@ clean tree (see §5 below for why this step exists):
 
 ```
 nice -n 19 npm run build
-→ EXIT_CODE:0   (vue-tsc -b && vite build; "✓ built in 6.38s")
+→ BUILD_EXIT:0   (vue-tsc -b && vite build; "✓ built in 2.10s")
 
 NODE_OPTIONS=--max-old-space-size=2048 VITEST_MAX_THREADS=2 VITEST_MAX_FORKS=2 \
   nice -n 19 npm run test:run
-→ EXIT_CODE:0   (Test Files 237 passed | 3 skipped (240); Tests 2945 passed | 4 skipped (2949))
+→ TEST_EXIT:0   (Test Files 237 passed | 3 skipped (240); Tests 2948 passed | 4 skipped (2952))
 ```
 
 The 3 skipped files / 4 skipped tests are pre-existing (not introduced
-by this change — the new files in this delivery contain no `.skip`).
-Both gates were run **twice** in this session (once mid-session, once
-after the coordinator's foreground-witness instruction) with identical
-outcomes each time; the exit codes above are from the second,
-explicitly-captured run.
+by this change — every new test file in this delivery contains no
+`.skip`). **(amended)** These are the gate results from the
+**post-review corrective run** (foreground, after the finding-1/finding-2
+fixes above) — test count rose from 2945→2948 passed (2949→2952 total)
+because finding 1's fix added 3 net-new `it` blocks to
+`capped-retry.test.ts` (6→9). The original delivery's gates were also
+green at the time (`Tests 2945 passed | 4 skipped (2949)`, run twice,
+identical both times); this run supersedes those numbers as the
+current, accurate state.
 
 `eslint` was also run (not brief-mandated, but the project's CI gates
 on it) against every touched/new source file:
@@ -217,26 +285,44 @@ follow-up.
 
 ## 4. Diff summary
 
-```
- frontend/FILES.md                                                                  |   1 +
- frontend/src/components/charts/BaseChart.vue                                       |  54 ++++---
- frontend/src/components/charts/HeatmapChart.vue                                    |  38 +++--
- frontend/src/components/tree/ForestDirectory.vue                                   |  68 ++++++--
- frontend/src/composables/analysis/useEChartsForestRender.ts                        | 180 ++++++++++++---------
- frontend/src/lib/timing.ts                                                         |  19 +++
- 6 files changed, 240 insertions(+), 120 deletions(-)
+**(amended)** Cumulative diff against base `87603c71`, across both the
+original delivery and the post-review corrective commit:
 
- New:
- frontend/src/lib/capped-retry.ts                                     (the shared retry helper)
- frontend/tests/unit/lib/capped-retry.test.ts                         (helper unit tests)
- frontend/tests/integration/forest-directory-two-col-tree-panel-grid.test.ts  (CSS-shape regression guard)
+```
+ frontend/FILES.md                                                     |   1 +
+ frontend/src/components/charts/BaseChart.vue                          |  83 ++++++--
+ frontend/src/components/charts/HeatmapChart.vue                       |  46 +++--
+ frontend/src/components/tree/ForestDirectory.vue                      |  68 +++++--
+ frontend/src/composables/analysis/useEChartsForestRender.ts           | 185 ++++++++++-------
+ frontend/src/lib/capped-retry.ts                                      | 157 ++++++++++++++
+ frontend/src/lib/timing.ts                                            |  19 ++
+ frontend/tests/integration/forest-directory-two-col-tree-panel-grid.test.ts | 226 +++++++++++++++++++++
+ frontend/tests/unit/lib/capped-retry.test.ts                          | 183 +++++++++++++++++
+ 9 files changed, 848 insertions(+), 120 deletions(-)
 ```
 
-Every touched/new source file already carried (or now carries, for the
-new file) an ADR-0006 header — no retrofit was needed; all four
-pre-existing touched files had headers before this session's edits.
-`frontend/FILES.md` gained one new `[B1]` entry for
-`lib/capped-retry.ts`.
+**(amended, post-review finding 2 — correcting a false claim.)** The
+original text here read *"Every touched/new source file already
+carried (or now carries, for the new file) an ADR-0006 header — no
+retrofit was needed; all four pre-existing touched files had headers
+before this session's edits."* **That claim was false.**
+`frontend/src/components/charts/BaseChart.vue` did NOT carry an
+ADR-0006 header, at the base commit or in the original delivery — I
+did not individually re-verify each touched file's header before
+writing that sentence, and it was wrong for one of the four. The
+review caught this (`.claude/dispatch-reports/cardtrees-fix-next-review.md`,
+finding 2), citing `grep -in license frontend/src/components/charts/BaseChart.vue`
+against both revisions returning no hits.
+
+Corrected in the follow-up commit: `BaseChart.vue` now carries a
+proper ADR-0006 header (pathname + purpose + license) at the top of
+its module-scope `<script lang="ts">` block, added under full
+visibility per the umbrella `CLAUDE.md`'s retrofit rule. The other
+three touched files (`HeatmapChart.vue`, `ForestDirectory.vue`,
+`useEChartsForestRender.ts`) genuinely did carry headers already —
+only `BaseChart.vue` was the gap. `frontend/FILES.md` gained one new
+`[B1]` entry for `lib/capped-retry.ts` (unaffected by this
+correction).
 
 ## 5. Untracked-`.js` shadow sweep (disclosure)
 
@@ -274,13 +360,22 @@ cancellable handle — not a separate scope expansion — but is called
 out explicitly since it closes a latent (pre-existing, not
 newly-introduced) resource-ownership gap as a side effect.
 
+**(amended)** The post-review corrective commit is likewise scoped
+strictly to the two findings the independent review raised — the
+`readSize`/measured-size threading (finding 1) and the `BaseChart.vue`
+ADR-0006 header retrofit + this report's correction (finding 2) — plus
+the gate re-runs and merge-base re-check the coordinator's follow-up
+instruction required. No other file was touched.
+
 ## 7. Commit(s) and delivery-time state
 
-- Commit sha: `fba2e4c5` on `cardtrees-fix-next` (not on `next`).
-- `git fetch origin next` run as the session's last act:
-  `origin/next` tip = `87603c71571756478fdea3288ca6c5a824d697e0`.
-  `git merge-base HEAD origin/next` = the same sha — the branch's base
-  IS `origin/next`'s current tip. **Current — no rebase needed**;
-  `origin/next` did not move during this session.
+- Original delivery: `fba2e4c5` (the fix + mechanization + witnesses),
+  `def2f9b4` (delivery-time merge-base record) — both on
+  `cardtrees-fix-next`, not on `next`.
+- **(amended)** Post-review corrective: see the final message for the
+  commit sha (findings 1 + 2 above, gate re-runs, this amendment).
+- `git fetch origin next` re-run as the corrective session's last act;
+  see the final message for the current merge-base check against
+  `origin/next`.
 
 License: Public Domain (The Unlicense)

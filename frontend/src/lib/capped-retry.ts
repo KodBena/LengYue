@@ -22,6 +22,18 @@
  * License: Public Domain (The Unlicense)
  */
 
+/**
+ * A container's measured size at escalation time, in CSS pixels
+ * (`clientWidth`/`clientHeight`). Optional per `CappedRetryOptions.readSize`
+ * — a caller not gating on a DOM container's size (unusual for this
+ * helper's actual call sites, but not precluded by the contract) may omit
+ * it, in which case escalation reports the size as unavailable.
+ */
+export interface MeasuredSize {
+  width: number;
+  height: number;
+}
+
 export interface CappedRetryOptions {
   /** Poll interval in ms between attempts (the caller's own tuned constant). */
   intervalMs: number;
@@ -36,6 +48,20 @@ export interface CappedRetryOptions {
   timeoutMs: number;
   /** Identifies the caller/container in the escalation message. */
   label: string;
+  /**
+   * Reads the gated container's current measured size. Called once, only
+   * if the cap is reached, so the escalation can name "the container and
+   * its measured size" — the diagnosis's own closure-statement minimum
+   * loudness bar for this class
+   * (`.claude/dispatch-reports/lyt-cardtrees-regression.md` §4, invariant
+   * 1: *"at minimum a `console.warn` naming the container and its
+   * measured size"*). Returns `null` when the container isn't available
+   * to measure (e.g. the ref went away between the last failed attempt
+   * and escalation). Omit entirely when `attempt`'s gate isn't a DOM
+   * container's size — the default escalation then reports "not
+   * applicable" rather than fabricating a size.
+   */
+  readSize?: () => MeasuredSize | null;
 }
 
 export interface CappedRetryHandle {
@@ -43,18 +69,33 @@ export interface CappedRetryHandle {
   cancel: () => void;
 }
 
+function formatSize(size: MeasuredSize | null | undefined): string {
+  if (size === undefined) return 'n/a (no readSize supplied)';
+  if (size === null) return 'unavailable (container not present at escalation time)';
+  return `${size.width}x${size.height}px`;
+}
+
 /**
  * Default escalation: a `console.warn` naming the label, the elapsed
- * time, and the attempt count (ADR-0002's developer-visible-console-
- * warning rung — "this shouldn't happen, but if it does, the rest of the
- * system can continue").
+ * time, the attempt count, AND the container's measured size (when
+ * `readSize` was supplied) — ADR-0002's developer-visible-console-
+ * warning rung ("this shouldn't happen, but if it does, the rest of the
+ * system can continue"), sized to the diagnosis's own closure-statement
+ * bar rather than the weaker "just a label" message this helper shipped
+ * with initially (cardtrees-fix-next review finding 1).
  */
-function defaultOnExhausted(label: string, elapsedMs: number, attempts: number): void {
+function defaultOnExhausted(
+  label: string,
+  elapsedMs: number,
+  attempts: number,
+  size: MeasuredSize | null | undefined,
+): void {
   console.warn(
     `[capped-retry] ${label}: gave up after ${attempts} attempt(s) over ` +
-    `${Math.round(elapsedMs)}ms — condition never became true. The container ` +
-    'likely has a structural layout defect (see lyt-cardtrees-regression for ' +
-    'the worked case), not a transient timing race.',
+    `${Math.round(elapsedMs)}ms — condition never became true. Measured size ` +
+    `at escalation: ${formatSize(size)}. The container likely has a structural ` +
+    'layout defect (see lyt-cardtrees-regression for the worked case), not a ' +
+    'transient timing race.',
   );
 }
 
@@ -78,9 +119,14 @@ function defaultOnExhausted(label: string, elapsedMs: number, attempts: number):
 export function cappedRetry(
   attempt: () => boolean,
   options: CappedRetryOptions,
-  onExhausted: (label: string, elapsedMs: number, attempts: number) => void = defaultOnExhausted,
+  onExhausted: (
+    label: string,
+    elapsedMs: number,
+    attempts: number,
+    size: MeasuredSize | null | undefined,
+  ) => void = defaultOnExhausted,
 ): CappedRetryHandle {
-  const { intervalMs, timeoutMs, label } = options;
+  const { intervalMs, timeoutMs, label, readSize } = options;
   const startedAt = performance.now();
   let attempts = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -91,7 +137,8 @@ export function cappedRetry(
     if (attempt()) return;
     const elapsedMs = performance.now() - startedAt;
     if (elapsedMs >= timeoutMs) {
-      onExhausted(label, elapsedMs, attempts);
+      const size = readSize ? readSize() : undefined;
+      onExhausted(label, elapsedMs, attempts, size);
       return;
     }
     timer = setTimeout(tryOnce, intervalMs);

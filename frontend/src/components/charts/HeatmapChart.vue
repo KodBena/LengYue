@@ -252,6 +252,14 @@ const initChart = () => {
     intervalMs: CHART_INIT_RETRY_MS,
     timeoutMs: CHART_RENDER_RETRY_TIMEOUT_MS,
     label: 'HeatmapChart',
+    // Escalation-time size read (review finding 1 — the diagnosis's own
+    // closure statement names "the container and its measured size" as
+    // the minimum loudness bar). `chartRef.value` may have gone away
+    // between the last failed attempt and escalation — null-guarded
+    // rather than assumed present.
+    readSize: () => chartRef.value
+      ? { width: chartRef.value.clientWidth, height: chartRef.value.clientHeight }
+      : null,
   });
 };
 

@@ -70,8 +70,13 @@ describe('cappedRetry', () => {
   it('escalates exactly once, loudly, once the wall-clock cap is exceeded — and stops retrying', () => {
     const attempt = vi.fn(() => false);
     const onExhausted = vi.fn();
+    const readSize = vi.fn(() => ({ width: 349, height: 0 }));
 
-    cappedRetry(attempt, { intervalMs: 100, timeoutMs: 250, label: 'container-x' }, onExhausted);
+    cappedRetry(
+      attempt,
+      { intervalMs: 100, timeoutMs: 250, label: 'container-x', readSize },
+      onExhausted,
+    );
     expect(attempt).toHaveBeenCalledTimes(1);
     expect(onExhausted).not.toHaveBeenCalled();
 
@@ -85,7 +90,14 @@ describe('cappedRetry', () => {
 
     vi.advanceTimersByTime(100); // elapsed ~300ms — now over the 250ms cap
     expect(onExhausted).toHaveBeenCalledTimes(1);
-    expect(onExhausted).toHaveBeenCalledWith('container-x', expect.any(Number), 4);
+    // Review finding 1: the diagnosis's closure statement names "the
+    // container and its measured size" as the minimum loudness bar —
+    // readSize() is called exactly once, at escalation, and its result
+    // is threaded through to onExhausted as the fourth argument.
+    expect(readSize).toHaveBeenCalledTimes(1);
+    expect(onExhausted).toHaveBeenCalledWith(
+      'container-x', expect.any(Number), 4, { width: 349, height: 0 },
+    );
 
     // No further attempts are scheduled once exhausted.
     const attemptsAtExhaustion = attempt.mock.calls.length;
@@ -94,15 +106,57 @@ describe('cappedRetry', () => {
     expect(onExhausted).toHaveBeenCalledTimes(1);
   });
 
-  it('uses the default console.warn escalation naming the label when onExhausted is omitted', () => {
+  it('escalates with size undefined when no readSize is supplied — the contract stays honest rather than fabricating a size', () => {
+    const attempt = vi.fn(() => false);
+    const onExhausted = vi.fn();
+
+    cappedRetry(attempt, { intervalMs: 10, timeoutMs: 10, label: 'no-size-site' }, onExhausted);
+    vi.advanceTimersByTime(10);
+
+    expect(onExhausted).toHaveBeenCalledWith('no-size-site', expect.any(Number), 2, undefined);
+  });
+
+  it('escalates with size null when readSize reports the container is gone', () => {
+    const attempt = vi.fn(() => false);
+    const onExhausted = vi.fn();
+    const readSize = vi.fn(() => null);
+
+    cappedRetry(attempt, { intervalMs: 10, timeoutMs: 10, label: 'gone-site', readSize }, onExhausted);
+    vi.advanceTimersByTime(10);
+
+    expect(onExhausted).toHaveBeenCalledWith('gone-site', expect.any(Number), 2, null);
+  });
+
+  it('uses the default console.warn escalation naming the label AND the measured size when onExhausted is omitted', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const attempt = vi.fn(() => false);
 
-    cappedRetry(attempt, { intervalMs: 10, timeoutMs: 10, label: 'default-escalation-site' });
+    cappedRetry(attempt, {
+      intervalMs: 10,
+      timeoutMs: 10,
+      label: 'default-escalation-site',
+      readSize: () => ({ width: 0, height: 0 }),
+    });
     vi.advanceTimersByTime(10);
 
     expect(warnSpy).toHaveBeenCalledTimes(1);
-    expect(warnSpy.mock.calls[0][0]).toContain('default-escalation-site');
+    const message = warnSpy.mock.calls[0][0];
+    expect(message).toContain('default-escalation-site');
+    // The container's measured size (review finding 1's minimum bar).
+    expect(message).toContain('0x0px');
+    warnSpy.mockRestore();
+  });
+
+  it('default console.warn escalation reports size as unavailable when readSize is omitted entirely', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const attempt = vi.fn(() => false);
+
+    cappedRetry(attempt, { intervalMs: 10, timeoutMs: 10, label: 'unmeasured-site' });
+    vi.advanceTimersByTime(10);
+
+    const message = warnSpy.mock.calls[0][0];
+    expect(message).toContain('unmeasured-site');
+    expect(message).toContain('n/a (no readSize supplied)');
     warnSpy.mockRestore();
   });
 
