@@ -66,19 +66,37 @@
  * Migration failures throw rather than silently coerce. Two
  * specific failure modes:
  *
- *   - Future-version blob (rolled-back code, or schema bump that
- *     hasn't propagated): throws. Calling code (typically
- *     SyncService.hydrate via store.updateFromRemote) catches
- *     and surfaces a user-visible error message; the blob is not
- *     applied; the workspace stays at defaults; no saves fire.
- *     The user knows their workspace did not load and the
- *     too-new data on the backend is preserved unchanged.
+ *   - Future-version blob (rolled-back code, a schema bump that
+ *     hasn't propagated, or — the recurring case in practice —
+ *     two branches sharing one backend where the OTHER branch's
+ *     app already forward-migrated the shared document): throws
+ *     `FutureSchemaVersionError`, a NAMED subtype of `Error`
+ *     carrying `blobVersion` / `appVersion` as typed fields (not
+ *     embedded only in the message string — ADR-0002's
+ *     error-message-reparse ban applies to callers just as much
+ *     as to the walker itself). This is a distinct, expected,
+ *     typed boot outcome, not an undifferentiated throw: calling
+ *     code (`SyncService.hydrate` via `updateFromRemote`)
+ *     `instanceof`-narrows on it and enters a typed recovery mode
+ *     (`WorkspaceLoadState.kind === 'future-version'`,
+ *     `src/types/app.ts`) rather than the generic
+ *     `{ kind: 'error' }` leg. See that type's doc comment for the
+ *     recovery-mode contract; see `sync-service.ts`'s `hydrate()`
+ *     for the catch site. The blob is not applied; the workspace
+ *     stays at defaults; no saves fire until the user resolves the
+ *     recovery prompt (continue on suppressed-persistence defaults,
+ *     or explicitly reset the server workspace).
  *
- *   - Missing migration for a required step: throws. This
- *     shouldn't happen given the append-only discipline above;
- *     the throw is a defensive check for the case where someone
- *     bumps CURRENT_SCHEMA_VERSION without registering the
- *     migration.
+ *   - Missing migration for a required step: throws a plain
+ *     `Error`. This shouldn't happen given the append-only
+ *     discipline above; the throw is a defensive check for the
+ *     case where someone bumps CURRENT_SCHEMA_VERSION without
+ *     registering the migration. Deliberately NOT typed as
+ *     `FutureSchemaVersionError` — it is a programming-error
+ *     assertion (a broken append-only invariant), not the
+ *     ordinary cross-branch skew `FutureSchemaVersionError` names;
+ *     conflating the two would route a real bug into the
+ *     recovery-mode UI as if it were an expected condition.
  *
  * ── Dev-only hazard: HMR + version bump ───────────────────────────
  * In `npm run dev`, Vite hot-reloads modules in-process without
@@ -121,6 +139,41 @@ export { witnessedContainer };
 // undefined when Vite emits the production bundle, so this
 // guard exists only in `npm run dev`.
 if (import.meta.hot) import.meta.hot.accept(() => location.reload());
+
+/**
+ * Typed failure for the future-version leg of `migrate()`'s failure
+ * contract (see the file header). `blobVersion` / `appVersion` are
+ * declared as explicit instance fields, not parameter-property
+ * shorthand — the project's tsconfig has `erasableSyntaxOnly`
+ * enabled, which forbids parameter properties (they emit runtime
+ * code, not pure type-level syntax); same shape as
+ * `AnalysisWaitError` (`composables/analysis/wait-for-analysis.ts`).
+ *
+ * Why a named class rather than a generic `Error` the caller
+ * string-matches: ADR-0002's error-message-reparse ban (RCA guard
+ * G1) forbids recovering structured facts by parsing a message
+ * string. `blobVersion` / `appVersion` are the two facts the
+ * recovery-mode UI needs (`WorkspaceLoadState`'s `future-version`
+ * leg, `src/types/app.ts`); carrying them as typed fields means the
+ * catch site narrows with `instanceof` and reads them directly, with
+ * no string parsing and no possibility of the UI silently falling
+ * through to the generic `{ kind: 'error' }` leg because a message
+ * format drifted.
+ */
+export class FutureSchemaVersionError extends Error {
+  readonly blobVersion: number;
+  readonly appVersion: number;
+
+  constructor(blobVersion: number, appVersion: number) {
+    super(
+      `Persisted blob is at schemaVersion ${blobVersion}, ahead of this app's ` +
+      `${appVersion}. App code may be older than the data.`,
+    );
+    this.name = 'FutureSchemaVersionError';
+    this.blobVersion = blobVersion;
+    this.appVersion = appVersion;
+  }
+}
 
 /**
  * The current schema version. Bump only when the GlobalStore
@@ -250,10 +303,7 @@ export function migrate(blob: any): any {
   let version = typeof blob?.schemaVersion === 'number' ? blob.schemaVersion : 1;
 
   if (version > CURRENT_SCHEMA_VERSION) {
-    throw new Error(
-      `Persisted blob is at schemaVersion ${version}, ahead of this app's ` +
-      `${CURRENT_SCHEMA_VERSION}. App code may be older than the data.`,
-    );
+    throw new FutureSchemaVersionError(version, CURRENT_SCHEMA_VERSION);
   }
 
   let current = blob;
