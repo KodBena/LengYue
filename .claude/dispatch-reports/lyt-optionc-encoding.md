@@ -403,6 +403,11 @@ unaffected by a data-only regeneration.
 
 ## 13. Commit and merge-base
 
-Committed on this worktree's own branch. Final message reports the
-commit sha and a fresh merge-base check against `lyt-phase2`'s current
-tip, per the brief's own last-act instruction.
+Committed as `81cc1099` on this worktree's own branch, then rebased onto
+`lyt-phase2`'s moved tip (`a22b1613` — five unrelated frontend sliders-
+popover commits landed during this session, no overlap with
+`research/lyt` or the touched `.gen.ts` files) to `d0d2720d`. Final
+merge-base against `origin/lyt-phase2`: `a22b1613` — exactly the new
+tip, confirming a clean single-commit rebase (`HEAD~1 == origin/
+lyt-phase2`). `research/lyt` suite re-verified green post-rebase
+(129 passed).
