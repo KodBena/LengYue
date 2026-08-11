@@ -357,11 +357,31 @@ from `/home/bork/w/omega` since the `autoharn` dispatcher and its
 
 ## Commit and merge-base
 
-See the final commit message for this work's sha. Delivery-time
-`git merge-base HEAD <lyt-phase2 tip>` is reported in that same commit's
-accompanying session output; rebase was performed, if the tip had moved
-since this worktree's `4e068acb` starting point, before the commit landed —
-see the session's final actions for the literal command output.
+- Worktree started at `4e068acb` (the branch-cut point named in the
+  commission). Work was committed there as `9277bd8e`.
+- On the LAST act, `git fetch origin lyt-phase2` found the branch tip had
+  moved to `cb15d69c` ("feat(frontend+lyt): toolbar ontology re-encode —
+  board controls to board, engine/app clusters, 384->220px side-column
+  reservation") — exactly the toolbar-builder-lands-first case the
+  commission anticipated, touching `encodings/`/emitters.
+  `git merge-base HEAD origin/lyt-phase2` (before rebase) reported
+  `4e068acb`, confirming the tip had genuinely moved.
+- `git rebase origin/lyt-phase2` completed with **zero conflicts** (the
+  toolbar re-encode's own commit does not touch `test_lyt.py` or any of
+  the seven `research/lyt/*.py` modules this delivery edits — the only
+  file both works reference is `lengyue_landscape.lyt`/`lengyue_portrait.lyt`,
+  which this delivery deliberately never writes).
+- Final commit sha (post-rebase): **`d70ba3e2`**.
+  `git merge-base HEAD origin/lyt-phase2` (post-rebase) reports
+  **`cb15d69c`** — equal to the fetched tip, confirming the rebase landed
+  cleanly on top of it.
+- The full pytest gate was re-run AFTER the rebase, against the
+  post-rebase tree (which now includes the toolbar builder's encoding
+  changes): **145 passed, EXIT:0** — the dormancy regression
+  (`test_dormancy_no_amendment_5_declarations_means_zero_l5_violations_everywhere`)
+  re-verified zero L5-family violations against the toolbar builder's
+  updated `lengyue_landscape.lyt`/`lengyue_portrait.lyt` content, not
+  merely the pre-rebase snapshot this session originally read.
 
 ## License
 
