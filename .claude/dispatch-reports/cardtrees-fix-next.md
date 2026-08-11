@@ -372,10 +372,12 @@ instruction required. No other file was touched.
 - Original delivery: `fba2e4c5` (the fix + mechanization + witnesses),
   `def2f9b4` (delivery-time merge-base record) — both on
   `cardtrees-fix-next`, not on `next`.
-- **(amended)** Post-review corrective: see the final message for the
-  commit sha (findings 1 + 2 above, gate re-runs, this amendment).
-- `git fetch origin next` re-run as the corrective session's last act;
-  see the final message for the current merge-base check against
-  `origin/next`.
+- **(amended)** Post-review corrective: `d5097797` (findings 1 + 2,
+  gate re-runs, this amendment).
+- `git fetch origin next` re-run as the corrective session's last act:
+  `origin/next` tip = `87603c71571756478fdea3288ca6c5a824d697e0`.
+  `git merge-base HEAD origin/next` = the same sha — still current,
+  no rebase owed. `origin/next` has not moved since this worktree was
+  cut, across either delivery.
 
 License: Public Domain (The Unlicense)
