@@ -10,6 +10,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useLocale } from '../../composables/chrome/useLocale';
+import { useFixedAnchoredPopover } from '../../composables/chrome/useFixedAnchoredPopover';
 import type { SupportedLocale } from '../../i18n/locales';
 
 const { locale, supportedLocales, displayName, flag, isMachineTranslated, setLocale } = useLocale();
@@ -27,6 +28,24 @@ function pick(loc: SupportedLocale): void {
   setLocale(loc);
   open.value = false;
 }
+
+// Clip-ancestor fix (row 1984, the popover-clip class's 4th member —
+// see the class sweep at .claude/dispatch-reports/lyt-popover-clip-class.md
+// and the review that enumerated LocalePicker as click-toggled and
+// therefore deferred pending a contract check,
+// .claude/dispatch-reports/lyt-popover-clip-class-review.md). `.locale-menu`
+// mounts inside `App.vue`'s `.lyt-toolbar-strip` (via ToolbarAppCluster),
+// the same `overflow-y: auto` clipping ancestor `ToolbarSliderPopover.vue`'s
+// D1 fix escaped. `useFixedAnchoredPopover` reads `open` as a plain
+// `Ref<boolean>` (see that composable's own header — "the SAME `open` ref
+// `useHoverPopover` (or an equivalent open/close boolean source)
+// returned") and never inspects HOW it flips; this component's `toggle()`
+// click-handler writes the same ref `useHoverPopover`'s mouseenter/leave
+// pair would, so the composable composes with click-toggle open state
+// with no fork required — its contract is genuinely interaction-agnostic.
+const triggerEl = ref<HTMLElement | null>(null);
+const popoverEl = ref<HTMLElement | null>(null);
+const { style: popoverStyle } = useFixedAnchoredPopover(open, triggerEl, popoverEl, { align: 'left' });
 
 // Document-level dismiss: clicking anywhere outside the root closes
 // the menu. Using `pointerdown` (capture phase) so the closer fires
@@ -70,6 +89,7 @@ onBeforeUnmount(() => {
 <template>
   <div ref="rootRef" class="locale-picker" :class="{ open }">
     <button
+      ref="triggerEl"
       type="button"
       class="locale-trigger"
       :title="$t('localePicker.tooltip')"
@@ -92,7 +112,13 @@ onBeforeUnmount(() => {
       :title="$t('localePicker.machineTranslatedTooltip')"
     >{{ $t('localePicker.machineTranslatedNotice') }}</span>
 
-    <ul v-if="open" class="locale-menu" role="listbox">
+    <ul
+      v-if="open"
+      ref="popoverEl"
+      class="locale-menu"
+      role="listbox"
+      :style="{ top: popoverStyle.top, left: popoverStyle.left }"
+    >
       <li
         v-for="loc in supportedLocales"
         :key="loc"
@@ -143,13 +169,15 @@ onBeforeUnmount(() => {
 .locale-trigger .caret { color: var(--text-disabled); font-size: var(--text-tiny); margin-left: 1px; }
 
 .locale-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  /* Anchor to the left so the dropdown flows from under the trigger
-     button (the picker container is now flex with an optional notice
-     to the right; right: 0 would otherwise drag the menu under the
-     notice). */
-  left: 0;
+  /* Clip-ancestor fix (row 1984): previously anchored under CSS's
+     absolute-positioning scheme (`top: calc(100% + 4px); left: 0`) —
+     clipped by `.lyt-toolbar-strip`'s `overflow-y: auto` (see the
+     <script> block's clip-ancestor-fix comment above). `top`/`left`
+     are now script-computed by `useFixedAnchoredPopover` (align: 'left',
+     matching the prior `left: 0` anchor — the picker container is flex with
+     an optional machine-translation notice to the right, so `align: 'right'`
+     would drag the menu under the notice) and bound via `popoverStyle`. */
+  position: fixed;
   margin: 0;
   padding: var(--space-tight) 0;
   list-style: none;

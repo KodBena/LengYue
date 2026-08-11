@@ -33,6 +33,18 @@
  *     `sync-session-version.test.ts` suite already exercises via its
  *     own `beforeEach`, so this file adds one direct assertion rather
  *     than duplicating that suite's full coverage.
+ *   - Identity-transition suppression reset (work-status row 1983, a
+ *     follow-up filed by the recovery review,
+ *     `.claude/dispatch-reports/next-futureblob-recovery-review.md` §4):
+ *     a future-version suppression left active for user A must not
+ *     leak into user B's session after a logout/login on the SAME
+ *     long-lived `SyncService` instance. RED-WITHOUT-FIX was verified
+ *     by temporarily commenting out the `onAuthStateChange()` reset
+ *     lines (`this.persistSuppression = ...` / `this.futureVersionUserId
+ *     = ...`) and confirming exactly this one test goes red while the
+ *     other eight stay green; the two lines were restored immediately
+ *     after (not re-verified on every CI run, same rationale as the
+ *     persist-suppression RED-WITHOUT-FIX note above).
  *
  * License: Public Domain (The Unlicense)
  */
@@ -328,6 +340,64 @@ describe('SyncService — continueOnDefaults()', () => {
     const before = store.workspaceLoadState;
     sync.continueOnDefaults();
     expect(store.workspaceLoadState).toEqual(before);
+  });
+});
+
+describe('SyncService — identity-transition suppression reset (work-status row 1983)', () => {
+  // Follow-up to the recovery review
+  // (.claude/dispatch-reports/next-futureblob-recovery-review.md §4):
+  // `onAuthStateChange()` unconditionally resets `persistSuppression`
+  // to `{ kind: 'unsuppressed' }` and clears `futureVersionUserId` on
+  // EVERY identity transition, before dispatching on the new state —
+  // so a future-version suppression left active for user A must not
+  // leak into user B's session after a logout/login. The review traced
+  // this structurally (sync-service.ts:173-223) and filed it as
+  // UNEXERCISED with a proposed test; this adapts that proposal to
+  // drive the SAME long-lived `SyncService` instance through both
+  // identities (the real production shape — one instance, one
+  // persistent `watch(auth.state, ...)` — rather than constructing a
+  // second instance per login, which would trivially pass without
+  // exercising the reset logic in `onAuthStateChange` at all).
+  it('does not leak persist-suppression across a logout/login identity transition', async () => {
+    // User A (bob) hits future-version — persistSuppression enters
+    // 'suppressed-future-version' inside hydrate()'s catch leg.
+    await loginAndConnect(FUTURE_VERSION);
+    expect(store.workspaceLoadState).toEqual({
+      kind: 'future-version', blobVersion: FUTURE_VERSION, appVersion: CURRENT_SCHEMA_VERSION,
+    });
+
+    auth.logout();
+    await flushPromises();
+    // logout() is not itself hydrated-for-anyone, but the transition's
+    // resetWorkspace() branch (wasHydrated was true for bob) puts the
+    // load state back to 'loaded' — the suppression reset happens
+    // unconditionally in the SAME onAuthStateChange call, ahead of
+    // this branch dispatch.
+    expect(store.workspaceLoadState).toEqual({ kind: 'loaded' });
+
+    // Second identity (carol), an ORDINARY (non-future-version)
+    // document — re-stub fetch for the new user set before the login
+    // that will drive the SAME `sync` instance's persistent auth-state
+    // watcher (installed once in loginAndConnect's earlier `connect()`
+    // call) through a fresh hydrate().
+    router = installFetchRouter({ carol: 9 }, CURRENT_SCHEMA_VERSION);
+    await auth.login('carol', 'pw');
+    await flushPromises();
+
+    expect(store.workspaceLoadState).toEqual({ kind: 'loaded' });
+    expect(store.workspaceSaveState).not.toEqual({
+      kind: 'suppressed', blobVersion: FUTURE_VERSION, appVersion: CURRENT_SCHEMA_VERSION,
+    });
+
+    // Carol's saves must NOT be suppressed by bob's earlier
+    // future-version state — a debounced watcher save reaches the
+    // network normally.
+    router.putCount = 0;
+    mutateProfile((p) => { p.settings.persistence = { debounceInterval: DEBOUNCE_MS }; });
+    await nextTick();
+    await new Promise((r) => setTimeout(r, DEBOUNCE_MS + 50));
+    await flushPromises();
+    expect(router.putCount).toBeGreaterThan(0);
   });
 });
 
