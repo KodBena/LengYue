@@ -16,6 +16,90 @@ AnalysisDashboard.vue`, `frontend/src/components/SettingsTab.vue`,
 `frontend/src/state/lyt-layout-types.ts`, `frontend/src/state/lyt-widget-
 registry.ts`.
 
+## Review response (2026-08-11) — Finding 1 fixed, Finding 3 disclosed
+
+Independent review (`.claude/dispatch-reports/lyt-realization-wave-review.md`,
+read in full) returned **REJECT** on one blocking, localized defect (Finding
+1) after visually witnessing this wave — the witness this delivery's own §3
+had marked UNEXERCISED. Everything else the review examined (the structural
+realization, the single-tab-implementation proof, the derived-overflow
+machinery, the scope-narrowing fidelity, the tests, the gates) was found
+sound and not reworked.
+
+**Finding 1 (Major, blocking) — fixed.** `otherColorDebug`'s declared
+reservation (40px, disclosed at the time as "an UNGROUNDED estimate... the
+weakest-grounded number in this wave") was genuinely too small — the leaf's
+real mounted content (`App.vue`'s `#leaf-otherColorDebug` template: an `<h3>`
+heading, a hint `<p>`, and `<ColorDebugStrip>`, together inside one
+`.tab-padding` wrapper) overflowed the fixed 40px track and painted over the
+`otherBand` sibling below it, both mandated viewports. **Measured myself**
+(own isolated Playwright rig, own served build via `vite dev`, own backend
+(`fastapi`) on a copy of `backend/samples/cards.sample.db`, ports
+19110–19112 — all three probed dead via `/dev/tcp` first; none of the
+forbidden ports touched; Chromium launched under `systemd-run --user --scope
+-p MemoryMax=4G`, `nice -n 19`, `--js-flags=--max-old-space-size=1024`; no
+`waitForTimeout`; every browser context closed in a `finally` block; backend
++ frontend dev servers killed by PID at the end, both ports re-verified dead
+afterward): the `.tab-padding` wrapper's own natural (unclipped)
+`boundingBox()` height — a plain block div, sized by its content, nested
+inside the CSS-grid-track-constrained `.lyt-leaf-cell` (which is what the
+40px track actually clips; the wrapper inside it is not) — at every size
+this wave's own visual-verification mandate names:
+
+| Viewport | Operating column width | Measured natural height |
+|---|---|---|
+| 1920×1080 (landscape) | 375px | 243px |
+| 1280×1024 (landscape) | 292px | **254px** (binding — narrower column wraps the heading/hint text onto more lines) |
+| 1080×1920 (portrait-class representative point) | 931px | 232px (wider column here, not binding) |
+
+Corrected reservation: **264px** (254px measured maximum + the same ~10px
+margin posture this encoding's own REPAIR PASS/W4 FLOOR CORRECTION sections
+already establish elsewhere in this file). Applied to both `min`/`pref`/`max`
+(still a fixed track — `content designed` stays no-scroll per L5c; the
+component's height is a design fact of a fixed content set, not something
+that varies at runtime, so `fixed` remains the honest shape, not `elastic`).
+Applied identically to `lengyue_portrait.lyt`'s own `otherColorDebug`
+declaration (not independently re-measured at a portrait-class narrow
+column — landscape's larger, measured number is used there as a disclosed,
+conservative choice; full derivation in that file's own inline comment).
+Both `.gen.ts` files regenerated (`emit_layout_tree.py --registration
+{landscape,portrait}`) — diff is exactly the one `px: 40` → `px: 264` line
+in each generated file, nothing else.
+
+**Re-witnessed post-fix**, same rig, both mandated viewports: `otherBand`'s
+own top-left corner now resolves (`document.elementFromPoint`) to its own
+"Knob Registry" content, not the color-debug strip; the color-debug wrapper's
+natural bottom edge sits 25px (1920×1080) / 14px (1280×1024) above
+`otherBand`'s own top edge — a real gap, not a hairline pass. Screenshots:
+`after-fix-other-1920x1080.png`, `after-fix-other-1280x1024.png` (plus the
+pre-fix reproduction, `before-fix-other-{1920x1080,1280x1024,1080x1920-
+portrait}.png`), all under
+`/tmp/claude-1000/-home-bork-w-omega/046517a5-6b16-43a9-af2d-e1dbe81eefc9/scratchpad/lyt-visual/`.
+
+**`research/lyt` suite re-run in full, all four files, after the
+correction: 152 passed, exit 0 — no feasibility-pin changed.** Checked
+directly, not merely asserted: the `otherColorDebug`/`otherBand`
+`V(...)`-composite's own structural floor grows by the reservation delta
+(224px), but that composite sits as one of the control-panel T's five
+children, and the T's own componentwise-max floor was ALREADY larger
+(838px, driven by the settings substrip — `lyt-optionc-repair.md`'s own
+Finding 3) both before and after this correction, so the T's own derived
+floor is unaffected and every size this suite pins `OPTIMAL`/`INFEASIBLE`
+solves the same way it did before this fix. Named individually, per the
+coordinator's own instruction, precisely because the answer could have gone
+the other way: it did not move any pin.
+
+**Finding 3 (Minor, informational) — TabWidget remount granularity,
+disclosed.** See the updated §2 "Parity statement" below — the review judged
+this benign but flagged that this report's own parity section described the
+`:key` placement change without calling out its remount-granularity
+consequence explicitly. Added with this delivery's own analysis.
+
+**Finding 2 (Minor, informational) — sabotage coverage.** Not actionable by
+this delivery (a review-process note about the review's OWN sabotage-pass
+coverage of `TabWidget.vue`'s `paneOverflowStyle`, not a defect in the
+delivery); no change made in response.
+
 ## 0. Scope disclosure up front (read this before the rest)
 
 The commission's item 2 asked for the modeled interiors of **all** five
@@ -251,6 +335,35 @@ file, not asserted from memory:
   identical content and identical `:key="controlPanelIdentityKey"`
   remount-on-workspace-switch behavior, applied per-slot now rather than
   once on the retired App-authored `TabWidget`).
+- **TabWidget remount granularity changed (review Finding 3, disclosed
+  here explicitly, own analysis).** Pre-wave, `App.vue` keyed the ENTIRE
+  `<TabWidget>` instance (strip + all panes) on `controlPanelIdentityKey`,
+  so a workspace switch remounted the tab strip itself, not just its
+  content. Post-wave, `LytNode.vue`'s driven `<TabWidget>` instance is
+  unkeyed at the outer level — only each tab's own content wrapper (or
+  `SettingsTab`/`AnalysisControls` directly) carries the key. Net effect:
+  tab **content** still fully remounts on workspace switch (the parity
+  claim above); the tab **strip** (`role="tablist"` chrome — the `<li>`
+  elements, their ARIA state, keyboard-focus DOM nodes) no longer does.
+  **Own analysis:** this is very plausibly a strict improvement, not a
+  regression — the strip carries no per-workspace state of its own (no
+  workspace-scoped data flows into `tabs`/`modelValue`; `activeTab` is a
+  session-scoped, not workspace-scoped, persisted field, so a switch
+  correctly does NOT reset it), so remounting it bought nothing before
+  this wave except discarding and rebuilding five `<li>` DOM nodes and
+  their event listeners on every workspace switch — a real, if small, cost
+  with no corresponding correctness benefit. The only way this COULD
+  regress is if some future consumer attaches workspace-scoped state to
+  the strip itself (a per-workspace tab-hover-preview cache, say); none
+  exists today (grepped `TabWidget.vue`'s own script — no state beyond the
+  controlled `modelValue` prop and its own DOM). Not reverted: reverting
+  would mean re-keying the WHOLE driven `<TabWidget>` instance inside
+  `LytNode.vue`'s Exclusive case on `controlPanelIdentityKey`, which
+  `LytNode.vue` — a generic renderer with no workspace-identity concept of
+  its own — would have to import as a new, out-of-band prop solely to
+  reproduce a remount granularity nothing currently depends on; the
+  narrower, already-shipped per-content key is the ADR-0012 P3 (no
+  god-objects) shaped answer, not a corner cut.
 - `activeTab` persistence (`session.ui.activeTab`) is unchanged — the same
   store cell, now read/written through `lytExclusiveActiveByPath`/
   `handleLytExclusiveActiveChange` instead of a direct `v-model`, but the
@@ -288,6 +401,12 @@ papered over.
 
 ## 4. Gate exit codes
 
+Re-run after the Finding-1 fix (post-correction, foreground, literal exit
+codes — supersedes the pre-fix numbers this section originally carried,
+kept implicitly superseded rather than deleted since the encoding/gen.ts
+diff between the two runs is exactly the one documented `px: 40` → `px:
+264` change and nothing else changed shape):
+
 **`research/lyt` full suite** (all four files, foreground, literal exit
 code):
 ```
@@ -295,24 +414,26 @@ $ cd research/lyt && ~/w/vdc/venvs/generic/bin/python -m pytest -q
 ........................................................................ [ 47%]
 ........................................................................ [ 94%]
 ........                                                                 [100%]
-152 passed in 3.39s
+152 passed in 3.07s
 ```
-Exit code: **0**.
+Exit code: **0**. (No feasibility pin moved — see "Review response" above
+for the structural reason why not.)
 
 **Frontend build** (foreground, literal exit code):
 ```
 $ nice -n 19 npm run build
 ...
-✓ 1239 modules transformed.
-✓ built in 2.14s
+✓ 1240 modules transformed.
+✓ built in 2.00s
 ```
 Exit code: **0**.
 
-**Frontend test suite** (foreground, mandated memory/thread caps):
+**Frontend test suite** (foreground, mandated memory/thread caps, literal
+exit code):
 ```
 $ NODE_OPTIONS=--max-old-space-size=2048 VITEST_MAX_THREADS=2 VITEST_MAX_FORKS=2 nice -n 19 npm run test:run
- Test Files  244 passed | 3 skipped (247)
-      Tests  3066 passed | 8 skipped (3074)
+ Test Files  247 passed | 3 skipped (250)
+      Tests  3089 passed | 8 skipped (3097)
 ```
 Exit code: **0**.
 
@@ -347,9 +468,24 @@ numbers). `npx eslint` against every file this wave touched or created
 - Frontend build (exit 0) + test suite (3066/3066 passed, 8 skipped,
   exit 0) + lint (zero new problems): **WITNESSED**.
 - Stray 880px comment fix (item 5): **WITNESSED**.
-- Visual verification (item 6, all five tabs, landscape+portrait, no
-  nested scrollbars): **UNEXERCISED — blocker: session time budget**, named
-  in §3 as a required follow-up before shipping.
+- Visual verification, full ceremony (item 6, all five tabs, landscape +
+  portrait, nested-scrollbar audit across every tab): **WITNESSED, by the
+  independent review**, not re-performed by this response — the review's
+  own `lyt-realization-wave-review.md` §"Visual verification" section is
+  the record (all five tabs reachable, Analysis's dynamic tabs preserved,
+  no nested scrollbars anywhere, both mandated viewports, screenshots
+  captured). This response's own visual work is narrower and additive: a
+  targeted measurement + fix + re-witness of Finding 1 specifically (the
+  "Review response" section above), not a repeat of the full ceremony —
+  the review already established everything else in that ceremony was
+  sound.
+- Finding 1 (Other-tab content-overlap regression): **FIXED, WITNESSED**
+  — measured, corrected, regenerated, re-witnessed at both mandated
+  viewports, `research/lyt` suite re-run confirming no feasibility-pin
+  change. Full account in "Review response" above.
+- Finding 3 (TabWidget remount-granularity disclosure): **ADDRESSED** —
+  added to §2's parity statement with this delivery's own analysis
+  (review judged it benign; not reverted, reasoning given).
 - FEATURES.md: no entry added — judgment call, this wave restructures
   chrome DOM/CSS without adding, removing, or materially altering a
   user-facing capability (same five tabs, same content, same persisted

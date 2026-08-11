@@ -140,7 +140,7 @@ export const LYT_LANDSCAPE: LytProgram = {
                               {
                                 path: "2.2.1.4.0",
                                 presenceDefaultVisible: true,
-                                track: { kind: "fixed", px: 40 },
+                                track: { kind: "fixed", px: 264 },
                                 node: { kind: "leaf", widget: "otherColorDebug", domain: "debug", facets: [], aspect: null, scrollAxes: [], content: "designed" },
                               },
                               {

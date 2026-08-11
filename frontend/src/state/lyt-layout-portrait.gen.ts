@@ -133,7 +133,7 @@ export const LYT_PORTRAIT: LytProgram = {
                         {
                           path: "4.1.4.0",
                           presenceDefaultVisible: true,
-                          track: { kind: "fixed", px: 40 },
+                          track: { kind: "fixed", px: 264 },
                           node: { kind: "leaf", widget: "otherColorDebug", domain: "debug", facets: [], aspect: null, scrollAxes: [], content: "designed" },
                         },
                         {
