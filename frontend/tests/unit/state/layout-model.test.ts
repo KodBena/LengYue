@@ -54,6 +54,8 @@ import {
   MIN_BOARD_PX,
   TREE_CONTROL_REGION_DEFAULT_WIDTH_FRACTION,
   computeTreeControlRegionDefaultWidthPx,
+  TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+  computeTreePanelClampedWidthPx,
 } from '../../../src/state/layout-model';
 
 describe('deriveAxis — row/column split, now derived from nearestScreenClassId (W3)', () => {
@@ -410,5 +412,48 @@ describe('computeTreeControlRegionDefaultWidthPx — init-vs-drag divergence fix
     expect(computeTreeControlRegionDefaultWidthPx(-100)).toBe(WRAPPER_MIN_WIDTH_PX);
     expect(computeTreeControlRegionDefaultWidthPx(NaN)).toBe(WRAPPER_MIN_WIDTH_PX);
     expect(computeTreeControlRegionDefaultWidthPx(Infinity)).toBe(WRAPPER_MIN_WIDTH_PX);
+  });
+});
+
+describe('computeTreePanelClampedWidthPx — W3-fix corrective, the 900x600 clipping regression (lyt-w3-resizers-review.md §2)', () => {
+  it('passes the natural width through unchanged when it already fits the region', () => {
+    // A never-dragged default (140) comfortably fits any region wide
+    // enough to also hold CONTROL_PANEL_MIN_WIDTH_PX + two row gaps.
+    const regionWidthPx = TREE_PANEL_MIN_WIDTH_PX + CONTROL_PANEL_MIN_WIDTH_PX + TREE_CONTROL_WRAPPER_ROW_GAP_PX * 2 + 50;
+    expect(computeTreePanelClampedWidthPx(TREE_PANEL_MIN_WIDTH_PX, regionWidthPx)).toBe(TREE_PANEL_MIN_WIDTH_PX);
+  });
+
+  it('reproduces the reviewed 900x600 regression numbers: a 347px dragged tree width in a 599px region clamps to leave the control panel its own floor', () => {
+    // The exact numbers the review's own live measurement produced
+    // (`.claude/dispatch-reports/lyt-w3-resizers-review.md` §2):
+    // treePanelWidthPx dragged to 347 at a wide viewport, carried
+    // verbatim into a 900x600 session where
+    // effectiveTreeControlRegionWidthPx (the OUTER region, already
+    // clamped by sanitizeTreeControlRegionWidthPx) sanitizes down to
+    // 599. Pre-fix, App.vue rendered the wrapper at 347 (tree) + 300
+    // (control panel floor) + gaps > 599, clipping #control-panel by
+    // ~52px. Post-fix, the tree clamps down so the total fits.
+    const naturalWidthPx = 347;
+    const regionWidthPx = 599;
+    const clamped = computeTreePanelClampedWidthPx(naturalWidthPx, regionWidthPx);
+    expect(clamped).toBeLessThan(naturalWidthPx);
+    expect(clamped + CONTROL_PANEL_MIN_WIDTH_PX + TREE_CONTROL_WRAPPER_ROW_GAP_PX * 2).toBeLessThanOrEqual(regionWidthPx);
+  });
+
+  it('never shrinks the tree panel below its own drag floor (TREE_PANEL_MIN_WIDTH_PX), even in an over-constrained region', () => {
+    const clamped = computeTreePanelClampedWidthPx(1000, TREE_PANEL_MIN_WIDTH_PX);
+    expect(clamped).toBe(TREE_PANEL_MIN_WIDTH_PX);
+  });
+
+  it('a smaller natural width than the available room is never grown — this clamps down only, never up', () => {
+    const regionWidthPx = 2000; // far more room than needed
+    expect(computeTreePanelClampedWidthPx(TREE_PANEL_MIN_WIDTH_PX, regionWidthPx)).toBe(TREE_PANEL_MIN_WIDTH_PX);
+  });
+
+  it('regionWidthPx undefined or not-yet-measured (<=0/non-finite) passes naturalWidthPx through unclamped', () => {
+    expect(computeTreePanelClampedWidthPx(347, undefined)).toBe(347);
+    expect(computeTreePanelClampedWidthPx(347, 0)).toBe(347);
+    expect(computeTreePanelClampedWidthPx(347, -10)).toBe(347);
+    expect(computeTreePanelClampedWidthPx(347, NaN)).toBe(347);
   });
 });

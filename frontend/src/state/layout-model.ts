@@ -604,6 +604,68 @@ export function computeTreeControlRegionDefaultWidthPx(rowWidthPx: number): numb
   return Math.min(Math.max(naturalWidthPx, WRAPPER_MIN_WIDTH_PX), maxRegionWidthPx);
 }
 
+// ── Tree panel render-time clamp against the OUTER region's own live
+//    width (W3-fix corrective, `.claude/dispatch-reports/
+//    lyt-w3-resizers-review.md` §2) ─────────────────────────────────
+
+// The landscape tree-control-wrapper's own H-node inter-track gap
+// (`research/lyt/encodings/lengyue_landscape.lyt`'s `H(tree, T(CP-*),
+// previewBoard) gap 4px` at path "2.3", mirrored in
+// `lyt-layout.gen.ts`'s `gapPx: 4` at the same path). A LITERAL, not
+// LYT-cross-checked at load time like `RESIZER_WIDTH_PX` above — this
+// module doesn't import the compiled program — cross-checked by hand
+// against both source files at authoring time and disclosed here
+// rather than silently duplicated; same posture as this module's
+// other "assumption (not spec-given)" literals (`TAB_STRIP_GAP_PX`
+// etc.) if the `.lyt` encoding's own gap ever changes.
+export const TREE_CONTROL_WRAPPER_ROW_GAP_PX = 4;
+
+/**
+ * The INNER bar's render-time reconciliation — the OUTER-bar clamp's
+ * (`sanitizeTreeControlRegionWidthPx`) analog, applied to the tree
+ * panel instead of the wrapper region. `computeTreePanelBoundWidth`'s
+ * "stored value wins verbatim, independent of workspace width"
+ * contract (unchanged — the STORED fact,
+ * `session.ui.treePanelWidthPx`, is never touched by this function)
+ * can still hand a RENDER value that, alongside
+ * `CONTROL_PANEL_MIN_WIDTH_PX`'s own floor and the row's two
+ * always-present inter-track gaps, exceeds what the OUTER region's
+ * OWN live width (`effectiveTreeControlRegionWidthPx`, already
+ * clamped by `sanitizeTreeControlRegionWidthPx` against the current
+ * viewport) can hold: a tree panel dragged wide at a large viewport,
+ * carried verbatim into a much narrower one, pushed `#control-panel`
+ * 52px past `#main-area`'s right edge at 900x600 — the reviewed
+ * clipping regression. This clamps the RENDERED width only; reload or
+ * widen the viewport and the full stored width returns unchanged,
+ * exactly mirroring the OUTER bar's own sanitize-without-mutating-
+ * the-store discipline.
+ *
+ * Reserves ONE control-panel floor and TWO row gaps (tree<->control,
+ * control<->previewBoard — both always present as grid tracks in the
+ * landscape `H(tree, controlPanel, previewBoard)` node; previewBoard
+ * itself renders 0px wide when its own presence toggle is off, the
+ * default this fix was verified against). A currently VISIBLE
+ * previewBoard reserves more space than this formula accounts for —
+ * a disclosed narrowing, not silently mishandled: the reviewed
+ * regression and the delivered Playwright probe both exercise the
+ * previewBoard-hidden (default) case only. Never shrinks the tree
+ * panel below its own drag floor (`TREE_PANEL_MIN_WIDTH_PX`), matching
+ * every other clamp in this module. `regionWidthPx === undefined`
+ * (not yet measured, or `effectiveTreeControlRegionWidthPx` itself
+ * undefined) passes `naturalWidthPx` through unclamped — same
+ * not-yet-measured convention as `sanitizeTreeControlRegionWidthPx`.
+ */
+export function computeTreePanelClampedWidthPx(naturalWidthPx: number, regionWidthPx: number | undefined): number {
+  if (regionWidthPx === undefined || !Number.isFinite(regionWidthPx) || regionWidthPx <= 0) {
+    return naturalWidthPx;
+  }
+  const maxTreeWidthPx = Math.max(
+    TREE_PANEL_MIN_WIDTH_PX,
+    Math.round(regionWidthPx - CONTROL_PANEL_MIN_WIDTH_PX - TREE_CONTROL_WRAPPER_ROW_GAP_PX * 2),
+  );
+  return Math.min(naturalWidthPx, maxTreeWidthPx);
+}
+
 /** `computeTreePanelBoundWidth`'s result — a discriminated union rather
  *  than an `undefined`-width sentinel, so a caller can't forget to
  *  branch on `mode` (ADR-0000: type-driven design). `'full'` is the

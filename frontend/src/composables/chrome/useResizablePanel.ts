@@ -232,6 +232,7 @@ import {
   computeUnsetWrapperMaxWidthCss,
   computeTreeControlRegionDefaultWidthPx,
   computeTreePanelBoundWidth,
+  computeTreePanelClampedWidthPx,
 } from '../../state/layout-model';
 
 // Phase 0 (resolution roadmap, audit finding R2): these five floors
@@ -716,13 +717,27 @@ export function useResizablePanel() {
   // leg therefore never actually triggers from this call site, but the
   // function's own contract is preserved unchanged (import, not
   // reimplementation) rather than hand-inlining a narrower copy.
+  //
+  // W3-fix (review corrective, `.claude/dispatch-reports/
+  // lyt-w3-resizers-review.md` §2): the natural (stored-or-default)
+  // width above is then passed through `computeTreePanelClampedWidthPx`
+  // — the INNER bar's own render-time reconciliation against the
+  // OUTER region's CURRENT live width, mirroring
+  // `effectiveTreeControlRegionWidthPx`'s own sanitize discipline
+  // below. A tree width dragged wide at a large viewport and carried
+  // verbatim (by design — the stored fact itself is untouched) into a
+  // much narrower one could otherwise push `#control-panel` past
+  // `#main-area`'s right edge (900x600, the reviewed clipping
+  // regression) — see that function's own doc for the reserved-space
+  // accounting and its disclosed previewBoard-visible narrowing.
   const effectiveTreePanelWidthPx = computed<number>(() => {
     const bound = computeTreePanelBoundWidth({
       axisColumn: false,
       storedWidthPx: store.session.ui.treePanelWidthPx,
       workspaceWidthPx: rowWidthPx.value,
     });
-    return bound.mode === 'fixed' ? bound.widthPx : treePanelDefaultWidthPx.value;
+    const naturalWidthPx = bound.mode === 'fixed' ? bound.widthPx : treePanelDefaultWidthPx.value;
+    return computeTreePanelClampedWidthPx(naturalWidthPx, effectiveTreeControlRegionWidthPx.value);
   });
 
   return {
