@@ -116,14 +116,28 @@
 --     per-child `min` (200px, matching this file's own pre-existing
 --     WRAPPER_MIN-analog convention, vs. landscape's 160px) for the two
 --     still-opaque CP-library/CP-cards leaves; every genuinely NEW number
---     (the 880/664/204px composite floors, the per-panel floors) is
+--     (the 838/664/204px composite floors, the per-panel floors) is
 --     IDENTICAL across both classes — the underlying components render
 --     the same regardless of screen orientation, so there is no honest
 --     portrait-specific number to derive differently. Portrait's own
---     narrower available width makes the 880px settings floor and the
+--     narrower available width makes the 838px settings floor and the
 --     664px analysis floor considerably more likely to be the binding
 --     constraint here than in landscape — reported, not pre-empted, in
 --     the delivery report's solver results.
+--
+--     REPAIR (2026-08-11, `.claude/dispatch-reports/lyt-optionc-review.md`
+--     Findings 2/3, corrected in `.claude/dispatch-reports/lyt-optionc-
+--     repair.md`): same fixes as `lengyue_landscape.lyt`'s own header note
+--     (read there for the full derivation) — the T(...)'s own wrapping
+--     slot now carries an explicit `min 200px` (this file's own
+--     pre-existing per-child marker reservation), so the emitter's
+--     collapsed blackbox leaf reads that declared min directly instead of
+--     re-deriving the solver's own componentwise-max floor from the (now
+--     much deeper) composite children; and the settings-substrip demand
+--     is corrected from the delivered wave's inflated 97ch/880px to the
+--     actual 92ch/838px (a systematic +1-per-label ch-count error, five of
+--     six labels affected — see the landscape header's Finding 3 note for
+--     the full per-label table).
 layout lengyue-portrait =
   {min 0px, pref 1fr, max inf, gap 12px} V(
     @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
@@ -136,10 +150,10 @@ layout lengyue-portrait =
     {60px, envelope: {disconnected, connected}} A_engine[go, action+info],
     {pref 1fr, gap 4px} H(
       {min 140px, pref 140px, max 140px} tree[board, info+action],
-      {pref 1fr} T(
+      {min 200px, pref 1fr, max inf} T(
         {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} CP-library[common],
         {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} CP-cards[common],
-        {min 880px, pref 1fr, max inf, gap 4px} V(
+        {min 838px, pref 1fr, max inf, gap 4px} V(
           {28px, boundary, content bounded} settingsSubstrip[common],
           {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} settingsPane[common]
         ),

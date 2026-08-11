@@ -784,13 +784,17 @@ def test_lengyue_landscape_default_valuation_solves_optimal(label, w, h):
     ratified consult, work item lyt-tab-skeleton-encoding) makes EVERY
     landscape size INFEASIBLE, for a genuine, disclosed, presence-
     INDEPENDENT reason unrelated to screen size at all: the newly-opened
-    `settingsPane` composite's own honest ch-measured width floor (880px,
-    grounded in `frontend/src/locales/en.json`'s six sub-tab labels +
-    `TabWidget.vue`'s own tab padding -- see `lengyue_landscape.lyt`'s own
-    "OPTION C TAB-SKELETON ENCODING" header section for the full
-    derivation) EXCEEDS the side column's own pre-existing, separately-
-    ratified hard cap (`max 340px+60ch` = 820px, W1 REPAIR/W4 FLOOR
-    SOFTENING/TOOLBAR REENCODE). Since the side column's cap is a
+    `settingsPane` composite's own honest ch-measured width floor (838px --
+    corrected 2026-08-11 per `.claude/dispatch-reports/lyt-optionc-review
+    .md` Finding 3 / `.claude/dispatch-reports/lyt-optionc-repair.md`; the
+    Option C wave's own original delivery reported 880px, a systematic
+    +1-per-label ch-count error, grounded in `frontend/src/locales/en.json`'s
+    six sub-tab labels + `TabWidget.vue`'s own tab padding -- see
+    `lengyue_landscape.lyt`'s own "OPTION C TAB-SKELETON ENCODING" header
+    section for the full derivation) EXCEEDS the side column's own
+    pre-existing, separately-ratified hard cap (`max 340px+60ch` = 820px,
+    W1 REPAIR/W4 FLOOR SOFTENING/TOOLBAR REENCODE) -- by an honest ~18px,
+    not the originally-reported ~60px. Since the side column's cap is a
     CONSTANT regardless of viewport size, this INFEASIBLE outcome is the
     SAME at every screen size -- not something a wider viewport can ever
     rescue. This is named, per the commission's own instruction, as a
@@ -807,7 +811,7 @@ def test_lengyue_landscape_default_valuation_solves_optimal(label, w, h):
         pruned, class_id="landscape", w_px=w, h_px=h, board_widget="B", reach_preferred_widgets=None, time_limit_s=15
     )
     assert result.status == "INFEASIBLE", (
-        f"{label}: Option C's settingsPane 880px width floor exceeds the column's 820px cap "
+        f"{label}: Option C's settingsPane 838px width floor exceeds the column's 820px cap "
         f"at every size (see this test's own docstring); got {result.status}"
     )
 
@@ -816,7 +820,8 @@ def test_lengyue_portrait_default_valuation_solves_optimal_at_420x880():
     """PRE-OPTION-C this pinned OPTIMAL. The Option C tab-skeleton-encoding
     wave (ledger row 1937) makes 420x880 INFEASIBLE too -- at this narrow
     a portrait viewport, the FULL page width (420px) is already far short
-    of `settingsPane`'s own 880px honest width floor (see
+    of `settingsPane`'s own 838px honest width floor (corrected per
+    Finding 3, see
     `test_lengyue_landscape_default_valuation_solves_optimal`'s docstring
     for the full derivation; portrait shares the identical floor, per
     `lengyue_portrait.lyt`'s own header note). This is a genuinely more
@@ -1613,21 +1618,28 @@ def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_
 
     OPTION C UPDATE (2026-08-11, ledger row 1937's ratified consult, work
     item lyt-tab-skeleton-encoding). The tab-skeleton-encoding wave's
-    newly-opened `settingsPane` composite carries an honest 880px
-    ch-measured width floor (see `lengyue_landscape.lyt`'s own header
-    section for the full derivation) that EXCEEDS the landscape side
-    column's pre-existing 820px hard cap at EVERY size, under BOTH
-    valuations -- landscape is now INFEASIBLE across the board (verified
-    by re-solving all 8 OVERLAY_SIZES landscape rows under both
-    valuations). Portrait, whose available width for the control-panel
+    newly-opened `settingsPane` composite carries an honest 838px
+    ch-measured width floor (corrected 2026-08-11 per
+    `.claude/dispatch-reports/lyt-optionc-review.md` Finding 3 /
+    `.claude/dispatch-reports/lyt-optionc-repair.md` -- the wave's own
+    original delivery reported 880px, a systematic +1-per-label ch-count
+    error; see `lengyue_landscape.lyt`'s own header section for the full
+    derivation) that EXCEEDS the landscape side column's pre-existing
+    820px hard cap at EVERY size, under BOTH valuations -- landscape is
+    now INFEASIBLE across the board (verified by re-solving all 8
+    OVERLAY_SIZES landscape rows under both valuations, at the CORRECTED
+    838px floor). Portrait, whose available width for the control-panel
     row varies with viewport width (previewBoard's presence claims 96px
     of it), now solves OPTIMAL at only its two widest sizes under
     `default` (1080x1920, 1200x1600) and its single widest under
     `all-present` (1200x1600) -- every narrower portrait probe is now
-    short of the 880px floor too. Re-verified by direct re-solve, not
-    carried forward from the pre-Option-C table. This is the SAME
-    genuine, disclosed finding named in
-    `test_lengyue_landscape_default_valuation_solves_optimal`'s own
+    short of the 838px floor too (re-verified: the pinned set below is
+    UNCHANGED between the delivered wave's 880px and the corrected 838px
+    -- both narrower portrait probes, 768x1024/540x960, are short of the
+    floor by wide enough a margin that the 42px correction doesn't flip
+    either). Re-verified by direct re-solve, not carried forward from the
+    pre-Option-C table. This is the SAME genuine, disclosed finding named
+    in `test_lengyue_landscape_default_valuation_solves_optimal`'s own
     docstring, not a new, independent regression."""
     known_infeasible_by_valuation = {
         ("all-present", "landscape", "1920x1080"),
@@ -1746,12 +1758,22 @@ def test_portrait_composite_row_carries_the_board_priority_cap(mockup_pages):
     starved by a naive 50/50 split.
 
     OPTION C UPDATE (ledger row 1937): the T-node's own componentwise-max
-    floor moves from 200px to 880px (the newly-opened `settingsPane`
+    floor moves from 200px to 838px (corrected 2026-08-11 per
+    `.claude/dispatch-reports/lyt-optionc-review.md` Finding 3 --
+    the wave's own original delivery reported 880px, a systematic
+    +1-per-label ch-count error -- the newly-opened `settingsPane`
     composite's own ch-measured width floor is now the tallest/widest of
     the five direct children -- see `lengyue_landscape.lyt`'s own header
-    for the derivation, identical across both classes)."""
+    for the derivation, identical across both classes). NOTE: this test
+    exercises `emit_mockup.py`'s own STATIC-HTML mockup generator (research
+    tooling, not live-consumed by the SPA) -- unlike `emit_layout_tree.py`
+    (the LIVE `.gen.ts` emitter), this generator's own
+    `_exclusive_derived_min_px` copy was NOT changed by the Finding 2
+    repair (out of that repair's scope, named as a residual in
+    `.claude/dispatch-reports/lyt-optionc-repair.md`), so this mockup
+    correctly continues to show the solver-derived interior floor."""
     assert "minmax(0px, calc(100vw + 52px))" in mockup_pages["portrait"]
-    assert "minmax(880px, 1fr)" in mockup_pages["portrait"]  # T-node's floor is untouched by the cap
+    assert "minmax(838px, 1fr)" in mockup_pages["portrait"]  # T-node's floor is untouched by the cap
 
 
 def test_tree_panels_t_node_track_carries_its_derived_floor(mockup_pages):
@@ -1767,12 +1789,12 @@ def test_tree_panels_t_node_track_carries_its_derived_floor(mockup_pages):
     section), not the loader's un-derived 0px default.
 
     OPTION C UPDATE (ledger row 1937): 160px/200px are each now SHADOWED
-    by `settingsPane`'s own 880px composite floor (the widest of the five
-    direct children on both classes) -- see
+    by `settingsPane`'s own 838px composite floor (corrected per Finding 3
+    -- the widest of the five direct children on both classes) -- see
     `test_portrait_composite_row_carries_the_board_priority_cap`'s own
     updated docstring."""
-    assert "minmax(880px, 1fr)" in mockup_pages["landscape"]
-    assert "minmax(880px, 1fr)" in mockup_pages["portrait"]
+    assert "minmax(838px, 1fr)" in mockup_pages["landscape"]
+    assert "minmax(838px, 1fr)" in mockup_pages["portrait"]
 
 
 def test_render_is_deterministic_given_the_same_overlay_data():

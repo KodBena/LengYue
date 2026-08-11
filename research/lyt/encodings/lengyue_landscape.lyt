@@ -416,21 +416,36 @@
 --     as the residual this wave does not close, not silently absorbed.
 --
 --     `settingsSubstrip`'s WIDTH DEMAND -- the outer `V(substrip,pane)`
---     wrapper's own T-child `min 880px` (both axes; see the BOTH-AXES
+--     wrapper's own T-child `min 838px` (both axes; see the BOTH-AXES
 --     TENSION note below) -- is a ch-measured envelope over the six
 --     static sub-tab labels, GROUNDED: label text from
---     `frontend/src/locales/en.json` ("Session (UI)"=13ch,
---     "Analysis Environment"=21ch, "Card Sets (Decks)"=18ch,
---     "Advanced Registry"=18ch, "Analysis Layout"=16ch,
---     "Keybindings"=11ch; sum 97ch), resolved via `loader.PX_PER_CH=8.0`
---     (776px), plus `TabWidget.vue`'s own `.tab-header li` padding
+--     `frontend/src/locales/en.json` ("Session (UI)"=12ch,
+--     "Analysis Environment"=20ch, "Card Sets (Decks)"=17ch,
+--     "Advanced Registry"=17ch, "Analysis Layout"=15ch,
+--     "Keybindings"=11ch; sum 92ch), resolved via `loader.PX_PER_CH=8.0`
+--     (736px), plus `TabWidget.vue`'s own `.tab-header li` padding
 --     (`var(--space-default)` each side = 8px×2, `theme.css:568` =
 --     96px for six tabs) and its `border-right:1px` (≈6px) --
---     776+96+6=878px, rounded to 880px for margin. Height-wise this same
---     number ALSO becomes the composite's height floor (see BOTH-AXES
---     TENSION below) even though the settings pane's own real height need
---     (28+200+4gap=232px) is far smaller -- an honest, disclosed
---     over-reservation, not a modeling error.
+--     736+96+6=838px. Height-wise this same number ALSO becomes the
+--     composite's height floor (see BOTH-AXES TENSION below) even though
+--     the settings pane's own real height need (28+200+4gap=232px) is far
+--     smaller -- an honest, disclosed over-reservation, not a modeling
+--     error.
+--
+--     REPAIR (2026-08-11, `.claude/dispatch-reports/lyt-optionc-review.md`
+--     Finding 3, corrected in `.claude/dispatch-reports/lyt-optionc-repair
+--     .md`): the delivered wave's own ch-count table was inflated by
+--     exactly +1 character on five of the six labels (a systematic
+--     off-by-one in whatever counting pass produced it; only
+--     "Keybindings", already correct, was untouched) -- 97ch/878px
+--     (rounded to 880px) reported, 92ch/838px actual. The INFEASIBLE
+--     conclusion's POLARITY is unaffected -- 838px still exceeds the side
+--     column's own pre-existing, separately-ratified `max 340px+60ch`
+--     (820px) cap -- but the honest MARGIN is ~18px over the cap, not the
+--     originally-reported ~60px. The remedy (raise the side column's own
+--     max cap, reduce the sub-tab label set, or accept the INFEASIBLE
+--     landscape sizes) is left to the commissioner -- see the repair
+--     report's own Finding 3 section; this file does not pick one.
 --
 --     CP-analysis OPENED ONE LEVEL (item 3, §3-C): `V(timelineStrip,
 --     T(AT-basic, AT-distributions, AT-stability, AT-multiresolution))`.
@@ -503,9 +518,9 @@
 --     here -- SPEC.md §4.2's own "load-bearing fact 2", already on record
 --     before this wave): a T-child's declared `min` applies IDENTICALLY
 --     to both its width and height (§8's `along=None` branch) -- there is
---     no way, in this 1-D-per-slot language, to declare "880px wide, only
+--     no way, in this 1-D-per-slot language, to declare "838px wide, only
 --     232px tall" on CP-settings' own outer wrapper. Every composite
---     CP-* leaf's declared T-child `min` above (880/664/204px) is
+--     CP-* leaf's declared T-child `min` above (838/664/204px) is
 --     therefore ALSO an over-conservative HEIGHT floor for that tab,
 --     beyond what its own interior actually needs. This is the SAME
 --     limitation the consult's own §2 "excluded from this option space"
@@ -514,6 +529,33 @@
 --     silently absorbed; its solver-visible consequence (does the
 --     control-panel region still fit at the pinned representative sizes)
 --     is reported in the delivery report, not papered over here.
+--
+--     REPAIR (2026-08-11, `.claude/dispatch-reports/lyt-optionc-review.md`
+--     Finding 2, corrected in `.claude/dispatch-reports/lyt-optionc-repair
+--     .md`): the T(...)'s OWN wrapping slot below now carries an EXPLICIT
+--     `min 160px` -- the exact pre-Option-C marker reservation (the value
+--     every CP-* child declared literally, W4 FLOOR SOFTENING, before this
+--     wave opened two of them into composites). This is the "solver-side
+--     only" split made honest end to end: the COMPILER still derives the
+--     T's real structural floor as the componentwise max of its children's
+--     declared min (§8's `along=None` branch, unaffected by this
+--     declaration -- `compiler.py`'s own T-branch comment: "we additionally
+--     derive and assert it explicitly... when a T slot's own declared min
+--     is SMALLER than that componentwise max", i.e. the declared 160px
+--     never weakens the solver's own INFEASIBLE finding), while the
+--     EMITTER (`emit_layout_tree.py`) now reads this declared min directly
+--     for the collapsed blackbox leaf's track, instead of re-deriving the
+--     same componentwise max the solver uses -- so the interior's 838px
+--     settings-substrip demand (corrected per Finding 3 above; the
+--     delivered wave over-stated it as 880px) stays solver-visible
+--     (correctly driving
+--     INFEASIBLE) without leaking into the LIVE CSS Grid minimum the
+--     shipped app enforces today. Before this repair, the emitter's own
+--     derivation (mirroring the solver's) pulled the composite children's
+--     interior floors into the emitted track, regenerating minPx from
+--     160px to 880px -- a live-DOM behavior change the "solver-side only"
+--     framing never disclosed as in scope. See the repair report for the
+--     .gen.ts diff-vs-base inertness verification.
 layout lengyue-landscape =
   {min 0px, pref 1fr, max inf, gap 12px} H(
     @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
@@ -527,10 +569,10 @@ layout lengyue-landscape =
       {160px} A_app[common, action],
       {pref 1fr, gap 4px} H(
         {min 110px, pref 110px, max 110px} tree[board, info+action],
-        {pref 1fr} T(
+        {min 160px, pref 1fr, max inf} T(
           {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v} CP-library[common],
           {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v} CP-cards[common],
-          {min 880px, pref 1fr, max inf, gap 4px} V(
+          {min 838px, pref 1fr, max inf, gap 4px} V(
             {28px, boundary, content bounded} settingsSubstrip[common],
             {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} settingsPane[common]
           ),

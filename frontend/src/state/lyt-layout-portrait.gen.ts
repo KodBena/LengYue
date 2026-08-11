@@ -93,7 +93,7 @@ export const LYT_PORTRAIT: LytProgram = {
             {
               path: "4.1",
               presenceDefaultVisible: true,
-              track: { kind: "elastic", minPx: 880, frWeight: 1 },
+              track: { kind: "elastic", minPx: 200, frWeight: 1 },
               node: { kind: "blackbox", widget: "controlPanel", tag: "BLACK BOX", childWidgets: ["CP-library", "CP-cards", "settingsSubstrip", "settingsPane", "timelineStrip", "AT_basic_interval", "AT_basic_scoreLead", "AT_basic_mergedDelta", "AT_dist_deltaDist", "AT_dist_mistakeGap", "AT_stab_stability", "AT_stab_crossCorr", "AT_multires", "otherColorDebug", "otherBand"] },
             },
             {
