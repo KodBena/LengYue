@@ -55,6 +55,26 @@ describe('trackCssValue — board-priority-clamp, leadingReservedPx generalizati
   });
 });
 
+describe('trackCssValue — board-priority-self-clamp, CASE B (W3, portrait\'s V-root/V-composite)', () => {
+  it('composes minmax(0px, calc(100<unit> + fixedSum px)) -- PLUS the fixed-sibling sum, opposite CASE A\'s minus', () => {
+    const shape: LytTrackShape = {
+      kind: 'board-priority-self-clamp',
+      naturalCrossUnit: 'vw',
+      fixedSiblingSumPx: 52,
+    };
+    expect(trackCssValue(shape)).toBe('minmax(0px, calc(100vw + 52px))');
+  });
+
+  it('ignores leadingReservedPx -- CASE B has no sibling-reservation term to subtract, unlike CASE A', () => {
+    const shape: LytTrackShape = {
+      kind: 'board-priority-self-clamp',
+      naturalCrossUnit: 'vh',
+      fixedSiblingSumPx: 0,
+    };
+    expect(trackCssValue(shape, 180)).toBe(trackCssValue(shape));
+  });
+});
+
 describe('gapCssFor (unchanged)', () => {
   it('h axis: column-gap carries, row-gap is 0', () => {
     expect(gapCssFor('h', 12)).toEqual({ columnGap: '12px', rowGap: '0px' });

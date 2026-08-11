@@ -26,7 +26,9 @@ describe('useDeferredLayoutClass — live behavior (no isDragging ref supplied)'
     const widthPx = ref(1920);
     const heightPx = ref(1080);
     const layoutClass = useDeferredLayoutClass(widthPx, heightPx);
-    expect(layoutClass.value).toEqual({ axis: 'row', width: 'wide' }); // WIDTH_CLASS_MAX_PX.wide === 1920, inclusive
+    // WIDTH_CLASS_MAX_PX.wide === 1920, inclusive; screenClassId (W3) is
+    // the nearest-neighbor derivation axis is now DERIVED from.
+    expect(layoutClass.value).toEqual({ axis: 'row', width: 'wide', screenClassId: 'landscape' });
   });
 
   it('flips axis to column as the ref geometry crosses well below the aspect-ratio threshold', async () => {

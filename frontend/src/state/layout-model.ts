@@ -68,6 +68,24 @@
  * commit frozen for the whole duration of `isAnyPanelResizing` so an
  * axis flip never fires mid-drag superimposed on a resizer gesture.
  *
+ * W3 (`.claude/dispatch-reports/lyt-vue-realization-roadmap.md` §8 W3,
+ * §4 item 2): the axis derivation above is now DERIVED FROM, not
+ * independent of, a genuine LYT SPEC.md §6 nearest-neighbor screen-class
+ * selection (`nearestScreenClassId`) over the two representative points
+ * `research/lyt/runner.py`'s own `lengyue_landscape+portrait` registration
+ * declares (`ast.ScreenClass(id="landscape", w_px=1920, h_px=1080)`,
+ * `ast.ScreenClass(id="portrait", w_px=1080, h_px=1920)`) — see that
+ * function's own doc for the "scale-normalized" distance metric this
+ * prototype commits to (SPEC.md names the property, not a formula). The
+ * hysteresis/mid-drag-freeze COMMIT DISCIPLINE below is unchanged from
+ * pre-W3 — only the boundary test inside `evaluateScreenClassId` swapped
+ * from a bare aspect-ratio threshold (0.9, informally set) to the SPEC's
+ * own nearest-neighbor rule (which, for exactly these two symmetric
+ * classes, reduces to a boundary at ratio 1.0 — see `nearestScreenClassId`
+ * doc). `LayoutClass.axis` is retained, now DERIVED from `screenClassId`
+ * (`portrait -> 'column'`, `landscape -> 'row'`) rather than computed
+ * independently, so existing `axis`-only consumers see no shape change.
+ *
  * License: Public Domain (The Unlicense)
  */
 import { ref, watch, type Ref } from 'vue';
@@ -81,11 +99,22 @@ export type LayoutWidthClass = 'compact' | 'standard' | 'wide' | 'vast';
 export interface LayoutClass {
   axis: LayoutAxis;
   width: LayoutWidthClass;
+  /** W3 addition: which LYT SPEC.md §6 screen class this geometry nearest-
+   *  neighbors to. `axis` above is now DERIVED from this (see this
+   *  module's header, "W3"), kept as its own facet for existing readers
+   *  that only care about the row/column reorganization, not the
+   *  compiled-program identity that drives it. */
+  screenClassId: LytScreenClassId;
 }
 
-// magic-literal, spec-given: "flip to 'column' below ~0.9 width/height"
-// (task charter). The board+panels stack vertically once the window is
-// noticeably taller than it is wide.
+// historical: pre-W3, `deriveAxis` compared width/height against this bare
+// ratio threshold directly (0.9, informally set per the original task
+// charter) with no grounding in the LYT SPEC's own screen-class registry.
+// Retained ONLY as the numeric input `deriveAxis`'s now-thin wrapper below
+// still accepts for existing callers/tests that reference it by name — see
+// `AXIS_ASPECT_RATIO_HYSTERESIS`'s own note. The LIVE boundary
+// `useDeferredLayoutClass`/`nearestScreenClassId` actually use is the
+// nearest-neighbor rule below, not this constant.
 export const AXIS_ASPECT_RATIO_THRESHOLD = 0.9;
 
 // assumption (not spec-given): hysteresis band around the aspect-ratio
@@ -95,17 +124,111 @@ export const AXIS_ASPECT_RATIO_THRESHOLD = 0.9;
 // boundary doesn't flap the axis every other ResizeObserver callback.
 export const AXIS_ASPECT_RATIO_HYSTERESIS = 0.08;
 
+// ── W3: LYT SPEC.md §6 screen classes + nearest-neighbor selection ────
+
+export type LytScreenClassId = 'landscape' | 'portrait';
+
+export interface LytScreenClassPoint {
+  readonly id: LytScreenClassId;
+  readonly wPx: number;
+  readonly hPx: number;
+}
+
+// The exact two representative points `research/lyt/runner.py`'s own
+// `lengyue_landscape+portrait` Registration declares
+// (`ast.ScreenClass(id="landscape", w_px=1920, h_px=1080)`,
+// `ast.ScreenClass(id="portrait", w_px=1080, h_px=1920)`) — read end to
+// end in that file; these are the ONLY two classes the clean-room
+// LengYue registration compiles a program for (SPEC.md §6's own "only
+// `lengyue_landscape.lyt` / `lengyue_portrait.lyt` register two classes"
+// disclosure). A THIRD class (the compact-landscape design question
+// SPEC.md §12 and the roadmap's own W3 "KNOWN CONSTRAINT" name) is a
+// pending commissioner decision, not invented here.
+export const LYT_SCREEN_CLASSES: readonly LytScreenClassPoint[] = [
+  { id: 'landscape', wPx: 1920, hPx: 1080 },
+  { id: 'portrait', wPx: 1080, hPx: 1920 },
+];
+
+/** log(w/h) — the genuinely scale-invariant quantity a rectangle's shape
+ *  carries (a 900x1400 half-tile and a 2400x3600 portrait monitor should
+ *  both prefer 'portrait' despite wildly different absolute size; a raw
+ *  (w,h) delta would NOT be scale-normalized — it would be dominated by
+ *  absolute pixel magnitude instead of shape). Log space makes the
+ *  metric symmetric between "twice as wide as tall" and "half as wide as
+ *  tall" rather than skewing toward one side the way a bare ratio
+ *  difference would. */
+function logAspect(wPx: number, hPx: number): number {
+  return Math.log(wPx / hPx);
+}
+
+// assumption (not spec-given): SPEC.md §6 names "nearest-neighbor by
+// scale-normalized distance" but gives no concrete formula — this is the
+// prototype's own disclosed reading (log-aspect-ratio distance, per
+// `logAspect`'s own doc), mirroring the same "assumption (not
+// spec-given)" disclosure convention this module already uses for
+// `AXIS_ASPECT_RATIO_HYSTERESIS`/`WIDTH_CLASS_MAX_PX`/etc.
+export function nearestScreenClassId(widthPx: number, heightPx: number): LytScreenClassId {
+  if (!Number.isFinite(widthPx) || !Number.isFinite(heightPx) || widthPx <= 0 || heightPx <= 0) {
+    return 'landscape'; // not yet measured — today's pre-W3 default, matches deriveAxis's own convention
+  }
+  const observed = logAspect(widthPx, heightPx);
+  let best: LytScreenClassPoint = LYT_SCREEN_CLASSES[0];
+  let bestDistance = Infinity;
+  for (const cls of LYT_SCREEN_CLASSES) {
+    const distance = Math.abs(observed - logAspect(cls.wPx, cls.hPx));
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = cls;
+    }
+  }
+  return best.id;
+}
+
+// assumption (not spec-given): hysteresis band around the nearest-neighbor
+// boundary, in log-aspect units — same role as
+// `AXIS_ASPECT_RATIO_HYSTERESIS` played for the old bare-threshold
+// derivation, sized to the same order of magnitude (0.08) so a live-resized
+// window sitting within a few px of the boundary doesn't flap the screen
+// class every other ResizeObserver callback. Scoped, disclosed, to exactly
+// the two-class landscape/portrait case SPEC.md §6 registers today — a
+// third class would need a genuinely N-ary hysteresis scheme, out of scope.
+export const SCREEN_CLASS_LOG_ASPECT_HYSTERESIS = 0.08;
+
+/**
+ * `nearestScreenClassId` plus hysteresis around the two-class boundary
+ * (`logAspect(w,h) === 0`, i.e. `w === h` — the landscape/portrait
+ * representative points sit at ±log(16/9), symmetric around it). No
+ * hysteresis state of its own — `useDeferredLayoutClass` is the stateful
+ * caller, mirroring `deriveAxis`'s own pre-W3 split (pure boundary test
+ * here, hysteresis state there).
+ */
+export function evaluateScreenClassId(
+  widthPx: number,
+  heightPx: number,
+  previous: LytScreenClassId,
+): LytScreenClassId {
+  if (!Number.isFinite(widthPx) || !Number.isFinite(heightPx) || widthPx <= 0 || heightPx <= 0) {
+    return 'landscape';
+  }
+  const observed = logAspect(widthPx, heightPx);
+  const half = SCREEN_CLASS_LOG_ASPECT_HYSTERESIS / 2;
+  return previous === 'portrait'
+    ? (observed > half ? 'landscape' : 'portrait')
+    : (observed < -half ? 'portrait' : 'landscape');
+}
+
 /**
  * Pure axis derivation — no hysteresis (that's `useDeferredLayoutClass`'s
  * job, since hysteresis needs the PREVIOUS committed axis as state).
  * Non-finite or non-positive geometry (not yet measured) defaults to
  * `'row'` — today's only shape — rather than guessing.
+ *
+ * W3: now a thin wrapper deriving `axis` from `nearestScreenClassId`
+ * (`portrait -> 'column'`, `landscape -> 'row'`) rather than an
+ * independent bare-ratio comparison — see this module's header, "W3".
  */
 export function deriveAxis(widthPx: number, heightPx: number): LayoutAxis {
-  if (!Number.isFinite(widthPx) || !Number.isFinite(heightPx) || widthPx <= 0 || heightPx <= 0) {
-    return 'row';
-  }
-  return widthPx / heightPx < AXIS_ASPECT_RATIO_THRESHOLD ? 'column' : 'row';
+  return nearestScreenClassId(widthPx, heightPx) === 'portrait' ? 'column' : 'row';
 }
 
 // assumption (not spec-given): absolute-width class breakpoints. The
@@ -128,7 +251,8 @@ export function deriveWidthClass(widthPx: number): LayoutWidthClass {
 }
 
 export function deriveLayoutClass(widthPx: number, heightPx: number): LayoutClass {
-  return { axis: deriveAxis(widthPx, heightPx), width: deriveWidthClass(widthPx) };
+  const screenClassId = nearestScreenClassId(widthPx, heightPx);
+  return { axis: screenClassId === 'portrait' ? 'column' : 'row', width: deriveWidthClass(widthPx), screenClassId };
 }
 
 // ── Control-panel tab registry → floor projection (audit finding R2) ──
@@ -480,6 +604,68 @@ export function computeTreeControlRegionDefaultWidthPx(rowWidthPx: number): numb
   return Math.min(Math.max(naturalWidthPx, WRAPPER_MIN_WIDTH_PX), maxRegionWidthPx);
 }
 
+// ── Tree panel render-time clamp against the OUTER region's own live
+//    width (W3-fix corrective, `.claude/dispatch-reports/
+//    lyt-w3-resizers-review.md` §2) ─────────────────────────────────
+
+// The landscape tree-control-wrapper's own H-node inter-track gap
+// (`research/lyt/encodings/lengyue_landscape.lyt`'s `H(tree, T(CP-*),
+// previewBoard) gap 4px` at path "2.3", mirrored in
+// `lyt-layout.gen.ts`'s `gapPx: 4` at the same path). A LITERAL, not
+// LYT-cross-checked at load time like `RESIZER_WIDTH_PX` above — this
+// module doesn't import the compiled program — cross-checked by hand
+// against both source files at authoring time and disclosed here
+// rather than silently duplicated; same posture as this module's
+// other "assumption (not spec-given)" literals (`TAB_STRIP_GAP_PX`
+// etc.) if the `.lyt` encoding's own gap ever changes.
+export const TREE_CONTROL_WRAPPER_ROW_GAP_PX = 4;
+
+/**
+ * The INNER bar's render-time reconciliation — the OUTER-bar clamp's
+ * (`sanitizeTreeControlRegionWidthPx`) analog, applied to the tree
+ * panel instead of the wrapper region. `computeTreePanelBoundWidth`'s
+ * "stored value wins verbatim, independent of workspace width"
+ * contract (unchanged — the STORED fact,
+ * `session.ui.treePanelWidthPx`, is never touched by this function)
+ * can still hand a RENDER value that, alongside
+ * `CONTROL_PANEL_MIN_WIDTH_PX`'s own floor and the row's two
+ * always-present inter-track gaps, exceeds what the OUTER region's
+ * OWN live width (`effectiveTreeControlRegionWidthPx`, already
+ * clamped by `sanitizeTreeControlRegionWidthPx` against the current
+ * viewport) can hold: a tree panel dragged wide at a large viewport,
+ * carried verbatim into a much narrower one, pushed `#control-panel`
+ * 52px past `#main-area`'s right edge at 900x600 — the reviewed
+ * clipping regression. This clamps the RENDERED width only; reload or
+ * widen the viewport and the full stored width returns unchanged,
+ * exactly mirroring the OUTER bar's own sanitize-without-mutating-
+ * the-store discipline.
+ *
+ * Reserves ONE control-panel floor and TWO row gaps (tree<->control,
+ * control<->previewBoard — both always present as grid tracks in the
+ * landscape `H(tree, controlPanel, previewBoard)` node; previewBoard
+ * itself renders 0px wide when its own presence toggle is off, the
+ * default this fix was verified against). A currently VISIBLE
+ * previewBoard reserves more space than this formula accounts for —
+ * a disclosed narrowing, not silently mishandled: the reviewed
+ * regression and the delivered Playwright probe both exercise the
+ * previewBoard-hidden (default) case only. Never shrinks the tree
+ * panel below its own drag floor (`TREE_PANEL_MIN_WIDTH_PX`), matching
+ * every other clamp in this module. `regionWidthPx === undefined`
+ * (not yet measured, or `effectiveTreeControlRegionWidthPx` itself
+ * undefined) passes `naturalWidthPx` through unclamped — same
+ * not-yet-measured convention as `sanitizeTreeControlRegionWidthPx`.
+ */
+export function computeTreePanelClampedWidthPx(naturalWidthPx: number, regionWidthPx: number | undefined): number {
+  if (regionWidthPx === undefined || !Number.isFinite(regionWidthPx) || regionWidthPx <= 0) {
+    return naturalWidthPx;
+  }
+  const maxTreeWidthPx = Math.max(
+    TREE_PANEL_MIN_WIDTH_PX,
+    Math.round(regionWidthPx - CONTROL_PANEL_MIN_WIDTH_PX - TREE_CONTROL_WRAPPER_ROW_GAP_PX * 2),
+  );
+  return Math.min(naturalWidthPx, maxTreeWidthPx);
+}
+
 /** `computeTreePanelBoundWidth`'s result — a discriminated union rather
  *  than an `undefined`-width sentinel, so a caller can't forget to
  *  branch on `mode` (ADR-0000: type-driven design). `'full'` is the
@@ -596,27 +782,30 @@ export function useDeferredLayoutClass(
   heightPx: Ref<number>,
   isDragging?: Ref<boolean>,
 ): Ref<LayoutClass> {
+  // `ref<LayoutClass>(...)` over a plain-object initial value returns
+  // `Ref<UnwrapRef<LayoutClass>>`, which Vue's own recursive UnwrapRef
+  // widens for a plain (non-branded, non-class) interface like
+  // `LayoutClass` in a way TS can't always fold back to the literal
+  // `Ref<LayoutClass>` this function's own return type promises — the
+  // cast narrows it back; `LayoutClass`'s three fields (`axis`/`width`/
+  // `screenClassId`) are all plain string-union scalars, so no reactive
+  // wrapping behavior is actually lost by asserting the narrower type.
   const committed = ref<LayoutClass>(deriveLayoutClass(widthPx.value, heightPx.value)) as Ref<LayoutClass>;
-  let liveAxis: LayoutAxis = committed.value.axis;
-
-  function evaluateAxis(w: number, h: number): LayoutAxis {
-    if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return 'row';
-    const ratio = w / h;
-    const enterColumnBelow = AXIS_ASPECT_RATIO_THRESHOLD - AXIS_ASPECT_RATIO_HYSTERESIS / 2;
-    const exitColumnAbove = AXIS_ASPECT_RATIO_THRESHOLD + AXIS_ASPECT_RATIO_HYSTERESIS / 2;
-    const wasColumn = liveAxis === 'column';
-    return (wasColumn ? ratio < exitColumnAbove : ratio < enterColumnBelow) ? 'column' : 'row';
-  }
+  let liveScreenClassId: LytScreenClassId = committed.value.screenClassId;
 
   function commitIfIdle() {
     if (isDragging?.value) return; // mid-drag: freeze, per this fn's own header
-    committed.value = { axis: liveAxis, width: deriveWidthClass(widthPx.value) };
+    committed.value = {
+      axis: liveScreenClassId === 'portrait' ? 'column' : 'row',
+      width: deriveWidthClass(widthPx.value),
+      screenClassId: liveScreenClassId,
+    };
   }
 
   watch(
     [widthPx, heightPx],
     ([w, h]) => {
-      liveAxis = evaluateAxis(w, h);
+      liveScreenClassId = evaluateScreenClassId(w, h, liveScreenClassId);
       commitIfIdle();
     },
     { immediate: true },

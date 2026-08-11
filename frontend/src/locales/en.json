@@ -10,6 +10,8 @@
   "app.chrome.toggleTree":                "Toggle Game Tree",
   "app.chrome.toggleControls":            "Toggle Control Panel",
   "app.chrome.gameTreePanelHeader":       "Game Tree",
+  "app.chrome.resizerOuterLabel":         "Resize tree and control panel region",
+  "app.chrome.resizerInnerLabel":         "Resize game tree panel",
 
   "app.chrome.presence.menuButton":              "Panels",
   "app.chrome.presence.menuTitle":               "Show / hide panels",

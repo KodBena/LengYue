@@ -25,6 +25,10 @@ import {
   deriveWidthClass,
   deriveLayoutClass,
   AXIS_ASPECT_RATIO_THRESHOLD,
+  nearestScreenClassId,
+  evaluateScreenClassId,
+  LYT_SCREEN_CLASSES,
+  SCREEN_CLASS_LOG_ASPECT_HYSTERESIS,
   WIDTH_CLASS_MAX_PX,
   CONTROL_PANEL_TAB_IDS,
   TAB_STRIP_PER_TAB_WIDTH_PX,
@@ -50,9 +54,11 @@ import {
   MIN_BOARD_PX,
   TREE_CONTROL_REGION_DEFAULT_WIDTH_FRACTION,
   computeTreeControlRegionDefaultWidthPx,
+  TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+  computeTreePanelClampedWidthPx,
 } from '../../../src/state/layout-model';
 
-describe('deriveAxis — row/column split from aspect ratio', () => {
+describe('deriveAxis — row/column split, now derived from nearestScreenClassId (W3)', () => {
   it('stays row when width/height is well above the threshold (a wide desktop window)', () => {
     expect(deriveAxis(1920, 1080)).toBe('row');
   });
@@ -61,16 +67,8 @@ describe('deriveAxis — row/column split from aspect ratio', () => {
     expect(deriveAxis(900, 1400)).toBe('column');
   });
 
-  it('a perfectly square window (ratio 1) stays row — the threshold is strictly below 1', () => {
+  it('a perfectly square window (ratio 1) is row — nearestScreenClassId\'s own boundary (equidistant from both classes\' log-aspect) resolves ties to the FIRST-listed class, landscape', () => {
     expect(deriveAxis(1000, 1000)).toBe('row');
-  });
-
-  it('pins the exact threshold boundary: just above AXIS_ASPECT_RATIO_THRESHOLD is row, just below is column', () => {
-    const heightPx = 1000;
-    const justAboveWidthPx = Math.ceil(AXIS_ASPECT_RATIO_THRESHOLD * heightPx) + 1;
-    const justBelowWidthPx = Math.floor(AXIS_ASPECT_RATIO_THRESHOLD * heightPx) - 1;
-    expect(deriveAxis(justAboveWidthPx, heightPx)).toBe('row');
-    expect(deriveAxis(justBelowWidthPx, heightPx)).toBe('column');
   });
 
   it('unmeasured or degenerate geometry (zero, negative, NaN, Infinity) defaults to row rather than guessing column', () => {
@@ -80,6 +78,56 @@ describe('deriveAxis — row/column split from aspect ratio', () => {
     expect(deriveAxis(Number.NaN, 500)).toBe('row');
     expect(deriveAxis(500, Number.NaN)).toBe('row');
     expect(deriveAxis(Number.POSITIVE_INFINITY, 500)).toBe('row');
+  });
+});
+
+describe('nearestScreenClassId — LYT SPEC.md §6 nearest-neighbor over the two registered classes (W3)', () => {
+  it('the two representative points are exactly research/lyt/runner.py\'s own registration (1920x1080 / 1080x1920)', () => {
+    expect(LYT_SCREEN_CLASSES).toEqual([
+      { id: 'landscape', wPx: 1920, hPx: 1080 },
+      { id: 'portrait', wPx: 1080, hPx: 1920 },
+    ]);
+  });
+
+  it('an exact representative point resolves to its own class', () => {
+    expect(nearestScreenClassId(1920, 1080)).toBe('landscape');
+    expect(nearestScreenClassId(1080, 1920)).toBe('portrait');
+  });
+
+  it('scale-invariance: a half-tile and a large monitor with the SAME aspect ratio resolve identically', () => {
+    expect(nearestScreenClassId(900, 1400)).toBe(nearestScreenClassId(2400, 3600));
+    expect(nearestScreenClassId(1600, 900)).toBe(nearestScreenClassId(3840, 2160));
+  });
+
+  it('a square window (w === h, log-aspect 0) is equidistant from both classes — resolves to the first-listed (landscape), not a throw or a guess', () => {
+    expect(nearestScreenClassId(1000, 1000)).toBe('landscape');
+  });
+
+  it('non-finite/non-positive geometry defaults to landscape, matching deriveAxis\'s own not-yet-measured convention', () => {
+    expect(nearestScreenClassId(0, 0)).toBe('landscape');
+    expect(nearestScreenClassId(-100, 500)).toBe('landscape');
+    expect(nearestScreenClassId(Number.NaN, 500)).toBe('landscape');
+    expect(nearestScreenClassId(Number.POSITIVE_INFINITY, 500)).toBe('landscape');
+  });
+});
+
+describe('evaluateScreenClassId — hysteresis around the nearest-neighbor boundary (W3)', () => {
+  it('a ratio just inside the band, entering from landscape, stays landscape', () => {
+    // log-aspect just below 0 (ratio just under 1) — inside the +-0.04 half-band.
+    const heightPx = 10000;
+    const widthPx = Math.round(heightPx * Math.exp(-SCREEN_CLASS_LOG_ASPECT_HYSTERESIS / 4));
+    expect(evaluateScreenClassId(widthPx, heightPx, 'landscape')).toBe('landscape');
+  });
+
+  it('a ratio just inside the band, entering from portrait, stays portrait', () => {
+    const heightPx = 10000;
+    const widthPx = Math.round(heightPx * Math.exp(SCREEN_CLASS_LOG_ASPECT_HYSTERESIS / 4));
+    expect(evaluateScreenClassId(widthPx, heightPx, 'portrait')).toBe('portrait');
+  });
+
+  it('a ratio well past the band flips regardless of the previous class', () => {
+    expect(evaluateScreenClassId(1920, 1080, 'portrait')).toBe('landscape');
+    expect(evaluateScreenClassId(1080, 1920, 'landscape')).toBe('portrait');
   });
 });
 
@@ -103,10 +151,12 @@ describe('deriveWidthClass — compact/standard/wide/vast from absolute width', 
 });
 
 describe('deriveLayoutClass — the discriminated LayoutClass, composed', () => {
-  it('composes axis and width independently (a narrow-but-wide-ratio and a vast-but-tall-ratio window)', () => {
-    expect(deriveLayoutClass(1920, 1080)).toEqual({ axis: 'row', width: 'wide' }); // WIDTH_CLASS_MAX_PX.wide === 1920, inclusive
-    expect(deriveLayoutClass(2400, 1080)).toEqual({ axis: 'row', width: 'vast' });
-    expect(deriveLayoutClass(700, 1200)).toEqual({ axis: 'column', width: 'compact' });
+  it('composes axis, width, and screenClassId independently (a narrow-but-wide-ratio and a vast-but-tall-ratio window)', () => {
+    // WIDTH_CLASS_MAX_PX.wide === 1920, inclusive; screenClassId (W3) is
+    // the nearest-neighbor derivation axis is now DERIVED from.
+    expect(deriveLayoutClass(1920, 1080)).toEqual({ axis: 'row', width: 'wide', screenClassId: 'landscape' });
+    expect(deriveLayoutClass(2400, 1080)).toEqual({ axis: 'row', width: 'vast', screenClassId: 'landscape' });
+    expect(deriveLayoutClass(700, 1200)).toEqual({ axis: 'column', width: 'compact', screenClassId: 'portrait' });
   });
 });
 
@@ -362,5 +412,48 @@ describe('computeTreeControlRegionDefaultWidthPx — init-vs-drag divergence fix
     expect(computeTreeControlRegionDefaultWidthPx(-100)).toBe(WRAPPER_MIN_WIDTH_PX);
     expect(computeTreeControlRegionDefaultWidthPx(NaN)).toBe(WRAPPER_MIN_WIDTH_PX);
     expect(computeTreeControlRegionDefaultWidthPx(Infinity)).toBe(WRAPPER_MIN_WIDTH_PX);
+  });
+});
+
+describe('computeTreePanelClampedWidthPx — W3-fix corrective, the 900x600 clipping regression (lyt-w3-resizers-review.md §2)', () => {
+  it('passes the natural width through unchanged when it already fits the region', () => {
+    // A never-dragged default (140) comfortably fits any region wide
+    // enough to also hold CONTROL_PANEL_MIN_WIDTH_PX + two row gaps.
+    const regionWidthPx = TREE_PANEL_MIN_WIDTH_PX + CONTROL_PANEL_MIN_WIDTH_PX + TREE_CONTROL_WRAPPER_ROW_GAP_PX * 2 + 50;
+    expect(computeTreePanelClampedWidthPx(TREE_PANEL_MIN_WIDTH_PX, regionWidthPx)).toBe(TREE_PANEL_MIN_WIDTH_PX);
+  });
+
+  it('reproduces the reviewed 900x600 regression numbers: a 347px dragged tree width in a 599px region clamps to leave the control panel its own floor', () => {
+    // The exact numbers the review's own live measurement produced
+    // (`.claude/dispatch-reports/lyt-w3-resizers-review.md` §2):
+    // treePanelWidthPx dragged to 347 at a wide viewport, carried
+    // verbatim into a 900x600 session where
+    // effectiveTreeControlRegionWidthPx (the OUTER region, already
+    // clamped by sanitizeTreeControlRegionWidthPx) sanitizes down to
+    // 599. Pre-fix, App.vue rendered the wrapper at 347 (tree) + 300
+    // (control panel floor) + gaps > 599, clipping #control-panel by
+    // ~52px. Post-fix, the tree clamps down so the total fits.
+    const naturalWidthPx = 347;
+    const regionWidthPx = 599;
+    const clamped = computeTreePanelClampedWidthPx(naturalWidthPx, regionWidthPx);
+    expect(clamped).toBeLessThan(naturalWidthPx);
+    expect(clamped + CONTROL_PANEL_MIN_WIDTH_PX + TREE_CONTROL_WRAPPER_ROW_GAP_PX * 2).toBeLessThanOrEqual(regionWidthPx);
+  });
+
+  it('never shrinks the tree panel below its own drag floor (TREE_PANEL_MIN_WIDTH_PX), even in an over-constrained region', () => {
+    const clamped = computeTreePanelClampedWidthPx(1000, TREE_PANEL_MIN_WIDTH_PX);
+    expect(clamped).toBe(TREE_PANEL_MIN_WIDTH_PX);
+  });
+
+  it('a smaller natural width than the available room is never grown — this clamps down only, never up', () => {
+    const regionWidthPx = 2000; // far more room than needed
+    expect(computeTreePanelClampedWidthPx(TREE_PANEL_MIN_WIDTH_PX, regionWidthPx)).toBe(TREE_PANEL_MIN_WIDTH_PX);
+  });
+
+  it('regionWidthPx undefined or not-yet-measured (<=0/non-finite) passes naturalWidthPx through unclamped', () => {
+    expect(computeTreePanelClampedWidthPx(347, undefined)).toBe(347);
+    expect(computeTreePanelClampedWidthPx(347, 0)).toBe(347);
+    expect(computeTreePanelClampedWidthPx(347, -10)).toBe(347);
+    expect(computeTreePanelClampedWidthPx(347, NaN)).toBe(347);
   });
 });

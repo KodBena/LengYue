@@ -10,6 +10,8 @@
   "app.chrome.toggleTree":                "棋譜ツリーの表示切替",
   "app.chrome.toggleControls":            "コントロールパネルの表示切替",
   "app.chrome.gameTreePanelHeader":       "棋譜ツリー",
+  "app.chrome.resizerOuterLabel":         "ツリーとコントロールパネル領域のサイズ変更",
+  "app.chrome.resizerInnerLabel":         "棋譜ツリーパネルのサイズ変更",
 
   "app.chrome.presence.menuButton":              "パネル",
   "app.chrome.presence.menuTitle":               "パネルの表示 / 非表示",
