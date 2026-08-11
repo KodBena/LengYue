@@ -245,17 +245,17 @@ const displayed = useThrottledSnapshot(liveMetrics, TOOLBAR_METRICS_REDRAW_THROT
          node (pre-analysis, fresh navigation, or post-purge). -->
     <div class="metric" :title="$t('toolbar.metric.winrateTooltip')">
       <span class="m-lbl">{{ $t('toolbar.metric.winrate') }}</span>
-      <span class="m-val eval-val">{{ displayed.winrate }}</span>
+      <span class="m-val eval-val winrate-val">{{ displayed.winrate }}</span>
     </div>
     <div class="metric" :title="$t('toolbar.metric.scoreLeadTooltip')">
       <span class="m-lbl">{{ $t('toolbar.metric.scoreLead') }}</span>
-      <span class="m-val eval-val">{{ displayed.scoreLead }}</span>
+      <span class="m-val eval-val score-lead-val">{{ displayed.scoreLead }}</span>
     </div>
-    <div class="metric">
+    <div class="metric metric-pps">
       <span class="m-lbl">{{ $t('toolbar.metric.pps') }}</span>
       <span class="m-val">{{ displayed.pps }}</span>
     </div>
-    <div class="metric">
+    <div class="metric metric-latency">
       <span class="m-lbl">{{ $t('toolbar.metric.latency') }}</span>
       <span class="m-val">{{ $t('toolbar.metric.latencyValue', { ms: displayed.latency }) }}</span>
     </div>
@@ -280,7 +280,32 @@ const displayed = useThrottledSnapshot(liveMetrics, TOOLBAR_METRICS_REDRAW_THROT
 .engine-metrics-bar { display: flex; gap: var(--space-medium); font-family: monospace; font-size: var(--text-emphasis); align-items: center; min-width: 0; }
 .metric { display: flex; align-items: center; gap: var(--space-tight); min-width: 0; }
 .m-lbl  { color: var(--border-3); font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-default); }
-.m-val  { color: var(--accent-primary); font-weight: bold; }
+/* W4 item 2 ("envelope-reserved cells so latency growth never
+   reflows"): each numeric `.m-val` reserves its own worst-case-digit
+   width via `min-width` in `ch` (a monospace-safe unit — this bar is
+   `font-family: monospace`, so `1ch` is a stable per-glyph width) —
+   the LYT encoding's own I_engine leaf names exactly this class of
+   defect (`{envelope: {disconnected, connected_5digit_latency}}`,
+   `research/lyt/encodings/lengyue_landscape.lyt`), which this Vue
+   realization never actually implemented until now — the toolbar's
+   winrate/scoreLead/pps/latency values previously had NO reserved
+   width at all, so a value growing by a digit shoved every metric to
+   its right sideways, the exact "content measuring itself and
+   re-partitioning its neighbors" defect class LYT exists to forbid
+   (see `research/lyt/README.md`'s own "Why LYT exists" section).
+   `display: inline-block` + `text-align: right` keeps growth
+   RIGHTWARD-stable (new digits fill the reserved cell) rather than
+   letting the value's own left edge drift. Widths, worst realistic
+   case per metric: winrate "100.0%" (6ch), scoreLead "-999.9" (6ch),
+   pps a 4-digit packet rate (4ch), latency the SAME "5-digit latency"
+   state the .lyt encoding's own envelope names, i.e. "99999ms" (7ch,
+   the label text itself contributes the "ms" suffix via
+   `metric.latencyValue`'s own `{ms}ms` interpolation, counted here). */
+.m-val  { color: var(--accent-primary); font-weight: bold; display: inline-block; text-align: right; }
+.eval-val.winrate-val, .m-val.winrate-val { min-width: 6ch; }
+.eval-val.score-lead-val, .m-val.score-lead-val { min-width: 6ch; }
+.metric-pps .m-val { min-width: 4ch; }
+.metric-latency .m-val { min-width: 7ch; }
 /* Engine-identity slot (VERSION; MODEL's twin rule lives in
    EngineModelSelect.vue's own scoped style — `<style scoped>` doesn't
    cascade across component boundaries). `cursor: help` on the value

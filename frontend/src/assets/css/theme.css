@@ -496,6 +496,30 @@
    * color decouple-via-alias pattern. */
   --z-popover:    10;     /* in-stacking-context popovers, dropdowns, brush handles */
   --z-affordance: 50;     /* panel-level chrome affordances (resizers, drag handles) */
+  /* --z-popover-chrome (W4, lyt-vue-realization-roadmap.md §8 W4 item 3):
+   * role alias for the toolbar/corner-chrome popover family (the corner
+   * presence menu, the board-rail popover trigger, the sliders popover,
+   * PboPopover, the engine-queue tooltip, the locale picker) — these all
+   * live directly inside the LYT grid tree (LytNode.vue's own grid-item
+   * cells), which is a page-level layout, not a modal's own elevated
+   * stacking context the way --z-popover's own doc comment assumes
+   * ("in-stacking-context popovers"). Before this alias each of the six
+   * hardcoded its own ad hoc literal (1000 or, for the queue tooltip,
+   * 100 — LOWER than its siblings, an inconsistency a commissioner
+   * screenshot review caught as popovers occluding one another /
+   * rendering under later LYT grid siblings). One shared token so every
+   * chrome popover clears the grid tree uniformly and a future site
+   * can't silently regress to a mismatched literal. */
+  --z-popover-chrome: 1000;
+  /* --z-chrome-overlay (W4 item 1): role alias for the banners +
+   * system-log OVERLAY STRATUM (roadmap §7 ruling: "overlay, never
+   * occluding the board") — App.vue's `#lyt-overlay-stack`. Sits above
+   * --z-popover-chrome so an alert (keybinding-capture, save-failure,
+   * a freshly-arrived error the log auto-reveals) is never silently
+   * hidden behind an open toolbar popover, but below --z-modal so a
+   * real modal dialog still wins focus/stacking over a standing
+   * banner. */
+  --z-chrome-overlay: 2000;
   --z-modal:      9999;   /* page-level modal scrim, drag-preview overlays */
   --z-overlay:    99999;  /* error / system overlay above modals */
 

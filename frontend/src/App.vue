@@ -148,6 +148,7 @@ import LocalePicker     from './components/chrome/LocalePicker.vue';
 import SidebarWidget     from './components/chrome/SidebarWidget.vue';
 import LytPresenceMenu   from './components/chrome/LytPresenceMenu.vue';
 import BoardRailPopoverTrigger from './components/chrome/BoardRailPopoverTrigger.vue';
+import DebugMenu from './components/chrome/DebugMenu.vue';
 import PreviewBoardPanel from './components/board/PreviewBoardPanel.vue';
 
 import { useReviewSession } from './composables/review/useReviewSession';
@@ -631,41 +632,52 @@ const activeTab = computed<string>({
            until a (gated-away) toolbar button opens one. -->
       <template v-if="store.workspaceLoadState.kind === 'loaded'">
 
-        <!-- Keybinding-capture banner (menus-ui audit M8(c), row 1291):
-             persistent, opaque (no scrim/translucency — standing
-             ruling), always mounted at the top of the chrome —
-             board-adjacent, same tier as the save-failure banner below
-             — for as long as `captureMode` is armed, regardless of
-             which tab/panel currently has visual focus. -->
-        <div
-          v-if="capturingActionLabel !== null"
-          id="keybinding-capture-banner"
-          role="alert"
-        >
-          {{ $t('app.keybindingCapture.banner', { action: capturingActionLabel }) }}
-        </div>
+        <!-- W4 item 1 (roadmap §7 ruling: "banners + system log =
+             overlay stratum, never occluding the board"): the
+             keybinding-capture banner, the workspace-save-error
+             banner, and the system log's reveal moved OUT of
+             `#main-workspace`'s in-flow column (where their appearance
+             used to PUSH `#split-workspace` down, costing real board
+             area — the "~300px lesson" the roadmap's own §7 draft
+             names) into `#lyt-overlay-stack` below, a `position: fixed`
+             stack that contributes ZERO layout constraints (SPEC.md §2:
+             "Overlays... contribute no constraints and occupy no
+             standing space") — see that element's own template/CSS
+             comments for the full placement derivation and the
+             non-occlusion argument. Each piece keeps its EXACT same
+             v-if gate as before (`capturingActionLabel !== null` /
+             `workspaceSaveState.kind === 'error'` /
+             `systemLogExpanded || transientLogReveal`) — only the
+             RENDER TARGET moved, not the trigger conditions or (per
+             `store/schema.ts`) the underlying field semantics, so no
+             schema migration was needed for this item (disclosed
+             judgment call: `systemLogExpanded` still means exactly
+             "does the user want the log panel visible" — only WHERE
+             it renders changed). -->
+        <div id="lyt-overlay-stack">
+          <div
+            v-if="capturingActionLabel !== null"
+            id="keybinding-capture-banner"
+            role="alert"
+          >
+            {{ $t('app.keybindingCapture.banner', { action: capturingActionLabel }) }}
+          </div>
 
-        <!-- Save-failure banner (menus-ui audit M14): the write-path
-             counterpart of the #workspace-boot-state error leg below,
-             same idiom (role="alert", plain-language message, explicit
-             Retry) but non-blocking. -->
-        <div
-          v-if="store.workspaceSaveState.kind === 'error'"
-          id="workspace-save-banner"
-          role="alert"
-        >
-          <span class="save-banner-text">{{ $t('app.workspace.saveFailed') }}</span>
-          <button class="action-btn-large" style="width: auto; padding-left: var(--space-medium); padding-right: var(--space-medium);" @click="sync.retrySave()">
-            {{ $t('app.workspace.retry') }}
-          </button>
-        </div>
+          <div
+            v-if="store.workspaceSaveState.kind === 'error'"
+            id="workspace-save-banner"
+            role="alert"
+          >
+            <span class="save-banner-text">{{ $t('app.workspace.saveFailed') }}</span>
+            <button class="action-btn-large" style="width: auto; padding-left: var(--space-medium); padding-right: var(--space-medium);" @click="sync.retrySave()">
+              {{ $t('app.workspace.retry') }}
+            </button>
+          </div>
 
-        <!-- Persistent system-log bar. W4 owns this leaf's eventual
-             overlay-stratum home (roadmap §7 ruling); unchanged from
-             pre-rework App.vue for W1 — not a LYT leaf yet. -->
-        <SystemLogPanel
-          v-if="store.session.ui.systemLogExpanded || transientLogReveal"
-        />
+          <SystemLogPanel
+            v-if="store.session.ui.systemLogExpanded || transientLogReveal"
+          />
+        </div>
 
         <!-- The LYT skeleton (roadmap §3, "layout as data"), now SCREEN-
              CLASS-SWAPPED (W3): `activeLytProgram` is the landscape or
@@ -911,6 +923,7 @@ const activeTab = computed<string>({
              component's own `<style>` — `bottom: 100%` anchors), so
              opening either one still never occludes the board. -->
         <div id="lyt-corner-chrome">
+          <DebugMenu />
           <BoardRailPopoverTrigger
             v-if="store.session.ui.railStyle === 'popover'"
             @load-sgf="openFileDialog"
@@ -990,8 +1003,65 @@ const activeTab = computed<string>({
   color: var(--text-0); font-size: var(--text-emphasis);
 }
 
+/* W4 item 1 — OVERLAY STRATUM (roadmap §7 ruling). `position: fixed`
+   takes this stack out of `#main-workspace`'s flex column entirely —
+   the SAME mechanism `#lyt-corner-chrome` already uses (that rule's
+   own comment, below, has the fuller SPEC.md §2 citation) — so its
+   appearance/disappearance can NEVER push `#split-workspace` or any
+   toolbar child (the categorical "no layout push" requirement; a
+   mount/unmount test — `tests/integration/overlay-stack-no-push.test.ts`
+   — pins zero `#board-square`/`#split-workspace` rect movement across
+   every v-if toggle this stack carries).
+
+   Non-occlusion argument: anchored bottom-right, STACKED ABOVE
+   `#lyt-corner-chrome` (the `bottom` offset below clears that
+   cluster's own typical height + gap) — the SAME corner
+   `#lyt-corner-chrome`'s own comment already argues is provably
+   outside `#board-square` in BOTH screen classes (the side column /
+   tree-panels row is the page's rightmost-and-bottommost region in
+   landscape; the tree-panels row is the LAST, bottom-most row in
+   portrait too — see `encodings/lengyue_landscape.lyt`'s own
+   previewBoard placement note for the landscape half of this
+   argument). `max-width` is capped well inside the side column's own
+   reserved floor (280px post-W4-floor-softening) so the stack never
+   reaches into the board's own territory even at the narrowest tested
+   viewports. DISCLOSED, not independently re-derived per screen class
+   with a live-measured corner-chrome height the way the W1 REPAIR
+   toolbar reservation was (see that section's own methodology in
+   `research/lyt/encodings/lengyue_landscape.lyt`) — the `bottom`
+   offset below is a conservative estimate (one pill/button row's
+   height plus its own gap) rather than a swept number; a follow-up
+   wave re-measuring it live is the more rigorous confirmation, same
+   disclosure posture the codebase already models elsewhere. */
+#lyt-overlay-stack {
+  position: fixed;
+  right: var(--space-medium);
+  bottom: calc(var(--space-medium) + 40px);
+  z-index: var(--z-chrome-overlay);
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-tight);
+  max-width: min(320px, 90vw);
+  max-height: 60vh;
+  pointer-events: none;
+}
+/* Each overlay piece opts back INTO pointer events individually — the
+   stack's own container stays click-through where no piece is
+   rendered, so an empty stack (the common case: no banner, log
+   collapsed) never silently steals clicks from whatever chrome sits
+   underneath it. */
+#lyt-overlay-stack > * {
+  pointer-events: auto;
+}
 #keybinding-capture-banner {
-  flex-shrink: 0;
+  /* Opaque (--surface-0-backed via --state-attention's own solid
+     fill — no scrim/translucency, the standing banner ruling this
+     rule already followed pre-overlay). Rounded now that it is a
+     floating card rather than a full-width in-flow bar. No
+     box-shadow (effects-ban sweep, ledger row 1506, bans it outright
+     regardless of value) — the opaque fill alone reads as a distinct
+     surface. */
+  border-radius: var(--radius-default);
   padding: var(--space-tight) var(--space-medium);
   background: var(--state-attention);
   color: var(--text-on-accent);
@@ -999,12 +1069,17 @@ const activeTab = computed<string>({
   text-align: center;
 }
 #workspace-save-banner {
-  flex-shrink: 0;
+  border-radius: var(--radius-default);
   display: flex; align-items: center; justify-content: space-between;
   gap: var(--space-default);
   padding: var(--space-tight) var(--space-medium);
-  background: color-mix(in srgb, var(--state-attention) 12%, transparent);
-  border-bottom: 1px solid var(--state-attention);
+  /* Opaque (--surface-0), per the standing "no scrim/translucency"
+     ruling — the pre-overlay `color-mix(...transparent)` fill relied
+     on the in-flow bar's own opaque page background showing through;
+     as a floating card over arbitrary chrome underneath, it now
+     paints a genuinely solid surface first. */
+  background: var(--surface-0);
+  border: 1px solid var(--state-attention);
   color: var(--text-0);
 }
 .save-banner-text { font-size: var(--text-body); }

@@ -76,18 +76,18 @@ def test_board_priority_clamp_applied_to_side_column_only():
     # CASE A closed-form override; boardRail (fixed) and the composite
     # itself (the board's own uncapped 1fr track) are untouched.
     #
-    # minPx=480.0 (not the original transcription's 340.0): W1 REPAIR
-    # (ledger row 1781, review finding A) raises the side column's min —
-    # a disclosed, measured reservation-correction for the merged Toolbar
-    # mount's real content floor. See the encoding's own header comment
-    # ("REPAIR PASS") for the full measured derivation and why 480 (not
-    # the first-tried 640) was chosen — the largest width that doesn't
-    # regress `test_lengyue_landscape_default_valuation_solves_optimal`'s
-    # existing OPTIMAL pins.
+    # minPx=280.0 (not the REPAIR PASS's 480.0, itself a revision of the
+    # original transcription's 340.0): W4 FLOOR SOFTENING (Q3 ruling,
+    # ledger row 1848) lowers the side column's own min again, from
+    # 480px to 280px, so the tree is solver-FEASIBLE at 1280x1024/
+    # 1024x700/900x600 (previously pinned INFEASIBLE below) — see the
+    # encoding's own header comment ("W4 FLOOR SOFTENING") for the full
+    # derivation and the disclosed, not-independently-re-swept nature of
+    # this specific number.
     assert board_rail_track["kind"] == "fixed"
     assert composite_track["kind"] == "elastic"
     assert side_track["kind"] == "board-priority-clamp"
-    assert side_track["minPx"] == 480.0
+    assert side_track["minPx"] == 280.0
     assert side_track["maxPx"] == 340.0 + 60.0 * 8.0  # PX_PER_CH=8.0, 340px+60ch (max unchanged)
     assert side_track["naturalBoardCrossUnit"] == "vh"  # root axis 'h' -> cross is height
     assert side_track["fixedSiblingSumPx"] == 24.0 + 28.0  # I_board + A_board
@@ -105,9 +105,13 @@ def test_control_panel_blackbox_floor_is_wrapper_min_derived():
     assert control_panel["node"]["childWidgets"] == [
         "CP-library", "CP-cards", "CP-settings", "CP-analysis", "CP-other",
     ]
-    # Every CP-* child declares `min WRAPPER_MIN` (300px, loader.WRAPPER_MIN_PX);
-    # the T node's own derived floor is the componentwise max, i.e. 300px.
-    assert control_panel["track"] == {"kind": "elastic", "minPx": 300.0, "frWeight": 1.0}
+    # Every CP-* child declares a literal `min 160px` (W4 FLOOR SOFTENING,
+    # Q3 ruling, ledger row 1848 -- was the shared `WRAPPER_MIN` sentinel,
+    # 300px; the encoding's own "W4 FLOOR SOFTENING" header section has
+    # the full derivation for why this became a per-encoding literal
+    # rather than a lowered shared constant); the T node's own derived
+    # floor is the componentwise max, i.e. 160px.
+    assert control_panel["track"] == {"kind": "elastic", "minPx": 160.0, "frWeight": 1.0}
 
 
 def test_render_ts_roundtrip_matches_committed_file():

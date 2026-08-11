@@ -296,7 +296,7 @@ async function onPin(): Promise<void> {
   padding: var(--space-default);
   min-width: 340px;
   max-width: 480px;
-  z-index: 1000;
+  z-index: var(--z-popover-chrome); /* W4 item 3: shared toolbar/corner-chrome popover tier — see theme.css's own doc comment on the token */
   display: flex;
   flex-direction: column;
   gap: var(--space-default);

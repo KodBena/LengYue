@@ -68,9 +68,33 @@ const boardSnapshot = computed((): BoardSnapshot | null => {
 </template>
 
 <style scoped>
+/* W4 item 4 (MiniBoard viewport clamp). FIRST DRAFT of this rule used
+   `width:100%; height:100%; aspect-ratio:1/1`, which is INERT: CSS
+   `aspect-ratio` only derives a dimension left `auto` — with BOTH
+   width and height already pinned to 100%, the property has nothing
+   to compute, so the panel simply stretched to whatever (possibly
+   non-square) box its cell provided. Empirically caught by the W4
+   probe (`.claude/dispatch-reports/lyt-w4-chrome-probe.mjs`) at
+   900x600 with previewBoard's track shrunk: 133x204, not square.
+
+   Fixed shape: `min(100cqw, 100cqh)` on BOTH axes — the SAME
+   container-query idiom `LytNode.vue`'s own header comment already
+   documents for aspect-leaf containment ("the slotted content is
+   expected to size via min(100%,100cqh)/min(100%,100cqw)"),
+   consulted here rather than reinvented. `.lyt-board-cell` (the
+   parent leaf cell LytNode.vue wraps every `node.aspect !== null`
+   leaf in) declares `container-type: size`, which is what makes
+   `cqw`/`cqh` units resolve against THIS cell's own box rather than
+   the viewport. Taking the MIN of the two container-relative extents
+   on both width and height forces a genuine square — whichever axis
+   the cell is narrower on caps BOTH dimensions — regardless of
+   whether the cell itself is square, portrait, or landscape. `margin:
+   auto` centers the (possibly smaller-than-cell) square within the
+   parent's own `place-items: center`. */
 .preview-board-panel {
-  width: 100%;
-  height: 100%;
+  width: min(100cqw, 100cqh);
+  height: min(100cqw, 100cqh);
+  margin: auto;
   min-width: 0;
   min-height: 0;
   display: flex;

@@ -146,6 +146,6 @@ const popoverId = 'board-rail-popover';
   width: 220px;
   height: 420px;
   overflow: hidden;
-  z-index: 1000;
+  z-index: var(--z-popover-chrome); /* W4 item 3: shared toolbar/corner-chrome popover tier — see theme.css's own doc comment on the token */
 }
 </style>

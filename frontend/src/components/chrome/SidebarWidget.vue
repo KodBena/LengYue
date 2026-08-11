@@ -10,27 +10,17 @@ import MiniBoard from '../board/MiniBoard.vue';
 import ConfirmCloseBoardModal from '../modals/ConfirmCloseBoardModal.vue';
 import { useVirtualList } from '../../composables/chrome/useVirtualList';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
-import { useJankTest } from '../../composables/perf/useJankTest';
 import { useCloseBoardGuard } from '../../composables/board/useCloseBoardGuard';
 import type { BoardId } from '../../types';
 import type { BoardSnapshot } from '../../engine/board-geometry';
 
-// Dev-only "jank test" affordance (below). import.meta.env.DEV is statically
-// folded, so the button and its composable dead-code-eliminate from prod
-// builds — the harness must never ship to users.
-const isDevBuild = import.meta.env.DEV;
-const jankTest = useJankTest();
+// Dev-only "jank test" affordance — REMOVED from this component, W4
+// item 5. See DebugMenu.vue, which now owns `useJankTest()` directly.
 
-// Load / save SGF emits relocated here from Toolbar (2026-05-15):
-// SGF-file operations act on the board collection, not on engine
-// telemetry, so they belong adjacent to the thumb-list's other
-// board-lifecycle action (the `+` new-board button). The parent
-// (`App.vue`) listens for these events and dispatches to the
-// existing `openFileDialog` / `downloadActiveBoard` handlers.
-defineEmits<{
-  (e: 'load-sgf'): void;
-  (e: 'save-sgf'): void;
-}>();
+// Load / save SGF emits — REMOVED (W4 item 2; see the template's own
+// comment at the removed `.board-actions` header for the full
+// derivation). The toolbar strip is now the one home for these two
+// actions; this component no longer originates either event.
 
 const { getSnapshot, getSnapshotSync } = useThumbnailCache();
 
@@ -167,21 +157,29 @@ const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
 
 <template>
   <div id="sidebar-widget">
-    <!-- File-ops header — LOAD / SAVE for SGF import/export, sitting
-         above the thumb-list so the affordance is visible regardless
-         of how many boards crowd the rail. Placed here (not foot-
-         adjacent to `+`) deliberately: LOAD / SAVE act on EXTERNAL
-         files; `+` acts on the IN-MEMORY collection. Spatial split
-         reflects the conceptual difference, and the chrome-header
-         placement is the convention any user (Go researcher or
-         developer) recognises for file operations. Emits bubble to
-         App.vue which dispatches to the existing `openFileDialog`
-         / `downloadActiveBoard` handlers — same wiring the Toolbar
-         used before the 2026-05-15 separation-of-concerns move. -->
-    <div class="board-actions">
-      <button class="board-action-btn" @click="$emit('load-sgf')">{{ $t('sidebar.loadSgf') }}</button>
-      <button class="board-action-btn" @click="$emit('save-sgf')">{{ $t('sidebar.saveSgf') }}</button>
-    </div>
+    <!-- File-ops header — LOAD / SAVE for SGF import/export — REMOVED
+         (W4 commission item 2, roadmap `.claude/dispatch-reports/
+         lyt-vue-realization-roadmap.md` §8 W4; parity inventory's own
+         "Chrome-mounted features" census lists "SGF import/export
+         toolbar entries" as ONE feature with ONE home). Pre-LYT-rework
+         this rail was that home; the LYT skeleton's own toolbar strip
+         (`Toolbar.vue`'s merged A_go mount, `App.vue`'s `#leaf-A_go`/
+         `#leaf-A_top` templates) grew its OWN Load/Save SGF buttons
+         during the W1 skeleton build (disclosed there as "no dedicated
+         boardRail mount in this wave") — since boardRail can now
+         genuinely be visible again (W2's presence menu / popover
+         style), both surfaces rendered simultaneously, a real
+         duplicate the commissioner's screenshot review caught. The
+         toolbar strip is the one census-declared home going forward;
+         this rail's own copy is removed, not the toolbar's — the
+         toolbar's Load/Save buttons already reuse this component's
+         OWN i18n keys (`sidebar.loadSgf`/`sidebar.saveSgf`) and the
+         SAME `openFileDialog`/`downloadActiveBoard` handlers, so no
+         behavior is lost, only the second surface. The `load-sgf`/
+         `save-sgf` emits below are ALSO removed — nothing in this
+         component emits them anymore; App.vue's own `@load-sgf`/
+         `@save-sgf` listeners on `<SidebarWidget>` are removed in the
+         same change (there is no longer a source event to bind). -->
 
     <!-- Virtualized board-tab rail: only the visible slice renders
          (`useVirtualList` windows on scroll). The padded inner wrapper preserves
@@ -227,20 +225,10 @@ const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
 
     <button class="tab-add-btn" :title="$t('sidebar.newBoard')" @click="handleAdd">+</button>
 
-    <!-- Dev-only thumbnail-preview "jank test". Loads 16 boards (one fixed
-         342-move Shusaku game + 15 random library games), auto-navigates the
-         long game, and scrubs the docked hover preview at a 20–50 ms cadence so
-         a human can capture a DevTools performance profile of the preview
-         render under stress. Gated to dev builds (import.meta.env.DEV); the
-         literal "jank test" label is intentional — it is a developer
-         affordance, not a user-facing string, so it skips i18n. -->
-    <button
-      v-if="isDevBuild"
-      class="jank-test-btn"
-      :class="{ running: jankTest.isRunning.value }"
-      :title="'Dev: stress the thumbnail-preview render (loads 16 boards, auto-navs the long Shusaku game, scrubs the hover preview). Click again to stop.'"
-      @click="jankTest.toggle()"
-    >{{ jankTest.isRunning.value ? 'jank test (stop)' : 'jank test' }}</button>
+    <!-- Dev-only thumbnail-preview "jank test" — REMOVED from this
+         surface, W4 item 5 (roadmap §7 resolution 4). Now lives in
+         DebugMenu.vue (App.vue's corner chrome cluster), dev builds
+         only, alongside Clear Cache / Auto-Nav Perf / Popover Stress. -->
 
     <!-- Docked hover-preview shelf — the vertical split below `+`. A fixed
          framed box that shows the hovered board's current position and falls
@@ -264,9 +252,10 @@ const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
    `.board-preview`'s box grows, raise this in tandem, floor = that box width.
 
    Content-need audit (commission row 848): the docked preview box is the
-   width DRIVER — `.board-actions`'s stacked LOAD/SAVE buttons (`width: 100%`
-   each) and the `--tab-width: 86px` tabs both fit well inside 168px with
-   room to spare, so neither adds width pressure of its own. No further
+   width DRIVER — the `--tab-width: 86px` tabs fit well inside 168px with
+   room to spare, so they add no width pressure of their own (the LOAD/SAVE
+   buttons this note originally also named are gone — W4 item 2 removed
+   them, see the removed `.board-actions` header comment above). No further
    narrowing available without shrinking the preview box itself, which is a
    separate, out-of-scope surface (not named in the commission). */
 #sidebar-widget {
@@ -306,30 +295,7 @@ const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
   background: var(--surface-2); color: var(--text-0); font-size: var(--text-emphasis); cursor: pointer; margin-top: var(--space-medium);
 }
 
-/* Dev-only "jank test" toggle — quiet chrome (surface-2 fill, monospace,
-   matching the LOAD/SAVE board-action register) so it reads as a developer
-   affordance, not a primary action. The `.running` accent makes it observable
-   that the stress loop is in flight. Only mounts in dev builds. */
-.jank-test-btn {
-  margin-top: var(--space-tight);
-  width: 100%;
-  max-width: 150px;
-  height: 18px;
-  border: none;
-  border-radius: 0%;
-  background: var(--surface-2);
-  color: var(--text-0);
-  font-family: monospace;
-  font-size: var(--text-tiny);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-tight);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.jank-test-btn.running {
-  background: var(--accent-primary);
-  color: var(--surface-0);
-}
+/* Dev-only "jank test" toggle — REMOVED, W4 item 5 (now DebugMenu.vue). */
 
 /* Docked hover-preview shelf. magic-literal: 150px box matches the app's
    established thumbnail size (the old FloatingThumbnail, the card thumbnails).
@@ -349,58 +315,8 @@ const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
   flex-shrink: 0;
 }
 
-/* LOAD / SAVE file-ops header — STACKED pair (commission row 848,
-   "space should not be wasted": witnessed side-by-side at a ~2000px
-   window, each half of the rail's width, cramping "LOAD SGF" /
-   "SAVE SGF" against the rail's own narrow floor) at the top of
-   the sidebar, above the scrollable thumb-list. Thin separator
-   on the bottom edge sets the header off from the list without
-   adding a heavy chrome element. Visual register matches
-   `.tab-add-btn` (no border on the buttons themselves, surface-2
-   fill) so the row reads as quiet chrome rather than a primary-
-   action shelf — the user's "out of sight, out of mind during
-   study" aesthetic preference, honoured under a discoverable
-   placement. Stacking gives each button the RAIL's full content
-   width instead of half of it — the rail's own width floor is set
-   by `#sidebar-widget` (150px docked preview box + gutters, see that
-   rule's comment), already narrower than either button ever needed
-   side-by-side, so stacking removes the crowding without any further
-   rail-width change. */
-.board-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-tight);
-  width: 100%;
-  padding: 0 var(--space-tight) var(--space-tight);
-  border-bottom: 1px solid var(--surface-1);
-  margin-bottom: var(--space-tight);
-}
-.board-action-btn {
-  /* Content-derived sizing (was a magic-literal `height: 20px`,
-     wiki2-board-action-btn-height): height follows padding + line
-     content, same idiom as `.toolbar-btn` (Toolbar.vue) — no fixed
-     height literal. `min-height: 24px` is the WCAG 2.5.8 effective
-     pointer-target floor (see tests/unit/pointer-target-minimum-size.test.ts),
-     not a disguised fixed height — at this font-size/padding, the
-     floor is what actually determines the rendered height, exactly
-     as it does for `.toolbar-btn`. */
-  width: 100%;
-  min-height: 24px;
-  border-radius: 0%;
-  border: none;
-  background: var(--surface-2);
-  color: var(--text-0);
-  font-family: monospace;
-  font-size: var(--text-tiny);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-tight);
-  cursor: pointer;
-  padding: var(--space-tight);
-  min-width: 0;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+/* LOAD / SAVE file-ops header — REMOVED (W4 item 2; see the template's
+   own comment at the removed header markup for the full derivation).
+   `.board-actions`/`.board-action-btn` no longer have any markup to
+   style; the rule bodies are deleted rather than left as dead CSS. */
 </style>

@@ -200,15 +200,32 @@ onUnmounted(rowsThrottle.cancel);
 </template>
 
 <style scoped>
+/* W4 item 2 fix: same root cause as ToolbarSliderPopover.vue's own
+   "SLIDERS11" defect (see that file's header comment for the full
+   diagnosis) — `.metric`'s flex/gap rule lives in
+   ToolbarEngineMetrics.vue's SCOPED style and never reaches this
+   different SFC despite the shared class name, so QUEUE and its count
+   rendered concatenated with no gap. This component now declares its
+   OWN layout rather than relying on the borrowed name. */
 .queue-metric {
   position: relative;
   cursor: default;
+  display: flex;
+  align-items: center;
+  gap: var(--space-tight);
 }
 .queue-metric .m-val {
   /* Dim when idle (count = 0); brighten when work is in flight.
      The active class transitions both colour and weight so the
      badge reads as a passive indicator until the engine has
-     something to do. */
+     something to do. Envelope-reserved width (item 2's "envelope-
+     reserved cells" requirement) so a growing queue count never
+     reflows this badge's neighbours — 3ch covers realistic in-flight
+     counts (the proxy's own MAX_SESSIONS-scale queue depth never
+     reaches 4 digits per session). */
+  display: inline-block;
+  min-width: 3ch;
+  text-align: right;
   color: var(--text-0);
 }
 .queue-metric.queue-active .m-val {
@@ -229,7 +246,7 @@ onUnmounted(rowsThrottle.cancel);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
   padding: var(--space-tight);
-  z-index: 100;
+  z-index: var(--z-popover-chrome); /* W4 item 3: was a hardcoded 100 — LOWER than its sibling toolbar popovers' hardcoded 1000, the concrete occlusion bug a commissioner screenshot review caught. Shared token now — see theme.css's own doc comment. */
   white-space: nowrap;
   /* Cap the panel width so a long model name or label doesn't
      stretch it across the entire toolbar. The min ensures the
