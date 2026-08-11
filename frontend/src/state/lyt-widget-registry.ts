@@ -84,10 +84,10 @@ export interface LytWidgetRegistryEntry {
   readonly note: string;
 }
 
-// The seven leaf widget ids `encodings/lengyue_landscape.lyt`'s compiled
-// program can carry, plus `controlPanel` (the collapsed Exclusive/T node
-// — see `lyt-layout.gen.ts`'s own header for why the five CP-* children
-// are not separately registered leaves this wave).
+// The leaf widget ids `encodings/lengyue_landscape.lyt`'s compiled program
+// can carry, plus `controlPanel` (the now-OPENED control-panel Exclusive
+// node's own representative id — see `lyt-layout.gen.ts`'s header,
+// "REALIZATION WAVE", for what opened vs. stayed collapsed this wave).
 export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry>> = {
   // ── Board composite (root child 1: B / I_board / A_board) ──────────────
   B: {
@@ -146,9 +146,52 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     widget: 'controlPanel',
     component: 'TabWidget',
     status: 'mounted',
-    slotName: '#leaf-controlPanel',
+    // REALIZATION WAVE (`.claude/dispatch-reports/lyt-realization-wave.md`):
+    // the control-panel T is no longer a single collapsed leaf -- it is a
+    // genuine `kind: 'exclusive'` node (lyt-layout.gen.ts). LytNode.vue's own
+    // Exclusive case renders it directly (a live TabWidget instance it
+    // drives itself, converged with — not a second implementation of —
+    // TabWidget.vue), so this entry is no longer consulted by
+    // `lytMountingWidgetId`/`lytRegistryStatus` at runtime (those are only
+    // ever called for LEAF/blackbox widget ids). Kept as documentation: the
+    // representative widget id 'controlPanel' is still what
+    // `domIdsByPath`/`LYT_DOM_ID_BY_PATH` key the `#control-panel` DOM id
+    // against (App.vue's own resizer-inner anchor).
+    slotName: null,
     absorbedInto: null,
-    note: 'The collapsed T(CP-*) black-box node (see lyt-layout.gen.ts header). TabWidget.vue already owns the tab-strip-plus-body realization internally with its own five named slots (#library/#cards/#settings/#analysis/#other) — those are unchanged, App.vue\'s existing tab-body templates ride along verbatim inside this one mount.',
+    note: 'The now-OPENED Exclusive(T) node (see lyt-layout.gen.ts header, "REALIZATION WAVE"). LytNode.vue\'s Exclusive case reuses TabWidget.vue directly (v-model + dynamic named slots per child) rather than mounting App.vue\'s own TabWidget instance — App.vue instead fills the five per-tab leaf slots below (#leaf-CP-library / #leaf-CP-cards / #leaf-CP-settings / #leaf-CP-analysis, plus #leaf-otherColorDebug / #leaf-otherBand for the opened Other tab).',
+  },
+  'CP-library': {
+    widget: 'CP-library',
+    component: 'LibraryTab',
+    status: 'mounted',
+    slotName: '#leaf-CP-library',
+    absorbedInto: null,
+    note: 'REALIZATION WAVE: the control-panel T\'s own Library tab, opened live (item 1/2). Unchanged component/wiring from the pre-wave #library TabWidget slot — only the mount path moved (LytNode\'s Exclusive case instead of App.vue-authored TabWidget). scrollAxes: [v] (encoding-declared) derives this leaf\'s own overflow-y — see useLytOverflowCss.ts.',
+  },
+  'CP-cards': {
+    widget: 'CP-cards',
+    component: 'ForestDirectory',
+    status: 'mounted',
+    slotName: '#leaf-CP-cards',
+    absorbedInto: null,
+    note: 'REALIZATION WAVE: the control-panel T\'s own Cards tab, opened live — see CP-library\'s own note for the shape (identical: pre-wave #cards TabWidget slot, unchanged wiring, scrollAxes: [v] derived overflow).',
+  },
+  'CP-settings': {
+    widget: 'CP-settings',
+    component: 'SettingsTab',
+    status: 'mounted',
+    slotName: '#leaf-CP-settings',
+    absorbedInto: null,
+    note: 'REALIZATION WAVE: a SYNTHETIC collapsed-subtree leaf (emit_layout_tree.py\'s own `control_panel_collapse_indices`), not a leaf the .lyt encoding itself declares. Mounts SettingsTab.vue unchanged — the encoding\'s own modeled `V(settingsSubstrip, settingsPane)` interior stays solver-visible but UNOPENED in the DOM this wave (disclosed scope narrowing: splitting SettingsTab\'s own internal TabWidget into two separately-mounted LYT leaves is a real refactor outside this wave\'s budget, named in the delivery report). No scrollAxes derived here — SettingsTab\'s own internal TabWidget keeps its pre-wave `.tab-body{overflow-y:auto}` unchanged.',
+  },
+  'CP-analysis': {
+    widget: 'CP-analysis',
+    component: 'AnalysisControls',
+    status: 'mounted',
+    slotName: '#leaf-CP-analysis',
+    absorbedInto: null,
+    note: 'REALIZATION WAVE: a SYNTHETIC collapsed-subtree leaf, same shape as CP-settings above. Mounts AnalysisControls/AnalysisDashboard.vue unchanged — DELIBERATELY not opened to the encoding\'s own nested `T(AT_basic, AT_distributions, AT_stability, AT_multires)` this wave: AnalysisDashboard owns a genuinely DYNAMIC, user-configurable tab set (`AppSettings.analysisTabs`), and the encoding models only the STATIC default configuration (ratified consult §8.3\'s own named residual) — rendering it live would silently override a user\'s customized tabs. No scrollAxes derived here — AnalysisDashboard\'s own `.scrollable-content{overflow-y:auto}` keeps its pre-wave behavior unchanged.',
   },
 
   // ── Corner presence-menu targets (default-off; roadmap §8 W2) ──────────
@@ -167,6 +210,26 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     slotName: '#leaf-previewBoard',
     absorbedInto: null,
     note: 'W2: mounts PreviewBoardPanel.vue (components/board/PreviewBoardPanel.vue), a read-only MiniBoard-based preview reusing LibraryPreviewPane\'s boardSnapshot-projection machinery. DISCLOSED SCOPE NARROWING (commission item 3, P1/P2): the variation-to-display fact ("what is the user currently hovering/considering in the tree/analysis surfaces") does not exist as readable derived state yet, so this mounts the ACTIVE BOARD\'s current position as a placeholder — a real, honest preview of *something* (today\'s board), not a stub — rather than inventing new analysis plumbing. Upgrading to true variation-hover content is a later, disclosed arc.',
+  },
+
+  // ── Other tab, opened live (REALIZATION WAVE item 4, §9.3's Other-tab
+  //    split) — the control-panel T's own "other" tab is now a genuine
+  //    Split(otherColorDebug, otherBand), not a collapsed leaf. ──────────
+  otherColorDebug: {
+    widget: 'otherColorDebug',
+    component: 'ColorDebugStrip',
+    status: 'mounted',
+    slotName: '#leaf-otherColorDebug',
+    absorbedInto: null,
+    note: 'REALIZATION WAVE item 4: the fixed, designed-height band (content designed, no scroll declared — L5c\'s chart-exclusion) of the Other tab\'s split. Mounts ColorDebugStrip.vue, unchanged wiring from the pre-wave single #other slot.',
+  },
+  otherBand: {
+    widget: 'otherBand',
+    component: null,
+    status: 'mounted',
+    slotName: '#leaf-otherBand',
+    absorbedInto: null,
+    note: 'REALIZATION WAVE item 4: the scroll-owned band (content unbounded, scroll v declared) of the Other tab\'s split — KnobRegistryEditor + the gradient-calibration notice + VisitsLerpConfig + PerQueryOverridesConfig + QeuboBookmarks, the SAME four components the pre-wave single #other slot mounted together, now grouped under one scroll owner rather than riding the retired ancestor TabWidget `.tab-body` scroll. `component: null` because this leaf mounts a GROUP, not one named component — see App.vue\'s own #leaf-otherBand template for the full list.',
   },
 };
 

@@ -116,13 +116,68 @@
   absent from the map renders its own compiled track exactly as before —
   this is a pure, additive override, not a parallel sizing system.
 
+  REALIZATION WAVE (`.claude/dispatch-reports/lyt-realization-wave.md`,
+  work item lyt-realization-exclusive-overflow): a fourth node kind,
+  Exclusive ('exclusive'), joins Leaf/blackbox/Split as a case this
+  component folds over — the constructor-total closure ADR-0000's own
+  consult-report closure statement names (`lyt-tab-region-consult.md`
+  §6.2/§8.1). Rendering an Exclusive node = a tab strip + the active
+  child's own body, realized by REUSING `TabWidget.vue` directly (a plain
+  child component this file drives from compiled program data) rather than
+  re-authoring its strip/body/keyboard/ARIA shape a second time —
+  convergence, not a second tab implementation (ADR-0012 cancer B/E). Each
+  Exclusive child's own `node` is whatever kind it actually is (today:
+  leaf/blackbox for the still-collapsed tabs, split for the newly-opened
+  Other tab) — a leaf/blackbox child mounts through the SAME named
+  `#leaf-<widget>` slot mechanism every other leaf uses; a split child
+  recurses through a nested `<LytNode>`, exactly like a Split's own
+  composite children do.
+
+  Active-tab state (`exclusiveActiveByPath` / `onExclusiveActiveChange`):
+  forwarded verbatim through the recursion like every other cross-cutting
+  prop here, rather than a Vue `emit` — an emitted event does not bubble
+  through an intervening `<LytNode>` recursion level without each level
+  explicitly re-declaring and re-emitting it, and the control-panel
+  Exclusive sits several Split levels deep in both screen classes. A plain
+  callback prop, forwarded down alongside the read side
+  (`exclusiveActiveByPath`), avoids minting that machinery for the one
+  Exclusive node this wave opens. App.vue supplies both, backed by the
+  SAME persisted `session.ui.activeTab` the pre-wave, App.vue-authored
+  TabWidget instance used — "active-tab state ... stays wherever it lives
+  today" (the commission's own words).
+
+  Tab labels (`translateLabel`): rather than this generic renderer taking a
+  DIRECT dependency on `vue-i18n`'s composition API (which would force
+  every test that mounts this component — most of which have nothing to do
+  with tabs or translation, e.g. the DOM-id-wiring and presence-toggle
+  regression suites — to install a real i18n plugin instance just to
+  satisfy `useI18n()`'s own setup-time requirement), each `tabLabelKey`
+  (`app.tabs.<id>`) is resolved through a plain callback prop, forwarded
+  verbatim like every other cross-cutting prop here. App.vue supplies its
+  own already-in-scope `t` from `useI18n()`; the default is the identity
+  function (the raw key), which is honest — never a silently-wrong guess —
+  for any caller that doesn't wire real translation.
+
+  Derived overflow (item 3, `useLytOverflowCss.ts`): a leaf's own
+  `scrollAxes`/`content` (Amendment 5, carried through the emitted program)
+  drive its cell's `overflow-x`/`overflow-y` directly, replacing an
+  ancestor's blanket `overflow: auto`. TabWidget.vue's own new
+  `ownsScroll`/`tabScrollAxes` props (see that file's own header) let THIS
+  component's Exclusive case opt individual tab panes out of TabWidget's
+  historical blanket `.tab-body` scroll in favor of this per-leaf
+  derivation — every OTHER TabWidget consumer (Settings sub-tabs,
+  ForestDirectory, AnalysisDashboard's own tab row) is unaffected, per
+  that prop's own default.
+
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
 import { computed, useSlots } from 'vue';
-import type { LytChild, LytSplitNode } from '../../state/lyt-layout.gen';
+import type { LytChild, LytExclusiveNode, LytSplitNode } from '../../state/lyt-layout.gen';
 import { lytMountingWidgetId, lytRegistryStatus } from '../../state/lyt-widget-registry';
 import { trackCssValue, gapCssFor } from '../../composables/chrome/useLytTrackCss';
+import { leafOverflowStyle } from '../../composables/chrome/useLytOverflowCss';
+import TabWidget from './TabWidget.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -151,6 +206,23 @@ const props = withDefaults(
     /** child path -> literal CSS track value, forwarded verbatim (W3) —
      *  see the file header's "Resizer drag overrides" note. */
     trackStyleOverrides?: Record<string, string>;
+    /** Exclusive node path -> currently-active child's tabId, forwarded
+     *  verbatim (REALIZATION WAVE) — see the file header's "Active-tab
+     *  state" note. An Exclusive whose path is absent from this map falls
+     *  back to its own compiled `defaultTabId`. */
+    exclusiveActiveByPath?: Record<string, string>;
+    /** Callback invoked with (exclusiveNodePath, newTabId) when the user
+     *  selects a different tab — forwarded verbatim (REALIZATION WAVE); see
+     *  the file header's "Active-tab state" note. Undefined is a no-op
+     *  (selection still updates TabWidget's own local display via the
+     *  computed fallback, but nothing PERSISTS — every real call site
+     *  supplies this). */
+    onExclusiveActiveChange?: (path: string, tabId: string) => void;
+    /** Resolves an Exclusive child's `tabLabelKey` to a display label —
+     *  see the file header's "Tab labels" note. Defaults to the identity
+     *  function (the raw i18n key), an honest fallback for a caller that
+     *  supplies none. */
+    translateLabel?: (key: string) => string;
   }>(),
   {
     path: '',
@@ -158,6 +230,9 @@ const props = withDefaults(
     presenceOverrides: () => ({}),
     classId: undefined,
     trackStyleOverrides: () => ({}),
+    exclusiveActiveByPath: () => ({}),
+    onExclusiveActiveChange: undefined,
+    translateLabel: (key: string) => key,
   },
 );
 
@@ -182,7 +257,10 @@ const groups = computed<Group[]>(() => {
   let i = 0;
   while (i < children.length) {
     const child = children[i];
-    if (child.node.kind === 'split') {
+    // Split AND Exclusive children are never merged (span always 1) — an
+    // Exclusive has no single widget id of its own to fold a sibling into
+    // (REALIZATION WAVE: same reasoning as Split, generalized).
+    if (child.node.kind === 'split' || child.node.kind === 'exclusive') {
       out.push({ start: i, span: 1, rep: child });
       i += 1;
       continue;
@@ -200,7 +278,7 @@ const groups = computed<Group[]>(() => {
     let span = 1;
     while (i + span < children.length) {
       const next = children[i + span].node;
-      if (next.kind === 'split') break;
+      if (next.kind === 'split' || next.kind === 'exclusive') break;
       if (lytMountingWidgetId(next.widget, props.classId) !== mountId) break;
       span += 1;
     }
@@ -210,11 +288,11 @@ const groups = computed<Group[]>(() => {
   return out;
 });
 
-// A Split child has no single widget id of its own — only its
-// descendant leaves are individually toggle targets (file header,
+// A Split or Exclusive child has no single widget id of its own — only a
+// leaf/blackbox descendant is an individual toggle target (file header,
 // "Runtime presence overrides"). `null` here means "always present."
 function widgetIdOf(child: LytChild): string | null {
-  return child.node.kind === 'split' ? null : child.node.widget;
+  return child.node.kind === 'split' || child.node.kind === 'exclusive' ? null : child.node.widget;
 }
 
 function isPresent(child: LytChild): boolean {
@@ -327,6 +405,36 @@ function registryStatus(widgetId: string) {
   return lytRegistryStatus(widgetId, props.classId);
 }
 
+// ── Exclusive-node rendering (REALIZATION WAVE) ─────────────────────────
+// TabWidget's own `Tab` shape (id/label), derived from the Exclusive
+// node's children — see the file header's own "REALIZATION WAVE" note for
+// why this drives TabWidget rather than re-authoring its strip/body shape.
+interface ExclusiveTab {
+  id: string;
+  label: string;
+  scrollAxes?: ('h' | 'v')[];
+}
+function exclusiveTabs(node: LytExclusiveNode): ExclusiveTab[] {
+  return node.children.map((child) => ({
+    id: child.tabId,
+    label: props.translateLabel(child.tabLabelKey),
+    // Derived overflow (item 3): only a LEAF child has a single scrollAxes
+    // fact of its own; a collapsed blackbox (CP-settings/CP-analysis,
+    // this wave's disclosed scope narrowing) or an opened split (Other)
+    // carries no ONE scrollAxes value — TabWidget falls back to its
+    // pre-wave per-consumer default (no forced pane overflow when
+    // ownsScroll is false; each such child's OWN interior owns its
+    // overflow instead, unchanged from before this wave).
+    scrollAxes: child.node.kind === 'leaf' ? [...child.node.scrollAxes] : undefined,
+  }));
+}
+function exclusiveActiveTabId(node: LytExclusiveNode, path: string): string {
+  return props.exclusiveActiveByPath[path] ?? node.defaultTabId;
+}
+function onExclusiveTabModelUpdate(path: string, tabId: string): void {
+  props.onExclusiveActiveChange?.(path, tabId);
+}
+
 // Vue's documented "forward every slot" pattern — a nested <LytNode>
 // needs access to every #leaf-* slot App.vue supplied at the TOP of the
 // recursion, however many levels down the matching leaf is.
@@ -354,6 +462,9 @@ const slotNames = computed(() => Object.keys(slots));
           :presence-overrides="presenceOverrides"
           :class-id="classId"
           :track-style-overrides="trackStyleOverrides"
+          :exclusive-active-by-path="exclusiveActiveByPath"
+          :on-exclusive-active-change="onExclusiveActiveChange"
+          :translate-label="translateLabel"
         >
           <!-- Forward every named slot App.vue supplied at the top of the
                recursion. None of LytNode's leaf slots are SCOPED (App.vue
@@ -363,6 +474,60 @@ const slotNames = computed(() => Object.keys(slots));
             <slot :name="name" />
           </template>
         </LytNode>
+      </div>
+
+      <!-- Exclusive (T), opened live (REALIZATION WAVE): a tab strip + the
+           active child's own body, realized by driving TabWidget.vue
+           directly (convergence, not a second tab implementation — file
+           header, "REALIZATION WAVE"). Always present (an Exclusive is
+           never a release-toggle target — file header, "Runtime presence
+           overrides"). The `#exclusive-<widget>` slot lets the top of the
+           recursion (App.vue) inject cross-cutting chrome INSIDE the
+           wrapper (e.g. the control-panel's own inner resizer bar) without
+           this component needing to know what that chrome is. -->
+      <div
+        v-else-if="group.rep.node.kind === 'exclusive'"
+        :id="domId(group.rep.path)"
+        :style="{ ...placementStyle(group), minWidth: '0', minHeight: '0', position: 'relative' }"
+      >
+        <slot :name="'exclusive-' + group.rep.node.widget" />
+        <TabWidget
+          :tabs="exclusiveTabs(group.rep.node)"
+          :model-value="exclusiveActiveTabId(group.rep.node, group.rep.path)"
+          :owns-scroll="false"
+          @update:model-value="(v: string) => onExclusiveTabModelUpdate(group.rep.path, v)"
+        >
+          <template v-for="child in group.rep.node.children" #[child.tabId] :key="child.tabId">
+            <!-- A Split child recurses through a nested <LytNode> (exactly
+                 like a Split's own composite children); LytNode's own
+                 `node` prop is always a Split (its top-level fold target),
+                 so an Exclusive child would need an intervening Split
+                 wrapper before it could recurse the same way — not a shape
+                 any encoding produces today (an Exclusive's own children
+                 are never themselves bare Exclusive nodes), so this branch
+                 stays Split-only rather than speculatively widening. -->
+            <LytNode
+              v-if="child.node.kind === 'split'"
+              :node="child.node"
+              :path="child.path"
+              :dom-ids-by-path="domIdsByPath"
+              :presence-overrides="presenceOverrides"
+              :class-id="classId"
+              :track-style-overrides="trackStyleOverrides"
+              :exclusive-active-by-path="exclusiveActiveByPath"
+              :on-exclusive-active-change="onExclusiveActiveChange"
+              :translate-label="translateLabel"
+            >
+              <template v-for="name in slotNames" #[name] :key="name">
+                <slot :name="name" />
+              </template>
+            </LytNode>
+            <slot
+              v-else-if="registryStatus(child.node.widget) !== 'absent'"
+              :name="'leaf-' + child.node.widget"
+            />
+          </template>
+        </TabWidget>
       </div>
 
       <!-- Leaf / blackbox: terminal. Not rendered at all when presence
@@ -375,7 +540,7 @@ const slotNames = computed(() => Object.keys(slots));
       <div
         v-else-if="isPresent(group.rep)"
         :id="domId(group.rep.path)"
-        :style="{ ...placementStyle(group), minWidth: '0', minHeight: '0' }"
+        :style="{ ...placementStyle(group), minWidth: '0', minHeight: '0', ...leafOverflowStyle(group.rep.node) }"
         :class="['lyt-leaf-cell', { 'lyt-board-cell': isAspectLeaf(group.rep) }]"
       >
         <slot v-if="registryStatus(group.rep.node.widget) !== 'absent'" :name="'leaf-' + group.rep.node.widget" />

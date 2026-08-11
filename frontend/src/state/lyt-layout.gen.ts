@@ -3,7 +3,7 @@
  * Tool: research/lyt/emit_layout_tree.py
  * Source encoding: research/lyt/encodings/lengyue_landscape.lyt (layout `lengyue-landscape`)
  * The compiled LYT program (H/V/Exclusive tree, unsolved) as typed TS data — consumed at runtime by LytNode.vue, which realizes each Split as a live CSS Grid container (roadmap S3, 'layout as data, not template').
- * Disclosed simplification (both classes): the Exclusive (T) control-panel node is collapsed to a single 'blackbox' leaf (widget id 'controlPanel') rather than expanded into its five CP-* grid children — see this tool's own module docstring.
+ * REALIZATION WAVE: the control-panel Exclusive (T) node is now genuinely opened (kind 'exclusive', widget 'controlPanel') for library/cards/other; settings/analysis stay collapsed to a 'blackbox' leaf each (CP-settings / CP-analysis) — a disclosed, deliberate scope narrowing (dynamic user-configurable analysis tabs) — see this tool's own module docstring, 'REALIZATION WAVE' section.
  * Data-shape types (LytProgram, LytTrackShape, etc.) are NOT declared here — see './lyt-layout-types.ts' (hand-written, ADR-0012 one-home-per-fact), re-exported below.
  * Regenerate: cd research/lyt && nice -n 19 ~/w/vdc/venvs/generic/bin/python emit_layout_tree.py --registration landscape
  *
@@ -21,6 +21,8 @@ export type {
   LytBlackboxNode,
   LytTrackShape,
   LytSplitNode,
+  LytExclusiveNode,
+  LytExclusiveChild,
   LytNodeData,
   LytChild,
   LytProgram,
@@ -35,7 +37,7 @@ export const LYT_LANDSCAPE: LytProgram = {
         path: "0",
         presenceDefaultVisible: false,
         track: { kind: "fixed", px: 168 },
-        node: { kind: "leaf", widget: "boardRail", domain: "common", facets: ["action", "info"], aspect: null },
+        node: { kind: "leaf", widget: "boardRail", domain: "common", facets: ["action", "info"], aspect: null, scrollAxes: [], content: null },
       },
       {
         path: "1",
@@ -48,19 +50,19 @@ export const LYT_LANDSCAPE: LytProgram = {
               path: "1.0",
               presenceDefaultVisible: true,
               track: { kind: "elastic", minPx: 0, frWeight: 1 },
-              node: { kind: "leaf", widget: "B", domain: "board", facets: [], aspect: 1 },
+              node: { kind: "leaf", widget: "B", domain: "board", facets: [], aspect: 1, scrollAxes: [], content: null },
             },
             {
               path: "1.1",
               presenceDefaultVisible: true,
               track: { kind: "fixed", px: 24 },
-              node: { kind: "leaf", widget: "I_board", domain: "board", facets: ["info"], aspect: null },
+              node: { kind: "leaf", widget: "I_board", domain: "board", facets: ["info"], aspect: null, scrollAxes: [], content: null },
             },
             {
               path: "1.2",
               presenceDefaultVisible: true,
               track: { kind: "fixed", px: 28 },
-              node: { kind: "leaf", widget: "A_board", domain: "board", facets: ["action"], aspect: null },
+              node: { kind: "leaf", widget: "A_board", domain: "board", facets: ["action"], aspect: null, scrollAxes: [], content: null },
             },
           ],
         },
@@ -76,13 +78,13 @@ export const LYT_LANDSCAPE: LytProgram = {
               path: "2.0",
               presenceDefaultVisible: true,
               track: { kind: "fixed", px: 60 },
-              node: { kind: "leaf", widget: "A_engine", domain: "go", facets: ["action", "info"], aspect: null },
+              node: { kind: "leaf", widget: "A_engine", domain: "go", facets: ["action", "info"], aspect: null, scrollAxes: [], content: null },
             },
             {
               path: "2.1",
               presenceDefaultVisible: true,
               track: { kind: "fixed", px: 160 },
-              node: { kind: "leaf", widget: "A_app", domain: "common", facets: ["action"], aspect: null },
+              node: { kind: "leaf", widget: "A_app", domain: "common", facets: ["action"], aspect: null, scrollAxes: [], content: null },
             },
             {
               path: "2.2",
@@ -95,19 +97,69 @@ export const LYT_LANDSCAPE: LytProgram = {
                     path: "2.2.0",
                     presenceDefaultVisible: true,
                     track: { kind: "fixed", px: 110 },
-                    node: { kind: "leaf", widget: "tree", domain: "board", facets: ["action", "info"], aspect: null },
+                    node: { kind: "leaf", widget: "tree", domain: "board", facets: ["action", "info"], aspect: null, scrollAxes: [], content: null },
                   },
                   {
                     path: "2.2.1",
                     presenceDefaultVisible: true,
                     track: { kind: "elastic", minPx: 160, frWeight: 1 },
-                    node: { kind: "blackbox", widget: "controlPanel", tag: "BLACK BOX", childWidgets: ["CP-library", "CP-cards", "settingsSubstrip", "settingsPane", "timelineStrip", "AT_basic_interval", "AT_basic_scoreLead", "AT_basic_mergedDelta", "AT_dist_deltaDist", "AT_dist_mistakeGap", "AT_stab_stability", "AT_stab_crossCorr", "AT_multires", "otherColorDebug", "otherBand"] },
+                    node: {
+                      kind: "exclusive", widget: "controlPanel", tag: "BLACK BOX", defaultTabId: "library",
+                      children: [
+                        {
+                          path: "2.2.1.0",
+                          tabId: "library",
+                          tabLabelKey: "app.tabs.library",
+                          node: { kind: "leaf", widget: "CP-library", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded" },
+                        },
+                        {
+                          path: "2.2.1.1",
+                          tabId: "cards",
+                          tabLabelKey: "app.tabs.cards",
+                          node: { kind: "leaf", widget: "CP-cards", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded" },
+                        },
+                        {
+                          path: "2.2.1.2",
+                          tabId: "settings",
+                          tabLabelKey: "app.tabs.settings",
+                          node: { kind: "blackbox", widget: "CP-settings", tag: null, childWidgets: ["settingsSubstrip", "settingsPane"] },
+                        },
+                        {
+                          path: "2.2.1.3",
+                          tabId: "analysis",
+                          tabLabelKey: "app.tabs.analysis",
+                          node: { kind: "blackbox", widget: "CP-analysis", tag: null, childWidgets: ["timelineStrip", "AT_basic_interval", "AT_basic_scoreLead", "AT_basic_mergedDelta", "AT_dist_deltaDist", "AT_dist_mistakeGap", "AT_stab_stability", "AT_stab_crossCorr", "AT_multires"] },
+                        },
+                        {
+                          path: "2.2.1.4",
+                          tabId: "other",
+                          tabLabelKey: "app.tabs.other",
+                          node: {
+                            kind: "split", axis: "v", gapPx: 4,
+                            children: [
+                              {
+                                path: "2.2.1.4.0",
+                                presenceDefaultVisible: true,
+                                track: { kind: "fixed", px: 40 },
+                                node: { kind: "leaf", widget: "otherColorDebug", domain: "debug", facets: [], aspect: null, scrollAxes: [], content: "designed" },
+                              },
+                              {
+                                path: "2.2.1.4.1",
+                                presenceDefaultVisible: true,
+                                track: { kind: "elastic", minPx: 160, frWeight: 1 },
+                                node: { kind: "leaf", widget: "otherBand", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded" },
+                              },
+                            ],
+                          },
+                        },
+                      ],
+                    },
                   },
                   {
                     path: "2.2.2",
                     presenceDefaultVisible: false,
                     track: { kind: "fixed", px: 160 },
-                    node: { kind: "leaf", widget: "previewBoard", domain: "common", facets: ["info"], aspect: 1 },
+                    node: { kind: "leaf", widget: "previewBoard", domain: "common", facets: ["info"], aspect: 1, scrollAxes: [], content: null },
                   },
                 ],
               },

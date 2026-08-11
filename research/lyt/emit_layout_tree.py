@@ -97,6 +97,45 @@ interior leaves instead of the bare `CP-analysis`/`CP-settings` strings),
 a field this module's own docstring above already discloses as
 documentation-only and `LytNode.vue` never reads.
 
+REALIZATION WAVE (2026-08-11, work item lyt-realization-exclusive-overflow,
+ledger row 1937, `.claude/dispatch-reports/lyt-tab-region-consult.md` §8.1):
+the "Wave 1 ships solver-side... byte-identical" boundary named above is a
+STARTING point, not a permanent one -- §8.1's own resolution treats the
+realization boundary as encoding/registration DATA (a movable base-case
+marker), not a standing architectural decision. This wave moves that marker
+inward for the OUTER control-panel Exclusive node specifically: rather than
+ALWAYS collapsing an Exclusive to one synthetic `blackbox` leaf, a new
+`Registration.open_control_panel` flag (set for both `landscape`/`portrait`)
+tells `_build_node`'s Exclusive branch to emit a genuine `exclusive` node --
+each child either opened (recursed into normally, the same generic fold
+every other node kind already gets) or individually collapsed per
+`Registration.control_panel_collapse_indices`.
+
+DISCLOSED, DELIBERATE SCOPE NARROWING relative to the full ratified consult
+(STOP-and-report per the umbrella CLAUDE.md; recorded in the wave's own
+delivery report, `.claude/dispatch-reports/lyt-realization-wave.md`): of the
+outer T's five children (library/cards/settings/analysis/other, in encoding
+order), `control_panel_collapse_indices = {2, 3}` keeps the SETTINGS and
+ANALYSIS composites collapsed to one synthetic leaf each this wave --
+`CP-settings` mounts `SettingsTab.vue` unchanged (which owns its OWN
+horizontal/vertical sub-tab TabWidget internally, matching the encoding's
+own `V(settingsSubstrip, settingsPane)` shape conceptually without splitting
+it into two separately-mounted DOM leaves this wave); `CP-analysis` mounts
+`AnalysisControls`/`AnalysisDashboard.vue` unchanged, which owns a SECOND,
+genuinely DYNAMIC, user-configurable tab set (`AppSettings.analysisTabs`) --
+literally rendering the encoding's own nested `T(AT_basic, AT_distributions,
+AT_stability, AT_multires)` live would hard-code the DOM to the STATIC
+DEFAULT four-tab configuration and silently break that dynamic behavior for
+any user who has customized their analysis tabs (the exact residual the
+ratified consult's own §8.3 names: "the static guarantee covers the declared
+DEFAULT configuration ... the only sound instrument for user-authored
+layouts is a runtime advisory check ... a different, larger commission").
+LIBRARY and CARDS (bare leaves, indices 0/1) and OTHER (index 4, a
+`V(otherColorDebug, otherBand)` composite with no dynamic per-user data) are
+NOT in the collapse set -- they open normally via the SAME generic recursion
+every other node kind already gets, with no special-casing beyond the
+collapse-set membership test.
+
 REPAIR (2026-08-11, `.claude/dispatch-reports/lyt-optionc-review.md`
 Finding 2, corrected in `.claude/dispatch-reports/lyt-optionc-repair.md`):
 the paragraph above's own "UNCHANGED... byte-identical" claim was FALSE for
@@ -264,6 +303,21 @@ class Registration:
     default_visible_by_path: Dict[Tuple[int, ...], bool]
     const_name: str
     default_out: Path
+    # REALIZATION WAVE additions (see module docstring's own section by that
+    # name for the full rationale). `open_control_panel=False` reproduces the
+    # pre-wave "always collapse the whole Exclusive" behavior byte-for-byte --
+    # every prior registration (there were none before this wave; both
+    # current registrations opt in) would have defaulted here.
+    open_control_panel: bool = False
+    # Tab id per outer-T child, in ENCODING order -- must match the T's own
+    # child count when `open_control_panel` is True. Doubles as the i18n key
+    # suffix (`app.tabs.<id>`) and the synthetic collapsed-child widget id
+    # (`CP-<id>`).
+    control_panel_tab_ids: Tuple[str, ...] = ()
+    # Child INDICES (0-based, encoding order) that stay collapsed to one
+    # synthetic `blackbox` leaf each, per this wave's own disclosed scope
+    # narrowing (module docstring).
+    control_panel_collapse_indices: frozenset = frozenset()
 
 
 REGISTRATIONS: Dict[str, Registration] = {
@@ -274,6 +328,9 @@ REGISTRATIONS: Dict[str, Registration] = {
         default_visible_by_path=DEFAULT_VISIBLE_BY_PATH,
         const_name="LYT_LANDSCAPE",
         default_out=DEFAULT_OUT,
+        open_control_panel=True,
+        control_panel_tab_ids=("library", "cards", "settings", "analysis", "other"),
+        control_panel_collapse_indices=frozenset({2, 3}),
     ),
     "portrait": Registration(
         layout_file="lengyue_portrait.lyt",
@@ -282,6 +339,9 @@ REGISTRATIONS: Dict[str, Registration] = {
         default_visible_by_path=DEFAULT_VISIBLE_BY_PATH_PORTRAIT,
         const_name="LYT_PORTRAIT",
         default_out=DEFAULT_OUT_PORTRAIT,
+        open_control_panel=True,
+        control_panel_tab_ids=("library", "cards", "settings", "analysis", "other"),
+        control_panel_collapse_indices=frozenset({2, 3}),
     ),
 }
 
@@ -449,7 +509,13 @@ def _collect_leaf_widgets(slot: ast.Slot) -> List[str]:
 
 
 def _build_node(
-    slot: ast.Slot, *, path: Tuple[int, ...], default_visible_by_path: Dict[Tuple[int, ...], bool]
+    slot: ast.Slot,
+    *,
+    path: Tuple[int, ...],
+    default_visible_by_path: Dict[Tuple[int, ...], bool],
+    open_control_panel: bool = False,
+    control_panel_tab_ids: Tuple[str, ...] = (),
+    control_panel_collapse_indices: frozenset = frozenset(),
 ) -> dict:
     node = slot.node
     if isinstance(node, ast.Leaf):
@@ -460,31 +526,84 @@ def _build_node(
             "domain": domain,
             "facets": facets,
             "aspect": slot.sizing.aspect,
+            # REALIZATION WAVE (item 3, overflow derivation): the Slot's own
+            # `scroll_axes` (Amendment 5) and the Leaf's own `content` class
+            # -- carried through so a live-rendered leaf's overflow CSS can
+            # be DERIVED from the program instead of hand-authored per
+            # component. Sorted for deterministic emitted output.
+            "scrollAxes": sorted(slot.scroll_axes),
+            "content": node.content,
         }
     if isinstance(node, ast.Exclusive):
         # AMENDMENT 6 (ledger row 1937, .claude/dispatch-reports/
         # lyt-tab-region-consult.md §6.2/§6.4/§8.1): the plain-leaf-T
         # assertion this branch used to raise is RETIRED -- a T-node child
-        # no longer has to be a bare ast.Leaf. The whole Exclusive node
-        # still collapses to ONE synthetic 'blackbox' leaf unconditionally
-        # (§8.1's own resolution: "Wave 1 ships solver-side with the marker
-        # sitting at the T ... today's behavior, byte-identical" --
-        # LytNode.vue's single `#leaf-controlPanel` slot boundary is
-        # untouched by this wave regardless of how deep any one tab's own
-        # interior is now modeled). `childWidgets` -- documentation/
-        # report-table parity only, never read by LytNode.vue's rendering
-        # (confirmed against that file's own source: it branches on
-        # `node.kind`, never on `childWidgets`) -- is now a genuine
-        # structural fold (`_collect_leaf_widgets`, total over
-        # Leaf|Split|Exclusive) instead of a one-level `c.node.widget` read,
-        # so a composite CP-* tab's interior leaves are still named for
-        # documentation purposes, not silently dropped.
-        child_widgets = [w for c in node.children for w in _collect_leaf_widgets(c)]
+        # no longer has to be a bare ast.Leaf.
+        #
+        # REALIZATION WAVE (module docstring, same section name): a
+        # `open_control_panel`-flagged Exclusive no longer collapses
+        # unconditionally -- it emits a genuine 'exclusive' node, folding
+        # generically into whichever of its children are NOT in
+        # `control_panel_collapse_indices` (recursed via THIS SAME
+        # function, open_control_panel reset to False so a nested Exclusive
+        # -- today, only CP-analysis's own inner analysis-tabs T -- keeps
+        # the pre-wave full-collapse behavior unless a FUTURE wave opts it
+        # in explicitly by the same mechanism). An Exclusive this parameter
+        # does not flag (every OTHER Exclusive in the tree, structurally
+        # unreachable this wave since the one nested Exclusive lives inside
+        # a still-collapsed subtree -- see the collapse-indices branch
+        # below, which never calls back into `_build_node` for a collapsed
+        # child's interior) falls through to the byte-identical pre-wave
+        # collapse.
+        if not open_control_panel:
+            child_widgets = [w for c in node.children for w in _collect_leaf_widgets(c)]
+            return {
+                "kind": "blackbox",
+                "widget": "controlPanel",
+                "tag": node.tag,
+                "childWidgets": child_widgets,
+            }
+        if len(node.children) != len(control_panel_tab_ids):
+            raise ValueError(
+                f"open_control_panel Exclusive has {len(node.children)} children but "
+                f"control_panel_tab_ids names {len(control_panel_tab_ids)} -- the two must "
+                "agree 1:1, in encoding order (module docstring, 'REALIZATION WAVE')."
+            )
+        ex_children = []
+        for i, child in enumerate(node.children):
+            cpath = path + (i,)
+            tab_id = control_panel_tab_ids[i]
+            if i in control_panel_collapse_indices:
+                child_widgets = _collect_leaf_widgets(child)
+                child_node = {
+                    "kind": "blackbox",
+                    "widget": f"CP-{tab_id}",
+                    "tag": None,
+                    "childWidgets": child_widgets,
+                }
+            else:
+                child_node = _build_node(
+                    child,
+                    path=cpath,
+                    default_visible_by_path=default_visible_by_path,
+                    open_control_panel=False,
+                    control_panel_tab_ids=(),
+                    control_panel_collapse_indices=frozenset(),
+                )
+            ex_children.append(
+                {
+                    "path": ".".join(str(p) for p in cpath),
+                    "tabId": tab_id,
+                    "tabLabelKey": f"app.tabs.{tab_id}",
+                    "node": child_node,
+                }
+            )
         return {
-            "kind": "blackbox",
+            "kind": "exclusive",
             "widget": "controlPanel",
             "tag": node.tag,
-            "childWidgets": child_widgets,
+            "defaultTabId": control_panel_tab_ids[0],
+            "children": ex_children,
         }
     if isinstance(node, ast.Split):
         axis = node.axis
@@ -512,7 +631,21 @@ def _build_node(
                     "path": ".".join(str(p) for p in cpath),
                     "presenceDefaultVisible": default_visible_by_path.get(cpath, True),
                     "track": shapes[i],
-                    "node": _build_node(child, path=cpath, default_visible_by_path=default_visible_by_path),
+                    "node": _build_node(
+                        child,
+                        path=cpath,
+                        default_visible_by_path=default_visible_by_path,
+                        # Threaded through unconditionally (REALIZATION WAVE):
+                        # a Split ancestor of the control-panel Exclusive must
+                        # forward the SAME open_control_panel/tab-id/collapse
+                        # facts all the way down, or the outer T would silently
+                        # fall back to full collapse the moment it sits behind
+                        # ANY intervening Split (which it always does -- see
+                        # both encodings' own root H(...)/V(...) nesting).
+                        open_control_panel=open_control_panel,
+                        control_panel_tab_ids=control_panel_tab_ids,
+                        control_panel_collapse_indices=control_panel_collapse_indices,
+                    ),
                 }
             )
         return {"kind": "split", "axis": axis, "gapPx": node.gap_px, "children": children}
@@ -525,13 +658,23 @@ def build_program(
     layout_name: str = LAYOUT_NAME,
     class_id: str = CLASS_ID,
     default_visible_by_path: Dict[Tuple[int, ...], bool] = DEFAULT_VISIBLE_BY_PATH,
+    open_control_panel: bool = False,
+    control_panel_tab_ids: Tuple[str, ...] = (),
+    control_panel_collapse_indices: frozenset = frozenset(),
 ) -> dict:
     text = (ENCODINGS_DIR / layout_file).read_text()
     layouts = loader.load_layouts(text)
     slot = layouts[layout_name]
     if not isinstance(slot.node, ast.Split):
         raise TypeError(f"{layout_name}'s root is not a Split: {slot.node!r}")
-    root = _build_node(slot, path=(), default_visible_by_path=default_visible_by_path)
+    root = _build_node(
+        slot,
+        path=(),
+        default_visible_by_path=default_visible_by_path,
+        open_control_panel=open_control_panel,
+        control_panel_tab_ids=control_panel_tab_ids,
+        control_panel_collapse_indices=control_panel_collapse_indices,
+    )
     return {"classId": class_id, "root": root}
 
 
@@ -543,6 +686,9 @@ def build_program_for(registration: Registration) -> dict:
         layout_name=registration.layout_name,
         class_id=registration.class_id,
         default_visible_by_path=registration.default_visible_by_path,
+        open_control_panel=registration.open_control_panel,
+        control_panel_tab_ids=registration.control_panel_tab_ids,
+        control_panel_collapse_indices=registration.control_panel_collapse_indices,
     )
 
 
@@ -581,9 +727,12 @@ def _ts_node(node: dict, indent: str) -> str:
     if kind == "leaf":
         aspect = "null" if node["aspect"] is None else f'{node["aspect"]:g}'
         facets = ", ".join(json.dumps(f) for f in node["facets"])
+        scroll_axes = ", ".join(json.dumps(a) for a in node["scrollAxes"])
+        content = "null" if node["content"] is None else json.dumps(node["content"])
         return (
             f'{{ kind: "leaf", widget: {json.dumps(node["widget"])}, '
-            f'domain: {json.dumps(node["domain"])}, facets: [{facets}], aspect: {aspect} }}'
+            f'domain: {json.dumps(node["domain"])}, facets: [{facets}], aspect: {aspect}, '
+            f"scrollAxes: [{scroll_axes}], content: {content} }}"
         )
     if kind == "blackbox":
         tag = "null" if node["tag"] is None else json.dumps(node["tag"])
@@ -591,6 +740,23 @@ def _ts_node(node: dict, indent: str) -> str:
         return (
             f'{{ kind: "blackbox", widget: {json.dumps(node["widget"])}, tag: {tag}, '
             f"childWidgets: [{child_widgets}] }}"
+        )
+    if kind == "exclusive":
+        inner = indent + "  "
+        tag = "null" if node["tag"] is None else json.dumps(node["tag"])
+        children_lines = []
+        for child in node["children"]:
+            children_lines.append(f"{inner}  {{")
+            children_lines.append(f'{inner}    path: {json.dumps(child["path"])},')
+            children_lines.append(f'{inner}    tabId: {json.dumps(child["tabId"])},')
+            children_lines.append(f'{inner}    tabLabelKey: {json.dumps(child["tabLabelKey"])},')
+            children_lines.append(f'{inner}    node: {_ts_node(child["node"], inner + "    ")},')
+            children_lines.append(f"{inner}  }},")
+        children_block = "\n".join(children_lines)
+        return (
+            f'{{\n{inner}kind: "exclusive", widget: {json.dumps(node["widget"])}, tag: {tag}, '
+            f'defaultTabId: {json.dumps(node["defaultTabId"])},\n'
+            f"{inner}children: [\n{children_block}\n{inner}],\n{indent}}}"
         )
     if kind == "split":
         inner = indent + "  "
@@ -625,10 +791,12 @@ def render_ts(program: dict, *, registration: Registration) -> str:
         "Grid container (roadmap S3, 'layout as data, not template')."
     )
     lines.append(
-        " * Disclosed simplification (both classes): the Exclusive (T) control-panel "
-        "node is collapsed to a single 'blackbox' leaf (widget id 'controlPanel') "
-        "rather than expanded into its five CP-* grid children — see this tool's own "
-        "module docstring."
+        " * REALIZATION WAVE: the control-panel Exclusive (T) node is now genuinely "
+        "opened (kind 'exclusive', widget 'controlPanel') for library/cards/other; "
+        "settings/analysis stay collapsed to a 'blackbox' leaf each (CP-settings / "
+        "CP-analysis) — a disclosed, deliberate scope narrowing (dynamic "
+        "user-configurable analysis tabs) — see this tool's own module docstring, "
+        "'REALIZATION WAVE' section."
     )
     lines.append(
         " * Data-shape types (LytProgram, LytTrackShape, etc.) are NOT declared here — "
@@ -662,6 +830,8 @@ def render_ts(program: dict, *, registration: Registration) -> str:
     lines.append("  LytBlackboxNode,")
     lines.append("  LytTrackShape,")
     lines.append("  LytSplitNode,")
+    lines.append("  LytExclusiveNode,")
+    lines.append("  LytExclusiveChild,")
     lines.append("  LytNodeData,")
     lines.append("  LytChild,")
     lines.append("  LytProgram,")

@@ -118,7 +118,7 @@ import { useEngineControls } from './composables/useEngineControls';
 import { useUserIORegistry } from './composables/useUserIORegistry';
 import { useAuth }           from './composables/auth-app/useAuth';
 import { workspaceIdentityKey } from './composables/auth-app/workspace-identity-key';
-import { CONTROL_PANEL_TAB_IDS, getPanelContentPolicy, useDeferredLayoutClass } from './state/layout-model';
+import { getPanelContentPolicy, useDeferredLayoutClass } from './state/layout-model';
 import { useDirtyBoardGuard } from './composables/board/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
 import { useTransientLogReveal } from './composables/useTransientLogReveal';
@@ -153,7 +153,6 @@ import { LYT_PORTRAIT }   from './state/lyt-layout-portrait.gen';
 import { useResizablePanel } from './composables/chrome/useResizablePanel';
 import BoardWidget      from './components/board/BoardWidget.vue';
 import TreeWidget       from './components/tree/TreeWidget.vue';
-import TabWidget        from './components/chrome/TabWidget.vue';
 import SettingsTab      from './components/SettingsTab.vue';
 import AnalysisControls from './components/editors/AnalysisControls.vue';
 import ToolbarEngineCluster from './components/chrome/ToolbarEngineCluster.vue';
@@ -544,6 +543,37 @@ const activeLytDomIdByPath = computed(() =>
   activeScreenClassId.value === 'portrait' ? LYT_DOM_ID_BY_PATH_PORTRAIT : LYT_DOM_ID_BY_PATH_LANDSCAPE,
 );
 
+// REALIZATION WAVE (`.claude/dispatch-reports/lyt-realization-wave.md`):
+// the control-panel Exclusive's own dotted path, per class — derived from
+// `activeLytDomIdByPath` (the one map that already names '#control-panel'
+// per class) rather than a THIRD hand-maintained '2.2.1'/'4.1' literal
+// pair (ADR-0012 P1 — one home, not a third copy of a fact
+// `LYT_DOM_ID_BY_PATH_*` already states).
+const controlPanelLytPath = computed<string>(() => {
+  const entry = Object.entries(activeLytDomIdByPath.value).find(([, id]) => id === 'control-panel');
+  if (!entry) {
+    throw new Error(
+      'App.vue: no LYT tree path resolves to "control-panel" in activeLytDomIdByPath — ' +
+        'the control-panel Exclusive node must always have a DOM-id entry (LytNode.vue anchors ' +
+        'the resizer-inner bar and #control-panel\'s own CSS off it).',
+    );
+  }
+  return entry[0];
+});
+
+// LytNode's Exclusive-case active-tab wiring (file header, "Active-tab
+// state") — the SAME persisted `session.ui.activeTab` cell the pre-wave,
+// App.vue-authored TabWidget instance wrote through `activeTab` above,
+// now threaded as a path-keyed read/write pair instead of a single
+// TabWidget's own v-model.
+const lytExclusiveActiveByPath = computed<Record<string, string>>(() => ({
+  [controlPanelLytPath.value]: activeTab.value,
+}));
+function handleLytExclusiveActiveChange(path: string, tabId: string): void {
+  if (path !== controlPanelLytPath.value) return;
+  activeTab.value = tabId;
+}
+
 // LytNode runtime presence overrides (W2, roadmap §8 W2 item 1). Reads
 // straight off the persisted `session.ui.lytPresence` map for
 // `previewBoard`/`controlPanel` — LytNode.vue's own fallback
@@ -576,18 +606,16 @@ const { sync } = useAppBootstrap(auth);
 // the UX rationale and timer mechanics.
 const transientLogReveal = useTransientLogReveal();
 
-// Computed so the labels re-evaluate on locale change. The TabWidget
-// renders `tab.label` directly; Vue's reactivity passes through the
-// prop, so a locale flip propagates without per-tab re-mounting.
-//
-// Mapped from `CONTROL_PANEL_TAB_IDS` (state/layout-model.ts) rather
-// than a second hand-written id list — that array is ALSO what
-// `computeControlPanelMinWidthPx` projects the tab-strip floor from
-// (audit finding R2), so a tab added/removed here moves the floor by
-// construction; a second, drifted id list would silently defeat that.
-const controlTabs = computed(() =>
-  CONTROL_PANEL_TAB_IDS.map((id) => ({ id, label: t(`app.tabs.${id}`) })),
-);
+// REALIZATION WAVE: the App-authored `controlTabs`/`TabWidget` pair this
+// comment used to document is retired — LytNode.vue's own Exclusive case
+// now drives TabWidget itself, deriving each tab's label from the compiled
+// program's own `tabLabelKey` (`app.tabs.<id>`, the SAME i18n key family
+// this computed used to build) rather than App.vue re-deriving the same
+// list from `CONTROL_PANEL_TAB_IDS`. `CONTROL_PANEL_TAB_IDS` itself is
+// still consulted directly by `computeControlPanelMinWidthPx`
+// (`state/layout-model.ts`) and by the emitter's own
+// `Registration.control_panel_tab_ids` (`emit_layout_tree.py`) — three
+// independent readers of the SAME ordered id list, not three writers of it.
 
 // Board-mutation entry points (click-to-play + paste-PV), routed
 // through the grading-integrity gate: AWAITING_MOVE moves go to the
@@ -733,6 +761,9 @@ const activeTab = computed<string>({
           :presence-overrides="lytPresenceOverrides"
           :class-id="activeScreenClassId"
           :track-style-overrides="lytTrackStyleOverrides"
+          :exclusive-active-by-path="lytExclusiveActiveByPath"
+          :on-exclusive-active-change="handleLytExclusiveActiveChange"
+          :translate-label="t"
         >
 
           <!-- W2: style A only (railStyle === 'slot') actually shows this
@@ -855,14 +886,23 @@ const activeTab = computed<string>({
             />
           </template>
 
-          <!-- The collapsed T(CP-*) black-box leaf (lyt-layout.gen.ts
-               header) — TabWidget's own five named slots are unchanged
-               verbatim from pre-rework App.vue. -->
-          <template #leaf-controlPanel>
+          <!-- The now-OPENED control-panel Exclusive node (lyt-layout.gen.ts
+               header, "REALIZATION WAVE") — LytNode.vue's own Exclusive case
+               drives a live TabWidget instance itself; App.vue fills the
+               per-TAB leaf slots below (library/cards, plus the two
+               still-collapsed synthetic leaves CP-settings/CP-analysis, plus
+               the Other tab's own two newly-opened leaves) instead of one
+               single #leaf-controlPanel slot around an App-authored
+               TabWidget. -->
+          <template #exclusive-controlPanel>
             <!-- INNER resizer bar (W3, both screen classes — see
                  useResizablePanel.ts's own header for the drag math).
                  Anchored at #control-panel's own LEFT edge, exactly the
-                 tree/control-panel boundary this bar has always owned. -->
+                 tree/control-panel boundary this bar has always owned.
+                 Unaffected by the Exclusive-node opening: LytNode.vue's
+                 wrapper div (not TabWidget's own root) still carries
+                 `position: relative` and this bar's own `:id`/handler are
+                 unchanged. -->
             <div
               id="resizer-inner"
               class="lyt-resizer lyt-resizer-vertical"
@@ -871,14 +911,10 @@ const activeTab = computed<string>({
               :aria-label="$t('app.chrome.resizerInnerLabel')"
               @mousedown="startResizeInner"
             ></div>
-            <TabWidget
-              :key="controlPanelIdentityKey"
-              :tabs="controlTabs"
-              v-model="activeTab"
-            >
+          </template>
 
-              <template #library>
-                <div style="flex: 1; display: flex; min-height: 0; width: 100%;">
+              <template #leaf-CP-library>
+                <div :key="controlPanelIdentityKey" style="flex: 1; display: flex; min-height: 0; width: 100%;">
                   <LibraryTab
                     :two-column-reflow="panelContentPolicy.twoColumnReflow"
                     @open-library-game="handleLoadLibraryGame"
@@ -887,28 +923,51 @@ const activeTab = computed<string>({
                 </div>
               </template>
 
-              <template #cards>
-                <div style="flex: 1; display: flex; min-height: 0; width: 100%;">
+              <template #leaf-CP-cards>
+                <div :key="controlPanelIdentityKey" style="flex: 1; display: flex; min-height: 0; width: 100%;">
                   <ForestDirectory :two-column-reflow="panelContentPolicy.twoColumnReflow" @load-card="handleLoadCard" />
                 </div>
               </template>
 
-              <template #settings>
-                <SettingsTab @force-save="sync.forceSave()" />
+              <!-- CP-settings / CP-analysis: DISCLOSED SCOPE NARROWING (this
+                   wave's own delivery report) — the encoding's own modeled
+                   V(substrip,pane)/nested-T interiors stay solver-visible but
+                   UNOPENED in the DOM; each still mounts as ONE component,
+                   unchanged wiring from the pre-wave #settings/#analysis
+                   TabWidget slots (see lyt-widget-registry.ts's own entries
+                   for the rationale). -->
+              <template #leaf-CP-settings>
+                <SettingsTab :key="controlPanelIdentityKey" @force-save="sync.forceSave()" />
               </template>
 
-              <template #analysis>
-                <AnalysisControls v-if="activeBoard" :boardId="activeBoard.id" />
+              <template #leaf-CP-analysis>
+                <AnalysisControls v-if="activeBoard" :key="controlPanelIdentityKey" :boardId="activeBoard.id" />
               </template>
 
-              <template #other>
-                <div class="tab-padding">
-                  <h3 class="sub-header">{{ $t('other.section.knobRegistry') }}</h3>
-                  <KnobRegistryEditor />
-
+              <!-- Other tab, OPENED (item 4, §9.3's ratified target shape):
+                   a fixed designed-height band (the chart-ish
+                   ColorDebugStrip) + a scroll-owned band (the unbounded
+                   registry/config editors) — two separately-mounted LYT
+                   leaves now, replacing the pre-wave single #other slot's
+                   one mixed-scroll `.tab-padding` block (the L5c-refusing
+                   composition the ratified consult names dies here in the
+                   DOM too). Overflow is DERIVED (item 3): otherColorDebug
+                   declares no scroll axis (content designed, L5c no-scroll);
+                   otherBand declares `scroll v` — see
+                   useLytOverflowCss.ts's own `leafOverflowStyle`, applied by
+                   LytNode.vue's leaf-cell rendering. -->
+              <template #leaf-otherColorDebug>
+                <div :key="controlPanelIdentityKey" class="tab-padding">
                   <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.gradientCalibration') }}</h3>
                   <p class="hue-slider-hint">{{ $t('other.label.gradientCalibrationNotice') }}</p>
                   <ColorDebugStrip :steps="500" />
+                </div>
+              </template>
+
+              <template #leaf-otherBand>
+                <div :key="controlPanelIdentityKey" class="tab-padding">
+                  <h3 class="sub-header">{{ $t('other.section.knobRegistry') }}</h3>
+                  <KnobRegistryEditor />
 
                   <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.visitsLerp') }}</h3>
                   <VisitsLerpConfig />
@@ -920,9 +979,6 @@ const activeTab = computed<string>({
                   <QeuboBookmarks />
                 </div>
               </template>
-
-            </TabWidget>
-          </template>
 
           <!-- W2 (roadmap §8 W2 item 3): previewBoard's first real
                content — see PreviewBoardPanel.vue's own header for the
