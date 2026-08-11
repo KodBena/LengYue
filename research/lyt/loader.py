@@ -111,7 +111,7 @@ from errors import LytLoadError
 PX_PER_CH = 8.0
 WRAPPER_MIN_PX = 300.0
 
-VALID_DOMAINS = {"go", "common", "debug", "board", "chrome", "blackbox"}
+VALID_DOMAINS = {"go", "common", "debug", "board", "chrome"}
 VALID_FACETS = {"action", "info"}
 # AMENDMENT 5 (ledger row 1937): the content-class axis's closed
 # vocabulary and the scroll axis's closed vocabulary, both enforced by
@@ -577,7 +577,42 @@ def _load_content_class(
     return rs.content
 
 
-def _load_leaf(rl: lytparser.RawLeaf, *, where: str, content: Optional[str] = None) -> ast.Leaf:
+def _load_boundary_marker(
+    rs: Optional[lytparser.RawSizing], *, where: str, node_kind: str
+) -> bool:
+    """AMENDMENT 6 (ledger row 1937, .claude/dispatch-reports/
+    lyt-tab-region-consult.md §6.3): resolves the bare `boundary` sizing-bag
+    flag into `Leaf.boundary`. `False` when undeclared -- the byte-identical
+    default for every leaf that was never `domain == 'blackbox'` under the
+    now-retired spelling. Legal ONLY on a leaf, same "refuse, never drop the
+    author's declared intent" discipline `_load_content_class`'s node-kind
+    check already applies -- the marker names "an unmodeled subtree stands
+    here", which only makes sense at a terminal (a Split/Exclusive already
+    HAS visible structure by definition, so it cannot also claim to be an
+    unmodeled base case).
+    """
+    if rs is None or not rs.boundary:
+        return False
+    if node_kind != "leaf":
+        raise LytLoadError(
+            f"boundary declared at {where} but 'boundary' is a LEAF-only "
+            "marker (it names 'an unmodeled subtree stands here' -- "
+            ".claude/dispatch-reports/lyt-tab-region-consult.md §6.3) — a "
+            f"{node_kind} node may not declare it (AMENDMENT 6, ledger row "
+            "1937)",
+            {
+                "where": where,
+                "law": "boundary-marker",
+                "prohibition": "boundary-on-non-leaf",
+                "node_kind": node_kind,
+            },
+        )
+    return True
+
+
+def _load_leaf(
+    rl: lytparser.RawLeaf, *, where: str, content: Optional[str] = None, boundary: bool = False
+) -> ast.Leaf:
     domain = rl.domain
     facets = set()
     if domain not in VALID_DOMAINS:
@@ -613,6 +648,7 @@ def _load_leaf(rl: lytparser.RawLeaf, *, where: str, content: Optional[str] = No
         domain=domain,
         flagged=rl.flagged,
         content=content,  # AMENDMENT 5, ledger row 1937
+        boundary=boundary,  # AMENDMENT 6, ledger row 1937
     )
 
 
@@ -624,7 +660,8 @@ def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
         # construction (the same "resolve first, construct once" shape
         # `_load_sizing`/`_load_presence` already use).
         content = _load_content_class(rs.sizing, where=f"{path}:{node.widget}", node_kind="leaf")
-        leaf = _load_leaf(node, where=f"{path}:{node.widget}", content=content)
+        boundary = _load_boundary_marker(rs.sizing, where=f"{path}:{node.widget}", node_kind="leaf")
+        leaf = _load_leaf(node, where=f"{path}:{node.widget}", content=content, boundary=boundary)
         # AMENDMENT 3: a leaf has no children at all, so `gap` is refused
         # here too (same law as the T-node refusal below) rather than
         # silently dropped.
@@ -651,6 +688,8 @@ def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
         # AMENDMENT 5: `content` is leaf-only -- a Split declaring it is
         # refused loudly here, same call shape as the leaf branch above.
         _load_content_class(rs.sizing, where=path, node_kind="split")
+        # AMENDMENT 6: `boundary` is leaf-only too, same reason.
+        _load_boundary_marker(rs.sizing, where=path, node_kind="split")
         scroll_axes = _load_scroll_axes(rs.sizing, where=path)
         split = ast.Split(axis=node.axis, gap_px=gap_px, children=children)
         sizing = _load_sizing(rs.sizing, where=path, node_kind="split")
@@ -668,6 +707,8 @@ def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
         _load_gap_px(rs.sizing, where=path, node_kind="exclusive")
         # AMENDMENT 5: `content` is leaf-only -- refused here too.
         _load_content_class(rs.sizing, where=path, node_kind="exclusive")
+        # AMENDMENT 6: `boundary` is leaf-only too, same reason.
+        _load_boundary_marker(rs.sizing, where=path, node_kind="exclusive")
         scroll_axes = _load_scroll_axes(rs.sizing, where=path)
         excl = ast.Exclusive(children=children, tag=node.tag)
         sizing = _load_sizing(rs.sizing, where=path, node_kind="exclusive")

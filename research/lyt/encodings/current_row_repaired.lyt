@@ -6,6 +6,16 @@
 -- Small standalone fragments demonstrating the loader's REFUSAL of each
 -- (verbatim, unrepaired) live in current_row_wart_*.lyt.
 --
+-- AMENDMENT 6 (ledger row 1937, .claude/dispatch-reports/lyt-tab-region-
+-- consult.md §6.3): mechanical re-homing. The five CP-* leaves' domain was
+-- `blackbox` (a domain literal now retired -- see lyt_ast.py's module
+-- docstring); each now carries its true domain (`common`, the census's own
+-- catch-all for non-go/non-board content) plus the new `boundary`
+-- sizing-bag flag ("an unmodeled subtree stands here"). Geometry-inert:
+-- `boundary` carries no sizing weight of its own, and `common` was already
+-- the loader's own fallback domain for unclassifiable content elsewhere in
+-- this file (see the `A_top`/`I[info]` disclosure in q5go.lyt/ogs.lyt).
+--
 -- This file is the same tree with exactly those warts repaired, so it can
 -- be solved and rendered — every repair is one of the fixes the document
 -- itself names as the available remedy (§4.1 line 303-306's preserve
@@ -234,11 +244,11 @@ layout current-row-repaired =
           @toggle(user, release) {min 140px, pref 140px, max inf, drag-persisted} tree[board, info+action],
           {4px} resizerInner[common, action],
           @toggle(user, release) {min WRAPPER_MIN, pref 1fr, max inf} T(
-            {min WRAPPER_MIN, pref 1fr, max inf} CP-library[blackbox],
-            {min WRAPPER_MIN, pref 1fr, max inf} CP-cards[blackbox],
-            {min WRAPPER_MIN, pref 1fr, max inf} CP-settings[blackbox],
-            {min WRAPPER_MIN, pref 1fr, max inf} CP-analysis[blackbox],
-            {min WRAPPER_MIN, pref 1fr, max inf} CP-other[blackbox]
+            {min WRAPPER_MIN, pref 1fr, max inf, boundary} CP-library[common],
+            {min WRAPPER_MIN, pref 1fr, max inf, boundary} CP-cards[common],
+            {min WRAPPER_MIN, pref 1fr, max inf, boundary} CP-settings[common],
+            {min WRAPPER_MIN, pref 1fr, max inf, boundary} CP-analysis[common],
+            {min WRAPPER_MIN, pref 1fr, max inf, boundary} CP-other[common]
           )[BLACK BOX]
         )
       )

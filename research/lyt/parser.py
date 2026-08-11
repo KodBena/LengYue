@@ -233,6 +233,14 @@ class RawSizing:
     # closed vocabulary or against "only legal on a leaf" -- loader.py's
     # job.
     content: Optional[str] = None
+    # AMENDMENT 6 (ledger row 1937, .claude/dispatch-reports/
+    # lyt-tab-region-consult.md §6.3): bare boolean flag, same shape as
+    # `aspect_coupled`/`drag_persisted` above -- "an unmodeled subtree
+    # stands here", re-homed off the retired `domain == 'blackbox'` value.
+    # Leaf-only (loader.py's job to refuse elsewhere, same "parser
+    # permissive, loader refuses" division of labor every other key here
+    # uses).
+    boundary: bool = False
 
 
 @dataclass
@@ -454,6 +462,10 @@ class Parser:
                 rs.aspect_coupled = True
             elif key == "drag-persisted":
                 rs.drag_persisted = True
+            elif key == "boundary":
+                # AMENDMENT 6 (ledger row 1937): bare flag, same shape as
+                # aspect-coupled/drag-persisted above.
+                rs.boundary = True
             elif key == "width":
                 rs.pref = self.parse_extent()  # alias, see module docstring
             elif key == "gap":

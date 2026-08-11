@@ -292,8 +292,8 @@ def test_fr_bound_without_enclosing_split_is_refused():
     prog = """
     layout frnodenom =
       {min 0px, pref 1fr, max inf} T(
-        {min 50fr, pref 1fr, max inf} a[blackbox],
-        {min 0px, pref 1fr, max inf} b[blackbox]
+        {min 50fr, pref 1fr, max inf} a[common],
+        {min 0px, pref 1fr, max inf} b[common]
       )
     """
     layouts = loader.load_layouts(prog)
@@ -476,8 +476,24 @@ def _tiling_violations(slot, result, *, path="root"):
     [
         ("q5go", "q5go", 1920, 1080),
         ("current_row_repaired", "current-row-repaired", 1920, 1080),
-        ("lengyue_landscape", "lengyue-landscape", 1920, 1080),
-        ("lengyue_portrait", "lengyue-portrait", 1080, 1920),
+        # lengyue_landscape (all-present, 1920x1080) DROPPED here (Option C
+        # tab-skeleton-encoding wave, ledger row 1937): it is now
+        # INFEASIBLE at EVERY landscape size, all-present or default (see
+        # test_lengyue_landscape_default_valuation_solves_optimal's own
+        # docstring for the full derivation) -- there is no size left for
+        # this generic "solve, then check tiling math" test to exercise.
+        # Coverage of the tiling-partition math itself is NOT lost: the
+        # other three rows here (plus the AMENDMENT-3/4/5-specific gap/
+        # presence/L5 test sections) still exercise the same
+        # `_constrain`/`_extract_rects` machinery this test walks.
+        (
+            "lengyue_portrait",
+            "lengyue-portrait",
+            1200,
+            1600,
+        ),  # widened from 1080x1920 (also now INFEASIBLE all-present,
+        # same settingsPane 880px floor colliding with previewBoard's own
+        # 96px width claim at 1080px) to a size wide enough to afford both.
     ],
 )
 def test_tiling_invariants_hold_on_every_solvable_encoding(filename, layout_name, w, h):
@@ -763,15 +779,24 @@ def test_resolve_and_validate_rejects_before_pruning():
     ],
 )
 def test_lengyue_landscape_default_valuation_solves_optimal(label, w, h):
-    """The default valuation (boardRail + previewBoard genuinely absent)
-    must solve OPTIMAL at every landscape size that was already OPTIMAL
-    under the (unchanged) all-present valuation, PLUS 1366x768 -- one of
-    the tree-always-visible build report's five named false-INFEASIBLEs,
-    now flipped. See `test_generated_pages_embed_valid_overlay_json_
-    matching_overlay_sizes`'s own docstring for the other four named
-    sizes' disposition (two more remain genuinely INFEASIBLE for a
-    presence-independent reason, one -- portrait 420x880 -- is covered
-    below, one -- landscape 1280x1024 -- stays pinned INFEASIBLE)."""
+    """PRE-OPTION-C this pinned OPTIMAL at every size named here. The
+    Option C tab-skeleton-encoding wave (2026-08-11, ledger row 1937's
+    ratified consult, work item lyt-tab-skeleton-encoding) makes EVERY
+    landscape size INFEASIBLE, for a genuine, disclosed, presence-
+    INDEPENDENT reason unrelated to screen size at all: the newly-opened
+    `settingsPane` composite's own honest ch-measured width floor (880px,
+    grounded in `frontend/src/locales/en.json`'s six sub-tab labels +
+    `TabWidget.vue`'s own tab padding -- see `lengyue_landscape.lyt`'s own
+    "OPTION C TAB-SKELETON ENCODING" header section for the full
+    derivation) EXCEEDS the side column's own pre-existing, separately-
+    ratified hard cap (`max 340px+60ch` = 820px, W1 REPAIR/W4 FLOOR
+    SOFTENING/TOOLBAR REENCODE). Since the side column's cap is a
+    CONSTANT regardless of viewport size, this INFEASIBLE outcome is the
+    SAME at every screen size -- not something a wider viewport can ever
+    rescue. This is named, per the commission's own instruction, as a
+    finding for the commissioner (Amendment 1's banner-floor precedent),
+    NOT papered over by weakening the settings envelope's honest demand
+    or by silently widening the column's own established cap."""
     layouts = loader.load_layouts((ENCODINGS_DIR / "lengyue_landscape.lyt").read_text())
     slot = layouts["lengyue-landscape"]
     default_valuation = presence_mod.PresenceValuation(
@@ -781,18 +806,22 @@ def test_lengyue_landscape_default_valuation_solves_optimal(label, w, h):
     result = solve_lexicographic(
         pruned, class_id="landscape", w_px=w, h_px=h, board_widget="B", reach_preferred_widgets=None, time_limit_s=15
     )
-    assert result.status == "OPTIMAL", f"{label}: expected OPTIMAL under the default valuation, got {result.status}"
-    assert "boardRail" not in result.leaf_names.values()
-    assert "previewBoard" not in result.leaf_names.values()
+    assert result.status == "INFEASIBLE", (
+        f"{label}: Option C's settingsPane 880px width floor exceeds the column's 820px cap "
+        f"at every size (see this test's own docstring); got {result.status}"
+    )
 
 
 def test_lengyue_portrait_default_valuation_solves_optimal_at_420x880():
-    """Portrait's one named false-INFEASIBLE (420x880) flips to OPTIMAL
-    under the default valuation -- unlike the three landscape sizes that
-    stay INFEASIBLE for a presence-independent reason (see the module
-    docstring on `test_generated_pages_embed_valid_overlay_json_matching_
-    overlay_sizes`), portrait's own board composite has more slack at
-    this size (no analogous forced-width collision)."""
+    """PRE-OPTION-C this pinned OPTIMAL. The Option C tab-skeleton-encoding
+    wave (ledger row 1937) makes 420x880 INFEASIBLE too -- at this narrow
+    a portrait viewport, the FULL page width (420px) is already far short
+    of `settingsPane`'s own 880px honest width floor (see
+    `test_lengyue_landscape_default_valuation_solves_optimal`'s docstring
+    for the full derivation; portrait shares the identical floor, per
+    `lengyue_portrait.lyt`'s own header note). This is a genuinely more
+    binding version of the SAME landscape finding, not a new, independent
+    one."""
     layouts = loader.load_layouts((ENCODINGS_DIR / "lengyue_portrait.lyt").read_text())
     slot = layouts["lengyue-portrait"]
     default_valuation = presence_mod.PresenceValuation(
@@ -802,7 +831,7 @@ def test_lengyue_portrait_default_valuation_solves_optimal_at_420x880():
     result = solve_lexicographic(
         pruned, class_id="portrait", w_px=420, h_px=880, board_widget="B", reach_preferred_widgets=None, time_limit_s=15
     )
-    assert result.status == "OPTIMAL"
+    assert result.status == "INFEASIBLE"
 
 
 def test_lengyue_default_valuation_registered_on_the_runner_registration():
@@ -1580,16 +1609,52 @@ def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_
     a genuine tension between the "no clipping" and "no compact class"
     standing rulings this correction surfaces rather than resolves.
     See the encoding's own "W4 FLOOR CORRECTION" header section for
-    the numeric derivation."""
+    the numeric derivation.
+
+    OPTION C UPDATE (2026-08-11, ledger row 1937's ratified consult, work
+    item lyt-tab-skeleton-encoding). The tab-skeleton-encoding wave's
+    newly-opened `settingsPane` composite carries an honest 880px
+    ch-measured width floor (see `lengyue_landscape.lyt`'s own header
+    section for the full derivation) that EXCEEDS the landscape side
+    column's pre-existing 820px hard cap at EVERY size, under BOTH
+    valuations -- landscape is now INFEASIBLE across the board (verified
+    by re-solving all 8 OVERLAY_SIZES landscape rows under both
+    valuations). Portrait, whose available width for the control-panel
+    row varies with viewport width (previewBoard's presence claims 96px
+    of it), now solves OPTIMAL at only its two widest sizes under
+    `default` (1080x1920, 1200x1600) and its single widest under
+    `all-present` (1200x1600) -- every narrower portrait probe is now
+    short of the 880px floor too. Re-verified by direct re-solve, not
+    carried forward from the pre-Option-C table. This is the SAME
+    genuine, disclosed finding named in
+    `test_lengyue_landscape_default_valuation_solves_optimal`'s own
+    docstring, not a new, independent regression."""
     known_infeasible_by_valuation = {
+        ("all-present", "landscape", "1920x1080"),
+        ("all-present", "landscape", "2560x1440"),
         ("all-present", "landscape", "1280x1024"),
+        ("all-present", "landscape", "3440x1440"),
+        ("all-present", "landscape", "1366x768"),
         ("all-present", "landscape", "1080x1920-in-landscape"),
         ("all-present", "landscape", "1024x700"),
         ("all-present", "landscape", "900x600"),
-        ("all-present", "portrait", "420x880"),
-        ("default", "landscape", "1080x1920-in-landscape"),
+        ("default", "landscape", "1920x1080"),
+        ("default", "landscape", "2560x1440"),
         ("default", "landscape", "1280x1024"),
+        ("default", "landscape", "3440x1440"),
+        ("default", "landscape", "1366x768"),
+        ("default", "landscape", "1080x1920-in-landscape"),
+        ("default", "landscape", "1024x700"),
         ("default", "landscape", "900x600"),
+        ("all-present", "portrait", "1080x1920"),
+        ("all-present", "portrait", "768x1024"),
+        ("all-present", "portrait", "540x960"),
+        ("all-present", "portrait", "420x880"),
+        ("all-present", "portrait", "1920x1080-in-portrait"),
+        ("default", "portrait", "768x1024"),
+        ("default", "portrait", "540x960"),
+        ("default", "portrait", "420x880"),
+        ("default", "portrait", "1920x1080-in-portrait"),
     }
     for class_id, html_text in mockup_pages.items():
         m = re.search(r'<script id="lyt-solved-data" type="application/json">(.*?)</script>', html_text, re.S)
@@ -1678,9 +1743,15 @@ def test_portrait_composite_row_carries_the_board_priority_cap(mockup_pages):
     declared `minmax(200px, 1fr)` floor is honored automatically by CSS
     Grid's own track-sizing algorithm (base-size reservation happens
     before a non-flexible sibling is allowed to grow) rather than
-    starved by a naive 50/50 split."""
+    starved by a naive 50/50 split.
+
+    OPTION C UPDATE (ledger row 1937): the T-node's own componentwise-max
+    floor moves from 200px to 880px (the newly-opened `settingsPane`
+    composite's own ch-measured width floor is now the tallest/widest of
+    the five direct children -- see `lengyue_landscape.lyt`'s own header
+    for the derivation, identical across both classes)."""
     assert "minmax(0px, calc(100vw + 52px))" in mockup_pages["portrait"]
-    assert "minmax(200px, 1fr)" in mockup_pages["portrait"]  # T-node's floor is untouched by the cap
+    assert "minmax(880px, 1fr)" in mockup_pages["portrait"]  # T-node's floor is untouched by the cap
 
 
 def test_tree_panels_t_node_track_carries_its_derived_floor(mockup_pages):
@@ -1693,9 +1764,15 @@ def test_tree_panels_t_node_track_carries_its_derived_floor(mockup_pages):
     scoped to this one encoding so the shared sentinel (and the two
     unrelated `current_row_*.lyt` fixtures that still use it) are
     untouched -- see the encoding's own "W4 FLOOR SOFTENING" header
-    section), not the loader's un-derived 0px default."""
-    assert "minmax(160px, 1fr)" in mockup_pages["landscape"]
-    assert "minmax(200px, 1fr)" in mockup_pages["portrait"]
+    section), not the loader's un-derived 0px default.
+
+    OPTION C UPDATE (ledger row 1937): 160px/200px are each now SHADOWED
+    by `settingsPane`'s own 880px composite floor (the widest of the five
+    direct children on both classes) -- see
+    `test_portrait_composite_row_carries_the_board_priority_cap`'s own
+    updated docstring."""
+    assert "minmax(880px, 1fr)" in mockup_pages["landscape"]
+    assert "minmax(880px, 1fr)" in mockup_pages["portrait"]
 
 
 def test_render_is_deterministic_given_the_same_overlay_data():
@@ -2556,3 +2633,145 @@ def test_advisory_recurses_into_nested_t_groups_at_their_own_depth():
     assert "root/T0/V1" in t_paths
     inner_labels = {s.label for s in shortfalls if s.t_path == "root/T0/V1"}
     assert inner_labels == {"inner1", "inner2"}
+
+
+# =============================================================================
+# OPTION C tab-skeleton-encoding wave (2026-08-11, ledger row 1937's ratified
+# consult, `.claude/dispatch-reports/lyt-tab-region-consult.md`; work item
+# lyt-tab-skeleton-encoding), item 6: cross-check the encoding's nested
+# T(AT-basic, AT-distributions, AT-stability, AT-multiresolution) DEFAULT
+# analysis-tab structure against `frontend/src/store/defaults.ts`'s own
+# `analysisTabs` array -- the authority (product's SSOT of default tabs,
+# per the ratified consult's own §8.1 point 4: "the tab tables are the
+# authority ... the encoding's nested-T fragment is derived or build-time-
+# linted against them").
+#
+# STRENGTH DISCLOSURE (P7's hierarchy, ADR-0011 Rule 1's own "name the
+# level" discipline): this is a STATIC-TEXT-EXTRACTION regression, not a
+# true two-sided GENERATED artifact (a JSON snapshot both `defaults.ts`'s
+# own build and this Python suite would independently emit and diff). That
+# stronger form would require either a Node/TS build step wired into this
+# Python test's own fixture setup (a new build-tooling dependency this
+# research prototype does not otherwise carry) or a `frontend/src`-side
+# generator emitting a snapshot file for this suite to read (a
+# `frontend/src` touch this wave's SOLVER-SIDE-ONLY scope forbids). The
+# floor this test DOES clear: it is NOT pure-prose correspondence (a
+# comment asserting the two match) -- it is a MECHANICAL, automated
+# extraction of `defaults.ts`'s own literal `analysisTabs` array text
+# (a regex over the SAME source the frontend itself imports, not a
+# hand-transcribed copy) compared programmatically against the loaded
+# `.lyt` tree's own structure, and it FAILS LOUDLY (a real pytest
+# assertion, gated in CI's `research/lyt` suite run) the moment either
+# side changes without the other. Named honestly as the interim floor,
+# per §8.1's own point 4: "the §3 cross-check test is the floor, the
+# build-time form the named target" -- promoting to a true generated-JSON
+# two-sided snapshot is the filed follow-up, not silently substituted for
+# here.
+# =============================================================================
+
+FRONTEND_ROOT = Path(__file__).parent.parent.parent.parent / "frontend"
+
+
+def _extract_default_analysis_tabs():
+    """Regex-extracts `frontend/src/store/defaults.ts`'s own `analysisTabs`
+    array literal -- `[(tab_id, panel_count), ...]` in declared order. Reads
+    the SAME source file the frontend itself imports (never a hand-copied
+    transcription), so a future edit to that array is picked up automatically
+    the next time this test runs, per this test's own strength disclosure
+    above."""
+    import re
+
+    defaults_ts = (FRONTEND_ROOT / "src" / "store" / "defaults.ts").read_text()
+    m = re.search(r"analysisTabs:\s*\[(.*?)\n\s*\],", defaults_ts, re.S)
+    assert m, "defaults.ts: could not locate the analysisTabs array literal -- has its shape changed?"
+    block = m.group(1)
+    entries = []
+    for entry_m in re.finditer(r"\{\s*id:\s*'([^']+)'.*?panelIds:\s*\[([^\]]*)\]\s*\}", block):
+        tab_id = entry_m.group(1)
+        panel_ids_text = entry_m.group(2).strip()
+        panel_count = 0 if not panel_ids_text else len(panel_ids_text.split(","))
+        entries.append((tab_id, panel_count))
+    assert entries, "defaults.ts: analysisTabs array matched but no {id, panelIds} entries were extracted"
+    return entries
+
+
+def _find_control_panel_exclusive(node) -> "ast.Exclusive | None":
+    """Recursively finds the control-panel `T(...)` node (`tag == 'BLACK
+    BOX'`) anywhere in a layout tree -- a genuine structural fold, total
+    over Leaf|Split|Exclusive, since the T's own depth in its parent tree
+    is encoding detail this helper should not hardcode."""
+    if isinstance(node, ast.Leaf):
+        return None
+    if isinstance(node, ast.Exclusive):
+        if node.tag == "BLACK BOX":
+            return node
+        for c in node.children:
+            found = _find_control_panel_exclusive(c.node)
+            if found is not None:
+                return found
+        return None
+    if isinstance(node, ast.Split):
+        for c in node.children:
+            found = _find_control_panel_exclusive(c.node)
+            if found is not None:
+                return found
+        return None
+    raise TypeError(f"unknown LayoutNode kind: {node!r}")
+
+
+def _encoding_analysis_tab_structure(slot: ast.Slot):
+    """Walks the LOADED `.lyt` tree to find `CP-analysis`'s own composite
+    interior -- `V(timelineStrip, T(AT-basic, AT-distributions, AT-stability,
+    AT-multiresolution))` -- and returns `[(index, panel_count), ...]` in
+    declared child order: a `V`-node AT-* child's panel_count is its own
+    number of leaf children; a bare-leaf AT-* child (AT_multires) counts as
+    exactly 1. `CP-analysis` is identified structurally (the FOURTH direct
+    child of the outer 5-way T, per this wave's own encoding order --
+    library/cards/settings/analysis/other), not by widget id, since it no
+    longer HAS one (it is a composite, not a leaf)."""
+    outer_t = _find_control_panel_exclusive(slot.node)
+    assert outer_t is not None, "could not find the control-panel T node (tag=='BLACK BOX') anywhere in this layout's tree"
+    cp_analysis_slot = outer_t.children[3]
+    cp_analysis = cp_analysis_slot.node
+    assert isinstance(cp_analysis, ast.Split), "CP-analysis (4th child) must be the opened V(timelineStrip, T(AT-*)) composite"
+    inner_t_slot = cp_analysis.children[1]
+    inner_t = inner_t_slot.node
+    assert isinstance(inner_t, ast.Exclusive), "CP-analysis's 2nd child must be the nested T(AT-*) group"
+    out = []
+    for i, at_slot in enumerate(inner_t.children):
+        node = at_slot.node
+        if isinstance(node, ast.Leaf):
+            out.append((i, 1))
+        elif isinstance(node, ast.Split):
+            leaf_count = sum(1 for c in node.children if isinstance(c.node, ast.Leaf))
+            out.append((i, leaf_count))
+        else:
+            raise AssertionError(f"AT-* child {i} is neither a Leaf nor a V-split: {node!r}")
+    return out
+
+
+@pytest.mark.parametrize("filename,layout_name", [
+    ("lengyue_landscape", "lengyue-landscape"),
+    ("lengyue_portrait", "lengyue-portrait"),
+])
+def test_analysis_tabs_cross_check_against_defaults_ts(filename, layout_name):
+    """Item 6's cross-check: the encoding's nested T(AT-*) group must have
+    exactly as many children as `defaults.ts`'s own `analysisTabs` array,
+    and each AT-* child's own panel-leaf count must match that tab's own
+    `panelIds` length. A divergence here (a tab added/removed/renamed in
+    `defaults.ts`, or a panel added/removed from a tab) FAILS this test
+    loudly rather than leaving the encoding silently stale."""
+    default_tabs = _extract_default_analysis_tabs()
+    layouts = _load(filename)
+    slot = layouts[layout_name]
+    encoded = _encoding_analysis_tab_structure(slot)
+    assert len(encoded) == len(default_tabs), (
+        f"{filename}: encoding has {len(encoded)} AT-* tabs, defaults.ts has {len(default_tabs)} "
+        f"({[t for t, _ in default_tabs]}) -- the encoding's nested T(AT-*) group has drifted from "
+        "the authoritative default tab table."
+    )
+    for (idx, enc_count), (tab_id, def_count) in zip(encoded, default_tabs):
+        assert enc_count == def_count, (
+            f"{filename}: AT-* tab #{idx} (defaults.ts id={tab_id!r}) has {def_count} panels in "
+            f"defaults.ts but {enc_count} panel leaves in the encoding -- drifted."
+        )

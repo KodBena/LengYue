@@ -14,6 +14,12 @@
 -- valid input to THIS file even though that report was written against
 -- the repaired encoding).
 --
+-- AMENDMENT 6 (ledger row 1937, .claude/dispatch-reports/lyt-tab-region-
+-- consult.md §6.3): mechanical re-homing, same as current_row_repaired.lyt's
+-- own note (read in full there) -- the five CP-* leaves' domain moves from
+-- the now-retired `blackbox` literal to `common` + the new `boundary`
+-- sizing-bag flag. Geometry-inert.
+--
 -- UNLIKE `current_row_repaired.lyt`, this file applies NO L2 structural
 -- repair (the toggle cluster is NOT folded into the nav bar's substantial
 -- content) and introduces no NEW preserve-reservation design choice
@@ -206,11 +212,11 @@ layout current-row-asis =
           @toggle(user, release) {min 140px, pref 140px, max inf, drag-persisted} tree[board, info+action],
           {1px} resizerInner[common, action],
           @toggle(user, release) {min WRAPPER_MIN, pref 1fr, max inf} T(
-            {min WRAPPER_MIN, pref 1fr, max inf} CP-library[blackbox],
-            {min WRAPPER_MIN, pref 1fr, max inf} CP-cards[blackbox],
-            {min WRAPPER_MIN, pref 1fr, max inf} CP-settings[blackbox],
-            {min WRAPPER_MIN, pref 1fr, max inf} CP-analysis[blackbox],
-            {min WRAPPER_MIN, pref 1fr, max inf} CP-other[blackbox]
+            {min WRAPPER_MIN, pref 1fr, max inf, boundary} CP-library[common],
+            {min WRAPPER_MIN, pref 1fr, max inf, boundary} CP-cards[common],
+            {min WRAPPER_MIN, pref 1fr, max inf, boundary} CP-settings[common],
+            {min WRAPPER_MIN, pref 1fr, max inf, boundary} CP-analysis[common],
+            {min WRAPPER_MIN, pref 1fr, max inf, boundary} CP-other[common]
           )[BLACK BOX]
         )
       )

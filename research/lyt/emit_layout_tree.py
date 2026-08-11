@@ -75,6 +75,28 @@ report-table parity -- nothing about the census is lost, only the GRID
 EXPANSION of it. This applies identically to both classes -- both
 `.lyt` encodings give their T node the same six-child shape.
 
+AMENDMENT 6 retirement (ledger row 1937, .claude/dispatch-reports/
+lyt-tab-region-consult.md §6.2/§6.4/§8.1, the "Option C" tab-skeleton-
+encoding wave): the paragraph above's "five CP-* children" is no longer
+five bare leaves -- CP-analysis and CP-settings are now composite Split
+subtrees (a nested tab group and a strip+pane, respectively), opened one
+structural level per the ratified consult. The plain-leaf-T assertion this
+Exclusive branch used to raise (`isinstance(c.node, ast.Leaf)` required, a
+`NotImplementedError` otherwise) is RETIRED: `_build_node`'s Exclusive
+branch no longer inspects each child's node kind at all before collapsing
+-- it always collapses the WHOLE node to one `blackbox` leaf, and
+`childWidgets` is now populated by `_collect_leaf_widgets`, a genuine
+structural fold (total over Leaf|Split|Exclusive, not a one-level
+`c.node.widget` read) so a composite tab's interior leaves are still named
+for documentation, never silently dropped. The emitted TS shape and
+LytNode.vue's realization boundary are UNCHANGED by this wave (§8.1's own
+"Wave 1 ships solver-side... byte-identical" resolution) -- the only
+observable diff, regenerating both classes' `.gen.ts` after this wave, is
+`childWidgets`' own contents (now longer, listing the opened tabs'
+interior leaves instead of the bare `CP-analysis`/`CP-settings` strings),
+a field this module's own docstring above already discloses as
+documentation-only and `LytNode.vue` never reads.
+
 Presence (repair pass, ledger row 1781, W1 REPAIR; generalized here to
 portrait, W3): both `.lyt` source files declare `@toggle(user,
 release)` presence on `boardRail`/`previewBoard` (AMENDMENT 4, ledger
@@ -369,6 +391,28 @@ def _domain_facets(leaf: ast.Leaf) -> Tuple[str, List[str]]:
     return leaf.domain, sorted(leaf.facets)
 
 
+def _collect_leaf_widgets(slot: ast.Slot) -> List[str]:
+    """AMENDMENT 6 (ledger row 1937, .claude/dispatch-reports/
+    lyt-tab-region-consult.md §6.2/§6.4): a structural fold, total over
+    Leaf|Split|Exclusive, collecting every LEAF widget id in a subtree in
+    document order. Replaces the retired plain-leaf-T assertion's
+    one-level-only `c.node.widget` read (see `_build_node`'s Exclusive
+    branch below) -- a T-node child no longer has to BE a bare Leaf for
+    this emitter to describe it; it only has to be SOME well-typed subtree,
+    and this fold walks whatever depth/shape it actually has. For a bare
+    Leaf child (every CP-* tab pre-Amendment-6, and still CP-library/
+    CP-cards/CP-other today) this returns exactly `[leaf.widget]` --
+    byte-identical output to the pre-Amendment-6 one-level read."""
+    node = slot.node
+    if isinstance(node, ast.Leaf):
+        return [node.widget]
+    if isinstance(node, ast.Split):
+        return [w for c in node.children for w in _collect_leaf_widgets(c)]
+    if isinstance(node, ast.Exclusive):
+        return [w for c in node.children for w in _collect_leaf_widgets(c)]
+    raise TypeError(f"unknown LayoutNode kind: {node!r}")
+
+
 def _build_node(
     slot: ast.Slot, *, path: Tuple[int, ...], default_visible_by_path: Dict[Tuple[int, ...], bool]
 ) -> dict:
@@ -383,16 +427,24 @@ def _build_node(
             "aspect": slot.sizing.aspect,
         }
     if isinstance(node, ast.Exclusive):
-        child_widgets = []
-        for c in node.children:
-            if not isinstance(c.node, ast.Leaf):
-                raise NotImplementedError(
-                    f"Exclusive child at {path} is not a Leaf -- this emitter's "
-                    "blackbox collapse assumes every T-node child is a plain leaf "
-                    "(true of both lengyue_landscape.lyt's and lengyue_portrait.lyt's "
-                    "CP-* children)."
-                )
-            child_widgets.append(c.node.widget)
+        # AMENDMENT 6 (ledger row 1937, .claude/dispatch-reports/
+        # lyt-tab-region-consult.md §6.2/§6.4/§8.1): the plain-leaf-T
+        # assertion this branch used to raise is RETIRED -- a T-node child
+        # no longer has to be a bare ast.Leaf. The whole Exclusive node
+        # still collapses to ONE synthetic 'blackbox' leaf unconditionally
+        # (§8.1's own resolution: "Wave 1 ships solver-side with the marker
+        # sitting at the T ... today's behavior, byte-identical" --
+        # LytNode.vue's single `#leaf-controlPanel` slot boundary is
+        # untouched by this wave regardless of how deep any one tab's own
+        # interior is now modeled). `childWidgets` -- documentation/
+        # report-table parity only, never read by LytNode.vue's rendering
+        # (confirmed against that file's own source: it branches on
+        # `node.kind`, never on `childWidgets`) -- is now a genuine
+        # structural fold (`_collect_leaf_widgets`, total over
+        # Leaf|Split|Exclusive) instead of a one-level `c.node.widget` read,
+        # so a composite CP-* tab's interior leaves are still named for
+        # documentation purposes, not silently dropped.
+        child_widgets = [w for c in node.children for w in _collect_leaf_widgets(c)]
         return {
             "kind": "blackbox",
             "widget": "controlPanel",
