@@ -11,6 +11,9 @@ demonstrates a second class for them — so each is registered as a single
 default class that always wins nearest-neighbor, at every representative
 size. This still exercises the class-selection machinery (it always picks
 the one class there is), just not a genuine multi-class choice.
+
+License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
+license line and the umbrella's ADR-0006 per-file convention.
 """
 from __future__ import annotations
 
@@ -22,6 +25,7 @@ from typing import Dict, List, Tuple
 
 import lyt_ast as ast
 import loader
+from advisory import compute_t_group_shortfalls, format_shortfalls
 from baseline import BASELINE_WAIVERS
 from compiler import solve_lexicographic
 from presence import ALL_PRESENT, PresenceValuation, resolve_and_validate
@@ -242,6 +246,14 @@ def run_all(*, cols: int = 100, rows: int = 36, time_limit_s: float = 20.0) -> i
                 print(f"    {widget:20s} x={rect.x:5d} y={rect.y:5d} w={rect.w:5d} h={rect.h:5d}")
             print()
             print(render_ascii(result, slot, cols=cols, rows=rows))
+            # AMENDMENT 5 (ledger row 1937): advisory-only per-T-group
+            # shortfall report -- never affects `exit_code` (ADR-0011
+            # Rule 5, "a judgment-shaped output never gates"; see
+            # advisory.py's own module docstring).
+            shortfalls = compute_t_group_shortfalls(slot, result)
+            if shortfalls:
+                print(format_shortfalls(shortfalls))
+                print()
     return exit_code
 
 

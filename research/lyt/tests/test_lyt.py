@@ -1974,3 +1974,463 @@ def test_n3_board_composite_marker_and_fixed_sum_are_emitted(mockup_pages):
         assert "--board-fixed-sum:52px;" in html_text
     assert ".board-composite { container-type: size; }" in emit_mockup._STYLE
     assert "max-width: min(100cqw, calc(100cqh - var(--board-fixed-sum, 0px)));" in emit_mockup._STYLE
+
+
+# =============================================================================
+# AMENDMENT 5 (ledger row 1937): the `scroll <axis>` sizing-bag key, the
+# `content: bounded|designed|unbounded` leaf axis, and the L5/L5a/L5b/L5c
+# overflow-honesty laws (wellformed.py). See `SPEC-AMENDMENTS.md`'s own
+# Amendment 5 section and `.claude/dispatch-reports/lyt-tab-region-
+# consult.md` §9 for the full derivation. All fixtures below are inline
+# `.lyt` text (loader.load_layouts), NOT the two protected clean-room
+# encodings (lengyue_landscape.lyt / lengyue_portrait.lyt), which another
+# concurrent work item owns and which carry NO Amendment 5 declarations
+# at all -- see the dormancy regression test at the end of this section.
+# =============================================================================
+
+
+def _l5_load(text: str):
+    return loader.load_layouts(text)
+
+
+def test_scroll_parses_and_round_trips_on_leaf_and_composite_nodes():
+    """`scroll <axis>` is legal on ANY node kind (leaf, split, exclusive)
+    at any depth -- unlike `gap`, which is Split-only. Round-trips into
+    `Slot.scroll_axes`; absence stays the empty frozenset (byte-identical
+    to every pre-Amendment-5 encoding)."""
+    layouts = _l5_load(
+        "layout g = {min 0px, pref 1fr, max inf, scroll v} H("
+        "{min 0px, pref 1fr, max inf, scroll h} A[chrome],"
+        "{min 0px, pref 1fr, max inf} T0[chrome])"
+    )
+    root = layouts["g"]
+    assert root.scroll_axes == frozenset({"v"})
+    assert root.node.children[0].scroll_axes == frozenset({"h"})
+    assert root.node.children[1].scroll_axes == frozenset()  # undeclared -> empty
+
+
+def test_scroll_may_declare_both_axes_via_repeated_terms():
+    """UNLIKE every other sizing key's last-write-wins bag semantics,
+    repeated `scroll <axis>` terms naming DIFFERENT axes accumulate
+    (disclosed departure, parser.py's own AMENDMENT 5 note) -- a leaf
+    that scrolls in both directions declares `scroll h, scroll v`."""
+    layouts = _l5_load(
+        "layout g = {min 0px, pref 0px, max 0px, scroll h, scroll v} "
+        "A[chrome]"
+    )
+    assert layouts["g"].scroll_axes == frozenset({"h", "v"})
+
+
+def test_scroll_refuses_unknown_axis_loudly():
+    with pytest.raises(LytLoadError) as exc_info:
+        _l5_load("layout g = {min 0px, pref 0px, max 0px, scroll z} A[chrome]")
+    assert exc_info.value.detail.get("law") == "scroll-declaration"
+    assert exc_info.value.detail.get("prohibition") == "invalid-scroll-axis"
+
+
+def test_content_class_parses_and_round_trips_on_a_leaf():
+    for cls in ("bounded", "designed", "unbounded"):
+        # 'unbounded' additionally declares `scroll v` on itself purely
+        # so it doesn't trip L5a's coverage requirement -- 'designed'
+        # must NOT (that would trip L5c, chart exclusion) and 'bounded'
+        # needs none either. This test is about PARSING/ROUND-TRIP, not
+        # law enforcement (L5a/L5c get their own dedicated tests below).
+        extra = ", scroll v" if cls == "unbounded" else ""
+        layouts = _l5_load(
+            f"layout g = {{min 0px, pref 0px, max 0px, content {cls}"
+            f"{extra}}} A[chrome]"
+        )
+        assert layouts["g"].node.content == cls
+
+
+def test_content_class_refuses_unknown_value_loudly():
+    with pytest.raises(LytLoadError) as exc_info:
+        _l5_load("layout g = {min 0px, pref 0px, max 0px, content chart} A[chrome]")
+    assert exc_info.value.detail.get("law") == "content-class-declaration"
+    assert exc_info.value.detail.get("prohibition") == "unknown-content-class"
+    assert exc_info.value.detail.get("got") == "chart"
+
+
+@pytest.mark.parametrize("node_shape", ["split", "exclusive"])
+def test_content_class_refuses_on_non_leaf_nodes(node_shape):
+    """`content` is a LEAF-only axis (consult report §9.2: orthogonal to,
+    never conscripted into, domain/facets) -- declaring it on a Split or
+    an Exclusive is refused, not silently dropped."""
+    if node_shape == "split":
+        text = (
+            "layout g = {min 0px, pref 1fr, max inf, content unbounded} H("
+            "{min 0px, pref 1fr, max inf} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome])"
+        )
+    else:
+        text = (
+            "layout g = {min 0px, pref 1fr, max inf, content unbounded} T("
+            "{min 0px, pref 1fr, max inf} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome])"
+        )
+    with pytest.raises(LytLoadError) as exc_info:
+        _l5_load(text)
+    assert exc_info.value.detail.get("law") == "content-class-declaration"
+    assert exc_info.value.detail.get("prohibition") == "content-class-on-non-leaf"
+    assert exc_info.value.detail.get("node_kind") == node_shape
+
+
+# --- L5 (overflow honesty): unbounded content may not claim an envelope ----
+
+
+def test_l5_unbounded_leaf_with_envelope_is_refused():
+    """An envelope enumerates a FINITE set of content states -- not an
+    honest claim for content that is unbounded by definition."""
+    with pytest.raises(LytLoadError) as exc_info:
+        _l5_load(
+            "layout g = {min 0px, pref 1fr, max inf, scroll v} H("
+            "{min 0px, pref 1fr, max inf, content unbounded, "
+            "envelope: {short, long}} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome])"
+        )
+    assert exc_info.value.detail.get("law") == "L5"
+    assert len(exc_info.value.detail.get("violations", [])) == 1
+
+
+def test_l5_bounded_leaf_with_envelope_is_accepted():
+    """A bounded (or designed) leaf's envelope IS an honest claim -- L5
+    only fires for content: unbounded."""
+    layouts = _l5_load(
+        "layout g = {min 0px, pref 1fr, max inf} H("
+        "{min 0px, pref 1fr, max inf, content bounded, "
+        "envelope: {short, long}} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome])"
+    )
+    assert "g" in layouts
+
+
+# --- L5a (coverage): unbounded requires exactly one scroll owner on path ---
+
+
+def test_l5a_unbounded_leaf_with_no_scroll_owner_anywhere_is_refused():
+    with pytest.raises(LytLoadError) as exc_info:
+        _l5_load(
+            "layout g = {min 0px, pref 1fr, max inf} H("
+            "{min 0px, pref 1fr, max inf, content unbounded} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome])"
+        )
+    assert exc_info.value.detail.get("law") == "L5a"
+    assert len(exc_info.value.detail.get("violations", [])) == 1
+
+
+def test_l5a_unbounded_leaf_covered_by_an_ancestor_scroll_owner_is_accepted():
+    """Nesting depth >= 3: H > V > H > leaf, with the scroll owner
+    declared on the OUTERMOST H -- coverage does not require the
+    IMMEDIATE parent to declare scroll, any ancestor on the
+    root-to-leaf path suffices."""
+    layouts = _l5_load(
+        "layout g = {min 0px, pref 1fr, max inf, scroll v} H("
+        "{min 0px, pref 1fr, max inf} V("
+        "{min 0px, pref 1fr, max inf} H("
+        "{min 0px, pref 1fr, max inf, content unbounded} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome]"
+        "),"
+        "{min 0px, pref 1fr, max inf} C[chrome]"
+        "),"
+        "{min 0px, pref 1fr, max inf} D[chrome])"
+    )
+    assert "g" in layouts
+
+
+def test_l5a_unbounded_leaf_covered_by_declaring_scroll_on_itself_is_accepted():
+    """A leaf may satisfy its own coverage requirement by declaring
+    `scroll` on itself -- no ancestor container is required."""
+    layouts = _l5_load(
+        "layout g = {min 0px, pref 1fr, max inf} H("
+        "{min 0px, pref 1fr, max inf, content unbounded, scroll v} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome])"
+    )
+    assert "g" in layouts
+
+
+def test_l5a_bounded_and_designed_leaves_carry_no_coverage_requirement():
+    """Unlike `unbounded`, `bounded`/`designed` leaves need no scroll
+    owner at all -- their own reservation (or an honest envelope) is
+    sufficient (L5's own disclosed residual)."""
+    layouts = _l5_load(
+        "layout g = {min 0px, pref 1fr, max inf} H("
+        "{min 0px, pref 1fr, max inf, content bounded} A[chrome],"
+        "{min 0px, pref 1fr, max inf, content designed} B[chrome])"
+    )
+    assert "g" in layouts
+
+
+# --- L5b (single scroll owner per axis per root-to-leaf path) --------------
+
+
+def test_l5b_second_declaration_on_the_same_axis_on_the_same_path_is_refused():
+    """Nesting depth >= 3: the outer H declares `scroll v`; a V nested
+    two levels below it declares `scroll v` again on the SAME path --
+    'which container absorbs the overflow' is ambiguous."""
+    with pytest.raises(LytLoadError) as exc_info:
+        _l5_load(
+            "layout g = {min 0px, pref 1fr, max inf, scroll v} H("
+            "{min 0px, pref 1fr, max inf} H("
+            "{min 0px, pref 1fr, max inf, scroll v} V("
+            "{min 0px, pref 1fr, max inf, content unbounded} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome]"
+            ")"
+            "),"
+            "{min 0px, pref 1fr, max inf} C[chrome])"
+        )
+    assert exc_info.value.detail.get("law") == "L5b"
+    assert len(exc_info.value.detail.get("violations", [])) == 1
+
+
+def test_l5b_two_different_axes_on_the_same_path_are_accepted():
+    """`scroll h` at one slot and `scroll v` at a descendant on the SAME
+    path are NOT in conflict -- L5b is scoped per axis."""
+    layouts = _l5_load(
+        "layout g = {min 0px, pref 1fr, max inf, scroll h} H("
+        "{min 0px, pref 1fr, max inf, scroll v, content unbounded} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome])"
+    )
+    assert "g" in layouts
+
+
+def test_l5b_same_axis_on_two_different_paths_is_accepted():
+    """Two SIBLING subtrees each declaring `scroll v` on their OWN,
+    disjoint root-to-leaf paths do not conflict -- L5b is quantified per
+    path, not over the whole tree."""
+    layouts = _l5_load(
+        "layout g = {min 0px, pref 1fr, max inf} H("
+        "{min 0px, pref 1fr, max inf, scroll v, content unbounded} A[chrome],"
+        "{min 0px, pref 1fr, max inf, scroll v, content unbounded} B[chrome])"
+    )
+    assert "g" in layouts
+
+
+# --- L5c (chart exclusion, subtree-quantified fold) -------------------------
+
+
+def test_l5c_scroll_container_with_a_designed_descendant_is_refused():
+    with pytest.raises(LytLoadError) as exc_info:
+        _l5_load(
+            "layout g = {min 0px, pref 1fr, max inf, scroll v} H("
+            "{min 0px, pref 1fr, max inf, content designed} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome])"
+        )
+    assert exc_info.value.detail.get("law") == "L5c"
+    assert len(exc_info.value.detail.get("violations", [])) == 1
+
+
+def test_l5c_fires_regardless_of_nesting_depth_of_the_designed_leaf():
+    """The fold is over the WHOLE subtree, not just direct children --
+    nesting depth >= 3 below the scroll-declaring node."""
+    with pytest.raises(LytLoadError) as exc_info:
+        _l5_load(
+            "layout g = {min 0px, pref 1fr, max inf, scroll v} H("
+            "{min 0px, pref 1fr, max inf} V("
+            "{min 0px, pref 1fr, max inf} H("
+            "{min 0px, pref 1fr, max inf, content designed} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome]"
+            "),"
+            "{min 0px, pref 1fr, max inf} C[chrome]"
+            "),"
+            "{min 0px, pref 1fr, max inf} D[chrome])"
+        )
+    assert exc_info.value.detail.get("law") == "L5c"
+
+
+def test_l5c_scroll_container_with_no_designed_descendant_is_accepted():
+    layouts = _l5_load(
+        "layout g = {min 0px, pref 1fr, max inf, scroll v} H("
+        "{min 0px, pref 1fr, max inf, content unbounded} A[chrome],"
+        "{min 0px, pref 1fr, max inf, content bounded} B[chrome])"
+    )
+    assert "g" in layouts
+
+
+def test_l5c_the_other_tab_shaped_composition_is_refused():
+    """The consult report's own worked failure case (§9.3): a container
+    mixing an unbounded editor (a registry leaf) with a chart-ish strip
+    (a designed leaf) inside ONE scrolling band -- L5c refuses this
+    composition outright, forcing the honest restructure the report
+    names: split into a fixed designed-height band and a scroll-owned
+    band. Shaped as a T tab (the actual "Other" tab is a T-group child)
+    nested inside a V, to match the real region's own shape."""
+    with pytest.raises(LytLoadError) as exc_info:
+        _l5_load(
+            "layout g = {min 0px, pref 1fr, max inf} V("
+            "{min 0px, pref 1fr, max inf} T("
+            "{min 0px, pref 1fr, max inf, scroll v} V("
+            "{min 0px, pref 1fr, max inf, content designed} "
+            "colorDebugStrip[chrome],"
+            "{min 0px, pref 1fr, max inf, content unbounded} "
+            "freeformJsonEditor[chrome]"
+            "),"
+            "{min 0px, pref 1fr, max inf} otherTabSibling[chrome]"
+            "),"
+            "{min 0px, pref 1fr, max inf} headerStrip[chrome])"
+        )
+    assert exc_info.value.detail.get("law") == "L5c"
+    # Honest restructure per the report: split the scroll-owning band so
+    # the designed leaf sits OUTSIDE it, in its own fixed reservation.
+    fixed = _l5_load(
+        "layout g = {min 0px, pref 1fr, max inf} V("
+        "{min 0px, pref 1fr, max inf} T("
+        "{min 0px, pref 1fr, max inf} V("
+        "{min 0px, pref 1fr, max inf, content designed} colorDebugStrip[chrome],"
+        "{min 0px, pref 1fr, max inf, content unbounded, scroll v} "
+        "freeformJsonEditor[chrome]"
+        "),"
+        "{min 0px, pref 1fr, max inf} otherTabSibling[chrome]"
+        "),"
+        "{min 0px, pref 1fr, max inf} headerStrip[chrome])"
+    )
+    assert "g" in fixed
+
+
+# --- Combined-law scenario, and dormancy on every pre-Amendment-5 encoding -
+
+
+def test_l5_family_waiver_reuses_the_existing_l2_waiver_mechanism():
+    """`Waiver`'s own docstring always disclosed `law` as open-ended, "in
+    case a future law gains a structural checker" -- this is that law.
+    A single, correctly-cited waiver silences one L5a violation without
+    weakening the check for any other site."""
+    text = (
+        "layout g = {min 0px, pref 1fr, max inf} H("
+        "{min 0px, pref 1fr, max inf, content unbounded} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome])"
+    )
+    raws = __import__("parser").parse_layouts(text)
+    slot = loader.load_slot(raws[0].slot, path=raws[0].name)
+    waiver = Waiver(law="L5a", path="root/H0", citation="Amendment 5 test fixture, deliberately uncovered")
+    applied = check_wellformed(slot, layout_name="g", waivers=[waiver])
+    assert applied == [waiver]
+
+
+def test_dormancy_no_amendment_5_declarations_means_zero_l5_violations_everywhere():
+    """The HARD CONSTRAINT this work item is bound by: every reference
+    encoding (including the two protected clean-room encodings this
+    session does NOT edit) carries zero `scroll`/`content` declarations,
+    so `find_l5_violations` must return `[]` for every one of them --
+    the laws bind declarations; they do not retroactively indict
+    silence."""
+    import wellformed
+
+    for filename, layout_name in [
+        ("q5go", "q5go"),
+        ("ogs", "ogs"),
+        ("lengyue_landscape", "lengyue-landscape"),
+        ("lengyue_portrait", "lengyue-portrait"),
+        ("current_row_repaired", "current-row-repaired"),
+    ]:
+        layouts = _load(filename)
+        slot = layouts[layout_name]
+        assert wellformed.find_l5_violations(slot) == [], (
+            f"{filename}:{layout_name} must stay dormant under the new "
+            "Amendment 5 laws -- no scroll/content declared anywhere in "
+            "it"
+        )
+
+
+# --- Per-T-group shortfall advisory (advisory.py) ---------------------------
+
+
+_ADVISORY_FIXTURE = """
+layout advtest =
+  {min 0px, pref 1fr, max inf} V(
+    {min 24px, pref 24px, max 24px} header[chrome],
+    {pref 1fr} T(
+      {min 20px, pref 100px, max inf} basic[chrome],
+      {min 20px, pref 400px, max inf} stability[chrome]
+    )
+  )
+"""
+
+
+def test_advisory_reports_per_child_shortfall_against_the_shared_rectangle():
+    """Hand-computed: a 300x300 viewport leaves the T group 300x276
+    (300 - 24px header) after the V-split partition -- the T node's own
+    HARD floor (componentwise max of its children's declared `min`s,
+    20px both axes) fits comfortably, so the model is feasible, and
+    (with no reach-preferred widgets registered) both children solve to
+    exactly the shared rectangle. `basic`'s 100px SOFT `pref` target
+    fits (shortfall 0 on both axes -- SPEC.md §8's along=None branch
+    applies the SAME declared `pref` to both w AND h for a T child);
+    `stability`'s 400px `pref` target does not fit either axis --
+    exactly the DIFFERENTIAL shortfall the consult report's §1 witnessed
+    symptom names as a program-level fact. This is deliberately measured
+    against `pref` (a soft target the solver may leave unmet), never
+    `min` (a hard floor whose shortfall state is unreachable -- see
+    advisory.py's own module docstring)."""
+    import advisory
+
+    layouts = loader.load_layouts(_ADVISORY_FIXTURE)
+    slot = layouts["advtest"]
+    result = solve_lexicographic(
+        slot, class_id="t", w_px=300, h_px=300, board_widget=None,
+        reach_preferred_widgets=None,
+    )
+    assert result.status in ("OPTIMAL", "FEASIBLE")
+    shortfalls = advisory.compute_t_group_shortfalls(slot, result)
+    by_widget = {s.label: s for s in shortfalls}
+    assert set(by_widget) == {"basic", "stability"}
+    basic = by_widget["basic"]
+    assert basic.t_path == "root/V1"
+    assert basic.demand_px == 100.0
+    assert (basic.shared_w, basic.shared_h) == (300, 276)
+    assert basic.shortfall_w == 0.0 and basic.shortfall_h == 0.0
+    stability = by_widget["stability"]
+    assert stability.demand_px == 400.0
+    assert stability.shortfall_w == 100.0  # max(400-300, 0)
+    assert stability.shortfall_h == 124.0  # max(400-276, 0)
+    # format_shortfalls is advisory prose only -- assert it runs and
+    # mentions both panes, not a specific wording (never a load-bearing
+    # contract, per the module's own docstring).
+    text = advisory.format_shortfalls(shortfalls)
+    assert "basic" in text and "stability" in text
+
+
+def test_advisory_is_empty_for_a_tree_with_no_exclusive_nodes():
+    import advisory
+
+    layouts = _load("q5go")
+    slot = layouts["q5go"]
+    result = solve_lexicographic(
+        slot, class_id="test", w_px=1920, h_px=1080, board_widget="B",
+        reach_preferred_widgets=["A", "I"], time_limit_s=30,
+    )
+    assert advisory.compute_t_group_shortfalls(slot, result) == []
+    assert advisory.format_shortfalls([]) == ""
+
+
+def test_advisory_recurses_into_nested_t_groups_at_their_own_depth():
+    """Nesting depth >= 3: a T nested inside a V nested inside the outer
+    T's own child reports its OWN shortfalls at its OWN t_path, not
+    folded into the outer group's row."""
+    import advisory
+
+    text = """
+    layout nested =
+      {min 0px, pref 1fr, max inf} T(
+        {min 0px, pref 1fr, max inf} V(
+          {min 20px, pref 20px, max 20px} strip[chrome],
+          {pref 1fr} T(
+            {min 50px, pref 50px, max inf} inner1[chrome],
+            {min 60px, pref 60px, max inf} inner2[chrome]
+          )
+        ),
+        {min 30px, pref 30px, max inf} otherPane[chrome]
+      )
+    """
+    layouts = loader.load_layouts(text)
+    slot = layouts["nested"]
+    result = solve_lexicographic(
+        slot, class_id="t", w_px=200, h_px=200, board_widget=None,
+        reach_preferred_widgets=None,
+    )
+    assert result.status in ("OPTIMAL", "FEASIBLE")
+    shortfalls = advisory.compute_t_group_shortfalls(slot, result)
+    t_paths = {s.t_path for s in shortfalls}
+    assert "root" in t_paths
+    assert "root/T0/V1" in t_paths
+    inner_labels = {s.label for s in shortfalls if s.t_path == "root/T0/V1"}
+    assert inner_labels == {"inner1", "inner2"}

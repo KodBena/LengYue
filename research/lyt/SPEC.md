@@ -21,7 +21,7 @@ consult document") and has since been implemented, exercised, and
 amended by a Python prototype living in this directory
 (`research/lyt/`). **This file is the current-state specification —
 what LYT means and how it behaves today**, reconciling the consult
-document's original design with four ledger-adjudicated amendments
+document's original design with five ledger-adjudicated amendments
 ([SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)) and with the prototype's own disclosed narrowings
 and inventions where the two sources diverge. Every claim below about
 implemented behavior is checked against the code in this directory as
@@ -158,6 +158,16 @@ the consult document's own worked examples verbatim (disclosed in
   architecture); the loader is where the amendment's actual law — px
   only, refused on `fr`/`ch`/any symbolic extent, and refused entirely
   on a `T` node — is enforced (§9.4).
+- **Amendment 5** ([SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md), ledger row 1937): two more
+  sizing-bag keys, same "one more recognized key" extension precedent.
+  `scroll <axis>` (`axis` ∈ `h`/`v`) is legal on ANY node kind at any
+  depth and, unlike every other sizing key, may be declared MORE THAN
+  ONCE in the same block to name both axes (`scroll h, scroll v`
+  accumulates rather than overwrites). `content <class>` (`class` ∈
+  `bounded`/`designed`/`unbounded`) is a LEAF-only content-class
+  declaration, deliberately placed in the sizing bag rather than the
+  leaf's `[domain, facets]` bracket — see §13 for the full rationale and
+  the L5/L5a/L5b/L5c laws both keys feed.
 - Three symbolic size sentinels: `CONTENT` (the literal spelling of the
   forbidden content-driven sizing basis, from the consult document —
   refused by the loader, §9.1), `WRAPPER_MIN` (a named-but-undefined
@@ -496,7 +506,14 @@ differs sharply between them, and this is stated exactly, per law:**
   reader relying on `errors.LytLoadError`'s docstring reference to
   "L1-L4" as what this prototype enforces should not have to read every
   `.lyt` file's comments to discover that L4 is a no-op.
-
+- **L5, L5a, L5b, L5c (overflow honesty; Amendment 5).** *Checked*, by
+  `wellformed.py`'s `find_l5_violations`, in the SAME enforcement family
+  as L2's dominance test — see §13 for the full grammar, semantics, and
+  derivation. Unlike L1-L4 (named by the original consult document), all
+  four are inventions of Amendment 5 itself; unlike L2, all four are
+  gated on an explicit `scroll`/`content` declaration existing somewhere
+  in the tree, so every encoding without one (every encoding as of this
+  amendment) is unaffected — see §13's own "Dormancy" note.
 ## 5. L2 in full: the dominance test (Amendment 2)
 
 L2's prose, quoted from the consult document in full: *"A leaf whose
@@ -1054,6 +1071,118 @@ legibility discipline this specification is written to —
   elastic-and-capped track would carry the same unresolved
   solve-vs-live-CSS disagreement.
 
+## 13. Amendment 5 — overflow as a typed language concept: `scroll`, content-class, and L5/L5a/L5b/L5c
+
+Adopted per [.claude/dispatch-reports/lyt-tab-region-consult.md](../../.claude/dispatch-reports/lyt-tab-region-consult.md)
+(ledger row 1937). Before this amendment, LYT had no concept of overflow
+at all — a slot whose content exceeded its reservation was simply outside
+the language's vocabulary, while the realization (`frontend/`'s DOM) had
+THREE independently-owned `overflow: auto` layers. This section is the
+current-state grammar/semantics; [SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)'s own Amendment 5
+entry is the dated ruling/rationale record.
+
+### 13.1 Grammar
+
+Two new sizing-bag keys (§1.1), following the same "one more recognized
+key in the existing bag" precedent Amendment 3's `gap` used:
+
+- **`scroll <axis>`**, `axis` ∈ `{h, v}` — legal on ANY node kind (leaf,
+  split, exclusive) at any depth. May be declared more than once in the
+  same sizing block to name BOTH axes (`scroll h, scroll v`) —
+  accumulated, not overwritten, a disclosed departure from this
+  language's usual last-write-wins bag semantics for a repeated key
+  (two `scroll` terms naming different axes are not repetitions of "the
+  same key" in any useful sense).
+- **`content <class>`**, `class` ∈ `{bounded, designed, unbounded}` — a
+  LEAF-only content-class declaration. Refused loudly (`law:
+  "content-class-declaration"`, `prohibition:
+  "content-class-on-non-leaf"`) on a Split or Exclusive node.
+
+Both keep the parser permissive (any identifier accepted in axis/class
+position) and the loader as the enforcement point (`loader.py`'s
+`_load_scroll_axes`/`_load_content_class`), matching this parser's
+established "parser permissive, loader refuses" division of labor.
+
+### 13.2 Why `content` is not `domain` or a `facet`
+
+The census already carries a disclosed misfit: `domain: 'blackbox'` is a
+boundary marker ("an unmodeled subtree stands here") wearing a
+subject-matter-domain spelling, named as such by the consult report's
+own §6.3. `content` is a genuinely ORTHOGONAL axis — how much of a
+leaf's content there is (bounded/designed/unbounded), not what
+subject-matter region it belongs to (`domain`) or what a user does with
+it (`facets`). Conscripting `content` into either existing axis would
+re-mint the exact category error `blackbox` already discloses, one
+paragraph after it was named as a misfit to avoid (ADR-0008).
+
+### 13.3 The laws L5, L5a, L5b, L5c
+
+All four are structural, load-time tree walks, implemented by
+`wellformed.find_l5_violations` in the SAME enforcement family as L2's
+dominance test, and arbitrated through the SAME `(law, path)`-keyed
+`Waiver` mechanism `check_wellformed` already generalizes for.
+
+- **L5 (overflow honesty).** An `unbounded`-content leaf may not ALSO
+  declare `basis == 'envelope'` (§4.2, L3) — an envelope enumerates a
+  FINITE set of content states, which is not an honest claim for content
+  that is unbounded by definition. `bounded`/`designed` leaves are
+  unaffected: their envelope, or their plain reservation alone, is an
+  honest claim.
+- **L5a (coverage).** An `unbounded`-class leaf REQUIRES exactly one
+  scroll owner — a `scroll` declaration on some slot along its
+  root-to-leaf path, inclusive of the leaf's own slot. A leaf with none
+  anywhere on its path is refused. `bounded`/`designed` leaves carry no
+  such requirement.
+- **L5b (single scroll owner).** On any root-to-leaf path, at most one
+  slot declares `scroll` per AXIS. A second declaration on the SAME axis
+  on the SAME path is refused — "which container absorbs the overflow"
+  must stay unambiguous. Two DIFFERENT axes on the same path do not
+  conflict, and the same axis declared on two DIFFERENT (sibling) paths
+  does not conflict either — this law is quantified per root-to-leaf
+  path, not over the whole tree.
+- **L5c (chart exclusion, subtree-quantified fold).** A slot may declare
+  `scroll` only if its OWN subtree (itself included) contains NO
+  `designed`-class leaf — computed as a fold over the subtree, never a
+  per-slot tag: a container is chart-bearing because a descendant
+  genuinely is one, not because someone remembered to mark the
+  container. This is the mechanized form of the commissioner's ruling
+  (quoted in full in [SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)'s Amendment 5 entry): chart-carrying
+  containers may never scroll; their declared demand is a hard
+  reservation the solver must fit, `INFEASIBLE` where it cannot, never a
+  scrollbar.
+
+**Dormancy.** Every one of the four checks fires only when the tree it
+walks contains a genuine `content`/`scroll` declaration — L5/L5a look
+only at a leaf whose `content` is non-`None`; L5b/L5c look only at a
+slot whose `scroll_axes` is non-empty. A tree with none of either (every
+encoding as of this amendment, including both clean-room encodings —
+`lengyue_landscape.lyt`/`lengyue_portrait.lyt` are untouched by this
+amendment) triggers none of the four checks. The laws bind declarations;
+they do not retroactively indict silence.
+
+### 13.4 Per-T-group shortfall advisory
+
+`research/lyt/advisory.py` (new module) computes, for every Exclusive
+(T) group in a solved tree, each child's declared `pref` demand against
+the group's own solved shared rectangle (every T child receives the
+identical rectangle, §2) — the mechanized form of the consult report's
+own witnessed symptom ("the Basic and Stability panes ... need
+scrolling ... different amounts") made a program-level fact instead of a
+DOM-only observation. **Advisory only** (ADR-0011 Rule 5: "a
+judgment-shaped output never gates") — printed by `runner.py`'s stdout
+after each solve; never raised, never a load-time check, never affects
+`runner.run_all`'s own exit code.
+
+The demand metric is deliberately `pref`, never `min`: `min` is a HARD
+constraint (the T node's own floor is the componentwise max of its
+children's declared `min`s, enforced as a real bound on the group's
+solved `(w, h)`, §8), so a child whose `min` genuinely exceeds the
+group's available room makes the WHOLE MODEL `INFEASIBLE` before a
+rectangle is ever solved — there is no "solved but short" state for
+`min` to report a shortfall against. `pref` is a soft target the solver
+may leave unmet, so a positive shortfall against it is a real, reachable,
+non-gating fact.
+
 ## Status of the other LYT documents
 
 This file is the **current-state, standalone specification**. The two
@@ -1067,7 +1196,7 @@ different roles:
   divergence; it is not restated or rewritten, and it is not itself
   kept current — this file is.
 - **[SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)** is the append-only, dated **amendment
-  record**: the four ledger-adjudicated rulings, their rationale as
+  record**: the five ledger-adjudicated rulings, their rationale as
   recorded on each ledger row, and each amendment's diff against the
   consult document's original prose. It remains the place to find *why*
   a rule changed and *when*; this specification is the place to find

@@ -4,6 +4,9 @@ coerce" — build commission item 3). Every refusal below carries a
 machine-checkable `.detail` dict (never just a free-text message) so a
 caller — human or test — can assert on *why* something was refused, not
 just *that* it was.
+
+License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
+license line and the umbrella's ADR-0006 per-file convention.
 """
 from __future__ import annotations
 
@@ -28,4 +31,6 @@ class LytLoadError(LytError):
     """The parsed tree fails a semantic/type check: an unrepresentable
     construct (content-driven sizing, system+release presence) or a
     violated well-formedness law (L1-L4), including AMENDMENT 4's new
-    "presence-valuation" law (SPEC-AMENDMENTS.md, ledger row 1737)."""
+    "presence-valuation" law (SPEC-AMENDMENTS.md, ledger row 1737) and
+    AMENDMENT 5's new L5/L5a/L5b/L5c overflow-honesty laws
+    (SPEC-AMENDMENTS.md, ledger row 1937)."""

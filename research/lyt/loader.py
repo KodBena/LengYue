@@ -74,6 +74,31 @@ entirely on a T (Exclusive) node (its children share one rectangle, so
 there is nothing for a gap to separate). This REPLACES the F10-era
 "hardcoded to 0.0, no concrete syntax sets it" gap in `load_slot`'s
 Split branch — see that branch's own comment below for what changed.
+
+AMENDMENT 5 (ledger row 1937, commissioner-delegated; see
+`SPEC-AMENDMENTS.md` and
+`.claude/dispatch-reports/lyt-tab-region-consult.md`): two more
+load-time resolutions, both feeding the new L5/L5a/L5b/L5c well-
+formedness laws (`wellformed.py`):
+
+  - `_load_scroll_axes` resolves the (possibly-repeated) `scroll <axis>`
+    sizing-bag key into `Slot.scroll_axes` — legal on ANY node kind, so
+    (unlike `_load_gap_px`) this function performs no node-kind refusal
+    of its own; it only refuses an axis token that isn't `h`/`v`.
+  - `_load_content_class` resolves the `content <class>` sizing-bag key
+    into `Leaf.content` — legal ONLY on a leaf (refused loudly on a
+    Split or Exclusive node, since "content" describes what a LEAF
+    renders, not a container's own structure), and refuses any value
+    outside `{bounded, designed, unbounded}`.
+
+Both keep the same "parser permissive, loader refuses" division of
+labor as `_load_gap_px` and the bare-`envelope` refusal — the parser
+above accepts any identifier in axis/class position; these two
+functions are where the actual closed vocabularies and node-kind
+restrictions are enforced.
+
+License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
+license line and the umbrella's ADR-0006 per-file convention.
 """
 from __future__ import annotations
 
@@ -88,6 +113,11 @@ WRAPPER_MIN_PX = 300.0
 
 VALID_DOMAINS = {"go", "common", "debug", "board", "chrome", "blackbox"}
 VALID_FACETS = {"action", "info"}
+# AMENDMENT 5 (ledger row 1937): the content-class axis's closed
+# vocabulary and the scroll axis's closed vocabulary, both enforced by
+# `_load_content_class` / `_load_scroll_axes` below.
+VALID_CONTENT_CLASSES = {"bounded", "designed", "unbounded"}
+VALID_SCROLL_AXES = {"h", "v"}
 
 
 def _resolve_extent_like(
@@ -473,7 +503,81 @@ def _load_gap_px(rs: Optional[lytparser.RawSizing], *, where: str, node_kind: st
     )
 
 
-def _load_leaf(rl: lytparser.RawLeaf, *, where: str) -> ast.Leaf:
+def _load_scroll_axes(rs: Optional[lytparser.RawSizing], *, where: str) -> FrozenSet[str]:
+    """AMENDMENT 5 (ledger row 1937): resolves the (possibly-repeated)
+    `scroll <axis>` sizing-bag key into a `frozenset` of `{'h','v'}`
+    members, or the empty frozenset when no `scroll` term was declared
+    (the pre-Amendment-5 default, byte-identical for every un-amended
+    encoding). Legal on ANY node kind at any depth (unlike `gap`, this
+    function does not itself refuse by `node_kind` — the consult
+    report's §9.1 places no node-kind restriction on `scroll`), so the
+    only refusal here is an axis token outside `{'h','v'}`.
+    """
+    if rs is None or not rs.scroll_axes:
+        return frozenset()
+    bad = [a for a in rs.scroll_axes if a not in VALID_SCROLL_AXES]
+    if bad:
+        raise LytLoadError(
+            f"scroll axis at {where} must be 'h' or 'v', got {bad[0]!r} "
+            "(AMENDMENT 5, ledger row 1937)",
+            {
+                "where": where,
+                "law": "scroll-declaration",
+                "prohibition": "invalid-scroll-axis",
+                "got": bad[0],
+            },
+        )
+    return frozenset(rs.scroll_axes)
+
+
+def _load_content_class(
+    rs: Optional[lytparser.RawSizing], *, where: str, node_kind: str
+) -> Optional[str]:
+    """AMENDMENT 5 (ledger row 1937): resolves the `content <class>`
+    sizing-bag key into `Leaf.content`, or `None` when undeclared (the
+    pre-Amendment-5 default, dormant for every existing leaf — see
+    `wellformed.py`'s L5/L5a/L5c, which only fire when `content` is
+    genuinely declared). Legal ONLY on a leaf: `content` describes what
+    a LEAF renders (the axis the consult report's §9.2 deliberately
+    keeps orthogonal to `domain`/`facets`), so a declaration surviving to
+    this call on a Split or Exclusive node is refused loudly rather than
+    silently ignored — the same "refuse, never drop the author's
+    declared intent" discipline `_load_gap_px`'s node-kind check already
+    applies to `gap` on a leaf/T node.
+    """
+    if rs is None or rs.content is None:
+        return None
+    if node_kind != "leaf":
+        raise LytLoadError(
+            f"content declared at {where} but 'content' is a LEAF-only "
+            "axis (it names what a leaf renders, orthogonal to "
+            "domain/facets — .claude/dispatch-reports/lyt-tab-region-"
+            f"consult.md §9.2) — a {node_kind} node may not declare it "
+            "(AMENDMENT 5, ledger row 1937)",
+            {
+                "where": where,
+                "law": "content-class-declaration",
+                "prohibition": "content-class-on-non-leaf",
+                "node_kind": node_kind,
+            },
+        )
+    if rs.content not in VALID_CONTENT_CLASSES:
+        raise LytLoadError(
+            f"unknown content class {rs.content!r} at {where} — must be "
+            f"one of {sorted(VALID_CONTENT_CLASSES)} (AMENDMENT 5, ledger "
+            "row 1937)",
+            {
+                "where": where,
+                "law": "content-class-declaration",
+                "prohibition": "unknown-content-class",
+                "got": rs.content,
+                "valid": sorted(VALID_CONTENT_CLASSES),
+            },
+        )
+    return rs.content
+
+
+def _load_leaf(rl: lytparser.RawLeaf, *, where: str, content: Optional[str] = None) -> ast.Leaf:
     domain = rl.domain
     facets = set()
     if domain not in VALID_DOMAINS:
@@ -503,21 +607,36 @@ def _load_leaf(rl: lytparser.RawLeaf, *, where: str) -> ast.Leaf:
                 {"where": where, "facet": f, "valid": sorted(VALID_FACETS)},
             )
         facets.add(f)
-    return ast.Leaf(widget=rl.widget, facets=frozenset(facets), domain=domain, flagged=rl.flagged)
+    return ast.Leaf(
+        widget=rl.widget,
+        facets=frozenset(facets),
+        domain=domain,
+        flagged=rl.flagged,
+        content=content,  # AMENDMENT 5, ledger row 1937
+    )
 
 
 def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
     node = rs.node
     if isinstance(node, lytparser.RawLeaf):
-        leaf = _load_leaf(node, where=f"{path}:{node.widget}")
+        # AMENDMENT 5 (ledger row 1937): resolved before `_load_leaf` so
+        # the validated class can be threaded into `ast.Leaf` at
+        # construction (the same "resolve first, construct once" shape
+        # `_load_sizing`/`_load_presence` already use).
+        content = _load_content_class(rs.sizing, where=f"{path}:{node.widget}", node_kind="leaf")
+        leaf = _load_leaf(node, where=f"{path}:{node.widget}", content=content)
         # AMENDMENT 3: a leaf has no children at all, so `gap` is refused
         # here too (same law as the T-node refusal below) rather than
         # silently dropped.
         _load_gap_px(rs.sizing, where=f"{path}:{node.widget}", node_kind="leaf")
+        scroll_axes = _load_scroll_axes(rs.sizing, where=f"{path}:{node.widget}")
         sizing = _load_sizing(rs.sizing, where=f"{path}:{node.widget}", node_kind="leaf")
         presence = _load_presence(rs.presence, where=f"{path}:{node.widget}")
         sizing = _apply_preserve_reservation(sizing, presence, where=f"{path}:{node.widget}")
-        return ast.Slot(node=leaf, presence=presence, sizing=sizing, violates=frozenset(rs.warns))
+        return ast.Slot(
+            node=leaf, presence=presence, sizing=sizing,
+            violates=frozenset(rs.warns), scroll_axes=scroll_axes,
+        )
     if isinstance(node, lytparser.RawSplit):
         children = [
             load_slot(c, path=f"{path}/{node.axis.upper()}{i}") for i, c in enumerate(node.children)
@@ -529,22 +648,35 @@ def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
         # docstring for the full law). No `gap` term still resolves to
         # 0.0, so an un-amended `.lyt` file's geometry is unchanged.
         gap_px = _load_gap_px(rs.sizing, where=path, node_kind="split")
+        # AMENDMENT 5: `content` is leaf-only -- a Split declaring it is
+        # refused loudly here, same call shape as the leaf branch above.
+        _load_content_class(rs.sizing, where=path, node_kind="split")
+        scroll_axes = _load_scroll_axes(rs.sizing, where=path)
         split = ast.Split(axis=node.axis, gap_px=gap_px, children=children)
         sizing = _load_sizing(rs.sizing, where=path, node_kind="split")
         presence = _load_presence(rs.presence, where=path)
         sizing = _apply_preserve_reservation(sizing, presence, where=path)
-        return ast.Slot(node=split, presence=presence, sizing=sizing, violates=frozenset(rs.warns))
+        return ast.Slot(
+            node=split, presence=presence, sizing=sizing,
+            violates=frozenset(rs.warns), scroll_axes=scroll_axes,
+        )
     if isinstance(node, lytparser.RawExclusive):
         children = [load_slot(c, path=f"{path}/T{i}") for i, c in enumerate(node.children)]
         # AMENDMENT 3: a T node takes no gap — refused loudly (not
         # silently ignored) if the author declared one, same as any other
         # law this loader enforces.
         _load_gap_px(rs.sizing, where=path, node_kind="exclusive")
+        # AMENDMENT 5: `content` is leaf-only -- refused here too.
+        _load_content_class(rs.sizing, where=path, node_kind="exclusive")
+        scroll_axes = _load_scroll_axes(rs.sizing, where=path)
         excl = ast.Exclusive(children=children, tag=node.tag)
         sizing = _load_sizing(rs.sizing, where=path, node_kind="exclusive")
         presence = _load_presence(rs.presence, where=path)
         sizing = _apply_preserve_reservation(sizing, presence, where=path)
-        return ast.Slot(node=excl, presence=presence, sizing=sizing, violates=frozenset(rs.warns))
+        return ast.Slot(
+            node=excl, presence=presence, sizing=sizing,
+            violates=frozenset(rs.warns), scroll_axes=scroll_axes,
+        )
     raise LytLoadError("unknown raw node kind", {"path": path, "node": repr(node)})
 
 

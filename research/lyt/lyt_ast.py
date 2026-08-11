@@ -21,6 +21,28 @@ report rather than silently made:
    load-bearing (§4.2, line 344: "There is deliberately no basis: 'content'.
    That absence is the language's answer to defect (a).") and is exactly
    the first typed prohibition the build commission asks us to enforce.
+
+AMENDMENT 5 (ledger row 1937, commissioner-delegated; see SPEC-AMENDMENTS.md
+and `.claude/dispatch-reports/lyt-tab-region-consult.md`) adds two further,
+similarly-disclosed departures — both genuine language extensions, not
+readings recovered from the original consult document's text (same footing
+as Amendments 1-4):
+
+3. `Slot.scroll_axes` — an optional, per-node `scroll <axis>` disposition
+   (§9.1 of the consult report). One more sizing-bag key, legal on any node
+   kind at any depth; empty (the default) is byte-identical to every
+   pre-Amendment-5 encoding.
+4. `Leaf.content` — an orthogonal content-class axis (§9.2 of the consult
+   report), deliberately NOT folded into `domain` or `facets` (that would
+   re-mint the exact ADR-0008 misfit the report's own §6.3 just retired
+   `blackbox` from the domain axis to avoid). `None` (the default) means
+   "not classified" — dormant for every existing leaf.
+
+Both are enforced as load-time structural walks in `wellformed.py` (laws
+L5/L5a/L5b/L5c), the same enforcement family as L2's dominance test.
+
+License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
+license line and the umbrella's ADR-0006 per-file convention.
 """
 from __future__ import annotations
 
@@ -30,9 +52,31 @@ from typing import FrozenSet, List, Literal, Optional, Union
 Domain = Literal["go", "common", "debug", "board", "chrome", "blackbox"]
 Facet = Literal["action", "info"]
 Unit = Literal["px", "ch", "fr"]
+# AMENDMENT 5 (ledger row 1937, .claude/dispatch-reports/lyt-tab-region-
+# consult.md §9.2): the census gains an ORTHOGONAL content-class axis on
+# leaves -- deliberately NOT spelled through `Domain` or `Facet` (the
+# consult report's own §6.3 just un-conscripted `blackbox` from the
+# domain axis for exactly this "don't conflate two orthogonal axes"
+# reason; folding `content` into `domain` or `facets` would re-mint the
+# same ADR-0008 misfit one paragraph after it was named). `bounded` =
+# statically-boundable chrome/controls; `designed` = a design-fact
+# height (a chart, a panel) that must be a hard reservation, never
+# scrollable; `unbounded` = genuinely unbounded data (a table, a log, a
+# registry) that REQUIRES a scroll owner somewhere on its root-to-leaf
+# path (L5a, wellformed.py).
+ContentClass = Literal["bounded", "designed", "unbounded"]
+# AMENDMENT 5: `scroll <axis>` is a Slot-level sizing-bag key -- legal on
+# a leaf OR a composite (Split/Exclusive) node, at any depth (the consult
+# report's §9.1: "because `scroll <axis>` is one more key in the sizing
+# bag on `Slot`, and `Slot` is inductive, a scroll disposition can sit at
+# any node at any depth"). Lives on `Slot` (not `Leaf`/`Split`), since it
+# applies uniformly regardless of node kind.
+ScrollAxis = Literal["h", "v"]
 
 _VALID_UNITS = {"px", "ch", "fr"}
 _VALID_BASES = {"reserved", "envelope"}
+_VALID_CONTENT_CLASSES = {"bounded", "designed", "unbounded"}
+_VALID_SCROLL_AXES = {"h", "v"}
 
 
 @dataclass(frozen=True)
@@ -158,6 +202,29 @@ class Leaf:
     facets: FrozenSet[Facet] = field(default_factory=frozenset)
     domain: Domain = "chrome"
     flagged: bool = False  # our tag for the census's '?' ambiguity marker (§3)
+    # AMENDMENT 5 (ledger row 1937): the orthogonal content-class axis --
+    # see module docstring's `ContentClass` note. `None` means "not
+    # classified" -- the pre-Amendment-5, dormant state every existing
+    # leaf is in; L5/L5a/L5c (wellformed.py) only fire for a leaf whose
+    # `content` is genuinely declared, so an un-classified leaf is
+    # invisible to every Amendment 5 law, exactly as an un-migrated
+    # encoding must stay legal.
+    content: Optional[ContentClass] = None
+
+    def __post_init__(self) -> None:
+        # F3-fix precedent (Extent/Sizing/Presence, this same module):
+        # a `Literal[...]` annotation is a typecheck-only promise: a
+        # caller constructing `Leaf(content="chart")` directly (bypassing
+        # the concrete-syntax loader, which DOES validate this) would
+        # otherwise succeed silently. Enforced here too, for the same
+        # "unrepresentable by construction, not just by convention"
+        # reason.
+        if self.content is not None and self.content not in _VALID_CONTENT_CLASSES:
+            raise ValueError(
+                f"Leaf.content must be one of {sorted(_VALID_CONTENT_CLASSES)} "
+                f"or None, got {self.content!r} (AMENDMENT 5, ledger row 1937, "
+                ".claude/dispatch-reports/lyt-tab-region-consult.md §9.2)"
+            )
 
 
 @dataclass(frozen=True)
@@ -192,6 +259,23 @@ class Slot:
     presence: Presence
     sizing: Sizing
     violates: FrozenSet[str] = field(default_factory=frozenset)  # e.g. {"L1"}
+    # AMENDMENT 5 (ledger row 1937): an optional `scroll <axis>`
+    # disposition -- see module docstring's `ScrollAxis` note. Empty
+    # (the pre-Amendment-5 default) means "no scroll declared here",
+    # byte-identical to every existing encoding's behavior. Legal on
+    # every node kind (leaf, split, exclusive) at any depth -- unlike
+    # `gap_px` (Split-only, lives on `Split` itself), `scroll` is a
+    # Slot-level fact because it is not restricted by node kind.
+    scroll_axes: FrozenSet[ScrollAxis] = field(default_factory=frozenset)
+
+    def __post_init__(self) -> None:
+        bad = self.scroll_axes - _VALID_SCROLL_AXES
+        if bad:
+            raise ValueError(
+                f"Slot.scroll_axes must be a subset of {sorted(_VALID_SCROLL_AXES)}, "
+                f"got extra member(s) {sorted(bad)} (AMENDMENT 5, ledger row "
+                "1937, .claude/dispatch-reports/lyt-tab-region-consult.md §9.1)"
+            )
 
 
 @dataclass(frozen=True)
