@@ -526,7 +526,12 @@ or created (`SettingsSubstrip.vue`, `SettingsPane.vue`, `TabWidget.vue`,
 
 ## 8. Commit and merge-base
 
-To be recorded after commit (see final message).
+Committed as `6b2e0e0c5e0103e986d400483aca0f2c856c41bd`. LAST-ACT fetch:
+`git fetch origin lyt-phase2` found `lyt-phase2` had **not** moved since
+this worktree's own base (`e3198724`) — `git log HEAD..origin/lyt-phase2`
+returns 0 commits. `git merge-base HEAD origin/lyt-phase2` ==
+`origin/lyt-phase2`'s own tip (`e3198724`) == this branch's own base — no
+rebase needed, a clean single commit ahead of `lyt-phase2`.
 
 ## License
 
