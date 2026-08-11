@@ -492,6 +492,16 @@ run from `/home/bork/w/omega` since the `autoharn` dispatcher and its
   updated `lengyue_landscape.lyt`/`lengyue_portrait.lyt` content, not
   merely the pre-rebase snapshot this session originally read.
 
+**Post-review corrective (this pass).** The Finding 1 fix, its five
+regressions, and this report's own amendments were committed as
+**`1519c7e7`**, on top of `370e9dab` (no other commit intervened).
+`git fetch origin lyt-phase2` (re-run for this pass) reported the tip
+**unchanged** at `cb15d69c` — the same tip this branch was already rebased
+onto — so `git merge-base HEAD origin/lyt-phase2` reports `cb15d69c` with
+**no rebase needed**. The full suite was re-run in the foreground
+(`nice -n 19 ~/w/vdc/venvs/generic/bin/python -m pytest research/lyt -q`,
+no pipes, exit code read directly from the shell): **150 passed, EXIT:0**.
+
 ## License
 
 Public Domain (The Unlicense), matching `research/lyt/__init__.py`'s license
