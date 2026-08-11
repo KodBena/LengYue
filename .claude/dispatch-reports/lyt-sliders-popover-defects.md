@@ -602,11 +602,10 @@ record), on top of `lyt-phase2` tip `cb15d69c`.
 **Review corrective:** `lyt-phase2`'s tip had moved to `efc7c3a8` by the time this
 corrective started. `git fetch origin lyt-phase2` confirmed the new tip; `git
 rebase origin/lyt-phase2` replayed both prior commits cleanly on top of it (no
-conflicts — the two intervening `lyt-phase2` commits,
-`faa575ca` and `efc7c3a8`, touch `docs/adr/`, `docs/lyt/`, and `research/lyt/`,
-disjoint from this delivery's files). New corrective commit(s) landed after the
-rebase; see the final commit sha in the closing message of this response. Final
-merge-base check (last act, post-corrective-commit): `git fetch origin
-lyt-phase2` again, then `git merge-base HEAD lyt-phase2` — recorded in the closing
-message alongside the commit sha, confirming whether a further rebase was needed
-before this response was sent.
+conflicts — the two intervening `lyt-phase2` commits, `faa575ca` and `efc7c3a8`,
+touch `docs/adr/`, `docs/lyt/`, and `research/lyt/`, disjoint from this
+delivery's files). The corrective landed as commit `66e3ae509ee665d842923ee1e4c7c005a1b65d9b`.
+Final act: `git fetch origin lyt-phase2` again — tip was still `efc7c3a8`
+(unchanged) — then `git merge-base HEAD origin/lyt-phase2` resolved to that same
+SHA, confirming HEAD's parent is exactly `lyt-phase2`'s tip and no further rebase
+was needed before this response was sent.
