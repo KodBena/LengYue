@@ -149,6 +149,7 @@ import SidebarWidget     from './components/chrome/SidebarWidget.vue';
 import LytPresenceMenu   from './components/chrome/LytPresenceMenu.vue';
 import BoardRailPopoverTrigger from './components/chrome/BoardRailPopoverTrigger.vue';
 import DebugMenu from './components/chrome/DebugMenu.vue';
+import SystemLogToggle from './components/chrome/SystemLogToggle.vue';
 import PreviewBoardPanel from './components/board/PreviewBoardPanel.vue';
 
 import { useReviewSession } from './composables/review/useReviewSession';
@@ -925,11 +926,20 @@ const activeTab = computed<string>({
              small fixed-size corner cluster, not a spreading overlay);
              each popover opens ABOVE its own trigger (see each
              component's own `<style>` — `bottom: 100%` anchors), so
-             opening either one still never occludes the board. -->
+             opening either one still never occludes the board.
+
+             D2 fix (`.claude/dispatch-reports/lyt-w5-parity-build.md`
+             Defect D2): `SystemLogToggle` restores the system log's
+             manual open/close affordance the W1 skeleton replacement
+             lost — see its own header for the placement rationale
+             (why here rather than folded into `DebugMenu`, which is
+             dev-build-only, or `LytPresenceMenu`, whose guard is
+             specific to LYT grid-presence targets the log isn't). -->
         <div id="lyt-corner-chrome">
           <DebugMenu />
           <BoardRailPopoverTrigger v-if="store.session.ui.railStyle === 'popover'" />
           <LytPresenceMenu />
+          <SystemLogToggle />
         </div>
       </template>
 
