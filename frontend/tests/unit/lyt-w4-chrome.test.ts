@@ -95,6 +95,28 @@ describe('App.vue — toolbar strip is the one home for Load/Save SGF (W4 item 2
   });
 });
 
+describe('BoardRailPopoverTrigger.vue — dead SGF event-forwarding removed (W4 fix, review item 2)', () => {
+  const sfc = src('src/components/chrome/BoardRailPopoverTrigger.vue');
+  it('no longer declares load-sgf/save-sgf emits', () => {
+    expect(sfc).not.toMatch(/\(e:\s*'load-sgf'\)/);
+    expect(sfc).not.toMatch(/\(e:\s*'save-sgf'\)/);
+  });
+  it('no longer forwards load-sgf/save-sgf onto its SidebarWidget mount (template directive usage, not prose mentions)', () => {
+    expect(sfc).not.toMatch(/@load-sgf=/);
+    expect(sfc).not.toMatch(/@save-sgf=/);
+  });
+});
+
+describe('App.vue — corner-chrome BoardRailPopoverTrigger mount has no dead SGF listeners (W4 fix, review item 2)', () => {
+  const app = src('src/App.vue');
+  it('the corner-chrome mount does not listen for load-sgf/save-sgf', () => {
+    const mount = /<BoardRailPopoverTrigger[^>]*\/>/.exec(app);
+    expect(mount).not.toBeNull();
+    expect(mount![0]).not.toMatch(/@load-sgf=/);
+    expect(mount![0]).not.toMatch(/@save-sgf=/);
+  });
+});
+
 describe('ToolbarSliderPopover.vue — real button, not raw concatenated text (W4 item 2)', () => {
   const sfc = src('src/components/chrome/ToolbarSliderPopover.vue');
   it('the trigger is a real <button>', () => {

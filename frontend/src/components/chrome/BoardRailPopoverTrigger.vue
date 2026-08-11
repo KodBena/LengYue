@@ -12,10 +12,24 @@
   this style (App.vue's presence-override computation forces it, see
   `lyt-widget-registry.ts`'s boardRail note) — this component is the
   ENTIRE realization of the rail in style B, a second `SidebarWidget`
-  mount (not a shared instance; Vue components are not multiply-homed)
-  reusing the same `@load-sgf`/`@save-sgf` handlers App.vue's toolbar
-  mount already wires (disclosed judgment call: both copies of the
-  affordance stay live rather than one going silently dead).
+  mount (not a shared instance; Vue components are not multiply-homed).
+
+  CORRECTION (independent review, `.claude/dispatch-reports/lyt-w4-
+  chrome-review.md` item 2): this header used to claim the mount
+  reused `@load-sgf`/`@save-sgf` handlers App.vue's toolbar mount also
+  wires, "both copies of the affordance stay live." That claim went
+  stale when `SidebarWidget.vue`'s own SGF buttons and `defineEmits`
+  were removed (see that file's own header) — this component's
+  `SidebarWidget` mount below no longer has any SGF affordance to
+  forward events FROM, so the claim was no longer true of live
+  behavior. The dead `load-sgf`/`save-sgf` emit-forwarding (this
+  component's own `defineEmits` plus App.vue's matching listeners on
+  both this component and its `<SidebarWidget>` child) is removed
+  accordingly — the ONE live home for Load/Save SGF is the toolbar
+  strip's own buttons (`App.vue`'s `#leaf-A_go`/`#leaf-A_top`), which
+  this rail-as-popover fork never covered anyway (opening it shows no
+  SGF buttons inside it, popover style or not) — no capability is
+  lost, only the inaccurate claim about it is corrected.
 
   Click/outside-click/Escape dismissal follows the SAME idiom
   `LytPresenceMenu.vue` / `LocalePicker.vue` use (read both in full
@@ -37,11 +51,6 @@
 import { onBeforeUnmount, ref, watch } from 'vue';
 import { usePopoverEdgeClamp } from '../../composables/chrome/usePopoverEdgeClamp';
 import SidebarWidget from './SidebarWidget.vue';
-
-defineEmits<{
-  (e: 'load-sgf'): void;
-  (e: 'save-sgf'): void;
-}>();
 
 const open = ref(false);
 const rootRef = ref<HTMLElement | null>(null);
@@ -104,7 +113,7 @@ const popoverId = 'board-rail-popover';
       :aria-label="$t('app.chrome.presence.boardRail')"
       :style="{ transform: `translateX(${xShift}px)` }"
     >
-      <SidebarWidget @load-sgf="$emit('load-sgf')" @save-sgf="$emit('save-sgf')" />
+      <SidebarWidget />
     </div>
   </div>
 </template>

@@ -68,7 +68,7 @@ export const LYT_LANDSCAPE: LytProgram = {
       {
         path: "2",
         presenceDefaultVisible: true,
-        track: { kind: "board-priority-clamp", minPx: 280, maxPx: 820, naturalBoardCrossUnit: "vh", fixedSiblingSumPx: 52, parentGapPx: 12 },
+        track: { kind: "board-priority-clamp", minPx: 345, maxPx: 820, naturalBoardCrossUnit: "vh", fixedSiblingSumPx: 52, parentGapPx: 12 },
         node: {
           kind: "split", axis: "v", gapPx: 4,
           children: [

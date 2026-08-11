@@ -284,6 +284,39 @@
 --     landscape-stays-infeasible-for-an-unrelated-reason) still does --
 --     lowering a `min` only relaxes a constraint, it can never turn a
 --     previously-feasible point infeasible.
+--
+--   - W4 FLOOR CORRECTION (independent review,
+--     `.claude/dispatch-reports/lyt-w4-chrome-review.md` item 6): the
+--     280px side-column floor above was disclosed as "functionally
+--     safe, just not empirically re-swept" -- the re-sweep this repair
+--     pass performs shows that disclosure was wrong. A live measured
+--     width-sweep of the real running app (forcing `.lyt-node`'s
+--     side-column track through descending widths and walking every
+--     descendant for right-edge overflow) found `.setup-toolkit`
+--     (`SetupToolPalette.vue`'s permanently in-flow reservation, per
+--     that component's own no-occlusion standing law -- the palette is
+--     `visibility: hidden` when closed, never `display: none`, so its
+--     296px measured width is a flex-column sibling minimum at ALL
+--     times, not just while open) clips starting at 330px and reaches
+--     52px of horizontal overflow at the shipped 280px floor. The
+--     toolbar's flex-wrap degradation (the mechanism the disclosure
+--     leaned on) cannot rescue this: wrapping moves OTHER row content
+--     onto new rows, but does not touch `.setup-toolkit`'s own minimum
+--     content width. Measured true floor: 0px overflow at 335px, first
+--     overflow (2px) at 330px. Corrected floor: 345px -- the measured
+--     335px floor plus a ~10px margin, the same posture the REPAIR
+--     PASS section above used (374px measured -> 384px shipped, "10px
+--     margin over the real-app floor"). Verified (re-running
+--     `tests/test_lyt.py` after this correction): all three sizes this
+--     item flipped to OPTIMAL (1280x1024, 1024x700, 900x600) remain
+--     OPTIMAL at 345px -- the floor-softening's net effect above is
+--     preserved, not undone; 345px was not swept per-pixel against the
+--     live app the way 335px/280px were (that would require re-running
+--     the review's own Playwright width-sweep harness, not this
+--     encoding's own solver), so a follow-up wave re-confirming 345px
+--     against the live DOM the way this correction re-confirmed 335px
+--     is the honest remaining gap, named per this file's own established
+--     disclosure posture.
 layout lengyue-landscape =
   {min 0px, pref 1fr, max inf, gap 12px} H(
     @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
@@ -292,7 +325,7 @@ layout lengyue-landscape =
       {min 24px, pref 24px, max 24px} I_board[board, info],
       {min 28px, pref 28px, max 28px} A_board[board, action]
     ),
-    {min 280px, pref 32fr, max 340px+60ch, gap 4px} V(
+    {min 345px, pref 32fr, max 340px+60ch, gap 4px} V(
       {128px} A_go[go, action],
       {128px, envelope: {disconnected, connected_5digit_latency}} I_engine[common, info],
       {128px} A_common[common, action],

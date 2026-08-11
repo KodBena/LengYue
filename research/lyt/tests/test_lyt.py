@@ -1548,7 +1548,39 @@ def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_
     1080x1920-in-landscape (a portrait-shaped probe run through the
     LANDSCAPE class) and portrait's own 420x880 under all-present are
     UNCHANGED by this pass (a different, unrelated infeasibility
-    mechanism) and remain pinned."""
+    mechanism) and remain pinned.
+
+    W4 FLOOR CORRECTION update (independent review,
+    `.claude/dispatch-reports/lyt-w4-chrome-review.md` item 6): the W4
+    FLOOR SOFTENING pass's own 280px side-column min was disclosed as
+    "functionally safe, just not empirically re-swept" -- the review's
+    live measured width-sweep found that disclosure wrong: 280px clips
+    `SetupToolPalette.vue`'s permanently-reserved `.setup-toolkit`
+    column by up to 52px. The measured true no-clip floor is 335px;
+    this correction raises the encoding's min to 345px (335px + a
+    ~10px margin, matching the REPAIR PASS's own precedent for margin
+    sizing).
+
+    This exposes a genuine tension, disclosed here rather than papered
+    over by re-lowering the floor: re-solving at 345px, of the three
+    landscape sizes the softening pass flipped to OPTIMAL under the
+    DEFAULT valuation (1280x1024, 1024x700, 900x600), only 1024x700
+    survives. 1280x1024 flips back to INFEASIBLE at any min >= 297px
+    (i.e. it was ALREADY infeasible at the measured 335px true floor,
+    before any margin was even added) and 900x600 flips back to
+    INFEASIBLE somewhere between 335px and 341px -- both below the
+    corrected 345px, so both are added to the pinned set below. Under
+    ALL-PRESENT, 1280x1024/1024x700/900x600 were already pinned
+    INFEASIBLE before this correction (the softening pass's own
+    docstring above) and remain so -- unaffected by this change, since
+    raising an already-exceeded min cannot un-exceed it. This is the
+    real cost of correcting the floor to its measured, non-clipping
+    value: the SAME TREE cannot be BOTH clip-free at 335px+ AND
+    solver-OPTIMAL at 1280x1024/900x600 under the default valuation --
+    a genuine tension between the "no clipping" and "no compact class"
+    standing rulings this correction surfaces rather than resolves.
+    See the encoding's own "W4 FLOOR CORRECTION" header section for
+    the numeric derivation."""
     known_infeasible_by_valuation = {
         ("all-present", "landscape", "1280x1024"),
         ("all-present", "landscape", "1080x1920-in-landscape"),
@@ -1556,6 +1588,8 @@ def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_
         ("all-present", "landscape", "900x600"),
         ("all-present", "portrait", "420x880"),
         ("default", "landscape", "1080x1920-in-landscape"),
+        ("default", "landscape", "1280x1024"),
+        ("default", "landscape", "900x600"),
     }
     for class_id, html_text in mockup_pages.items():
         m = re.search(r'<script id="lyt-solved-data" type="application/json">(.*?)</script>', html_text, re.S)
@@ -1614,9 +1648,22 @@ def test_landscape_side_column_track_carries_the_board_priority_clamp(mockup_pag
     solver-FEASIBLE at 1280x1024/1024x700/900x600 -- see the encoding's
     own "W4 FLOOR SOFTENING" header section. The pinned clamp's lower
     bound literal moves to `280px` accordingly; the `820px` upper bound
-    is unchanged."""
+    is unchanged.
+
+    W4 FLOOR CORRECTION update (independent review,
+    `.claude/dispatch-reports/lyt-w4-chrome-review.md` item 6): 280px
+    was live-measured to clip `SetupToolPalette.vue`'s permanently-
+    reserved `.setup-toolkit` column by up to 52px -- the softening
+    pass's own "functionally safe, not re-swept" disclosure was wrong.
+    The side column's min is raised to 345px (335px measured true
+    no-clip floor + ~10px margin) -- see the encoding's own "W4 FLOOR
+    CORRECTION" header section, including the disclosed tension this
+    raises against the feasibility pins (`test_generated_pages_embed_
+    valid_overlay_json_matching_overlay_sizes`'s own updated docstring
+    covers the numbers). The pinned clamp's lower bound literal moves
+    to `345px` accordingly; the `820px` upper bound is unchanged."""
     assert "minmax(340px, 820px)" not in mockup_pages["landscape"]
-    assert "clamp(280px, calc(100% - (100vh - 52px) - 12px), 820px)" in mockup_pages["landscape"]
+    assert "clamp(345px, calc(100% - (100vh - 52px) - 12px), 820px)" in mockup_pages["landscape"]
 
 
 def test_portrait_composite_row_carries_the_board_priority_cap(mockup_pages):

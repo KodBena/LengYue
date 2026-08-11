@@ -924,11 +924,7 @@ const activeTab = computed<string>({
              opening either one still never occludes the board. -->
         <div id="lyt-corner-chrome">
           <DebugMenu />
-          <BoardRailPopoverTrigger
-            v-if="store.session.ui.railStyle === 'popover'"
-            @load-sgf="openFileDialog"
-            @save-sgf="downloadActiveBoard"
-          />
+          <BoardRailPopoverTrigger v-if="store.session.ui.railStyle === 'popover'" />
           <LytPresenceMenu />
         </div>
       </template>
