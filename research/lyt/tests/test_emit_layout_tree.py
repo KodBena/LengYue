@@ -109,6 +109,14 @@ def test_board_priority_clamp_applied_to_side_column_only():
 
 
 def test_control_panel_blackbox_floor_is_wrapper_min_derived():
+    """`elt.build_program()`, called bare (no registration), reproduces the
+    PRE-REALIZATION-WAVE behavior byte-for-byte -- `open_control_panel`
+    defaults False, so the T stays fully collapsed. This is a deliberate,
+    still-meaningful pin (a caller of the low-level `build_program` who
+    doesn't opt in gets the old, safe default), distinct from
+    `test_control_panel_exclusive_opens_library_cards_other_collapses_settings_analysis`
+    below, which pins what the ACTUAL landscape registration (and therefore
+    the committed `.gen.ts`) now produces."""
     program = elt.build_program()
     root = program["root"]
     side = _find(root["children"], "2")["node"]["children"]
@@ -146,12 +154,86 @@ def test_control_panel_blackbox_floor_is_wrapper_min_derived():
     assert control_panel["track"] == {"kind": "elastic", "minPx": 160.0, "frWeight": 1.0}
 
 
+def test_control_panel_exclusive_opens_library_cards_other_collapses_settings_analysis():
+    """REALIZATION WAVE (`.claude/dispatch-reports/lyt-realization-wave.md`,
+    work item lyt-realization-exclusive-overflow): landscape's own registration
+    (`REGISTRATIONS["landscape"]`, the one `main()`/the committed `.gen.ts`
+    actually use) opens the control-panel T to a genuine 'exclusive' node.
+    library/cards/other fold generically (the SAME recursion every other node
+    kind gets); settings/analysis stay collapsed to one synthetic 'blackbox'
+    leaf each -- a disclosed, deliberate scope narrowing (the settings
+    sub-tab strip would need TabWidget/SettingsTab surgery beyond this wave's
+    budget; the analysis tabs are genuinely user-configurable at runtime, and
+    rendering the encoding's own STATIC default 4-tab shape live would
+    silently override that — see the emitter's own module docstring,
+    'REALIZATION WAVE' section, and this wave's delivery report)."""
+    program = elt.build_program_for(elt.REGISTRATIONS["landscape"])
+    root = program["root"]
+    side = _find(root["children"], "2")["node"]["children"]
+    tree_row = _find(side, "2.2")["node"]["children"]
+    control_panel = _find(tree_row, "2.2.1")
+    assert control_panel["node"]["kind"] == "exclusive"
+    assert control_panel["node"]["widget"] == "controlPanel"
+    assert control_panel["node"]["tag"] == "BLACK BOX"
+    assert control_panel["node"]["defaultTabId"] == "library"
+    ex_children = control_panel["node"]["children"]
+    tab_ids = [c["tabId"] for c in ex_children]
+    assert tab_ids == ["library", "cards", "settings", "analysis", "other"]
+    label_keys = [c["tabLabelKey"] for c in ex_children]
+    assert label_keys == [
+        "app.tabs.library", "app.tabs.cards", "app.tabs.settings",
+        "app.tabs.analysis", "app.tabs.other",
+    ]
+    kinds = {c["tabId"]: c["node"]["kind"] for c in ex_children}
+    assert kinds == {
+        "library": "leaf", "cards": "leaf",
+        "settings": "blackbox", "analysis": "blackbox",
+        "other": "split",
+    }
+    library = _find(ex_children, "2.2.1.0")
+    assert library["node"]["widget"] == "CP-library"
+    assert library["node"]["scrollAxes"] == ["v"]
+    assert library["node"]["content"] == "unbounded"
+    settings = _find(ex_children, "2.2.1.2")
+    assert settings["node"]["widget"] == "CP-settings"
+    assert settings["node"]["childWidgets"] == ["settingsSubstrip", "settingsPane"]
+    analysis = _find(ex_children, "2.2.1.3")
+    assert analysis["node"]["widget"] == "CP-analysis"
+    assert analysis["node"]["childWidgets"] == [
+        "timelineStrip",
+        "AT_basic_interval", "AT_basic_scoreLead", "AT_basic_mergedDelta",
+        "AT_dist_deltaDist", "AT_dist_mistakeGap",
+        "AT_stab_stability", "AT_stab_crossCorr",
+        "AT_multires",
+    ]
+    other = _find(ex_children, "2.2.1.4")
+    assert other["node"]["kind"] == "split"
+    other_leaves = {c["path"]: c["node"]["widget"] for c in other["node"]["children"]}
+    assert other_leaves == {"2.2.1.4.0": "otherColorDebug", "2.2.1.4.1": "otherBand"}
+    other_color_debug = _find(other["node"]["children"], "2.2.1.4.0")
+    assert other_color_debug["node"]["scrollAxes"] == []
+    assert other_color_debug["node"]["content"] == "designed"
+    other_band = _find(other["node"]["children"], "2.2.1.4.1")
+    assert other_band["node"]["scrollAxes"] == ["v"]
+    assert other_band["node"]["content"] == "unbounded"
+
+
 def test_render_ts_roundtrip_matches_committed_file():
     """The committed frontend/src/state/lyt-layout.gen.ts must be exactly
     what a fresh regeneration produces — guards against a hand-edit or a
     stale regen slipping past review (mirrors emit_ts.py's own
-    determinism-test discipline)."""
-    program = elt.build_program()
+    determinism-test discipline).
+
+    REALIZATION WAVE (`.claude/dispatch-reports/lyt-realization-wave.md`):
+    `elt.build_program()` (bare, no registration) reproduces the PRE-wave
+    "always collapse" tree — a real, distinct fact from what the CLI/committed
+    file actually contains, since `main()` builds via `build_program_for`
+    (which DOES pass `REGISTRATIONS["landscape"]`'s own
+    `open_control_panel`/`control_panel_tab_ids`/`control_panel_collapse_indices`
+    fields). Comparing against the wrong builder function silently diverged
+    from what `main()` actually writes — corrected to `build_program_for`,
+    the SAME call `main()` makes."""
+    program = elt.build_program_for(elt.REGISTRATIONS["landscape"])
     text = elt.render_ts(program, registration=elt.REGISTRATIONS["landscape"])
     committed = elt.DEFAULT_OUT
     assert committed.exists(), f"{committed} missing — run emit_layout_tree.py"
@@ -244,29 +326,54 @@ def test_portrait_board_priority_self_clamp_applied_to_composite_only():
 
 
 def test_portrait_control_panel_blackbox_floor_is_wrapper_min_derived():
+    """REALIZATION WAVE (`.claude/dispatch-reports/lyt-realization-wave.md`):
+    portrait's own control-panel T is built through
+    `build_program_for(PORTRAIT)`, which threads `PORTRAIT.open_control_panel`
+    -- unlike the pre-wave form (this test's own name, kept unchanged so the
+    delivery report can cite it by name), the T no longer collapses whole.
+    library/cards/other open genuinely; settings/analysis stay collapsed to
+    one synthetic blackbox leaf each (disclosed scope narrowing -- see the
+    emitter's own module docstring, 'REALIZATION WAVE' section, for the
+    dynamic-analysis-tabs rationale). The T's own wrapping slot's declared
+    `min 200px` (portrait's pre-Option-C marker reservation, REPAIR Finding 2)
+    is unaffected -- it is read directly off the Split child's own track,
+    independent of whether the T's OWN interior collapses or opens."""
     program = _portrait_program()
     root = program["root"]
     row = _find(root["children"], "4")["node"]["children"]
     control_panel = _find(row, "4.1")
-    assert control_panel["node"]["kind"] == "blackbox"
+    assert control_panel["node"]["kind"] == "exclusive"
     assert control_panel["node"]["widget"] == "controlPanel"
-    # Same OPTION C re-derivation as landscape's own test above -- see that
-    # test's comment for the full account.
-    assert control_panel["node"]["childWidgets"] == [
-        "CP-library", "CP-cards",
-        "settingsSubstrip", "settingsPane",
+    assert control_panel["node"]["defaultTabId"] == "library"
+    tab_ids = [c["tabId"] for c in control_panel["node"]["children"]]
+    assert tab_ids == ["library", "cards", "settings", "analysis", "other"]
+    kinds = {c["tabId"]: c["node"]["kind"] for c in control_panel["node"]["children"]}
+    assert kinds == {
+        "library": "leaf", "cards": "leaf",
+        "settings": "blackbox", "analysis": "blackbox",
+        "other": "split",
+    }
+    settings_child = _find(control_panel["node"]["children"], "4.1.2")
+    assert settings_child["tabId"] == "settings"
+    assert settings_child["node"]["widget"] == "CP-settings"
+    assert settings_child["node"]["childWidgets"] == ["settingsSubstrip", "settingsPane"]
+    analysis_child = _find(control_panel["node"]["children"], "4.1.3")
+    assert analysis_child["tabId"] == "analysis"
+    assert analysis_child["node"]["widget"] == "CP-analysis"
+    assert analysis_child["node"]["childWidgets"] == [
         "timelineStrip",
         "AT_basic_interval", "AT_basic_scoreLead", "AT_basic_mergedDelta",
         "AT_dist_deltaDist", "AT_dist_mistakeGap",
         "AT_stab_stability", "AT_stab_crossCorr",
         "AT_multires",
-        "otherColorDebug", "otherBand",
     ]
     # REPAIR (Finding 2): the T's own wrapping slot declares an explicit
     # `min 200px` (portrait's own pre-Option-C marker reservation); the
     # emitter reads it directly rather than re-deriving from the (now
-    # composite) children -- see landscape's own test comment above for
-    # the full account.
+    # composite) children -- unaffected by this wave's own opening of the
+    # T's INTERIOR, since the wrapping slot's track is a fact of the SPLIT
+    # child (the control-panel T's own parent Split), computed independently
+    # of the T's own node-kind.
     assert control_panel["track"] == {"kind": "elastic", "minPx": 200.0, "frWeight": 1.0}
 
 
@@ -313,5 +420,10 @@ def test_cli_default_registration_is_landscape(tmp_path):
     out = tmp_path / "lyt-layout.gen.ts"
     rc = elt.main(["--out", str(out)])
     assert rc == 0
-    expected = elt.render_ts(elt.build_program(), registration=elt.REGISTRATIONS["landscape"])
+    # REALIZATION WAVE: `main()` builds via `build_program_for`, threading the
+    # registration's own open_control_panel/tab-id/collapse fields — the same
+    # correction as `test_render_ts_roundtrip_matches_committed_file` above.
+    expected = elt.render_ts(
+        elt.build_program_for(elt.REGISTRATIONS["landscape"]), registration=elt.REGISTRATIONS["landscape"]
+    )
     assert out.read_text() == expected

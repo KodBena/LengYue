@@ -72,8 +72,16 @@ const SETTINGS_TAB_SRC = fs.readFileSync(
   'utf-8',
 );
 
+// REALIZATION WAVE (`.claude/dispatch-reports/lyt-realization-wave.md`):
+// the control-panel strip's own TabWidget usage moved out of App.vue's
+// template — LytNode.vue's own Exclusive case now drives it directly
+// (convergence with, not a second implementation of, TabWidget.vue). The
+// scope-discipline check below still needs a literal `<TabWidget ...>`
+// open tag to scan; LytNode.vue is where that tag now lives, and it binds
+// no `orientation` at all (TabWidget's own default, 'horizontal' — the
+// SAME "remains horizontal" invariant this test polices, just relocated).
 const OTHER_TABWIDGET_CONSUMERS = [
-  '../../src/App.vue',
+  '../../src/components/chrome/LytNode.vue',
   '../../src/components/tree/ForestDirectory.vue',
   '../../src/components/charts/AnalysisDashboard.vue',
 ] as const;

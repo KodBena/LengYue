@@ -492,8 +492,13 @@ def _tiling_violations(slot, result, *, path="root"):
             1200,
             1600,
         ),  # widened from 1080x1920 (also now INFEASIBLE all-present,
-        # same settingsPane 880px floor colliding with previewBoard's own
-        # 96px width claim at 1080px) to a size wide enough to afford both.
+        # same settingsPane 838px floor -- corrected from the wave's own
+        # originally-reported 880px, `.claude/dispatch-reports/
+        # lyt-optionc-repair.md` Finding 3 -- colliding with previewBoard's
+        # own 96px width claim at 1080px) to a size wide enough to afford
+        # both. Cosmetic fix only (realization wave, item 5): this comment
+        # is not itself an assertion and the 880->838 correction changes no
+        # test outcome here, verified by the unchanged full-suite pass.
     ],
 )
 def test_tiling_invariants_hold_on_every_solvable_encoding(filename, layout_name, w, h):

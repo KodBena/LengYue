@@ -52,6 +52,27 @@
   that same parity rather than inventing a new keyboard contract for
   one orientation only.
 
+  Derived overflow, ownsScroll (REALIZATION WAVE,
+  `.claude/dispatch-reports/lyt-realization-wave.md`, item 3): historically
+  `.tab-body` carried a blanket `overflow-y: auto` regardless of which tab
+  was active, one of THREE independent overflow writers named in the
+  ratified LYT tab-region consult (the other two: `#control-panel` in
+  style.css, `AnalysisDashboard.vue`'s own `.scrollable-content`). LytNode's
+  new Exclusive case (its own header, "REALIZATION WAVE") reuses this
+  component directly for the control-panel strip and needs PER-PANE
+  overflow, derived from the compiled LYT program's own `scroll`
+  declarations, rather than one blanket scroll owner for all five panes
+  regardless of what each pane's own content class is (`content designed`
+  chart-carrying panes must NEVER scroll — L5c). `ownsScroll` (default
+  `true`, preserving every pre-wave consumer's behavior byte-for-byte) lets
+  a caller opt a whole TabWidget instance OUT of the blanket `.tab-body`
+  scroll in favor of PER-TAB derived overflow (`Tab.scrollAxes`, optional,
+  consulted only when `ownsScroll` is false) — a tab with no `scrollAxes`
+  gets no forced overflow at the pane level (its own interior keeps
+  whatever overflow IT owns, e.g. the still-collapsed
+  CP-settings/CP-analysis mounts' unchanged internal CSS this wave; see
+  `lyt-widget-registry.ts`'s own entries for those two).
+
   Rail side (ledger rows 1505/1509): the vertical rail was first
   shipped on the left, a builder inference from settings-dialog
   genre convention (ADR-0019's C25 — VS Code / Firefox / Chrome /
@@ -78,6 +99,11 @@
 interface Tab {
   id: string;
   label: string;
+  /** REALIZATION WAVE (item 3, derived overflow): consulted only when
+   *  `ownsScroll` is false — see this file's own header, "Derived
+   *  overflow, ownsScroll". Ignored (and unnecessary) for every consumer
+   *  that leaves `ownsScroll` at its default `true`. */
+  scrollAxes?: ('h' | 'v')[];
 }
 
 const props = withDefaults(defineProps<{
@@ -108,10 +134,28 @@ const props = withDefaults(defineProps<{
    * position to persist across tab switches.
    */
   keepMounted?: boolean;
+  /** Default `true` (every pre-wave consumer, unchanged): `.tab-body`
+   *  carries its own blanket `overflow-y: auto`. `false` (LytNode's
+   *  Exclusive case only, so far): `.tab-body` carries NO forced
+   *  overflow, and each `.tab-pane` derives its own `overflow-x`/
+   *  `overflow-y` from that tab's own `scrollAxes` instead — see this
+   *  file's own header, "Derived overflow, ownsScroll". */
+  ownsScroll?: boolean;
 }>(), {
   orientation: 'horizontal',
   keepMounted: false,
+  ownsScroll: true,
 });
+
+function paneOverflowStyle(tab: Tab): Record<string, string> {
+  if (props.ownsScroll) return {};
+  const style: Record<string, string> = {};
+  for (const axis of tab.scrollAxes ?? []) {
+    if (axis === 'v') style.overflowY = 'auto';
+    else if (axis === 'h') style.overflowX = 'auto';
+  }
+  return style;
+}
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void;
@@ -140,8 +184,14 @@ function selectTab(id: string) {
       </li>
     </ul>
     
-    <div class="tab-body">
-      <div v-for="tab in tabs" :key="tab.id" class="tab-pane" v-show="modelValue === tab.id">
+    <div class="tab-body" :class="{ 'tab-body--derived-overflow': !ownsScroll }">
+      <div
+        v-for="tab in tabs"
+        :key="tab.id"
+        class="tab-pane"
+        v-show="modelValue === tab.id"
+        :style="paneOverflowStyle(tab)"
+      >
         <!-- Eager-mount when keepMounted; otherwise lazy. See prop docstring. -->
         <slot :name="tab.id" v-if="keepMounted || modelValue === tab.id"></slot>
       </div>
@@ -221,6 +271,17 @@ function selectTab(id: string) {
   display: flex;
   flex-direction: column;
   min-height: 0; /* The magic property: halts flex-stretching */
+}
+/* REALIZATION WAVE (item 3): the derived-overflow opt-out (`ownsScroll:
+   false`) — retires this class's own blanket overflow in favor of
+   per-`.tab-pane` derived overflow (`paneOverflowStyle`, script above).
+   `overflow: visible` (not `hidden`): a pane with a genuinely oversized
+   child (a mis-declared or future-drift pane) stays REACHABLE rather than
+   silently clipped — "never hide content" — even though every currently
+   opened pane's own declared scrollAxes/content classification means this
+   should not occur in practice. */
+.tab-body--derived-overflow {
+  overflow-y: visible;
 }
 
 .tab-pane {

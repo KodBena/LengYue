@@ -177,7 +177,21 @@ layout lengyue-portrait =
           )[ANALYSIS TABS]
         ),
         {min 204px, pref 1fr, max inf, gap 4px} V(
-          {min 40px, pref 40px, max 40px, boundary, content designed} otherColorDebug[debug],
+          -- REPAIR (2026-08-11, `.claude/dispatch-reports/
+          -- lyt-realization-wave-review.md` Finding 1): 40px -> 264px,
+          -- same corrected measured reservation as `lengyue_landscape.lyt`'s
+          -- own `otherColorDebug` (that file's header carries the full
+          -- measurement derivation: own Playwright rig, 1920x1080/1280x1024/
+          -- 1080x1920-portrait-class, max 254px at 1280x1024 + ~10px margin).
+          -- Not independently re-measured against PORTRAIT's own real
+          -- operating column width specifically (this class's own T-node
+          -- wraps at 200px min, narrower than landscape's 160px, but this
+          -- class's checked 1080x1920 representative point measured a WIDER
+          -- 931px operating column there, giving 232px -- under the
+          -- landscape-derived 264px) -- using landscape's larger, measured
+          -- number here is the conservative, disclosed choice, not a
+          -- from-scratch portrait measurement.
+          {min 264px, pref 264px, max 264px, boundary, content designed} otherColorDebug[debug],
           {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} otherBand[common]
         )
       )[BLACK BOX],

@@ -138,14 +138,20 @@ body {
   flex-shrink: 1;     /* Allow the SVG itself to shrink */
 }
 
-/* `#control-panel`'s `overflow: auto` and `justify-content: right`
-   here are NOT redundant with App.vue's scoped `#control-panel`
-   (which sets border, background, flex-shrink, display,
-   flex-direction). Keep until a follow-up consolidates control-
-   panel styling onto a single declaration site. */
+/* REALIZATION WAVE (`.claude/dispatch-reports/lyt-realization-wave.md`,
+   item 3 — the overflow-writer retirement table): the ancestor's own
+   `overflow: auto` is RETIRED here — the control-panel Exclusive node's
+   five tabs each now own their overflow individually (LytNode.vue's own
+   per-leaf `scrollAxes` derivation for library/cards/the Other tab's
+   scroll-owned band; TabWidget.vue's own internal `.tab-body` for the
+   still-collapsed Settings/Analysis mounts, unchanged this wave), so the
+   ancestor no longer needs to scroll itself — closes this rule's own
+   long-standing "keep until a follow-up consolidates control-panel
+   styling" note. `justify-content: right` here is NOT redundant with
+   App.vue's scoped `#control-panel` (which sets border, background,
+   flex-shrink, display, flex-direction) and is unaffected. */
 #control-panel {
   flex: 1;
-  overflow: auto;
   display: flex;
   flex-direction: column;
   justify-content: right;

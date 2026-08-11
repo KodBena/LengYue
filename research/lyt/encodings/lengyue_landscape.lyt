@@ -509,10 +509,42 @@
 --     the CURRENT LIVE DOM still mixes both in one scrolling
 --     `.scrollable-content` band (unrepaired; the realization wave
 --     inherits this lag, disclosed here explicitly per item 5's own
---     instruction, NOT silently assumed fixed). `otherColorDebug`'s 40px
---     is an UNGROUNDED estimate (no component-level height fact found for
---     `ColorDebugStrip.vue` in this pass) -- the weakest-grounded number
---     in this wave, named as such.
+--     instruction, NOT silently assumed fixed).
+--
+--     REPAIR (2026-08-11, `.claude/dispatch-reports/
+--     lyt-realization-wave-review.md` Finding 1, REJECT): the wave's own
+--     original `otherColorDebug` reservation (40px) was disclosed as "an
+--     UNGROUNDED estimate... the weakest-grounded number in this wave" --
+--     the disclosure was honest, but realizing this leaf LIVE (this same
+--     wave) turned that estimate into a real, reproducible content-overlap
+--     bug the moment it rendered (a fixed 40px track, no scroll declared
+--     per L5c, `overflow-y: visible` per "never hide content" -- the
+--     mounted content painted downward over `otherBand`). Corrected via the
+--     "follow-up live re-sweep" this file's own prose already named as
+--     owed: measured (own isolated Playwright rig, own served build, own
+--     backend on a DB copy, ports 19110-19112, none of the forbidden ports)
+--     the LEAF's full mounted content -- `App.vue`'s own `#leaf-
+--     otherColorDebug` template mounts an `<h3>` section heading, a hint
+--     `<p>`, and `<ColorDebugStrip :steps="500" />` together inside one
+--     `.tab-padding` wrapper, not `ColorDebugStrip` alone -- via that
+--     wrapper's own natural (unclipped) `boundingBox()` height, at every
+--     size this wave's own mandate names: 1920x1080 -> 243px, 1280x1024 ->
+--     **254px** (the binding case -- the narrower operating column wraps
+--     the heading/hint text onto more lines), 1080x1920-portrait-class ->
+--     232px (a wider operating column there, not binding). Corrected
+--     reservation: **264px** (254px measured maximum + the SAME ~10px
+--     margin posture the REPAIR PASS/W4 FLOOR CORRECTION sections above
+--     already establish for this file). Re-verified live post-correction:
+--     no overlap, fixed band fully visible, `otherBand` owns the remainder,
+--     at both 1920x1080 and 1280x1024 -- see the review-response report for
+--     the screenshot inventory. `research/lyt/tests/test_lyt.py`'s own
+--     re-run after this correction found no feasibility-pin change (every
+--     size that solved OPTIMAL/INFEASIBLE before this correction solves the
+--     same way after it -- the 224px delta this correction adds to the
+--     `otherColorDebug`/`otherBand` V-composite's OWN structural floor never
+--     exceeded the T-node's ALREADY-larger componentwise-max floor, which is
+--     still driven by the settings substrip's own 838px -- see that file's
+--     own re-run output for the literal confirmation).
 --
 --     BOTH-AXES TENSION (disclosed language limitation, not invented
 --     here -- SPEC.md §4.2's own "load-bearing fact 2", already on record
@@ -596,7 +628,7 @@ layout lengyue-landscape =
             )[ANALYSIS TABS]
           ),
           {min 204px, pref 1fr, max inf, gap 4px} V(
-            {min 40px, pref 40px, max 40px, boundary, content designed} otherColorDebug[debug],
+            {min 264px, pref 264px, max 264px, boundary, content designed} otherColorDebug[debug],
             {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v} otherBand[common]
           )
         )[BLACK BOX],

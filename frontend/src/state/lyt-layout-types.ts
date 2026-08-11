@@ -30,6 +30,10 @@
 export type LytAxis = 'h' | 'v';
 export type LytDomain = 'go' | 'common' | 'debug' | 'board' | 'chrome' | 'blackbox';
 export type LytFacet = 'action' | 'info';
+/** Amendment 5's content-class axis (research/lyt/SPEC.md §13) — `null`
+ *  means the leaf carries no declaration (every leaf as of the boundary
+ *  re-homing wave, other than the control-panel region's own leaves). */
+export type LytContentClass = 'bounded' | 'designed' | 'unbounded' | null;
 
 export interface LytLeafNode {
   readonly kind: 'leaf';
@@ -37,6 +41,17 @@ export interface LytLeafNode {
   readonly domain: LytDomain;
   readonly facets: readonly LytFacet[];
   readonly aspect: number | null;
+  /** REALIZATION WAVE (item 3, overflow derivation): the Slot's own
+   *  Amendment-5 `scroll <axis>` declaration(s), carried through so a
+   *  live-rendered leaf's overflow CSS derives from the program instead of
+   *  being hand-authored per component — see
+   *  `composables/chrome/useLytOverflowCss.ts`. Empty means "no scroll
+   *  declared here", byte-identical to every leaf outside the realized
+   *  control-panel region. */
+  readonly scrollAxes: readonly LytAxis[];
+  /** Amendment 5's content-class declaration (research/lyt/SPEC.md §13) —
+   *  see `LytContentClass`'s own doc. */
+  readonly content: LytContentClass;
 }
 
 /** Collapsed Exclusive (T) node — see emit_layout_tree.py's module
@@ -91,7 +106,51 @@ export interface LytSplitNode {
   readonly children: readonly LytChild[];
 }
 
-export type LytNodeData = LytLeafNode | LytBlackboxNode | LytSplitNode;
+/** REALIZATION WAVE (`.claude/dispatch-reports/lyt-realization-wave.md`):
+ *  a genuinely-opened Exclusive (T) node — the constructor-total sibling of
+ *  `LytBlackboxNode` (a collapsed Exclusive). Every child receives the
+ *  IDENTICAL rectangle (SPEC.md §2's T semantics) and exactly one is ever
+ *  mounted at a time — `LytNode.vue`'s Exclusive case realizes this as a
+ *  tab strip + active body, reusing `TabWidget.vue` (convergence, not a
+ *  second tab implementation — ADR-0012 cancer B/E). */
+export interface LytExclusiveNode {
+  readonly kind: 'exclusive';
+  /** Representative widget id, for DOM-id anchoring
+   *  (`domIdsByPath`/`LYT_DOM_ID_BY_PATH`) and the widget registry — NOT a
+   *  mountable leaf itself (an Exclusive node has no single leaf content of
+   *  its own). */
+  readonly widget: string;
+  readonly tag: string | null;
+  /** The tab id (`LytExclusiveChild.tabId`) active when no runtime/persisted
+   *  state overrides it. */
+  readonly defaultTabId: string;
+  readonly children: readonly LytExclusiveChild[];
+}
+
+/** One tab of an opened Exclusive node. Unlike `LytChild` (a Split child),
+ *  an Exclusive child carries no `track`/`presenceDefaultVisible` — every
+ *  child shares the SAME rectangle (SPEC.md §2) and tab switching is a
+ *  presence concept the encoding doesn't model (SPEC.md §11: "only a bare
+ *  leaf can be named" a release-toggle target). */
+export interface LytExclusiveChild {
+  /** Dotted child-index path from the program root — kept for parity with
+   *  `LytChild.path` even though nothing indexes an Exclusive child's own
+   *  DOM id by it today (each child's own `node` carries whatever DOM-id
+   *  wiring its OWN kind needs). */
+  readonly path: string;
+  /** Stable tab identity — TabWidget's own `v-model`/slot-name key. Matches
+   *  `frontend/src/state/layout-model.ts`'s `CONTROL_PANEL_TAB_IDS` for the
+   *  control-panel Exclusive (the one Exclusive this wave opens). */
+  readonly tabId: string;
+  /** i18n key resolving this tab's label — always `app.tabs.<tabId>` for
+   *  the control-panel Exclusive today, carried as an explicit field
+   *  (rather than derived client-side from `tabId`) so a future Exclusive
+   *  with a different label-key convention needs no LytNode.vue change. */
+  readonly tabLabelKey: string;
+  readonly node: LytNodeData;
+}
+
+export type LytNodeData = LytLeafNode | LytBlackboxNode | LytSplitNode | LytExclusiveNode;
 
 export interface LytChild {
   /** Dotted child-index path from the program root, e.g. '1.3.2'. */
