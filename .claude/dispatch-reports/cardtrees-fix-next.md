@@ -276,10 +276,11 @@ newly-introduced) resource-ownership gap as a side effect.
 
 ## 7. Commit(s) and delivery-time state
 
-- Commit sha: see the final message (committed on `cardtrees-fix-next`,
-  not on `next`).
-- Delivery-time merge-base against `origin/next`: see the final
-  message (`git fetch origin next` run as the session's last act, per
-  the brief).
+- Commit sha: `fba2e4c5` on `cardtrees-fix-next` (not on `next`).
+- `git fetch origin next` run as the session's last act:
+  `origin/next` tip = `87603c71571756478fdea3288ca6c5a824d697e0`.
+  `git merge-base HEAD origin/next` = the same sha — the branch's base
+  IS `origin/next`'s current tip. **Current — no rebase needed**;
+  `origin/next` did not move during this session.
 
 License: Public Domain (The Unlicense)
