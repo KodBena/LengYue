@@ -112,10 +112,21 @@ describe('SettingsTab — sub-tab strip orientation is a persisted, default-hori
   });
 
   it('the other three ratified-unchanged TabWidget call sites never pass orientation="vertical" nor bind settingsTabsOrientation (scope discipline: only SettingsTab opts in)', () => {
+    // W3 (lyt-vue-realization-roadmap.md §8 W3): App.vue's own resizer
+    // bars carry a legitimate, unrelated `aria-orientation="vertical"`
+    // (ARIA's own vocabulary for a `role="separator"` drag handle) —
+    // scoped to each file's own `<TabWidget ...>` OPEN TAG, mirroring
+    // the SettingsTab assertion above, so this check polices the actual
+    // TabWidget prop binding rather than any occurrence of the same
+    // literal substring elsewhere in the file for an unrelated reason.
     for (const relPath of OTHER_TABWIDGET_CONSUMERS) {
       const src = fs.readFileSync(path.resolve(__dirname, relPath), 'utf-8');
-      expect(src).not.toMatch(/orientation="vertical"/);
       expect(src).not.toMatch(/settingsTabsOrientation/);
+      const tabWidgetOpenTags = src.match(/<TabWidget\b[^>]*>/g) ?? [];
+      expect(tabWidgetOpenTags.length).toBeGreaterThan(0);
+      for (const tag of tabWidgetOpenTags) {
+        expect(tag).not.toMatch(/orientation="vertical"/);
+      }
     }
   });
 });

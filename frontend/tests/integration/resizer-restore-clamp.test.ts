@@ -252,13 +252,22 @@ describe('fresh-profile first-paint floor (ledger row 802): the flex-fill branch
     expect(freshTreeControlWrapperFloorPx(false)).toBeLessThan(freshTreeControlWrapperFloorPx(true));
   });
 
-  it('the composable exposes the floor reactively off store.session.ui.treeExpanded', () => {
+  // W3 rewire (`.claude/dispatch-reports/lyt-vue-realization-roadmap.md`
+  // §8 W3): the composable's own dormant `store.session.ui.treeExpanded`
+  // read is removed here — the LYT skeleton's `tree` leaf is
+  // unconditionally `@fixed`-present in both screen classes (SPEC.md
+  // §11's own "only a bare leaf... release toggle" scoping excludes it),
+  // so the floor is now ALWAYS the tree-expanded value regardless of
+  // `treeExpanded` — the field itself is untouched (blind-mode review UI
+  // owns its remaining semantics; this composable no longer reads it).
+  it('always reports the tree-expanded floor — treeExpanded no longer affects it (W3: chrome-side dormant read removed)', () => {
     store.session.ui.treeExpanded = true;
-    const panel = withSetup(() => useResizablePanel());
-    expect(panel.freshTreeControlWrapperMinWidthPx.value).toBe(WRAPPER_MIN_WIDTH_PX);
+    const panelExpanded = withSetup(() => useResizablePanel());
+    expect(panelExpanded.freshTreeControlWrapperMinWidthPx.value).toBe(WRAPPER_MIN_WIDTH_PX);
 
     store.session.ui.treeExpanded = false;
-    expect(panel.freshTreeControlWrapperMinWidthPx.value).toBe(CONTROL_PANEL_MIN_WIDTH_PX);
+    const panelCollapsed = withSetup(() => useResizablePanel());
+    expect(panelCollapsed.freshTreeControlWrapperMinWidthPx.value).toBe(WRAPPER_MIN_WIDTH_PX);
   });
 
   // The load-bearing claim: at a fresh-profile first paint (no dragged
@@ -308,6 +317,28 @@ describe('fresh-profile first-paint floor (ledger row 802): the flex-fill branch
  * the cap is only ever live for the single pre-measurement frame (see
  * the last test below, which is the only one still exercising it).
  */
+/**
+ * W3: `effectiveTreePanelWidthPx` — the INNER bar's own "effective width",
+ * mirroring `effectiveTreeControlRegionWidthPx`'s stored-value-wins-
+ * verbatim-else-default precedence via the SAME pure function
+ * (`computeTreePanelBoundWidth`, state/layout-model.ts) the pre-W3 App.vue
+ * template ternary called directly.
+ */
+describe('effectiveTreePanelWidthPx (W3): the INNER bar\'s stored-value-wins-else-default fact', () => {
+  it('a stored width wins verbatim, independent of the measured row width', () => {
+    store.session.ui.treePanelWidthPx = 314;
+    mountSplitWorkspace(2000);
+    const panel = withSetup(() => useResizablePanel());
+    expect(panel.effectiveTreePanelWidthPx.value).toBe(314);
+  });
+
+  it('no stored width falls back to the R5 fraction default of the measured row width', () => {
+    mountSplitWorkspace(2000);
+    const panel = withSetup(() => useResizablePanel());
+    expect(panel.effectiveTreePanelWidthPx.value).toBe(panel.treePanelDefaultWidthPx.value);
+  });
+});
+
 describe('board-area width cap (commission row 848): narrowed to the pre-measurement frame by the init-vs-drag divergence fix', () => {
   it('RED (documents the ORIGINAL pre-848 symptom this cap was built against): with no cap at all, a height-bound board-area would keep claiming an even flex-fill share past what its own square can use', () => {
     const rowWidthPx = 2400;

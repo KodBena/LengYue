@@ -3,68 +3,28 @@
  * Tool: research/lyt/emit_layout_tree.py
  * Source encoding: research/lyt/encodings/lengyue_landscape.lyt (layout `lengyue-landscape`)
  * The compiled LYT program (H/V/Exclusive tree, unsolved) as typed TS data — consumed at runtime by LytNode.vue, which realizes each Split as a live CSS Grid container (roadmap S3, 'layout as data, not template').
- * W1 scope (disclosed): landscape class only (portrait is W3); the Exclusive (T) control-panel node is collapsed to a single 'blackbox' leaf (widget id 'controlPanel') rather than expanded into its five CP-* grid children — see this tool's own module docstring.
- * Regenerate: cd research/lyt && nice -n 19 ~/w/vdc/venvs/generic/bin/python emit_layout_tree.py
+ * Disclosed simplification (both classes): the Exclusive (T) control-panel node is collapsed to a single 'blackbox' leaf (widget id 'controlPanel') rather than expanded into its five CP-* grid children — see this tool's own module docstring.
+ * Data-shape types (LytProgram, LytTrackShape, etc.) are NOT declared here — see './lyt-layout-types.ts' (hand-written, ADR-0012 one-home-per-fact), re-exported below.
+ * Regenerate: cd research/lyt && nice -n 19 ~/w/vdc/venvs/generic/bin/python emit_layout_tree.py --registration landscape
  *
  * Public Domain (The Unlicense), matching research/lyt/__init__.py's
  * license line and the umbrella's ADR-0006 per-file convention.
  */
 
-export type LytAxis = 'h' | 'v';
-export type LytDomain = 'go' | 'common' | 'debug' | 'board' | 'chrome' | 'blackbox';
-export type LytFacet = 'action' | 'info';
+import type { LytProgram } from './lyt-layout-types';
 
-export interface LytLeafNode {
-  readonly kind: 'leaf';
-  readonly widget: string;
-  readonly domain: LytDomain;
-  readonly facets: readonly LytFacet[];
-  readonly aspect: number | null;
-}
-
-/** Collapsed Exclusive (T) node — see file header, 'Exclusive (T) node collapse'. */
-export interface LytBlackboxNode {
-  readonly kind: 'blackbox';
-  readonly widget: string;
-  readonly tag: string | null;
-  readonly childWidgets: readonly string[];
-}
-
-export type LytTrackShape =
-  | { readonly kind: 'fixed'; readonly px: number }
-  | { readonly kind: 'elastic'; readonly minPx: number; readonly frWeight: number }
-  | { readonly kind: 'elastic-capped'; readonly minPx: number; readonly maxPx: number }
-  | {
-      readonly kind: 'board-priority-clamp';
-      readonly minPx: number;
-      readonly maxPx: number;
-      readonly naturalBoardCrossUnit: 'vh' | 'vw';
-      readonly fixedSiblingSumPx: number;
-      readonly parentGapPx: number;
-    };
-
-export interface LytSplitNode {
-  readonly kind: 'split';
-  readonly axis: LytAxis;
-  readonly gapPx: number;
-  readonly children: readonly LytChild[];
-}
-
-export type LytNodeData = LytLeafNode | LytBlackboxNode | LytSplitNode;
-
-export interface LytChild {
-  /** Dotted child-index path from the program root, e.g. '1.3.2'. */
-  readonly path: string;
-  /** W1 scope: the only presence fact consumed (no toggle UI this wave). */
-  readonly presenceDefaultVisible: boolean;
-  readonly track: LytTrackShape;
-  readonly node: LytNodeData;
-}
-
-export interface LytProgram {
-  readonly classId: string;
-  readonly root: LytSplitNode;
-}
+export type {
+  LytAxis,
+  LytDomain,
+  LytFacet,
+  LytLeafNode,
+  LytBlackboxNode,
+  LytTrackShape,
+  LytSplitNode,
+  LytNodeData,
+  LytChild,
+  LytProgram,
+} from './lyt-layout-types';
 
 export const LYT_LANDSCAPE: LytProgram = {
   classId: "landscape",

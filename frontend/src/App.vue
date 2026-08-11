@@ -4,30 +4,35 @@
  *
  * Root application component. Provides the top-level layout — since the
  * W1 LYT skeleton rework
- * (`.claude/dispatch-reports/lyt-vue-realization-roadmap.md`), this is
- * the compiled landscape LYT program (`state/lyt-layout.gen.ts`) realized
- * through the generic `<LytNode>` grid renderer, plus the tab bar and
- * workspace auth scaffolding. The <style> block carries App-local chrome
- * only; the shared chrome classes other components consume live in
- * assets/css/shared-chrome.css (imported below, relocated 2026-06-11
- * so editing this file cannot silently restyle distant components).
+ * (`.claude/dispatch-reports/lyt-vue-realization-roadmap.md`), this
+ * renders a compiled LYT program (`state/lyt-layout.gen.ts` /
+ * `state/lyt-layout-portrait.gen.ts`) through the generic `<LytNode>`
+ * grid renderer, plus the tab bar and workspace auth scaffolding. The
+ * <style> block carries App-local chrome only; the shared chrome classes
+ * other components consume live in assets/css/shared-chrome.css
+ * (imported below, relocated 2026-06-11 so editing this file cannot
+ * silently restyle distant components).
  *
- * W1 disclosed scope (roadmap §8): landscape class only, static (no
- * screen-class swap this wave — W3); no chrome toggles, no L4 resizer
- * drags, no presence menu (W2/W3). The five `session.ui.*Expanded`
- * fields are untouched and unread by this skeleton — board/tree/
- * control-panel are unconditionally shown (roadmap §5: tree "always
- * visible", board "never optional", control panel a permanent black
- * box); `sidebarExpanded`'s region (boardRail) and `boardRail`'s sibling
+ * W3 (roadmap §8 W3): the program is now SCREEN-CLASS-SWAPPED —
+ * `activeLytProgram`/`activeLytDomIdByPath` select landscape or portrait
+ * per `activeScreenClassId`'s own nearest-neighbor derivation
+ * (`state/layout-model.ts`, SPEC.md §6) — and the OUTER/INNER resizer
+ * bars (L4, `useResizablePanel.ts`) are reinstated, rewired to write
+ * grid-track overrides via `lytTrackStyleOverrides` rather than the
+ * pre-LYT flex `:style` bindings. The five `session.ui.*Expanded` fields
+ * remain untouched and unread by this skeleton — board/tree/control-
+ * panel are unconditionally shown (roadmap §5: tree "always visible",
+ * board "never optional", control panel a permanent black box);
+ * `sidebarExpanded`'s region (boardRail) and `boardRail`'s sibling
  * `previewBoard` are both `presenceDefaultVisible: false` in the
- * compiled program, so LytNode.vue renders neither — see
- * `state/lyt-widget-registry.ts`'s own notes on both. The old
- * `.top-nav-bar` (Toolbar mounted horizontally above the workspace row)
- * is superseded: Toolbar now mounts into the side column's merged
- * A_go/I_engine/A_common region (still a wide-short strip, ~84px tall
- * rather than ~32px, full column width) — a disclosed, roadmap-
- * commissioned structural change ("toolbar row structure — clusters
- * regrouped per the census").
+ * compiled program, so LytNode.vue renders neither unless the corner
+ * presence menu (W2) turns them on — see `state/lyt-widget-registry.ts`'s
+ * own notes on both. The old `.top-nav-bar` (Toolbar mounted horizontally
+ * above the workspace row) is superseded: Toolbar now mounts into the
+ * side column's merged A_go/I_engine/A_common region in landscape (a
+ * wide-short strip, ~84px tall, full column width) or the A_top strip in
+ * portrait — a disclosed, roadmap-commissioned structural change
+ * ("toolbar row structure — clusters regrouped per the census").
  *
  * Repair pass (ledger row 1781, W1 REPAIR;
  * `.claude/dispatch-reports/lyt-w1-skeleton-review.md` findings A/B):
@@ -74,7 +79,7 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
+import { computed, watch } from 'vue';
 import { ref as vueRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -116,6 +121,8 @@ import { useFollowMePonder } from './composables/board/useFollowMePonder';
 
 import LytNode           from './components/chrome/LytNode.vue';
 import { LYT_LANDSCAPE }  from './state/lyt-layout.gen';
+import { LYT_PORTRAIT }   from './state/lyt-layout-portrait.gen';
+import { useResizablePanel } from './composables/chrome/useResizablePanel';
 import BoardWidget      from './components/board/BoardWidget.vue';
 import TreeWidget       from './components/tree/TreeWidget.vue';
 import TabWidget        from './components/chrome/TabWidget.vue';
@@ -390,62 +397,82 @@ const {
   handleLoadLibraryGameInNewBoard,
 } = useDirtyBoardGuard(confirmLoadModalRef);
 
-// ── LYT root measurement (W1: layout-class feed only) ───────────────────
+// ── LYT root measurement + resizers (W3) ─────────────────────────────
 //
-// The old `useResizablePanel`'s ResizeObserver + drag machinery is W3
-// scope (L4 resizer drags) and not reused here — W1 has no resizers.
-// This is a narrower, standalone ResizeObserver on the LYT root
-// (`#split-workspace`, the id `LYT_DOM_ID_BY_PATH['']` assigns the
-// LytNode root) feeding ONLY `useDeferredLayoutClass` / `getPanelContentPolicy`,
-// which StatusBar's segment-priority collapse (self-sourced, unaffected)
-// does NOT need but LibraryTab/ForestDirectory's `twoColumnReflow` still
-// does (parity item 7, "re-verify against new control-panel sizing").
-//
-// Imperative-escape resource: `lytRootObserver`, released in
-// `onUnmounted` below. Failure mode if unreleased: the observer keeps a
-// live reference to a detached DOM node across an App unmount (SPA has
-// exactly one App instance for its lifetime, so this is a single-observer
-// leak, not unbounded — still wired per frontend/CLAUDE.md's resource-
-// ownership discipline, not left implicit.
-const rowWidthPx = vueRef(0);
-const rowHeightPx = vueRef(0);
-let lytRootObserver: ResizeObserver | null = null;
-
-function measureLytRoot() {
-  const el = document.getElementById('split-workspace');
-  if (!el) return;
-  const rect = el.getBoundingClientRect();
-  rowWidthPx.value = Math.round(rect.width);
-  rowHeightPx.value = Math.round(rect.height);
-}
-
-function attachLytRootObserver() {
-  if (lytRootObserver || typeof ResizeObserver === 'undefined') return;
-  const el = document.getElementById('split-workspace');
-  if (!el) return;
-  measureLytRoot();
-  lytRootObserver = new ResizeObserver(measureLytRoot);
-  lytRootObserver.observe(el);
-}
-
-onMounted(() => {
-  attachLytRootObserver(); // covers the already-loaded-by-mount-time race
-});
-watch(
-  () => store.workspaceLoadState.kind,
-  async (kind) => {
-    if (kind === 'loaded') {
-      await nextTick();
-      attachLytRootObserver();
-    }
-  },
-);
-onUnmounted(() => {
-  lytRootObserver?.disconnect();
-  lytRootObserver = null;
-});
+// W1 stood up a NARROW, standalone ResizeObserver here (no resizers that
+// wave). W3 (`.claude/dispatch-reports/lyt-vue-realization-roadmap.md`
+// §8 W3, §4 item 1) reinstates the L4 drag machinery, REWIRED to the LYT
+// skeleton (`useResizablePanel.ts`'s own header, "W3 rewire", has the
+// full derivation) — that composable owns the SAME `#split-workspace`
+// ResizeObserver this file used to stand up independently, so it is
+// reused here directly (`rowWidthPx`/`rowHeightPx` below are its own
+// return values) rather than duplicated (ADR-0010 imperative-escape
+// discipline: one observer per measured element).
+const {
+  startResizeInner,
+  startResizeOuter,
+  effectiveTreeControlRegionWidthPx,
+  effectiveTreePanelWidthPx,
+  rowWidthPx,
+  rowHeightPx,
+} = useResizablePanel();
 
 const layoutClass = useDeferredLayoutClass(rowWidthPx, rowHeightPx);
+
+// ── Screen-class swap (W3, roadmap §4 item 2) ────────────────────────
+//
+// `layoutClass.value.screenClassId` (SPEC.md §6 nearest-neighbor,
+// `state/layout-model.ts`) selects WHICH compiled program renders — a
+// whole-program swap, not a per-node CSS branch. Both `.lyt` encodings
+// share their widget ids verbatim for every shared role (`research/lyt/
+// runner.py`'s own registration comment, read in full), so every
+// existing `#leaf-*` template slot below works unchanged for whichever
+// program is active; portrait's own two NEW ids (`A_top`, a genuinely
+// new merged toolbar strip; `I_engine`, whose portrait disposition
+// diverges from landscape's — see `lyt-widget-registry.ts`'s own
+// "class-scoped overrides" note) get their own slot/registry entries.
+const activeScreenClassId = computed(() => layoutClass.value.screenClassId);
+const activeLytProgram = computed(() => (activeScreenClassId.value === 'portrait' ? LYT_PORTRAIT : LYT_LANDSCAPE));
+
+// path -> DOM id, PORTRAIT's own map — same load-bearing legacy ids
+// (commission item 4), reassigned to portrait's own tree paths (its
+// board composite is root child '2', not '1'; its tree/control/preview
+// row is root child '4', not '2.3' — see lyt-layout-portrait.gen.ts).
+const LYT_DOM_ID_BY_PATH_PORTRAIT: Record<string, string> = {
+  '': 'split-workspace',
+  '2': 'board-area',
+  '2.0': 'board-square',
+  '4': 'tree-control-wrapper',
+  '4.0': 'vue-tree-panel',
+  '4.1': 'control-panel',
+};
+
+// W3 resizer drag overrides — see LytNode.vue's own header ("Resizer
+// drag overrides") for the override-wins-verbatim contract. INNER
+// (tree-panel width) applies to BOTH classes at each program's own tree
+// leaf path. OUTER (tree+control REGION width) is LANDSCAPE-ONLY this
+// wave — DISCLOSED NARROWING: landscape's OUTER bar drags root child '2'
+// (the whole side column, whose board-priority-clamp track IS a WIDTH
+// fact — see useResizablePanel.ts's header for the wrapper-vs-side-
+// column derivation); portrait has no analogous "side column beside the
+// board" concept (its board composite is a separate ROW, not a width-
+// contested sibling), so what the OUTER bar's persisted WIDTH fact
+// should even mean in a single-column stack is a genuine open design
+// question, not one this wave invents an answer to. `startResizeOuter`
+// and its corner bar are therefore only mounted in landscape (template
+// below); `treeControlRegionWidthPx` itself is untouched by a portrait
+// session (never written there), so returning to landscape restores
+// the user's own prior drag exactly.
+const lytTrackStyleOverrides = computed<Record<string, string>>(() => {
+  const treePanelPath = activeScreenClassId.value === 'portrait' ? '4.0' : '2.3.0';
+  const overrides: Record<string, string> = {
+    [treePanelPath]: `${effectiveTreePanelWidthPx.value}px`,
+  };
+  if (activeScreenClassId.value === 'landscape' && effectiveTreeControlRegionWidthPx.value !== undefined) {
+    overrides['2'] = `${effectiveTreeControlRegionWidthPx.value}px`;
+  }
+  return overrides;
+});
 
 // Phase 3 (resolution roadmap, audit finding R3), carried into W1
 // unchanged: the declared measure/reflow policy for the workspace's
@@ -461,7 +488,7 @@ const panelContentPolicy = computed(() => getPanelContentPolicy(layoutClass.valu
 // changed (CSS grid item instead of a flex child). See `LytNode.vue`'s
 // own header ("DOM-id wiring") for the repair-pass fix that makes this
 // map actually resolve (W1 repair, ledger row 1781, review finding B).
-const LYT_DOM_ID_BY_PATH: Record<string, string> = {
+const LYT_DOM_ID_BY_PATH_LANDSCAPE: Record<string, string> = {
   '': 'split-workspace',
   '1': 'board-area',
   '1.0': 'board-square',
@@ -469,6 +496,15 @@ const LYT_DOM_ID_BY_PATH: Record<string, string> = {
   '2.3.0': 'vue-tree-panel',
   '2.3.1': 'control-panel',
 };
+
+// W3: which of the two path -> DOM id maps is active follows the SAME
+// screen-class swap as the compiled program itself — see
+// `LYT_DOM_ID_BY_PATH_PORTRAIT`'s own comment (declared above, next to
+// the other W3 screen-class-swap state) for why the paths differ between
+// classes despite sharing every DOM id's own name.
+const activeLytDomIdByPath = computed(() =>
+  activeScreenClassId.value === 'portrait' ? LYT_DOM_ID_BY_PATH_PORTRAIT : LYT_DOM_ID_BY_PATH_LANDSCAPE,
+);
 
 // LytNode runtime presence overrides (W2, roadmap §8 W2 item 1). Reads
 // straight off the persisted `session.ui.lytPresence` map for
@@ -631,18 +667,23 @@ const activeTab = computed<string>({
           v-if="store.session.ui.systemLogExpanded || transientLogReveal"
         />
 
-        <!-- The LYT landscape skeleton (roadmap §3, "layout as data").
-             Every leaf/blackbox slot App.vue owns a real component for
-             is projected through a named `#leaf-<widgetId>` slot — see
+        <!-- The LYT skeleton (roadmap §3, "layout as data"), now SCREEN-
+             CLASS-SWAPPED (W3): `activeLytProgram` is the landscape or
+             portrait compiled program per `activeScreenClassId`'s own
+             nearest-neighbor derivation (`state/layout-model.ts`). Every
+             leaf/blackbox slot App.vue owns a real component for is
+             projected through a named `#leaf-<widgetId>` slot — see
              `state/lyt-widget-registry.ts` for the full leaf -> mount
-             disposition table and LytNode.vue for the renderer. This
-             is the program ROOT call — no `path` prop given, so
-             LytNode.vue's own default (`''`) applies, matching
-             `LYT_DOM_ID_BY_PATH['']`. -->
+             disposition table and LytNode.vue for the renderer. This is
+             the program ROOT call — no `path` prop given, so LytNode.vue's
+             own default (`''`) applies, matching
+             `activeLytDomIdByPath['']`. -->
         <LytNode
-          :node="LYT_LANDSCAPE.root"
-          :dom-ids-by-path="LYT_DOM_ID_BY_PATH"
+          :node="activeLytProgram.root"
+          :dom-ids-by-path="activeLytDomIdByPath"
           :presence-overrides="lytPresenceOverrides"
+          :class-id="activeScreenClassId"
+          :track-style-overrides="lytTrackStyleOverrides"
         >
 
           <!-- W2: style A only (railStyle === 'slot') actually shows this
@@ -722,7 +763,50 @@ const activeTab = computed<string>({
             </div>
           </template>
 
+          <!-- Portrait's OWN merged strip (encodings/lengyue_portrait.lyt's
+               own header comment: "A_go (+) A_common on one reserved
+               strip") — a genuinely new widget id, not a landscape leaf
+               (lyt-widget-registry.ts's own "class-scoped overrides"
+               note). Mounts the SAME content as #leaf-A_go above; only
+               the compiled program that reaches this slot at all differs
+               by class. -->
+          <template #leaf-A_top>
+            <div class="lyt-toolbar-strip">
+              <button class="lyt-sgf-btn" @click="openFileDialog">{{ $t('sidebar.loadSgf') }}</button>
+              <button class="lyt-sgf-btn" @click="downloadActiveBoard">{{ $t('sidebar.saveSgf') }}</button>
+              <Toolbar
+                :is-match-running="matchControls.isRunning.value"
+                @toggle-engine="engineControls.toggle"
+                @mint-card="triggerMint"
+                @open-match="triggerMatch"
+                @stop-match="handleStopMatch"
+                @open-play="triggerPlay"
+                @open-learn-path="triggerLearnPath"
+              />
+              <LocalePicker />
+            </div>
+          </template>
+
           <template #leaf-tree>
+            <!-- OUTER resizer bar (W3, landscape only — see this file's
+                 script-header "W3 resizer drag overrides" note for the
+                 disclosed narrowing). Anchored at #vue-tree-panel's own
+                 LEFT edge — topologically identical to the boundary
+                 between root child '1' (board) and root child '2' (side
+                 column) in the ROOT split, since '2.3' (this leaf's own
+                 parent split) cross-fills '2''s full width with zero
+                 left offset. Paint 1px / grab ~4px per the standing
+                 resizer ruling (mirrors App.vue's pre-LYT
+                 `.panel-resizer` history — see the <style> block below). -->
+            <div
+              v-if="activeScreenClassId === 'landscape'"
+              id="resizer-outer"
+              class="lyt-resizer lyt-resizer-vertical"
+              role="separator"
+              aria-orientation="vertical"
+              :aria-label="$t('app.chrome.resizerOuterLabel')"
+              @mousedown="startResizeOuter"
+            ></div>
             <div id="tree-panel-header">{{ $t('app.chrome.gameTreePanelHeader') }}</div>
             <TreeWidget
               v-if="activeBoard"
@@ -741,6 +825,18 @@ const activeTab = computed<string>({
                header) — TabWidget's own five named slots are unchanged
                verbatim from pre-rework App.vue. -->
           <template #leaf-controlPanel>
+            <!-- INNER resizer bar (W3, both screen classes — see
+                 useResizablePanel.ts's own header for the drag math).
+                 Anchored at #control-panel's own LEFT edge, exactly the
+                 tree/control-panel boundary this bar has always owned. -->
+            <div
+              id="resizer-inner"
+              class="lyt-resizer lyt-resizer-vertical"
+              role="separator"
+              aria-orientation="vertical"
+              :aria-label="$t('app.chrome.resizerInnerLabel')"
+              @mousedown="startResizeInner"
+            ></div>
             <TabWidget
               :key="controlPanelIdentityKey"
               :tabs="controlTabs"
@@ -919,12 +1015,14 @@ const activeTab = computed<string>({
 }
 @keyframes workspace-boot-spin { to { transform: rotate(360deg); } }
 
-/* ── LYT-realized chrome (W1) ──────────────────────────────────────────
-   The LytNode root (id from LYT_DOM_ID_BY_PATH['']) IS #split-workspace
-   now — a grid, not the old flex row, but the same id so the existing
-   ResizeObserver-measurement convention and any test still targeting
-   this selector keep resolving. flex:1 makes it fill #main-workspace's
-   remaining column height exactly like the old #split-workspace did. */
+/* ── LYT-realized chrome (W1, screen-class-swapped W3) ─────────────────
+   The LytNode root (id from activeLytDomIdByPath['']) IS #split-workspace
+   now — a grid, not the old flex row, but the same id (both classes'
+   own maps agree on it) so the existing ResizeObserver-measurement
+   convention and any test still targeting this selector keep resolving
+   regardless of which program is currently active. flex:1 makes it fill
+   #main-workspace's remaining column height exactly like the old
+   #split-workspace did. */
 #split-workspace {
   flex: 1;
   min-width: 0;
@@ -975,19 +1073,76 @@ const activeTab = computed<string>({
 }
 
 /* #vue-tree-panel (the tree leaf's own cell): stacks the header above
-   TreeWidget, same as pre-rework App.vue. */
+   TreeWidget, same as pre-rework App.vue. `position: relative` (W3) is
+   the OUTER resizer bar's own anchor — see the template's own comment
+   at its usage site for why this leaf's LEFT edge is topologically the
+   same boundary the pre-LYT OUTER bar sat at. */
 #vue-tree-panel {
   display: flex; flex-direction: column;
+  position: relative;
   border-left: 1px solid var(--border-1); background: var(--surface-2);
   height: 100%;
 }
 #tree-panel-header { height: 20px; background: var(--surface-0); border-bottom: 1px solid var(--border-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: var(--text-tiny); letter-spacing: var(--tracking-wide); color: var(--text-0); text-transform: uppercase; flex-shrink: 0; }
 
 /* #control-panel (the collapsed T(CP-*) black-box leaf): TabWidget fills
-   it edge-to-edge, matching pre-rework App.vue's own flex-column shape. */
+   it edge-to-edge, matching pre-rework App.vue's own flex-column shape.
+   `position: relative` (W3) anchors the INNER resizer bar at this leaf's
+   own left edge. */
 #control-panel {
   border-left: 1px solid var(--border-1); background: var(--surface-3);
-  display: flex; flex-direction: column; height: 100%;
+  display: flex; flex-direction: column; position: relative; height: 100%;
+}
+
+/* ── W3 resizer bars (roadmap §8 W3, §4 item 1) ───────────────────────
+   Standing ruling (App.vue's pre-LYT `.panel-resizer` history, carried
+   forward in spirit): paint 1px, grab area ~4px via a `::before`
+   pseudo-element overhang that occupies no additional GRID-TRACK space
+   (the bar is a zero-track-cost absolute overlay under the LYT grid —
+   see LytNode.vue's own header, "Resizer drag overrides", for why the
+   grid track sizing itself is untouched by these elements).
+
+   DISCLOSED FIX (build-time, not a later narrowing): a first draft
+   anchored the bar OUTSIDE its positioned ancestor's own box
+   (`left: -1px`, straddling the boundary line symmetrically) — this
+   silently failed to receive pointer events on `#control-panel`
+   specifically, because `assets/css/style.css`'s own pre-existing
+   `#control-panel { overflow: auto; ... }` rule (kept intentionally,
+   per that file's own comment, "until a follow-up consolidates
+   control-panel styling") CLIPS any absolutely-positioned descendant
+   that renders outside its padding box — the negative-offset bar was
+   silently un-hit-testable there (confirmed live: `elementsFromPoint`
+   at the bar's own rendered coordinate returned `#control-panel`
+   itself, never the bar or its `::before`). `#vue-tree-panel` (the
+   OUTER bar's own anchor) carries no such rule and was unaffected —
+   an inconsistency this fix removes by construction rather than
+   leaving one bar on a fragile, anchor-dependent positioning scheme.
+   Both bars now render `left: 0` — the FIRST pixel INSIDE their own
+   positioned ancestor's padding box, never past it — with the pointer-
+   target overhang extending only INWARD (`::before`, 4px, `left: 0`)
+   for the same reason. Cosmetically this paints the 1px line as the
+   anchor's own leftmost column rather than literally straddling the
+   split's gap — visually indistinguishable at this hairline width,
+   and the boundary it drags is unchanged. */
+.lyt-resizer {
+  position: absolute;
+  top: 0;
+  z-index: 10;
+}
+.lyt-resizer-vertical {
+  left: 0;
+  width: 1px;
+  height: 100%;
+  background: var(--border-2);
+  cursor: col-resize;
+}
+.lyt-resizer-vertical::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
 }
 
 /* Toolbar's merged strip (A_go+I_engine+A_common): still a wide-short

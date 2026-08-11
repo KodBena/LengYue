@@ -160,20 +160,95 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
   },
 };
 
+// ── W3: class-scoped overrides (portrait introduces widget ids and
+//    dispositions the landscape-only registry above never anticipated) ──
+//
+// `A_top` and `I_engine` are the two widget ids whose portrait-class
+// disposition genuinely diverges from the flat, single-class registry
+// above:
+//
+//  - `A_top` (`encodings/lengyue_portrait.lyt`'s own merged
+//    A_go+A_common strip, its OWN widget id — not a landscape leaf at
+//    all) needs its own 'mounted' entry; landscape has no A_top leaf so
+//    this can't collide with anything there.
+//  - `I_engine` IS shared with landscape, where it is legitimately
+//    `absorbed` into the adjacent `A_go` sibling (LytNode.vue's
+//    consecutive-sibling merge). In portrait's own tree, I_engine (root
+//    child '3') is NOT adjacent to A_top (root child '1') — the board
+//    composite (child '2') sits between them — so the SAME 'absorbed
+//    into A_go' disposition would make LytNode.vue's merge walk throw
+//    ("no preceding mounting sibling in this split"), and flipping
+//    I_engine's registry entry to 'mounted' GLOBALLY would just as
+//    surely break landscape's own A_go/I_engine/A_common merge instead.
+//    A single flat map cannot carry two different truths for the same
+//    id — this override table is the disclosed, minimal fix: portrait
+//    gets its own I_engine disposition without touching landscape's.
+//
+// DISCLOSED W3 NARROWING: portrait's own standalone I_engine leaf mounts
+// nothing this wave (`status: 'absent'`, a reserved empty 28px track) —
+// landscape's engine-info readout lives merged inside the Toolbar/A_go
+// strip, and portrait's own tree structurally separates I_engine from
+// A_top by the board composite, so no existing component satisfies it
+// without either splitting Toolbar's internals (a real refactor, per
+// A_go's own registry note above, already deferred there) or mounting a
+// second live Toolbar instance (would duplicate every button). Giving
+// portrait a dedicated engine-status readout is left to a later,
+// disclosed arc — flagged in the W3 build report, not silently absorbed.
+export const LYT_WIDGET_REGISTRY_OVERRIDES_BY_CLASS: Readonly<
+  Record<string, Readonly<Record<string, LytWidgetRegistryEntry>>>
+> = {
+  portrait: {
+    A_top: {
+      widget: 'A_top',
+      component: 'Toolbar',
+      status: 'mounted',
+      slotName: '#leaf-A_top',
+      absorbedInto: null,
+      note: 'Portrait\'s own merged A_go+A_common strip (encodings/lengyue_portrait.lyt\'s own header comment: "A_go (+) A_common on one reserved strip"). Mounts the SAME existing Toolbar.vue (+ SGF buttons + LocalePicker) as landscape\'s A_go leaf — see that entry\'s own note for the underlying judgment call, unchanged here.',
+    },
+    I_engine: {
+      widget: 'I_engine',
+      component: null,
+      status: 'absent',
+      slotName: null,
+      absorbedInto: null,
+      note: 'DISCLOSED W3 NARROWING: no dedicated component this wave — see this file\'s "W3: class-scoped overrides" header note for the full rationale (portrait\'s own tree structurally separates I_engine from A_top, so landscape\'s "absorbed into A_go" disposition does not carry over). Reserved empty track only.',
+    },
+  },
+};
+
 /**
  * Every LYT widget id, resolved to the widget id that actually MOUNTS a
  * component for it (itself, unless `status === 'absorbed'`). Used by
  * LytNode.vue to detect consecutive-sibling runs that share a mount and
  * fold them into one spanning wrapper.
+ *
+ * `classId` (W3): when given and `LYT_WIDGET_REGISTRY_OVERRIDES_BY_CLASS`
+ * declares an override for `(classId, widgetId)`, the override wins over
+ * the flat, class-agnostic table above — see that table's own header for
+ * why portrait needs this. Omitted (or a class with no override table)
+ * falls through to the unchanged pre-W3 lookup.
  */
-export function lytMountingWidgetId(widgetId: string): string {
-  const entry = LYT_WIDGET_REGISTRY[widgetId];
+export function lytMountingWidgetId(widgetId: string, classId?: string): string {
+  const override = classId ? LYT_WIDGET_REGISTRY_OVERRIDES_BY_CLASS[classId]?.[widgetId] : undefined;
+  const entry = override ?? LYT_WIDGET_REGISTRY[widgetId];
   if (!entry) {
     throw new Error(
-      `lytMountingWidgetId: no LYT_WIDGET_REGISTRY entry for widget id ${JSON.stringify(widgetId)} — ` +
-        'every leaf lyt-layout.gen.ts can carry must be registered (mounted/absorbed/absent), per ' +
-        'the roadmap\'s own "every unmapped encoding leaf" disclosure requirement.',
+      `lytMountingWidgetId: no LYT_WIDGET_REGISTRY entry for widget id ${JSON.stringify(widgetId)} ` +
+        `(classId=${JSON.stringify(classId ?? null)}) — every leaf a compiled LYT program can carry must ` +
+        'be registered (mounted/absorbed/absent), per the roadmap\'s own "every unmapped encoding leaf" ' +
+        'disclosure requirement.',
     );
   }
   return entry.status === 'absorbed' && entry.absorbedInto ? entry.absorbedInto : widgetId;
+}
+
+/**
+ * `registryStatus`'s own class-aware counterpart (LytNode.vue's template
+ * consults this to decide whether a leaf's slot content should render at
+ * all) — same override precedence as `lytMountingWidgetId` above.
+ */
+export function lytRegistryStatus(widgetId: string, classId?: string): LytWidgetStatus {
+  const override = classId ? LYT_WIDGET_REGISTRY_OVERRIDES_BY_CLASS[classId]?.[widgetId] : undefined;
+  return (override ?? LYT_WIDGET_REGISTRY[widgetId])?.status ?? 'absent';
 }

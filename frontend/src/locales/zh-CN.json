@@ -10,6 +10,8 @@
   "app.chrome.toggleTree":                "切换棋谱树",
   "app.chrome.toggleControls":            "切换控制面板",
   "app.chrome.gameTreePanelHeader":       "棋谱树",
+  "app.chrome.resizerOuterLabel":         "调整棋谱树与控制面板区域的大小",
+  "app.chrome.resizerInnerLabel":         "调整棋谱树面板的大小",
 
   "app.chrome.presence.menuButton":              "面板",
   "app.chrome.presence.menuTitle":               "显示 / 隐藏面板",

@@ -26,6 +26,15 @@
  *       override instead of the bare elastic-capped mapping, so the CSS
  *       grid's own track-sizing algorithm reproduces the CP-SAT solver's
  *       lexicographic board-maximize priority exactly, not approximately.
+ *   board-priority-self-clamp -> "minmax(0px, calc(100<naturalCrossUnit> +
+ *                            <fixedSiblingSumPx>px))"
+ *     — CASE B (W3, portrait's V-root / V-composite shape, root axis ==
+ *       composite axis): caps the board COMPOSITE's OWN track at its
+ *       natural ceiling instead of a sibling's — see
+ *       `state/lyt-layout-types.ts`'s own doc on this track-shape member
+ *       for the CASE A/B sign-direction distinction (PLUS the fixed-
+ *       sibling sum here, not minus) and `_board_priority_tracks`'s CASE B
+ *       branch for the normative derivation this mirrors verbatim.
  *
  * Formerly-disclosed limitation, GENERALIZED (lyt-w2-presence, W2): the
  * clamp's `fixedSiblingSumPx` accounts only for the board composite's OWN
@@ -72,6 +81,10 @@ export function trackCssValue(shape: LytTrackShape, leadingReservedPx = 0): stri
       const leading = leadingReservedPx > 0 ? ` - ${leadingReservedPx}px` : '';
       const available = `calc(100% - (${natural}) - ${shape.parentGapPx}px${leading})`;
       return `clamp(${shape.minPx}px, ${available}, ${shape.maxPx}px)`;
+    }
+    case 'board-priority-self-clamp': {
+      const natural = `calc(100${shape.naturalCrossUnit} + ${shape.fixedSiblingSumPx}px)`;
+      return `minmax(0px, ${natural})`;
     }
     /* istanbul ignore next -- exhaustiveness guard, ADR-0002 */
     default: {

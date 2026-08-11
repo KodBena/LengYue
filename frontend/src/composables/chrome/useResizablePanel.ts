@@ -159,6 +159,47 @@
  * item" mechanism the rest of this file relies on, just applied to
  * the OUTER pair instead of the inner one.
  *
+ * ── W3 rewire: grid-track drag handles, not flex `:style` bindings ───
+ * (`.claude/dispatch-reports/lyt-vue-realization-roadmap.md` §8 W3, §4
+ * item 1). This composable's DOM ids (`#split-workspace`,
+ * `#board-area`, `#tree-control-wrapper`, `#vue-tree-panel`,
+ * `#control-panel`) are UNCHANGED — App.vue's `LYT_DOM_ID_BY_PATH` still
+ * assigns them to the same real elements, now grid cells instead of flex
+ * children (commission item 4: preserve the load-bearing legacy hooks).
+ * All the geometry MEASUREMENT below (mousedown-time
+ * `getBoundingClientRect`, the ResizeObserver-cached row dims) is
+ * therefore untouched. What changed is the WRITE side's consumer: pre-W3,
+ * App.vue's own `:style` bindings read `effectiveTreeControlRegionWidthPx`
+ * directly on `#tree-control-wrapper`/`#vue-tree-panel`; under the LYT
+ * grid skeleton those two elements are GRID ITEMS whose size is set by
+ * their PARENT split's own `grid-template-columns`/`rows` track list
+ * (`LytNode.vue`), not by an inline style on the item itself — so the
+ * effective widths below now flow out through
+ * `resizerTrackStyleOverrides`, a path -> literal-px-string map App.vue
+ * feeds to `<LytNode>`'s `trackStyleOverrides` prop (LytNode.vue's own
+ * header, "Resizer drag overrides", documents the override-wins-verbatim
+ * contract on that side). `effectiveTreePanelWidthPx` is the INNER bar's
+ * own analog of `effectiveTreeControlRegionWidthPx` — `computeTreePanelBoundWidth`
+ * (state/layout-model.ts) already carried this exact stored-vs-default
+ * precedence (pre-W3: consulted directly by App.vue's own template
+ * ternary); this composable now owns evaluating it, so both bars' final
+ * effective widths live in one place.
+ *
+ * The `treeExpanded` scope note: a prior review flagged a DORMANT read
+ * of `store.session.ui.treeExpanded` at this file's fresh-profile floor
+ * computed (`freshTreeControlWrapperMinWidthPx`, pre-W3) — dormant
+ * because the LYT skeleton (W1) already renders `tree` as an
+ * unconditionally-visible leaf (`@fixed` presence in both `.lyt`
+ * encodings — SPEC.md §11's own "only a bare leaf... release toggle"
+ * scoping excludes it), so `treeExpanded` never actually varied that
+ * computed's OUTPUT in the post-W1 app; only the READ itself lingered.
+ * This rewire removes the chrome-side read (`freshTreeControlWrapperFloorPx`
+ * is now always called with `true` below) — the FIELD itself is
+ * untouched (`session.ui.treeExpanded` still exists in the schema;
+ * blind-mode review UI owns its remaining semantics, per the
+ * commissioner's own W3 scope boundary — this file does not touch
+ * `blind-mode-prefs.ts`/`useReviewSession.ts`).
+ *
  * Deliberately governs ONLY the flex-fill branch — see
  * `boardAreaMaxWidthPx`'s own doc for why an explicit (dragged or
  * restored) `treeControlRegionWidthPx` already leaves `#board-area`
@@ -190,6 +231,7 @@ import {
   computeTreePanelDefaultWidthPx,
   computeUnsetWrapperMaxWidthCss,
   computeTreeControlRegionDefaultWidthPx,
+  computeTreePanelBoundWidth,
 } from '../../state/layout-model';
 
 // Phase 0 (resolution roadmap, audit finding R2): these five floors
@@ -600,9 +642,11 @@ export function useResizablePanel() {
   // <= 0`) — same transient window the bare CSS 140px tree-panel
   // fallback already covers. Left in place for that frame; not a
   // second "steady-state" fit mechanism.
-  const freshTreeControlWrapperMinWidthPx = computed(() =>
-    freshTreeControlWrapperFloorPx(store.session.ui.treeExpanded),
-  );
+  // W3: the chrome-side `treeExpanded` read is removed (see this file's
+  // header, "The treeExpanded scope note") — the LYT skeleton's `tree`
+  // leaf is unconditionally `@fixed`-present in both screen classes, so
+  // this floor is always the tree-expanded branch now.
+  const freshTreeControlWrapperMinWidthPx = computed(() => freshTreeControlWrapperFloorPx(true));
 
   // Board-area width cap (see this file's header, "Board-area
   // width cap", commission row 848). Governs ONLY the NO-EXPLICIT-
@@ -659,10 +703,33 @@ export function useResizablePanel() {
     computeUnsetWrapperMaxWidthCss(treePanelDefaultWidthPx.value, RESIZER_WIDTH_PX, PANEL_CONTENT_READING_MEASURE_CH),
   );
 
+  // W3: the INNER bar's own "effective width" — the SAME
+  // stored-value-wins-verbatim-else-default precedence
+  // `effectiveTreeControlRegionWidthPx` already applies to the OUTER
+  // bar's fact, now applied to `treePanelWidthPx` via the SAME pure
+  // function (`computeTreePanelBoundWidth`, state/layout-model.ts) the
+  // pre-W3 App.vue template ternary called directly. `axisColumn` is
+  // always `false` here — screen-class selection (row-vs-column
+  // reorganization) is now a WHOLE-PROGRAM swap (which compiled
+  // `LytProgram`/DOM-id map App.vue renders), not a per-pane CSS branch
+  // this bound-width function needs to arbitrate; the `{mode:'full'}`
+  // leg therefore never actually triggers from this call site, but the
+  // function's own contract is preserved unchanged (import, not
+  // reimplementation) rather than hand-inlining a narrower copy.
+  const effectiveTreePanelWidthPx = computed<number>(() => {
+    const bound = computeTreePanelBoundWidth({
+      axisColumn: false,
+      storedWidthPx: store.session.ui.treePanelWidthPx,
+      workspaceWidthPx: rowWidthPx.value,
+    });
+    return bound.mode === 'fixed' ? bound.widthPx : treePanelDefaultWidthPx.value;
+  });
+
   return {
     startResizeInner,
     startResizeOuter,
     effectiveTreeControlRegionWidthPx,
+    effectiveTreePanelWidthPx,
     freshTreeControlWrapperMinWidthPx,
     boardAreaMaxWidthPx,
     treePanelDefaultWidthPx,

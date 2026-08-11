@@ -97,12 +97,31 @@
   this so a regression fails loudly rather than silently reverting to the
   duplicate-id shape.
 
+  Screen-class swap (W3, `.claude/dispatch-reports/lyt-vue-realization-
+  roadmap.md` §8 W3): `classId` (forwarded verbatim, like every other
+  cross-recursion prop here) resolves the widget registry per-class
+  (`lyt-widget-registry.ts`'s own "class-scoped overrides" note) — portrait
+  introduces widget ids (`A_top`) and dispositions (`I_engine`'s own
+  standalone-vs-absorbed split) landscape's flat registry never
+  anticipated. Omitted, this defaults to the pre-W3 class-agnostic lookup
+  unchanged.
+
+  Resizer drag overrides (W3): `trackStyleOverrides` is a path -> literal
+  CSS track-value map (e.g. `{'2': '420px'}`), forwarded verbatim like
+  `presenceOverrides`. When THIS node's own child at a given path has an
+  entry, it wins VERBATIM over that child's own compiled `track` shape —
+  the L4 single-writer realization (`useResizablePanel.ts`'s rewired drag
+  math computes this map from the two persisted facts,
+  `session.ui.treeControlRegionWidthPx`/`treePanelWidthPx`). A child
+  absent from the map renders its own compiled track exactly as before —
+  this is a pure, additive override, not a parallel sizing system.
+
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
 import { computed, useSlots } from 'vue';
 import type { LytChild, LytSplitNode } from '../../state/lyt-layout.gen';
-import { lytMountingWidgetId, LYT_WIDGET_REGISTRY } from '../../state/lyt-widget-registry';
+import { lytMountingWidgetId, lytRegistryStatus } from '../../state/lyt-widget-registry';
 import { trackCssValue, gapCssFor } from '../../composables/chrome/useLytTrackCss';
 
 const props = withDefaults(
@@ -125,8 +144,21 @@ const props = withDefaults(
      *  leaf/blackbox's own compiled `presenceDefaultVisible` — see the
      *  file header's "Runtime presence overrides" note. */
     presenceOverrides?: Record<string, boolean>;
+    /** Which compiled program's own widget-registry disposition to
+     *  resolve against (W3) — see the file header's "Screen-class swap"
+     *  note. Undefined keeps the pre-W3 class-agnostic lookup. */
+    classId?: string;
+    /** child path -> literal CSS track value, forwarded verbatim (W3) —
+     *  see the file header's "Resizer drag overrides" note. */
+    trackStyleOverrides?: Record<string, string>;
   }>(),
-  { path: '', domIdsByPath: () => ({}), presenceOverrides: () => ({}) },
+  {
+    path: '',
+    domIdsByPath: () => ({}),
+    presenceOverrides: () => ({}),
+    classId: undefined,
+    trackStyleOverrides: () => ({}),
+  },
 );
 
 const slots = useSlots();
@@ -156,11 +188,12 @@ const groups = computed<Group[]>(() => {
       continue;
     }
     const widgetId = child.node.widget;
-    const mountId = lytMountingWidgetId(widgetId);
+    const mountId = lytMountingWidgetId(widgetId, props.classId);
     if (mountId !== widgetId) {
       throw new Error(
-        `LytNode: leaf ${JSON.stringify(widgetId)} at path ${JSON.stringify(child.path)} is registered ` +
-          `'absorbed' into ${JSON.stringify(mountId)} but has no preceding mounting sibling in this split — ` +
+        `LytNode: leaf ${JSON.stringify(widgetId)} at path ${JSON.stringify(child.path)} ` +
+          `(classId=${JSON.stringify(props.classId ?? null)}) is registered 'absorbed' into ` +
+          `${JSON.stringify(mountId)} but has no preceding mounting sibling in this split — ` +
           'lyt-widget-registry.ts absorbedInto targets must be an earlier sibling in encoding order.',
       );
     }
@@ -168,7 +201,7 @@ const groups = computed<Group[]>(() => {
     while (i + span < children.length) {
       const next = children[i + span].node;
       if (next.kind === 'split') break;
-      if (lytMountingWidgetId(next.widget) !== mountId) break;
+      if (lytMountingWidgetId(next.widget, props.classId) !== mountId) break;
       span += 1;
     }
     out.push({ start: i, span, rep: child });
@@ -207,6 +240,14 @@ const boardRailReservedPx = computed<number>(() => {
 const trackList = computed<string[]>(() =>
   props.node.children.map((c) => {
     if (!isPresent(c)) return '0px';
+    // W3: a persisted resizer drag wins VERBATIM over the compiled
+    // program's own track shape for this one child's path — see the
+    // file header's "Resizer drag overrides" note. Checked BEFORE the
+    // board-priority-clamp special case below: a dragged wrapper/tree
+    // width is a real user fact the generated formula must yield to,
+    // not merely another input feeding it.
+    const override = props.trackStyleOverrides[c.path];
+    if (override !== undefined) return override;
     // board-priority-clamp is carried by the side column child, which is
     // itself a nested Split (node.kind === 'split') — the reservation
     // generalization applies regardless of the child's own node kind,
@@ -259,7 +300,7 @@ function isAspectLeaf(child: LytChild): boolean {
 }
 
 function registryStatus(widgetId: string) {
-  return LYT_WIDGET_REGISTRY[widgetId]?.status ?? 'absent';
+  return lytRegistryStatus(widgetId, props.classId);
 }
 
 // Vue's documented "forward every slot" pattern — a nested <LytNode>
@@ -287,6 +328,8 @@ const slotNames = computed(() => Object.keys(slots));
           :path="group.rep.path"
           :dom-ids-by-path="domIdsByPath"
           :presence-overrides="presenceOverrides"
+          :class-id="classId"
+          :track-style-overrides="trackStyleOverrides"
         >
           <!-- Forward every named slot App.vue supplied at the top of the
                recursion. None of LytNode's leaf slots are SCOPED (App.vue

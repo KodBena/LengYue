@@ -15,10 +15,50 @@ see that module's own docstring, read in full, for the LYT -> CSS Grid
 mapping table this script's `_track_shape_for_child` reproduces as JSON
 track-shape descriptors instead of literal CSS strings).
 
-Scope, W1 (disclosed narrowing, ratified by the roadmap's own §8 W1 text
--- "screen-class selection may be static-landscape this wave"): only
-`encodings/lengyue_landscape.lyt`'s `lengyue-landscape` layout is
-compiled. The portrait class swap is W3 scope.
+Scope, W3 (portrait build): both screen classes are now compiled --
+`encodings/lengyue_landscape.lyt`'s `lengyue-landscape` layout (as
+before, W1) AND `encodings/lengyue_portrait.lyt`'s `lengyue-portrait`
+layout (new, W3). Each class is its own registration
+(`REGISTRATIONS`, keyed `"landscape"` / `"portrait"`) naming its own
+`.lyt` source, layout name, class id, default-presence table, TS
+const name, and default output path; `build_program` and every helper
+it calls take these as explicit parameters rather than module globals,
+so a single process can build both classes without any global
+reassignment footgun (a script that might build both classes in one
+run -- e.g. from a test -- must not rely on module-level state a
+second call could stomp). `main`'s `--registration {landscape,portrait}`
+CLI flag selects which one a given invocation emits; landscape keeps
+its historical default output path
+(`frontend/src/state/lyt-layout.gen.ts`) and portrait gets its own new
+sibling file (`frontend/src/state/lyt-layout-portrait.gen.ts`), per
+the roadmap's own disclosed shape for this wave.
+
+Portrait's board composite is a DIFFERENT shape than landscape's --
+CASE B, not CASE A, in `emit_mockup.py`'s `_board_priority_tracks`
+taxonomy (that function's own ~70-line docstring, read in full, is the
+normative derivation for both cases). Landscape's root is `H(...)` and
+its board composite is a `V(...)`, so `composite.axis ('v') !=
+node.axis ('h')` -- CASE A, "cap the non-board elastic+capped
+sibling". Portrait's root is `V(...)` and its board composite is
+ALSO a `V(...)`, so `composite.axis == node.axis` -- CASE B, "cap the
+COMPOSITE's OWN track at its natural ceiling" instead. `_apply_board_
+priority` below implements both branches (ported from `emit_mockup.
+py`'s CASE B, verbatim in its arithmetic) rather than raising
+`NotImplementedError` for CASE B the way the original W1-only version
+did.
+
+CASE B's track shape (`{kind: 'board-priority-self-clamp',
+naturalCrossUnit, fixedSiblingSumPx}`) is a NEW member of the JSON
+track-shape vocabulary (and the TS `LytTrackShape` discriminated
+union it renders as) alongside CASE A's existing `board-priority-
+clamp`. Unlike CASE A, CASE B carries no independent `minPx`/`maxPx`
+-- its cap is a bare `minmax(0px, natural)`, not a three-way clamp --
+so the two kinds are genuinely different shapes, not the same fields
+renamed. See `frontend/src/state/lyt-layout-types.ts`'s own doc-
+comment on this union member for the exact CSS this compiles to
+(`frontend/src/composables/chrome/useLytTrackCss.ts` is the
+compiler; that file is NOT touched by this script or by this
+commission -- it belongs to the parallel Vue-side W3 task).
 
 Exclusive (T) node collapse (disclosed simplification, matches the
 roadmap's own S8 W1 item 2 framing -- "the control panel...is ONE leaf,
@@ -32,41 +72,52 @@ floor the CP-SAT compiler and `emit_mockup.py`'s mockup both use (the
 componentwise max of the five children's own declared `min`). The five
 child widget ids are still carried (`childWidgets`) for documentation/
 report-table parity -- nothing about the census is lost, only the GRID
-EXPANSION of it.
+EXPANSION of it. This applies identically to both classes -- both
+`.lyt` encodings give their T node the same six-child shape.
 
-Presence (repair pass, ledger row 1781, W1 REPAIR):
-`encodings/lengyue_landscape.lyt` DOES declare `@toggle(user, release)`
-presence on `boardRail`/`previewBoard` (AMENDMENT 4, ledger row 1737,
-`research/lyt/presence.py`) -- the ORIGINAL text this docstring carried
-("neither `.lyt` source file declares an `@toggle` presence") was true
-only under the REJECTED prior W1 attempt's undisclosed reversion of that
-declaration (`.claude/dispatch-reports/lyt-w1-skeleton-review.md` Finding
-C); this repair build restores the `@toggle` concrete syntax and corrects
-this docstring to match. The toggle annotation only affects `slot.presence`
-(consumed by `presence.py`'s valuation machinery -- `runner.py`,
-`emit_ts.py`, `emit_mockup.py`), never `slot.sizing` -- this emitter reads
-only `slot.sizing` (`_track_shape_for_child`), so it is presence-BLIND by
-construction and needs no change to keep working against the
-presence-annotated encoding: both `boardRail` and `previewBoard` declare
-`{min 168px, pref 168px, max 168px}` / `{min 160px, pref 160px, max 160px,
-aspect 1}` regardless of the `@toggle` prefix, so `_is_fixed` still
-matches and `_track_shape_for_child` still emits `{kind: 'fixed', ...}`
-unchanged. This script's own `DEFAULT_VISIBLE_BY_PATH` table remains the
-ONE fact it needs from the presence story -- reproduced verbatim from
-`emit_mockup.py.TOGGLE_TARGETS["landscape"]`'s own third tuple element,
-independently of `presence.py`'s valuation-solving machinery (which this
-W1 runtime renderer has no use for: there is no presence MENU this wave,
-roadmap §8, so "default visible or not" is the only fact consumed, not
-"which valuation is currently active").
+Presence (repair pass, ledger row 1781, W1 REPAIR; generalized here to
+portrait, W3): both `.lyt` source files declare `@toggle(user,
+release)` presence on `boardRail`/`previewBoard` (AMENDMENT 4, ledger
+row 1737, `research/lyt/presence.py`). The toggle annotation only
+affects `slot.presence` (consumed by `presence.py`'s valuation
+machinery -- `runner.py`, `emit_ts.py`, `emit_mockup.py`), never
+`slot.sizing` -- this emitter reads only `slot.sizing`
+(`_track_shape_for_child`), so it is presence-BLIND by construction
+and needs no change to keep working against a presence-annotated
+encoding. Each registration's own `default_visible_by_path` table
+remains the ONE fact this emitter needs from the presence story --
+reproduced verbatim from `emit_mockup.py.TOGGLE_TARGETS[class_id]`'s
+own third tuple element for that class, independently of `presence.
+py`'s valuation-solving machinery (which this W1/W3 runtime renderer
+has no use for: there is no presence MENU this wave, roadmap S8, so
+"default visible or not" is the only fact consumed, not "which
+valuation is currently active").
 
-Regeneration command (also written into the generated file's own
+Regeneration command (also written into each generated file's own
 header):
 
     cd research/lyt && \\
-      nice -n 19 ~/w/vdc/venvs/generic/bin/python emit_layout_tree.py
+      nice -n 19 ~/w/vdc/venvs/generic/bin/python emit_layout_tree.py --registration landscape
+    cd research/lyt && \\
+      nice -n 19 ~/w/vdc/venvs/generic/bin/python emit_layout_tree.py --registration portrait
 
-(writes to ../../frontend/src/state/lyt-layout.gen.ts by default; pass
---out PATH to redirect, e.g. for this emitter's own tests.)
+(landscape writes to ../../frontend/src/state/lyt-layout.gen.ts by
+default, portrait to ../../frontend/src/state/lyt-layout-portrait.gen.ts;
+pass --out PATH to redirect either, e.g. for this emitter's own tests.
+`--registration` defaults to `landscape`, matching this script's
+pre-W3 behavior when called with no arguments.)
+
+Shared TS types (ADR-0012 one-home-per-fact, W3): the `LytProgram`
+data-shape types (`LytAxis`, `LytTrackShape`, etc.) used to be
+duplicated verbatim inside this script's own `render_ts` (the only
+consumer, landscape's `lyt-layout.gen.ts`). Now that a second
+generated file exists, this script instead emits an `import type
+{...} from './lyt-layout-types'` plus a re-export (`export type *`)
+into EACH generated file -- the actual interface/union declarations
+live once, hand-written, at `frontend/src/state/lyt-layout-types.ts`.
+Every existing consumer's import path (`from '../../state/lyt-layout.
+gen'`) keeps resolving unchanged, since the re-export makes the types
+transitively available there too.
 
 License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
 license line and the umbrella's ADR-0006 per-file convention.
@@ -76,6 +127,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -83,7 +135,13 @@ import lyt_ast as ast
 import loader
 from runner import ENCODINGS_DIR
 
-DEFAULT_OUT = Path(__file__).parent.parent.parent / "frontend" / "src" / "state" / "lyt-layout.gen.ts"
+STATE_DIR = Path(__file__).parent.parent.parent / "frontend" / "src" / "state"
+
+# Landscape's default output path is unchanged from the pre-W3 script
+# (kept as its own name, `DEFAULT_OUT`, for backward compatibility with
+# existing callers/tests that reference it directly).
+DEFAULT_OUT = STATE_DIR / "lyt-layout.gen.ts"
+DEFAULT_OUT_PORTRAIT = STATE_DIR / "lyt-layout-portrait.gen.ts"
 
 LAYOUT_FILE = "lengyue_landscape.lyt"
 LAYOUT_NAME = "lengyue-landscape"
@@ -93,7 +151,7 @@ CLASS_ID = "landscape"
 # table (see that module's docstring for the full corner-menu-affordance
 # disclosure) -- W1 only consumes the third tuple element (default_visible).
 # Kept as a path-tuple -> bool map, not re-imported from emit_mockup.py
-# directly, since that module also carries the (out-of-W1-scope) label/
+# directly, since that module also carries the (out-of-scope) label/
 # release-vs-preserve machinery this script has no use for; duplicating
 # just the one fact this emitter needs is more honest than importing a
 # generator module built for a different consumer (static HTML) and
@@ -108,14 +166,71 @@ DEFAULT_VISIBLE_BY_PATH: Dict[Tuple[int, ...], bool] = {
     (2, 3, 2): False,    # previewBoard
 }
 
+# Reproduced verbatim from emit_mockup.py's own TOGGLE_TARGETS["portrait"]
+# table -- same discipline as DEFAULT_VISIBLE_BY_PATH above, one class's
+# worth of the one fact this emitter needs. Derived from
+# encodings/lengyue_portrait.lyt's own root V(...) child order: boardRail
+# (0, toggle-off), A_top (1), the board composite V(B, I_board, A_board)
+# (2, always visible -- not itself toggleable), I_engine (3, always
+# visible), and the tree/panels/preview row H(tree, T(CP-*), previewBoard)
+# (4) whose own three children are tree (4,0, always visible), the
+# control-panel T-node (4,1, always visible), and previewBoard (4,2,
+# toggle-off) -- matching TOGGLE_TARGETS["portrait"]'s (0,)/(1,)/(2,)/
+# (3,)/(4,1)/(4,2) entries exactly (every path TOGGLE_TARGETS doesn't
+# mention is default-visible, per that table's own convention).
+DEFAULT_VISIBLE_BY_PATH_PORTRAIT: Dict[Tuple[int, ...], bool] = {
+    (0,): False,      # boardRail
+    (1,): True,       # A_top
+    (2,): True,       # V-composite (board + info + action rows)
+    (3,): True,       # I_engine
+    (4, 0): True,      # tree
+    (4, 1): True,      # T(CP-*) -- the control-panel black box
+    (4, 2): False,     # previewBoard
+}
+
+
+@dataclass(frozen=True)
+class Registration:
+    """One screen class's full set of build-program inputs -- threaded
+    explicitly through `build_program`/`_build_node` rather than read off
+    module globals, so a single process can build multiple registrations
+    without any global-reassignment footgun (see module docstring)."""
+
+    layout_file: str
+    layout_name: str
+    class_id: str
+    default_visible_by_path: Dict[Tuple[int, ...], bool]
+    const_name: str
+    default_out: Path
+
+
+REGISTRATIONS: Dict[str, Registration] = {
+    "landscape": Registration(
+        layout_file=LAYOUT_FILE,
+        layout_name=LAYOUT_NAME,
+        class_id=CLASS_ID,
+        default_visible_by_path=DEFAULT_VISIBLE_BY_PATH,
+        const_name="LYT_LANDSCAPE",
+        default_out=DEFAULT_OUT,
+    ),
+    "portrait": Registration(
+        layout_file="lengyue_portrait.lyt",
+        layout_name="lengyue-portrait",
+        class_id="portrait",
+        default_visible_by_path=DEFAULT_VISIBLE_BY_PATH_PORTRAIT,
+        const_name="LYT_PORTRAIT",
+        default_out=DEFAULT_OUT_PORTRAIT,
+    ),
+}
+
 
 def _px(e: ast.Extent, *, where: str) -> float:
     if e.unit != "px":
         raise NotImplementedError(
             f"{where}: expected a resolved px extent, got unit={e.unit!r} (v={e.v}) -- "
             "emit_layout_tree.py's grid mapping only handles the sizing shapes actually "
-            "present in encodings/lengyue_landscape.lyt; extend _track_shape_for_child "
-            "before pointing this generator at a new shape."
+            "present in encodings/lengyue_landscape.lyt and encodings/lengyue_portrait.lyt; "
+            "extend _track_shape_for_child before pointing this generator at a new shape."
         )
     return e.v
 
@@ -162,7 +277,10 @@ def _find_board_composite_child(node: ast.Split) -> Optional[Tuple[int, ast.Spli
     -- see that function's docstring for the full derivation. Detects the
     one recognized shape (a Split child = [one aspect-locked Leaf, ...
     otherwise only FIXED siblings]) so the CASE A/B board-maximize
-    override below can be applied only where it was actually derived."""
+    override below can be applied only where it was actually derived.
+    Class-agnostic -- called against both landscape's and portrait's root
+    split, and correctly finds exactly one match in each (verified by
+    this module's own test suite)."""
     matches: List[Tuple[int, ast.Split, float]] = []
     for i, child in enumerate(node.children):
         if not isinstance(child.node, ast.Split):
@@ -182,24 +300,45 @@ def _find_board_composite_child(node: ast.Split) -> Optional[Tuple[int, ast.Spli
 def _apply_board_priority(
     node: ast.Split, shapes: List[dict], *, match: Tuple[int, ast.Split, float]
 ) -> List[dict]:
-    """CASE A ONLY (module docstring's disclosed W1 narrowing): landscape's
-    root H split's board composite (child 1, a V node) has axis 'v' !=
-    the root's own axis 'h', which is exactly emit_mockup.py's CASE A
-    ("cap the non-board elastic+capped sibling"). CASE B (the portrait
-    shape, composite.axis == node.axis) is out of scope for this script --
-    portrait is W3. Raises loudly rather than silently falling through to
-    the un-overridden mapping if a future encoding change makes CASE B
-    the one that matches here, per ADR-0002."""
+    """Ports BOTH cases of emit_mockup.py's `_board_priority_tracks`
+    (that function's own ~70-line docstring is the normative derivation
+    for the CASE A/B split -- read it in full before touching this
+    function). `node` is always the tree's ROOT split (see this module's
+    `_build_node` call site) -- the 100vw/100vh constants below are only
+    valid when `node` itself is hard-pinned to the full viewport, which
+    is true for the root and NOT generally true for a split nested
+    deeper in the tree.
+
+    CASE A (`composite.axis != node.axis` -- landscape's H-root/V-
+    composite shape): caps the ONE non-board elastic+capped SIBLING's
+    track via a `board-priority-clamp` descriptor (unchanged from the
+    original W1 version of this function).
+
+    CASE B (`composite.axis == node.axis` -- portrait's V-root/V-
+    composite shape): caps the COMPOSITE's OWN track (not a sibling's)
+    via a NEW `board-priority-self-clamp` descriptor -- `minmax(0px,
+    calc(100<naturalCrossUnit> + fixedSiblingSumPx px))`, no independent
+    min/max the way CASE A's clamp has (see
+    frontend/src/state/lyt-layout-types.ts's doc-comment on this union
+    member for the full CSS-mapping disclosure). `node_cross_unit` is
+    the SAME viewport-relative constant emit_mockup.py's CASE A and
+    CASE B both key off -- when `composite.axis == node.axis`,
+    composite's own cross axis (opposite `composite.axis`) is the same
+    axis as node's own cross axis (opposite `node.axis`, which equals
+    `composite.axis` by this branch's own condition), so one shared
+    derivation correctly serves both branches."""
     board_idx, composite, fixed_sum = match
-    if composite.axis == node.axis:
-        raise NotImplementedError(
-            "CASE B (composite.axis == node.axis) board-priority override is out of "
-            "this W1 emitter's disclosed scope (landscape-only, CASE A shape) -- "
-            "port emit_mockup.py's CASE B branch before pointing this script at an "
-            "encoding whose root/composite axes match."
-        )
     out = list(shapes)
     node_cross_unit = "vh" if node.axis == "h" else "vw"
+    if composite.axis == node.axis:
+        # CASE B: cap composite's OWN track at its natural ceiling.
+        out[board_idx] = {
+            "kind": "board-priority-self-clamp",
+            "naturalCrossUnit": node_cross_unit,
+            "fixedSiblingSumPx": fixed_sum,
+        }
+        return out
+    # CASE A: cap the non-board, elastic+capped sibling(s).
     for j, child in enumerate(node.children):
         if j == board_idx:
             continue
@@ -223,7 +362,9 @@ def _domain_facets(leaf: ast.Leaf) -> Tuple[str, List[str]]:
     return leaf.domain, sorted(leaf.facets)
 
 
-def _build_node(slot: ast.Slot, *, path: Tuple[int, ...]) -> dict:
+def _build_node(
+    slot: ast.Slot, *, path: Tuple[int, ...], default_visible_by_path: Dict[Tuple[int, ...], bool]
+) -> dict:
     node = slot.node
     if isinstance(node, ast.Leaf):
         domain, facets = _domain_facets(node)
@@ -241,7 +382,8 @@ def _build_node(slot: ast.Slot, *, path: Tuple[int, ...]) -> dict:
                 raise NotImplementedError(
                     f"Exclusive child at {path} is not a Leaf -- this emitter's "
                     "blackbox collapse assumes every T-node child is a plain leaf "
-                    "(true of lengyue_landscape.lyt's CP-* children)."
+                    "(true of both lengyue_landscape.lyt's and lengyue_portrait.lyt's "
+                    "CP-* children)."
                 )
             child_widgets.append(c.node.widget)
         return {
@@ -271,23 +413,40 @@ def _build_node(slot: ast.Slot, *, path: Tuple[int, ...]) -> dict:
             children.append(
                 {
                     "path": ".".join(str(p) for p in cpath),
-                    "presenceDefaultVisible": DEFAULT_VISIBLE_BY_PATH.get(cpath, True),
+                    "presenceDefaultVisible": default_visible_by_path.get(cpath, True),
                     "track": shapes[i],
-                    "node": _build_node(child, path=cpath),
+                    "node": _build_node(child, path=cpath, default_visible_by_path=default_visible_by_path),
                 }
             )
         return {"kind": "split", "axis": axis, "gapPx": node.gap_px, "children": children}
     raise TypeError(f"unknown LayoutNode kind at path {path}: {node!r}")
 
 
-def build_program() -> dict:
-    text = (ENCODINGS_DIR / LAYOUT_FILE).read_text()
+def build_program(
+    *,
+    layout_file: str = LAYOUT_FILE,
+    layout_name: str = LAYOUT_NAME,
+    class_id: str = CLASS_ID,
+    default_visible_by_path: Dict[Tuple[int, ...], bool] = DEFAULT_VISIBLE_BY_PATH,
+) -> dict:
+    text = (ENCODINGS_DIR / layout_file).read_text()
     layouts = loader.load_layouts(text)
-    slot = layouts[LAYOUT_NAME]
+    slot = layouts[layout_name]
     if not isinstance(slot.node, ast.Split):
-        raise TypeError(f"{LAYOUT_NAME}'s root is not a Split: {slot.node!r}")
-    root = _build_node(slot, path=())
-    return {"classId": CLASS_ID, "root": root}
+        raise TypeError(f"{layout_name}'s root is not a Split: {slot.node!r}")
+    root = _build_node(slot, path=(), default_visible_by_path=default_visible_by_path)
+    return {"classId": class_id, "root": root}
+
+
+def build_program_for(registration: Registration) -> dict:
+    """Convenience wrapper -- `build_program` keyed off one of
+    `REGISTRATIONS`'s entries instead of four separate keyword args."""
+    return build_program(
+        layout_file=registration.layout_file,
+        layout_name=registration.layout_name,
+        class_id=registration.class_id,
+        default_visible_by_path=registration.default_visible_by_path,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -310,6 +469,12 @@ def _ts_track_shape(shape: dict) -> str:
             f'minPx: {shape["minPx"]:g}, maxPx: {shape["maxPx"]:g}, '
             f'naturalBoardCrossUnit: {json.dumps(shape["naturalBoardCrossUnit"])}, '
             f'fixedSiblingSumPx: {shape["fixedSiblingSumPx"]:g}, parentGapPx: {shape["parentGapPx"]:g} }}'
+        )
+    if kind == "board-priority-self-clamp":
+        return (
+            "{ kind: \"board-priority-self-clamp\", "
+            f'naturalCrossUnit: {json.dumps(shape["naturalCrossUnit"])}, '
+            f'fixedSiblingSumPx: {shape["fixedSiblingSumPx"]:g} }}'
         )
     raise ValueError(f"unknown track shape kind: {kind!r}")
 
@@ -348,86 +513,64 @@ def _ts_node(node: dict, indent: str) -> str:
     raise ValueError(f"unknown node kind: {kind!r}")
 
 
-def render_ts(program: dict) -> str:
+def render_ts(program: dict, *, registration: Registration) -> str:
     lines: List[str] = []
     lines.append("/**")
     lines.append(" * GENERATED FILE — do not hand-edit.")
     lines.append(" * Tool: research/lyt/emit_layout_tree.py")
-    lines.append(f" * Source encoding: research/lyt/encodings/{LAYOUT_FILE} (layout `{LAYOUT_NAME}`)")
+    lines.append(
+        f" * Source encoding: research/lyt/encodings/{registration.layout_file} "
+        f"(layout `{registration.layout_name}`)"
+    )
     lines.append(
         " * The compiled LYT program (H/V/Exclusive tree, unsolved) as typed TS data — "
         "consumed at runtime by LytNode.vue, which realizes each Split as a live CSS "
         "Grid container (roadmap S3, 'layout as data, not template')."
     )
     lines.append(
-        " * W1 scope (disclosed): landscape class only (portrait is W3); the "
-        "Exclusive (T) control-panel node is collapsed to a single 'blackbox' leaf "
-        "(widget id 'controlPanel') rather than expanded into its five CP-* grid "
-        "children — see this tool's own module docstring."
+        " * Disclosed simplification (both classes): the Exclusive (T) control-panel "
+        "node is collapsed to a single 'blackbox' leaf (widget id 'controlPanel') "
+        "rather than expanded into its five CP-* grid children — see this tool's own "
+        "module docstring."
     )
-    lines.append(" * Regenerate: cd research/lyt && nice -n 19 ~/w/vdc/venvs/generic/bin/python emit_layout_tree.py")
+    lines.append(
+        " * Data-shape types (LytProgram, LytTrackShape, etc.) are NOT declared here — "
+        "see './lyt-layout-types.ts' (hand-written, ADR-0012 one-home-per-fact), "
+        "re-exported below."
+    )
+    lines.append(
+        f" * Regenerate: cd research/lyt && nice -n 19 ~/w/vdc/venvs/generic/bin/python "
+        f"emit_layout_tree.py --registration {registration.class_id}"
+    )
     lines.append(" *")
     lines.append(" * Public Domain (The Unlicense), matching research/lyt/__init__.py's")
     lines.append(" * license line and the umbrella's ADR-0006 per-file convention.")
     lines.append(" */")
     lines.append("")
-    lines.append("export type LytAxis = 'h' | 'v';")
-    lines.append("export type LytDomain = 'go' | 'common' | 'debug' | 'board' | 'chrome' | 'blackbox';")
-    lines.append("export type LytFacet = 'action' | 'info';")
+    # Only `LytProgram` is a VALUE-position type reference below (the
+    # `export const LYT_*: LytProgram = ...` annotation) — importing the
+    # other nine names too (as a prior build of this emitter did) tripped
+    # `vue-tsc -b`'s `noUnusedLocals` (TS6196) on every one of them, since
+    # an `export type { X } from 'Y'` re-export is NOT a usage of a
+    # separately-imported `X` in TS's own accounting. The re-export block
+    # below carries all ten regardless — that is what actually republishes
+    # them under this file's own import path for existing consumers.
+    lines.append("import type { LytProgram } from './lyt-layout-types';")
     lines.append("")
-    lines.append("export interface LytLeafNode {")
-    lines.append("  readonly kind: 'leaf';")
-    lines.append("  readonly widget: string;")
-    lines.append("  readonly domain: LytDomain;")
-    lines.append("  readonly facets: readonly LytFacet[];")
-    lines.append("  readonly aspect: number | null;")
-    lines.append("}")
+    lines.append("export type {")
+    lines.append("  LytAxis,")
+    lines.append("  LytDomain,")
+    lines.append("  LytFacet,")
+    lines.append("  LytLeafNode,")
+    lines.append("  LytBlackboxNode,")
+    lines.append("  LytTrackShape,")
+    lines.append("  LytSplitNode,")
+    lines.append("  LytNodeData,")
+    lines.append("  LytChild,")
+    lines.append("  LytProgram,")
+    lines.append("} from './lyt-layout-types';")
     lines.append("")
-    lines.append("/** Collapsed Exclusive (T) node — see file header, 'Exclusive (T) node collapse'. */")
-    lines.append("export interface LytBlackboxNode {")
-    lines.append("  readonly kind: 'blackbox';")
-    lines.append("  readonly widget: string;")
-    lines.append("  readonly tag: string | null;")
-    lines.append("  readonly childWidgets: readonly string[];")
-    lines.append("}")
-    lines.append("")
-    lines.append("export type LytTrackShape =")
-    lines.append("  | { readonly kind: 'fixed'; readonly px: number }")
-    lines.append("  | { readonly kind: 'elastic'; readonly minPx: number; readonly frWeight: number }")
-    lines.append("  | { readonly kind: 'elastic-capped'; readonly minPx: number; readonly maxPx: number }")
-    lines.append("  | {")
-    lines.append("      readonly kind: 'board-priority-clamp';")
-    lines.append("      readonly minPx: number;")
-    lines.append("      readonly maxPx: number;")
-    lines.append("      readonly naturalBoardCrossUnit: 'vh' | 'vw';")
-    lines.append("      readonly fixedSiblingSumPx: number;")
-    lines.append("      readonly parentGapPx: number;")
-    lines.append("    };")
-    lines.append("")
-    lines.append("export interface LytSplitNode {")
-    lines.append("  readonly kind: 'split';")
-    lines.append("  readonly axis: LytAxis;")
-    lines.append("  readonly gapPx: number;")
-    lines.append("  readonly children: readonly LytChild[];")
-    lines.append("}")
-    lines.append("")
-    lines.append("export type LytNodeData = LytLeafNode | LytBlackboxNode | LytSplitNode;")
-    lines.append("")
-    lines.append("export interface LytChild {")
-    lines.append("  /** Dotted child-index path from the program root, e.g. '1.3.2'. */")
-    lines.append("  readonly path: string;")
-    lines.append("  /** W1 scope: the only presence fact consumed (no toggle UI this wave). */")
-    lines.append("  readonly presenceDefaultVisible: boolean;")
-    lines.append("  readonly track: LytTrackShape;")
-    lines.append("  readonly node: LytNodeData;")
-    lines.append("}")
-    lines.append("")
-    lines.append("export interface LytProgram {")
-    lines.append("  readonly classId: string;")
-    lines.append("  readonly root: LytSplitNode;")
-    lines.append("}")
-    lines.append("")
-    lines.append(f"export const LYT_LANDSCAPE: LytProgram = {{")
+    lines.append(f"export const {registration.const_name}: LytProgram = {{")
     lines.append(f'  classId: {json.dumps(program["classId"])},')
     lines.append(f'  root: {_ts_node(program["root"], "  ")},')
     lines.append("};")
@@ -437,14 +580,23 @@ def render_ts(program: dict) -> str:
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser_ = argparse.ArgumentParser(description=__doc__)
-    parser_.add_argument("--out", type=Path, default=DEFAULT_OUT, help="output .ts path")
+    parser_.add_argument(
+        "--registration",
+        choices=sorted(REGISTRATIONS),
+        default="landscape",
+        help="which screen class to compile (default: landscape, matching this script's pre-W3 behavior)",
+    )
+    parser_.add_argument("--out", type=Path, default=None, help="output .ts path (default: the registration's own)")
     args = parser_.parse_args(argv)
 
-    program = build_program()
-    text = render_ts(program)
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(text)
-    print(f"[emit_layout_tree] wrote {args.out}")
+    registration = REGISTRATIONS[args.registration]
+    out = args.out if args.out is not None else registration.default_out
+
+    program = build_program_for(registration)
+    text = render_ts(program, registration=registration)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text)
+    print(f"[emit_layout_tree] wrote {out} (registration={args.registration})")
     return 0
 
 

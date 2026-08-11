@@ -10,6 +10,8 @@
   "app.chrome.toggleTree":                "게임 트리 토글",
   "app.chrome.toggleControls":            "컨트롤 패널 토글",
   "app.chrome.gameTreePanelHeader":       "게임 트리",
+  "app.chrome.resizerOuterLabel":         "트리 및 컨트롤 패널 영역 크기 조절",
+  "app.chrome.resizerInnerLabel":         "게임 트리 패널 크기 조절",
 
   "app.chrome.presence.menuButton":              "패널",
   "app.chrome.presence.menuTitle":               "패널 표시 / 숨기기",
