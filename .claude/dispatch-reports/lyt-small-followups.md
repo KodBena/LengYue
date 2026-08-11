@@ -312,6 +312,12 @@ scope.
 ## Commit / merge-base
 
 Committed on this worktree's own branch `lyt-small-followups`, cut
-from `lyt-phase2` tip `da19708f`. Commit sha and final merge-base vs.
-`lyt-phase2`'s current tip are recorded below, checked at the very end
-of this session after a fresh `fetch`.
+from `lyt-phase2` tip `da19708f`.
+
+- **Commit:** `68536f2d` (single commit, all three items).
+- **Final `lyt-phase2` tip (after `git fetch origin lyt-phase2`,
+  run as the last act of this session):** `da19708f` — unchanged
+  from the base this branch was cut from.
+- **Merge-base(`HEAD`, `origin/lyt-phase2`):** `da19708f` — equal to
+  `lyt-phase2`'s tip, confirming this branch is a clean fast-forward
+  ahead of `lyt-phase2` with no rebase needed.
