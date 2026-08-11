@@ -117,6 +117,16 @@ describe('App.vue — corner-chrome BoardRailPopoverTrigger mount has no dead SG
   });
 });
 
+describe('App.vue — #leaf-boardRail SidebarWidget mount has no dead SGF listeners (W5 audit, third mount the W4 fix left out-of-scope)', () => {
+  const app = src('src/App.vue');
+  it('the #leaf-boardRail mount does not listen for load-sgf/save-sgf', () => {
+    const block = /<template #leaf-boardRail>([\s\S]*?)<\/template>/.exec(app);
+    expect(block).not.toBeNull();
+    expect(block![1]).not.toMatch(/@load-sgf=/);
+    expect(block![1]).not.toMatch(/@save-sgf=/);
+  });
+});
+
 describe('ToolbarSliderPopover.vue — real button, not raw concatenated text (W4 item 2)', () => {
   const sfc = src('src/components/chrome/ToolbarSliderPopover.vue');
   it('the trigger is a real <button>', () => {

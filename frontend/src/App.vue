@@ -703,12 +703,16 @@ const activeTab = computed<string>({
                `lytPresenceOverrides` forces this leaf's track collapsed,
                so this slot never actually mounts (LytNode's v-else-if
                gate never reaches it) regardless of what's declared here.
-               Reuses the SAME @load-sgf/@save-sgf handlers the toolbar's
-               own SGF buttons already call (lyt-widget-registry.ts's
-               boardRail note discloses the two-affordance judgment
-               call). -->
+               W5 AUDIT CORRECTION: this mount previously bound
+               @load-sgf/@save-sgf listeners, but SidebarWidget.vue's own
+               W4 change (see its header comment) removed both emits —
+               the toolbar strip's #leaf-A_go mount is the one remaining
+               Load/Save SGF source (lyt-widget-registry.ts's boardRail
+               note). The listeners were dead (bound to events that never
+               fire) and are removed here; verified via a repo-wide grep
+               that nothing still emits `load-sgf`/`save-sgf`. -->
           <template #leaf-boardRail>
-            <SidebarWidget @load-sgf="openFileDialog" @save-sgf="downloadActiveBoard" />
+            <SidebarWidget />
           </template>
 
           <template #leaf-B>
