@@ -2,7 +2,14 @@
  * src/composables/chrome/usePopoverEdgeClamp.ts
  *
  * Viewport-edge clamp for absolutely-positioned hover popovers
- * (`ToolbarSliderPopover`, `EngineQueueTooltip`, `PboPopover`).
+ * (`EngineQueueTooltip`, `PboPopover`). `ToolbarSliderPopover` was a
+ * third consumer until the D1 fix in commission
+ * lyt-sliders-popover-defects (2026-08-11, see that component's own
+ * `<script>` header) moved it to `position: fixed` with its own
+ * script-computed anchor to escape `.lyt-toolbar-strip`'s
+ * `overflow-y: auto` clip — this composable's `position: absolute` +
+ * `transform: translateX` contract doesn't apply to a `position:
+ * fixed` consumer, so it now computes its own geometry instead.
  * Returns a `popoverEl` template ref and an `xShift` value the
  * consumer pipes into the popover's `transform: translateX(...)`
  * so the rendered popover slides inward when an `right: 0` /
