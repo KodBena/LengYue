@@ -11,8 +11,9 @@ import {
   type HeatmapCell,
   type HeatmapDatum,
 } from '../../composables/analysis/useTriangularHeatmap';
-import { STABILITY_HEATMAP_REDRAW_THROTTLE_MS as THROTTLE_MS, CHART_INIT_RETRY_MS } from '../../lib/timing';
+import { STABILITY_HEATMAP_REDRAW_THROTTLE_MS as THROTTLE_MS, CHART_INIT_RETRY_MS, CHART_RENDER_RETRY_TIMEOUT_MS } from '../../lib/timing';
 import { createTrailingThrottle } from '../../composables/useThrottledSnapshot';
+import { cappedRetry, type CappedRetryHandle } from '../../lib/capped-retry';
 
 // Generic heatmap renderer: `data` is HeatmapDatum[] (objects carrying both
 // the visual [x,y,v] tuple and the typed HeatmapCell), so the click / hover
@@ -36,7 +37,13 @@ const emit = defineEmits<{
 const chartRef = ref<HTMLElement | null>(null);
 let chartInstance: echarts.ECharts | null = null;
 let resizeObserver: ResizeObserver | null = null;
-let initTimeout: number | null = null;
+// Init-retry handle (cardtrees-fix-next, ledger row 1937 — the
+// capped-retry mechanization of the class named in
+// .claude/dispatch-reports/lyt-cardtrees-regression.md). Bounded via
+// cappedRetry (lib/capped-retry.ts) instead of a raw self-recursing
+// `setTimeout`, capped at CHART_RENDER_RETRY_TIMEOUT_MS wall-clock before
+// escalating to a console.warn instead of polling forever.
+let initRetry: CappedRetryHandle | null = null;
 
 // ── Throttling and split update paths ───────────────────────────────────────
 //
@@ -195,16 +202,10 @@ const scheduleUpdate = (mode: UpdateMode) => {
   updateThrottle.schedule();
 };
 
-const initChart = () => {
-  if (!chartRef.value) return;
+const attemptInitChart = (): boolean => {
+  if (!chartRef.value) return false;
 
-  if (chartRef.value.clientWidth < 10 || chartRef.value.clientHeight < 10) {
-    // Re-init delay — gives the ECharts container time to acquire
-    // layout. The shared chart init-retry constant from the timing
-    // catalog (`lib/timing`).
-    initTimeout = window.setTimeout(initChart, CHART_INIT_RETRY_MS);
-    return;
-  }
+  if (chartRef.value.clientWidth < 10 || chartRef.value.clientHeight < 10) return false;
 
   // Canvas renderer: substantially faster than SVG for heatmaps with
   // thousands of cells (the SVG path produces one DOM <rect> per cell
@@ -239,6 +240,27 @@ const initChart = () => {
   resizeObserver.observe(chartRef.value);
 
   applyFull();
+  return true;
+};
+
+const initChart = () => {
+  // Re-init poll interval — gives the ECharts container time to acquire
+  // layout. The shared chart init-retry constant from the timing catalog
+  // (`lib/timing`); capped at CHART_RENDER_RETRY_TIMEOUT_MS wall-clock
+  // before escalating to a console.warn instead of polling forever.
+  initRetry = cappedRetry(attemptInitChart, {
+    intervalMs: CHART_INIT_RETRY_MS,
+    timeoutMs: CHART_RENDER_RETRY_TIMEOUT_MS,
+    label: 'HeatmapChart',
+    // Escalation-time size read (review finding 1 — the diagnosis's own
+    // closure statement names "the container and its measured size" as
+    // the minimum loudness bar). `chartRef.value` may have gone away
+    // between the last failed attempt and escalation — null-guarded
+    // rather than assumed present.
+    readSize: () => chartRef.value
+      ? { width: chartRef.value.clientWidth, height: chartRef.value.clientHeight }
+      : null,
+  });
 };
 
 onMounted(() => {
@@ -261,7 +283,7 @@ onUnmounted(() => {
   // is to release the timer at the unmount site (mirrors BaseChart's
   // markerTimer cleanup).
   updateThrottle.cancel();
-  if (initTimeout) clearTimeout(initTimeout);
+  initRetry?.cancel();
   if (resizeObserver && chartRef.value) resizeObserver.unobserve(chartRef.value);
   chartInstance?.dispose();
 });
