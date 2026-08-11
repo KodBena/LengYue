@@ -365,9 +365,13 @@ this diff).
 
 Committed on this worktree's own branch
 (`worktree-agent-a6778bf337765d5e2`), never on `lyt-phase2` directly.
-Commit sha and delivery-time `git merge-base HEAD <lyt-phase2 tip>`
-recorded in the final message to the commissioner (fetched and rebased
-against the tip immediately before commit, per the brief's own
-"expect the tip to move" instruction).
+Commit: `0e112d77`. Delivery-time check (fetched `origin/lyt-phase2`
+immediately before this report's final edit): tip is still `4e068acb` —
+unchanged since this session's base-freshness check at start — so
+`git merge-base HEAD origin/lyt-phase2` = `4e068acb22e9ef6837cdb3bd6087ea5ed872f428`,
+and HEAD is confirmed a direct descendant (`git merge-base --is-ancestor
+origin/lyt-phase2 HEAD` — WITNESSED true). **No rebase was needed**; the
+tip did not move during this session, so the "expect the tip to move"
+contingency in the brief did not apply this time.
 
 License: Public Domain (The Unlicense).
