@@ -50,6 +50,7 @@ import {
   migrations,
   migrate,
   witnessedContainer,
+  FutureSchemaVersionError,
 } from '../../../src/store/migrations';
 import type { Migration } from '../../../src/store/archived-migrations';
 
@@ -205,6 +206,45 @@ describe('migrate() — end to end', () => {
     // at defaults; no saves fire.
     const blob = { schemaVersion: CURRENT_SCHEMA_VERSION + 7 };
     expect(() => migrate(blob)).toThrow(/ahead of this app/);
+  });
+
+  it('throws specifically FutureSchemaVersionError on a future-version blob, not a plain Error', () => {
+    // Work item `next-futureblob-recovery` (ratified program row 1937,
+    // incident row 1942): the future-version leg must be a NAMED,
+    // `instanceof`-narrowable subtype — the boot path
+    // (`SyncService.hydrate`) is required to distinguish this from an
+    // ordinary hydration failure without re-parsing the message
+    // string (ADR-0002's error-message-reparse ban). This is the
+    // WITNESS that the typed distinction actually exists at the
+    // source, independent of the boot-path wiring exercised in
+    // `tests/integration/sync-service-future-version.test.ts`.
+    const blob = { schemaVersion: CURRENT_SCHEMA_VERSION + 2 };
+    let caught: unknown;
+    try {
+      migrate(blob);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(FutureSchemaVersionError);
+    expect(caught).toBeInstanceOf(Error);
+  });
+
+  it('FutureSchemaVersionError carries blobVersion/appVersion as typed fields, not just in the message', () => {
+    // Conceptually "a version-77 fixture blob" against today's
+    // CURRENT_SCHEMA_VERSION (75) — CURRENT_SCHEMA_VERSION + 2, kept
+    // relative so this test stays valid across future schema bumps
+    // rather than pinning the literal 77.
+    const futureVersion = CURRENT_SCHEMA_VERSION + 2;
+    const blob = { schemaVersion: futureVersion };
+    try {
+      migrate(blob);
+      expect.unreachable('migrate() should have thrown on a future-version blob');
+    } catch (err) {
+      expect(err).toBeInstanceOf(FutureSchemaVersionError);
+      const typed = err as FutureSchemaVersionError;
+      expect(typed.blobVersion).toBe(futureVersion);
+      expect(typed.appVersion).toBe(CURRENT_SCHEMA_VERSION);
+    }
   });
 
   it('walks a realistic schema-1 blob, picking up known forward transitions', () => {

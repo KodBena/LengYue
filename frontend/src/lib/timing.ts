@@ -246,6 +246,25 @@ export const CHART_INIT_RETRY_MS = 100;
  */
 export const FOREST_RENDER_RETRY_MS = 50;
 
+/**
+ * Wall-clock ceiling for the chart render-retry family
+ * (`CHART_INIT_RETRY_MS`, `FOREST_RENDER_RETRY_MS`): once a container has
+ * been polled for this long without acquiring a usable size, the retry
+ * (`lib/capped-retry.ts`) gives up and escalates loudly instead of
+ * continuing forever — the ADR-0011 Rule 2 mechanization of the recurring
+ * uncapped-`setTimeout` shape named in
+ * `.claude/dispatch-reports/lyt-cardtrees-regression.md` (cardtrees-fix-next,
+ * ledger row 1937). One shared ceiling across all three call sites
+ * (`useEChartsForestRender.ts`, `BaseChart.vue`, `HeatmapChart.vue`) —
+ * genuinely the same decision ("how long before 'still unsized' means the
+ * container will never resolve, not just that layout hasn't settled yet"),
+ * unlike the per-consumer poll interval above. 5s is generously above any
+ * observed real layout-settle latency (single-digit poll cycles in
+ * practice); a container still unsized after 5s indicates a structural
+ * layout defect, not a timing race.
+ */
+export const CHART_RENDER_RETRY_TIMEOUT_MS = 5000;
+
 // ═══════════════════════════════════════════════════════════════════
 // §5 — Micro-scheduling  [band-1]
 // ═══════════════════════════════════════════════════════════════════

@@ -121,6 +121,7 @@ import { workspaceIdentityKey } from './composables/auth-app/workspace-identity-
 import { getPanelContentPolicy, useDeferredLayoutClass } from './state/layout-model';
 import { useDirtyBoardGuard } from './composables/board/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
+import { useWorkspaceRecovery } from './composables/auth-app/useWorkspaceRecovery';
 import { useTransientLogReveal } from './composables/useTransientLogReveal';
 import { mintDialogRequestCount } from './composables/useMintDialogSignal';
 import { passRequestCount } from './composables/board/usePassSignal';
@@ -178,6 +179,7 @@ import BoardRailPopoverTrigger from './components/chrome/BoardRailPopoverTrigger
 import DebugMenu from './components/chrome/DebugMenu.vue';
 import SystemLogToggle from './components/chrome/SystemLogToggle.vue';
 import PreviewBoardPanel from './components/board/PreviewBoardPanel.vue';
+import WorkspaceRecoveryGate from './components/chrome/WorkspaceRecoveryGate.vue';
 
 import { useReviewSession } from './composables/review/useReviewSession';
 import ColorDebugStrip  from './components/charts/ColorDebugStrip.vue';
@@ -601,6 +603,36 @@ const lytPresenceOverrides = computed<Record<string, boolean>>(() => {
 
 const { sync } = useAppBootstrap(auth);
 
+// Future-version workspace-recovery wiring (work item
+// `next-futureblob-recovery`): `WorkspaceRecoveryGate.vue` and the
+// `workspaceSaveState.kind === 'suppressed'` banner below both emit
+// into this — see `useWorkspaceRecovery`'s header for why the
+// destructive path's confirmation lives in one shared composable
+// rather than duplicated at each call site.
+const recovery = useWorkspaceRecovery(sync);
+
+// Narrowed accessor for the `future-version` load-state leg (types/
+// app.ts). A plain `store.workspaceLoadState.blobVersion` template
+// read inside the `v-else-if="... .kind === 'future-version'"` branch
+// would rely on the template compiler narrowing the union across
+// separate attribute-binding expressions on the same element — not a
+// guarantee this codebase leans on elsewhere (the sibling 'error' legs
+// above never read their own `.message` in the template either). This
+// computed narrows once, explicitly, so `WorkspaceRecoveryGate`'s
+// props are typed `number`, never a possibly-`undefined` read off the
+// wrong union leg.
+const futureVersionLoadState = computed(() => {
+  const s = store.workspaceLoadState;
+  return s.kind === 'future-version' ? s : null;
+});
+
+// Same narrowing rationale as `futureVersionLoadState` above, for the
+// ongoing `workspaceSaveState.kind === 'suppressed'` banner.
+const suppressedSaveState = computed(() => {
+  const s = store.workspaceSaveState;
+  return s.kind === 'suppressed' ? s : null;
+});
+
 // Transient auto-reveal of the system-log panel on error/warning
 // arrivals when `systemLogExpanded` is false. See the composable for
 // the UX rationale and timer mechanics.
@@ -736,6 +768,33 @@ const activeTab = computed<string>({
             <span class="save-banner-text">{{ $t('app.workspace.saveFailed') }}</span>
             <button class="action-btn-large" style="width: auto; padding-left: var(--space-medium); padding-right: var(--space-medium);" @click="sync.retrySave()">
               {{ $t('app.workspace.retry') }}
+            </button>
+          </div>
+
+          <!-- Persist-suppression banner (work item
+               `next-futureblob-recovery`, rows 1942/1982; merged into the
+               W4 overlay stack — same zero-standing-space stratum as its
+               sibling banners, same v-if gate as on `next`): the ONGOING
+               reminder after "continue on defaults" from the
+               future-version recovery gate. No Retry affordance — a
+               'suppressed' write is refused structurally by
+               SyncService.sendSync every time (`persistSuppression`),
+               it isn't a failed attempt; the destructive escape hatch
+               rides along in case the user reconsiders. -->
+          <div
+            v-if="suppressedSaveState"
+            id="workspace-suppressed-banner"
+            role="alert"
+          >
+            <span class="save-banner-text">{{ $t('sync.recovery.suppressedBanner', {
+              blobVersion: suppressedSaveState.blobVersion,
+              appVersion: suppressedSaveState.appVersion,
+            }) }}</span>
+            <button
+              class="recovery-banner-reset-btn"
+              @click="recovery.resetServerWorkspace(suppressedSaveState.blobVersion, suppressedSaveState.appVersion)"
+            >
+              {{ $t('sync.recovery.resetButton') }}
             </button>
           </div>
 
@@ -1038,6 +1097,26 @@ const activeTab = computed<string>({
         </button>
       </div>
 
+      <!-- Future-version recovery gate (work item
+           `next-futureblob-recovery`, ratified program row 1937,
+           incident row 1942): occupies the SAME slot as the
+           loading/error legs above — the workspace surfaces stay
+           withheld until the user makes an explicit choice — but
+           this is a DISTINCT, EXPECTED typed boot outcome
+           (`WorkspaceLoadState.kind === 'future-version'`,
+           `types/app.ts`), not a generic fetch failure, so it gets
+           its own leg with a two-choice recovery affordance instead
+           of a bare Retry (which would just re-throw the same
+           `FutureSchemaVersionError` — see `migrations.ts`). -->
+      <WorkspaceRecoveryGate
+        v-else-if="futureVersionLoadState"
+        :blob-version="futureVersionLoadState.blobVersion"
+        :app-version="futureVersionLoadState.appVersion"
+        @continue="recovery.continueOnDefaults()"
+        @reset="recovery.resetServerWorkspace(futureVersionLoadState.blobVersion, futureVersionLoadState.appVersion)"
+      />
+
+
     </div>
   </div>
   </RootErrorBoundary>
@@ -1166,6 +1245,30 @@ const activeTab = computed<string>({
   color: var(--text-0);
 }
 .save-banner-text { font-size: var(--text-body); }
+/* Persist-suppression banner (work item `next-futureblob-recovery`):
+   same layout shape as #workspace-save-banner immediately above, but
+   `--state-error` rather than `--state-attention` — this fact is
+   stronger than "the last write failed" (nothing has been written for
+   the whole session, deliberately), and `--state-error` is this SPA's
+   established "destructive / irreversible-if-ignored" token (theme.css:
+   "delete, destructive, winrate-negative"). No box-shadow / transition
+   / blur (standing bans); --text-0 for the banner text (max-contrast
+   rule). */
+#workspace-suppressed-banner {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-default);
+  padding: var(--space-tight) var(--space-medium);
+  background: color-mix(in srgb, var(--state-error) 12%, transparent);
+  border-bottom: 1px solid var(--state-error);
+  color: var(--text-0);
+}
+.recovery-banner-reset-btn {
+  background: var(--surface-0); border: 1px solid var(--state-error); color: var(--state-error);
+  padding: var(--space-tight) var(--space-medium);
+  border-radius: var(--radius-default);
+  font-weight: bold; cursor: pointer; white-space: nowrap;
+}
 .workspace-boot-spinner {
   width: 20px; height: 20px; border-radius: 50%;
   border: 3px solid var(--surface-2); border-top-color: var(--accent-primary);

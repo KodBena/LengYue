@@ -130,7 +130,8 @@ frontend/src/
 │   │   ├── ToolbarEngineUri.vue       [B3]  Compact click-to-edit engine WebSocket URI, mounted in ToolbarAppCluster.vue (ledger slug toolbar-engine-uri). Renders unconditionally (not gated on isConnected); logic lives in useEngineUriEditor — this leaf is chrome only.
 │   │   ├── ToolbarMoveNav.vue         [B1]  Genre move-navigation cluster (|< < > >|), wired to useNavigation()'s existing actions. LYT toolbar ontology reencode (2026-08-11, item 1 "board controls go to the board"): mounted in StatusBar.vue (board-adjacent, its own `I_board`/`A_board` span), relocated from the side-column toolbar — component itself unchanged.
 │   │   ├── ToolbarSliderPopover.vue   [B1]  Toolbar badge + hover popover: compact priority-ordered list of every scalar knob (quick-access surface for the knob registry).
-│   │   └── UserBadge.vue              [B1]  Auth-identity badge; opens LoginModal on click.
+│   │   ├── UserBadge.vue              [B1]  Auth-identity badge; opens LoginModal on click.
+│   │   └── WorkspaceRecoveryGate.vue  [B1]  Blocking boot-time recovery prompt for `workspaceLoadState.kind === 'future-version'` (work item `next-futureblob-recovery`, ratified program row 1937, incident row 1942): two-choice recovery UI (continue on suppressed-persistence defaults / reset server workspace) replacing the dead-app failure mode a future-schemaVersion blob used to produce. Pure renderer — emits `continue`/`reset`; App.vue wires both to `useWorkspaceRecovery`.
 │   │
 │   ├── editors/                             Settings / palette / pipeline editors.
 │   │   ├── AnalysisControls.vue       [B3]  Per-board analysis controls (engine status, palette picker, bundle persistence, …).
@@ -239,6 +240,7 @@ frontend/src/
 │   │   ├── useAppBootstrap.ts         [B3]  Cold-start wiring: auth → sync hydrate → domain inits → tag fetch → known-positions hydrate (on every authenticated flip-in, not just cold start). Band-mixed by role (imports analysis-service, qEUBO, the keybindings catalog); tagged like App.vue — wiring, not a B1 substrate.
 │   │   ├── useAuth.ts                 [B1]  AuthState SSOT; wraps api-client auth methods; JWT synchronisation.
 │   │   ├── useMetadata.ts             [B3]  SGF root properties → UI metadata (gameName ladder, players, dates).
+│   │   ├── useWorkspaceRecovery.ts    [B1]  Future-version workspace-recovery wiring (work item `next-futureblob-recovery`): `continueOnDefaults()` thin-wraps SyncService's non-destructive default action; `resetServerWorkspace()` owns the mandatory `useAppDialogs().confirm({ danger: true })` step before calling SyncService's destructive `resetServerWorkspaceToDefaults()`. Shared by `WorkspaceRecoveryGate.vue` (blocking prompt) and App.vue's ongoing `workspaceSaveState === 'suppressed'` banner.
 │   │   └── workspace-identity-key.ts  [B1]  Derives a stable per-identity remount key from `username` (App.vue binds it as the control-panel `:key`) so an auth flip can't let user B inherit user A's component-instance data — the tenancy leak `resetWorkspace`'s module-cache registry can't reach. Identity-keyed remount is domain-free.
 │   │
 │   ├── board/                                Board-surface composables. Mostly B3.
@@ -443,6 +445,7 @@ frontend/src/
 │   └── theme-color.ts                 [B1]  Runtime CSS-variable accessor for ECharts adapter configs.
 │
 ├── lib/
+│   ├── capped-retry.ts                [B1]  Bounded, fail-loud `cappedRetry(attempt, options, onExhausted?)` helper: polls `attempt()` on `options.intervalMs` until it returns true or `options.timeoutMs` wall-clock elapses, then escalates once (default: `console.warn` naming `options.label`) instead of retrying forever. Mechanizes the ADR-0011 Rule 2 recurrence (cardtrees-fix-next, ledger row 1937) shared by `useEChartsForestRender.ts`, `BaseChart.vue`, and `HeatmapChart.vue`'s ECharts-container size-gate retries — see `.claude/dispatch-reports/lyt-cardtrees-regression.md` / `cardtrees-fix-next.md`. Domain-free (no chart/game vocabulary — the predicate is caller-supplied).
 │   ├── correlation.ts                 [B1]  Pairwise Pearson with NaN-pair dropping.
 │   ├── distributions.ts               [B1]  Histogram binning (integer-aware + Freedman–Diaconis) and Gaussian-kernel KDE with Silverman's-rule bandwidth.
 │   ├── dsl-harness.ts                 [B1]  Pipeline-DSL hyperparameter harness: JSON5+holes parser/formatter, validator, substitute.
