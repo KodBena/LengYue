@@ -446,6 +446,7 @@
   "systemLog.title":                      "시스템 진단",
   "systemLog.clearAll":                   "모두 지우기",
   "systemLog.noMessages":                 "메시지 없음 — 시스템 대기 중.",
+  "systemLog.toggleButton":               "시스템 로그 표시 전환",
 
   "analysisChart.emptyState":             "{label} 데이터가 아직 없습니다.",
 

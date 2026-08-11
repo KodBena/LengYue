@@ -1,8 +1,13 @@
 <!-- 
   src/components/chrome/SystemLogPanel.vue
-  Always-visible system log bar. Renders messages pushed via
-  pushSystemMessage() in the store, plus an idle row when the queue
-  is empty so the bar is present as a stable UI surface.
+  System log panel. Renders messages pushed via pushSystemMessage() in
+  the store, plus an idle row when the queue is empty so the panel is
+  present as a stable UI surface whenever it's shown. Mounted in
+  App.vue's `#lyt-overlay-stack` (W4 item 1) when
+  `session.ui.systemLogExpanded` (manual toggle, `SystemLogToggle.vue`
+  — D2 fix) OR the transient auto-reveal (`useTransientLogReveal.ts`)
+  is true — no longer unconditionally visible, corrected from this
+  header's own stale "always-visible" claim (D2 fix).
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">

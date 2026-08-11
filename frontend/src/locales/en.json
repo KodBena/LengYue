@@ -714,6 +714,7 @@
   "systemLog.title":                      "System Diagnostics",
   "systemLog.clearAll":                   "Clear All",
   "systemLog.noMessages":                 "No messages — system idle.",
+  "systemLog.toggleButton":               "Toggle system log",
 
   "analysisChart.emptyState":             "No {label} data yet.",
 

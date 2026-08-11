@@ -446,6 +446,7 @@
   "systemLog.title":                      "システム診断",
   "systemLog.clearAll":                   "すべてクリア",
   "systemLog.noMessages":                 "メッセージなし — システムアイドル。",
+  "systemLog.toggleButton":               "システムログの表示切替",
 
   "analysisChart.emptyState":             "{label} のデータはまだありません。",
 

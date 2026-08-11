@@ -446,6 +446,7 @@
   "systemLog.title":                      "系统诊断",
   "systemLog.clearAll":                   "清除全部",
   "systemLog.noMessages":                 "无消息 — 系统空闲。",
+  "systemLog.toggleButton":               "切换系统日志显示",
 
   "analysisChart.emptyState":             "暂无{label}数据。",
 

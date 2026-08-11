@@ -691,11 +691,12 @@ the shape.
   away.
 
 - **System log.** A panel showing errors, warnings, and info
-  messages; renders in the overlay layer described above. Error /
-  warning arrivals briefly auto-reveal it so the user notices. No
-  manual open/close control ships today — the auto-reveal is
-  currently the only way to see it; a deliberate toggle is a
-  reasonable near-term addition, not a scope decision against one.
+  messages; renders in the overlay layer described above. A small
+  toggle button next to the corner presence menu opens and closes
+  it manually, and the choice persists across sessions. Error /
+  warning arrivals also briefly auto-reveal it regardless of the
+  manual setting, so the user notices even when the panel is
+  collapsed.
 
 - **Theme substrate.** All chrome colours and typography route
   through CSS variables. A "Gradient Calibration" surface in
