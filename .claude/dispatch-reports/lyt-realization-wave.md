@@ -533,6 +533,16 @@ gates (frontend build, `npm run test:run`) re-run post-rebase: build exit
 exit 0 — the popover branch's own 23 new tests are included in that count
 and pass alongside this wave's.
 
+**Review-response commit: `9d1ccb2a`** (the Finding-1 fix + Finding-3
+disclosure above). LAST-ACT fetch for this response: `lyt-phase2` had
+**not** moved since `5cbcec8a` (this branch's own prior merge-base) — `git
+log --oneline HEAD..origin/lyt-phase2` returns 0 commits, so `merge-base
+HEAD origin/lyt-phase2` == `origin/lyt-phase2`'s own tip == `5cbcec8a`,
+unchanged; no rebase needed. Both frontend gates re-run foreground,
+post-fix, with the mandated memory caps: build exit 0; `npm run test:run`
+3089 passed / 8 skipped, exit 0 (§4's own literal transcripts). `research/
+lyt` full suite re-run foreground: 152 passed, exit 0.
+
 ## License
 
 Public Domain (The Unlicense).
