@@ -45,9 +45,15 @@ def test_board_rail_and_preview_board_are_default_off():
     assert board_rail["presenceDefaultVisible"] is False
     assert board_rail["track"] == {"kind": "fixed", "px": 168.0}
 
+    # LYT toolbar ontology reencode (2026-08-11, ledger rows 1930/1931):
+    # the side column's V-split shrank from four children (A_go/I_engine/
+    # A_common/tree-row) to three (A_engine/A_app/tree-row) — the
+    # tree/panels/preview row's own path shifts from "2.3" to "2.2"
+    # accordingly (every path-keyed consumer across the tree shares this
+    # shift; see the dispatch report for the full census).
     row = _find(root["children"], "2")["node"]["children"]
-    tree_row = _find(row, "2.3")["node"]["children"]
-    preview = _find(tree_row, "2.3.2")
+    tree_row = _find(row, "2.2")["node"]["children"]
+    preview = _find(tree_row, "2.2.2")
     assert preview["node"]["widget"] == "previewBoard"
     assert preview["presenceDefaultVisible"] is False
 
@@ -58,11 +64,11 @@ def test_every_other_default_visible_path_is_true():
     for path in ("1", "2"):
         assert _find(root["children"], path)["presenceDefaultVisible"] is True
     side = _find(root["children"], "2")["node"]["children"]
-    for path in ("2.0", "2.1", "2.2", "2.3"):
+    for path in ("2.0", "2.1", "2.2"):
         assert _find(side, path)["presenceDefaultVisible"] is True
-    tree_row = _find(side, "2.3")["node"]["children"]
-    assert _find(tree_row, "2.3.0")["presenceDefaultVisible"] is True  # tree
-    assert _find(tree_row, "2.3.1")["presenceDefaultVisible"] is True  # controlPanel
+    tree_row = _find(side, "2.2")["node"]["children"]
+    assert _find(tree_row, "2.2.0")["presenceDefaultVisible"] is True  # tree
+    assert _find(tree_row, "2.2.1")["presenceDefaultVisible"] is True  # controlPanel
 
 
 def test_board_priority_clamp_applied_to_side_column_only():
@@ -106,8 +112,8 @@ def test_control_panel_blackbox_floor_is_wrapper_min_derived():
     program = elt.build_program()
     root = program["root"]
     side = _find(root["children"], "2")["node"]["children"]
-    tree_row = _find(side, "2.3")["node"]["children"]
-    control_panel = _find(tree_row, "2.3.1")
+    tree_row = _find(side, "2.2")["node"]["children"]
+    control_panel = _find(tree_row, "2.2.1")
     assert control_panel["node"]["kind"] == "blackbox"
     assert control_panel["node"]["widget"] == "controlPanel"
     assert control_panel["node"]["childWidgets"] == [
@@ -163,8 +169,10 @@ def test_portrait_default_visible_by_path_matches_toggle_targets():
     """Mirrors emit_mockup.py's TOGGLE_TARGETS["portrait"] table (that
     module's own docstring is the ledger-cited source): boardRail (path
     0) and previewBoard (path 4.2) are the only two default-off slots;
-    A_top (1), the board composite (2), I_engine (3), tree (4.0), and the
-    control-panel T-node (4.1) are all default-visible."""
+    A_app (1, formerly A_top — LYT toolbar ontology reencode,
+    2026-08-11), the board composite (2), A_engine (3, formerly
+    I_engine), tree (4.0), and the control-panel T-node (4.1) are all
+    default-visible."""
     program = _portrait_program()
     root = program["root"]
 

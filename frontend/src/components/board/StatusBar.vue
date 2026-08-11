@@ -1,8 +1,22 @@
 <!--
   src/components/board/StatusBar.vue
   Purely presentational game status bar. Engine info (version,
-  model, telemetry) lives in the Toolbar — this bar is for
+  model, telemetry) lives in ToolbarEngineCluster — this bar is for
   board-state vocabulary (move number, players, captures, turn).
+
+  Move-navigation cluster (LYT toolbar ontology reencode,
+  commissioner-ratified 2026-08-11, ledger rows 1930/1931, item 1
+  "BOARD CONTROLS GO TO THE BOARD"): the |< < > >| cluster
+  (`ToolbarMoveNav.vue`) relocates here from the side-column toolbar —
+  this component is the one mount that already spans BOTH the `.lyt`
+  encoding's `I_board` (24px info) and `A_board` (28px action) bands
+  (`lyt-widget-registry.ts`'s own I_board note: A_board is 'absorbed'
+  into I_board because StatusBar already carries both an info readout
+  and action buttons internally), so board-scoped navigation joins the
+  board-scoped action row it already reserves rather than opening a
+  third band. No new component, no new wiring beyond mounting the
+  existing `ToolbarMoveNav.vue` (unchanged, still wired to the same
+  `useNavigation()` actions the keybindings dispatch).
 
   Player-color indicators. Each player name carries a small
   filled stone-chip (black disc for the SGF `PB` player, white
@@ -22,6 +36,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import type { StoneColor, BoardState, GameNode, NodeId } from '../../types';
 import UserBadge from '../chrome/UserBadge.vue';
+import ToolbarMoveNav from '../chrome/ToolbarMoveNav.vue';
 import { useTransientHint } from '../../composables/useTransientHint';
 import { useSetupTools, SETUP_TOOL_LABEL_KEYS } from '../../composables/board/useSetupTools';
 import { useDeferredContainerBreakpoint } from '../../composables/chrome/useDeferredContainerBreakpoint';
@@ -206,6 +221,10 @@ const gameStatus = computed(() =>
 <template>
   <div class="status-bar" ref="statusBarRef" :class="{ 'status-bar--narrow': statusBarNarrow }">
     <div class="status-left">
+      <!-- Move-navigation cluster (item 1, see header comment above) —
+           leftmost, board-adjacent, genre position (Sabaki/KaTrain/
+           Lizzie: |< < > >| sits directly under/beside the board). -->
+      <ToolbarMoveNav />
       <!-- M8(b): persistent setup-mode indicator. Opaque chip (no
            translucent overlay — standing ruling), visible for as long
            as `activeTool` is armed regardless of the palette's own

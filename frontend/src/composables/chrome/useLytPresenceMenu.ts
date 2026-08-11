@@ -15,12 +15,15 @@
  * Engine Info, Common Actions, Tree & Panels, Preview Board) because the
  * mockup's `.lyt` encoding reserves each as an independently-addressable
  * band. The real Vue app does not: `lyt-widget-registry.ts`'s own notes
- * record that A_go/I_engine/A_common all mount through ONE existing
- * `Toolbar.vue` (never independently mountable) and B/I_board/A_board
- * mount through the board composite + StatusBar (never independently
- * hideable — the board is architecturally always-mounted, roadmap §5).
- * Toggling those five would either do nothing real or hide the board
- * itself, neither of which the commission asks for. The commission text
+ * record that A_engine/A_app (formerly the three-way A_go/I_engine/
+ * A_common split, collapsed by the LYT toolbar ontology reencode,
+ * 2026-08-11) each mount through their own dedicated cluster component
+ * (never independently sub-divisible below the cluster) and
+ * B/I_board/A_board mount through the board composite + StatusBar (never
+ * independently hideable — the board is architecturally always-mounted,
+ * roadmap §5). Toggling those four would either do nothing real or hide
+ * the board itself, neither of which the commission asks for. The
+ * commission text
  * itself narrows the menu to exactly three targets: `boardRail`,
  * `previewBoard`, and "the control-panel group" — this module's
  * `LYT_PRESENCE_TARGETS`.
@@ -78,8 +81,9 @@ export type LytPresenceTargetId = (typeof LYT_PRESENCE_TARGETS)[number];
 /**
  * Fallback default per target — mirrors `lyt-layout.gen.ts`'s own
  * `presenceDefaultVisible` for `boardRail` (path '0') and `previewBoard`
- * (path '2.3.2'), both `false`, and `controlPanel` (path '2.3.1')'s
- * `true`. Kept as a literal (not derived by walking `LYT_LANDSCAPE` at
+ * (path '2.2.2', formerly '2.3.2' — LYT toolbar ontology reencode,
+ * 2026-08-11), both `false`, and `controlPanel` (path '2.2.1', formerly
+ * '2.3.1')'s `true`. Kept as a literal (not derived by walking `LYT_LANDSCAPE` at
  * runtime) because exactly these three ids are presence-menu targets —
  * see this file's header. `defaults.ts`'s `defaultSessionUI.lytPresence`
  * seeds the SAME triple; this is the one other place it is named (the

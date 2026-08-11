@@ -645,6 +645,20 @@ the shape.
   tab's own tree-forest resizer (inside Browse mode) is a separate,
   unrelated control.
 
+- **Toolbar organisation.** Two purposed clusters sit in the side
+  column (landscape) or the top strip (portrait): an **engine
+  cluster** — connect/disconnect, mint-card / learn-this-path /
+  play / match, and (once connected) the live engine-telemetry
+  readout — and an **app cluster** — load/save SGF, the knob
+  quick-access popover, the setup tool palette, PBO calibration,
+  the engine address editor, and the locale picker. Connecting or
+  disconnecting the engine only changes what's visible *inside*
+  the engine cluster's own reserved space; it never moves anything
+  else on screen. Move-navigation (first/previous/next/last, the
+  genre-standard `|< < > >|` cluster) lives on the status bar
+  directly under the board, alongside Pass and the move-number
+  toggle, rather than in either toolbar cluster.
+
 - **Corner presence menu.** A small button in the bottom-right
   corner opens a popover listing the panels that can be toggled
   on or off — the board rail, the position preview panel (see

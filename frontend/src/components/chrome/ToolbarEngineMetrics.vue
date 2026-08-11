@@ -284,8 +284,9 @@ const displayed = useThrottledSnapshot(liveMetrics, TOOLBAR_METRICS_REDRAW_THROT
    reflows"): each numeric `.m-val` reserves its own worst-case-digit
    width via `min-width` in `ch` (a monospace-safe unit — this bar is
    `font-family: monospace`, so `1ch` is a stable per-glyph width) —
-   the LYT encoding's own I_engine leaf names exactly this class of
-   defect (`{envelope: {disconnected, connected_5digit_latency}}`,
+   the LYT encoding's own A_engine leaf (formerly I_engine — see the
+   2026-08-11 toolbar ontology reencode) names exactly this class of
+   defect (`{envelope: {disconnected, connected}}`,
    `research/lyt/encodings/lengyue_landscape.lyt`), which this Vue
    realization never actually implemented until now — the toolbar's
    winrate/scoreLead/pps/latency values previously had NO reserved

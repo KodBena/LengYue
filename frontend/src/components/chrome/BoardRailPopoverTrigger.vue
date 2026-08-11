@@ -25,11 +25,13 @@
   behavior. The dead `load-sgf`/`save-sgf` emit-forwarding (this
   component's own `defineEmits` plus App.vue's matching listeners on
   both this component and its `<SidebarWidget>` child) is removed
-  accordingly — the ONE live home for Load/Save SGF is the toolbar
-  strip's own buttons (`App.vue`'s `#leaf-A_go`/`#leaf-A_top`), which
-  this rail-as-popover fork never covered anyway (opening it shows no
-  SGF buttons inside it, popover style or not) — no capability is
-  lost, only the inaccurate claim about it is corrected.
+  accordingly — the ONE live home for Load/Save SGF is
+  `ToolbarAppCluster.vue`, mounted at `App.vue`'s `#leaf-A_app` in both
+  screen classes (LYT toolbar ontology reencode, 2026-08-11 — formerly
+  `#leaf-A_go`/`#leaf-A_top`), which this rail-as-popover fork never
+  covered anyway (opening it shows no SGF buttons inside it, popover
+  style or not) — no capability is lost, only the inaccurate claim
+  about it is corrected.
 
   Click/outside-click/Escape dismissal follows the SAME idiom
   `LytPresenceMenu.vue` / `LocalePicker.vue` use (read both in full

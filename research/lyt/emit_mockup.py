@@ -307,20 +307,25 @@ OVERLAY_SIZES: Dict[str, List[Tuple[str, int, int]]] = {
 # without waiting for a click -- the mechanism this dict previously had
 # no need for, since every prior target defaulted to shown.
 TOGGLE_TARGETS: Dict[str, Dict[Tuple[int, ...], Tuple[str, str, bool]]] = {
+    # LYT toolbar ontology reencode (commissioner-ratified 2026-08-11,
+    # ledger rows 1930/1931): landscape's side column shrank from four
+    # V-children (Go Actions / Engine Info / Common Actions / tree-row)
+    # to three (Engine cluster / App cluster / tree-row) — every path at
+    # or after the collapsed trio shifts by one component (index 3 -> 2
+    # for the tree/panels/preview row and its own children).
     "landscape": {
         (0,): ("Board Rail", "release", False),
         (1,): ("Board & Controls", "preserve", True),
-        (2, 0): ("Go Actions", "release", True),
-        (2, 1): ("Engine Info", "release", True),
-        (2, 2): ("Common Actions", "release", True),
-        (2, 3, 1): ("Tree & Panels", "release", True),
-        (2, 3, 2): ("Preview Board", "release", False),
+        (2, 0): ("Engine Cluster", "release", True),
+        (2, 1): ("App Cluster", "release", True),
+        (2, 2, 1): ("Tree & Panels", "release", True),
+        (2, 2, 2): ("Preview Board", "release", False),
     },
     "portrait": {
         (0,): ("Board Rail", "release", False),
-        (1,): ("Top Actions", "release", True),
+        (1,): ("App Cluster", "release", True),
         (2,): ("Board & Controls", "preserve", True),
-        (3,): ("Engine Info", "release", True),
+        (3,): ("Engine Cluster", "release", True),
         (4, 1): ("Tree & Panels", "release", True),
         (4, 2): ("Preview Board", "release", False),
     },
@@ -433,48 +438,38 @@ ROW_WIDGETS: Dict[str, Tuple[str, str]] = {
         '<button class="btn">Annotate</button>'
         '<button class="btn">Setup</button>',
     ),
-    "A_go": (
-        "actions-row",
-        '<button class="btn">Mint Card</button>'
-        '<button class="btn">Learn Path</button>'
-        '<button class="btn">Play</button>'
-        '<button class="btn">Match</button>'
-        '<button class="btn">Load SGF</button>'
-        '<button class="btn">Save SGF</button>',
-    ),
-    "I_engine": (
-        "info-row",
+    # LYT toolbar ontology reencode (commissioner-ratified 2026-08-11,
+    # ledger rows 1930/1931). Retires the three-leaf A_go/I_engine/
+    # A_common census (and portrait's own separately-drifted A_top) in
+    # favour of two purposed clusters, SAME widget ids in both classes:
+    # `A_engine` (item 2 -- connect/disconnect + the engine-controls
+    # button cluster + engine metrics, ONE envelope-reserved band) and
+    # `A_app` (item 3 -- Load/Save SGF + sliders/setup/PBO popover
+    # triggers + the engine URI editor). `A_engine` mixes info (metrics)
+    # and action (buttons) content in one row -- `actions-row-wrap`
+    # already exists for a content-dense wrapped row (portrait's old
+    # `A_top` used it), reused here rather than inventing a third row
+    # shape for the mixed-facet case.
+    "A_engine": (
+        "actions-row actions-row-wrap",
         "<span>KataGo v1.0.27</span>"
         "<span>Connected</span>"
         "<span>Model: b18-8192</span>"
         "<span>1200 pps</span>"
         "<span>40 ms</span>"
-        "<span>Queue 2</span>",
-    ),
-    "A_common": (
-        "actions-row",
-        '<button class="btn">Connect</button>'
-        '<button class="btn">Sliders</button>'
-        '<button class="btn debug-pill" title="Autonav, popover test, clear cache (dev-only, C-domain)">Debug (3)</button>',
-    ),
-    # Label drift fix ("The portrait layout, on its own terms" section):
-    # portrait now spells out the same labels landscape's A_go/A_common
-    # use ("Mint Card", not "Mint") -- the review's own measurement
-    # showed the row has the room (580px of content in a 1070px box at
-    # 1080px width) and named the two-names-for-one-button drift as
-    # something to fix one way or the other; matching landscape's full
-    # labels (rather than abbreviating landscape too) keeps every other
-    # class's screenshot honest about what the button actually says.
-    "A_top": (
-        "actions-row actions-row-wrap",
+        "<span>Queue 2</span>"
         '<button class="btn">Mint Card</button>'
         '<button class="btn">Learn Path</button>'
         '<button class="btn">Play</button>'
         '<button class="btn">Match</button>'
+        '<button class="btn">Connect</button>',
+    ),
+    "A_app": (
+        "actions-row actions-row-wrap",
         '<button class="btn">Load SGF</button>'
         '<button class="btn">Save SGF</button>'
-        '<button class="btn">Connect</button>'
         '<button class="btn">Sliders</button>'
+        '<button class="btn">Setup</button>'
         '<button class="btn debug-pill" title="Autonav, popover test, clear cache (dev-only, C-domain)">Debug (3)</button>',
     ),
 }

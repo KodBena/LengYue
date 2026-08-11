@@ -86,12 +86,20 @@ describe('SidebarWidget.vue — one home for Load/Save SGF (W4 item 2)', () => {
   });
 });
 
-describe('App.vue — toolbar strip is the one home for Load/Save SGF (W4 item 2)', () => {
-  const app = src('src/App.vue');
-  it('both #leaf-A_go and #leaf-A_top mount the SGF buttons exactly once each', () => {
-    const buttonMatches = app.match(/<button class="lyt-sgf-btn"/g);
-    // Two buttons (load+save) x two slots (A_go landscape, A_top portrait) = 4.
-    expect(buttonMatches?.length).toBe(4);
+describe('ToolbarAppCluster.vue — one home for Load/Save SGF (W4 item 2; LYT toolbar ontology reencode, 2026-08-11)', () => {
+  // Prior to the reencode, App.vue duplicated the SGF buttons at its two
+  // `#leaf-A_go`/`#leaf-A_top` template blocks (4 button tags: load+save
+  // x landscape+portrait). ToolbarAppCluster.vue now defines them ONCE
+  // and mounts identically at both classes' `#leaf-A_app` slot — the
+  // markup itself is no longer duplicated in App.vue at all.
+  const sfc = src('src/components/chrome/ToolbarAppCluster.vue');
+  it('declares the SGF buttons exactly once each (load+save)', () => {
+    const buttonMatches = sfc.match(/class="toolbar-btn lyt-sgf-btn"/g);
+    expect(buttonMatches?.length).toBe(2);
+  });
+  it('App.vue no longer duplicates the SGF button markup at its own leaf slots', () => {
+    const app = src('src/App.vue');
+    expect(app).not.toMatch(/<button class="lyt-sgf-btn"/);
   });
 });
 
@@ -211,8 +219,19 @@ describe('DebugMenu.vue — consolidated dev-only affordances (W4 item 5)', () =
 });
 
 describe('the four dev-only affordances no longer live on the main chrome surface (W4 item 5)', () => {
-  it('Toolbar.vue no longer IMPORTS useAutoNavigatePerf/useAutoPopoverPerf, nor renders a Clear Cache button', () => {
-    const sfc = src('src/components/chrome/Toolbar.vue');
+  // LYT toolbar ontology reencode (2026-08-11): Toolbar.vue was retired,
+  // split into ToolbarEngineCluster.vue (the button cluster this guard
+  // polices) and ToolbarAppCluster.vue — the W4 item 5 invariant (no
+  // dev-only affordances on the main chrome surface) is re-pinned against
+  // both, since either could theoretically reabsorb one.
+  it('ToolbarEngineCluster.vue no longer IMPORTS useAutoNavigatePerf/useAutoPopoverPerf, nor renders a Clear Cache button', () => {
+    const sfc = src('src/components/chrome/ToolbarEngineCluster.vue');
+    expect(sfc).not.toMatch(/from '..\/..\/composables\/useAutoNavigatePerf'/);
+    expect(sfc).not.toMatch(/from '..\/..\/composables\/useAutoPopoverPerf'/);
+    expect(sfc).not.toMatch(/@click="clearCache"/);
+  });
+  it('ToolbarAppCluster.vue no longer IMPORTS useAutoNavigatePerf/useAutoPopoverPerf, nor renders a Clear Cache button', () => {
+    const sfc = src('src/components/chrome/ToolbarAppCluster.vue');
     expect(sfc).not.toMatch(/from '..\/..\/composables\/useAutoNavigatePerf'/);
     expect(sfc).not.toMatch(/from '..\/..\/composables\/useAutoPopoverPerf'/);
     expect(sfc).not.toMatch(/@click="clearCache"/);

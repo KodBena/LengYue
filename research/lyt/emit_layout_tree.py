@@ -156,33 +156,40 @@ CLASS_ID = "landscape"
 # just the one fact this emitter needs is more honest than importing a
 # generator module built for a different consumer (static HTML) and
 # picking one field back out of it.
+# LYT toolbar ontology reencode (commissioner-ratified 2026-08-11, ledger
+# rows 1930/1931): the side column's V-split shrank from four children
+# (A_go/I_engine/A_common/tree-row) to three (A_engine/A_app/tree-row) --
+# the tree/panels/preview row's own path shifts from (2, 3, ...) to
+# (2, 2, ...) accordingly.
 DEFAULT_VISIBLE_BY_PATH: Dict[Tuple[int, ...], bool] = {
     (0,): False,       # boardRail
     (1,): True,        # V-composite (board + info + action rows)
-    (2, 0): True,       # A_go
-    (2, 1): True,       # I_engine
-    (2, 2): True,       # A_common
-    (2, 3, 1): True,     # T(CP-*) -- the control-panel black box
-    (2, 3, 2): False,    # previewBoard
+    (2, 0): True,       # A_engine
+    (2, 1): True,       # A_app
+    (2, 2, 1): True,     # T(CP-*) -- the control-panel black box
+    (2, 2, 2): False,    # previewBoard
 }
 
 # Reproduced verbatim from emit_mockup.py's own TOGGLE_TARGETS["portrait"]
 # table -- same discipline as DEFAULT_VISIBLE_BY_PATH above, one class's
 # worth of the one fact this emitter needs. Derived from
 # encodings/lengyue_portrait.lyt's own root V(...) child order: boardRail
-# (0, toggle-off), A_top (1), the board composite V(B, I_board, A_board)
-# (2, always visible -- not itself toggleable), I_engine (3, always
-# visible), and the tree/panels/preview row H(tree, T(CP-*), previewBoard)
-# (4) whose own three children are tree (4,0, always visible), the
-# control-panel T-node (4,1, always visible), and previewBoard (4,2,
-# toggle-off) -- matching TOGGLE_TARGETS["portrait"]'s (0,)/(1,)/(2,)/
-# (3,)/(4,1)/(4,2) entries exactly (every path TOGGLE_TARGETS doesn't
-# mention is default-visible, per that table's own convention).
+# (0, toggle-off), A_app (1, formerly A_top -- LYT toolbar ontology
+# reencode, 2026-08-11), the board composite V(B, I_board, A_board)
+# (2, always visible -- not itself toggleable), A_engine (3, formerly
+# I_engine, always visible), and the tree/panels/preview row H(tree,
+# T(CP-*), previewBoard) (4) whose own three children are tree (4,0,
+# always visible), the control-panel T-node (4,1, always visible), and
+# previewBoard (4,2, toggle-off) -- matching TOGGLE_TARGETS["portrait"]'s
+# (0,)/(1,)/(2,)/(3,)/(4,1)/(4,2) entries exactly (every path
+# TOGGLE_TARGETS doesn't mention is default-visible, per that table's own
+# convention). Paths themselves are UNCHANGED from pre-reencode (portrait's
+# tree structure needed only a rename, not a reshuffle).
 DEFAULT_VISIBLE_BY_PATH_PORTRAIT: Dict[Tuple[int, ...], bool] = {
     (0,): False,      # boardRail
-    (1,): True,       # A_top
+    (1,): True,       # A_app
     (2,): True,       # V-composite (board + info + action rows)
-    (3,): True,       # I_engine
+    (3,): True,       # A_engine
     (4, 0): True,      # tree
     (4, 1): True,      # T(CP-*) -- the control-panel black box
     (4, 2): False,     # previewBoard
