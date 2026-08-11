@@ -1,19 +1,32 @@
 /**
  * src/composables/chrome/usePopoverEdgeClamp.ts
  *
- * Viewport-edge clamp for absolutely-positioned hover popovers
- * (`EngineQueueTooltip`, `PboPopover`). `ToolbarSliderPopover` was a
- * third consumer until the D1 fix in commission
+ * Viewport-edge clamp for absolutely-positioned hover popovers.
+ * Current consumers: `BoardRailPopoverTrigger.vue` and
+ * `LytPresenceMenu.vue` — both mounted in `App.vue`'s
+ * `#lyt-corner-chrome` (itself `position: fixed`, outside
+ * `#main-workspace`'s flex flow), never subject to
+ * `.lyt-toolbar-strip`'s `overflow-y: auto` clip, so `position:
+ * absolute` + this composable's horizontal-only clamp is the right
+ * shape for them.
+ *
+ * `ToolbarSliderPopover` was a consumer until the D1 fix in commission
  * lyt-sliders-popover-defects (2026-08-11, see that component's own
- * `<script>` header) moved it to `position: fixed` with its own
- * script-computed anchor to escape `.lyt-toolbar-strip`'s
- * `overflow-y: auto` clip — this composable's `position: absolute` +
- * `transform: translateX` contract doesn't apply to a `position:
- * fixed` consumer, so it now computes its own geometry instead.
- * Returns a `popoverEl` template ref and an `xShift` value the
- * consumer pipes into the popover's `transform: translateX(...)`
- * so the rendered popover slides inward when an `right: 0` /
- * `left: 0` CSS anchor would otherwise push it off-screen.
+ * `<script>` header) moved it to `position: fixed` with a
+ * script-computed anchor to escape `.lyt-toolbar-strip`'s clip.
+ * `EngineQueueTooltip` and `PboPopover` were consumers until commission
+ * lyt-popover-clip-class (ratified program row 1937) routed both
+ * through the shared `useFixedAnchoredPopover` for the same reason —
+ * both mount inside `.lyt-toolbar-strip` too (via
+ * `ToolbarEngineMetrics`/`ToolbarAppCluster`), the same clipping
+ * ancestor `ToolbarSliderPopover` escaped. This composable's `position:
+ * absolute` + `transform: translateX` contract doesn't apply to a
+ * `position: fixed` consumer, so all three now compute their own
+ * geometry via `useFixedAnchoredPopover` instead. Returns a
+ * `popoverEl` template ref and an `xShift` value the consumer pipes
+ * into the popover's `transform: translateX(...)` so the rendered
+ * popover slides inward when an `right: 0` / `left: 0` CSS anchor
+ * would otherwise push it off-screen.
  *
  * ── Behaviour ────────────────────────────────────────────────────
  *

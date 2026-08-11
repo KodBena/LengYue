@@ -65,7 +65,7 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQeubo } from '../../composables/useQeubo';
 import { useHoverPopover } from '../../composables/chrome/useHoverPopover';
-import { usePopoverEdgeClamp } from '../../composables/chrome/usePopoverEdgeClamp';
+import { useFixedAnchoredPopover } from '../../composables/chrome/useFixedAnchoredPopover';
 import { pushSystemMessage } from '../../store';
 import { useAppDialogs } from '../../composables/useAppDialogs';
 
@@ -73,8 +73,31 @@ const { t } = useI18n();
 const dialogs = useAppDialogs();
 const q = useQeubo();
 const { open, onMouseEnter, onMouseLeave } = useHoverPopover();
-// `right: 0`-anchored — see usePopoverEdgeClamp's behaviour notes.
-const { setPopoverEl, xShift } = usePopoverEdgeClamp(open);
+
+// Clip-ancestor fix (commission lyt-popover-clip-class, ratified
+// program row 1937). This popover mounts inside `App.vue`'s
+// `.lyt-toolbar-strip` (via ToolbarAppCluster -> the `#leaf-A_app`
+// slot), the SAME `overflow-y: auto` clipping ancestor
+// `ToolbarSliderPopover.vue`'s D1 fix escaped — the two are direct
+// DOM siblings under `ToolbarAppCluster.vue`'s second `.toolbar-cluster`
+// (`.claude/dispatch-reports/lyt-sliders-popover-defects.md`). Not
+// visually re-witnessed for THIS component in this commission — see
+// `.claude/dispatch-reports/lyt-popover-clip-class.md`'s per-member
+// disposition for why (this component's own root carries `v-if
+// ="visible"`, gated on `q.calibrationEnabled && q.experimentExists`,
+// which requires a live backend qEUBO experiment — unreachable under
+// this commission's own isolation posture, dead-pinned ports, no
+// live backend) — but the ancestor chain and positioning scheme were
+// identical to ToolbarSliderPopover's pre-fix shape (`position:
+// absolute; top: 100%; right: 0`, same `.lyt-toolbar-strip` ancestor,
+// same z-index tier), so it is routed through the same composable as a
+// same-class structural fix rather than left unfixed pending a live
+// witness this environment cannot produce. `usePopoverEdgeClamp`
+// (horizontal-only, snapshot-once) no longer applies;
+// `useFixedAnchoredPopover` supersedes it here.
+const triggerEl = ref<HTMLElement | null>(null);
+const popoverEl = ref<HTMLElement | null>(null);
+const { style: popoverStyle } = useFixedAnchoredPopover(open, triggerEl, popoverEl, { align: 'right' });
 
 // Render gate: hide entirely when calibration is disabled (503 from
 // the backend) or the user has no experiment configured. Same
@@ -153,6 +176,7 @@ async function onPin(): Promise<void> {
 <template>
   <div
     v-if="visible"
+    ref="triggerEl"
     class="metric pbo-metric"
     @mouseenter="onMouseEnter"
     @mouseleave="onMouseLeave"
@@ -163,7 +187,7 @@ async function onPin(): Promise<void> {
     </span>
     <span v-if="q.isBusy.value" class="busy-dot" :aria-label="$t('qeubo.aria.busy')">●</span>
 
-    <div v-if="open" :ref="setPopoverEl" class="pbo-popover" role="tooltip" :style="{ transform: `translateX(${xShift}px)` }">
+    <div v-if="open" ref="popoverEl" class="pbo-popover" role="tooltip" :style="{ top: popoverStyle.top, left: popoverStyle.left }">
       <!-- Audition toggle. v-model on q.toolbarView would also
            work but explicit click handlers give us per-button
            styling and keyboard semantics. -->
@@ -281,15 +305,24 @@ async function onPin(): Promise<void> {
 .busy-dot { color: var(--accent-primary); font-size: var(--text-body); animation: pulse var(--duration-slow) infinite; }
 @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1.0; } }
 
-/* Floating panel — same shape as the QUEUE / SLIDERS popovers:
-   absolute, flush against the badge (no margin-top gap), capped
-   width, bordered (no box-shadow — ledger row 1506 ban). The flush
-   anchor pairs with the composable's 150 ms close-grace timer for
-   gap-free pointer traversal in the common case. */
+/* Floating panel — same shape as the QUEUE / SLIDERS popovers: flush
+   against the badge (no margin-top gap), capped width, bordered (no
+   box-shadow — ledger row 1506 ban). The flush anchor pairs with the
+   hover composable's 150 ms close-grace timer for gap-free pointer
+   traversal in the common case.
+
+   Clip-ancestor fix (commission lyt-popover-clip-class): this rule was
+   previously anchored `top: 100%; right: 0` under CSS's absolute
+   positioning scheme, relative to `.pbo-metric`'s own `position:
+   relative` box. `position: fixed` (below) escapes
+   `.lyt-toolbar-strip`'s `overflow-y: auto` clip the same way
+   `ToolbarSliderPopover.vue`'s D1 fix does (see that file's header,
+   and `useFixedAnchoredPopover.ts`'s own header, for the full
+   diagnosis); `top`/`left` are now script-computed by
+   `useFixedAnchoredPopover` (align: 'right', matching the prior
+   `right: 0` anchor) and bound via `popoverStyle`. */
 .pbo-popover {
-  position: absolute;
-  top: 100%;
-  right: 0;
+  position: fixed;
   background: var(--surface-0);
   border: 1px solid var(--border-3);
   border-radius: var(--radius-default);

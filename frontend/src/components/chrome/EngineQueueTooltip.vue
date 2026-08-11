@@ -31,7 +31,7 @@ import { computed, ref, watch, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQueryTelemetry, type InFlightQuery } from '../../composables/useQueryTelemetry';
 import { useHoverPopover } from '../../composables/chrome/useHoverPopover';
-import { usePopoverEdgeClamp } from '../../composables/chrome/usePopoverEdgeClamp';
+import { useFixedAnchoredPopover } from '../../composables/chrome/useFixedAnchoredPopover';
 import { createTrailingThrottle } from '../../composables/useThrottledSnapshot';
 import { QUEUE_TOOLTIP_REDRAW_THROTTLE_MS } from '../../lib/timing';
 import type { QueryId } from '../../types';
@@ -39,10 +39,30 @@ import type { QueryId } from '../../types';
 const { t } = useI18n();
 const { inFlight, cancelQuery } = useQueryTelemetry();
 const { open, onMouseEnter, onMouseLeave } = useHoverPopover({ devId: 'queue' });
-// `left: 0`-anchored — the composable handles both anchor
-// directions symmetrically (clamps the offending edge whichever
-// it is); no per-popover direction config needed.
-const { setPopoverEl, xShift } = usePopoverEdgeClamp(open);
+
+// Clip-ancestor fix (commission lyt-popover-clip-class, ratified
+// program row 1937). This popover mounts inside `App.vue`'s
+// `.lyt-toolbar-strip` (via ToolbarEngineMetrics -> ToolbarEngineCluster
+// -> the `#leaf-A_engine` slot), the SAME `overflow-y: auto` clipping
+// ancestor `ToolbarSliderPopover.vue`'s D1 fix escaped
+// (`.claude/dispatch-reports/lyt-sliders-popover-defects.md`). Not
+// visually re-witnessed for THIS component in this commission — see
+// `.claude/dispatch-reports/lyt-popover-clip-class.md`'s per-member
+// disposition for why (the badge mounts only while
+// `useEngineControls().isConnected` is true, which this commission's
+// own isolation posture — dead-pinned ports, no live engine — cannot
+// provide) — but the ancestor chain and positioning scheme were
+// identical to ToolbarSliderPopover's pre-fix shape (`position:
+// absolute; top: 100%; left: 0`, same `.lyt-toolbar-strip` ancestor,
+// same z-index tier), so it is routed through the same composable as a
+// same-class structural fix rather than left unfixed pending a live
+// witness that this environment cannot produce. `usePopoverEdgeClamp`
+// (horizontal-only, snapshot-once — no scroll/resize tracking, see
+// that composable's own "Snapshot semantics" note) no longer applies;
+// `useFixedAnchoredPopover` supersedes it here.
+const triggerEl = ref<HTMLElement | null>(null);
+const popoverEl = ref<HTMLElement | null>(null);
+const { style: popoverStyle } = useFixedAnchoredPopover(open, triggerEl, popoverEl, { align: 'left' });
 
 const count = computed(() => inFlight.value.length);
 
@@ -143,6 +163,7 @@ onUnmounted(rowsThrottle.cancel);
 
 <template>
   <div
+    ref="triggerEl"
     class="metric queue-metric"
     :class="{ 'queue-active': count > 0 }"
     @mouseenter="onMouseEnter"
@@ -151,7 +172,7 @@ onUnmounted(rowsThrottle.cancel);
     <span class="m-lbl">{{ $t('toolbar.metric.queue') }}</span>
     <span class="m-val queue-count">{{ count }}</span>
 
-    <div v-if="open" :ref="setPopoverEl" class="queue-popover" role="tooltip" :style="{ transform: `translateX(${xShift}px)` }">
+    <div v-if="open" ref="popoverEl" class="queue-popover" role="tooltip" :style="{ top: popoverStyle.top, left: popoverStyle.left }">
       <div v-if="displayRows.length === 0" class="popover-empty">
         {{ $t('toolbar.queue.empty') }}
       </div>
@@ -234,14 +255,21 @@ onUnmounted(rowsThrottle.cancel);
 }
 
 .queue-popover {
-  position: absolute;
-  /* Anchor below the badge flush (no gap). Zero-gap pairs with
-     the grace-period close timer in <script> to make pointer-
-     traverse from badge to popover gap-free in the common case
-     while still tolerating overshoot. Left-aligned so the table
-     reads from the badge's left edge outward. */
-  top: 100%;
-  left: 0;
+  /* Clip-ancestor fix (commission lyt-popover-clip-class): this rule
+     was previously anchored `top: 100%; left: 0` under CSS's absolute
+     positioning scheme, relative to `.queue-metric`'s own `position:
+     relative` box. `position: fixed` (below) escapes `.lyt-toolbar-
+     strip`'s `overflow-y: auto` clip the same
+     way `ToolbarSliderPopover.vue`'s D1 fix does (see that file's
+     header, and `useFixedAnchoredPopover.ts`'s own header, for the
+     full diagnosis); `top`/`left` are now script-computed by
+     `useFixedAnchoredPopover` (align: 'left', matching the prior
+     `left: 0` anchor) and bound via `popoverStyle`. Anchor stays
+     flush against the badge (no gap) — the zero-gap layout still
+     pairs with the grace-period close timer in <script> to make
+     pointer-traverse from badge to popover gap-free in the common
+     case while still tolerating overshoot. */
+  position: fixed;
   background: var(--surface-0);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
