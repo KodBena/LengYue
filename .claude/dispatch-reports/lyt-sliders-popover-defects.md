@@ -9,6 +9,68 @@ A prior builder session had started D1's diagnosis and left a partial diff at
 but died before committing; this session owns the commission fresh, verifying that
 diff's claims against the current tree rather than trusting it.
 
+## Review response (corrective, same day)
+
+Independent review at `.claude/dispatch-reports/lyt-sliders-popover-review.md`
+returned **ACCEPT-WITH-NOTES** with one Major, one Minor-moderate, one Minor, and
+one Informational finding. Read in full before this corrective. Disposition of
+each, in the review's own numbering:
+
+- **Finding 1 (Major) — no scroll/resize re-anchoring.** **Fixed.** See the
+  extended D1 section below (new "Scroll/resize re-anchor" subsection and the
+  extended closure statement). A capture-phase `window` `scroll` listener plus a
+  `window` `resize` listener are now registered while the popover is open and
+  released on both close and unmount, per the resource-ownership-at-mutation-sites
+  discipline. Disposition chosen (the review named both TRACK and close-on-scroll
+  as defensible): **TRACK** — recompute the same anchor formula on every
+  scroll/resize while open, which is the review's own "cheapest closure"
+  suggestion and preserves the popover's existing "flush against the trigger"
+  contract through a scroll the same way it already holds through the initial
+  open. Witnessed live (see "Visual verification — scroll re-anchor" below).
+- **Finding 2 (Minor) — no vertical viewport clamp on `top`.** **Fixed.**
+  `recomputePopoverStyle()` (the extracted, now-shared geometry function) clamps
+  `top` against `window.innerHeight` the same way `left` was already clamped
+  against `window.innerWidth`, with the same 4px margin.
+- **Finding 3 (Minor-moderate) — no test coverage for the new geometry/color
+  logic.** **Fixed.** New file
+  `frontend/tests/integration/ToolbarSliderPopover-scroll-anchor.test.ts`: two
+  Tier-1 source-text assertions (D1's `position: fixed`, D2's `color:
+  var(--text-0)`, matching `lyt-w4-chrome.test.ts`'s established shape for this
+  same file) plus five Tier-3 mounted-component assertions on the listener
+  lifecycle (register-on-open with the correct `capture`/`passive` options,
+  release-on-close, release-on-unmount-while-open, idempotence across repeated
+  open/close cycles, and that the registered handler actually re-reads geometry
+  when fired). Verified as a real witness, not a tautology, the same way
+  `setup-palette-defects-build.md` verified its own regression test: temporarily
+  disabled the `attachScrollResizeListeners()` call, confirmed the 5 lifecycle
+  tests go red (5 failed, 2 passed — the 2 CSS-fact tests are unaffected by that
+  change, as expected), restored the fix, confirmed all 7 green again.
+- **Finding 4 (Informational) — census scope note on border-color literals.**
+  **Addressed by explicit scope note**, not by widening the census table (the
+  standing rule is case-by-case rulings, no sweeping census expansion mid-
+  corrective). The census's own header already scoped it to "readable
+  text/backgrounds"; this note makes the exclusion explicit rather than leaving it
+  implicit. The review's own independent grep found four additional hits outside
+  that scope: three `border-color: #2a5a7a` literals
+  (`components/chrome/ToolbarEngineCluster.vue:124`,
+  `components/qeubo/PboPopover.vue:320`, `components/qeubo/QeuboBookmarks.vue:160`
+  — a documented `theme-exception` family, "muted-cyan accent... matching...
+  QeuboToolbar's `.apply-btn`/`.highlight-btn` vocabulary") and one dark-theme-
+  scoped CSS custom-property *definition* (`components/tree/TreeWidget.vue:653`,
+  `--tree-node-black-fill: #707070` — a property declaration, not a direct
+  text/background rule; its consumer at `TreeWidget.vue:244` is itself an already-
+  token-shaped `var(--tree-node-black-fill, #111)` read, not a bare literal
+  styling readable content). Both are legitimate exclusions under the census's own
+  literal scope ("readable text/backgrounds"): border color styles neither text
+  nor background, and a custom-property *definition* is the token system's own
+  plumbing, not a bypass of it. Named explicitly here so a future reader doesn't
+  mistake the 25-row table for an exhaustive account of every hardcoded color
+  literal in the tree — it accounts for every literal in its *stated* scope.
+
+Gates re-run in full after the corrective (see "Gates" below, updated). Rebased
+onto the moved `lyt-phase2` tip (`efc7c3a8`) before making any of the above
+changes — see "Commit / merge-base" at the end, updated.
+
 ## Isolation assertion
 
 Worktree HEAD was rebased onto `lyt-phase2` tip (`cb15d69c782cdbf93d3f37f361bca51829d01e50`)
@@ -120,6 +182,65 @@ to drop `ToolbarSliderPopover` from its consumer list and name why (the file's
 behaviour is otherwise untouched — still serves `EngineQueueTooltip` / `PboPopover`
 unchanged).
 
+### Scroll/resize re-anchor (review Finding 1, Major — corrective)
+
+**What the original fix missed.** `position: fixed`'s containing block is the
+viewport. A `position: absolute` box's containing block is its nearest positioned
+ancestor, so when `.lyt-toolbar-strip` (that ancestor's own scrolling box, the
+SAME element D1 escapes the clip of) scrolls, the browser's own containing-block
+layout moves an absolutely-positioned popover with it — no listener needed, it's
+implicit in the positioning scheme. Switching to `position: fixed` removed that
+implicit tracking as a side effect of removing the clip, and nothing replaced it.
+`useHoverPopover` (read in full) closes only on `mouseleave`; a wheel/scrollbar
+scroll under a stationary pointer does not fire it in any mainstream browser, so
+the popover can stay open, visually detached from a trigger that has moved out
+from under its one-shot `top`/`left`.
+
+**Fix.** `recomputePopoverStyle()` — the geometry formula from the original fix,
+now extracted into a named function so the initial computation and the re-anchor
+below share one formula rather than risking drift between two copies (ADR-0002
+Rule 7's closest-match/duplication concern, applied to a formula rather than a
+vocabulary choice). A capture-phase `window` `scroll` listener (`scroll` does not
+bubble; a capture-phase listener on an ancestor — here, `window`, the topmost
+ancestor — fires during the capture pass regardless of the event's `bubbles` flag,
+so one `window`-level listener sees `.lyt-toolbar-strip`'s own scroll without
+walking the DOM to bind to it specifically) plus a `window` `resize` listener,
+both `{ passive: true }` (neither calls `preventDefault`, so passive is honest,
+not just an optimization), are registered when the popover opens and released
+both when it closes (the `watch(open, ...)` handler's `!isOpen` branch) and on
+`onUnmounted` (a component can unmount while `open` is still true — a parent
+re-render or route change tearing it down mid-hover — which fires no `watch`
+transition, only the unmount hook; the original fix's `watch`-only cleanup did
+not cover this path, though it had nothing to clean up before this corrective).
+Idempotence guard (`scrollResizeListenersAttached`) prevents a second open cycle
+from stacking a second listener pair.
+
+**Disposition chosen, of the two the review named as equally defensible:** TRACK
+(recompute and follow), not close-on-scroll. Reasons: (1) it is the review's own
+"cheapest closure" suggestion; (2) it preserves the popover's existing "flush
+against the trigger" contract through a scroll the same way that contract already
+holds through the initial open — no new, asymmetric behavior between "just
+opened" and "open and the ancestor scrolled"; (3) `useHoverPopover`'s `open` is
+typed `readonly` at its own return boundary specifically so consumers don't reach
+in and flip it from outside — implementing close-on-scroll would need either a
+change to that composable (touching its other two consumers, out of this
+commission's scope) or a second, locally-tracked "force-closed" flag ANDed into
+the template's `v-if`, which would need its own reconciliation with the
+composable's existing close-grace timer (what happens if the grace timer fires
+AND a scroll-close fires in the same tick?) — added state-machine complexity
+purely to implement the alternative, defensible disposition. TRACK has one
+edge case worth naming honestly: if the trigger scrolls far enough to be fully
+clipped by `.lyt-toolbar-strip`'s own `overflow-y: auto` (invisible, though still
+in the DOM and still reporting a real, if off-strip, `getBoundingClientRect()`),
+the popover will still track that computed position — potentially rendering
+somewhere that no longer visually relates to a visible control. This is filed
+here as a **named, not-covered edge case** (ADR-0000's closure-statement
+discipline), not fixed further this round: the popover staying open and visible
+while its trigger is only *partially* clipped (which is what the live witness
+below actually exercises, and what the original commissioner report's own
+narrow-height scenario describes) is the realistic case; full trigger occlusion
+during an active hover is a narrower, unwitnessed sub-case.
+
 ### Class question — sibling popovers/overlays sitting inside the same clipping ancestor
 
 Enumerated, not fixed (commission scope: fix only D1's instance unless another is
@@ -141,30 +262,58 @@ reach the ancestor's clip boundary in practice, but that is an unverified
 assumption, not a witnessed finding — flagging it as such rather than asserting
 either way.
 
-### Closure statement (ADR-0000, 2026-07-02 amendment)
+### Closure statement (ADR-0000, 2026-07-02 amendment; extended post-review)
 
 - **Invariant:** an absolutely- or relatively-anchored floating overlay's rendered
   box must never be truncated by an ancestor's `overflow: auto|hidden|scroll` short
   of the overlay's own content bounds; where such an ancestor is structurally
   necessary (as `.lyt-toolbar-strip`'s is, for its own wrapped-content reachability),
   the overlay must use a positioning scheme whose containing block is *not* that
-  ancestor.
-- **Quantification universe:** the axis here is "which chrome overlays are
-  descendants of a `overflow: auto` LYT leaf and anchored via `position: absolute`
-  relative to something inside it." Enumerated instances: `ToolbarSliderPopover`
-  (fixed, this commission), `EngineQueueTooltip` and `PboPopover` (same shape,
-  **named as not covered** — unwitnessed, out of this commission's scope per its own
-  stop-and-report instruction). `SetupToolPalette` is not in this universe (never
-  floats, by standing commissioner ruling). No other toolbar-adjacent floating
-  overlay was found sitting inside `.lyt-toolbar-strip`'s subtree — `LytPresenceMenu`,
-  `BoardRailPopoverTrigger`'s panel, and `DebugMenu` mount elsewhere in `App.vue`,
-  outside `.lyt-toolbar-strip` (not audited in depth for their own ancestor chains,
-  since they're structurally outside this defect's universe).
+  ancestor. **Extended (review Finding 1):** switching an overlay's containing
+  block away from a scrollable ancestor is not, by itself, a complete fix — the
+  invariant's second half is that the overlay's on-screen position must continue
+  to track its trigger through every geometry-changing event the *old* containing-
+  block relationship handled implicitly (ancestor scroll, viewport resize), not
+  just at the moment it opens.
+- **Quantification universe (re-checked outward per the amendment's own
+  presumption that the class as first named is too narrow):** the axis is "which
+  chrome overlays are descendants of an `overflow: auto` LYT leaf and anchored via
+  `position: absolute`/`fixed` relative to something inside it, AND — the axis this
+  session's original closure statement omitted — do they re-anchor on every
+  geometry-changing event that ancestor participates in (scroll, resize), or only
+  once at open." Enumerated instances: `ToolbarSliderPopover` (fixed for BOTH the
+  clip axis and the scroll/resize-tracking axis, this commission + corrective).
+  `EngineQueueTooltip` and `PboPopover` remain **named as not covered** on the clip
+  axis (unwitnessed, out of this commission's scope per its own stop-and-report
+  instruction) — and since both are still `position: absolute` (unchanged by this
+  delivery), the scroll/resize-tracking axis does not apply to them at all: an
+  absolutely-positioned popover tracks ancestor scroll for free, by construction,
+  the same way `ToolbarSliderPopover` did before this fix. The new axis is
+  therefore only live for a popover that is BOTH inside a scrollable LYT leaf AND
+  `position: fixed` — currently a **class of one** in this codebase
+  (`ToolbarSliderPopover`, post-fix). Filed here so a *future* fixed-position
+  popover authored inside `.lyt-toolbar-strip` (or any other `overflow: auto` LYT
+  leaf) inherits this same obligation rather than rediscovering it. `SetupToolPalette`
+  remains outside this universe (never floats, by standing commissioner ruling). No
+  other toolbar-adjacent floating overlay was found sitting inside
+  `.lyt-toolbar-strip`'s subtree — `LytPresenceMenu`, `BoardRailPopoverTrigger`'s
+  panel, and `DebugMenu` mount elsewhere in `App.vue`, outside `.lyt-toolbar-strip`
+  (not audited in depth for their own ancestor chains, since they're structurally
+  outside this defect's universe). **Named as not covered, this round too:** the
+  edge case of the trigger scrolling fully outside the strip's visible (clipped)
+  region while the popover, now tracking a fully-occluded trigger, stays open and
+  visible — see the "Scroll/resize re-anchor" subsection above for the full
+  reasoning; the realistic partial-scroll case (what the commissioner's original
+  report describes and what the live witness below exercises) is covered.
 - **Denomination check:** the fix's bound (the popover's positioning scheme) is
   denominated in the actual mechanism that causes clipping (containing-block
   resolution under CSS's positioning rules), not a proxy (e.g., "give the toolbar
   strip a taller `min-height`" would have been a proxy fix that shifts the clip
-  boundary without removing it).
+  boundary without removing it). **Extended:** the re-anchor's trigger condition
+  (`scroll`/`resize` events) is denominated in the actual DOM events that change
+  the trigger's on-screen position, not a proxy such as a polling interval (which
+  would be both wasteful — recomputing on a timer regardless of whether geometry
+  actually changed — and laggier than an event-driven recompute).
 
 ## D2 — non-theme-aware label (WITNESSED, fixed)
 
@@ -334,7 +483,45 @@ both themes.
 **Evidentiary status: WITNESSED** for both D1 and D2, at both themes and both
 viewports.
 
+## Visual verification — scroll re-anchor (review Finding 1 corrective)
+
+Same isolation posture as above (dead-port-pinned dev server on 19100, playwright-
+core against the cached chromium binary, `systemd-run --user --scope -p
+MemoryMax=4G -- nice -n 19 node ...`, no `waitForTimeout`). Viewport narrowed to
+340×700 — confirmed, before opening the popover, that `.lyt-toolbar-strip` is
+genuinely scrollable at this width (`scrollHeight` 199px vs `clientHeight` 160px
+for the leaf carrying the sliders trigger; probed across widths 1400→320 first to
+find one where the strip's own content wraps enough to overflow its fixed cell
+height, since the leaf's height is LYT-fixed, not proportional to viewport height
+— narrowing height alone does not make it scrollable, narrowing width to force
+more wrap rows does). Sequence: open the popover via hover, record the popover's
+`top` and the trigger's `bottom`, scroll `.lyt-toolbar-strip` itself (not
+`window`) by 40px via `scrollTop +=`, wait (via `waitForFunction` polling the
+popover's own inline `style` attribute, not a wall-clock sleep) for the popover's
+`top` to change, then re-measure:
+
+```
+STRIP_SCROLLABLE true
+BEFORE_SCROLL {"popoverTop":89,"triggerBottom":89}
+AFTER_SCROLL {"popoverStillOpen":true,"popoverTop":50,"triggerBottom":50,"stripScrollTop":39}
+VERDICT {"tracked":true,"detached":false,"stripScrollTop":39}
+```
+
+The popover stayed open through the scroll (`useHoverPopover`'s `mouseleave`-only
+close condition never fired, as diagnosed) and its `top` moved from 89px to 50px —
+exactly matching the trigger's new `bottom` (50px) after the strip scrolled 39px.
+Screenshots at `.claude/dispatch-reports/lyt-sliders-popover-defects-scroll-
+before.png` / `-scroll-after.png` — visually, the "SLIDERS 11" badge scrolls
+upward (partially out of the visible toolbar strip) and the popover panel moves
+with it, staying flush against the badge in both frames rather than the "badge
+moved, panel stayed put" detachment the review diagnosed against the pre-
+corrective code.
+
+**Evidentiary status: WITNESSED.**
+
 ## Gates
+
+**Original delivery (pre-corrective):**
 
 ```
 $ cd frontend && nice -n 19 npm run build
@@ -346,9 +533,26 @@ TEST_EXIT:0
       Tests  3050 passed | 8 skipped (3058)
 ```
 
-Both run in the foreground, to completion, literal exit codes captured above.
-(`node_modules` was not present in the fresh worktree; `npm install` was run once,
-first, before either gate — no `package.json`/lockfile changes resulted.)
+**Re-run after the review corrective** (rebased onto `lyt-phase2`'s moved tip
+`efc7c3a8` first — see "Commit / merge-base" below):
+
+```
+$ nice -n 19 npm --prefix frontend run build
+BUILD_EXIT:0
+
+$ NODE_OPTIONS=--max-old-space-size=2048 VITEST_MAX_THREADS=2 VITEST_MAX_FORKS=2 nice -n 19 npm --prefix frontend run test:run
+TEST_EXIT:0
+ Test Files  243 passed | 3 skipped (246)
+      Tests  3057 passed | 8 skipped (3065)
+```
+
+Test-file/test count grew by exactly 1 file / 7 tests, matching the new
+`ToolbarSliderPopover-scroll-anchor.test.ts` (2 CSS-fact + 5 lifecycle tests).
+Both runs in the foreground, to completion, literal exit codes captured above, no
+pipes. (`node_modules` was not present in the fresh worktree for the original
+delivery; `npm install` was run once, first, before either original-delivery gate
+— no `package.json`/lockfile changes resulted. Already present for the
+corrective's re-run.)
 
 ## Documentation-graph / FILES.md audit
 
@@ -364,6 +568,8 @@ replaced. No doc-graph structural change (no doc added/removed/re-cross-referenc
 
 ## Files changed
 
+**Original delivery:**
+
 - `frontend/src/components/chrome/ToolbarSliderPopover.vue` — D1 fix (`position:
   fixed` + script-computed anchor, drop `usePopoverEdgeClamp`), D2 fix (`color:
   var(--text-0)` on `.sliders-trigger`).
@@ -371,11 +577,36 @@ replaced. No doc-graph structural change (no doc added/removed/re-cross-referenc
   updated to drop `ToolbarSliderPopover` from its consumer list (behavior
   unchanged; still serves `EngineQueueTooltip`/`PboPopover`).
 
+**Review corrective (this update):**
+
+- `frontend/src/components/chrome/ToolbarSliderPopover.vue` — extracted
+  `recomputePopoverStyle()` (shared by open-time and re-anchor call sites, adds
+  the vertical clamp per Finding 2), added the scroll/resize listener
+  attach/detach pair + `onUnmounted` release per Finding 1, extended the
+  in-file D1 comment to cover the new axis.
+- `frontend/tests/integration/ToolbarSliderPopover-scroll-anchor.test.ts` (new)
+  — Finding 3's regression coverage.
+- `.claude/dispatch-reports/lyt-sliders-popover-defects.md` — this update:
+  review-response section, extended D1 diagnosis/closure statement, new scroll
+  re-anchor visual-verification section, re-run gates, census scope note
+  (Finding 4), updated commit/merge-base.
+- Four new screenshots under `.claude/dispatch-reports/` (scroll before/after).
+
 ## Commit / merge-base
 
-Committed on this worktree's own branch (`worktree-agent-a2026fce2a8d0cf1d`) at
-`bdeae4ffee138a574b5ce891b36b64eef0577234`. Final act: `git fetch origin
-lyt-phase2` — the remote tip was still `cb15d69c782cdbf93d3f37f361bca51829d01e50`
-(unchanged since this session's initial rebase), and `git merge-base HEAD
-lyt-phase2` resolved to that same SHA — HEAD's parent is exactly `lyt-phase2`'s
-tip, so no further rebase was needed.
+**Original delivery:** committed on this worktree's own branch
+(`worktree-agent-a2026fce2a8d0cf1d`) at `bdeae4ffee138a574b5ce891b36b64eef0577234`
+(build fix) and `7c9225d8947e5995bf2fa6d4d5f0693b1e7ed44f` (report merge-base
+record), on top of `lyt-phase2` tip `cb15d69c`.
+
+**Review corrective:** `lyt-phase2`'s tip had moved to `efc7c3a8` by the time this
+corrective started. `git fetch origin lyt-phase2` confirmed the new tip; `git
+rebase origin/lyt-phase2` replayed both prior commits cleanly on top of it (no
+conflicts — the two intervening `lyt-phase2` commits,
+`faa575ca` and `efc7c3a8`, touch `docs/adr/`, `docs/lyt/`, and `research/lyt/`,
+disjoint from this delivery's files). New corrective commit(s) landed after the
+rebase; see the final commit sha in the closing message of this response. Final
+merge-base check (last act, post-corrective-commit): `git fetch origin
+lyt-phase2` again, then `git merge-base HEAD lyt-phase2` — recorded in the closing
+message alongside the commit sha, confirming whether a further rebase was needed
+before this response was sent.

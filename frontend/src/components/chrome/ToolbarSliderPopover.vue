@@ -39,7 +39,7 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { store } from '../../store';
 import { useHoverPopover } from '../../composables/chrome/useHoverPopover';
 import KnobSlider from '../knobs/KnobSlider.vue';
@@ -48,19 +48,21 @@ import type { KnobDecl, KnobId } from '../../types';
 const { open, onMouseEnter, onMouseLeave } = useHoverPopover({ devId: 'sliders' });
 
 // D1 fix (commission lyt-sliders-popover-defects, 2026-08-11,
-// occlusion defect). This popover used to be `position: absolute`
-// inside `.sliders-metric` (`position: relative`), itself nested
-// inside App.vue's `.lyt-toolbar-strip` — the toolbar's own LYT leaf
-// cell (both `#leaf-A_engine` and `#leaf-A_app` post-reencode), which
-// carries `overflow-y: auto` so the TOOLBAR'S OWN wrapped content is
-// always reachable by scroll rather than silently clipped at narrow
-// heights. That ancestor clip applies to every painted descendant
-// regardless of z-index, including an absolutely-positioned popover —
-// witnessed live: the popover's rendered box extended past the
-// strip's own bottom edge at 1400x900, silently truncating the
-// lowest knob row. This was never a stacking-order problem
-// (`--z-popover-chrome` was already correct and well above every
-// sibling); it's a clipping-ancestor problem.
+// occlusion defect; extended per the independent review's Major
+// finding — see the "scroll/resize re-anchor" block below). This
+// popover used to be `position: absolute` inside `.sliders-metric`
+// (`position: relative`), itself nested inside App.vue's
+// `.lyt-toolbar-strip` — the toolbar's own LYT leaf cell (both
+// `#leaf-A_engine` and `#leaf-A_app` post-reencode), which carries
+// `overflow-y: auto` so the TOOLBAR'S OWN wrapped content is always
+// reachable by scroll rather than silently clipped at narrow heights.
+// That ancestor clip applies to every painted descendant regardless
+// of z-index, including an absolutely-positioned popover — witnessed
+// live: the popover's rendered box extended past the strip's own
+// bottom edge at 1400x900, silently truncating the lowest knob row.
+// This was never a stacking-order problem (`--z-popover-chrome` was
+// already correct and well above every sibling); it's a
+// clipping-ancestor problem.
 //
 // Fix: `position: fixed` (see the popover's own style rule below)
 // escapes `.lyt-toolbar-strip`'s clip entirely — a `position: fixed`
@@ -97,21 +99,117 @@ const popoverStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px
 // composable, but the visual breathing-room behaviour is unchanged.
 const VIEWPORT_EDGE_MARGIN_PX = 4;
 
-watch(open, async (isOpen) => {
-  if (!isOpen) return;
-  await nextTick(); // let the v-if'd popover mount so its width is measurable
+// Extracted so both the initial open-time computation AND the
+// scroll/resize re-anchor below (review Finding 1) share one geometry
+// formula — two copies of clamp arithmetic drifting apart is exactly
+// the closest-match/duplication failure ADR-0002 Rule 7 names.
+// Clamps BOTH axes now: `left` against the viewport's horizontal
+// edges (unchanged from the original fix), and `top` against the
+// viewport's bottom edge (review Finding 2, minor — the ancestor clip
+// this fix removes incidentally also bounded the popover vertically,
+// however badly; a defensive floor replaces it here rather than
+// leaving the axis wholly unclamped).
+function recomputePopoverStyle(): void {
   if (!triggerEl.value || !popoverEl.value) return;
   const triggerRect = triggerEl.value.getBoundingClientRect();
-  const popoverWidth = popoverEl.value.getBoundingClientRect().width;
-  const top = triggerRect.bottom; // flush against the trigger — useHoverPopover's own "no dead zone" contract
-  let left = triggerRect.right - popoverWidth; // right-aligned to the trigger, matching the prior `right: 0` CSS anchor
+  const popoverRect = popoverEl.value.getBoundingClientRect();
+
+  let top = triggerRect.bottom; // flush against the trigger — useHoverPopover's own "no dead zone" contract
+  if (top + popoverRect.height > window.innerHeight - VIEWPORT_EDGE_MARGIN_PX) {
+    top = Math.max(VIEWPORT_EDGE_MARGIN_PX, window.innerHeight - VIEWPORT_EDGE_MARGIN_PX - popoverRect.height);
+  }
+
+  let left = triggerRect.right - popoverRect.width; // right-aligned to the trigger, matching the prior `right: 0` CSS anchor
   if (left < VIEWPORT_EDGE_MARGIN_PX) {
     left = VIEWPORT_EDGE_MARGIN_PX;
-  } else if (left + popoverWidth > window.innerWidth - VIEWPORT_EDGE_MARGIN_PX) {
-    left = window.innerWidth - VIEWPORT_EDGE_MARGIN_PX - popoverWidth;
+  } else if (left + popoverRect.width > window.innerWidth - VIEWPORT_EDGE_MARGIN_PX) {
+    left = window.innerWidth - VIEWPORT_EDGE_MARGIN_PX - popoverRect.width;
   }
+
   popoverStyle.value = { top: `${top}px`, left: `${left}px` };
+}
+
+// Scroll/resize re-anchor (review Major finding, post-ACCEPT-WITH-NOTES
+// corrective). ADR-0000 two-question note: the ORIGINAL D1 closure
+// statement's quantification universe named the viewport-edge-clamp
+// axis and the sibling-component axis, but not the "does the fixed
+// popover track its trigger under ancestor scroll" axis — exactly the
+// gap ADR-0000's 2026-07-02 amendment (Rule 2(a), "the class gets
+// named at exactly the scope of the fix already built") warns against.
+// `position: fixed`'s containing block is the viewport, so it lost the
+// implicit scroll-tracking a `position: absolute` box gets for free
+// from the browser's own containing-block layout (the trigger's own
+// ancestor, `.lyt-toolbar-strip`, is the SAME element the D1 fix
+// escapes the clip of — the ancestor's `overflow-y: auto` is not just
+// the clip source, it's also the scroll source this axis is about).
+// `useHoverPopover` closes only on `mouseleave` (read that composable
+// in full): a wheel/scrollbar scroll under a stationary pointer does
+// not fire it, so the popover can stay open while its trigger moves
+// out from under a now-stale `top`/`left`. Disposition chosen (of the
+// two the review named as equally defensible): TRACK, not close-on-
+// scroll — this is the review's own "cheapest closure" suggestion,
+// keeps the popover's "flush against the trigger" contract honest
+// through a scroll the same way it already is through the initial
+// open, and avoids adding a second, `useHoverPopover`-external close
+// path that would need to reconcile with the composable's own
+// close-grace timer (that composable's `open` is typed `readonly` at
+// its own boundary specifically so consumers don't reach in and flip
+// it from outside).
+//
+// Resource: a `window`-level capture-phase `scroll` listener plus a
+// `window` `resize` listener, both PASSIVE (no `preventDefault` call,
+// so passive is honest, not just fast) and BOTH REGISTERED ONLY WHILE
+// `open` IS TRUE. Capture phase specifically for `scroll` — `scroll`
+// does not bubble, so a bubble-phase `window` listener never sees
+// `.lyt-toolbar-strip`'s own scroll; capture-phase listeners on an
+// ancestor fire during the capture pass regardless of the event's
+// `bubbles` flag, which is what lets one `window`-level listener see
+// every scrollable descendant's scroll without walking the DOM to
+// find and bind to `.lyt-toolbar-strip` specifically (which would
+// also need its own resource-ownership entry, for no gain — `window`
+// already outlives the component, so binding there needs exactly one
+// release site instead of one per candidate scrolling ancestor).
+//
+// Failure mode if NOT released: `window` outlives every component
+// instance, so an unreleased listener is a straightforward per-
+// open-cycle leak — each subsequent open would layer another
+// (redundant, since idempotence is guarded below) listener that keeps
+// firing forever, each one dereferencing this closure's `triggerEl`/
+// `popoverEl` refs after the component that owns them may be long
+// gone. Released at BOTH exit paths per the resource-ownership-at-
+// mutation-sites discipline (frontend/CLAUDE.md): the `watch(open,
+// ...)` handler's `!isOpen` branch (the ordinary close, whether via
+// `useHoverPopover`'s grace-timer mouseleave path or a future
+// programmatic close) AND `onUnmounted` (the component can unmount
+// while `open` is still true — a route change or a parent re-render
+// tearing this component down mid-hover — which fires no `watch`
+// transition at all, only the unmount hook).
+let scrollResizeListenersAttached = false;
+function attachScrollResizeListeners(): void {
+  if (scrollResizeListenersAttached) return; // idempotent: a second open-cycle's attach must not stack a second pair
+  window.addEventListener('scroll', recomputePopoverStyle, { capture: true, passive: true });
+  window.addEventListener('resize', recomputePopoverStyle, { passive: true });
+  scrollResizeListenersAttached = true;
+}
+function detachScrollResizeListeners(): void {
+  if (!scrollResizeListenersAttached) return;
+  window.removeEventListener('scroll', recomputePopoverStyle, { capture: true });
+  window.removeEventListener('resize', recomputePopoverStyle);
+  scrollResizeListenersAttached = false;
+}
+
+watch(open, async (isOpen) => {
+  if (!isOpen) {
+    detachScrollResizeListeners();
+    return;
+  }
+  await nextTick(); // let the v-if'd popover mount so its width/height are measurable
+  if (!triggerEl.value || !popoverEl.value) return;
+  recomputePopoverStyle();
+  attachScrollResizeListeners();
 });
+
+onUnmounted(detachScrollResizeListeners); // see the resource-ownership note above — the watch's close branch alone does not cover an unmount-while-open
 
 /**
  * Every scalar (inputs.length === 1) knob in the registry, sorted
