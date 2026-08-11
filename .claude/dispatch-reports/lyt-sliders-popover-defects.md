@@ -373,6 +373,9 @@ replaced. No doc-graph structural change (no doc added/removed/re-cross-referenc
 
 ## Commit / merge-base
 
-Committed on this worktree's own branch. Final rebase-check performed as the last
-act — see the commit log below for the resulting SHA and the merge-base-vs-tip
-comparison.
+Committed on this worktree's own branch (`worktree-agent-a2026fce2a8d0cf1d`) at
+`bdeae4ffee138a574b5ce891b36b64eef0577234`. Final act: `git fetch origin
+lyt-phase2` — the remote tip was still `cb15d69c782cdbf93d3f37f361bca51829d01e50`
+(unchanged since this session's initial rebase), and `git merge-base HEAD
+lyt-phase2` resolved to that same SHA — HEAD's parent is exactly `lyt-phase2`'s
+tip, so no further rebase was needed.
