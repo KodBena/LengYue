@@ -21,8 +21,9 @@ export const globalLegendState: Record<string, boolean> = reactive({});
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import { themeColor } from '../../utils/theme-color';
-import { CHART_MARKER_DEBOUNCE_MS as DEBOUNCE_MS, BASE_CHART_REDRAW_THROTTLE_MS, CHART_INIT_RETRY_MS } from '../../lib/timing';
+import { CHART_MARKER_DEBOUNCE_MS as DEBOUNCE_MS, BASE_CHART_REDRAW_THROTTLE_MS, CHART_INIT_RETRY_MS, CHART_RENDER_RETRY_TIMEOUT_MS } from '../../lib/timing';
 import { createTrailingThrottle } from '../../composables/useThrottledSnapshot';
+import { cappedRetry, type CappedRetryHandle } from '../../lib/capped-retry';
 import { seriesHasData } from './chart-data';
 
 const props = withDefaults(defineProps<{
@@ -533,23 +534,21 @@ const debouncedUpdateMarker = () => {
 };
 
 let resizeObserver: ResizeObserver | null = null;
-// Init-retry timer: captured so onUnmounted can release it. Failure mode if
-// uncleared — a chart unmounted while a retry is pending (TabWidget lazy
+// Init-retry handle: captured so onUnmounted can cancel it. Failure mode if
+// uncancelled — a chart unmounted while a retry is pending (TabWidget lazy
 // unmount, App.vue's `:key`-driven board remount) leaves a closure that
 // reschedules itself forever against a dead `chartRef`/`chartInstance`,
 // never satisfying `chartRef.value` and never calling `echarts.init` for
-// that mount (mirrors HeatmapChart's `initTimeout`, HeatmapChart.vue:39).
-let initTimeout: number | null = null;
+// that mount (mirrors HeatmapChart's `initRetry` cleanup, HeatmapChart.vue).
+// Bounded via cappedRetry (lib/capped-retry.ts) rather than a raw
+// self-recursing `setTimeout` — the ADR-0011 Rule 2 mechanization of the
+// class named in .claude/dispatch-reports/lyt-cardtrees-regression.md: an
+// uncapped retry against a container that never resolves polls forever
+// with no signal that anything is wrong.
+let initRetry: CappedRetryHandle | null = null;
 
-const initChart = async () => {
-  await nextTick();
-  if (!chartRef.value || chartRef.value.clientHeight === 0) {
-    // Re-init delay — gives the ECharts container time to acquire
-    // layout. The shared chart init-retry constant from the timing
-    // catalog (`lib/timing`), also used by HeatmapChart.
-    initTimeout = window.setTimeout(initChart, CHART_INIT_RETRY_MS);
-    return;
-  }
+const attemptInitChart = (): boolean => {
+  if (!chartRef.value || chartRef.value.clientHeight === 0) return false;
 
   chartInstance = echarts.init(chartRef.value, 'dark');
 
@@ -561,7 +560,7 @@ const initChart = async () => {
 
   chartInstance.on('legendselectchanged', (params: any) => {
     Object.assign(globalLegendState, params.selected);
-    updateAxisOnly(); 
+    updateAxisOnly();
   });
 
   const zr = chartInstance.getZr();
@@ -596,6 +595,21 @@ const initChart = async () => {
   });
 
   updateOptions();
+  return true;
+};
+
+const initChart = async () => {
+  await nextTick();
+  // Re-init poll interval — gives the ECharts container time to acquire
+  // layout. The shared chart init-retry constant from the timing catalog
+  // (`lib/timing`), also used by HeatmapChart; capped at
+  // CHART_RENDER_RETRY_TIMEOUT_MS wall-clock before escalating to a
+  // console.warn instead of polling forever.
+  initRetry = cappedRetry(attemptInitChart, {
+    intervalMs: CHART_INIT_RETRY_MS,
+    timeoutMs: CHART_RENDER_RETRY_TIMEOUT_MS,
+    label: 'BaseChart',
+  });
 };
 
 // Series-data redraw throttle (the shared subscriber-projection mechanism).
@@ -633,11 +647,11 @@ onUnmounted(() => {
   // Release the data-redraw throttle timer too, so a pending setOption
   // can't fire into a disposed chartInstance.
   dataThrottle.cancel();
-  // Release the init-retry timer: without this, a chart unmounted while a
-  // retry is pending leaks a closure that reschedules itself forever
-  // against a dead chartRef/chartInstance (see the declaration comment
-  // above). Mirrors HeatmapChart.vue's `initTimeout` cleanup.
-  if (initTimeout) clearTimeout(initTimeout);
+  // Release the init-retry: without this, a chart unmounted while a retry
+  // is pending leaks a closure that keeps polling a dead
+  // chartRef/chartInstance (see the declaration comment above). Mirrors
+  // HeatmapChart.vue's `initRetry` cleanup.
+  initRetry?.cancel();
   if (resizeObserver && chartRef.value) {
     resizeObserver.unobserve(chartRef.value);
     resizeObserver.disconnect();

@@ -423,6 +423,7 @@ frontend/src/
 │   └── theme-color.ts                 [B1]  Runtime CSS-variable accessor for ECharts adapter configs.
 │
 ├── lib/
+│   ├── capped-retry.ts                [B1]  Bounded, fail-loud `cappedRetry(attempt, options, onExhausted?)` helper: polls `attempt()` on `options.intervalMs` until it returns true or `options.timeoutMs` wall-clock elapses, then escalates once (default: `console.warn` naming `options.label`) instead of retrying forever. Mechanizes the ADR-0011 Rule 2 recurrence (cardtrees-fix-next, ledger row 1937) shared by `useEChartsForestRender.ts`, `BaseChart.vue`, and `HeatmapChart.vue`'s ECharts-container size-gate retries — see `.claude/dispatch-reports/lyt-cardtrees-regression.md` / `cardtrees-fix-next.md`. Domain-free (no chart/game vocabulary — the predicate is caller-supplied).
 │   ├── correlation.ts                 [B1]  Pairwise Pearson with NaN-pair dropping.
 │   ├── distributions.ts               [B1]  Histogram binning (integer-aware + Freedman–Diaconis) and Gaussian-kernel KDE with Silverman's-rule bandwidth.
 │   ├── dsl-harness.ts                 [B1]  Pipeline-DSL hyperparameter harness: JSON5+holes parser/formatter, validator, substitute.

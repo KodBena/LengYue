@@ -662,33 +662,69 @@ onUnmounted(() => {
 /* Phase 3 (audit finding R3): at wide/vast LayoutWidthClass, the
    right pane's chart + metadata panel sit SIDE BY SIDE (genre's "two
    columns") instead of the chart stretching across the panel's full
-   width with CardMetadataPanel stacked below it. `.panel-header` and
-   `.empty-state` are forced onto their own full-width row
-   (`flex: 1 1 100%`) via `flex-flow: row wrap` on the container, so
-   only `.chart-wrapper` and `:deep(.card-metadata-panel)` actually
-   share the row — CardTreeWidget's own node-click wiring is untouched,
-   this only changes the flex container geometry around it.
-   `cardMetadataMaxWidthCss` (script) keeps the metadata column's own
-   width sourced from `PANEL_CONTENT_READING_MEASURE_CH`, the same
-   declared measure LibraryTab.vue's split cap uses — no second
-   hand-typed `ch` literal. */
+   width with CardMetadataPanel stacked below it.
+
+   cardtrees-fix-next (ledger row 1937): this was originally a
+   wrapped flexbox (`flex-flow: row wrap` + `align-content:
+   flex-start`) with `.panel-header`/`.empty-state` forced onto their
+   own full-width line via `flex: 1 1 100%`. That shape has a defeat
+   case per docs/adr/0000 Rule 2(a): `align-content` other than the
+   stretch-by-default `normal` opts *every* flex line out of
+   cross-axis stretch, sized to its own hypothetical content height
+   instead — so whenever `.chart-wrapper` lands alone on the second
+   line (no `CardMetadataPanel` sibling, the ordinary Browse-tab case
+   with nothing selected for inline edit), its `flex: 1 1 0` only
+   still governs its *width* (the row's main axis); its *height* (the
+   cross axis) collapses to content instead of filling the panel's
+   available space, and `CardTreeWidget`'s `height: 100%` chain
+   bottoms out at 0 — see
+   .claude/dispatch-reports/lyt-cardtrees-regression.md for the full
+   diagnosis. Dropping the `align-content` override alone doesn't
+   foreclose the class cleanly either: flexbox's *default*
+   multi-line stretch distributes the container's leftover cross
+   space equally across every line, so `.panel-header`'s forced
+   full-width line would grow past its own content height too,
+   stealing space from the chart instead of staying compact.
+
+   Converted to `display: grid` with two explicit tracks
+   (`grid-template-rows: auto 1fr`) so the header row is sized to its
+   own content (`auto`) and the body row (chart-wrapper /
+   card-metadata-panel) is an explicit fraction of the remaining
+   space (`1fr`) — never an implicit content-hypothetical default,
+   and never subject to a wrap-axis flip's cross-axis stretch
+   surprise. `grid-template-columns: 1fr auto` gives `.chart-wrapper`
+   the flexible column and the metadata panel its own natural
+   ("auto") column, collapsing to zero width when the panel isn't
+   mounted. `cardMetadataMaxWidthCss` (script) keeps the metadata
+   column's own width sourced from `PANEL_CONTENT_READING_MEASURE_CH`,
+   the same declared measure LibraryTab.vue's split cap uses — no
+   second hand-typed `ch` literal. */
 .forest-container.panel-content-two-col .tree-panel {
-  flex-flow: row wrap;
-  align-content: flex-start;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto 1fr;
   overflow: auto;
 }
-.forest-container.panel-content-two-col .tree-panel > .panel-header,
+.forest-container.panel-content-two-col .tree-panel > .panel-header {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
 .forest-container.panel-content-two-col .tree-panel > .empty-state {
-  flex: 1 1 100%;
+  grid-column: 1 / -1;
+  grid-row: 2;
 }
 .forest-container.panel-content-two-col .tree-panel > .chart-wrapper {
-  flex: 1 1 0;
+  grid-column: 1;
+  grid-row: 2;
   min-width: 0;
+  min-height: 0;
 }
 .forest-container.panel-content-two-col .tree-panel :deep(.card-metadata-panel) {
-  flex: 0 0 auto;
+  grid-column: 2;
+  grid-row: 2;
   width: v-bind(cardMetadataMaxWidthCss);
   max-width: 100%;
   margin-top: 0;
+  align-self: start;
 }
 </style>
