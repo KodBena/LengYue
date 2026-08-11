@@ -775,37 +775,50 @@ def test_resolve_and_validate_rejects_before_pruning():
 
 
 @pytest.mark.parametrize(
-    "label,w,h",
+    "label,w,h,expected",
     [
-        ("1920x1080", 1920, 1080),
-        ("2560x1440", 2560, 1440),
-        ("3440x1440", 3440, 1440),
-        ("1366x768", 1366, 768),
+        ("1920x1080", 1920, 1080, "OPTIMAL"),
+        ("2560x1440", 2560, 1440, "OPTIMAL"),
+        ("3440x1440", 3440, 1440, "OPTIMAL"),
+        ("1366x768", 1366, 768, "INFEASIBLE"),
     ],
 )
-def test_lengyue_landscape_default_valuation_solves_optimal(label, w, h):
-    """PRE-OPTION-C this pinned OPTIMAL at every size named here. The
-    Option C tab-skeleton-encoding wave (2026-08-11, ledger row 1937's
-    ratified consult, work item lyt-tab-skeleton-encoding) makes EVERY
-    landscape size INFEASIBLE, for a genuine, disclosed, presence-
-    INDEPENDENT reason unrelated to screen size at all: the newly-opened
-    `settingsPane` composite's own honest ch-measured width floor (838px --
-    corrected 2026-08-11 per `.claude/dispatch-reports/lyt-optionc-review
-    .md` Finding 3 / `.claude/dispatch-reports/lyt-optionc-repair.md`; the
-    Option C wave's own original delivery reported 880px, a systematic
-    +1-per-label ch-count error, grounded in `frontend/src/locales/en.json`'s
-    six sub-tab labels + `TabWidget.vue`'s own tab padding -- see
-    `lengyue_landscape.lyt`'s own "OPTION C TAB-SKELETON ENCODING" header
-    section for the full derivation) EXCEEDS the side column's own
-    pre-existing, separately-ratified hard cap (`max 340px+60ch` = 820px,
-    W1 REPAIR/W4 FLOOR SOFTENING/TOOLBAR REENCODE) -- by an honest ~18px,
-    not the originally-reported ~60px. Since the side column's cap is a
-    CONSTANT regardless of viewport size, this INFEASIBLE outcome is the
-    SAME at every screen size -- not something a wider viewport can ever
-    rescue. This is named, per the commission's own instruction, as a
-    finding for the commissioner (Amendment 1's banner-floor precedent),
-    NOT papered over by weakening the settings envelope's honest demand
-    or by silently widening the column's own established cap."""
+def test_lengyue_landscape_default_valuation_solves_optimal(label, w, h, expected):
+    """STALE-ASSERTION UPDATE (2026-08-11, work item `lyt-settings-live-
+    opening`, ledger rows 2007/2009 — ADR-0000's own "corrective diff is
+    new structure" discipline applied to a test pinning a NOW-FIXED
+    defect). PRE-OPTION-C this pinned OPTIMAL at every size named here.
+    The Option C tab-skeleton-encoding wave (2026-08-11, ledger row 1937)
+    made EVERY landscape size INFEASIBLE for a genuine, disclosed,
+    presence-INDEPENDENT reason: `settingsPane`'s own single-row 838px
+    width floor exceeded the side column's own separately-ratified hard
+    cap (`max 340px+60ch` = 820px) — this test used to pin THAT
+    INFEASIBLE outcome as the honest, expected result of an un-fixed
+    finding.
+
+    This work item's own settings-substrip FLOW ENVELOPE (rows 2007/2009,
+    `research/lyt/flow.py`, `lengyue_landscape.lyt`'s own "FLOW-CAPABLE
+    SETTINGS SUBSTRIP" header section) retires that 838px single-row
+    floor in favor of a wrap-capable 2-row design point (443px width,
+    60px height) — well under the 820px cap — so the T-node's own
+    componentwise-max floor is now driven by `CP-analysis`'s unchanged
+    664px, not by settings. 1920x1080/2560x1440/3440x1440 (which were
+    NEVER bound by the 664px CP-analysis floor, only by settings' retired
+    838px) return to their PRE-OPTION-C `OPTIMAL` result.
+
+    1366x768 stays `INFEASIBLE` — for a DIFFERENT, PRE-EXISTING,
+    presence-independent reason this work item does not touch: Amendment 4's
+    own documented finding (SPEC-AMENDMENTS.md) that the board composite's
+    own forced width, plus the tree/panels row's `WRAPPER_MIN`-driven
+    floor, exceeds 1366px's available width regardless of presence
+    valuation or the settings floor. Verified directly (not merely
+    asserted): re-solving 1024x700/900x600/1280x1024 (the OTHER three
+    sizes Amendment 4's own table names as presence-independently
+    INFEASIBLE) after this work item's change finds them UNCHANGED —
+    still INFEASIBLE, for their own unrelated documented reasons, not
+    reproduced as a parametrized case here since Amendment 4's own
+    coverage already pins them (`test_generated_pages_embed_valid_overlay
+    _json_matching_overlay_sizes`'s own `known_infeasible` bookkeeping)."""
     layouts = loader.load_layouts((ENCODINGS_DIR / "lengyue_landscape.lyt").read_text())
     slot = layouts["lengyue-landscape"]
     default_valuation = presence_mod.PresenceValuation(
@@ -815,23 +828,29 @@ def test_lengyue_landscape_default_valuation_solves_optimal(label, w, h):
     result = solve_lexicographic(
         pruned, class_id="landscape", w_px=w, h_px=h, board_widget="B", reach_preferred_widgets=None, time_limit_s=15
     )
-    assert result.status == "INFEASIBLE", (
-        f"{label}: Option C's settingsPane 838px width floor exceeds the column's 820px cap "
-        f"at every size (see this test's own docstring); got {result.status}"
+    assert result.status == expected, (
+        f"{label}: expected {expected} after the flow-envelope settings-substrip fix "
+        f"(see this test's own docstring); got {result.status}"
     )
 
 
 def test_lengyue_portrait_default_valuation_solves_optimal_at_420x880():
     """PRE-OPTION-C this pinned OPTIMAL. The Option C tab-skeleton-encoding
-    wave (ledger row 1937) makes 420x880 INFEASIBLE too -- at this narrow
-    a portrait viewport, the FULL page width (420px) is already far short
-    of `settingsPane`'s own 838px honest width floor (corrected per
-    Finding 3, see
+    wave (ledger row 1937) made 420x880 INFEASIBLE -- at this narrow a
+    portrait viewport, the FULL page width (420px) was already far short
+    of `settingsPane`'s own then-838px honest width floor.
+
+    STILL INFEASIBLE after work item `lyt-settings-live-opening`'s flow-
+    envelope fix (rows 2007/2009 -- see
     `test_lengyue_landscape_default_valuation_solves_optimal`'s docstring
-    for the full derivation; portrait shares the identical floor, per
-    `lengyue_portrait.lyt`'s own header note). This is a genuinely more
-    binding version of the SAME landscape finding, not a new, independent
-    one."""
+    for the full derivation), but for a smaller margin now: the composite
+    floor dropped 838px -> 443px, and 420px is still narrower than
+    443px -- verified directly (not merely re-asserted): re-solved after
+    the fix and confirmed still `INFEASIBLE`, not a stale carried-over
+    assertion. This remains a genuinely more binding version of the SAME
+    landscape finding, not a new, independent one -- just a much
+    narrower margin (23px short of 443px, vs. 418px short of 838px
+    before)."""
     layouts = loader.load_layouts((ENCODINGS_DIR / "lengyue_portrait.lyt").read_text())
     slot = layouts["lengyue-portrait"]
     default_valuation = presence_mod.PresenceValuation(
@@ -1646,6 +1665,23 @@ def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_
     pre-Option-C table. This is the SAME genuine, disclosed finding named
     in `test_lengyue_landscape_default_valuation_solves_optimal`'s own
     docstring, not a new, independent regression."""
+    # STALE-ASSERTION UPDATE (2026-08-11, work item `lyt-settings-live-
+    # opening`, ledger rows 2007/2009) — the flow-envelope settings-substrip
+    # fix (`research/lyt/flow.py`, `test_lengyue_landscape_default_valuation_
+    # solves_optimal`'s own docstring has the full derivation) drops the
+    # settings composite's floor from 838px to 443px, well under the side
+    # column's 820px cap. Re-solved directly (not carried forward), FIVE
+    # entries flip INFEASIBLE -> OPTIMAL, disclosed individually:
+    #   - ("default", "landscape", "1920x1080")
+    #   - ("default", "landscape", "2560x1440")
+    #   - ("default", "landscape", "3440x1440")
+    #   - ("default", "portrait", "1920x1080-in-portrait")
+    #   - ("all-present", "portrait", "1080x1920")
+    # Every OTHER entry in the pre-fix set stays INFEASIBLE, for its own
+    # unrelated, pre-existing, presence-independent reason (Amendment 4's
+    # own board-forced-width/floor-collision finding, or all-present's own
+    # boardRail+previewBoard reservation) — re-verified by direct re-solve,
+    # not assumed unchanged.
     known_infeasible_by_valuation = {
         ("all-present", "landscape", "1920x1080"),
         ("all-present", "landscape", "2560x1440"),
@@ -1655,15 +1691,11 @@ def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_
         ("all-present", "landscape", "1080x1920-in-landscape"),
         ("all-present", "landscape", "1024x700"),
         ("all-present", "landscape", "900x600"),
-        ("default", "landscape", "1920x1080"),
-        ("default", "landscape", "2560x1440"),
         ("default", "landscape", "1280x1024"),
-        ("default", "landscape", "3440x1440"),
         ("default", "landscape", "1366x768"),
         ("default", "landscape", "1080x1920-in-landscape"),
         ("default", "landscape", "1024x700"),
         ("default", "landscape", "900x600"),
-        ("all-present", "portrait", "1080x1920"),
         ("all-present", "portrait", "768x1024"),
         ("all-present", "portrait", "540x960"),
         ("all-present", "portrait", "420x880"),
@@ -1671,7 +1703,6 @@ def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_
         ("default", "portrait", "768x1024"),
         ("default", "portrait", "540x960"),
         ("default", "portrait", "420x880"),
-        ("default", "portrait", "1920x1080-in-portrait"),
     }
     for class_id, html_text in mockup_pages.items():
         m = re.search(r'<script id="lyt-solved-data" type="application/json">(.*?)</script>', html_text, re.S)
@@ -1776,9 +1807,16 @@ def test_portrait_composite_row_carries_the_board_priority_cap(mockup_pages):
     `_exclusive_derived_min_px` copy was NOT changed by the Finding 2
     repair (out of that repair's scope, named as a residual in
     `.claude/dispatch-reports/lyt-optionc-repair.md`), so this mockup
-    correctly continues to show the solver-derived interior floor."""
+    correctly continues to show the solver-derived interior floor.
+
+    STALE-ASSERTION UPDATE (2026-08-11, work item `lyt-settings-live-
+    opening`): the settings composite's own floor drops 838px -> 443px
+    (the flow-envelope fix, `research/lyt/flow.py`); the T-node's own
+    componentwise-max floor is now driven by `CP-analysis`'s UNCHANGED
+    664px instead — verified directly against `emit_mockup.py`'s own
+    output, not carried forward from the pre-fix pin."""
     assert "minmax(0px, calc(100vw + 52px))" in mockup_pages["portrait"]
-    assert "minmax(838px, 1fr)" in mockup_pages["portrait"]  # T-node's floor is untouched by the cap
+    assert "minmax(664px, 1fr)" in mockup_pages["portrait"]  # T-node's floor, now driven by CP-analysis
 
 
 def test_tree_panels_t_node_track_carries_its_derived_floor(mockup_pages):
@@ -1797,9 +1835,15 @@ def test_tree_panels_t_node_track_carries_its_derived_floor(mockup_pages):
     by `settingsPane`'s own 838px composite floor (corrected per Finding 3
     -- the widest of the five direct children on both classes) -- see
     `test_portrait_composite_row_carries_the_board_priority_cap`'s own
-    updated docstring."""
-    assert "minmax(838px, 1fr)" in mockup_pages["landscape"]
-    assert "minmax(838px, 1fr)" in mockup_pages["portrait"]
+    updated docstring.
+
+    STALE-ASSERTION UPDATE (2026-08-11, work item `lyt-settings-live-
+    opening`): 838px -> 664px, now shadowed by `CP-analysis`'s own
+    UNCHANGED floor instead of settings' retired one — see
+    `test_portrait_composite_row_carries_the_board_priority_cap`'s own
+    updated docstring for the full derivation."""
+    assert "minmax(664px, 1fr)" in mockup_pages["landscape"]
+    assert "minmax(664px, 1fr)" in mockup_pages["portrait"]
 
 
 def test_render_is_deterministic_given_the_same_overlay_data():

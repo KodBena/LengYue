@@ -60,9 +60,12 @@ describe('named readable-text surfaces use --text-0 (rows 1478/1479/1481)', () =
     expect(m![1]).not.toMatch(/color:\s*var\(--text-2\)/);
   });
 
-  it('SettingsTab.vue: the theme-row setting-name label is --text-0', () => {
+  it('SettingsPane.vue: the theme-row setting-name label is --text-0', () => {
+    // SettingsTab.vue was retired (work item `lyt-settings-live-opening`,
+    // ledger rows 2007/2009/2001) — its six pane bodies, including the
+    // theme-row this test pins, moved verbatim to SettingsPane.vue.
     const src = readFileSync(
-      resolve(process.cwd(), 'src/components/SettingsTab.vue'),
+      resolve(process.cwd(), 'src/components/chrome/SettingsPane.vue'),
       'utf-8',
     );
     const style = styleBlock(src);

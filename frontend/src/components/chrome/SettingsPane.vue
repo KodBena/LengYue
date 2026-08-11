@@ -1,94 +1,98 @@
 <script setup lang="ts">
 /**
- * src/components/SettingsTab.vue
+ * src/components/chrome/SettingsPane.vue
  *
- * The Settings tab's surface. Hosts six sub-tabs via the project's
- * TabWidget. Orientation (ledger rows 1404/1427, side/default per
- * 1505/1509/1515/1516) is now a QUIET, user-owned, persisted choice
- * — `store.session.ui.settingsTabsOrientation` — rather than
- * hardcoded. Default `'horizontal'` (the commissioner's ruling:
- * keep vertical tabs available, but "leave it quietly as an option
- * ... default to the bad old times with horizontal tabs") restores
- * the pre-vtabs strip for everyone who hasn't opted in via the
- * Session (UI) pane's "Settings tabs layout" select (below). Opting
- * into `'vertical'` renders a right-hand rail beside the pane it
- * controls (TabWidget.vue's own header documents the orientation +
- * side contract) — replacing the horizontal strip's overflow-scroll
- * for users who find six sub-tabs cramped at a reasonable width.
- * The control-panel strip, ForestDirectory, and AnalysisDashboard
- * remain horizontal and unchanged; this is still the only TabWidget
- * consumer with a vertical option at all:
- *   - Session (UI): the RegistryEditor over `store.session.ui`.
- *   - Analysis Environment: the PaletteEditor over the KataGo
- *     analysis_env, with a Force Persistence button at the top.
- *   - Card Sets: the CardSetEditor in a taller registry-container.
- *   - Advanced Registry: the RegistryEditor over profile settings.
- *   - Analysis: the AnalysisTabsEditor (Analysis-tab layout).
- *   - Keybindings: the read-only registry view (Phase 3 of
- *     docs/notes/keybindings-plan.md). Phase 4 adds Edit /
- *     Reset / Unbind.
+ * Work item `lyt-settings-live-opening` (ledger rows 2007/2009/2001),
+ * SettingsTab/TabWidget composition-boundary refactor. Mounts at the
+ * encoding's own `settingsPane` leaf (`V(settingsSubstrip, settingsPane)`)
+ * — the six settings sub-tab BODIES, moved verbatim from the retired
+ * `SettingsTab.vue`. The sibling `SettingsSubstrip.vue` owns the STRIP half
+ * (`TabWidget.vue`'s own `part="header"`); this component drives the SAME
+ * `TabWidget.vue` with `part="body"` (horizontal, the modeled default) so
+ * there remains exactly ONE tab implementation (TabWidget.vue) — see that
+ * file's own header, "Split composition, `part`" — sharing the active
+ * sub-tab id via `useSettingsSubTab.ts`'s own module-singleton ref.
  *
- * The first four were extracted from App.vue's prior `#settings`
- * slot; they were native <details> accordion sections under one
- * General sub-tab until the 2026-06-12 restructure flattened each
- * into its own sub-tab.
+ * Derived overflow: this leaf's own `content unbounded, scroll v`
+ * declaration (the encoding's disclosed worst-case-superset classification
+ * — see `lengyue_landscape.lyt`'s own header) makes `LytNode.vue`'s
+ * generic leaf-cell rendering apply `overflow-y: auto` to the OUTER cell
+ * wrapping this whole component (`useLytOverflowCss.ts`'s
+ * `leafOverflowStyle`) — so the driven `TabWidget` instance below is told
+ * `owns-scroll="false"` (horizontal mode): its own `.tab-body` carries NO
+ * further forced overflow, keeping the outer leaf cell the SOLE scroll
+ * owner on this path (L5b). DISCLOSED RESIDUAL: four of the six panes
+ * below (Session/Analysis Environment/Card Sets/Advanced Registry) keep
+ * their own pre-existing `.registry-container` internal scroll
+ * (`overflow-y: auto`, `shared-chrome.css`) unchanged from before this
+ * refactor — the ratified per-pane classification (§8.4's table: those
+ * four "no-scroll at declared demand", only Advanced Registry + Keybindings
+ * "scroll-owned") is not fully re-derived at the component-CSS level this
+ * work item — a possible double-scroll-owner path in the pathological
+ * case where BOTH the outer leaf cell and an inner `.registry-container`
+ * genuinely overflow simultaneously, named honestly rather than silently
+ * redesigned (the encoding itself still models `settingsPane` as ONE
+ * opaque leaf — the second-level opening that would let each body carry
+ * its own true classification remains the SAME named residual the
+ * Option C wave's own encoding header already discloses).
  *
- * Sub-tab state is component-local (matches ForestDirectory's
- * Decks/Browse pattern); not persisted across remounts. A future
- * arc that wants persistence would lift to `store.session.ui`
- * with a schema migration.
- *
- * `sync.forceSave()` lives on the SyncService instance owned by
- * useAppBootstrap; rather than re-instantiating or threading the
- * whole service through, this component emits `force-save` and
- * App.vue's slot binding invokes the live instance.
+ * DISCLOSED SCOPE NARROWING (vertical orientation): when
+ * `store.session.ui.settingsTabsOrientation === 'vertical'`, this
+ * component drives TabWidget with `part="both"` and
+ * `orientation="vertical"` instead — the FULL strip+body widget renders
+ * here, in this leaf's own track, and the sibling `SettingsSubstrip.vue`
+ * renders nothing (see that file's own header for the full rationale).
+ * `owns-scroll` reverts to its default `true` in that branch, matching
+ * the pre-refactor `SettingsTab.vue`'s own self-contained vertical
+ * behavior exactly.
  *
  * License: Public Domain (The Unlicense)
  */
-import { computed, ref, watch } from 'vue';
+import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import TabWidget from './chrome/TabWidget.vue';
-import KeybindingsView from './KeybindingsView.vue';
-import PaletteEditor from './editors/PaletteEditor.vue';
-import CardSetEditor from './editors/CardSetEditor.vue';
-import RegistryEditor from './editors/RegistryEditor.vue';
-import AnalysisTabsEditor from './editors/AnalysisTabsEditor.vue';
-import { store, DEFAULTS, touchSession } from '../store';
-import { mutateProfile } from '../store/profile-owner';
-import { updateProfileAt } from '../store/profile-owner';
-import { updateRegistry } from '../lib/utils';
-import { cancelCapture } from '../lib/keybindings-capture';
-import { openSetupWizard } from '../composables/useSetupWizardSignal';
-import ProxyUpstreamSettingField from './ProxyUpstreamSettingField.vue';
+import TabWidget from './TabWidget.vue';
+import KeybindingsView from '../KeybindingsView.vue';
+import PaletteEditor from '../editors/PaletteEditor.vue';
+import CardSetEditor from '../editors/CardSetEditor.vue';
+import RegistryEditor from '../editors/RegistryEditor.vue';
+import AnalysisTabsEditor from '../editors/AnalysisTabsEditor.vue';
+import { store, DEFAULTS, touchSession } from '../../store';
+import { mutateProfile, updateProfileAt } from '../../store/profile-owner';
+import { updateRegistry } from '../../lib/utils';
+import { cancelCapture } from '../../lib/keybindings-capture';
+import { openSetupWizard } from '../../composables/useSetupWizardSignal';
+import ProxyUpstreamSettingField from '../ProxyUpstreamSettingField.vue';
+import { useSettingsSubTab, settingsSubTabs, type SettingsSubTabId } from '../../composables/chrome/useSettingsSubTab';
 
 const { t } = useI18n();
-
 defineEmits<{
   (e: 'force-save'): void;
 }>();
 
-const activeSubTab = ref<'session' | 'analysisEnv' | 'cardSets' | 'advancedRegistry' | 'analysis' | 'keybindings'>('session');
+const { activeSettingsSubTab } = useSettingsSubTab();
+const subTabs = computed(() => settingsSubTabs(t));
+const isHorizontal = computed(() => store.session.ui.settingsTabsOrientation !== 'vertical');
 
-const subTabs = computed(() => [
-  { id: 'session',          label: t('settings.section.sessionUI') },
-  { id: 'analysisEnv',      label: t('settings.section.analysisEnv') },
-  { id: 'cardSets',         label: t('settings.section.cardSets') },
-  { id: 'advancedRegistry', label: t('settings.section.advancedRegistry') },
-  { id: 'analysis',         label: t('settings.subtab.analysis') },
-  { id: 'keybindings',      label: t('settings.subtab.keybindings') },
-]);
+// See SettingsSubstrip.vue's own comment on this same seam — the
+// destructured-composable-Ref-plus-inline-cast v-model shape is a
+// compiler edge case; a local writable computed sidesteps it.
+const activeSubTabModel = computed<string>({
+  get: () => activeSettingsSubTab.value,
+  set: (v) => {
+    activeSettingsSubTab.value = v as SettingsSubTabId; // safe: v always originates from TabWidget's own `tab.id`, itself sourced from `settingsSubTabs`'s `SettingsSubTabId`-typed ids
+  },
+});
 
-// With keepMounted=true on the inner TabWidget below, switching
-// away from Keybindings leaves KeybindingsView mounted-but-hidden
-// (v-show false). Any KeybindingRow mid-capture would otherwise
-// keep its window-level keydown listener installed, silently
-// intercepting keypresses meant for another sub-tab's inputs.
-// Cancelling capture whenever the sub-tab leaves Keybindings
+// With keepMounted=true, switching away from Keybindings leaves
+// KeybindingsView mounted-but-hidden (v-show false). Any KeybindingRow
+// mid-capture would otherwise keep its window-level keydown listener
+// installed, silently intercepting keypresses meant for another sub-tab's
+// inputs. Cancelling capture whenever the sub-tab leaves Keybindings
 // releases the listener and clears the mode flag. (Switching INTO
 // Keybindings can't have anything in capture mode by construction —
-// capture is only ever started by a click inside the Keybindings
-// view itself.)
-watch(activeSubTab, (next) => {
+// capture is only ever started by a click inside the Keybindings view
+// itself.)
+watch(activeSettingsSubTab, (next) => {
   if (next !== 'keybindings') {
     cancelCapture();
   }
@@ -97,9 +101,9 @@ watch(activeSubTab, (next) => {
 // Profile-targeting editor events route through the profile owner
 // (work-status item settings-profile-mutator-owner); the owner's
 // updateProfileAt carries updateRegistry's silent-create contract
-// unchanged. The empty-path guard preserves the prior shape's
-// no-op exactly — without it, the settings-rooted form would
-// resolve to ['settings'] and replace the whole subtree.
+// unchanged. The empty-path guard preserves the prior shape's no-op
+// exactly — without it, the settings-rooted form would resolve to
+// ['settings'] and replace the whole subtree.
 function handleSettingsUpdate(e: { path: string[]; value: unknown }): void {
   if (e.path.length === 0) return;
   updateProfileAt(['settings', ...e.path], e.value);
@@ -121,17 +125,17 @@ function handleActiveCardSet(id: string): void {
   touchSession();
 }
 
-// Session (UI) theme selector — writes the SAME cell the Advanced
-// Registry and the setup wizard edit (one fact, one home; row 748).
+// Session (UI) theme selector — writes the SAME cell the Advanced Registry
+// and the setup wizard edit (one fact, one home; row 748).
 function setTheme(theme: 'dark' | 'cluster'): void {
   mutateProfile((profile) => {
     profile.settings.appearance.theme = theme;
   });
 }
 
-// Settings sub-tab strip orientation (ledger rows 1505/1509/1515/1516):
-// a persisted `session.ui` field, so write + bump the session counter —
-// same idiom as `handleActiveCardSet` above (direct assignment then
+// Settings sub-tab strip orientation (ledger rows 1505/1509/1515/1516): a
+// persisted `session.ui` field, so write + bump the session counter — same
+// idiom as `handleActiveCardSet` above (direct assignment then
 // `touchSession()`), NOT the `deltaViewMode` accessor's bare
 // `set: (v) => { store.session.ui.deltaViewMode = v; }` (a known defect —
 // that setter never bumps the session counter, so the change silently
@@ -143,7 +147,14 @@ function setSettingsTabsOrientation(orientation: 'horizontal' | 'vertical'): voi
 </script>
 
 <template>
-  <TabWidget :tabs="subTabs" v-model="(activeSubTab as string /* widen the sub-tab id union to TabWidget's string v-model */)" :keep-mounted="true" :orientation="store.session.ui.settingsTabsOrientation">
+  <TabWidget
+    :tabs="subTabs"
+    v-model="activeSubTabModel"
+    :part="isHorizontal ? 'body' : 'both'"
+    :orientation="isHorizontal ? 'horizontal' : 'vertical'"
+    :owns-scroll="!isHorizontal"
+    :keep-mounted="true"
+  >
 
     <template #session>
       <div class="tab-padding settings-fill-pane">
@@ -161,7 +172,7 @@ function setSettingsTabsOrientation(orientation: 'horizontal' | 'vertical'): voi
           <select
             id="session-theme-select"
             :value="store.profile.settings.appearance.theme"
-            @change="setTheme(($event.target as HTMLSelectElement).value as 'dark' | 'cluster')"
+            @change="setTheme(($event.target as HTMLSelectElement /* bound on the theme <select> */).value as 'dark' | 'cluster' /* the two <option> values above are the only legal strings */)"
           >
             <option value="cluster">{{ $t('wizard.theme.cluster') }}</option>
             <option value="dark">{{ $t('wizard.theme.dark') }}</option>
@@ -176,7 +187,7 @@ function setSettingsTabsOrientation(orientation: 'horizontal' | 'vertical'): voi
           <select
             id="settings-tabs-orientation-select"
             :value="store.session.ui.settingsTabsOrientation"
-            @change="setSettingsTabsOrientation(($event.target as HTMLSelectElement).value as 'horizontal' | 'vertical')"
+            @change="setSettingsTabsOrientation(($event.target as HTMLSelectElement /* bound on the orientation <select> */).value as 'horizontal' | 'vertical' /* the two <option> values above are the only legal strings */)"
           >
             <option value="horizontal">{{ $t('settings.option.settingsTabsOrientation.horizontal') }}</option>
             <option value="vertical">{{ $t('settings.option.settingsTabsOrientation.vertical') }}</option>

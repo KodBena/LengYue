@@ -12,7 +12,7 @@
  *   with only a horizontal scrollbar painted at rest). Fixed by
  *   removing the clamp and flex-filling the pane instead
  *   (`shared-chrome.css`'s `.registry-container`,
- *   `SettingsTab.vue`'s new `.settings-fill-pane` wrapper on the
+ *   `SettingsPane.vue`'s new `.settings-fill-pane` wrapper on the
  *   Session and Advanced Registry sub-tabs).
  *
  *   M6 — the leaf label (x≈63) and its value column (x≈937) were
@@ -41,7 +41,10 @@ import { mount } from '@vue/test-utils';
 import RegistryEditor from '../../src/components/editors/RegistryEditor.vue';
 
 const SHARED_CHROME_CSS = readFileSync(resolve(process.cwd(), 'src/assets/css/shared-chrome.css'), 'utf-8');
-const SETTINGS_TAB_SRC = readFileSync(resolve(process.cwd(), 'src/components/SettingsTab.vue'), 'utf-8');
+// SettingsTab.vue was retired (work item `lyt-settings-live-opening`,
+// ledger rows 2007/2009/2001) — the panes this file pins moved verbatim
+// to SettingsPane.vue.
+const SETTINGS_PANE_SRC = readFileSync(resolve(process.cwd(), 'src/components/chrome/SettingsPane.vue'), 'utf-8');
 const REGISTRY_EDITOR_SRC = readFileSync(resolve(process.cwd(), 'src/components/editors/RegistryEditor.vue'), 'utf-8');
 const THEME_CSS = readFileSync(resolve(process.cwd(), 'src/assets/css/theme.css'), 'utf-8');
 const LAYOUT_MODEL_SRC = readFileSync(resolve(process.cwd(), 'src/state/layout-model.ts'), 'utf-8');
@@ -57,11 +60,11 @@ function referencedTokens(source: string): Set<string> {
   return names;
 }
 
-describe('shared-chrome.css / SettingsTab.vue / RegistryEditor.vue — no ghost custom properties', () => {
+describe('shared-chrome.css / SettingsPane.vue / RegistryEditor.vue — no ghost custom properties', () => {
   const defined = definedTokens(THEME_CSS);
   for (const [path, source] of [
     ['src/assets/css/shared-chrome.css', SHARED_CHROME_CSS],
-    ['src/components/SettingsTab.vue', SETTINGS_TAB_SRC],
+    ['src/components/chrome/SettingsPane.vue', SETTINGS_PANE_SRC],
     ['src/components/editors/RegistryEditor.vue', REGISTRY_EDITOR_SRC],
   ] as const) {
     it(`${path}: every var(--x) reference is defined in theme.css`, () => {
@@ -91,21 +94,21 @@ describe('shared-chrome.css — .registry-container clamp is gone (M3)', () => {
   });
 });
 
-describe('SettingsTab.vue — Session and Advanced Registry own the full pane height (M3)', () => {
+describe('SettingsPane.vue — Session and Advanced Registry own the full pane height (M3)', () => {
   it('the Advanced Registry sub-tab wraps its registry-container in the fill-pane class', () => {
-    const advancedBlock = /<template #advancedRegistry>[\s\S]*?<\/template>/.exec(SETTINGS_TAB_SRC);
+    const advancedBlock = /<template #advancedRegistry>[\s\S]*?<\/template>/.exec(SETTINGS_PANE_SRC);
     expect(advancedBlock).not.toBeNull();
     expect(advancedBlock![0]).toMatch(/class="tab-padding settings-fill-pane"/);
   });
 
   it('the Session sub-tab wraps its registry-container in the fill-pane class too (same clamp, same fix)', () => {
-    const sessionBlock = /<template #session>[\s\S]*?<\/template>/.exec(SETTINGS_TAB_SRC);
+    const sessionBlock = /<template #session>[\s\S]*?<\/template>/.exec(SETTINGS_PANE_SRC);
     expect(sessionBlock).not.toBeNull();
     expect(sessionBlock![0]).toMatch(/class="tab-padding settings-fill-pane"/);
   });
 
   it('.settings-fill-pane is itself a flex column that grows to fill its own flex-column ancestor', () => {
-    const rule = /\.settings-fill-pane\s*\{[^}]*\}/.exec(SETTINGS_TAB_SRC);
+    const rule = /\.settings-fill-pane\s*\{[^}]*\}/.exec(SETTINGS_PANE_SRC);
     expect(rule).not.toBeNull();
     expect(rule![0]).toMatch(/display:\s*flex/);
     expect(rule![0]).toMatch(/flex-direction:\s*column/);
@@ -114,7 +117,7 @@ describe('SettingsTab.vue — Session and Advanced Registry own the full pane he
   });
 
   it('Card Sets keeps its own inline clamp override untouched (not this pass\'s named finding)', () => {
-    const cardSetsBlock = /<template #cardSets>[\s\S]*?<\/template>/.exec(SETTINGS_TAB_SRC);
+    const cardSetsBlock = /<template #cardSets>[\s\S]*?<\/template>/.exec(SETTINGS_PANE_SRC);
     expect(cardSetsBlock).not.toBeNull();
     expect(cardSetsBlock![0]).toMatch(/max-height:\s*clamp\(500px,\s*70vh,\s*900px\)/);
   });

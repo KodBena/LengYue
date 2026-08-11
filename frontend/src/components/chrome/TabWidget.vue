@@ -52,6 +52,35 @@
   that same parity rather than inventing a new keyboard contract for
   one orientation only.
 
+  Split composition, `part` (work item `lyt-settings-live-opening`, ledger
+  rows 2007/2009/2001): the settings interior opens live as TWO separately-
+  mounted LYT leaves (`settingsSubstrip`/`settingsPane` — the encoding's own
+  `V(settingsSubstrip, settingsPane)`), which cannot both be one DOM subtree
+  the way every other TabWidget consumer's strip+body pair is. Rather than
+  author a second strip/body implementation for that ONE consumer (the
+  single-tab-implementation invariant this component's own realization-wave
+  commission established), `part` (`'both'` default, byte-identical for
+  every pre-existing consumer | `'header'` | `'body'`) lets TWO separate
+  TabWidget instances — sharing `tabs`/`modelValue` via a caller-owned
+  reactive source (`SettingsSubstrip.vue`/`SettingsPane.vue` share
+  `composables/chrome/useSettingsSubTab.ts`'s own singleton ref) — each
+  render HALF of what one instance would, so the ARIA tablist/keyboard
+  semantics, the active-tab highlighting, and the pane-mounting logic all
+  still live in exactly this one file. `part='header'` renders only the
+  `<ul role="tablist">`; `part='body'` renders only the `.tab-body` pane
+  stack; `part='both'` is the pre-existing, unchanged shape.
+
+  Wrap (`wrap`, same commission): the settings sub-tab strip is WRAP-
+  CAPABLE per the ratified flow-envelope ruling (rows 2007/2009,
+  `research/lyt/flow.py`) — CSS `flex-wrap: wrap` on `.tab-header` realizes
+  the SAME deterministic, order-preserving, greedy left-to-right packing
+  the offline flow module computes (a browser's own flex line-breaking
+  algorithm IS a greedy left-to-right bin-fill for non-shrinking, fixed-
+  width flex items — the same algorithm, not a coincidental resemblance),
+  replacing the strip's own `overflow-x: auto` scrollbar with genuine
+  multi-row layout. Default `false` (every pre-existing consumer,
+  byte-identical horizontal-scroll behavior unchanged).
+
   Derived overflow, ownsScroll (REALIZATION WAVE,
   `.claude/dispatch-reports/lyt-realization-wave.md`, item 3): historically
   `.tab-body` carried a blanket `overflow-y: auto` regardless of which tab
@@ -141,10 +170,20 @@ const props = withDefaults(defineProps<{
    *  `overflow-y` from that tab's own `scrollAxes` instead — see this
    *  file's own header, "Derived overflow, ownsScroll". */
   ownsScroll?: boolean;
+  /** `'both'` (default, every pre-existing consumer unchanged): renders
+   *  the strip AND the body. `'header'`/`'body'`: renders only that half —
+   *  see this file's own header, "Split composition, `part`". */
+  part?: 'both' | 'header' | 'body';
+  /** `false` (default, every pre-existing consumer unchanged): the strip
+   *  scrolls horizontally on overflow. `true`: the strip WRAPS to
+   *  multiple rows instead — see this file's own header, "Wrap". */
+  wrap?: boolean;
 }>(), {
   orientation: 'horizontal',
   keepMounted: false,
   ownsScroll: true,
+  part: 'both',
+  wrap: false,
 });
 
 function paneOverflowStyle(tab: Tab): Record<string, string> {
@@ -167,8 +206,14 @@ function selectTab(id: string) {
 </script>
 
 <template>
-  <div class="vue-tabs" :class="{ 'vue-tabs--vertical': orientation === 'vertical' }">
-    <ul class="tab-header" role="tablist" :aria-orientation="orientation">
+  <div class="vue-tabs" :class="{ 'vue-tabs--vertical': orientation === 'vertical', 'vue-tabs--header-only': part === 'header' }">
+    <ul
+      v-if="part !== 'body'"
+      class="tab-header"
+      :class="{ 'tab-header--wrap': wrap }"
+      role="tablist"
+      :aria-orientation="orientation"
+    >
       <li
         v-for="tab in tabs"
         :key="tab.id"
@@ -183,8 +228,8 @@ function selectTab(id: string) {
         {{ tab.label }}
       </li>
     </ul>
-    
-    <div class="tab-body" :class="{ 'tab-body--derived-overflow': !ownsScroll }">
+
+    <div v-if="part !== 'header'" class="tab-body" :class="{ 'tab-body--derived-overflow': !ownsScroll }">
       <div
         v-for="tab in tabs"
         :key="tab.id"
@@ -249,6 +294,33 @@ function selectTab(id: string) {
 .tab-header li:focus-visible {
   outline: 2px solid var(--accent-primary);
   outline-offset: -2px;
+}
+
+/* Wrap (work item `lyt-settings-live-opening`, rows 2007/2009): flex-wrap
+   realizes the SAME greedy left-to-right row packing `research/lyt/flow.py`
+   computes offline (see this file's own header, "Wrap") — genuine multi-row
+   layout in place of the horizontal-scroll affordance above. `row-gap`
+   matches the flow module's own `row_gap_px=4` design-point input
+   (`--space-tight`), so the live wrap and the encoding's declared height
+   demand (settingsSubstrip's `{60px}`, a 2-row design point) agree. */
+.tab-header--wrap {
+  flex-wrap: wrap;
+  overflow-x: visible;
+  row-gap: var(--space-tight);
+}
+
+/* `part='header'` (same work item): a header-only instance is one HALF of
+   a driven pair (see SettingsSubstrip.vue/SettingsPane.vue) — its own
+   LYT-declared grid track is a FIXED-height flow-envelope reservation
+   (settingsSubstrip's `{60px}`), so the strip sizes to its own wrapped
+   content rather than inheriting `.vue-tabs`' own `height:100%` (a
+   flex-column assumption that made sense when one instance owned both
+   the strip AND the body — see this file's own header, "Split
+   composition, `part`"). `part='body'` keeps `height:100%` unchanged
+   (SettingsPane.vue fills its own, separate track). */
+.vue-tabs--header-only {
+  height: auto;
+  min-height: 0;
 }
 
 /* Hover: text brightening only — the previous background:

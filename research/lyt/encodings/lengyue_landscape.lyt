@@ -588,6 +588,93 @@
 --     160px to 880px -- a live-DOM behavior change the "solver-side only"
 --     framing never disclosed as in scope. See the repair report for the
 --     .gen.ts diff-vs-base inertness verification.
+--
+--     FLOW-CAPABLE SETTINGS SUBSTRIP (2026-08-11, work item
+--     lyt-settings-live-opening, ledger rows 2007/2009): the 838px
+--     single-row settings-substrip demand this REPAIR note documents
+--     above was, per row 2007's ruling, NEVER the only honest reading --
+--     the substrip is WRAP-CAPABLE, and its declaration becomes an
+--     ENVELOPE over PACKED ROW-STATES derived from the six label texts +
+--     spacing tokens (width demand converts to modeled HEIGHT demand; no
+--     scroll declaration -- the substrip stays `content bounded`, no
+--     scroll, L5 coverage satisfied by the envelope itself). Mechanism
+--     per row 2009: deterministic, order-preserving, greedy left-to-right
+--     line fill ("vim-gqq-style"), implemented as the small typed seam
+--     `research/lyt/flow.py` (`pack_rows`/`flow_envelope`/
+--     `narrowest_width_for_row_count`; that module's own docstring names
+--     it explicitly as the WORKED PROTOTYPE a future settings-pane flow
+--     extension generalizes from). The compiler stays a VERIFIER, per the
+--     ruling -- `flow.py` is an OFFLINE calculator this encoding's author
+--     consults to pick a grounded design point, not a second optimizer
+--     wired into `compiler.py`'s own CP-SAT model (packing-into-bins is
+--     not the linear relation the solver reasons about).
+--
+--     THE DESIGN POINT, mechanically computed (not hand-picked): the SAME
+--     six item widths the 838px-repair table above already grounds
+--     (113/177/153/153/137/105px = ch*8 + 16px padding + 1px border,
+--     summing to 838px for one row) are fed to
+--     `narrowest_width_for_row_count(item_widths, target_rows=2,
+--     search_ceiling=838)`, which returns **443px** -- the NARROWEST
+--     width at which greedy packing needs at most 2 rows (row 1:
+--     session+analysisEnv+cardSets = 443px; row 2: advancedRegistry+
+--     analysis+keybindings = 395px). `flow_envelope` at that width, with
+--     `row_height_px=28` (this file's own established fixed-strip
+--     convention, unchanged) and `row_gap_px=4` (`--space-tight`, the
+--     SAME tier every other tight inter-row gap in this file uses),
+--     yields **height=60px** (2*28 + 1*4). Both numbers are asserted by
+--     `research/lyt/tests/test_flow.py`'s own
+--     `test_settings_substrip_design_point_is_443px_2row_60px` regression
+--     -- a change to the label set or the TabWidget padding/border
+--     constants that moves this number is a DELIBERATE encoding change,
+--     caught, not silently drifting.
+--
+--     WHY 2 ROWS, NOT 1 OR 3+: 1 row (838px) is the INFEASIBLE reading
+--     this whole work item exists to retire (838px exceeds the side
+--     column's own separately-ratified `max 340px+60ch` = 820px cap,
+--     REGARDLESS of screen size -- REPAIR's own "18px over the cap"
+--     finding). 3 rows (306px) would be a smaller, ALSO-feasible width
+--     floor but a taller (92px) and visually cramped strip for no
+--     additional feasibility benefit over 2 rows -- 443px already clears
+--     the 820px cap with ~377px of margin, comfortably inside the side
+--     column's OWN pre-existing width budget at every pinned OPTIMAL
+--     size this file's own suite checks. 2 rows is the design point that
+--     buys feasibility at the SMALLEST height cost.
+--
+--     WHAT CHANGES, mechanically: `settingsSubstrip`'s own declared
+--     sizing moves from `{28px, boundary, content bounded}` (implicitly
+--     one-row) to `{60px, boundary, content bounded}` (the flow-derived
+--     2-row height, still a FIXED reservation -- `content bounded`
+--     stays honest; flow's own row-count is a DESIGN decision baked into
+--     one number here, not a runtime-varying quantity this 1-D-per-slot
+--     language could express as "N rows at width W" for a range of W
+--     anyway, per the BOTH-AXES TENSION note above and SPEC.md §4.2's own
+--     "envelope states are documentation, not a computed sizing input"
+--     disclosure -- L3's envelope machinery is NOT reused here, since
+--     L3's envelope is about CONTENT STATES of one reservation, not
+--     ROW-PACKING states, and conflating the two would be the exact
+--     category error ADR-0008/§13.2 already retired `blackbox` for). The
+--     wrapping `V(settingsSubstrip, settingsPane)` composite's own
+--     T-child `min` -- the number BOTH-AXES TENSION applies identically
+--     to width and height -- drops from **838px to 443px**
+--     (max(443 width-floor, 60+4+200=264 height-floor) = 443, the width
+--     term now dominates, same as before but at the much smaller
+--     flow-derived number instead of the single-row ch envelope).
+--
+--     FULL SOLVE, RETURNED TO FEASIBILITY: `research/lyt/tests/
+--     test_lyt.py` and `test_emit_layout_tree.py`'s own re-run after this
+--     change (delivery report has the literal pytest transcript) finds
+--     every pinned landscape size that solved OPTIMAL before this change
+--     stays OPTIMAL, and the one class of sizes this file's own history
+--     recorded as driven-infeasible BY the 838px settings floor (any
+--     size where the side column's `max 340px+60ch` cap bound below
+--     838px, a presence-INDEPENDENT, screen-size-independent structural
+--     collision -- REPAIR's own finding) returns to feasibility, since
+--     the T's own componentwise-max floor is now driven by CP-analysis's
+--     unchanged 664px, not by settings' retired 838px. Every INDIVIDUAL
+--     pin change (which specific screen size flipped INFEASIBLE->OPTIMAL,
+--     if any were pinned at that exact boundary) is disclosed
+--     individually in the delivery report per this work item's own
+--     commission, not summarized away here.
 layout lengyue-landscape =
   {min 0px, pref 1fr, max inf, gap 12px} H(
     @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
@@ -604,8 +691,8 @@ layout lengyue-landscape =
         {min 160px, pref 1fr, max inf} T(
           {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v} CP-library[common],
           {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v} CP-cards[common],
-          {min 838px, pref 1fr, max inf, gap 4px} V(
-            {28px, boundary, content bounded} settingsSubstrip[common],
+          {min 443px, pref 1fr, max inf, gap 4px} V(
+            {60px, boundary, content bounded} settingsSubstrip[common],
             {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} settingsPane[common]
           ),
           {min 664px, pref 1fr, max inf, gap 4px} V(

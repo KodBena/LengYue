@@ -154,7 +154,8 @@ import { LYT_PORTRAIT }   from './state/lyt-layout-portrait.gen';
 import { useResizablePanel } from './composables/chrome/useResizablePanel';
 import BoardWidget      from './components/board/BoardWidget.vue';
 import TreeWidget       from './components/tree/TreeWidget.vue';
-import SettingsTab      from './components/SettingsTab.vue';
+import SettingsSubstrip from './components/chrome/SettingsSubstrip.vue';
+import SettingsPane     from './components/chrome/SettingsPane.vue';
 import AnalysisControls from './components/editors/AnalysisControls.vue';
 import ToolbarEngineCluster from './components/chrome/ToolbarEngineCluster.vue';
 import ToolbarAppCluster    from './components/chrome/ToolbarAppCluster.vue';
@@ -988,15 +989,30 @@ const activeTab = computed<string>({
                 </div>
               </template>
 
-              <!-- CP-settings / CP-analysis: DISCLOSED SCOPE NARROWING (this
-                   wave's own delivery report) — the encoding's own modeled
-                   V(substrip,pane)/nested-T interiors stay solver-visible but
-                   UNOPENED in the DOM; each still mounts as ONE component,
-                   unchanged wiring from the pre-wave #settings/#analysis
-                   TabWidget slots (see lyt-widget-registry.ts's own entries
-                   for the rationale). -->
-              <template #leaf-CP-settings>
-                <SettingsTab :key="controlPanelIdentityKey" @force-save="sync.forceSave()" />
+              <!-- settingsSubstrip / settingsPane: OPENED LIVE (work item
+                   `lyt-settings-live-opening`, ledger rows 2007/2009/2001) —
+                   the encoding's own modeled V(settingsSubstrip, settingsPane)
+                   interior now mounts as TWO separately-mounted LYT leaves,
+                   reached via CP-settings' own now-genuine `split` node
+                   (LytNode.vue's existing generic Split recursion, no
+                   LytNode.vue change needed). See SettingsSubstrip.vue/
+                   SettingsPane.vue's own headers and lyt-widget-registry.ts's
+                   updated entries. CP-analysis: DISCLOSED SCOPE NARROWING
+                   (unchanged from the realization wave's own delivery
+                   report) — the encoding's own modeled nested-T interior
+                   stays solver-visible but UNOPENED in the DOM; still mounts
+                   as ONE component, unchanged wiring from the pre-wave
+                   #analysis TabWidget slot. -->
+              <template #leaf-settingsSubstrip>
+                <div :key="controlPanelIdentityKey" style="width: 100%;">
+                  <SettingsSubstrip />
+                </div>
+              </template>
+
+              <template #leaf-settingsPane>
+                <div :key="controlPanelIdentityKey" style="flex: 1; display: flex; min-height: 0; width: 100%;">
+                  <SettingsPane @force-save="sync.forceSave()" />
+                </div>
               </template>
 
               <template #leaf-CP-analysis>
@@ -1126,7 +1142,7 @@ const activeTab = computed<string>({
 @import "./assets/css/theme.css";
 @import "./assets/css/style.css";
 @import "./assets/css/palettes.css";
-/* Shared chrome classes consumed by other components (SettingsTab,
+/* Shared chrome classes consumed by other components (SettingsPane,
    ForestDirectory, ReviewSessionPanel, KeybindingsView, the editors
    and modals) — relocated out of this block 2026-06-11 so App.vue
    edits cannot silently restyle distant components. Imported here,

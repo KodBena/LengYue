@@ -3,7 +3,7 @@
  *
  * Shared chrome classes consumed by multiple SFCs — the rules that
  * used to live in App.vue's unscoped <style> block while styling
- * other components (SettingsTab's disclosure sections and registry
+ * other components (SettingsPane's disclosure sections and registry
  * containers, ForestDirectory's deck selector, ReviewSessionPanel's
  * visits-override row and action buttons, the dark-input family used
  * across the editors and modals, KeybindingsView's tab padding and
@@ -74,7 +74,7 @@
    empty below the clamped scroller, with only a horizontal scrollbar
    painted at rest. That clamp is GONE, not re-derived: the container
    now flex-fills whatever height its flex-column ancestor hands it
-   (SettingsTab.vue's `.settings-fill-pane` wrapper on the Session and
+   (SettingsPane.vue's `.settings-fill-pane` wrapper on the Session and
    Advanced Registry sub-tabs makes that ancestor a bounded flex
    column reaching the tab-pane's own full height — see that class's
    comment). `min-height: 0` is the standard flex-child override

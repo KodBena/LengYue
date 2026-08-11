@@ -154,19 +154,21 @@ def test_control_panel_blackbox_floor_is_wrapper_min_derived():
     assert control_panel["track"] == {"kind": "elastic", "minPx": 160.0, "frWeight": 1.0}
 
 
-def test_control_panel_exclusive_opens_library_cards_other_collapses_settings_analysis():
+def test_control_panel_exclusive_opens_library_cards_settings_other_collapses_analysis():
     """REALIZATION WAVE (`.claude/dispatch-reports/lyt-realization-wave.md`,
-    work item lyt-realization-exclusive-overflow): landscape's own registration
-    (`REGISTRATIONS["landscape"]`, the one `main()`/the committed `.gen.ts`
-    actually use) opens the control-panel T to a genuine 'exclusive' node.
-    library/cards/other fold generically (the SAME recursion every other node
-    kind gets); settings/analysis stay collapsed to one synthetic 'blackbox'
-    leaf each -- a disclosed, deliberate scope narrowing (the settings
-    sub-tab strip would need TabWidget/SettingsTab surgery beyond this wave's
-    budget; the analysis tabs are genuinely user-configurable at runtime, and
-    rendering the encoding's own STATIC default 4-tab shape live would
-    silently override that — see the emitter's own module docstring,
-    'REALIZATION WAVE' section, and this wave's delivery report)."""
+    work item lyt-realization-exclusive-overflow) opened library/cards/other;
+    analysis stayed collapsed (genuinely user-configurable at runtime — the
+    encoding only models the static default configuration).
+
+    STALE-TEST-NAME UPDATE (2026-08-11, work item `lyt-settings-live-
+    opening`, ledger rows 2007/2009/2001): SETTINGS now opens too --
+    `control_panel_collapse_indices` drops `{2, 3}` -> `{3}`. This test's
+    own NAME changes (the old name asserted a now-false fact) to
+    `..._opens_library_cards_settings_other_collapses_analysis`; its BODY
+    is updated for the new shape -- `CP-settings`'s own child is a genuine
+    `split(settingsSubstrip, settingsPane)` node now (the flow-envelope
+    wrap-capable substrip + the single opaque pane leaf), not a collapsed
+    blackbox."""
     program = elt.build_program_for(elt.REGISTRATIONS["landscape"])
     root = program["root"]
     side = _find(root["children"], "2")["node"]["children"]
@@ -187,7 +189,7 @@ def test_control_panel_exclusive_opens_library_cards_other_collapses_settings_an
     kinds = {c["tabId"]: c["node"]["kind"] for c in ex_children}
     assert kinds == {
         "library": "leaf", "cards": "leaf",
-        "settings": "blackbox", "analysis": "blackbox",
+        "settings": "split", "analysis": "blackbox",
         "other": "split",
     }
     library = _find(ex_children, "2.2.1.0")
@@ -195,8 +197,18 @@ def test_control_panel_exclusive_opens_library_cards_other_collapses_settings_an
     assert library["node"]["scrollAxes"] == ["v"]
     assert library["node"]["content"] == "unbounded"
     settings = _find(ex_children, "2.2.1.2")
-    assert settings["node"]["widget"] == "CP-settings"
-    assert settings["node"]["childWidgets"] == ["settingsSubstrip", "settingsPane"]
+    assert settings["node"]["kind"] == "split"
+    assert settings["node"]["axis"] == "v"
+    settings_children = {c["node"]["widget"]: c for c in settings["node"]["children"]}
+    assert set(settings_children) == {"settingsSubstrip", "settingsPane"}
+    substrip = settings_children["settingsSubstrip"]
+    assert substrip["track"] == {"kind": "fixed", "px": 60.0}
+    assert substrip["node"]["scrollAxes"] == []
+    assert substrip["node"]["content"] == "bounded"
+    pane = settings_children["settingsPane"]
+    assert pane["track"] == {"kind": "elastic", "minPx": 200.0, "frWeight": 1.0}
+    assert pane["node"]["scrollAxes"] == ["v"]
+    assert pane["node"]["content"] == "unbounded"
     analysis = _find(ex_children, "2.2.1.3")
     assert analysis["node"]["widget"] == "CP-analysis"
     assert analysis["node"]["childWidgets"] == [
@@ -331,13 +343,19 @@ def test_portrait_control_panel_blackbox_floor_is_wrapper_min_derived():
     `build_program_for(PORTRAIT)`, which threads `PORTRAIT.open_control_panel`
     -- unlike the pre-wave form (this test's own name, kept unchanged so the
     delivery report can cite it by name), the T no longer collapses whole.
-    library/cards/other open genuinely; settings/analysis stay collapsed to
-    one synthetic blackbox leaf each (disclosed scope narrowing -- see the
-    emitter's own module docstring, 'REALIZATION WAVE' section, for the
+    library/cards/other open genuinely; analysis stays collapsed to one
+    synthetic blackbox leaf (disclosed scope narrowing -- see the emitter's
+    own module docstring, 'REALIZATION WAVE' section, for the
     dynamic-analysis-tabs rationale). The T's own wrapping slot's declared
     `min 200px` (portrait's pre-Option-C marker reservation, REPAIR Finding 2)
     is unaffected -- it is read directly off the Split child's own track,
-    independent of whether the T's OWN interior collapses or opens."""
+    independent of whether the T's OWN interior collapses or opens.
+
+    STALE-ASSERTION UPDATE (2026-08-11, work item `lyt-settings-live-
+    opening`): settings now OPENS too (`control_panel_collapse_indices`
+    drops `{2, 3}` -> `{3}`) -- `CP-settings`'s own child is a genuine
+    `split(settingsSubstrip, settingsPane)` node, mirroring landscape's
+    own updated test."""
     program = _portrait_program()
     root = program["root"]
     row = _find(root["children"], "4")["node"]["children"]
@@ -350,13 +368,17 @@ def test_portrait_control_panel_blackbox_floor_is_wrapper_min_derived():
     kinds = {c["tabId"]: c["node"]["kind"] for c in control_panel["node"]["children"]}
     assert kinds == {
         "library": "leaf", "cards": "leaf",
-        "settings": "blackbox", "analysis": "blackbox",
+        "settings": "split", "analysis": "blackbox",
         "other": "split",
     }
     settings_child = _find(control_panel["node"]["children"], "4.1.2")
     assert settings_child["tabId"] == "settings"
-    assert settings_child["node"]["widget"] == "CP-settings"
-    assert settings_child["node"]["childWidgets"] == ["settingsSubstrip", "settingsPane"]
+    assert settings_child["node"]["kind"] == "split"
+    settings_children = {
+        c["node"]["widget"]: c for c in settings_child["node"]["children"]
+    }
+    assert set(settings_children) == {"settingsSubstrip", "settingsPane"}
+    assert settings_children["settingsSubstrip"]["track"] == {"kind": "fixed", "px": 60.0}
     analysis_child = _find(control_panel["node"]["children"], "4.1.3")
     assert analysis_child["tabId"] == "analysis"
     assert analysis_child["node"]["widget"] == "CP-analysis"

@@ -3,7 +3,7 @@
  * Tool: research/lyt/emit_layout_tree.py
  * Source encoding: research/lyt/encodings/lengyue_portrait.lyt (layout `lengyue-portrait`)
  * The compiled LYT program (H/V/Exclusive tree, unsolved) as typed TS data — consumed at runtime by LytNode.vue, which realizes each Split as a live CSS Grid container (roadmap S3, 'layout as data, not template').
- * REALIZATION WAVE: the control-panel Exclusive (T) node is now genuinely opened (kind 'exclusive', widget 'controlPanel') for library/cards/other; settings/analysis stay collapsed to a 'blackbox' leaf each (CP-settings / CP-analysis) — a disclosed, deliberate scope narrowing (dynamic user-configurable analysis tabs) — see this tool's own module docstring, 'REALIZATION WAVE' section.
+ * REALIZATION WAVE: the control-panel Exclusive (T) node is now genuinely opened (kind 'exclusive', widget 'controlPanel') for library/cards/settings/other; analysis stays collapsed to a 'blackbox' leaf (CP-analysis) — a disclosed, deliberate scope narrowing (dynamic user-configurable analysis tabs) — see this tool's own module docstring, 'REALIZATION WAVE' and 'SETTINGS OPENED LIVE' sections.
  * Data-shape types (LytProgram, LytTrackShape, etc.) are NOT declared here — see './lyt-layout-types.ts' (hand-written, ADR-0012 one-home-per-fact), re-exported below.
  * Regenerate: cd research/lyt && nice -n 19 ~/w/vdc/venvs/generic/bin/python emit_layout_tree.py --registration portrait
  *
@@ -115,7 +115,23 @@ export const LYT_PORTRAIT: LytProgram = {
                     path: "4.1.2",
                     tabId: "settings",
                     tabLabelKey: "app.tabs.settings",
-                    node: { kind: "blackbox", widget: "CP-settings", tag: null, childWidgets: ["settingsSubstrip", "settingsPane"] },
+                    node: {
+                      kind: "split", axis: "v", gapPx: 4,
+                      children: [
+                        {
+                          path: "4.1.2.0",
+                          presenceDefaultVisible: true,
+                          track: { kind: "fixed", px: 60 },
+                          node: { kind: "leaf", widget: "settingsSubstrip", domain: "common", facets: [], aspect: null, scrollAxes: [], content: "bounded" },
+                        },
+                        {
+                          path: "4.1.2.1",
+                          presenceDefaultVisible: true,
+                          track: { kind: "elastic", minPx: 200, frWeight: 1 },
+                          node: { kind: "leaf", widget: "settingsPane", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded" },
+                        },
+                      ],
+                    },
                   },
                   {
                     path: "4.1.3",

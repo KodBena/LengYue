@@ -34,3 +34,10 @@ class LytLoadError(LytError):
     "presence-valuation" law (SPEC-AMENDMENTS.md, ledger row 1737) and
     AMENDMENT 5's new L5/L5a/L5b/L5c overflow-honesty laws
     (SPEC-AMENDMENTS.md, ledger row 1937)."""
+
+
+class LytFlowError(LytError):
+    """`flow.py`'s own refusal: an item cannot be packed into any row at
+    the given width (the item's own natural width exceeds the available
+    width — no amount of wrapping can honor it). Raised, never silently
+    clamped or truncated (ADR-0002) — see `flow.py`'s module docstring."""
