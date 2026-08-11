@@ -116,15 +116,33 @@ def test_control_panel_blackbox_floor_is_wrapper_min_derived():
     control_panel = _find(tree_row, "2.2.1")
     assert control_panel["node"]["kind"] == "blackbox"
     assert control_panel["node"]["widget"] == "controlPanel"
+    # OPTION C TAB-SKELETON ENCODING (ledger row 1937) opened CP-analysis
+    # and CP-settings one structural level -- `childWidgets` (documentation/
+    # report-table parity only, never read by LytNode.vue's rendering) is
+    # now a genuine structural fold over the T's composite children
+    # (`_collect_leaf_widgets`), not the five bare CP-* names.
     assert control_panel["node"]["childWidgets"] == [
-        "CP-library", "CP-cards", "CP-settings", "CP-analysis", "CP-other",
+        "CP-library", "CP-cards",
+        "settingsSubstrip", "settingsPane",
+        "timelineStrip",
+        "AT_basic_interval", "AT_basic_scoreLead", "AT_basic_mergedDelta",
+        "AT_dist_deltaDist", "AT_dist_mistakeGap",
+        "AT_stab_stability", "AT_stab_crossCorr",
+        "AT_multires",
+        "otherColorDebug", "otherBand",
     ]
-    # Every CP-* child declares a literal `min 160px` (W4 FLOOR SOFTENING,
-    # Q3 ruling, ledger row 1848 -- was the shared `WRAPPER_MIN` sentinel,
-    # 300px; the encoding's own "W4 FLOOR SOFTENING" header section has
-    # the full derivation for why this became a per-encoding literal
-    # rather than a lowered shared constant); the T node's own derived
-    # floor is the componentwise max, i.e. 160px.
+    # REPAIR (`.claude/dispatch-reports/lyt-optionc-repair.md`, Finding 2):
+    # the T(...)'s own wrapping slot now declares an EXPLICIT `min 160px`
+    # (the pre-Option-C marker reservation -- see the encoding's own header
+    # note), and the emitter reads that declared min directly instead of
+    # re-deriving the componentwise max of the T's (now composite) children
+    # -- which would otherwise leak the settings substrip's 880px interior
+    # demand into this LIVE-CONSUMED track. The COMPILER's own independent
+    # derivation (used for solving, not for this emitted track) still uses
+    # the real componentwise max and correctly finds the region INFEASIBLE
+    # at the pinned sizes (`test_lyt.py`'s own AMENDMENT 6 / Option C
+    # section) -- this assertion is about the EMITTED track only, unchanged
+    # from pre-Option-C behavior by design.
     assert control_panel["track"] == {"kind": "elastic", "minPx": 160.0, "frWeight": 1.0}
 
 
@@ -232,12 +250,23 @@ def test_portrait_control_panel_blackbox_floor_is_wrapper_min_derived():
     control_panel = _find(row, "4.1")
     assert control_panel["node"]["kind"] == "blackbox"
     assert control_panel["node"]["widget"] == "controlPanel"
+    # Same OPTION C re-derivation as landscape's own test above -- see that
+    # test's comment for the full account.
     assert control_panel["node"]["childWidgets"] == [
-        "CP-library", "CP-cards", "CP-settings", "CP-analysis", "CP-other",
+        "CP-library", "CP-cards",
+        "settingsSubstrip", "settingsPane",
+        "timelineStrip",
+        "AT_basic_interval", "AT_basic_scoreLead", "AT_basic_mergedDelta",
+        "AT_dist_deltaDist", "AT_dist_mistakeGap",
+        "AT_stab_stability", "AT_stab_crossCorr",
+        "AT_multires",
+        "otherColorDebug", "otherBand",
     ]
-    # Every CP-* child declares `min 200px` (encoding's own header note,
-    # not WRAPPER_MIN -- portrait spells this out literally); the T
-    # node's own derived floor is the componentwise max, i.e. 200px.
+    # REPAIR (Finding 2): the T's own wrapping slot declares an explicit
+    # `min 200px` (portrait's own pre-Option-C marker reservation); the
+    # emitter reads it directly rather than re-deriving from the (now
+    # composite) children -- see landscape's own test comment above for
+    # the full account.
     assert control_panel["track"] == {"kind": "elastic", "minPx": 200.0, "frWeight": 1.0}
 
 

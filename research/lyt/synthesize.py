@@ -203,7 +203,11 @@ def _instantiate_blackbox(min_per_child_px: float) -> ast.Slot:
     child_min = ast.Extent(unit="px", v=min_per_child_px)
     children = [
         ast.Slot(
-            node=ast.Leaf(widget=f"CP-{name}", domain="blackbox", facets=frozenset()),
+            # AMENDMENT 6 (ledger row 1937): domain='blackbox' retired --
+            # re-homed to the leaf's true domain ('common') + the boundary
+            # marker. Geometry-inert (this function's own sizing is
+            # unaffected either way).
+            node=ast.Leaf(widget=f"CP-{name}", domain="common", boundary=True, facets=frozenset()),
             presence=ast.FIXED,
             sizing=ast.Sizing(min=child_min, pref=fr1, max="inf"),
         )

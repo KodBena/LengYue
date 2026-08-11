@@ -10,12 +10,15 @@ Two deliberate departures from the TS source, both disclosed in the build
 report rather than silently made:
 
 1. The TS `domain` union is `'go' | 'common' | 'debug' | 'board' | 'chrome'`
-   (line 242). The consult's own §2 census commissions one region as an
-   opaque "BLACK BOX" (control-panel tabs) whose interior is explicitly
-   *not* categorized by that union — it is out of scope for classification,
-   not merely unclassified-yet. We add a sixth domain literal, 'blackbox',
-   for exactly that region, rather than forcing an arbitrary member of the
-   closed five-way union onto content the document declines to classify.
+   (line 242) — kept verbatim, five members, no sixth. An earlier revision of
+   this module added a sixth literal, 'blackbox', to mark unmodeled-interior
+   content (the control-panel tab group); AMENDMENT 6 (ledger row 1937,
+   `.claude/dispatch-reports/lyt-tab-region-consult.md` §6.3) RETIRES that
+   choice as an ADR-0008 category error, disclosed and named as such by the
+   report itself: `domain` is the census's SUBJECT-MATTER axis (which region
+   of the app a leaf belongs to), and "unmodeled beyond here" is an
+   ORTHOGONAL fact — a boundary marker, not a domain. See `Leaf.boundary`
+   below for the re-homed spelling.
 2. `Sizing.basis` keeps the TS union `'reserved' | 'envelope'` (line 322)
    verbatim — there is no 'content' member. That absence is deliberate and
    load-bearing (§4.2, line 344: "There is deliberately no basis: 'content'.
@@ -41,6 +44,23 @@ as Amendments 1-4):
 Both are enforced as load-time structural walks in `wellformed.py` (laws
 L5/L5a/L5b/L5c), the same enforcement family as L2's dominance test.
 
+AMENDMENT 6 (ledger row 1937, same consult report, §6.3/§6.4/§8.1 — the
+"Option C" tab-skeleton-encoding wave) adds a third, disclosed departure,
+completing the re-homing Amendment 5's own docstring above already
+anticipated:
+
+5. `Leaf.boundary` — the recursion's base case, re-spelled as a boolean fact
+   on `Leaf` rather than as a `Domain` member. A `True` value means "an
+   unmodeled subtree conceptually stands here" — the SAME fact the retired
+   `domain == 'blackbox'` used to carry, now orthogonal to the leaf's own
+   TRUE domain (which is free to be any of the five real members, or the
+   census's own honest `?`/`flagged` convention when genuinely ambiguous).
+   `False` (the default) is byte-identical to every leaf that was never
+   `blackbox`-domained. Consumers that used to branch on `domain ==
+   'blackbox'` (the emitter's Exclusive-node collapse, `emit_layout_tree.py`
+   and `emit_mockup.py`) now branch on `.boundary` instead — see those
+   modules' own docstrings for the AMENDMENT 6 disclosure.
+
 License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
 license line and the umbrella's ADR-0006 per-file convention.
 """
@@ -49,7 +69,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import FrozenSet, List, Literal, Optional, Union
 
-Domain = Literal["go", "common", "debug", "board", "chrome", "blackbox"]
+Domain = Literal["go", "common", "debug", "board", "chrome"]
 Facet = Literal["action", "info"]
 Unit = Literal["px", "ch", "fr"]
 # AMENDMENT 5 (ledger row 1937, .claude/dispatch-reports/lyt-tab-region-
@@ -210,6 +230,11 @@ class Leaf:
     # invisible to every Amendment 5 law, exactly as an un-migrated
     # encoding must stay legal.
     content: Optional[ContentClass] = None
+    # AMENDMENT 6 (ledger row 1937, .claude/dispatch-reports/
+    # lyt-tab-region-consult.md §6.3): the re-homed boundary marker -- see
+    # module docstring point 5. `False` (default) is the pre-Amendment-6
+    # state for every leaf that was never `domain == 'blackbox'`.
+    boundary: bool = False
 
     def __post_init__(self) -> None:
         # F3-fix precedent (Extent/Sizing/Presence, this same module):

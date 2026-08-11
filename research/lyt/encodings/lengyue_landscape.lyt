@@ -369,6 +369,193 @@
 --         width where the column doesn't hit its own absolute floor --
 --         see the dispatch report's measurement table for the full
 --         before/after.
+--   - OPTION C TAB-SKELETON ENCODING (2026-08-11, ledger row 1937's
+--     ratified consult, `.claude/dispatch-reports/lyt-tab-region-
+--     consult.md` §3-C/§6/§8/§9; work item lyt-tab-skeleton-encoding).
+--     Solver-side only -- frontend/src and LytNode.vue are untouched;
+--     `emit_layout_tree.py`'s plain-leaf-T assertion is retired (that
+--     module's own docstring has the full disclosure) so this composite
+--     interior still emits as ONE collapsed `blackbox` leaf, byte-identical
+--     realization.
+--
+--     BLACKBOX RE-HOMING (§6.3): every CP-* leaf's domain moves from the
+--     retired `blackbox` domain literal to its true domain (`common` for
+--     library/cards/settings/other's leaves, `go` for the analysis tab's
+--     leaves, `debug` for the Other tab's ColorDebugStrip) plus the new
+--     `boundary` sizing-bag flag ("an unmodeled subtree stands here").
+--     Geometry-inert re-homing on its own; genuinely new leaves (below)
+--     carry real sizing.
+--
+--     CP-library / CP-cards stay opaque single leaves (no witnessed
+--     symptom, ADR-0008: don't classify what hasn't crystallised) but gain
+--     an honest classification: `content unbounded` (virtual-scrolled
+--     browse tables), `scroll v` declared (§8.4's ratified table row) --
+--     L5a's coverage requirement is satisfied by this leaf's own `scroll v`
+--     (its root-to-leaf path's sole scroll owner, L5b).
+--
+--     CP-settings OPENED ONE LEVEL (item 4, §3-C/§8.2): `V(substrip,
+--     pane)`. `settingsSubstrip`: `content bounded`, no scroll declared
+--     (§8.4: settings sub-tab strip is bounded chrome, no-scroll). Its
+--     28px height is the SAME fixed-strip convention this file already
+--     uses for A_engine/A_app-adjacent rows. `settingsPane`: a SINGLE
+--     opaque leaf standing for whichever of the six sub-tab bodies is
+--     showing (`SettingsTab.vue`'s own `activeSubTab`) -- item 4's own
+--     text commissions exactly one opaque pane leaf, not six; per §8.4's
+--     table two of those six bodies (Advanced Registry, Keybindings) are
+--     genuinely `unbounded`/scroll-declared while the other four are
+--     bounded/designed/no-scroll, and a single leaf cannot carry two
+--     different classifications for two different (mutually-exclusive)
+--     runtime states the way the T's own sibling machinery does one level
+--     up -- DISCLOSED CONSERVATIVE CHOICE: `settingsPane` is classified
+--     `unbounded, scroll v` (the WORST-CASE superset of its six possible
+--     bodies), which is honest (never claims a state that could actually
+--     overflow undeclared) but over-reserves scroll-affordance for the
+--     four bounded bodies. A future wave that opens CP-settings a SECOND
+--     level (a T of six named panes, mirroring CP-analysis's own nested T)
+--     would let each body carry its own true classification -- named here
+--     as the residual this wave does not close, not silently absorbed.
+--
+--     `settingsSubstrip`'s WIDTH DEMAND -- the outer `V(substrip,pane)`
+--     wrapper's own T-child `min 838px` (both axes; see the BOTH-AXES
+--     TENSION note below) -- is a ch-measured envelope over the six
+--     static sub-tab labels, GROUNDED: label text from
+--     `frontend/src/locales/en.json` ("Session (UI)"=12ch,
+--     "Analysis Environment"=20ch, "Card Sets (Decks)"=17ch,
+--     "Advanced Registry"=17ch, "Analysis Layout"=15ch,
+--     "Keybindings"=11ch; sum 92ch), resolved via `loader.PX_PER_CH=8.0`
+--     (736px), plus `TabWidget.vue`'s own `.tab-header li` padding
+--     (`var(--space-default)` each side = 8px×2, `theme.css:568` =
+--     96px for six tabs) and its `border-right:1px` (≈6px) --
+--     736+96+6=838px. Height-wise this same number ALSO becomes the
+--     composite's height floor (see BOTH-AXES TENSION below) even though
+--     the settings pane's own real height need (28+200+4gap=232px) is far
+--     smaller -- an honest, disclosed over-reservation, not a modeling
+--     error.
+--
+--     REPAIR (2026-08-11, `.claude/dispatch-reports/lyt-optionc-review.md`
+--     Finding 3, corrected in `.claude/dispatch-reports/lyt-optionc-repair
+--     .md`): the delivered wave's own ch-count table was inflated by
+--     exactly +1 character on five of the six labels (a systematic
+--     off-by-one in whatever counting pass produced it; only
+--     "Keybindings", already correct, was untouched) -- 97ch/878px
+--     (rounded to 880px) reported, 92ch/838px actual. The INFEASIBLE
+--     conclusion's POLARITY is unaffected -- 838px still exceeds the side
+--     column's own pre-existing, separately-ratified `max 340px+60ch`
+--     (820px) cap -- but the honest MARGIN is ~18px over the cap, not the
+--     originally-reported ~60px. The remedy (raise the side column's own
+--     max cap, reduce the sub-tab label set, or accept the INFEASIBLE
+--     landscape sizes) is left to the commissioner -- see the repair
+--     report's own Finding 3 section; this file does not pick one.
+--
+--     CP-analysis OPENED ONE LEVEL (item 3, §3-C): `V(timelineStrip,
+--     T(AT-basic, AT-distributions, AT-stability, AT-multiresolution))`.
+--     The FOUR analysis tabs transcribe `frontend/src/store/defaults.ts`'s
+--     ACTUAL `analysisTabs` default table verbatim (lines 633-638) --
+--     the ratified consult's own §3-C prose names only three
+--     (Basic/Distributions/Stability) as an ILLUSTRATIVE example; this
+--     encoding follows the brief's own instruction to transcribe the
+--     REAL authority instead (item 6's cross-check test enforces this
+--     going forward), a disclosed, deliberate correction of the consult's
+--     shorthand, not a deviation from its ruling. `AT_multires` (the
+--     fourth tab, `multiresolutionInterval` panel) is a bare leaf, not a
+--     degenerate one-child V -- honest, since a V of one child adds
+--     nothing.
+--
+--     Per-panel height floors (`content designed`, per §6.6's ruling --
+--     chart-carrying containers are no-scroll by policy): ONE genuine
+--     component design fact exists in this panel family --
+--     `MultiresolutionIntervalPanel.vue:153`'s own `height: 580px` CSS
+--     (GROUNDED, used verbatim for AT_multires). Every OTHER panel in
+--     this family (`ScoreLeadPanel`/`MergedDeltaPanel`/
+--     `DeltaDistributionPanel`/`MistakeGapPanel`/`StabilityPanel`/
+--     `StabilityCrossCorrelationPanel`) is `BaseChart`-driven with
+--     `height:100%` (elastic, container-driven, no intrinsic design
+--     floor -- verified by reading each `<style>` block; none declares a
+--     height) -- their `200px` floor here is a DISCLOSED ESTIMATE, not a
+--     measured or CSS-cited number (a commonly-workable minimum legible
+--     chart height), NOT independently re-measured against the live app
+--     the way the REPAIR PASS's own numbers were. `AT_basic_interval`
+--     (`IntervalSummaryPanel`, a compact bounded table, not a chart) is
+--     likewise a disclosed `90px` ESTIMATE. Each panel leaf is
+--     `{min <floor>, pref 1fr, max inf}` (elastic above its floor, not
+--     fully fixed) rather than a bare `{Npx}` shorthand -- deliberate:
+--     since every T-sibling shares the identical rectangle (§2) and the
+--     four AT-* groups' own honest interior floors genuinely differ
+--     (498/404/404/580px), a fully-fixed leaf would make the shorter
+--     panes' own V-partition equality UNSATISFIABLE against the taller
+--     sibling's forced shared height; elastic-above-floor lets every
+--     shorter group's own charts genuinely stretch to fill the taller
+--     group's shared rectangle -- which is also literally true to
+--     `BaseChart`'s own `height:100%` live behavior, not merely a
+--     solver convenience. `timelineStrip`'s `80px` is PARTLY grounded
+--     (`HorizontalTimelineVisualizer.vue:429`'s own `.timeline-container
+--     { height: 16px }` data-track fact) and partly estimated (header +
+--     controls rows, not individually measured) -- disclosed as such,
+--     not presented as a single clean citation.
+--
+--     A FOLLOW-UP LIVE RE-SWEEP (Playwright, the REPAIR PASS's own
+--     methodology) is the honest remaining gap for every ESTIMATED number
+--     above, named here per this file's own established disclosure
+--     posture -- filed, not silently absorbed.
+--
+--     CP-other OPENED ONE LEVEL (item 5, §9.3's ratified TARGET shape,
+--     not an item-3/4 "earned by a witnessed symptom" case but a
+--     DIRECTLY RULED restructure): `V(otherColorDebug, otherBand)` -- a
+--     fixed designed-height band (the chart-ish `ColorDebugStrip`,
+--     `content designed`, no-scroll) plus a scroll-owned unbounded band
+--     (`content unbounded, scroll v`, the freeform-JSON/registry
+--     editor). Per §9.3's own text this is a REAL composition defect
+--     surfaced by L5c (a chart-bearing subtree may not declare scroll) --
+--     the CURRENT LIVE DOM still mixes both in one scrolling
+--     `.scrollable-content` band (unrepaired; the realization wave
+--     inherits this lag, disclosed here explicitly per item 5's own
+--     instruction, NOT silently assumed fixed). `otherColorDebug`'s 40px
+--     is an UNGROUNDED estimate (no component-level height fact found for
+--     `ColorDebugStrip.vue` in this pass) -- the weakest-grounded number
+--     in this wave, named as such.
+--
+--     BOTH-AXES TENSION (disclosed language limitation, not invented
+--     here -- SPEC.md §4.2's own "load-bearing fact 2", already on record
+--     before this wave): a T-child's declared `min` applies IDENTICALLY
+--     to both its width and height (§8's `along=None` branch) -- there is
+--     no way, in this 1-D-per-slot language, to declare "838px wide, only
+--     232px tall" on CP-settings' own outer wrapper. Every composite
+--     CP-* leaf's declared T-child `min` above (838/664/204px) is
+--     therefore ALSO an over-conservative HEIGHT floor for that tab,
+--     beyond what its own interior actually needs. This is the SAME
+--     limitation the consult's own §2 "excluded from this option space"
+--     list names (2-D per-axis T-child sizing, excluded as unnecessary
+--     surgery for the witnessed defect) -- inherited honestly, not
+--     silently absorbed; its solver-visible consequence (does the
+--     control-panel region still fit at the pinned representative sizes)
+--     is reported in the delivery report, not papered over here.
+--
+--     REPAIR (2026-08-11, `.claude/dispatch-reports/lyt-optionc-review.md`
+--     Finding 2, corrected in `.claude/dispatch-reports/lyt-optionc-repair
+--     .md`): the T(...)'s OWN wrapping slot below now carries an EXPLICIT
+--     `min 160px` -- the exact pre-Option-C marker reservation (the value
+--     every CP-* child declared literally, W4 FLOOR SOFTENING, before this
+--     wave opened two of them into composites). This is the "solver-side
+--     only" split made honest end to end: the COMPILER still derives the
+--     T's real structural floor as the componentwise max of its children's
+--     declared min (§8's `along=None` branch, unaffected by this
+--     declaration -- `compiler.py`'s own T-branch comment: "we additionally
+--     derive and assert it explicitly... when a T slot's own declared min
+--     is SMALLER than that componentwise max", i.e. the declared 160px
+--     never weakens the solver's own INFEASIBLE finding), while the
+--     EMITTER (`emit_layout_tree.py`) now reads this declared min directly
+--     for the collapsed blackbox leaf's track, instead of re-deriving the
+--     same componentwise max the solver uses -- so the interior's 838px
+--     settings-substrip demand (corrected per Finding 3 above; the
+--     delivered wave over-stated it as 880px) stays solver-visible
+--     (correctly driving
+--     INFEASIBLE) without leaking into the LIVE CSS Grid minimum the
+--     shipped app enforces today. Before this repair, the emitter's own
+--     derivation (mirroring the solver's) pulled the composite children's
+--     interior floors into the emitted track, regenerating minPx from
+--     160px to 880px -- a live-DOM behavior change the "solver-side only"
+--     framing never disclosed as in scope. See the repair report for the
+--     .gen.ts diff-vs-base inertness verification.
 layout lengyue-landscape =
   {min 0px, pref 1fr, max inf, gap 12px} H(
     @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
@@ -382,12 +569,36 @@ layout lengyue-landscape =
       {160px} A_app[common, action],
       {pref 1fr, gap 4px} H(
         {min 110px, pref 110px, max 110px} tree[board, info+action],
-        {pref 1fr} T(
-          {min 160px, pref 1fr, max inf} CP-library[blackbox],
-          {min 160px, pref 1fr, max inf} CP-cards[blackbox],
-          {min 160px, pref 1fr, max inf} CP-settings[blackbox],
-          {min 160px, pref 1fr, max inf} CP-analysis[blackbox],
-          {min 160px, pref 1fr, max inf} CP-other[blackbox]
+        {min 160px, pref 1fr, max inf} T(
+          {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v} CP-library[common],
+          {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v} CP-cards[common],
+          {min 838px, pref 1fr, max inf, gap 4px} V(
+            {28px, boundary, content bounded} settingsSubstrip[common],
+            {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} settingsPane[common]
+          ),
+          {min 664px, pref 1fr, max inf, gap 4px} V(
+            {min 80px, pref 80px, max 80px, boundary, content designed} timelineStrip[go],
+            {min 160px, pref 1fr, max inf} T(
+              {min 160px, pref 1fr, max inf, gap 4px} V(
+                {min 90px, pref 90px, max 90px, boundary, content designed} AT_basic_interval[go],
+                {min 200px, pref 1fr, max inf, boundary, content designed} AT_basic_scoreLead[go],
+                {min 200px, pref 1fr, max inf, boundary, content designed} AT_basic_mergedDelta[go]
+              ),
+              {min 160px, pref 1fr, max inf, gap 4px} V(
+                {min 200px, pref 1fr, max inf, boundary, content designed} AT_dist_deltaDist[go],
+                {min 200px, pref 1fr, max inf, boundary, content designed} AT_dist_mistakeGap[go]
+              ),
+              {min 160px, pref 1fr, max inf, gap 4px} V(
+                {min 200px, pref 1fr, max inf, boundary, content designed} AT_stab_stability[go],
+                {min 200px, pref 1fr, max inf, boundary, content designed} AT_stab_crossCorr[go]
+              ),
+              {min 580px, pref 580px, max inf, boundary, content designed} AT_multires[go]
+            )[ANALYSIS TABS]
+          ),
+          {min 204px, pref 1fr, max inf, gap 4px} V(
+            {min 40px, pref 40px, max 40px, boundary, content designed} otherColorDebug[debug],
+            {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v} otherBand[common]
+          )
         )[BLACK BOX],
         @toggle(user, release) {min 160px, pref 160px, max 160px, aspect 1} previewBoard[common, info]
       )

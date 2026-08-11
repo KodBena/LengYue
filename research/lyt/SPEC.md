@@ -46,12 +46,14 @@ Slot wraps exactly one of three node kinds:
 - **Leaf** — a single widget: an identity (`widget: str`), a set of
   **facets** drawn from `{action, info}` describing whether the widget
   is something a user acts on, something that displays information, or
-  both, and a **domain** drawn from `{go, common, debug, board, chrome,
-  blackbox}` describing which subject-matter region of the app it
-  belongs to. (`blackbox` is the implementation's own addition to the
-  consult document's five-member domain union — a placeholder domain for
-  content this prototype does not model further, such as the five-tab
-  control-panel group in §1.2's worked example below.)
+  both, a **domain** drawn from the consult document's own five-member
+  union `{go, common, debug, board, chrome}` describing which
+  subject-matter region of the app it belongs to, and (§14, AMENDMENT 6)
+  an orthogonal **boundary** flag marking "an unmodeled subtree stands
+  here" — the recursion's own base case, re-homed off a retired sixth
+  domain literal, `blackbox`, that this implementation carried between
+  Amendments 0 and 5 (see §14 for the full disclosure of that retirement
+  and why it was an ADR-0008 category error).
 - **Split** (`H` or `V`) — an ordered, variable-arity partition of its
   own rectangle among its children, along one axis. `H` partitions
   width (every child gets the split's full height); `V` partitions
@@ -1105,15 +1107,23 @@ established "parser permissive, loader refuses" division of labor.
 
 ### 13.2 Why `content` is not `domain` or a `facet`
 
-The census already carries a disclosed misfit: `domain: 'blackbox'` is a
-boundary marker ("an unmodeled subtree stands here") wearing a
-subject-matter-domain spelling, named as such by the consult report's
-own §6.3. `content` is a genuinely ORTHOGONAL axis — how much of a
+*(At the time this section was written, the census still carried a
+disclosed misfit: `domain: 'blackbox'` was a boundary marker ("an
+unmodeled subtree stands here") wearing a subject-matter-domain spelling,
+named as such by the consult report's own §6.3. §14 (AMENDMENT 6) RETIRES
+that spelling — `blackbox` is no longer a `Domain` member; the boundary
+fact moved to its own `Leaf.boundary` flag. This section's own prose is
+kept verbatim below, since it is the disclosure that MOTIVATED §14's
+retirement, not a claim about the current type — a reader relying on it
+for the current `Domain` union should read §14 instead.)*
+
+`content` is a genuinely ORTHOGONAL axis — how much of a
 leaf's content there is (bounded/designed/unbounded), not what
 subject-matter region it belongs to (`domain`) or what a user does with
 it (`facets`). Conscripting `content` into either existing axis would
-re-mint the exact category error `blackbox` already discloses, one
-paragraph after it was named as a misfit to avoid (ADR-0008).
+re-mint the exact category error `blackbox` used to be, one paragraph
+after it was named as a misfit to avoid (ADR-0008) — and §14 retires that
+category error at the root rather than merely avoiding repeating it.
 
 ### 13.3 The laws L5, L5a, L5b, L5c
 
@@ -1182,6 +1192,63 @@ rectangle is ever solved — there is no "solved but short" state for
 `min` to report a shortfall against. `pref` is a soft target the solver
 may leave unmet, so a positive shortfall against it is a real, reachable,
 non-gating fact.
+
+## 14. Amendment 6 — the boundary marker, and constructor-total tree consumers
+
+Adopted per [.claude/dispatch-reports/lyt-tab-region-consult.md](../../.claude/dispatch-reports/lyt-tab-region-consult.md)
+§6.3/§6.4/§8.1 (ledger row 1937, same ratification as Amendment 5; work
+item lyt-tab-skeleton-encoding, the "Option C" wave). Where Amendment 5
+gave overflow a typed vocabulary, Amendment 6 re-homes a PRE-EXISTING
+disclosed category error (§13.2's own prose above, kept verbatim, IS the
+disclosure that motivated this retirement) and retires one language-level
+narrowing that had nothing to do with the language's own type.
+
+### 14.1 The re-homing
+
+`Domain` shrinks back to the consult document's own five-member union
+(`go | common | debug | board | chrome`) — the implementation-added sixth
+literal, `blackbox`, is RETIRED. In its place, `Leaf` gains a `boundary:
+bool` flag (concrete syntax: a bare `boundary` sizing-bag key, leaf-only,
+same "one more recognized key" precedent `gap`/`scroll`/`content` all use).
+`boundary=True` carries EXACTLY the fact `domain=='blackbox'` used to —
+"an unmodeled subtree stands here" — while leaving the leaf's `domain`
+free to be its TRUE subject-matter classification (or the census's
+existing `?`/`flagged` convention when genuinely ambiguous). Every
+existing `blackbox`-domain leaf in this repository's four `.lyt`
+encodings updates mechanically: `domain='blackbox'` → the leaf's honest
+domain + `boundary`. Geometry-inert on its own.
+
+### 14.2 Constructor-total consumers
+
+The consult report's own closure statement (its §6.2, quoted there in
+full) names the class this re-homing closes: three consumers of the
+`Slot` tree — `emit_layout_tree.py`'s Exclusive-node collapse, its
+generated `blackbox` node kind, and `LytNode.vue`'s terminal-T case —
+were depth-assuming special cases beside the general recursive shape
+`parser.py`/`loader.py`/`wellformed.py`/`compiler.py` already exercise.
+This wave retires the FIRST of those three: `emit_layout_tree.py`'s
+Exclusive branch no longer asserts every T-child is a bare `ast.Leaf`
+(`emit_layout_tree.py`'s own module docstring has the full disclosure);
+it is now a genuine structural fold, total over Leaf|Split|Exclusive, so
+a T-child may be an arbitrarily deep composite. The whole Exclusive node
+still collapses to ONE synthetic `blackbox` leaf in the emitted TS
+regardless of interior depth (§8.1's own resolution: "Wave 1 ships
+solver-side with the marker sitting at the T... byte-identical") — the
+retirement is about what the EMITTER refuses to accept as input, not
+about where the realization boundary sits. `LytNode.vue`'s own
+terminal-T case (the second/third consumers §6.2 names) is UNCHANGED by
+this wave — a declared, still-open residual, not silently closed.
+
+### 14.3 What this buys
+
+Opening a control-panel tab's interior one level (Amendment 6's own
+motivating case, `CP-analysis`/`CP-settings` in the lengyue encodings) is
+now ordinary encoding data — moving where a `boundary`-marked leaf sits,
+never a language change, never (for the emitter, at least) a tooling
+change. The three-consumer class this retires is Rule 2(a)'s own worked
+instance (ADR-0000): a depth-assumption in a consumer, foreclosed by
+naming the fold total over the type's own constructors rather than
+patching the one instance in view.
 
 ## Status of the other LYT documents
 

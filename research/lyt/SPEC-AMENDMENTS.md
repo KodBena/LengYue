@@ -760,6 +760,111 @@ tab"-shaped composition L5c must refuse, a waiver-mechanism-reuse
 regression, the dormancy regression against every reference encoding, and
 the advisory output shape including a nested-T-groups regression).
 
+## Amendment 6 (ledger row 1937, same consult) — the boundary marker re-homing; constructor-total emitter
+
+**Ruling.** Adopted per [.claude/dispatch-reports/lyt-tab-region-consult.md](../../.claude/dispatch-reports/lyt-tab-region-consult.md)
+§6.3/§6.4/§8.1 — the SAME ratification as Amendment 5 (ledger row 1937);
+work item lyt-tab-skeleton-encoding, the "Option C" wave implementing the
+report's own recommendation (§4: "Adopt C, with B as its companion
+amendment"). Where Amendment 5 landed B (overflow as a typed concept),
+this amendment lands the piece of the SAME wave the report's §6 follow-up
+resolved: `Domain`'s implementation-added sixth literal, `blackbox`, is
+RETIRED; the fact it carried ("an unmodeled subtree stands here") moves to
+a new `Leaf.boundary: bool` flag, orthogonal to the leaf's own true
+domain. `emit_layout_tree.py`'s plain-leaf-T assertion — every T-node
+child had to literally BE `ast.Leaf` — is retired to a genuine structural
+fold, total over Leaf|Split|Exclusive, so a T-child may now be an
+arbitrarily deep composite (the shape Option C's own CP-analysis/
+CP-settings opening requires).
+
+**Rationale, as recorded in the report.** §6.3: `domain: 'blackbox'`
+conflates two orthogonal axes — subject-matter classification (what
+`domain` is FOR) and "the encoding models no further past this node" (a
+recursion base case) — forcing opacity to be LEAF-shaped, which is why
+"open the box one level" read as a special language event rather than a
+routine encoding edit. §6.2's closure statement names the class: three
+consumers of the `Slot` tree pattern-match an assumed depth/constructor
+shape instead of folding generically over the type's own three
+constructors. This amendment retires the FIRST of those three
+(`emit_layout_tree.py`'s own Exclusive branch); `LytNode.vue`'s terminal-T
+case and the generated `blackbox` node-kind vocabulary are named as still
+depth-assuming (§6.2's own list) but are OUT of this amendment's scope —
+§8.1's own resolution: the realization boundary stays exactly where it
+sits today ("Wave 1 ships solver-side... byte-identical"), a declared,
+open residual for a later wave, not silently closed here.
+
+**What this amendment implements.**
+
+1. **`lyt_ast.Domain`** shrinks to the consult document's own five-member
+   union (`go | common | debug | board | chrome`); `Leaf.boundary: bool =
+   False` is a new field, same closed-vocabulary `__post_init__` posture
+   every other Amendment-5/6 field uses (F3-fix precedent).
+2. **Concrete syntax**: a bare `boundary` sizing-bag key (`RawSizing.
+   boundary`, parsed the same way `aspect-coupled`/`drag-persisted` are —
+   one more recognized key, no grammar production change), leaf-only
+   (`loader._load_boundary_marker`, refused on Split/Exclusive the same
+   way `content` is).
+3. **`emit_layout_tree.py`'s Exclusive branch**: the `isinstance(c.node,
+   ast.Leaf)` assertion (raising `NotImplementedError` on any composite
+   T-child) is removed. `childWidgets` — documentation/report-table
+   parity only, confirmed by direct read of `LytNode.vue`'s own source to
+   never be consumed by rendering — is now populated by
+   `_collect_leaf_widgets`, a genuine recursive fold over Leaf|Split|
+   Exclusive, replacing the retired one-level `c.node.widget` read. The
+   Exclusive node's own OUTPUT SHAPE (one collapsed `blackbox` leaf,
+   widget id `controlPanel`) is UNCHANGED — the retirement is what the
+   emitter accepts as INPUT, not what it emits.
+4. **`emit_mockup.py`'s own analogous plain-leaf-T assertion** (its
+   `render_exclusive`, an independent static-HTML-mockup consumer sharing
+   the identical depth-assuming shape, NOT itself named in the consult
+   report's §6.2 enumeration but exhibiting the SAME class) is retired the
+   same way, disclosed here as a mechanical necessity to keep this
+   repository's own `pytest` suite green against the newly-composite
+   CP-analysis/CP-settings tabs — `_first_leaf_widget` (a structural fold
+   mirroring `_collect_leaf_widgets`) derives a representative widget id
+   for a composite T-child's tab label/body; the static mockup's body
+   content for a composite tab is an honest placeholder naming the
+   composite explicitly, not stale single-leaf content under a misleading
+   label.
+5. **Every existing `.lyt` encoding carrying `domain='blackbox'`** —
+   `current_row_asis.lyt`, `current_row_repaired.lyt`,
+   `lengyue_landscape.lyt`, `lengyue_portrait.lyt` — updates mechanically
+   (domain re-homed to the leaf's true domain, `boundary` added).
+   Geometry-inert on its own (verified: `current_row_*.lyt`'s own pinned
+   feasibility results are unchanged by this amendment in isolation).
+   `synthesize.py`'s own `_instantiate_blackbox` (a separate, standalone
+   structure-synthesis research spike, out of this wave's own scope but
+   directly constructing `ast.Leaf(domain='blackbox', ...)`) is updated
+   the same mechanical way for constructor-coverage consistency.
+
+**Diff vs. the original consult document's prose.** `layout-language-
+consult.md` never names `blackbox` at all — it is entirely this
+prototype's own implementation-added literal (disclosed as such since its
+introduction, `lyt_ast.py`'s own module docstring). This amendment does
+not touch the consult document's own five-member `Domain` union; it
+retires an ADDITION this prototype made ON TOP of that union, restoring
+exact conformance to the document's own text while giving the retired
+fact an honest, orthogonal home.
+
+**What it touched.** `lyt_ast.py` (`Domain` shrinks; `Leaf.boundary`
+field); `parser.py` (`RawSizing.boundary`, one more `parse_sizing`
+branch); `loader.py` (`VALID_DOMAINS` shrinks; `_load_boundary_marker`,
+wired into every `load_slot` leaf/split/exclusive branch);
+`emit_layout_tree.py` (`_collect_leaf_widgets`, Exclusive branch
+retirement); `emit_mockup.py` (`_first_leaf_widget`, `render_exclusive`
+retirement, `TAB_LABELS` gains three composite-child entries);
+`encodings/current_row_asis.lyt` / `current_row_repaired.lyt` /
+`lengyue_landscape.lyt` / `lengyue_portrait.lyt` (mechanical re-homing);
+`synthesize.py` (same, for constructor-coverage consistency);
+`tests/test_lyt.py` (one pre-existing fixture's own inline `domain=
+'blackbox'` literal updated; regression coverage for the retirement
+itself is the Option C wave's own encoding-level test suite, since the
+boundary marker's own load/refuse behavior mirrors `content`'s existing
+coverage closely enough that a dedicated unit-level duplicate was judged
+not to earn its own place — see this amendment's companion work item's
+own delivery report for the full account,
+`.claude/dispatch-reports/lyt-optionc-encoding.md`).
+
 ## License
 
 Public Domain (The Unlicense), matching [layout-language-consult.md](../../.claude/dispatch-reports/layout-language-consult.md)'s

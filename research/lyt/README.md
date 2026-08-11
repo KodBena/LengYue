@@ -293,3 +293,27 @@ through, so the CLI runner and the codegen agree on what's waived and
 why. See `encodings/current_row_asis.lyt`'s own header for the two
 disclosed L2 sites and [.claude/dispatch-reports/lyt-constants-swap-build.md](../../.claude/dispatch-reports/lyt-constants-swap-build.md)
 for the divergence-report evidence this baseline produced.
+
+## AMENDMENT 6 and the Option C tab-skeleton-encoding wave (ledger row 1937)
+
+`domain: 'blackbox'` (this prototype's own implementation-added sixth
+domain literal, marking the control-panel tab group as unmodeled) is
+RETIRED — see [SPEC.md](SPEC.md) §14 for the full amendment and
+[SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)'s own Amendment 6 entry for the
+dated ruling record. The fact it carried moves to a new `Leaf.boundary`
+flag, orthogonal to the leaf's own true domain; `emit_layout_tree.py`'s
+plain-leaf-T assertion is retired to a genuine structural fold so a
+T-node child may now be an arbitrarily deep composite. `CP-analysis` and
+`CP-settings` (both `.lyt` encodings) are opened one structural level per
+[.claude/dispatch-reports/lyt-tab-region-consult.md](../../.claude/dispatch-reports/lyt-tab-region-consult.md)'s
+own Option C recommendation — transcribing the analysis tab's DEFAULT
+configuration (`frontend/src/store/defaults.ts`'s `analysisTabs`, cross-
+checked by a dedicated regression test) and the settings tab's sub-tab
+strip + pane shape. This is a genuine, disclosed feasibility-affecting
+change: both `.lyt` encodings' delivery report,
+[.claude/dispatch-reports/lyt-optionc-encoding.md](../../.claude/dispatch-reports/lyt-optionc-encoding.md),
+has the full solver results, every grounding citation, and the honest
+INFEASIBLE finding this wave surfaces (the newly-opened settings pane's
+ch-measured width floor exceeds the side column's own pre-existing hard
+cap at every landscape size) — read that report, not this paragraph, for
+the numbers.

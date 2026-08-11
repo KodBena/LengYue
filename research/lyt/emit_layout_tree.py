@@ -75,6 +75,61 @@ report-table parity -- nothing about the census is lost, only the GRID
 EXPANSION of it. This applies identically to both classes -- both
 `.lyt` encodings give their T node the same six-child shape.
 
+AMENDMENT 6 retirement (ledger row 1937, .claude/dispatch-reports/
+lyt-tab-region-consult.md §6.2/§6.4/§8.1, the "Option C" tab-skeleton-
+encoding wave): the paragraph above's "five CP-* children" is no longer
+five bare leaves -- CP-analysis and CP-settings are now composite Split
+subtrees (a nested tab group and a strip+pane, respectively), opened one
+structural level per the ratified consult. The plain-leaf-T assertion this
+Exclusive branch used to raise (`isinstance(c.node, ast.Leaf)` required, a
+`NotImplementedError` otherwise) is RETIRED: `_build_node`'s Exclusive
+branch no longer inspects each child's node kind at all before collapsing
+-- it always collapses the WHOLE node to one `blackbox` leaf, and
+`childWidgets` is now populated by `_collect_leaf_widgets`, a genuine
+structural fold (total over Leaf|Split|Exclusive, not a one-level
+`c.node.widget` read) so a composite tab's interior leaves are still named
+for documentation, never silently dropped. The emitted TS shape and
+LytNode.vue's realization boundary are UNCHANGED by this wave (§8.1's own
+"Wave 1 ships solver-side... byte-identical" resolution) -- the only
+observable diff, regenerating both classes' `.gen.ts` after this wave, is
+`childWidgets`' own contents (now longer, listing the opened tabs'
+interior leaves instead of the bare `CP-analysis`/`CP-settings` strings),
+a field this module's own docstring above already discloses as
+documentation-only and `LytNode.vue` never reads.
+
+REPAIR (2026-08-11, `.claude/dispatch-reports/lyt-optionc-review.md`
+Finding 2, corrected in `.claude/dispatch-reports/lyt-optionc-repair.md`):
+the paragraph above's own "UNCHANGED... byte-identical" claim was FALSE for
+one field -- the collapsed blackbox leaf's own TRACK (not just
+`childWidgets`). The pre-repair build of this branch still called
+`_exclusive_derived_min_px` (the componentwise max of the T's DIRECT
+children's own declared `min`) to compute the emitted track's floor -- a
+derivation that was geometry-inert back when every T child was a bare
+`WRAPPER_MIN`-floored leaf (all five identical), but which pulls a
+COMPOSITE child's own interior-derived floor (up to 880px, the settings
+substrip's ch-measured demand) into the emitted track the instant Option C
+opens a T child into a Split. That 880px is a genuine, LIVE-CONSUMED CSS
+Grid minimum (`App.vue` imports this file's `LYT_LANDSCAPE`/`LYT_PORTRAIT`
+directly; `useLytTrackCss.ts` renders an `elastic` track's `minPx` as a
+literal `minmax()` floor) -- not a solver-only number, contradicting the
+"solver-side only" framing this wave's own encoding header claims.
+`_exclusive_derived_min_px` and its floor-override plumbing are RETIRED
+from this module (kept, independently, in `emit_mockup.py`'s own copy --
+that generator's static-HTML mockup output is not live-consumed, so it is
+out of this repair's scope, named as a residual in the repair report).
+`_build_node`'s Split branch now calls `_track_shape_for_child` uniformly
+for every child kind, off the child SLOT's own declared `sizing.min` --
+for an Exclusive child, that is the T's own wrapping slot, which the two
+`.lyt` encodings now declare EXPLICITLY (`min 160px` landscape / `min
+200px` portrait -- the exact pre-Option-C marker reservation, see each
+encoding's own header note) rather than leaving it at the loader's
+disclosed 0px default for the compiler to re-derive. The COMPILER's own
+independent T-floor derivation (componentwise max of children, §8's
+`along=None` branch) is UNTOUCHED -- it still enforces the real 838-880px
+interior floor for solving purposes (the genuine INFEASIBLE finding
+survives this repair intact); only the EMITTER stops re-deriving that same
+number for the LIVE track.
+
 Presence (repair pass, ledger row 1781, W1 REPAIR; generalized here to
 portrait, W3): both `.lyt` source files declare `@toggle(user,
 release)` presence on `boardRail`/`previewBoard` (AMENDMENT 4, ledger
@@ -250,15 +305,27 @@ def _is_fixed(sizing: ast.Sizing) -> bool:
     return sizing.min.v == sizing.pref.v == sizing.max.v
 
 
-def _track_shape_for_child(sizing: ast.Sizing, *, floor_override_px: Optional[float], where: str) -> dict:
+def _track_shape_for_child(sizing: ast.Sizing, *, where: str) -> dict:
     """Mirrors emit_mockup.py's `_track_for_child` mapping table (that
     module's own docstring, read in full, is the normative source) but
     returns a JSON-serializable shape descriptor instead of a literal CSS
     string -- `LytNode.vue` does the final `minmax()`/`clamp()` string
-    assembly at runtime, off this same closed vocabulary."""
+    assembly at runtime, off this same closed vocabulary.
+
+    REPAIR (`.claude/dispatch-reports/lyt-optionc-repair.md`, Finding 2):
+    this function used to accept a `floor_override_px` that let an
+    Exclusive/T child's emitted floor be RE-DERIVED from its own children
+    (the componentwise max the solver uses) rather than read off the
+    child's OWN declared `sizing.min`. That override is retired -- every
+    node kind, T included, now emits its own slot's declared `min`
+    unconditionally, which is the marker's own honest reservation, not a
+    solver-side derivation leaking into a live-consumed track. See this
+    module's own docstring (AMENDMENT 6 / REPAIR section) for the full
+    account of why the two diverged and why only the emitter's copy of the
+    derivation was the bug."""
     if _is_fixed(sizing):
         return {"kind": "fixed", "px": _px(sizing.pref, where=where)}
-    min_px = floor_override_px if floor_override_px is not None else _px(sizing.min, where=where)
+    min_px = _px(sizing.min, where=where)
     if sizing.max == "inf":
         if sizing.pref.unit == "fr":
             return {"kind": "elastic", "minPx": min_px, "frWeight": sizing.pref.v}
@@ -267,16 +334,6 @@ def _track_shape_for_child(sizing: ast.Sizing, *, floor_override_px: Optional[fl
     if sizing.pref.unit == "fr":
         return {"kind": "elastic-capped", "minPx": min_px, "maxPx": max_px}
     raise NotImplementedError(f"{where}: capped non-fr-pref sizing has no disclosed track mapping: {sizing!r}")
-
-
-def _exclusive_derived_min_px(excl: ast.Exclusive, *, where: str) -> float:
-    """compiler.py's `_constrain` Exclusive branch: a T node's own
-    structural min is the componentwise max of its children's declared
-    min. Reproduced here (same derivation emit_mockup.py's own
-    `_exclusive_derived_min_px` uses) so the collapsed blackbox leaf's
-    track carries the same floor the solver enforces."""
-    mins = [_px(c.sizing.min, where=f"{where}/child") for c in excl.children]
-    return max(mins) if mins else 0.0
 
 
 def _find_board_composite_child(node: ast.Split) -> Optional[Tuple[int, ast.Split, float]]:
@@ -369,6 +426,28 @@ def _domain_facets(leaf: ast.Leaf) -> Tuple[str, List[str]]:
     return leaf.domain, sorted(leaf.facets)
 
 
+def _collect_leaf_widgets(slot: ast.Slot) -> List[str]:
+    """AMENDMENT 6 (ledger row 1937, .claude/dispatch-reports/
+    lyt-tab-region-consult.md §6.2/§6.4): a structural fold, total over
+    Leaf|Split|Exclusive, collecting every LEAF widget id in a subtree in
+    document order. Replaces the retired plain-leaf-T assertion's
+    one-level-only `c.node.widget` read (see `_build_node`'s Exclusive
+    branch below) -- a T-node child no longer has to BE a bare Leaf for
+    this emitter to describe it; it only has to be SOME well-typed subtree,
+    and this fold walks whatever depth/shape it actually has. For a bare
+    Leaf child (every CP-* tab pre-Amendment-6, and still CP-library/
+    CP-cards/CP-other today) this returns exactly `[leaf.widget]` --
+    byte-identical output to the pre-Amendment-6 one-level read."""
+    node = slot.node
+    if isinstance(node, ast.Leaf):
+        return [node.widget]
+    if isinstance(node, ast.Split):
+        return [w for c in node.children for w in _collect_leaf_widgets(c)]
+    if isinstance(node, ast.Exclusive):
+        return [w for c in node.children for w in _collect_leaf_widgets(c)]
+    raise TypeError(f"unknown LayoutNode kind: {node!r}")
+
+
 def _build_node(
     slot: ast.Slot, *, path: Tuple[int, ...], default_visible_by_path: Dict[Tuple[int, ...], bool]
 ) -> dict:
@@ -383,16 +462,24 @@ def _build_node(
             "aspect": slot.sizing.aspect,
         }
     if isinstance(node, ast.Exclusive):
-        child_widgets = []
-        for c in node.children:
-            if not isinstance(c.node, ast.Leaf):
-                raise NotImplementedError(
-                    f"Exclusive child at {path} is not a Leaf -- this emitter's "
-                    "blackbox collapse assumes every T-node child is a plain leaf "
-                    "(true of both lengyue_landscape.lyt's and lengyue_portrait.lyt's "
-                    "CP-* children)."
-                )
-            child_widgets.append(c.node.widget)
+        # AMENDMENT 6 (ledger row 1937, .claude/dispatch-reports/
+        # lyt-tab-region-consult.md §6.2/§6.4/§8.1): the plain-leaf-T
+        # assertion this branch used to raise is RETIRED -- a T-node child
+        # no longer has to be a bare ast.Leaf. The whole Exclusive node
+        # still collapses to ONE synthetic 'blackbox' leaf unconditionally
+        # (§8.1's own resolution: "Wave 1 ships solver-side with the marker
+        # sitting at the T ... today's behavior, byte-identical" --
+        # LytNode.vue's single `#leaf-controlPanel` slot boundary is
+        # untouched by this wave regardless of how deep any one tab's own
+        # interior is now modeled). `childWidgets` -- documentation/
+        # report-table parity only, never read by LytNode.vue's rendering
+        # (confirmed against that file's own source: it branches on
+        # `node.kind`, never on `childWidgets`) -- is now a genuine
+        # structural fold (`_collect_leaf_widgets`, total over
+        # Leaf|Split|Exclusive) instead of a one-level `c.node.widget` read,
+        # so a composite CP-* tab's interior leaves are still named for
+        # documentation purposes, not silently dropped.
+        child_widgets = [w for c in node.children for w in _collect_leaf_widgets(c)]
         return {
             "kind": "blackbox",
             "widget": "controlPanel",
@@ -404,12 +491,15 @@ def _build_node(
         shapes: List[dict] = []
         for i, child in enumerate(node.children):
             cpath = path + (i,)
-            floor = (
-                _exclusive_derived_min_px(child.node, where=str(cpath))
-                if isinstance(child.node, ast.Exclusive)
-                else None
-            )
-            shapes.append(_track_shape_for_child(child.sizing, floor_override_px=floor, where=str(cpath)))
+            # REPAIR (`.claude/dispatch-reports/lyt-optionc-repair.md`,
+            # Finding 2): no more per-Exclusive floor re-derivation here --
+            # `_track_shape_for_child` reads `child.sizing.min` directly for
+            # every node kind, T included, which is the T's OWN wrapping
+            # slot's declared min (now explicit in both .lyt encodings,
+            # `min 160px` landscape / `min 200px` portrait) rather than a
+            # componentwise max recomputed from the T's (now composite)
+            # children. See `_track_shape_for_child`'s own docstring.
+            shapes.append(_track_shape_for_child(child.sizing, where=str(cpath)))
         if path == ():
             match = _find_board_composite_child(node)
             if match is not None:

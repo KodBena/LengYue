@@ -34,14 +34,52 @@ def test_bench_one_smoke():
 
 def test_bench_real_encodings_smoke():
     """A tiny batch (n=2) against the real landscape/portrait/as-is
-    encodings actually solves OPTIMAL every time — a correctness smoke
-    check riding on top of the timing harness, not a timing assertion."""
+    encodings actually solves — a correctness smoke check riding on top of
+    the timing harness, not a timing assertion.
+
+    OPTION C TAB-SKELETON ENCODING (ledger row 1937) update, 2026-08-11
+    (`.claude/dispatch-reports/lyt-optionc-review.md` Finding 1 /
+    `.claude/dispatch-reports/lyt-optionc-repair.md`): `lengyue-
+    landscape@1920x1080` genuinely flips from `OPTIMAL` to `INFEASIBLE`
+    once the control-panel T's interior is honestly modeled -- the
+    settings sub-tab strip's ch-measured width demand (~838px, corrected
+    per Finding 3) exceeds the side column's own pre-existing, separately-
+    ratified `max 340px+60ch` (820px) cap, independently of screen size
+    (the column's own `max` is a hard cap, not a per-size quantity). This
+    is a real geometry fact this wave's own modeling correctly surfaces,
+    not a solver defect or a regression this test should paper over by
+    weakening its assertion for every spec -- the other two specs
+    (portrait, whose narrower composite floors happen to still fit its own
+    column cap at this size; the as-is baseline, untouched by this wave's
+    interior modeling) are asserted OPTIMAL exactly as before, so this
+    test still catches a genuine regression on either of THOSE two specs.
+    The landscape INFEASIBLE finding, and the 820px-vs-~838px tension it
+    surfaces, is left for the commissioner (see the repair report's own
+    Finding 3 section) -- this test only pins the now-honest status, it
+    does not adjudicate a remedy."""
     results = bench_solve.bench_real_encodings(n=2, time_limit_s=20.0)
     assert len(results) == len(bench_solve.REAL_SPECS)
+    by_label = {r.label: r for r in results}
+    known_infeasible = {"lengyue-landscape@1920x1080"}
     for r in results:
         assert r.n_solves == 2
-        assert r.status_counts.get("OPTIMAL") == 2
         assert r.mean_ms > 0.0
+        if r.label in known_infeasible:
+            assert r.status_counts.get("INFEASIBLE") == 2, (
+                f"{r.label}: expected the known, disclosed INFEASIBLE finding "
+                f"(settings-substrip demand vs. the side column's pre-existing "
+                f"max cap) both solves; got {r.status_counts!r}"
+            )
+        else:
+            assert r.status_counts.get("OPTIMAL") == 2, (
+                f"{r.label}: expected OPTIMAL both solves (not one of the "
+                f"disclosed Option C infeasibilities); got {r.status_counts!r}"
+            )
+    assert set(by_label) == {
+        "lengyue-landscape@1920x1080",
+        "lengyue-portrait@1080x1920",
+        "current-row-asis@1920x1080",
+    }
 
 
 def test_bench_synthetic_smoke():

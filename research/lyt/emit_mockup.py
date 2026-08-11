@@ -338,6 +338,16 @@ TAB_LABELS: Dict[str, str] = {
     "CP-settings": "Settings",
     "CP-analysis": "Analysis",
     "CP-other": "Other",
+    # AMENDMENT 6 (ledger row 1937, Option C tab-skeleton-encoding wave):
+    # CP-analysis/CP-settings/CP-other are no longer bare leaves named
+    # "CP-analysis"/"CP-settings"/"CP-other" -- they're composite subtrees
+    # whose FIRST leaf (`_first_leaf_widget`, see `render_exclusive`) is
+    # one of these three instead. Mapped to the SAME tab label the retired
+    # bare leaf used to carry, so the static mockup's tab strip text is
+    # unchanged.
+    "timelineStrip": "Analysis",
+    "settingsSubstrip": "Settings",
+    "otherColorDebug": "Other",
 }
 
 # Widget id -> honest-proxy inner HTML (fixed sample content sized to the
@@ -1009,21 +1019,55 @@ def render_split(
     return f'<div class="lyt-node lyt-split lyt-{axis} {extra_class}" {extra_data} style="{style}">{"".join(kids)}</div>'
 
 
+def _first_leaf_widget(node: ast.LayoutNode) -> str:
+    """AMENDMENT 6 (ledger row 1937, .claude/dispatch-reports/
+    lyt-tab-region-consult.md §6.2/§6.4): the retired plain-leaf-T
+    assertion's replacement companion for this mockup's own T-node
+    renderer -- a T-child no longer has to BE a leaf, but this mockup's
+    tab-strip STILL needs one representative widget id per tab (for its
+    label + honest-proxy body). Walks Leaf|Split|Exclusive, total, and
+    returns the first leaf encountered in document order -- the SAME
+    "first leaf" convention `_find_board_composite_child`'s own aspect-leaf
+    search already uses elsewhere in this module."""
+    if isinstance(node, ast.Leaf):
+        return node.widget
+    if isinstance(node, ast.Split):
+        return _first_leaf_widget(node.children[0].node)
+    if isinstance(node, ast.Exclusive):
+        return _first_leaf_widget(node.children[0].node)
+    raise TypeError(f"unknown LayoutNode kind: {node!r}")
+
+
 def render_exclusive(
     node: ast.Exclusive, *, path: Tuple[int, ...], class_id: str, extra_style: str, extra_data: str, extra_class: str, caption: Optional[str]
 ) -> str:
     tabs: List[str] = []
     body = ""
     for i, child in enumerate(node.children):
-        if not isinstance(child.node, ast.Leaf):
-            raise NotImplementedError(f"T-node child at {path + (i,)} is not a leaf (unsupported by this mockup's T mapping): {child.node!r}")
-        widget = child.node.widget
+        # AMENDMENT 6: the plain-leaf-T assertion this branch used to raise
+        # is RETIRED -- a composite (Split/Exclusive) T-child (CP-analysis/
+        # CP-settings/CP-other, opened one level by the tab-skeleton-
+        # encoding wave) is represented by its FIRST leaf's widget id
+        # (`_first_leaf_widget`, a genuine structural fold) for label/body
+        # purposes; a composite's own interior is NOT expanded into this
+        # static mockup's DOM (that stays this emitter's own disclosed
+        # simplification -- see the module docstring) -- an honest
+        # placeholder body names the composite explicitly rather than
+        # rendering stale single-leaf content under a misleading label.
+        widget = child.node.widget if isinstance(child.node, ast.Leaf) else _first_leaf_widget(child.node)
         label = TAB_LABELS[widget]
         active = i == 0
         cls = "lyt-tab active" if active else "lyt-tab"
         tabs.append(f'<div class="{cls}">{html.escape(label)}</div>')
         if active:
-            content = _board_html() if widget == "B" else WIDGET_CONTENT[widget]
+            if isinstance(child.node, ast.Leaf):
+                content = _board_html() if widget == "B" else WIDGET_CONTENT[widget]
+            else:
+                content = (
+                    f'<div class="blackbox-body">{html.escape(label)} '
+                    "(control-panel tab — composite interior modeled in LYT, "
+                    "not expanded in this static mockup; AMENDMENT 6)</div>"
+                )
             body = f'<div class="lyt-tabbody">{content}</div>'
     style = f"display:grid;grid-template-rows:auto 1fr;grid-template-columns:1fr;column-gap:0px;row-gap:0px;{extra_style}"
     # Caption spliced into the SAME row as the tab labels (horizontal room
