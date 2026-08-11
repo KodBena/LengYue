@@ -436,4 +436,10 @@ errors.
 
 ## Commit / merge-base
 
-(Filled in after commit — see final message.)
+Committed on this worktree's own branch (`worktree-agent-ad861840f0ffed04e`) at
+`2ec8f9a7627447cc699f50585c23f07cd10e39c8`, on top of `lyt-phase2` tip `a22b1613`
+(this worktree's HEAD was fast-forwarded onto that tip before any work — see
+"Isolation assertion" above). Final act: `git fetch origin lyt-phase2` — tip was
+still `a22b1613` (unchanged since session start); `git merge-base HEAD
+origin/lyt-phase2` resolved to that same SHA, confirming `lyt-phase2`'s tip is an
+ancestor of this commit and no rebase is needed before this response is sent.
