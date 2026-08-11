@@ -1793,7 +1793,7 @@ def test_find_board_composite_child_recognizes_both_encodings_shapes():
 
     p_match = emit_mockup._find_board_composite_child(portrait_root)
     assert p_match is not None
-    assert p_match[0] == 2  # composite is the THIRD child of portrait's V root (after boardRail, A_top)
+    assert p_match[0] == 2  # composite is the THIRD child of portrait's V root (after boardRail, A_app)
     assert p_match[2] == 52.0
 
 

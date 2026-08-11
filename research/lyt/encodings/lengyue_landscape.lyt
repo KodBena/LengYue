@@ -317,6 +317,58 @@
 --     against the live DOM the way this correction re-confirmed 335px
 --     is the honest remaining gap, named per this file's own established
 --     disclosure posture.
+--
+--   - LYT TOOLBAR ONTOLOGY REENCODE (commissioner-ratified 2026-08-11,
+--     ledger rows 1930/1931; `.claude/dispatch-reports/
+--     lyt-toolbar-ontology-reencode.md`). Four ratified points, this
+--     file's own share of the delivery:
+--       (1) BOARD CONTROLS GO TO THE BOARD -- unaffected here (the
+--         move-navigation cluster relocates into the Vue realization's
+--         StatusBar.vue, mounted at this file's own I_board/A_board
+--         leaves; no `.lyt` structural change, since those leaves'
+--         reservation was already large enough -- see the dispatch
+--         report's own measurement table).
+--       (2)+(3) ONE ENGINE CLUSTER (envelope-reserved) / ONE APP CLUSTER:
+--         the three-leaf `A_go`/`I_engine`/`A_common` strip (28px x 3,
+--         later 128px x 3 under the W1 REPAIR/W4 passes above) is
+--         RETIRED. Two leaves replace it: `A_engine[go, action+info]`
+--         (connect/disconnect + the engine-controls button cluster +
+--         engine metrics, `envelope: {disconnected, connected}` --
+--         genuinely reserved at the MAX across states now, closing the
+--         commissioner's witnessed defect "actions still reorganize the
+--         buttons...e.g. connecting") and `A_app[common, action]`
+--         (Load/Save SGF + sliders/setup/PBO popovers + the engine URI
+--         editor + the locale picker). This SHIFTS the tree/panels/
+--         preview row's own tree path from '2.3' to '2.2' (one fewer
+--         V-child ahead of it) -- every path-keyed consumer across the
+--         Python tooling and the Vue realization was updated in the
+--         same change; see the dispatch report's "path census" section.
+--       (4) RE-MEASURE, RE-SOLVE: `60px`/`160px` (envelope-reserved /
+--         fixed respectively) are a REAL Playwright measurement of the
+--         realized `ToolbarEngineCluster.vue`/`ToolbarAppCluster.vue`
+--         components (both engine states) at the column's own real-app
+--         OPERATING width (~400px -- the REPAIR PASS's own real-app
+--         measurement precedent, not the absolute 345px floor, which is
+--         reached only under extreme squeeze), plus a ~10px margin, the
+--         SAME posture the REPAIR PASS and W4 FLOOR CORRECTION sections
+--         above use. DISCLOSED TENSION, named rather than hidden: at the
+--         absolute 345px floor specifically, the connected-state engine
+--         cluster (measured 78px) and the app cluster (measured 199px)
+--         both exceed this reservation (60px/160px) -- `.lyt-toolbar-
+--         strip`'s own `overflow-y: auto` degrades this to an internal
+--         scrollbar (content stays reachable, never clipped/hidden) at
+--         that one narrow edge case rather than an outright layout
+--         break. A more conservative alternative (88px/210px, derived
+--         from the 345px-floor measurement itself) would close this gap
+--         entirely at the cost of ~78px more standing side-column height
+--         at every OTHER width -- named here as the follow-up a future
+--         wave can take if the commissioner wants zero-scroll at the
+--         hard floor over the current, narrower reservation. Net effect
+--         on the total side-column reservation: 384px (128px x 3) ->
+--         220px (60px + 160px), ~164px returned to the board at every
+--         width where the column doesn't hit its own absolute floor --
+--         see the dispatch report's measurement table for the full
+--         before/after.
 layout lengyue-landscape =
   {min 0px, pref 1fr, max inf, gap 12px} H(
     @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
@@ -326,9 +378,8 @@ layout lengyue-landscape =
       {min 28px, pref 28px, max 28px} A_board[board, action]
     ),
     {min 345px, pref 32fr, max 340px+60ch, gap 4px} V(
-      {128px} A_go[go, action],
-      {128px, envelope: {disconnected, connected_5digit_latency}} I_engine[common, info],
-      {128px} A_common[common, action],
+      {60px, envelope: {disconnected, connected}} A_engine[go, action+info],
+      {160px} A_app[common, action],
       {pref 1fr, gap 4px} H(
         {min 110px, pref 110px, max 110px} tree[board, info+action],
         {pref 1fr} T(

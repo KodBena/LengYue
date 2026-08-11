@@ -766,8 +766,9 @@ export const defaultSessionUI: UISession = {
   activeTab: 'cards',
   // LYT corner presence-menu defaults (W2). Mirrors `lyt-layout.gen.ts`'s
   // own `presenceDefaultVisible` for the three menu-governed widget ids —
-  // `boardRail` (path '0') and `previewBoard` (path '2.3.2') both false,
-  // `controlPanel` (path '2.3.1') true — see
+  // `boardRail` (path '0') and `previewBoard` (path '2.2.2', formerly
+  // '2.3.2' — LYT toolbar ontology reencode, 2026-08-11) both false,
+  // `controlPanel` (path '2.2.1', formerly '2.3.1') true — see
   // `composables/chrome/useLytPresenceMenu.ts`'s own `LYT_PRESENCE_DEFAULT`
   // for the single other place this triple is named (the migration
   // 75 -> 76 fallback for a key a legacy blob never wrote at all).

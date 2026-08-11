@@ -213,9 +213,12 @@ const SLOT_SELECTORS_LANDSCAPE = {
   B:            { selector: '#board-square' },
   I_board:      { selector: '.status-bar' },
   A_board:      { selector: null, reason: 'W1 registry decision: absorbed into I_board\'s StatusBar mount (state/lyt-widget-registry.ts) — StatusBar already carries both the info readout and the action row internally, no separate DOM element for A_board' },
-  A_go:         { selector: '.lyt-toolbar-strip' },
-  I_engine:     { selector: null, reason: 'W1 registry decision: absorbed into A_go\'s Toolbar mount — no separate DOM element' },
-  A_common:     { selector: null, reason: 'W1 registry decision: absorbed into A_go\'s Toolbar mount — no separate DOM element' },
+  // LYT toolbar ontology reencode (2026-08-11, ledger rows 1930/1931):
+  // A_go/I_engine/A_common (one merged Toolbar mount, two absorbed-null
+  // entries) are retired in favour of two independently-mounted
+  // clusters, each with its own DOM selector — no absorption anymore.
+  A_engine:     { selector: '.engine-cluster' },
+  A_app:        { selector: '.app-cluster' },
   tree:         { selector: '#vue-tree-panel' },
   // T() (Exclusive) semantics, same convention the pre-rework table used:
   // every CP-* child solves to the SAME rectangle; #control-panel

@@ -28,11 +28,29 @@
  * compiled program, so LytNode.vue renders neither unless the corner
  * presence menu (W2) turns them on — see `state/lyt-widget-registry.ts`'s
  * own notes on both. The old `.top-nav-bar` (Toolbar mounted horizontally
- * above the workspace row) is superseded: Toolbar now mounts into the
- * side column's merged A_go/I_engine/A_common region in landscape (a
- * wide-short strip, ~84px tall, full column width) or the A_top strip in
- * portrait — a disclosed, roadmap-commissioned structural change
- * ("toolbar row structure — clusters regrouped per the census").
+ * above the workspace row) is superseded: two purposed clusters —
+ * `ToolbarEngineCluster.vue` (connect/disconnect, the engine-controls
+ * button cluster, engine metrics) and `ToolbarAppCluster.vue` (Load/Save
+ * SGF, sliders/setup/PBO popovers, the engine URI editor, the locale
+ * picker) — now mount into the side column's `A_engine`/`A_app` leaves in
+ * landscape, or the same-named leaves in portrait (retaining that class's
+ * pre-existing A_top/I_engine tree positions — see
+ * `research/lyt/encodings/lengyue_portrait.lyt`'s own header for why no
+ * structural reshuffle was needed there).
+ *
+ * LYT TOOLBAR ONTOLOGY REENCODE (commissioner-ratified 2026-08-11, ledger
+ * rows 1930/1931; `.claude/dispatch-reports/lyt-toolbar-ontology-reencode.md`):
+ * the former single `Toolbar.vue` mount spanning three stacked bands
+ * (A_go/I_engine/A_common) is replaced by these two clusters, one leaf
+ * each, so the reservation the `.lyt` encoding grants is envelope-based
+ * over engine connection state for the engine cluster (item 2 — the
+ * commissioner's witnessed defect, "actions still reorganize the buttons
+ * in the toolbar [on] connecting", forecloses by construction: connecting
+ * changes what's ENABLED/VISIBLE within the reserved slot, never where
+ * anything sits) and structurally separate for the app cluster (item 3).
+ * The move-navigation cluster (|< < > >|) relocates out of the toolbar
+ * entirely, into `StatusBar.vue` — see that file's own header note
+ * (item 1, "board controls go to the board").
  *
  * Repair pass (ledger row 1781, W1 REPAIR;
  * `.claude/dispatch-reports/lyt-w1-skeleton-review.md` findings A/B):
@@ -77,6 +95,18 @@
  *    prior attempt's realization simply never let the box's width
  *    constrain the content).
  *
+ * Finding A, dated note (2026-08-11, toolbar ontology reencode): the
+ * `Toolbar.vue` this finding names was retired by the reencode above —
+ * its `.toolbar`/`flex-shrink:0` shape is gone, replaced by
+ * `ToolbarEngineCluster.vue`/`ToolbarAppCluster.vue`, each authoring the
+ * same shrink-and-wrap behaviour natively in its own scoped stylesheet
+ * (`.engine-cluster`/`.app-cluster`, `flex-wrap: wrap`, no `flex-shrink:
+ * 0`) rather than needing this file's override rule at all — see the
+ * `<style>` block below, `.lyt-toolbar-strip .toolbar` no longer exists.
+ * Finding A's own lesson (flex-shrink:0 defeats wrap under a squeeze)
+ * stands as the historical record of why; it does not describe live code
+ * after this dated note per ADR-0002 Rule 6.
+ *
  * License: Public Domain (The Unlicense)
  */
 import { computed, watch } from 'vue';
@@ -84,8 +114,6 @@ import { ref as vueRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { useMetadata }       from './composables/auth-app/useMetadata';
-import { useSgfLoader }      from './composables/sgf/useSgfLoader';
-import { useSgfDownload }    from './composables/sgf/useSgfDownload';
 import { useEngineControls } from './composables/useEngineControls';
 import { useUserIORegistry } from './composables/useUserIORegistry';
 import { useAuth }           from './composables/auth-app/useAuth';
@@ -128,7 +156,8 @@ import TreeWidget       from './components/tree/TreeWidget.vue';
 import TabWidget        from './components/chrome/TabWidget.vue';
 import SettingsTab      from './components/SettingsTab.vue';
 import AnalysisControls from './components/editors/AnalysisControls.vue';
-import Toolbar          from './components/chrome/Toolbar.vue';
+import ToolbarEngineCluster from './components/chrome/ToolbarEngineCluster.vue';
+import ToolbarAppCluster    from './components/chrome/ToolbarAppCluster.vue';
 import StatusBar        from './components/board/StatusBar.vue';
 import MintCardModal    from './components/modals/MintCardModal.vue';
 import LearnPathModal   from './components/modals/LearnPathModal.vue';
@@ -144,7 +173,6 @@ import ForestDirectory  from './components/tree/ForestDirectory.vue';
 import LibraryTab       from './components/library/LibraryTab.vue';
 import SystemLogPanel   from './components/chrome/SystemLogPanel.vue';
 import RootErrorBoundary from './components/chrome/RootErrorBoundary.vue';
-import LocalePicker     from './components/chrome/LocalePicker.vue';
 import SidebarWidget     from './components/chrome/SidebarWidget.vue';
 import LytPresenceMenu   from './components/chrome/LytPresenceMenu.vue';
 import BoardRailPopoverTrigger from './components/chrome/BoardRailPopoverTrigger.vue';
@@ -187,8 +215,6 @@ const { t } = useI18n();
 const capturingActionLabel = computed<string | null>(() =>
   resolveCapturingActionLabel(captureMode.value, KEYBINDINGS_REGISTRY, t),
 );
-const { openFileDialog } = useSgfLoader();
-const { downloadActiveBoard } = useSgfDownload();
 const engineControls     = useEngineControls();
 const metadata           = useMetadata(activeBoard);
 const auth               = useAuth();
@@ -429,10 +455,14 @@ const layoutClass = useDeferredLayoutClass(rowWidthPx, rowHeightPx);
 // share their widget ids verbatim for every shared role (`research/lyt/
 // runner.py`'s own registration comment, read in full), so every
 // existing `#leaf-*` template slot below works unchanged for whichever
-// program is active; portrait's own two NEW ids (`A_top`, a genuinely
-// new merged toolbar strip; `I_engine`, whose portrait disposition
-// diverges from landscape's — see `lyt-widget-registry.ts`'s own
-// "class-scoped overrides" note) get their own slot/registry entries.
+// program is active. LYT toolbar ontology reencode (2026-08-11):
+// portrait's former `A_top`/`I_engine` ids (which used to diverge in
+// disposition from landscape's own A_go/I_engine/A_common — see
+// `lyt-widget-registry.ts`'s prior "class-scoped overrides" note) are
+// renamed to the SAME `A_app`/`A_engine` ids landscape now uses, both
+// 'mounted' identically in both classes — the divergence this comment
+// used to describe is gone, and so is the override table that carried
+// it (see that file's own header for the simplification).
 const activeScreenClassId = computed(() => layoutClass.value.screenClassId);
 const activeLytProgram = computed(() => (activeScreenClassId.value === 'portrait' ? LYT_PORTRAIT : LYT_LANDSCAPE));
 
@@ -466,7 +496,10 @@ const LYT_DOM_ID_BY_PATH_PORTRAIT: Record<string, string> = {
 // session (never written there), so returning to landscape restores
 // the user's own prior drag exactly.
 const lytTrackStyleOverrides = computed<Record<string, string>>(() => {
-  const treePanelPath = activeScreenClassId.value === 'portrait' ? '4.0' : '2.3.0';
+  // '2.2.0' (was '2.3.0'): LYT toolbar ontology reencode (2026-08-11) —
+  // landscape's side column shrank from four V-children to three
+  // (A_engine/A_app/tree-row), shifting the tree/panels row's own path.
+  const treePanelPath = activeScreenClassId.value === 'portrait' ? '4.0' : '2.2.0';
   const overrides: Record<string, string> = {
     [treePanelPath]: `${effectiveTreePanelWidthPx.value}px`,
   };
@@ -490,13 +523,16 @@ const panelContentPolicy = computed(() => getPanelContentPolicy(layoutClass.valu
 // changed (CSS grid item instead of a flex child). See `LytNode.vue`'s
 // own header ("DOM-id wiring") for the repair-pass fix that makes this
 // map actually resolve (W1 repair, ledger row 1781, review finding B).
+// '2.2'/'2.2.0'/'2.2.1' (was '2.3'/'2.3.0'/'2.3.1'): LYT toolbar
+// ontology reencode (2026-08-11) — see `lytTrackStyleOverrides`'s own
+// comment just above for why the tree/panels row's path shifted.
 const LYT_DOM_ID_BY_PATH_LANDSCAPE: Record<string, string> = {
   '': 'split-workspace',
   '1': 'board-area',
   '1.0': 'board-square',
-  '2.3': 'tree-control-wrapper',
-  '2.3.0': 'vue-tree-panel',
-  '2.3.1': 'control-panel',
+  '2.2': 'tree-control-wrapper',
+  '2.2.0': 'vue-tree-panel',
+  '2.2.1': 'control-panel',
 };
 
 // W3: which of the two path -> DOM id maps is active follows the SAME
@@ -707,11 +743,12 @@ const activeTab = computed<string>({
                W5 AUDIT CORRECTION: this mount previously bound
                @load-sgf/@save-sgf listeners, but SidebarWidget.vue's own
                W4 change (see its header comment) removed both emits —
-               the toolbar strip's #leaf-A_go mount is the one remaining
-               Load/Save SGF source (lyt-widget-registry.ts's boardRail
-               note). The listeners were dead (bound to events that never
-               fire) and are removed here; verified via a repo-wide grep
-               that nothing still emits `load-sgf`/`save-sgf`. -->
+               the app cluster's #leaf-A_app mount (below) is the one
+               remaining Load/Save SGF source (lyt-widget-registry.ts's
+               boardRail note). The listeners were dead (bound to events
+               that never fire) and are removed here; verified via a
+               repo-wide grep that nothing still emits
+               `load-sgf`/`save-sgf`. -->
           <template #leaf-boardRail>
             <SidebarWidget />
           </template>
@@ -730,8 +767,10 @@ const activeTab = computed<string>({
 
           <!-- I_board's mount spans I_board+A_board (registry: A_board
                'absorbed' into I_board) — StatusBar already carries both
-               the info readout and the action buttons internally; see
-               lyt-widget-registry.ts's own I_board note. -->
+               the info readout and the action buttons internally, PLUS
+               (LYT toolbar ontology reencode, item 1) the relocated
+               move-navigation cluster; see lyt-widget-registry.ts's own
+               I_board note and StatusBar.vue's own header. -->
           <template #leaf-I_board>
             <StatusBar
               v-if="activeBoard"
@@ -744,30 +783,17 @@ const activeTab = computed<string>({
             />
           </template>
 
-          <!-- A_go's mount spans A_go+I_engine+A_common (registry: both
-               absorbed into A_go) — the existing Toolbar already
-               internally clusters go-actions/engine-info/common-actions;
-               decomposing it into three independently-addressable leaf
-               components is deferred (disclosed judgment call, see
-               lyt-widget-registry.ts's A_go note). LocalePicker (no
-               dedicated census leaf) rides along in this same mount. -->
-          <template #leaf-A_go>
+          <!-- LYT toolbar ontology reencode (item 2, "ONE ENGINE CLUSTER,
+               ENVELOPE-RESERVED"): connect/disconnect, the engine-controls
+               button cluster, and engine metrics are now ONE component,
+               mounted at this one leaf — SAME widget id in both classes
+               (landscape's own root child '2', portrait's own root V
+               child previously named `I_engine`; see
+               research/lyt/encodings/lengyue_portrait.lyt's header for why
+               that class needed no tree reshuffle). -->
+          <template #leaf-A_engine>
             <div class="lyt-toolbar-strip">
-              <!-- SGF import/export (parity inventory: "Chrome-mounted
-                   features" -> SGF import/export toolbar entries):
-                   pre-rework, these two buttons lived in SidebarWidget.vue
-                   (`@load-sgf`/`@save-sgf`), which this wave doesn't mount
-                   at all (boardRail is `presenceDefaultVisible: false` —
-                   see lyt-widget-registry.ts's boardRail note). Disclosed
-                   judgment call: rather than let a real, load-bearing
-                   capability disappear along with the sidebar's OTHER
-                   content (the multi-board rail), the two buttons ride
-                   along in this same merged Toolbar mount, reusing the
-                   existing i18n keys (`sidebar.loadSgf`/`sidebar.saveSgf`)
-                   and handlers verbatim — Toolbar.vue itself is untouched. -->
-              <button class="lyt-sgf-btn" @click="openFileDialog">{{ $t('sidebar.loadSgf') }}</button>
-              <button class="lyt-sgf-btn" @click="downloadActiveBoard">{{ $t('sidebar.saveSgf') }}</button>
-              <Toolbar
+              <ToolbarEngineCluster
                 :is-match-running="matchControls.isRunning.value"
                 @toggle-engine="engineControls.toggle"
                 @mint-card="triggerMint"
@@ -776,31 +802,21 @@ const activeTab = computed<string>({
                 @open-play="triggerPlay"
                 @open-learn-path="triggerLearnPath"
               />
-              <LocalePicker />
             </div>
           </template>
 
-          <!-- Portrait's OWN merged strip (encodings/lengyue_portrait.lyt's
-               own header comment: "A_go (+) A_common on one reserved
-               strip") — a genuinely new widget id, not a landscape leaf
-               (lyt-widget-registry.ts's own "class-scoped overrides"
-               note). Mounts the SAME content as #leaf-A_go above; only
-               the compiled program that reaches this slot at all differs
-               by class. -->
-          <template #leaf-A_top>
+          <!-- LYT toolbar ontology reencode (item 3, "ONE APP CLUSTER"):
+               Load/Save SGF, the sliders/setup/PBO popover triggers, the
+               engine URI editor, and the locale picker — SAME widget id
+               in both classes (landscape's own root child '2', portrait's
+               own root V child previously named `A_top`). Self-contained
+               (ToolbarAppCluster.vue sources its own SGF composables —
+               see that file's own header), so this mount needs no
+               App.vue-local wiring at all, unlike the pre-reencode
+               `.lyt-toolbar-strip` block this replaces. -->
+          <template #leaf-A_app>
             <div class="lyt-toolbar-strip">
-              <button class="lyt-sgf-btn" @click="openFileDialog">{{ $t('sidebar.loadSgf') }}</button>
-              <button class="lyt-sgf-btn" @click="downloadActiveBoard">{{ $t('sidebar.saveSgf') }}</button>
-              <Toolbar
-                :is-match-running="matchControls.isRunning.value"
-                @toggle-engine="engineControls.toggle"
-                @mint-card="triggerMint"
-                @open-match="triggerMatch"
-                @stop-match="handleStopMatch"
-                @open-play="triggerPlay"
-                @open-learn-path="triggerLearnPath"
-              />
-              <LocalePicker />
+              <ToolbarAppCluster />
             </div>
           </template>
 
@@ -810,8 +826,9 @@ const activeTab = computed<string>({
                  disclosed narrowing). Anchored at #vue-tree-panel's own
                  LEFT edge — topologically identical to the boundary
                  between root child '1' (board) and root child '2' (side
-                 column) in the ROOT split, since '2.3' (this leaf's own
-                 parent split) cross-fills '2''s full width with zero
+                 column) in the ROOT split, since '2.2' (this leaf's own
+                 parent split, formerly '2.3' — LYT toolbar ontology
+                 reencode, 2026-08-11) cross-fills '2''s full width with zero
                  left offset. Paint 1px / grab ~4px per the standing
                  resizer ruling (mirrors App.vue's pre-LYT
                  `.panel-resizer` history — see the <style> block below). -->
@@ -1230,22 +1247,22 @@ const activeTab = computed<string>({
   height: 100%;
 }
 
-/* Toolbar's merged strip (A_go+I_engine+A_common): still a wide-short
-   region under the new geometry (~84px tall, full column width) —
-   Toolbar's own internal flex-wrap clustering is unchanged; only the
-   surrounding box's aspect ratio differs from the old 32px top-nav-bar.
-   `flex-wrap: wrap` here too (repair pass addition — see below) so the
-   whole strip (SGF buttons / Toolbar / LocalePicker), not just
-   Toolbar's own internal clusters, degrades onto a second row rather
-   than forcing Toolbar to absorb 100% of any width deficit alone; at
-   the sizes actually tested (1024px+ viewports) Toolbar's own internal
-   wrap has always been enough on its own, but this keeps the strip
-   itself honestly "fits or wraps," never "fits or is clipped," for a
-   narrower future viewport too. See App.vue's script header for the
-   disclosed structural-move note. */
+/* Each of the two cluster leaves' own mounting div (LYT toolbar ontology
+   reencode, 2026-08-11): `.lyt-toolbar-strip` wraps EITHER
+   `<ToolbarEngineCluster>` or `<ToolbarAppCluster>` alone now (one per
+   leaf, `#leaf-A_engine` / `#leaf-A_app`) — previously it also carried
+   the SGF buttons and LocalePicker as siblings of the merged `Toolbar`;
+   both moved inside `ToolbarAppCluster.vue` itself (self-contained, see
+   that file's header), so this wrapper's own job shrinks to "size the
+   cell, let the mounted cluster's own flex-wrap degrade within it." */
 .lyt-toolbar-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-default); height: 100%; width: 100%; min-width: 0; overflow-y: auto; }
-/* SGF load/save buttons riding along in the merged toolbar strip — see
-   the template comment at their usage site. 24px pointer floor (standing
+/* SGF load/save buttons — now rendered inside `ToolbarAppCluster.vue`
+   (moved there, see that file's header), but this rule stays HERE: this
+   `<style>` block is not `scoped`, so a plain class selector already
+   reaches into any child component's markup, which is exactly how the
+   pre-reencode `Toolbar.vue` overrides above worked too — no change of
+   mechanism, just of which component's buttons carry the class. 24px
+   pointer floor (standing
    law); token-correct surface/border/text per the umbrella's category
    discipline. */
 .lyt-sgf-btn {
@@ -1255,61 +1272,21 @@ const activeTab = computed<string>({
   cursor: pointer; font-size: var(--text-body); flex-shrink: 0;
 }
 
-/* W1 repair (ledger row 1781, review finding A — see this file's own
-   script-header note for the full root-cause derivation). Toolbar.vue's
-   own `.toolbar` rule is `scoped` and otherwise untouched (its only
-   other potential mount is nonexistent — App.vue is Toolbar.vue's one
-   call site today); this global (non-scoped) App.vue rule reaches past
-   that scoping boundary by class name (a plain class selector matches
-   regardless of a `data-v-*` scope attribute) to override JUST the
-   flex-participation properties that assumed the OLD full-viewport-
-   width mount:
-     - `flex-shrink: 0` (Toolbar's own declaration) pinned `.toolbar` at
-       its unwrapped natural width (measured ~1532px at 1920×1080) —
-       overridden to `1` so it actually shrinks under `.lyt-toolbar-strip`'s
-       flex row instead of pushing past the row's own width.
-     - `flex-basis: 0` + the shrink override together let `.lyt-toolbar-
-       strip`'s available width (the grid cell's own board-priority-clamp
-       track, up to 820px at 1920×1080, minus the two SGF buttons and
-       LocalePicker) become the WIDTH `.toolbar`'s pre-existing
-       `flex-wrap: wrap` measures against — the wrap mechanism itself
-       needed no change, only a container that actually constrains it.
-     - `min-width: 0` clears the default flex-item floor (`min-width:
-       auto`, which floors a flex item at its content's min-content size
-       and would otherwise block shrinking below that regardless of
-       `flex-shrink`).
-   Verified via Playwright at 1920×1080 and 1024×700 (build report has
-   the full measured-box table): the engine Connect button is reachable
-   and clickable at both, with zero `overflow:hidden`-clipped content —
-   see the build report's "Toolbar fits its cell" section. */
-.lyt-toolbar-strip .toolbar {
+/* W1 repair (ledger row 1781, review finding A) is now HISTORICAL — see
+   this file's own script-header "Finding A, dated note" (2026-08-11):
+   `Toolbar.vue` and its `.toolbar`/`.toolbar-cluster`/`.engine-controls`
+   classes are retired, along with the global (non-scoped) override rules
+   that used to reach past its scoping boundary from here. The wrap/
+   shrink behaviour those rules patched in from outside is now authored
+   directly in `ToolbarEngineCluster.vue`/`ToolbarAppCluster.vue`'s own
+   scoped stylesheets (`.engine-cluster`/`.app-cluster`/`.toolbar-cluster`/
+   `.engine-controls` there), since both components only ever mount in
+   this narrow side-column context — no external override needed. */
+.lyt-toolbar-strip .engine-cluster,
+.lyt-toolbar-strip .app-cluster {
   flex: 1 1 0;
   min-width: 0;
   width: auto;
-}
-/* `.toolbar-cluster`/`.engine-controls` (Toolbar.vue, scoped) are ALSO
-   `flex-shrink: 0` by their own design — deliberately, per that file's
-   own comment (iter-13, audit Finding G): each cluster is meant to stay
-   an ATOMIC unit that wraps as a WHOLE onto a new `.toolbar` row rather
-   than having its individual buttons crushed/truncated. That assumption
-   held under the OLD full-viewport-width `.top-nav-bar` mount (no
-   cluster's own natural width — the widest, `.engine-controls`, measured
-   ~779px unwrapped — ever exceeded the available line width). The NEW
-   side-column mount caps width at 340-820px (board-priority-clamp,
-   `lyt-layout.gen.ts`), narrower than `.engine-controls`'s own atomic
-   width even at the cap's top end — so the atomic-cluster assumption
-   itself needs to flex one level further IN, here, at this narrower
-   mount only (Toolbar.vue's own file, and its behaviour at any future
-   full-width mount, are untouched): a cluster that still doesn't fit
-   after `.toolbar`'s own row-wrap gets to wrap its OWN buttons onto a
-   second line too, rather than overflowing its box — every button stays
-   full-size (no shrinking/truncating/ellipsis, per the standing design
-   law), just distributed over more rows. */
-.lyt-toolbar-strip .toolbar-cluster,
-.lyt-toolbar-strip .engine-controls {
-  flex-wrap: wrap;
-  flex-shrink: 1;
-  min-width: 0;
 }
 
 .hue-slider-hint { font-size: var(--text-body); color: var(--text-0); margin: 0 0 var(--space-default) 0; }

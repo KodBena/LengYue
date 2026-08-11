@@ -75,42 +75,36 @@ export const LYT_LANDSCAPE: LytProgram = {
             {
               path: "2.0",
               presenceDefaultVisible: true,
-              track: { kind: "fixed", px: 128 },
-              node: { kind: "leaf", widget: "A_go", domain: "go", facets: ["action"], aspect: null },
+              track: { kind: "fixed", px: 60 },
+              node: { kind: "leaf", widget: "A_engine", domain: "go", facets: ["action", "info"], aspect: null },
             },
             {
               path: "2.1",
               presenceDefaultVisible: true,
-              track: { kind: "fixed", px: 128 },
-              node: { kind: "leaf", widget: "I_engine", domain: "common", facets: ["info"], aspect: null },
+              track: { kind: "fixed", px: 160 },
+              node: { kind: "leaf", widget: "A_app", domain: "common", facets: ["action"], aspect: null },
             },
             {
               path: "2.2",
-              presenceDefaultVisible: true,
-              track: { kind: "fixed", px: 128 },
-              node: { kind: "leaf", widget: "A_common", domain: "common", facets: ["action"], aspect: null },
-            },
-            {
-              path: "2.3",
               presenceDefaultVisible: true,
               track: { kind: "elastic", minPx: 0, frWeight: 1 },
               node: {
                 kind: "split", axis: "h", gapPx: 4,
                 children: [
                   {
-                    path: "2.3.0",
+                    path: "2.2.0",
                     presenceDefaultVisible: true,
                     track: { kind: "fixed", px: 110 },
                     node: { kind: "leaf", widget: "tree", domain: "board", facets: ["action", "info"], aspect: null },
                   },
                   {
-                    path: "2.3.1",
+                    path: "2.2.1",
                     presenceDefaultVisible: true,
                     track: { kind: "elastic", minPx: 160, frWeight: 1 },
                     node: { kind: "blackbox", widget: "controlPanel", tag: "BLACK BOX", childWidgets: ["CP-library", "CP-cards", "CP-settings", "CP-analysis", "CP-other"] },
                   },
                   {
-                    path: "2.3.2",
+                    path: "2.2.2",
                     presenceDefaultVisible: false,
                     track: { kind: "fixed", px: 160 },
                     node: { kind: "leaf", widget: "previewBoard", domain: "common", facets: ["info"], aspect: 1 },

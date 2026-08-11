@@ -40,8 +40,8 @@ export const LYT_PORTRAIT: LytProgram = {
       {
         path: "1",
         presenceDefaultVisible: true,
-        track: { kind: "fixed", px: 28 },
-        node: { kind: "leaf", widget: "A_top", domain: "common", facets: ["action"], aspect: null },
+        track: { kind: "fixed", px: 160 },
+        node: { kind: "leaf", widget: "A_app", domain: "common", facets: ["action"], aspect: null },
       },
       {
         path: "2",
@@ -74,8 +74,8 @@ export const LYT_PORTRAIT: LytProgram = {
       {
         path: "3",
         presenceDefaultVisible: true,
-        track: { kind: "fixed", px: 28 },
-        node: { kind: "leaf", widget: "I_engine", domain: "common", facets: ["info"], aspect: null },
+        track: { kind: "fixed", px: 60 },
+        node: { kind: "leaf", widget: "A_engine", domain: "go", facets: ["action", "info"], aspect: null },
       },
       {
         path: "4",

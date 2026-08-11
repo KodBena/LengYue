@@ -72,16 +72,50 @@
 --     boardRail header note for the full rationale (the DEFAULT-OFF
 --     state itself still lives at the registration layer, `runner.py`'s
 --     `Registration.default_valuation`, not in this file's text).
+--
+--   - LYT TOOLBAR ONTOLOGY REENCODE (commissioner-ratified 2026-08-11,
+--     ledger rows 1930/1931; `.claude/dispatch-reports/
+--     lyt-toolbar-ontology-reencode.md`) — the commission's four points,
+--     applied to THIS class: `A_top` is RENAMED `A_app[common, action]`
+--     (same tree position, root child '1' — the widget id changes, the
+--     structure doesn't) and `I_engine` is RENAMED `A_engine[go,
+--     action+info]` (same tree position, root child '3'), now genuinely
+--     `envelope: {disconnected, connected}` and MOUNTED for the first
+--     time — portrait's own `I_engine` leaf previously mounted NOTHING
+--     (disclosed W3 narrowing, `lyt-widget-registry.ts`'s prior
+--     "class-scoped overrides" note: portrait's tree structurally
+--     separated `I_engine` from `A_top`, so landscape's merged-Toolbar
+--     disposition never carried over here). This reencode closes that
+--     gap: portrait now has a REAL, working engine cluster it never had
+--     before, not merely a rename. No path shift anywhere in this file
+--     (unlike landscape, whose side column genuinely lost a V-child) —
+--     portrait's own root V already kept `A_top`/`I_engine` as two
+--     SEPARATE, non-adjacent children (the board composite sits between
+--     them), so collapsing three leaves into two never applied here to
+--     begin with. Reservations: `160px` (A_app) / `60px` (A_engine,
+--     envelope-reserved) are a REAL Playwright measurement of the
+--     realized components at portrait's own pinned representative
+--     widths (420px — `tests/test_lyt.py`'s own
+--     `test_lengyue_portrait_default_valuation_solves_optimal_at_420x880`;
+--     1080px — `runner.py`'s own SCREEN_SIZES portrait point), taking
+--     the worse (narrower, 420px) case per component plus a ~10px
+--     margin — see the dispatch report's measurement table. Was `28px`
+--     each (bare fixed shorthand) pre-reencode, a reservation this
+--     encoding's own real content never actually fit inside even before
+--     today (portrait's engine strip mounted nothing at all, and the
+--     app strip's own real content already needed to wrap well past one
+--     28px row) — this is a genuine, disclosed CORRECTION of an
+--     under-measured prior value, not merely a resize for the new split.
 layout lengyue-portrait =
   {min 0px, pref 1fr, max inf, gap 12px} V(
     @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
-    {28px} A_top[common, action],
+    {160px} A_app[common, action],
     {pref 1fr} V(
       {width 100fr, aspect 1} B[board],
       {24px} I_board[board, info],
       {28px} A_board[board, action]
     ),
-    {28px, envelope: {disconnected, connected_5digit_latency}} I_engine[common, info],
+    {60px, envelope: {disconnected, connected}} A_engine[go, action+info],
     {pref 1fr, gap 4px} H(
       {min 140px, pref 140px, max 140px} tree[board, info+action],
       {pref 1fr} T(

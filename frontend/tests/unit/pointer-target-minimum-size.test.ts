@@ -197,13 +197,20 @@ describe('StatusBar.vue — .move-numbers-btn clears 24x24 (G30, rows 1556/1561)
   });
 });
 
-describe('.toolbar-btn clears the 24px height floor at both scoped-CSS copies (G30, rows 1556/1561)', () => {
+describe('.toolbar-btn clears the 24px height floor at every scoped-CSS copy (G30, rows 1556/1561)', () => {
   // Witnessed 18px tall app-wide (widths 20-106px, unaffected). Vue
-  // scoped styles can't cross the SFC boundary, so Toolbar.vue and
-  // ToolbarMoveNav.vue each carry their own copy of this rule (see
-  // ToolbarMoveNav.vue's own header comment) — both must be fixed or
-  // half the toolbar regresses silently.
-  for (const file of ['src/components/chrome/Toolbar.vue', 'src/components/chrome/ToolbarMoveNav.vue']) {
+  // scoped styles can't cross the SFC boundary, so every component that
+  // renders a `.toolbar-btn` carries its own copy of this rule — all
+  // must be fixed or part of the chrome regresses silently. LYT toolbar
+  // ontology reencode (2026-08-11): Toolbar.vue was retired and split
+  // into ToolbarEngineCluster.vue/ToolbarAppCluster.vue, each carrying
+  // its own copy (verbatim carry-over from Toolbar.vue's own rule); the
+  // census grows from two files to three, ToolbarMoveNav.vue unchanged.
+  for (const file of [
+    'src/components/chrome/ToolbarEngineCluster.vue',
+    'src/components/chrome/ToolbarAppCluster.vue',
+    'src/components/chrome/ToolbarMoveNav.vue',
+  ]) {
     describe(file, () => {
       const rule = /(?:^|\n)\.toolbar-btn\s*\{[^}]*\}/.exec(src(file))![0];
       it('carries an explicit min-height >= 24px', () => {

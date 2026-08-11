@@ -163,8 +163,10 @@ const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
          "Chrome-mounted features" census lists "SGF import/export
          toolbar entries" as ONE feature with ONE home). Pre-LYT-rework
          this rail was that home; the LYT skeleton's own toolbar strip
-         (`Toolbar.vue`'s merged A_go mount, `App.vue`'s `#leaf-A_go`/
-         `#leaf-A_top` templates) grew its OWN Load/Save SGF buttons
+         (originally `Toolbar.vue`'s merged A_go mount, `App.vue`'s
+         `#leaf-A_go`/`#leaf-A_top` templates; since the 2026-08-11
+         toolbar ontology reencode, `ToolbarAppCluster.vue`'s own mount
+         at `#leaf-A_app` in both classes) grew its OWN Load/Save SGF buttons
          during the W1 skeleton build (disclosed there as "no dedicated
          boardRail mount in this wave") — since boardRail can now
          genuinely be visible again (W2's presence menu / popover
