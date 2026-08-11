@@ -1,7 +1,7 @@
 /**
  * src/composables/chrome/useFixedAnchoredPopover.ts
  *
- * Commission lyt-popover-clip-class (ratified program row 1937):
+ * Commission lyt-popover-clip-class (work item opened row 1968; broader mandate row 1937):
  * extracts the `position: fixed` clip-ancestor-escape shape D1/D1-
  * corrective built for `ToolbarSliderPopover.vue`
  * (`.claude/dispatch-reports/lyt-sliders-popover-defects.md`,

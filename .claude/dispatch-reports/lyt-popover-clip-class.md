@@ -1,6 +1,6 @@
 # lyt-popover-clip-class — build report
 
-Commission: work item `lyt-popover-clip-class` (ratified program row 1937) — foreclose
+Commission: work item `lyt-popover-clip-class` (work item opened row 1968; broader mandate row 1937) — foreclose
 the popover clipping-ancestor CLASS, not just the one instance
 `ToolbarSliderPopover.vue`'s D1 fix closed
 (`.claude/dispatch-reports/lyt-sliders-popover-defects.md`). Worked against branch
