@@ -381,10 +381,21 @@ LytNode-exclusive-rendering.test.ts` (new),
 
 ## 7. Commit and merge-base
 
-Recorded in the final message to the dispatching session (this report is
-committed alongside the change on this worktree's own branch, per the
-commission's instruction — last act: fetch `lyt-phase2`, report merge-base,
-rebase if moved).
+Committed as `e330e702` (pre-rebase: `02406a25`). LAST-ACT fetch found
+`lyt-phase2` had moved 4 commits since this worktree's base (`732fdc9a`) —
+a popover-class branch (`lyt-popover-clip-class`, ledger row 1968) landed
+mid-flight, exactly the shape the commission's own rule anticipated. File
+overlap check (`git diff --name-only 732fdc9a origin/lyt-phase2`): the
+only shared file was `frontend/FILES.md` (both branches added an entry);
+`git rebase origin/lyt-phase2` resolved it automatically with no conflict
+(the two new entries landed in different alphabetical positions),
+verified by grepping both entries present post-rebase. Post-rebase
+`merge-base HEAD origin/lyt-phase2` == `origin/lyt-phase2`'s own tip
+(`5cbcec8a`) — a clean linear rebase, both branches' work preserved. Both
+gates (frontend build, `npm run test:run`) re-run post-rebase: build exit
+0; test suite 3089 passed / 8 skipped (250 files, 247 passed / 3 skipped),
+exit 0 — the popover branch's own 23 new tests are included in that count
+and pass alongside this wave's.
 
 ## License
 
