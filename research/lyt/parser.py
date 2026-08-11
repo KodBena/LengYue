@@ -73,6 +73,35 @@ EBNF does not cover):
     enforced, matching the "parser permissive, loader refuses" division
     of labor the bare-`envelope` (F8) and `preserve`-reservation
     (AMENDMENT 1) precedents already use.
+  - AMENDMENT 5 (ledger row 1937, commissioner-delegated; see
+    SPEC-AMENDMENTS.md and
+    `.claude/dispatch-reports/lyt-tab-region-consult.md` §9): two more
+    sizing-bag keys, same "one more recognized key" precedent as `gap`:
+      * `scroll <axis>` (`h` or `v`) -- legal on ANY node kind (leaf,
+        split, exclusive) at any depth, unlike `gap` which is Split-only.
+        UNLIKE every other sizing key, `scroll` may appear MORE THAN ONCE
+        in the same block (`scroll h, scroll v` declares BOTH axes) --
+        disclosed departure from this parser's usual last-write-wins bag
+        semantics (module docstring's "sizing block is a bag of keys"
+        note in SPEC.md §1.1), because two `scroll` terms naming
+        DIFFERENT axes are not repetitions of "the same key" in any
+        useful sense; occurrences are accumulated into a set
+        (`RawSizing.scroll_axes`), not overwritten. The parser accepts
+        any identifier in axis position (permissive, per this module's
+        own architecture); loader.py refuses anything but `h`/`v`.
+      * `content <class>` -- a leaf-only content-class declaration
+        (`bounded` | `designed` | `unbounded`), parsed the same
+        permissive way (any identifier accepted here; loader.py
+        validates the closed vocabulary AND refuses the key entirely on
+        a non-leaf node). Deliberately placed in the sizing bag rather
+        than the leaf's `[domain, facets]` bracket -- the consult
+        report's own §9.2 instruction is that content-class is an
+        AXIS ORTHOGONAL to domain/facets, and the sizing bag is this
+        parser's established "attach one more per-slot fact" extension
+        point (the same point `gap` and `scroll` use), so reusing it
+        here keeps the leaf bracket's grammar untouched rather than
+        growing a second, competing extension point for the same kind
+        of fact.
   - two symbolic size sentinels the document uses as prose-in-syntax:
     `CONTENT` (line 467, `max CONTENT` — the literal spelling-out of the
     forbidden content-driven-sizing basis) and `WRAPPER_MIN` (line 500, a
@@ -82,6 +111,9 @@ EBNF does not cover):
     prohibition #1), WRAPPER_MIN is resolved by the loader to a disclosed
     concrete constant (300px, matching the control-panel floor the same
     document's own footnote cites at `layout-model.ts:186-191`).
+
+License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
+license line and the umbrella's ADR-0006 per-file convention.
 """
 from __future__ import annotations
 
@@ -190,6 +222,17 @@ class RawSizing:
     drag_persisted: bool = False
     fixed: Optional[RawExtentLike] = None  # `{28px}` shorthand, see §5.4/5.5
     gap: Optional[RawExtentLike] = None  # AMENDMENT 3 (ledger row 1715), H/V splits only
+    # AMENDMENT 5 (ledger row 1937): `scroll <axis>` -- accumulated (not
+    # overwritten) across repeated occurrences, see the module docstring's
+    # AMENDMENT 5 note for why. Raw strings, lowercased, NOT yet validated
+    # against {'h','v'} -- that is loader.py's job (parser stays
+    # permissive).
+    scroll_axes: List[str] = field(default_factory=list)
+    # `content <class>` -- last-write-wins, like every other single-valued
+    # sizing key. Raw string, lowercased, NOT yet validated against the
+    # closed vocabulary or against "only legal on a leaf" -- loader.py's
+    # job.
+    content: Optional[str] = None
 
 
 @dataclass
@@ -420,6 +463,18 @@ class Parser:
                 # this module's own "parser permissive, loader refuses"
                 # architecture (see module docstring).
                 rs.gap = self.parse_extent()
+            elif key == "scroll":
+                # AMENDMENT 5 (ledger row 1937): accumulated, not
+                # overwritten -- see RawSizing.scroll_axes' own docstring
+                # and the module docstring's AMENDMENT 5 note for why.
+                axis_tok = self._expect("IDENT")
+                rs.scroll_axes.append(axis_tok.text.lower())
+            elif key == "content":
+                # AMENDMENT 5 (ledger row 1937): last-write-wins, parsed
+                # permissively (any identifier); loader.py validates the
+                # closed vocabulary and the leaf-only restriction.
+                content_tok = self._expect("IDENT")
+                rs.content = content_tok.text.lower()
             else:
                 raise LytParseError(
                     f"unknown sizing key '{key_tok.text}'",

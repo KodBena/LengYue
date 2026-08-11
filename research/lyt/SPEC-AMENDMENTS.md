@@ -607,6 +607,159 @@ gloss per finding, each naming the line/term it clarifies.
   first names the aspect-locked leaf stage 1 maximizes, the second
   the widgets stage 2 scores shortfall for.
 
+## Amendment 5 (ledger row 1937) — overflow as a typed language concept: `scroll`, the content-class axis, and laws L5/L5a/L5b/L5c
+
+**Ruling.** Adopted per the design consult
+[.claude/dispatch-reports/lyt-tab-region-consult.md](../../.claude/dispatch-reports/lyt-tab-region-consult.md),
+ratified in full (ledger row 1937). The report's §3 Option B (language-first
+overflow), §6 (nesting is free from the inductive `Slot` type), §8
+(resolving two mis-delivered decisions upward), and §9 (nesting +
+conditional no-scroll predicates) are its normative content; the
+commissioner's own ruling on Q1 (§6.6, verbatim: *"The pre-LYT version had
+no-scroll as a goal. Scrolling is fine, but should be tuneable, for
+example scrolling in chart-carrying containers is no-good, scrolling in
+the advanced registry is expected."*) is the policy this amendment's
+machinery serves.
+
+**Rationale, as recorded in the report.** Before this amendment, scrolling
+was simultaneously *unrepresentable in the model* and *rampant in the
+realization* — three independently-owned, nested `overflow: auto` CSS
+layers around the control-panel region, none of them visible to the
+program, the solver, or the well-formedness checker. The row-1849 purpose
+ruling (quoted in the report's §1) says LYT exists so an aesthetic defect
+can be isolated at the program level without navigating a DOM in a
+browser; a scrolling symptom that only the DOM can see is exactly the
+class that ruling forbids staying invisible. §6.5/§6.6 of the report
+derive that "scrolling is fine, but tuneable" cannot be achieved by
+keeping scroll out of the language (the status quo already tried that,
+and it does not work — scroll simply becomes unrepresentable, not
+prevented) — it requires the SAME machinery as the permissive case
+(modeled interior demand, a law, and the realization deriving its
+overflow behavior FROM the program), with the law's dial set per
+container. This amendment lands that machinery; the modeling depth
+(Option C, opening the control-panel `T` group's interior) is a separate,
+concurrently-landing work item and is NOT part of this amendment.
+
+**What this amendment implements.**
+
+1. **`Slot.scroll_axes`** (`scroll <axis>`, `axis` ∈ `{h, v}`): a new
+   sizing-bag key, the same "one more recognized key" extension precedent
+   Amendment 3's `gap` used. Legal on ANY node kind (leaf, split,
+   exclusive) at ANY depth — the report's §9.1: nesting is free because
+   `Slot` is an inductive type. UNLIKE every other sizing key's
+   last-write-wins bag semantics, `scroll` may be declared more than once
+   in the same block to name BOTH axes (`scroll h, scroll v`) — disclosed
+   departure, since two `scroll` terms naming different axes are not
+   repetitions of "the same key" in any useful sense.
+2. **`Leaf.content`** (`content <class>`, class ∈
+   `{bounded, designed, unbounded}`): a NEW, orthogonal content-class axis
+   on leaves, deliberately NOT folded into `domain` or `facets` — the
+   report's §9.2 names why: `domain` already carries a disclosed misfit
+   (`blackbox`, a boundary marker wearing a subject-matter-domain
+   spelling, per the report's own §6.3) that re-conscripting `content`
+   into would repeat one paragraph after it was named as a misfit, and
+   `facets` describes what a widget IS FOR (`action`/`info`), not how
+   much of it there is. Placed in the sizing bag (the same "attach one
+   more per-slot fact" extension point `gap`/`scroll` use), rather than
+   the leaf's `[domain, facets]` bracket, keeping that bracket's grammar
+   untouched.
+3. **L5 (overflow honesty)** — checkable form: an `unbounded`-content leaf
+   may not ALSO claim `basis == 'envelope'` (L3). An envelope enumerates a
+   FINITE set of content states; that is not an honest claim for content
+   that is unbounded by definition. `bounded`/`designed` leaves are
+   untouched by this rule — their envelope (or plain reservation) IS an
+   honest claim, per the report's own "a bounded/designed leaf requires
+   its envelope/reservation to fit."
+4. **L5a (coverage)** — an `unbounded`-class leaf REQUIRES exactly one
+   scroll owner (a `scroll` declaration on some slot along its
+   root-to-leaf path, inclusive of the leaf's own slot, subject to L5b
+   below) — a leaf with none is refused. `bounded`/`designed` leaves carry
+   no such requirement.
+5. **L5b (single scroll owner)** — on any root-to-leaf path, at most one
+   slot declares `scroll` per AXIS; a second declaration on the SAME axis
+   on the SAME path is refused ("which container absorbs the overflow"
+   must be unambiguous — report §9.1, naming the witnessed three-layer
+   scroll DOM as the shape this forecloses). Two DIFFERENT axes on the
+   same path do not conflict.
+6. **L5c (chart exclusion, subtree-quantified fold)** — a slot may declare
+   `scroll` only if its OWN subtree (itself included) contains NO
+   `designed`-class leaf, computed as a fold over the subtree, not a
+   per-slot tag ("a container is chart-bearing because a descendant is a
+   chart, not because someone remembered to tag the container" — report
+   §9.2). This is the mechanized form of the commissioner's own ruling:
+   chart-carrying containers may never scroll; their declared demand is a
+   hard reservation the solver must fit, `INFEASIBLE` where it cannot,
+   never a scrollbar.
+7. **Per-T-group shortfall advisory** (`research/lyt/advisory.py`, new
+   module) — for every Exclusive (T) group, a report of each child's
+   declared `pref` demand against the group's own solved shared rectangle.
+   ADVISORY ONLY (ADR-0011 Rule 5: "a judgment-shaped output never
+   gates") — printed by `runner.py`'s own stdout after each solve, never
+   raised, never a load-time check. Deliberately measured against `pref`
+   (a soft target the solver may leave unmet), not `min` (a hard floor
+   whose shortfall state is unreachable — a `min` that genuinely exceeds
+   the available room makes the WHOLE MODEL `INFEASIBLE` before a
+   rectangle is ever solved, so there is no "solved but short" state for
+   `min` to report against). This is the mechanized form of the report's
+   §1 witnessed symptom ("the Basic and Stability panes ... need
+   scrolling ... different amounts") made a program-level fact.
+
+**Dormancy — the hard constraint this implementation wave is bound by.**
+Every one of L5/L5a/L5b/L5c is gated on an explicit `content`/`scroll`
+declaration existing somewhere in the tree; a tree with NO Amendment 5
+declarations anywhere (every encoding as of this amendment, including
+BOTH clean-room encodings — `lengyue_landscape.lyt`/`lengyue_portrait.lyt`
+are deliberately NOT touched by this amendment, a concurrent work item
+owns them) triggers none of the four checks. `wellformed.find_l5_violations`
+returns `[]` unconditionally for such a tree — verified by a dedicated
+regression test (`tests/test_lyt.py::
+test_dormancy_no_amendment_5_declarations_means_zero_l5_violations_everywhere`)
+against every reference encoding this repository carries. The laws bind
+declarations; they do not retroactively indict silence.
+
+**Diff vs. the original consult document's prose.** `layout-language-
+consult.md` names none of `scroll`, a content-class axis, or L5/L5a/L5b/
+L5c at all — its own §6 explicitly DECLINES to model scrolling ("a leaf
+that scrolls is just a leaf whose content exceeds its reservation — the
+reservation still holds," treated by the tab-region consult report's §1
+as the pre-amendment status quo this amendment reverses). This is a
+genuine language extension, same footing as Amendments 1-4 — not a
+reading recovered from existing text.
+
+**Seam choice.** `scroll_axes` lives on `Slot` (not `Leaf`/`Split`,
+mirroring `Presence`/`Sizing`'s own placement), since it applies uniformly
+regardless of node kind — unlike `gap_px`, which lives on `Split` itself
+because it is Split-only. `content` lives on `Leaf` specifically, since
+it is leaf-only by the report's own §9.2 instruction; a Split or Exclusive
+node declaring it is a refused loudly (`law: "content-class-declaration"`,
+`prohibition: "content-class-on-non-leaf"`), never silently dropped —
+`loader.py`'s `_load_scroll_axes`/`_load_content_class` are the load-time
+resolutions, in the SAME "parser permissive, loader refuses" division of
+labor `gap`/bare-`envelope` already use. L5/L5a/L5b/L5c are implemented in
+`wellformed.py`'s `find_l5_violations`, in the SAME structural-tree-walk
+enforcement family as L2's dominance test, and arbitrated through the SAME
+`(law, path)`-keyed `Waiver` mechanism `check_wellformed` already
+generalizes for — `Waiver.law`'s own docstring always disclosed the field
+as open-ended, "in case a future law gains a structural checker"; this is
+that law.
+
+**What it touched.** `lyt_ast.py` (`Leaf.content`, `Slot.scroll_axes`,
+both with their own `__post_init__` closed-vocabulary guards, the F3-fix
+precedent); `parser.py` (`RawSizing.scroll_axes`/`.content`, two more
+`parse_sizing` branches); `loader.py` (`_load_scroll_axes`,
+`_load_content_class`, wired into every `load_slot` branch);
+`wellformed.py` (`find_l5_violations`, `_subtree_has_designed_leaf`,
+`check_wellformed` generalized to arbitrate violations from more than one
+law against the same waiver mechanism); `advisory.py` (new module —
+`PaneShortfall`, `compute_t_group_shortfalls`, `format_shortfalls`);
+`runner.py` (prints the advisory block after each solve); `errors.py`
+(docstring now names L5/L5a/L5b/L5c); `tests/test_lyt.py` (new AMENDMENT 5
+section: parse/round-trip for both new keys, accept+refuse coverage for
+every one of L5/L5a/L5b/L5c including nesting depth >= 3 and the "Other
+tab"-shaped composition L5c must refuse, a waiver-mechanism-reuse
+regression, the dormancy regression against every reference encoding, and
+the advisory output shape including a nested-T-groups regression).
+
 ## License
 
 Public Domain (The Unlicense), matching [layout-language-consult.md](../../.claude/dispatch-reports/layout-language-consult.md)'s

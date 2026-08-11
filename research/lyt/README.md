@@ -101,7 +101,7 @@ loader/compiler/mockup-generator seam instead — see
 dispatch report for the full account; AMENDMENT 4, per-valuation presence
 solving, is covered in its own section further below).
 
-## Well-formedness checking scope (L1-L4)
+## Well-formedness checking scope (L1-L4, plus Amendment 5's L5 family)
 
 The full current-implementation status of each law — which of L1-L4 is
 structurally checked, which is a construction-time type refusal, and
@@ -116,6 +116,15 @@ is checked at load time; L4 is entirely unimplemented (the
 `drag-persisted` keyword parses and is then dropped on the floor). See
 `wellformed.py`'s own module docstring for the code-level derivation
 this README no longer duplicates.
+
+AMENDMENT 5 (ledger row 1937) adds four more laws — L5, L5a, L5b, L5c,
+overflow honesty for the new `scroll`/`content` sizing-bag keys — in the
+SAME `wellformed.py` structural-walk family as L2. See [SPEC.md](SPEC.md) §13 for
+the full grammar/semantics and [SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)'s own Amendment 5
+entry for the ruling and rationale. All four are dormant (fire on zero
+encodings) until an encoding declares `scroll` or `content` — neither
+clean-room encoding does yet, so this amendment changes no existing
+encoding's behavior.
 
 ## AMENDMENT 1 consequence: preserve reservations are now genuine, and the board sometimes has to shrink to pay for them
 

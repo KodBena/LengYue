@@ -71,6 +71,25 @@ registration that never declares a `default_valuation` (q5go, ogs,
 current-row-repaired, current-row-asis all keep solving the one
 all-present tree they always did).
 
+## AMENDMENT 5 fix (review finding 1, `.claude/dispatch-reports/lyt-amendment5-review.md`)
+
+`prune_absent`'s two `ast.Slot(...)` reconstruction call sites (Split and
+Exclusive branches) forward `presence`/`sizing`/`violates` from the
+original slot but rebuild the `node` -- Amendment 5 (`Slot.scroll_axes`,
+ledger row 1937) added a fourth field to that same forward-or-drop set,
+and the two call sites here were not swept when that field was added
+(they are the only `Slot`-*reconstruction* call sites in this package --
+every OTHER `ast.Slot(...)` construction, in `loader.py`, `synthesize.py`,
+and `bench_solve.py`, builds a slot from scratch rather than forwarding an
+existing one's fields, so there was nothing to drop there). Fixed by
+forwarding `scroll_axes=slot.scroll_axes` at both sites. Dormant twice
+over before this fix (no encoding combines a `scroll` declaration with a
+presence-prunable descendant yet, and `compiler.py`/`render.py`/every
+`emit_*.py` module reads `scroll_axes` not at all), but directly upstream
+of the Option C follow-on wave, which is expected to combine the two --
+see the review's own Finding 1 for the full analysis. Regression:
+`tests/test_lyt.py::test_prune_absent_preserves_scroll_axes_on_reconstructed_composites`.
+
 License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
 license line and the umbrella's ADR-0006 per-file convention.
 """
@@ -125,7 +144,20 @@ def prune_absent(slot: ast.Slot, absent_widgets: FrozenSet[str]) -> ast.Slot:
             if not (isinstance(c.node, ast.Leaf) and c.node.widget in absent_widgets)
         ]
         new_node = ast.Split(axis=node.axis, gap_px=node.gap_px, children=new_children)
-        return ast.Slot(node=new_node, presence=slot.presence, sizing=slot.sizing, violates=slot.violates)
+        # AMENDMENT 5 fix (review finding 1, lyt-amendment5-review.md): this
+        # reconstructs a NEW `ast.Slot` from the original's `presence`/
+        # `sizing`/`violates` -- `scroll_axes` must be forwarded the same
+        # way, or a composite ancestor's own `scroll` declaration silently
+        # vanishes the moment a descendant leaf gets pruned. Dormant today
+        # (no encoding combines `scroll` with a presence-prunable sibling
+        # yet), but this is exactly the sibling-surface gap the amendment's
+        # own closure statement should have enumerated -- see this module's
+        # docstring "AMENDMENT 5 fix" note for the swept quantification
+        # universe.
+        return ast.Slot(
+            node=new_node, presence=slot.presence, sizing=slot.sizing,
+            violates=slot.violates, scroll_axes=slot.scroll_axes,
+        )
     if isinstance(node, ast.Exclusive):
         new_children = [
             prune_absent(c, absent_widgets)
@@ -133,7 +165,12 @@ def prune_absent(slot: ast.Slot, absent_widgets: FrozenSet[str]) -> ast.Slot:
             if not (isinstance(c.node, ast.Leaf) and c.node.widget in absent_widgets)
         ]
         new_node = ast.Exclusive(children=new_children, selector=node.selector, tag=node.tag)
-        return ast.Slot(node=new_node, presence=slot.presence, sizing=slot.sizing, violates=slot.violates)
+        # AMENDMENT 5 fix -- same forwarding, same rationale as the Split
+        # branch above.
+        return ast.Slot(
+            node=new_node, presence=slot.presence, sizing=slot.sizing,
+            violates=slot.violates, scroll_axes=slot.scroll_axes,
+        )
     raise TypeError(f"unknown LayoutNode kind: {node!r}")  # pragma: no cover — exhaustive over lyt_ast.LayoutNode
 
 

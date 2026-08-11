@@ -173,6 +173,70 @@ each receive the *whole* rectangle (§4.1 line 297-298), so "a band of a
 partition axis" does not describe a T child's relationship to its
 siblings. Disclosed scoping choice, unchanged by this amendment.
 
+AMENDMENT 5 (ledger row 1937, commissioner-delegated; see
+`SPEC-AMENDMENTS.md` and
+`.claude/dispatch-reports/lyt-tab-region-consult.md`) — overflow as a
+typed, checkable language concept
+--------------------------------------------------------------------------
+
+Four laws, all enforced by `find_l5_violations` below in the SAME
+enforcement family as L2's dominance test — a structural tree-walk run
+at load time, over the SAME `(law, path)` waiver mechanism `Waiver`/
+`check_wellformed` already generalize for (that dataclass's own
+docstring names the field as "open-ended... in case a future law gains
+a structural checker" — this is that future law):
+
+  - **L5 (overflow honesty).** Checkable form implemented: an
+    `unbounded`-content leaf may not ALSO claim `basis == 'envelope'` —
+    an envelope enumerates a FINITE set of content states (L3), which is
+    not an honest claim for content that is unbounded by definition.
+    (The report's own §9.2: "the registry case and the chart case are
+    both theorems of the classification" — this is the half of L5 that
+    is a genuine, distinct, checkable rule rather than being fully
+    subsumed by L5a/L5c below; a `bounded`/`designed` leaf's "envelope OR
+    plain reservation" both remain honest per the report's own "a
+    bounded/designed leaf requires its envelope/reservation to fit"
+    clause, so neither is refused by this rule.)
+  - **L5a (coverage).** An `unbounded`-class leaf REQUIRES exactly one
+    scroll owner (a `scroll` declaration on some slot along its
+    root-to-leaf path, inclusive of the leaf's own slot) — a leaf with
+    NO scroll owner anywhere on its path is refused. A `bounded`/
+    `designed` leaf carries no such requirement (its own reservation, or
+    an honest envelope, is sufficient per L5 above) — this is the
+    checkable half of "a bounded/designed leaf requires its envelope/
+    reservation to fit": DISCLOSED RESIDUAL, same footing as L3's own
+    ("declarations can lie; completeness is review's") — this walk
+    cannot verify that a `designed` leaf's declared demand genuinely
+    matches its rendered content, only that the STRUCTURAL disposition
+    (no scroll escape hatch, per L5c below) is honored.
+  - **L5b (single scroll owner).** On any root-to-leaf path, at most one
+    slot declares `scroll` per AXIS. A second declaration on the SAME
+    axis on the SAME path is refused — "which container absorbs the
+    overflow" must be unambiguous (report §9.1); two DIFFERENT axes
+    (`scroll h` at one slot, `scroll v` at a descendant) are not in
+    conflict and do not violate this law.
+  - **L5c (chart exclusion, subtree-quantified fold).** A slot may
+    declare `scroll` only if its OWN subtree (itself included) contains
+    NO `designed`-class leaf — computed as a fold over the subtree, not
+    a per-slot tag (report §9.2: "a container is chart-bearing because a
+    descendant is a chart, not because someone remembered to tag the
+    container"). This is what makes a chart-bearing container's declared
+    demand a HARD reservation the solver must fit (INFEASIBLE, never a
+    scrollbar, where it cannot) — see SPEC.md §11's Amendment-1 banner-
+    floor precedent for the same "a genuine floor may make sizes
+    infeasible, and that is correct" posture applied here.
+
+**Dormancy, by construction (the HARD CONSTRAINT this implementation
+wave is bound by).** Every one of the four checks above is gated on an
+explicit `content`/`scroll` declaration existing somewhere in the tree:
+L5/L5a only look at a leaf whose `Leaf.content` is genuinely non-`None`;
+L5b/L5c only fire at a slot whose `Slot.scroll_axes` is genuinely
+non-empty. A tree with NO Amendment-5 declarations anywhere — every
+existing encoding as of this amendment — triggers none of the four
+checks; `find_l5_violations` returns `[]` unconditionally for such a
+tree. The laws bind declarations; they do not retroactively indict
+silence.
+
 L4 ACCOUNTING (cold review, lyt-compiler-cold-review.md, "L4 has no
 accounting anywhere a reader would look for one"): this module implements
 L2 only. L4 ("a slot's extent has at most one writer among {solver
@@ -190,6 +254,9 @@ gets its own accounting rather than silent omission: a reader who trusts
 this module's docstring, or `errors.py`'s reference to "L1-L4" as what
 `LytLoadError` enforces, should not have to read every `.lyt` encoding's
 comments to learn that L4 is a no-op in this codebase.
+
+License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
+license line and the umbrella's ADR-0006 per-file convention.
 """
 from __future__ import annotations
 
@@ -212,11 +279,13 @@ class Waiver:
     not a global weakening of the checker), every field is mandatory and
     checked at construction:
 
-      - `law`: which well-formedness law is being waived (currently only
-        `"L2"` is checkable at all — see wellformed.py/loader.py's L1
-        disclosure — so this is `"L2"` in practice, but the field is
-        open-ended rather than hardcoded, in case a future law gains a
-        structural checker).
+      - `law`: which well-formedness law is being waived (`"L2"`, or —
+        since AMENDMENT 5, ledger row 1937 — one of `"L5"`/`"L5a"`/
+        `"L5b"`/`"L5c"`; see wellformed.py/loader.py's L1 disclosure for
+        why L1/L4 are not checkable at all and so can never be named
+        here. This field was always open-ended rather than hardcoded, in
+        anticipation of exactly this: a future law gaining a structural
+        checker.).
       - `path`: the exact tree path `find_l2_violations`'s walk reports
         for the violating Split node (`"root/H0"` etc.) — matched
         EXACTLY, not as a prefix, so a waiver only ever silences the one
@@ -336,47 +405,163 @@ def find_l2_violations(root: ast.Slot, *, path: str = "root") -> List[str]:
     return violations
 
 
+def _subtree_has_designed_leaf(slot: ast.Slot) -> bool:
+    """L5c's subtree fold: True iff `slot` or ANY descendant is a leaf
+    whose `content == 'designed'`. Computed structurally — a container is
+    chart-bearing because a descendant genuinely is one, never because a
+    tag was hand-applied to the container (report §9.2)."""
+    node = slot.node
+    if isinstance(node, ast.Leaf):
+        return node.content == "designed"
+    if isinstance(node, (ast.Split, ast.Exclusive)):
+        return any(_subtree_has_designed_leaf(c) for c in node.children)
+    return False
+
+
+def find_l5_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str, str, str]]:
+    """AMENDMENT 5 (ledger row 1937) — see module docstring for the full
+    derivation of each law. Returns one `(law, path, message)` triple per
+    violation, in tree-walk order — `law` is one of `"L5"`, `"L5a"`,
+    `"L5b"`, `"L5c"`, matching `find_l2_violations`' own "one entry per
+    violating site" shape but carrying its own law tag explicitly
+    (rather than a hardcoded `"L2"`), since `check_wellformed` below now
+    arbitrates violations from more than one law against the same
+    `(law, path)`-keyed `Waiver` mechanism.
+
+    `owners`, threaded down the walk, is `{axis: [declaring_path, ...]}`
+    — every slot ALONG THE ROOT-TO-CURRENT-NODE PATH that has already
+    declared `scroll` on that axis, in declaration order. A fresh
+    (structurally-shared-nothing) copy is built at every node so a
+    sibling subtree never sees another sibling's declarations — this is
+    the same "per ROOT-TO-LEAF PATH" quantification L5a/L5b's own law
+    text names, not a whole-tree aggregate.
+    """
+    violations: List[Tuple[str, str, str]] = []
+
+    def walk(slot: ast.Slot, path: str, owners: Dict[str, List[str]]) -> None:
+        node = slot.node
+
+        # L5c — chart exclusion: THIS slot's own subtree (self included)
+        # must contain no 'designed' leaf, checked BEFORE recursing so a
+        # violation names the declaring slot, not a leaf beneath it.
+        if slot.scroll_axes and _subtree_has_designed_leaf(slot):
+            violations.append((
+                "L5c",
+                path,
+                f"{path}: L5c chart-exclusion violation — this slot "
+                f"declares scroll ({', '.join(sorted(slot.scroll_axes))}) "
+                "but its own subtree contains a 'designed'-class leaf; a "
+                "chart-carrying container may not scroll — its declared "
+                "demand must be a hard reservation the solver fits, never "
+                "a scrollbar escape hatch (AMENDMENT 5, ledger row 1937)",
+            ))
+
+        # L5b — single scroll owner per axis per root-to-leaf path.
+        new_owners: Dict[str, List[str]] = {axis: list(v) for axis, v in owners.items()}
+        for axis in sorted(slot.scroll_axes):
+            existing = new_owners.setdefault(axis, [])
+            if existing:
+                violations.append((
+                    "L5b",
+                    path,
+                    f"{path}: L5b single-scroll-owner violation — axis "
+                    f"{axis!r} already has a scroll owner at "
+                    f"{existing[0]!r} on this root-to-leaf path; a second "
+                    f"declaration at {path!r} is ambiguous (which "
+                    "container absorbs the overflow? — AMENDMENT 5, "
+                    "ledger row 1937)",
+                ))
+            existing.append(path)
+
+        if isinstance(node, ast.Leaf):
+            if node.content == "unbounded":
+                has_owner = any(new_owners.get(axis) for axis in ("h", "v"))
+                if not has_owner:
+                    violations.append((
+                        "L5a",
+                        path,
+                        f"{path}: L5a coverage violation — leaf "
+                        f"{node.widget!r} is content: unbounded but has no "
+                        "scroll owner anywhere on its root-to-leaf path "
+                        "(an unbounded leaf REQUIRES exactly one declared "
+                        "scroll axis, on itself or an ancestor — "
+                        "AMENDMENT 5, ledger row 1937)",
+                    ))
+                if slot.sizing.basis == "envelope":
+                    violations.append((
+                        "L5",
+                        path,
+                        f"{path}: L5 overflow-honesty violation — leaf "
+                        f"{node.widget!r} is content: unbounded and also "
+                        "declares basis='envelope' — an envelope "
+                        "enumerates a FINITE set of content states, which "
+                        "is not an honest claim for content that is "
+                        "unbounded by definition (AMENDMENT 5, ledger row "
+                        "1937)",
+                    ))
+            return
+        if isinstance(node, ast.Split):
+            for i, child in enumerate(node.children):
+                walk(child, f"{path}/{node.axis.upper()}{i}", new_owners)
+        elif isinstance(node, ast.Exclusive):
+            for i, child in enumerate(node.children):
+                walk(child, f"{path}/T{i}", new_owners)
+
+    walk(root, path, {})
+    return violations
+
+
 def check_wellformed(
     root: ast.Slot, *, layout_name: str, waivers: Optional[List[Waiver]] = None
 ) -> List[Waiver]:
-    """Runs the L2 dominance check and arbitrates it against any declared
+    """Runs the L2 dominance check AND the AMENDMENT 5 L5/L5a/L5b/L5c
+    walk (`find_l5_violations`), and arbitrates BOTH against any declared
     `Waiver`s (see that dataclass's docstring for the full mechanism —
     this is the `--baseline` load-mode support the lyt-constants-swap
-    commission asks for). Returns the list of waivers actually APPLIED
-    (a subset of `waivers`, in `l2`'s own discovery order) so a caller
-    (the runner, the emitter, a test) can report exactly what was let
-    through and why, rather than the waiver list silently disappearing
-    once it does its job.
+    commission asks for, generalized here to every law that gains a
+    structural checker, exactly as `Waiver.law`'s own docstring already
+    disclosed it would: "the field is open-ended, in case a future law
+    gains a structural checker"). Returns the list of waivers actually
+    APPLIED (a subset of `waivers`, in discovery order) so a caller (the
+    runner, the emitter, a test) can report exactly what was let through
+    and why, rather than the waiver list silently disappearing once it
+    does its job.
 
     Two loud-refusal cases beyond the un-waived-violations case that
     already existed:
       - a declared waiver whose `(law, path)` matches no violation found
         THIS load ("stale waiver" — see `Waiver`'s docstring).
-      - any remaining, un-waived violation (unchanged from before this
-        function grew a waiver parameter — the default `waivers=None`
-        call shape is byte-identical in behavior to the pre-waiver
-        version for every existing caller).
+      - any remaining, un-waived violation.
+
+    `detail.law` (singular) is populated, unchanged, when every
+    remaining violation shares ONE law — every existing caller/test that
+    asserts `detail["law"] == "L2"` (a fixture with ONLY L2 violations)
+    sees byte-identical behavior. `detail.laws` (plural, a sorted list)
+    is populated instead when a load trips more than one distinct law at
+    once — a case no fixture reached before this amendment, since only
+    L2 had a structural checker.
     """
     waivers = list(waivers or [])
-    l2 = find_l2_violations(root)
+    l2 = [("L2", v.split(":", 1)[0], v) for v in find_l2_violations(root)]
+    l5 = find_l5_violations(root)
+    all_violations: List[Tuple[str, str, str]] = l2 + l5
     waiver_index: Dict[Tuple[str, str], Waiver] = {(w.law, w.path): w for w in waivers}
     applied: List[Waiver] = []
-    remaining: List[str] = []
+    remaining: List[Tuple[str, str, str]] = []
     matched_keys: set = set()
-    for v in l2:
-        path = v.split(":", 1)[0]
-        key = ("L2", path)
+    for law, path, msg in all_violations:
+        key = (law, path)
         w = waiver_index.get(key)
         if w is not None:
             applied.append(w)
             matched_keys.add(key)
         else:
-            remaining.append(v)
+            remaining.append((law, path, msg))
     stale = [w for k, w in waiver_index.items() if k not in matched_keys]
     if stale:
         raise LytLoadError(
             f"layout {layout_name!r} declares {len(stale)} waiver(s) that "
-            "do not match any L2 violation actually found on this load — "
+            "do not match any violation actually found on this load — "
             "a waiver must name a real, currently-present site "
             "(ADR-0002: a decorative waiver silencing nothing is refused "
             "loudly, not left in place)",
@@ -389,10 +574,19 @@ def check_wellformed(
             },
         )
     if remaining:
+        laws_present = sorted({law for law, _, _ in remaining})
+        detail: Dict[str, object] = {
+            "layout": layout_name,
+            "violations": [msg for _, _, msg in remaining],
+        }
+        if len(laws_present) == 1:
+            detail["law"] = laws_present[0]
+        else:
+            detail["laws"] = laws_present
         raise LytLoadError(
-            f"layout '{layout_name}' violates L2 (zero-standing-cost "
-            f"affordances) at {len(remaining)} site(s) not covered by a "
-            "declared waiver",
-            {"layout": layout_name, "law": "L2", "violations": remaining},
+            f"layout '{layout_name}' violates well-formedness at "
+            f"{len(remaining)} site(s) not covered by a declared waiver "
+            f"(law(s): {', '.join(laws_present)})",
+            detail,
         )
     return applied
