@@ -122,7 +122,8 @@ frontend/src/
 │   │   ├── ToolbarEngineMetrics.vue   [B3]  Live engine-telemetry strip leaf (version/winrate/scoreLead/PPS/latency/watchdog + queue tooltip + mounts EngineModelSelect); self-sources the per-packet/per-tick reads, extracted out of Toolbar (render-coupling fix). MODEL slot moved to EngineModelSelect.vue (2026-08-06) so this leaf's own 1Hz tick re-render can't reach the select's DOM.
 │   │   ├── ToolbarEngineUri.vue       [B3]  Compact click-to-edit engine WebSocket URI, sat in the toolbar's engine cluster (ledger slug toolbar-engine-uri). Renders unconditionally (not gated on isConnected); logic lives in useEngineUriEditor — this leaf is chrome only.
 │   │   ├── ToolbarSliderPopover.vue   [B1]  Toolbar badge + hover popover: compact priority-ordered list of every scalar knob (quick-access surface for the knob registry).
-│   │   └── UserBadge.vue              [B1]  Auth-identity badge; opens LoginModal on click.
+│   │   ├── UserBadge.vue              [B1]  Auth-identity badge; opens LoginModal on click.
+│   │   └── WorkspaceRecoveryGate.vue  [B1]  Blocking boot-time recovery prompt for `workspaceLoadState.kind === 'future-version'` (work item `next-futureblob-recovery`, ratified program row 1937, incident row 1942): two-choice recovery UI (continue on suppressed-persistence defaults / reset server workspace) replacing the dead-app failure mode a future-schemaVersion blob used to produce. Pure renderer — emits `continue`/`reset`; App.vue wires both to `useWorkspaceRecovery`.
 │   │
 │   ├── editors/                             Settings / palette / pipeline editors.
 │   │   ├── AnalysisControls.vue       [B3]  Per-board analysis controls (engine status, palette picker, bundle persistence, …).
@@ -231,6 +232,7 @@ frontend/src/
 │   │   ├── useAppBootstrap.ts         [B3]  Cold-start wiring: auth → sync hydrate → domain inits → tag fetch → known-positions hydrate (on every authenticated flip-in, not just cold start). Band-mixed by role (imports analysis-service, qEUBO, the keybindings catalog); tagged like App.vue — wiring, not a B1 substrate.
 │   │   ├── useAuth.ts                 [B1]  AuthState SSOT; wraps api-client auth methods; JWT synchronisation.
 │   │   ├── useMetadata.ts             [B3]  SGF root properties → UI metadata (gameName ladder, players, dates).
+│   │   ├── useWorkspaceRecovery.ts    [B1]  Future-version workspace-recovery wiring (work item `next-futureblob-recovery`): `continueOnDefaults()` thin-wraps SyncService's non-destructive default action; `resetServerWorkspace()` owns the mandatory `useAppDialogs().confirm({ danger: true })` step before calling SyncService's destructive `resetServerWorkspaceToDefaults()`. Shared by `WorkspaceRecoveryGate.vue` (blocking prompt) and App.vue's ongoing `workspaceSaveState === 'suppressed'` banner.
 │   │   └── workspace-identity-key.ts  [B1]  Derives a stable per-identity remount key from `username` (App.vue binds it as the control-panel `:key`) so an auth flip can't let user B inherit user A's component-instance data — the tenancy leak `resetWorkspace`'s module-cache registry can't reach. Identity-keyed remount is domain-free.
 │   │
 │   ├── board/                                Board-surface composables. Mostly B3.

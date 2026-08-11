@@ -680,6 +680,20 @@ backend; flip the env-var to opt in.
   debounce and writes immediately. Useful for debugging or
   before a known disconnect.
 
+- **Future-workspace recovery.** If the workspace document saved
+  on the server is from a newer app version than the one
+  currently running (schema migrations only walk forward), the
+  app no longer goes blank. A blocking prompt names both
+  versions and offers two explicit choices: continue this
+  session on in-memory defaults with saving suppressed (the
+  server's newer workspace is left untouched — the default,
+  non-destructive option), or reset the server workspace to
+  defaults, permanently overwriting it (behind a confirmation
+  that spells out what is lost). If "continue" is chosen, a
+  persistent banner keeps reminding that saving is off for the
+  rest of the session, with the same reset option still
+  available from there.
+
 ## What's intentionally absent
 
 - **No multiplayer.** The engine is the only opponent.
