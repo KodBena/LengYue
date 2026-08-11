@@ -49,13 +49,25 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 </template>
 
 <style scoped>
+/* W4 item 1: this panel now mounts inside App.vue's `#lyt-overlay-stack`
+   (a `position: fixed` overlay, never an in-flow chrome bar) — see that
+   element's own CSS comment for the full placement/non-occlusion
+   derivation. Restyled from an in-flow bar (border-bottom only,
+   flush against its neighbours) to a floating card (full border +
+   radius, opaque `--surface-0` fill unchanged — the standing
+   "no scrim/translucency" ruling this panel already followed). No
+   box-shadow (the effects-ban sweep, ledger row 1506, bans it outright,
+   no carve-outs) — the border alone reads as "a distinct floating
+   surface" against whatever chrome happens to be underneath. */
 .system-log-panel {
   background: var(--surface-0);
-  border-bottom: 1px solid var(--border-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-default);
   display: flex;
   flex-direction: column;
   max-height: 250px;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .panel-header {

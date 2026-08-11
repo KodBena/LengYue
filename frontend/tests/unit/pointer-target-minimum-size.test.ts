@@ -266,22 +266,36 @@ describe('style.css — global input[type="checkbox"] rule clears 24x24 effectiv
   });
 });
 
-describe('SidebarWidget.vue — .board-action-btn clears 24x24 (wiki2-board-action-btn-height)', () => {
-  // Was a magic-literal `height: 20px`. Replaced with content-derived
-  // sizing (padding + `min-height: 24px`), the same idiom as
-  // `.toolbar-btn` above — no fixed height literal remains.
-  const rule = /\.board-action-btn\s*\{[^}]*\}/.exec(src('src/components/chrome/SidebarWidget.vue'))![0];
+// W4 item 2/5: `.board-action-btn` (SidebarWidget.vue) is gone — the
+// Load/Save SGF buttons it styled were removed (one home for that
+// action is now the toolbar strip; see SidebarWidget.vue's own header
+// comment at the removed markup). The 24px-floor coverage below
+// follows the SAME buttons to their new homes: ToolbarSliderPopover's
+// promoted `.sliders-trigger` button (W4 item 2 — was a bare `<div>`,
+// now a real `<button>`) and DebugMenu's `.debug-pill`/`.debug-item`
+// (W4 item 5 — the new consolidated dev-affordance menu).
+describe('ToolbarSliderPopover.vue — .sliders-trigger clears 24x24 (W4 item 2)', () => {
+  const rule = /\.sliders-trigger\s*\{[^}]*\}/.exec(src('src/components/chrome/ToolbarSliderPopover.vue'))![0];
   it('carries an explicit min-height >= 24px', () => {
     const m = /min-height:\s*(\d+)px/.exec(rule);
     expect(m).not.toBeNull();
     expect(Number(m![1])).toBeGreaterThanOrEqual(24);
   });
-  it('no longer declares a fixed height literal', () => {
-    // Strip comments first — the rule's own doc comment mentions the
-    // retired `height: 20px` literal in prose, which would otherwise
-    // false-positive this source-text assertion.
-    const withoutComments = rule.replace(/\/\*[\s\S]*?\*\//g, '');
-    expect(withoutComments).not.toMatch(/(?<!min-)height\s*:/);
+});
+
+describe('DebugMenu.vue — .debug-pill and .debug-item clear 24x24 (W4 item 5)', () => {
+  const sfc = src('src/components/chrome/DebugMenu.vue');
+  it('.debug-pill carries an explicit min-height >= 24px', () => {
+    const rule = /\.debug-pill\s*\{[^}]*\}/.exec(sfc)![0];
+    const m = /min-height:\s*(\d+)px/.exec(rule);
+    expect(m).not.toBeNull();
+    expect(Number(m![1])).toBeGreaterThanOrEqual(24);
+  });
+  it('.debug-item carries an explicit min-height >= 24px', () => {
+    const rule = /\.debug-item\s*\{[^}]*\}/.exec(sfc)![0];
+    const m = /min-height:\s*(\d+)px/.exec(rule);
+    expect(m).not.toBeNull();
+    expect(Number(m![1])).toBeGreaterThanOrEqual(24);
   });
 });
 

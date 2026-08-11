@@ -256,6 +256,30 @@ const trackList = computed<string[]>(() =>
     if (c.track.kind === 'board-priority-clamp') {
       return trackCssValue(c.track, boardRailReservedPx.value);
     }
+    // W4 item 4 (MiniBoard/previewBoard viewport clamp): a FIXED track
+    // on an ASPECT leaf (today, only `previewBoard` — `B`'s own track
+    // is 'board-priority-clamp'/'elastic', never 'fixed') is a rigid
+    // CSS Grid track that never shrinks below its declared px, even
+    // when the enclosing row's OTHER siblings' own hard floors (the
+    // tree leaf, the collapsed control-panel blackbox) already exceed
+    // the row's available width — exactly the screenshot defect the
+    // commissioner reported ("previewBoard MiniBoard can be pushed
+    // partially off-viewport"). This is a REALIZATION-only recovery
+    // (the .lyt encoding's own declared `{min 160px, pref 160px, max
+    // 160px, aspect 1}` is untouched — LYT's sizing stratum still
+    // reserves exactly 160px as this leaf's PREFERRED extent; only the
+    // Vue-runtime CSS mapping additionally allows it to shrink toward
+    // 0 as a graceful-recovery floor), scoped to exactly the aspect+
+    // fixed combination — every other fixed leaf (tree, the info/
+    // action strips) is untouched and stays rigidly reserved. The
+    // paired half of this fix is `.lyt-board-cell`'s own containment
+    // (`container-type:size` below) plus `PreviewBoardPanel.vue`'s own
+    // `aspect-ratio:1` + `max-width/max-height:100%` — together they
+    // guarantee the leaf STAYS SQUARE and FULLY VISIBLE at whatever
+    // size the shrunk cell provides, never distorted, never clipped.
+    if (isAspectLeaf(c) && c.track.kind === 'fixed') {
+      return `minmax(0px, ${c.track.px}px)`;
+    }
     return trackCssValue(c.track);
   }),
 );

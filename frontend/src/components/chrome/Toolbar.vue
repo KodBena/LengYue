@@ -12,8 +12,6 @@ import ToolbarSliderPopover from './ToolbarSliderPopover.vue';
 import ToolbarMoveNav from './ToolbarMoveNav.vue';
 import SetupToolPalette from './SetupToolPalette.vue';
 import { useEngineControls } from '../../composables/useEngineControls';
-import { useAutoNavigatePerf } from '../../composables/useAutoNavigatePerf';
-import { useAutoPopoverPerf } from '../../composables/useAutoPopoverPerf';
 
 const { t } = useI18n();
 
@@ -24,21 +22,13 @@ const { t } = useI18n();
 // telemetry — the per-packet/per-tick reads — now lives in the
 // <ToolbarEngineMetrics> leaf below, so this Toolbar reads only `isConnected`
 // (low-frequency) and no longer re-renders per packet during analysis.
-const { isConnected, clearCache } = useEngineControls();
+const { isConnected } = useEngineControls();
 
-// Dev affordance: the clear-cache button (cold-cache benchmarking) only
-// renders in dev builds. import.meta.env.DEV is statically folded, so the
-// button and its handler dead-code-eliminate in production.
-const isDevBuild = import.meta.env.DEV;
-
-// Dev affordance: auto-navigate-for-perf-capture harness. Obtained
-// unconditionally (matching clearCache above); the button is dev-gated, so
-// the loop is unreachable in production and start() never fires there.
-const { isRunning: autoNavRunning, toggle: toggleAutoNav } = useAutoNavigatePerf();
-// Dev affordance: popover-stress harness — toggles a popover open/closed at a
-// fixed cadence while a range query streams (for the popover-sluggishness
-// measurement). Targets the queue tooltip; swap the arg for 'sliders'.
-const { isRunning: popoverStressRunning, toggle: togglePopoverStress } = useAutoPopoverPerf();
+// Dev-only affordances (Clear Cache, Auto-Nav Perf, Popover Stress) moved
+// OFF this main surface, W4 item 5 (roadmap §7 resolution 4: "debug
+// widgets = the portrait mockup's menu shape, debug builds only") — see
+// `DebugMenu.vue` (mounted in App.vue's corner chrome cluster), which now
+// owns `clearCache`/`useAutoNavigatePerf`/`useAutoPopoverPerf` directly.
 
 const props = defineProps<{
   title?:       string;
@@ -179,45 +169,8 @@ function onMatchClick() {
         :class="{ 'btn-stop-match': isMatchRunning }"
         @click="onMatchClick"
       >{{ matchBtnLabel }}</button>
-      <!-- Dev-only cold-cache affordance, beside connect/disconnect. -->
-      <button
-        v-if="isDevBuild"
-        class="toolbar-btn"
-        :disabled="!isConnected"
-        :title="$t('engine.clearCache.title')"
-        @click="clearCache"
-      >{{ $t('toolbar.clearCache') }}</button>
-      <!-- Dev-only auto-navigate-for-perf-capture affordance (useAutoNavigatePerf). -->
-      <button
-        v-if="isDevBuild"
-        class="toolbar-btn"
-        :class="{ 'btn-connected': autoNavRunning }"
-        :title="$t('toolbar.autoNavPerf.title')"
-        @click="toggleAutoNav"
-      >{{ autoNavRunning ? $t('toolbar.autoNavPerf.stop') : $t('toolbar.autoNavPerf.start') }}</button>
-      <!-- Dev-only popover-stress affordance (useAutoPopoverPerf).
-           M8(a) (menus-ui audit row 1291, found not assumed): this
-           button's only real-world target is the queue-tooltip popover,
-           which mounts exclusively inside ToolbarEngineMetrics
-           (`v-if="isConnected"` above) — so while disconnected, toggling
-           this on can never produce a visible popover; it only emits
-           performance.mark timeline markers into the void. Disabled
-           while disconnected (unless already running, so a run started
-           before a disconnect can still be stopped — see
-           useAutoPopoverPerf's auto-stop watch, which also catches that
-           case on its own). The label now states plainly what state is
-           active rather than relying on the `btn-connected` hue alone
-           (C18: hue is never the sole channel). -->
-      <button
-        v-if="isDevBuild"
-        class="toolbar-btn"
-        :class="{ 'btn-connected': popoverStressRunning }"
-        :disabled="!isConnected && !popoverStressRunning"
-        :title="isConnected || popoverStressRunning
-          ? $t('toolbar.popoverStress.title')
-          : $t('toolbar.popoverStress.titleDisconnected')"
-        @click="togglePopoverStress('queue')"
-      >{{ popoverStressRunning ? $t('toolbar.popoverStress.stop') : $t('toolbar.popoverStress.start') }}</button>
+      <!-- Dev-only Clear Cache / Auto-Nav Perf / Popover Stress buttons
+           — REMOVED from this surface, W4 item 5. See DebugMenu.vue. -->
       <button
         class="toolbar-btn"
         :class="{ 'btn-connected': isConnected }"

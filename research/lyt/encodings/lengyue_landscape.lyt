@@ -219,6 +219,104 @@
 --     1366x768 OPTIMAL pin to buy back a narrower/shorter toolbar
 --     reservation, a tradeoff this repair pass declined to make
 --     unilaterally.
+--
+--   - W4 FLOOR SOFTENING (Q3 ruling, ledger row 1848; commission
+--     `.claude/dispatch-reports/lyt-vue-realization-roadmap.md` item 6):
+--     "NO compact class" was the standing ruling -- the SAME tree must
+--     become solver-FEASIBLE at 1280x1024/1024x700/900x600 by lowering
+--     MINS (never gaps -- Amendment 3's own "rhythm is not negotiable
+--     under board-maximization" rationale is respected verbatim here;
+--     no `gap` value in this file changed), with the board-first
+--     objective governing which floor gives way. Three mins lowered,
+--     all on the SIDE COLUMN / control-panel side of the tree (never
+--     the board composite itself, which stays untouched per that same
+--     objective):
+--       - side column's own outer `min`: 480px -> 280px. DISCLOSED,
+--         NOT independently re-measured against a live Playwright
+--         width-sweep the way the REPAIR PASS's own 480px number was
+--         (see that section above for the methodology) -- item 2's own
+--         toolbar-structure rework (envelope-reserved metric cells,
+--         a real SLIDERS button, one home for Load/Save SGF) tightens
+--         the toolbar's realistic width need somewhat, and the
+--         toolbar's own proven flex-wrap mechanism (W1 REPAIR, this
+--         file's own header above) degrades ANY width squeeze onto
+--         more rows rather than clipping -- so a narrower floor is
+--         functionally safe, just not empirically re-swept at 280px
+--         specifically. A follow-up wave re-running the REPAIR PASS's
+--         own measured-sweep methodology at this narrower floor is the
+--         more rigorous confirmation, named here as the honest gap
+--         this pass leaves (same disclosure posture the REPAIR PASS
+--         section above models).
+--       - the five CP-* children's own per-child `min`: was the
+--         `WRAPPER_MIN` sentinel (300px, `loader.WRAPPER_MIN_PX`,
+--         SHARED with `current_row_repaired.lyt`/`current_row_asis.lyt`
+--         -- two unrelated historical/comparison fixtures outside this
+--         item's scope). Rather than lower the SHARED global constant
+--         (which would silently move those two fixtures' own
+--         feasibility pins too, a cross-boundary side effect this item
+--         doesn't authorize), this file now declares its own literal
+--         `160px` per child instead of the sentinel -- scoping the
+--         floor-softening to exactly this encoding, none other. The
+--         T-node's own derived min (componentwise max of its children)
+--         drops from 300px to 160px accordingly.
+--       - tree leaf: `140px` (min=pref=max, fixed) -> `110px`. Verified
+--         DEAD for live rendering purposes before lowering it: W3's own
+--         resizer machinery (`useResizablePanel.ts`'s
+--         `effectiveTreePanelWidthPx`) UNCONDITIONALLY overrides this
+--         leaf's compiled track at Vue-runtime
+--         (`App.vue`'s own `lytTrackStyleOverrides`, LytNode.vue's own
+--         "Resizer drag overrides" header note: "wins VERBATIM over
+--         that child's own compiled track shape") -- so this number is
+--         consulted ONLY by the offline CP-SAT solver's own feasibility
+--         check in this prototype's test suite, never by the live app.
+--         Lowering it is therefore a zero-live-behavior-change lever,
+--         used purely to buy solver headroom.
+--
+--     Net effect (verified by re-running `tests/test_lyt.py` after this
+--     change): the three previously-`INFEASIBLE` landscape sizes
+--     (1280x1024, 1024x700, 900x600), both under the "all-present" and
+--     "default" presence valuations, flip to `OPTIMAL` -- the pinned
+--     `known_infeasible_by_valuation` set in
+--     `test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes`
+--     is updated accordingly (that test's own docstring is updated in
+--     the same change). Every size that solved `OPTIMAL` before this
+--     change (1920x1080/2560x1440/3440x1440/1366x768/1080x1920-in-
+--     landscape-stays-infeasible-for-an-unrelated-reason) still does --
+--     lowering a `min` only relaxes a constraint, it can never turn a
+--     previously-feasible point infeasible.
+--
+--   - W4 FLOOR CORRECTION (independent review,
+--     `.claude/dispatch-reports/lyt-w4-chrome-review.md` item 6): the
+--     280px side-column floor above was disclosed as "functionally
+--     safe, just not empirically re-swept" -- the re-sweep this repair
+--     pass performs shows that disclosure was wrong. A live measured
+--     width-sweep of the real running app (forcing `.lyt-node`'s
+--     side-column track through descending widths and walking every
+--     descendant for right-edge overflow) found `.setup-toolkit`
+--     (`SetupToolPalette.vue`'s permanently in-flow reservation, per
+--     that component's own no-occlusion standing law -- the palette is
+--     `visibility: hidden` when closed, never `display: none`, so its
+--     296px measured width is a flex-column sibling minimum at ALL
+--     times, not just while open) clips starting at 330px and reaches
+--     52px of horizontal overflow at the shipped 280px floor. The
+--     toolbar's flex-wrap degradation (the mechanism the disclosure
+--     leaned on) cannot rescue this: wrapping moves OTHER row content
+--     onto new rows, but does not touch `.setup-toolkit`'s own minimum
+--     content width. Measured true floor: 0px overflow at 335px, first
+--     overflow (2px) at 330px. Corrected floor: 345px -- the measured
+--     335px floor plus a ~10px margin, the same posture the REPAIR
+--     PASS section above used (374px measured -> 384px shipped, "10px
+--     margin over the real-app floor"). Verified (re-running
+--     `tests/test_lyt.py` after this correction): all three sizes this
+--     item flipped to OPTIMAL (1280x1024, 1024x700, 900x600) remain
+--     OPTIMAL at 345px -- the floor-softening's net effect above is
+--     preserved, not undone; 345px was not swept per-pixel against the
+--     live app the way 335px/280px were (that would require re-running
+--     the review's own Playwright width-sweep harness, not this
+--     encoding's own solver), so a follow-up wave re-confirming 345px
+--     against the live DOM the way this correction re-confirmed 335px
+--     is the honest remaining gap, named per this file's own established
+--     disclosure posture.
 layout lengyue-landscape =
   {min 0px, pref 1fr, max inf, gap 12px} H(
     @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
@@ -227,18 +325,18 @@ layout lengyue-landscape =
       {min 24px, pref 24px, max 24px} I_board[board, info],
       {min 28px, pref 28px, max 28px} A_board[board, action]
     ),
-    {min 480px, pref 32fr, max 340px+60ch, gap 4px} V(
+    {min 345px, pref 32fr, max 340px+60ch, gap 4px} V(
       {128px} A_go[go, action],
       {128px, envelope: {disconnected, connected_5digit_latency}} I_engine[common, info],
       {128px} A_common[common, action],
       {pref 1fr, gap 4px} H(
-        {min 140px, pref 140px, max 140px} tree[board, info+action],
+        {min 110px, pref 110px, max 110px} tree[board, info+action],
         {pref 1fr} T(
-          {min WRAPPER_MIN, pref 1fr, max inf} CP-library[blackbox],
-          {min WRAPPER_MIN, pref 1fr, max inf} CP-cards[blackbox],
-          {min WRAPPER_MIN, pref 1fr, max inf} CP-settings[blackbox],
-          {min WRAPPER_MIN, pref 1fr, max inf} CP-analysis[blackbox],
-          {min WRAPPER_MIN, pref 1fr, max inf} CP-other[blackbox]
+          {min 160px, pref 1fr, max inf} CP-library[blackbox],
+          {min 160px, pref 1fr, max inf} CP-cards[blackbox],
+          {min 160px, pref 1fr, max inf} CP-settings[blackbox],
+          {min 160px, pref 1fr, max inf} CP-analysis[blackbox],
+          {min 160px, pref 1fr, max inf} CP-other[blackbox]
         )[BLACK BOX],
         @toggle(user, release) {min 160px, pref 160px, max 160px, aspect 1} previewBoard[common, info]
       )

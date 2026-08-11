@@ -1521,17 +1521,74 @@ def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_
     reserved, matching the spec's own §6 baseline, line 636) -- this is
     the "all-preserve-slots-present valuation may legitimately remain
     INFEASIBLE at small sizes" case the commission's own instructions
-    name explicitly."""
+    name explicitly.
+
+    W4 FLOOR SOFTENING update (Q3 ruling, ledger row 1848,
+    `.claude/dispatch-reports/lyt-vue-realization-roadmap.md` item 6):
+    `encodings/lengyue_landscape.lyt` lowers three mins (the side
+    column's own floor 480px->280px, the T-node children's floor
+    300px->160px, and the (live-rendering-dead, see that file's own
+    header) tree leaf 140px->110px) -- see the encoding's own "W4 FLOOR
+    SOFTENING" header section for the full derivation. Under the
+    DEFAULT valuation (boardRail/previewBoard genuinely absent -- the
+    realistic, shipped case), the three previously-INFEASIBLE landscape
+    sizes (1280x1024, 1024x700, 900x600) are now OPTIMAL, re-solved not
+    asserted on faith -- removed from the "default" rows below. Under
+    ALL-PRESENT (every release-toggle slot, including boardRail's 168px
+    and previewBoard's 160px, forced visible), 1280x1024/1024x700/
+    900x600 remain genuinely INFEASIBLE even after the softened floors
+    -- this is exactly the "all-preserve-slots-present valuation may
+    legitimately remain INFEASIBLE at small sizes" case this test's own
+    docstring above says the commission's instructions name explicitly,
+    so those three rows stay pinned under "all-present". 1366x768
+    under all-present, previously INFEASIBLE, also flips to OPTIMAL as
+    a side effect of the same softened floors (a strict widening of the
+    feasible region -- lowering a min can only ever add newly-feasible
+    points, never remove one) -- removed from the pinned set too.
+    1080x1920-in-landscape (a portrait-shaped probe run through the
+    LANDSCAPE class) and portrait's own 420x880 under all-present are
+    UNCHANGED by this pass (a different, unrelated infeasibility
+    mechanism) and remain pinned.
+
+    W4 FLOOR CORRECTION update (independent review,
+    `.claude/dispatch-reports/lyt-w4-chrome-review.md` item 6): the W4
+    FLOOR SOFTENING pass's own 280px side-column min was disclosed as
+    "functionally safe, just not empirically re-swept" -- the review's
+    live measured width-sweep found that disclosure wrong: 280px clips
+    `SetupToolPalette.vue`'s permanently-reserved `.setup-toolkit`
+    column by up to 52px. The measured true no-clip floor is 335px;
+    this correction raises the encoding's min to 345px (335px + a
+    ~10px margin, matching the REPAIR PASS's own precedent for margin
+    sizing).
+
+    This exposes a genuine tension, disclosed here rather than papered
+    over by re-lowering the floor: re-solving at 345px, of the three
+    landscape sizes the softening pass flipped to OPTIMAL under the
+    DEFAULT valuation (1280x1024, 1024x700, 900x600), only 1024x700
+    survives. 1280x1024 flips back to INFEASIBLE at any min >= 297px
+    (i.e. it was ALREADY infeasible at the measured 335px true floor,
+    before any margin was even added) and 900x600 flips back to
+    INFEASIBLE somewhere between 335px and 341px -- both below the
+    corrected 345px, so both are added to the pinned set below. Under
+    ALL-PRESENT, 1280x1024/1024x700/900x600 were already pinned
+    INFEASIBLE before this correction (the softening pass's own
+    docstring above) and remain so -- unaffected by this change, since
+    raising an already-exceeded min cannot un-exceed it. This is the
+    real cost of correcting the floor to its measured, non-clipping
+    value: the SAME TREE cannot be BOTH clip-free at 335px+ AND
+    solver-OPTIMAL at 1280x1024/900x600 under the default valuation --
+    a genuine tension between the "no clipping" and "no compact class"
+    standing rulings this correction surfaces rather than resolves.
+    See the encoding's own "W4 FLOOR CORRECTION" header section for
+    the numeric derivation."""
     known_infeasible_by_valuation = {
         ("all-present", "landscape", "1280x1024"),
         ("all-present", "landscape", "1080x1920-in-landscape"),
-        ("all-present", "landscape", "1366x768"),
         ("all-present", "landscape", "1024x700"),
         ("all-present", "landscape", "900x600"),
         ("all-present", "portrait", "420x880"),
-        ("default", "landscape", "1280x1024"),
         ("default", "landscape", "1080x1920-in-landscape"),
-        ("default", "landscape", "1024x700"),
+        ("default", "landscape", "1280x1024"),
         ("default", "landscape", "900x600"),
     }
     for class_id, html_text in mockup_pages.items():
@@ -1584,9 +1641,29 @@ def test_landscape_side_column_track_carries_the_board_priority_clamp(mockup_pag
     largest value that doesn't). The pinned clamp's `340px` LOWER bound
     literal moves to `480px` accordingly; the `820px` upper bound (the
     column's own pre-existing max, `340px+60ch` = 340+8*60) is
-    unchanged."""
+    unchanged.
+
+    W4 FLOOR SOFTENING update (Q3 ruling, ledger row 1848): the side
+    column's own min is lowered again, 480px -> 280px, so the tree is
+    solver-FEASIBLE at 1280x1024/1024x700/900x600 -- see the encoding's
+    own "W4 FLOOR SOFTENING" header section. The pinned clamp's lower
+    bound literal moves to `280px` accordingly; the `820px` upper bound
+    is unchanged.
+
+    W4 FLOOR CORRECTION update (independent review,
+    `.claude/dispatch-reports/lyt-w4-chrome-review.md` item 6): 280px
+    was live-measured to clip `SetupToolPalette.vue`'s permanently-
+    reserved `.setup-toolkit` column by up to 52px -- the softening
+    pass's own "functionally safe, not re-swept" disclosure was wrong.
+    The side column's min is raised to 345px (335px measured true
+    no-clip floor + ~10px margin) -- see the encoding's own "W4 FLOOR
+    CORRECTION" header section, including the disclosed tension this
+    raises against the feasibility pins (`test_generated_pages_embed_
+    valid_overlay_json_matching_overlay_sizes`'s own updated docstring
+    covers the numbers). The pinned clamp's lower bound literal moves
+    to `345px` accordingly; the `820px` upper bound is unchanged."""
     assert "minmax(340px, 820px)" not in mockup_pages["landscape"]
-    assert "clamp(480px, calc(100% - (100vh - 52px) - 12px), 820px)" in mockup_pages["landscape"]
+    assert "clamp(345px, calc(100% - (100vh - 52px) - 12px), 820px)" in mockup_pages["landscape"]
 
 
 def test_portrait_composite_row_carries_the_board_priority_cap(mockup_pages):
@@ -1608,10 +1685,16 @@ def test_portrait_composite_row_carries_the_board_priority_cap(mockup_pages):
 
 def test_tree_panels_t_node_track_carries_its_derived_floor(mockup_pages):
     """The T node's own track in its parent must carry the
-    compiler-derived componentwise-max floor (300px landscape, 200px
-    portrait per the two .lyt files' own WRAPPER_MIN / literal 200px),
-    not the loader's un-derived 0px default."""
-    assert "minmax(300px, 1fr)" in mockup_pages["landscape"]
+    compiler-derived componentwise-max floor (160px landscape, 200px
+    portrait per the two .lyt files' own per-child literal `min` --
+    landscape's own five CP-* children used to import the shared
+    `WRAPPER_MIN` sentinel (300px); W4 FLOOR SOFTENING (Q3 ruling,
+    ledger row 1848) replaces that with a literal `160px` per child,
+    scoped to this one encoding so the shared sentinel (and the two
+    unrelated `current_row_*.lyt` fixtures that still use it) are
+    untouched -- see the encoding's own "W4 FLOOR SOFTENING" header
+    section), not the loader's un-derived 0px default."""
+    assert "minmax(160px, 1fr)" in mockup_pages["landscape"]
     assert "minmax(200px, 1fr)" in mockup_pages["portrait"]
 
 

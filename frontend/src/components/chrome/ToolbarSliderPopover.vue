@@ -79,12 +79,32 @@ const count = computed(() => orderedKnobs.value.length);
 
 <template>
   <div
-    class="metric sliders-metric"
+    class="sliders-metric"
     @mouseenter="onMouseEnter"
     @mouseleave="onMouseLeave"
   >
-    <span class="m-lbl">{{ $t('toolbar.metric.sliders') }}</span>
-    <span class="m-val sliders-count">{{ count }}</span>
+    <!-- W4 item 2 (commissioner screenshot review: "raw 'SLIDERS11'
+         text" — the label and the count rendered glued together with
+         no gap, because `.metric`'s own `display:flex; gap` rule lives
+         in ToolbarEngineMetrics.vue's SCOPED style, which does not
+         cross the SFC boundary to this component even though the
+         template borrowed the same class name here — see this file's
+         own `.sliders-metric` rule below, which now declares its OWN
+         flex/gap rather than relying on a same-named class from a
+         different component). Also promoted from a plain `<div>` to a
+         real `<button>` per the same commission item ("a real labeled
+         button not raw text") — semantics + keyboard focusability the
+         hover-only div never had; `type="button"` keeps it inert
+         inside any future `<form>`. -->
+    <button
+      type="button"
+      class="sliders-trigger"
+      :aria-haspopup="true"
+      :aria-expanded="open"
+    >
+      <span class="m-lbl">{{ $t('toolbar.metric.sliders') }}</span>
+      <span class="m-val sliders-count">{{ count }}</span>
+    </button>
 
     <div v-if="open" :ref="setPopoverEl" class="sliders-popover" role="tooltip" :style="{ transform: `translateX(${xShift}px)` }">
       <div v-if="count === 0" class="popover-empty">
@@ -104,15 +124,43 @@ const count = computed(() => orderedKnobs.value.length);
 
 <style scoped>
 /* Match the queue-tooltip metric layout so the badge sits cleanly
-   in the existing engine-metrics row. */
+   in the existing engine-metrics row. `position: relative` anchors
+   the popover below (`.sliders-popover`'s own `top: 100%`). */
 .sliders-metric {
   position: relative;
-  cursor: default;
 }
-.sliders-metric .m-val {
+/* W4 item 2 fix: this component's OWN flex/gap declaration — see the
+   template's own comment above for why borrowing ToolbarEngineMetrics'
+   `.metric` class name did not actually borrow its CSS (scoped styles
+   don't cross the SFC boundary), which produced the concatenated
+   "SLIDERS11" render the commissioner's screenshot caught. `.sliders-
+   trigger` is now a real `<button>` (see the template); this rule
+   gives it the toolbar's own quiet-chrome button register (no visible
+   border/background by default, matching how this control read
+   before — only the hover/focus states below add a visual cue) plus
+   the WCAG 2.5.8 24px pointer-target floor every other toolbar control
+   observes. */
+.sliders-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-tight);
+  min-height: 24px;
+  padding: 1px 5px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-default);
+  cursor: pointer;
+  font: inherit;
+}
+.sliders-trigger .m-val {
   color: var(--text-0);
 }
-.sliders-metric:hover .m-val {
+.sliders-trigger:hover,
+.sliders-trigger:focus-visible {
+  border-color: var(--border-3);
+}
+.sliders-trigger:hover .m-val,
+.sliders-trigger:focus-visible .m-val {
   color: var(--accent-primary);
 }
 
@@ -134,7 +182,7 @@ const count = computed(() => orderedKnobs.value.length);
   padding: var(--space-default);
   min-width: 380px;
   max-width: 520px;
-  z-index: 1000;
+  z-index: var(--z-popover-chrome); /* W4 item 3: shared toolbar/corner-chrome popover tier — see theme.css's own doc comment on the token */
 }
 .popover-empty {
   color: var(--text-0);

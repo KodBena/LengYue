@@ -68,7 +68,7 @@ export const LYT_LANDSCAPE: LytProgram = {
       {
         path: "2",
         presenceDefaultVisible: true,
-        track: { kind: "board-priority-clamp", minPx: 480, maxPx: 820, naturalBoardCrossUnit: "vh", fixedSiblingSumPx: 52, parentGapPx: 12 },
+        track: { kind: "board-priority-clamp", minPx: 345, maxPx: 820, naturalBoardCrossUnit: "vh", fixedSiblingSumPx: 52, parentGapPx: 12 },
         node: {
           kind: "split", axis: "v", gapPx: 4,
           children: [
@@ -100,13 +100,13 @@ export const LYT_LANDSCAPE: LytProgram = {
                   {
                     path: "2.3.0",
                     presenceDefaultVisible: true,
-                    track: { kind: "fixed", px: 140 },
+                    track: { kind: "fixed", px: 110 },
                     node: { kind: "leaf", widget: "tree", domain: "board", facets: ["action", "info"], aspect: null },
                   },
                   {
                     path: "2.3.1",
                     presenceDefaultVisible: true,
-                    track: { kind: "elastic", minPx: 300, frWeight: 1 },
+                    track: { kind: "elastic", minPx: 160, frWeight: 1 },
                     node: { kind: "blackbox", widget: "controlPanel", tag: "BLACK BOX", childWidgets: ["CP-library", "CP-cards", "CP-settings", "CP-analysis", "CP-other"] },
                   },
                   {

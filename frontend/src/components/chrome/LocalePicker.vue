@@ -157,7 +157,7 @@ onBeforeUnmount(() => {
   border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
   min-width: 140px;
-  z-index: 1000;
+  z-index: var(--z-popover-chrome); /* W4 item 3: shared toolbar/corner-chrome popover tier — see theme.css's own doc comment on the token */
 }
 
 .locale-option {
