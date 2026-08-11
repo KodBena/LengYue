@@ -18,6 +18,67 @@ asserts `wellformed.find_l5_violations` returns `[]` for all five reference
 encodings. No STOP-and-report event was needed — the existing corpus passes
 the new laws by construction, not by exemption.
 
+## Post-review corrective (2026-08-11) — Finding 1 fixed, quantification universe swept and extended
+
+Independent review
+([lyt-amendment5-review.md](lyt-amendment5-review.md), verdict
+ACCEPT-WITH-NOTES) found one real, WITNESSED, currently-dormant defect:
+`presence.py::prune_absent` rebuilds a `Split`/`Exclusive` node's own `Slot`
+after removing a presence-pruned leaf child, forwarding `presence`/`sizing`/
+`violates` from the original — but not the new `scroll_axes` field this
+amendment added. Reproduced independently before fixing (see below); the
+review's own WITNESSED repro was byte-for-byte confirmed.
+
+**Reproduction (before fix).**
+
+```
+before prune: root.scroll_axes = frozenset({'v'})
+after prune (B removed): pruned.scroll_axes = frozenset()
+BUG CONFIRMED
+```
+
+**Fix.** Both `ast.Slot(...)` reconstruction call sites in `prune_absent`
+(the `Split` branch and the `Exclusive` branch) now forward
+`scroll_axes=slot.scroll_axes`. Verified by re-running the exact repro above
+post-fix (`pruned.scroll_axes == frozenset({'v'})`, and the `Exclusive`
+branch separately confirmed with its own repro) and by five new regression
+tests (see "Test inventory", below).
+
+**Quantification-universe sweep, completed (this was the actual gap — the
+fix's SCOPE, not just its instance).** Per ADR-0000's 2026-07-02 amendment
+("the class gets named at exactly the scope of the fix the executor has
+already built" — checked outward, not just at the observed instance), every
+`ast.Slot(...)` and `ast.Leaf(...)` construction site in `research/lyt/`
+(excluding `tests/`) was enumerated and classified:
+
+| File | Sites | Pattern | Scroll/content-forwarding risk |
+|---|---|---|---|
+| `loader.py` | 3 `Slot(...)`, 3 `Leaf(...)` (via `_load_leaf`) | Original construction — builds from a freshly-resolved `RawSlot`/`RawLeaf`, not from an existing `Slot`/`Leaf` | None — these ARE the sites that populate `scroll_axes`/`content` in the first place; already correctly wired (this is the code this amendment's own "What it touched" already named). |
+| `presence.py::prune_absent` | 2 `Slot(...)` | **Reconstruction** — forwards `presence`/`sizing`/`violates` from an existing `Slot`, rebuilds only `node` | **YES — this was Finding 1, now fixed at both sites.** |
+| `presence.py` (Leaf handling) | 0 — the `isinstance(node, ast.Leaf)` branch returns `slot` UNCHANGED | Identity, not reconstruction | None — a leaf (and its `content`) is never rebuilt by `prune_absent`; it is either kept as-is or removed entirely as an absent child. Pinned by `test_prune_absent_preserves_a_surviving_leafs_content_class`, which is evidence of absence-of-risk, not a fix. |
+| `synthesize.py` | 6 `Slot(...)`, 4 `Leaf(...)` | Fresh, from-scratch construction (no existing `Slot`/`Leaf` being forwarded from) | None — nothing to forward; every field uses its default (`scroll_axes=frozenset()`, `content=None`), correctly dormant, not a drop. |
+| `bench_solve.py` | 3 `Slot(...)`, 2 `Leaf(...)` | Same as `synthesize.py` — fresh construction | None, same reasoning. |
+
+**Conclusion.** `presence.py::prune_absent`'s two call sites were the ONLY
+reconstruction sites in the package that forward some-but-not-all fields
+from an existing `Slot`/`Leaf` — the sweep is complete, not merely the one
+instance the review named. The closure statements below are amended to name
+this universe explicitly (the gap ADR-0000's own audit discipline exists to
+catch: the original report's "quantification universe" bullets enumerated
+node kind × depth × construction path, but never asked "which OTHER modules
+construct or reconstruct a `Slot`/`Leaf` at all" — that question is now
+asked and answered, not just for `scroll_axes`/`content` but as a repeatable
+audit any FUTURE `Slot`/`Leaf` field addition should re-run).
+
+**Minor note acknowledged (no code change requested by the reviewer).** The
+review's minor note observes that L5a's coverage check verifies "an owner
+exists on some axis," not "the owner's axis corresponds to the leaf's actual
+overflow direction" — accurate, and not a deviation from the ratified spec
+(`content: unbounded` carries no directional information for the check to
+verify against). The L5a closure statement below is reworded to state this
+precisely, rather than reading as a stronger claim than what is actually
+checked.
+
 ## Per-law implementation and closure statements
 
 ### `scroll <axis>` sizing-bag key
@@ -41,10 +102,18 @@ well-formedness checker, and any program-level reader.
 
 - **Invariant.** Every `Slot.scroll_axes` value is a subset of `{h, v}`,
   enforced at construction (not merely at the concrete-syntax boundary).
-- **Quantification universe.** Every node kind (`Leaf`, `Split`, `Exclusive`)
-  × every tree depth × both directly-constructed and parsed-from-text
-  `Slot` values. Not covered: the axis is a closed 2-member set by design (a
-  rectangle has exactly two axes); no further axis exists to omit.
+- **Quantification universe (AMENDED post-review).** Every node kind
+  (`Leaf`, `Split`, `Exclusive`) × every tree depth × both
+  directly-constructed and parsed-from-text `Slot` values — AND, following
+  Finding 1's correction, every `Slot`-*constructing or -reconstructing*
+  call site in the `research/lyt/` package, not merely `loader.py`'s own:
+  the two `prune_absent` reconstruction sites (`presence.py`) now forward
+  `scroll_axes` alongside `presence`/`sizing`/`violates`; the fresh-
+  construction sites (`synthesize.py`, `bench_solve.py`) correctly leave it
+  at its default (nothing to forward there). See "Post-review corrective"
+  above for the full sweep table. Not covered: the axis is a closed
+  2-member set by design (a rectangle has exactly two axes); no further
+  axis exists to omit.
 - **Denomination.** The bound is denominated in the same currency the
   language already uses for the partition axis (`h`/`v`, matching `Split
   .axis`'s own vocabulary), never a proxy unit.
@@ -116,9 +185,16 @@ on the path.
   root-to-`L` path contains at least one slot with non-empty
   `scroll_axes` (L5b, below, additionally bounds this at "at most one per
   axis").
-- **Quantification universe.** Every unbounded leaf × every ancestor on its
-  path (inclusive of itself) × both axes. Covers coverage via an ancestor
-  (WITNESSED, `test_l5a_unbounded_leaf_covered_by_an_ancestor_scroll_owner_is_accepted`,
+- **Quantification universe (reworded post-review, minor note).** Every
+  unbounded leaf × every ancestor on its path (inclusive of itself) — the
+  check verifies **an owner exists on *some* axis**, not that the owning
+  axis corresponds to the leaf's actual overflow direction; `content:
+  unbounded` carries no directional information (no "unbounded
+  vertically" vs "unbounded horizontally" distinction in the type) for the
+  law to verify correspondence against, so "some axis" is the checkable
+  form the type actually supports, not an understated one. Covers coverage
+  via an ancestor (WITNESSED,
+  `test_l5a_unbounded_leaf_covered_by_an_ancestor_scroll_owner_is_accepted`,
   nesting depth 4: `H > H > V > H > leaf`) and via the leaf declaring
   `scroll` on itself (WITNESSED,
   `test_l5a_unbounded_leaf_covered_by_declaring_scroll_on_itself_is_accepted`).
@@ -276,6 +352,13 @@ labor.
   convention. `compiler.py` was read but not touched by this work item, so it
   was left as-is per ADR-0004's incremental-retrofit posture (retrofit on
   touch, not a roving sweep).
+- **`research/lyt/presence.py`** — post-review addition to "What it touched"
+  (the original delivery did not touch this file and so, correctly at the
+  time, did not list it; the review's Finding 1 made it a touched file).
+  `prune_absent`'s two `Slot`-reconstruction call sites now forward
+  `scroll_axes`; a new "AMENDMENT 5 fix" section was added to the module's
+  own docstring, disclosing the gap and its fix inline, matching this
+  codebase's dated-corrective convention (ADR-0005 Rule 8).
 
 This work item is not umbrella-level or `FEATURES.md`-facing (LYT is
 research tooling, not application code — `research/lyt/README.md`'s own
@@ -285,10 +368,12 @@ to close on review, per this session's own scope).
 
 ## Test inventory
 
-24 new test functions (25 collected test items — one is parametrized ×2),
+29 new test functions (30 collected test items — one is parametrized ×2),
 appended to `tests/test_lyt.py`'s existing `AMENDMENT 5` section, following
 the file's established inline-`.lyt`-text convention (`loader.load_layouts`
 over Python string literals — no edits to the two protected encoding files).
+Five of the 29 (the "review finding 1 regression" row below) were added in
+the post-review corrective pass.
 
 | Law / feature | Accept cases | Refuse cases |
 |---|---|---|
@@ -301,21 +386,36 @@ over Python string literals — no edits to the two protected encoding files).
 | Waiver-mechanism reuse (L5 family) | 1 | — |
 | Dormancy regression (all 5 reference encodings) | 1 | — |
 | Advisory output shape | 3 (hand-computed numbers; empty-tree dormancy; nested-T-groups-at-own-depth) | — |
+| **Review finding 1 regression (`prune_absent` field-forwarding)** | **5** (Split reconstruction; Exclusive reconstruction; nested-composite ancestor at depth 4; the empty-set identity no-op; a surviving leaf's `content`) | — |
 
 Nesting depth ≥3 is exercised in: `test_l5a_unbounded_leaf_covered_by_an_ancestor_scroll_owner_is_accepted`
 (depth 4), `test_l5b_second_declaration_on_the_same_axis_on_the_same_path_is_refused`
 (depth 4), `test_l5c_fires_regardless_of_nesting_depth_of_the_designed_leaf`
 (depth 4), `test_l5c_the_other_tab_shaped_composition_is_refused` (depth 4,
-`V > T > V > leaf`, matching the real control-panel region's own shape), and
-`test_advisory_recurses_into_nested_t_groups_at_their_own_depth` (depth 4).
+`V > T > V > leaf`, matching the real control-panel region's own shape),
+`test_advisory_recurses_into_nested_t_groups_at_their_own_depth` (depth 4),
+and `test_prune_absent_preserves_scroll_axes_on_a_nested_composite_ancestor`
+(depth 4, the finding-1 regression's own nesting case — proving the fix
+holds for a `scroll`-declaring ancestor that is NOT the tree root, not just
+the one-hop case the review's own repro used).
 
 ## Gate exit codes
 
 - **Pre-change baseline** (this session's first act, before any edit):
   `nice -n 19 ~/w/vdc/venvs/generic/bin/python -m pytest research/lyt -q` —
   **120 passed, EXIT:0**.
-- **Post-change, full suite**: same command — **145 passed, EXIT:0**
-  (120 pre-existing + 25 new, zero regressions, zero skips).
+- **Post-change (original delivery, pre-review), full suite**: same command
+  — **145 passed, EXIT:0** (120 pre-existing + 25 new, zero regressions,
+  zero skips).
+- **Post-review-corrective, full suite**: same command — **150 passed,
+  EXIT:0** (145 + 5 new regression tests for Finding 1's fix, zero
+  regressions). Before the fixture correction described below, two of the
+  five new tests failed as WRITTEN (not as a defect in the fix itself) —
+  two fixtures accidentally declared a redundant self-`scroll` on a leaf
+  already covered by an ancestor's `scroll`, which is a genuine L5b
+  violation (a second owner on the same axis on the same path) — caught by
+  the suite itself, corrected, re-run to green. See "Post-review
+  corrective" above.
 - **`runner.py` CLI, full end-to-end run** (all six registrations, every
   representative screen size, including the advisory print path): **EXIT:1**,
   confirmed IDENTICAL to the pre-change baseline via `git stash` (the exit
@@ -343,6 +443,14 @@ Nesting depth ≥3 is exercised in: `test_l5a_unbounded_leaf_covered_by_an_ances
   docstring already disclosed `law` as open-ended "in case a future law
   gains a structural checker"; this delivery is that law, confirmed by
   `test_l5_family_waiver_reuses_the_existing_l2_waiver_mechanism`.
+- WITNESSED (post-review): the reviewer's Finding 1 repro was reproduced
+  independently, byte-for-byte, BEFORE any fix was applied (see "Post-review
+  corrective" above); the fix was then verified against that SAME repro
+  (both the `Split` and `Exclusive` branches, separately) AND against five
+  new pytest regressions; the completed `Slot`/`Leaf`-construction-site
+  sweep (every file in the package, not just `presence.py`) is itself
+  WITNESSED by direct `grep` enumeration, reproduced in the sweep table
+  above.
 - No REFUSED-AS-EXPECTED or UNEXERCISED claims are made in this report —
   every claim above is grounded in a passing or intentionally-failing pytest
   assertion, or a directly-observed command exit code.
@@ -351,8 +459,9 @@ Nesting depth ≥3 is exercised in: `test_l5a_unbounded_leaf_covered_by_an_ances
 
 Every write to a source/doc file in this delivery was preceded by a ledger
 `decision` row per the worktree's change-gate hook, recorded at rows 1944,
-1946-1950, and 1954-1961 (`./autoharn led -f <basename> decision "..."`, run
-from `/home/bork/w/omega` since the `autoharn` dispatcher and its
+1946-1950, and 1954-1961 for the original delivery, and 1962-1967 for this
+post-review corrective pass (`./autoharn led -f <basename> decision "..."`,
+run from `/home/bork/w/omega` since the `autoharn` dispatcher and its
 `deployment.json` are not present inside this worktree-isolated checkout).
 
 ## Commit and merge-base

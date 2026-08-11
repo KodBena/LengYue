@@ -2331,6 +2331,128 @@ def test_dormancy_no_amendment_5_declarations_means_zero_l5_violations_everywher
         )
 
 
+# --- Review finding 1 (lyt-amendment5-review.md, MODERATE) -----------------
+# `presence.prune_absent` reconstructs a Split/Exclusive's own `Slot` after
+# removing an absent child, forwarding `presence`/`sizing`/`violates` from
+# the original -- but Amendment 5's `scroll_axes` field was not swept into
+# that forwarding when it was added, so a composite ancestor's OWN `scroll`
+# declaration silently vanished the instant a sibling leaf got pruned.
+# Fixed in presence.py (both the Split and Exclusive branches); regression
+# tests below pin BOTH branches, plus the no-op case (empty absent set
+# doesn't rebuild the tree at all, so nothing could be dropped there) and
+# the Leaf branch (a leaf's own `content` survives unrelated pruning --
+# `prune_absent`'s Leaf branch returns the leaf unchanged, so this is a
+# dormant-by-construction case, pinned anyway per the review's own request).
+# =============================================================================
+
+
+def test_prune_absent_preserves_scroll_axes_on_reconstructed_composites():
+    """The bug, on a Split node: `scroll v` declared on the ROOT (an H
+    split) must survive pruning one of its children."""
+    layouts = loader.load_layouts(
+        "layout g = {min 0px, pref 1fr, max inf, scroll v} H("
+        "@toggle(user, release) {min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome])"
+    )
+    root = layouts["g"]
+    assert root.scroll_axes == frozenset({"v"})
+    pruned = presence_mod.prune_absent(root, frozenset({"A"}))
+    assert pruned.scroll_axes == frozenset({"v"}), (
+        "prune_absent dropped the root Split's own scroll declaration "
+        "(review finding 1)"
+    )
+    assert len(pruned.node.children) == 1  # the prune itself still worked
+
+
+def test_prune_absent_preserves_scroll_axes_on_reconstructed_exclusive():
+    """The same bug, on an Exclusive (T) node -- the second call site
+    `prune_absent` rebuilds a `Slot` at."""
+    layouts = loader.load_layouts(
+        "layout g = {min 0px, pref 1fr, max inf, scroll h} T("
+        "@toggle(user, release) {min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome])"
+    )
+    root = layouts["g"]
+    assert root.scroll_axes == frozenset({"h"})
+    pruned = presence_mod.prune_absent(root, frozenset({"A"}))
+    assert pruned.scroll_axes == frozenset({"h"}), (
+        "prune_absent dropped the root Exclusive's own scroll declaration "
+        "(review finding 1)"
+    )
+    assert len(pruned.node.children) == 1
+
+
+def test_prune_absent_preserves_scroll_axes_on_a_nested_composite_ancestor():
+    """Nesting: a `scroll v` declared on an INNER V (not the root H) must
+    survive pruning a leaf elsewhere in the tree -- the fix must be a
+    property of `prune_absent`'s reconstruction generally, not just the
+    slot passed in at the top of the recursion."""
+    layouts = loader.load_layouts(
+        "layout g = {min 0px, pref 1fr, max inf} H("
+        "@toggle(user, release) {min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf, scroll v} V("
+        # inner1's coverage comes from V's ancestor scroll declaration
+        # ABOVE, per L5a -- declaring `scroll v` AGAIN here would be a
+        # second owner on the same axis on the same path (L5b), not a
+        # legal reinforcement.
+        "{min 0px, pref 1fr, max inf, content unbounded} inner1[chrome],"
+        "{min 0px, pref 1fr, max inf} inner2[chrome]"
+        "))"
+    )
+    root = layouts["g"]
+    inner_v = root.node.children[1]
+    assert inner_v.scroll_axes == frozenset({"v"})
+    pruned = presence_mod.prune_absent(root, frozenset({"A"}))
+    pruned_inner_v = pruned.node.children[0]  # A was removed, V is now index 0
+    assert pruned_inner_v.scroll_axes == frozenset({"v"}), (
+        "prune_absent dropped a NESTED composite's own scroll declaration "
+        "(review finding 1)"
+    )
+
+
+def test_prune_absent_identity_case_never_drops_scroll_axes():
+    """The `absent_widgets=frozenset()` no-op path returns the SAME slot
+    object (no reconstruction at all), so scroll_axes can never be
+    dropped there -- pinned to make the "identity means nothing to fix"
+    reasoning explicit, not merely implied by the other tests."""
+    layouts = loader.load_layouts(
+        "layout g = {min 0px, pref 1fr, max inf, scroll v} H("
+        "{min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome])"
+    )
+    root = layouts["g"]
+    pruned = presence_mod.prune_absent(root, frozenset())
+    assert pruned is root
+    assert pruned.scroll_axes == frozenset({"v"})
+
+
+def test_prune_absent_preserves_a_surviving_leafs_content_class():
+    """`content` lives on `Leaf`, and `prune_absent`'s Leaf branch returns
+    a leaf UNCHANGED (`return slot`, no reconstruction) rather than
+    rebuilding it -- so a surviving leaf's `content` classification is
+    dormant-by-construction safe from this bug class. Pinned anyway, per
+    the review's own request to check "content classes, if any
+    reconstruction path touches leaves" -- this test is the evidence that
+    none does."""
+    layouts = loader.load_layouts(
+        "layout g = {min 0px, pref 1fr, max inf, scroll v} H("
+        # B's coverage comes from the root H's ancestor scroll declaration
+        # -- a second self-declared `scroll v` here would be an L5b
+        # conflict, same reasoning as the nested-composite test above.
+        "@toggle(user, release) {min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf, content unbounded} B[chrome])"
+    )
+    root = layouts["g"]
+    pruned = presence_mod.prune_absent(root, frozenset({"A"}))
+    surviving = pruned.node.children[0]
+    assert surviving.node.widget == "B"
+    assert surviving.node.content == "unbounded"
+    # B carries no scroll of its OWN (coverage comes from root); this
+    # assertion pins that `content` -- the field under test here -- is
+    # what survives, not a scroll_axes value B never declared.
+    assert surviving.scroll_axes == frozenset()
+
+
 # --- Per-T-group shortfall advisory (advisory.py) ---------------------------
 
 
