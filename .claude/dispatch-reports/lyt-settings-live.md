@@ -637,10 +637,12 @@ and is now the authoritative visual record.
 ## 10. Commit and merge-base
 
 Main delivery committed as `6b2e0e0c5e0103e986d400483aca0f2c856c41bd`,
-report-record commit `7e4e8012`. This review-response commit: recorded
-in the final message. LAST-ACT fetch (re-run for this response): `git
-fetch origin lyt-phase2` — merge-base and rebase status recorded in
-the final message alongside the new commit sha.
+report-record commit `7e4e8012`. Review-response commit:
+`a7228c1750ee3af391dfdafe4ed991b0aa86eae6`. LAST-ACT fetch (re-run for
+this response): `git fetch origin lyt-phase2` found `lyt-phase2` still
+had **not** moved (`git log HEAD..origin/lyt-phase2` returns 0
+commits). `git merge-base HEAD origin/lyt-phase2` == `origin/lyt-
+phase2`'s own tip (`e3198724`) — no rebase needed.
 
 ## License
 
