@@ -1026,6 +1026,327 @@ matching grammar/semantics section (this file's own §1.1/§4.3-adjacent
 material); this amendment's own dispatch report,
 `.claude/dispatch-reports/lyt-m1-substrate-port.md`.
 
+## Amendment 8 (ledger rows 2107/2108/2157/2209/2228/2241/2269/2286, M2 of the model-implementation arc; ratified program row 1937 continues) — six keys and six laws ported from arc 4 of the model-iteration loop experiment: `min <axis>`/L12, `elastic <axis>`/L13, `ceiling <axis>` + the along/across role frame/L14, `activity`/`@demote`/L15, `floor <axis>`/L16, `edge <axis>`/L17
+
+**Ruling.** Port arc 4 of the model-iteration loop experiment (branch
+`lyt-model-loop-experiment`, loop iterations 8-13, its own six rounds)
+to mainline `research/lyt`, continuing Amendment 7's own M1 port of arc
+1-2. Arc 4 minted six more language extensions against the same two
+clean-room encodings, each shipped by its own round already in amendment
+form with its own accept/refuse test coverage: `min <axis> <extent>`
+(round 1, L12), `elastic <axis>` (round 2, L13), `ceiling <axis>` plus
+the `along`/`across` role frame every axis-taking key in this language
+now accepts (round 3, L14), `activity <level>` plus the fourth presence
+kind `@demote(<axis> <px>)` (round 4, L15), `floor <axis> <px>` (round
+5, L16), and `edge <axis> unit|item|continuous` (round 6, L17). A
+follow-on `lyt-arc4-consolidation` commission (ledger row 2157's own
+successor) verified all six against their actual implementation
+adversarially and found no implementation bug — this port carries that
+verified implementation to mainline, adapted only where the experiment's
+own encoding-specific assumptions needed generalizing (none did — see
+"What needed generalizing" below, mirroring Amendment 7's own finding).
+
+**Law numbers, preserved from the experiment's own discovery order.**
+Arc 4 continued the same next-free numbering Amendment 7's laws
+(L9-L11) already established, with no further collision found against
+the not-yet-shipped mainline proposal that claims L6/L7
+(`.claude/dispatch-reports/lyt-domain-model-proposal.md`): `min <axis>`
+is L12 (round 1), `elastic <axis>` is L13 (round 2), `ceiling <axis>` is
+L14 (round 3), `activity`/`@demote` is L15 (round 4), `floor <axis>` is
+L16 (round 5), `edge <axis>` is L17 (round 6) — the laws' own discovery
+order, not a re-sorted or thematically-grouped numbering.
+
+**L15 is not a numbering gap.** It reads as a break in the
+L12/L13/L14/L16 sequence only when those four are read together with L9
+(Amendment 7) as an "attribution square" — four ways a rectangle and its
+content can disagree in AREA — and L15 is not a fifth corner of that
+square. It is a PRESENCE law (a fourth `@toggle`-family kind plus the
+leaf-ranking vocabulary it depends on); L17 is likewise outside the
+square, a BOUNDARY law rather than an area law. The numbering
+L12→L13→L14→L15→L16→L17 is a plain, continuous, next-free sequence with
+no hole — three families sharing one sequence, not four members of one
+family with a hole in it.
+
+**The attribution square, reproduced from the experiment's own
+consolidated table** (`.claude/dispatch-reports/lyt-arc4-consolidation.md`):
+
+| the disagreement | the word | law | since |
+|---|---|---|---|
+| the reservation exceeds a FINITE demand | `ceiling` (whole-leaf) | L9 | Amendment 7 |
+| the reservation exceeds what the occupant paints, demand unbounded | `elastic <axis>` | L13 | round 2 |
+| the CONTENT exceeds the reservation | `scroll <axis>` (owner of the excess) | L5a | Amendment 5 |
+| the reservation is smaller than the content's own smallest whole form | `floor <axis>` | L16 | round 5 |
+
+`ceiling <axis>` (L14, round 3) is the per-axis, two-dimensional-structure
+form of the same first row, not a fifth corner. `min <axis>` (L12, round
+1) is a distinct, narrower fact — a floor for the ONE position (root, or
+a direct child of an Exclusive/T node) where a slot's `min` binds both
+of its axes at once — and is solver-VISIBLE where the square's other
+three members are realization-binding only. `edge <axis>` (L17, round
+6) is deliberately outside the square: it is about the BOUNDARY a
+scroll creates, not the area a rectangle disagrees with its content
+over, and the square's four members can all be individually satisfied
+by a leaf whose scroll boundary still cuts a row in half — which is
+exactly the gap L17 closes.
+
+**What this amendment implements**, all six following the "one more
+recognized key in the existing sizing bag" precedent Amendments 3/5/6/7
+already established:
+
+1. **`min <axis> <extent>`** (`Sizing.axis_mins`, accumulated like
+   `scroll`) — a PER-AXIS floor, legal only where a slot's rectangle IS
+   its parent's on both axes (the root, or a direct child of an
+   Exclusive/T node — the same `along=None` position `compiler.
+   _constrain` already distinguishes). Overrides the axis-agnostic `min`
+   for the named axis only; an axis nobody names keeps `min` unchanged.
+   Unlike every other key this amendment adds, L12 is SOLVER-VISIBLE:
+   `compiler._constrain` and the Exclusive branch's own componentwise-max
+   floor derivation both read it. Load-time half:
+   `loader._load_axis_mins`. Structural half (is this slot actually in a
+   both-axes position?): `wellformed.find_l12_violations`.
+2. **`elastic <axis>`** (`Leaf.elastic_axes`, accumulated) — along that
+   axis, whatever extent this leaf's reservation is granted, its
+   OCCUPANT claims it; the dual of L9's `ceiling` for `content
+   unbounded` leaves (which have no finite demand to shrink a
+   reservation back to). Leaf-only; requires `content unbounded`;
+   solver-inert. L13's structural half (`wellformed.find_l13_violations`)
+   fires only at the same both-axes position L12 distinguishes, and
+   requires an unbounded leaf there to dispose of every axis its
+   reservation can exceed its floor on — by `scroll`, by `elastic`, or by
+   a pinned floor==cap.
+3. **`ceiling <axis>` + the `along`/`across` role frame** (`Leaf.
+   ceiling_axes`; `VALID_AXIS_ROLES`, `loader._resolve_axis_token`) — the
+   per-axis form of L9's whole-leaf `ceiling` flag, for a leaf whose two
+   axes tell different content stories (a two-dimensionally scrollable
+   structure, `scroll h` + `scroll v`, whose extent on either axis is a
+   property of the structure and never a constant). The role frame
+   itself is threaded through every axis-taking key that predates it
+   (`scroll`/`unit`/`elastic`/`min <axis>`) as well as `ceiling <axis>`/
+   `floor <axis>`/`edge <axis>` below — a leaf may spell an axis
+   physically (`h`/`v`) or by role (`along` its own declared `orient`,
+   `across` the other), resolved at load time and never surviving into
+   the AST. Leaf-only; `{h,v}` after role resolution; requires an owner
+   for what goes past the bound (`content bounded`, L9's own precondition,
+   or a `scroll` on that SAME axis, L5a's owner already named). L14's
+   structural half (`wellformed.find_l14_violations`) fires only at a
+   Split child (the complement of L12/L13's both-axes position) whose
+   leaf scrolls both axes and pins its partition axis with no ceiling to
+   say the pin is a bound.
+4. **`activity <level>` + `@demote(<axis> <px>)`** (`Leaf.activity`,
+   closed vocabulary `{sustained, occasional}`; `Presence.kind='demote'`
+   + `demote_axis`/`demote_below_px`, the fourth presence kind beside
+   `@fixed`/`@dev`/`@toggle`) — how often the task a screen exists for
+   touches a leaf's content, and, for `occasional` content, the axis and
+   threshold at which the whole slot vacates its band for the overlay
+   stratum. `@demote` is a presence fact, not a sizing key, because what
+   it DOES is exactly what `@toggle(user, release)` does — the presence
+   stratum already owns that verb, already prunes such a slot before the
+   solve (`presence.prune_absent`), and already solves each reachable
+   valuation separately (Amendment 4); `presence.validate_valuation`
+   gained exactly one `or` clause admitting a demote slot as
+   nameable-absent, on the same footing a user-release toggle already
+   had. Demotion is deliberately NOT `toggle(by='system', hidden=
+   'release')`, which L1 (line 268/353-356) still makes untypable — a
+   demotion's trigger is the PAGE MEASURE, a third actor distinct from
+   both the user's click and the system's own state, and giving it its
+   own kind is what keeps L1's prohibition intact rather than quietly
+   widened (`demote_axis`/`demote_below_px` are `None` for every other
+   kind, enforced at construction). L15's structural half
+   (`wellformed.find_l15_violations`) has three clauses: a leaf declaring
+   `wrap` must declare `activity` (silence is not an answer to "may this
+   content leave instead"); a ranking is a band-wide fact (if any direct
+   leaf child of a Split is ranked, all must be); and a Split every one
+   of whose children can demote is a presence slot in disguise
+   (`@toggle(user, release)` is already this language's word for one).
+5. **`floor <axis> <px>`** (`Leaf.floor_axes`, accumulated) — the
+   leaf's own SMALLEST USABLE extent per axis, the DEFICIT corner of the
+   attribution square: below this extent the leaf is not a truncated
+   rendering of its content but a CUT through one of its members.
+   Leaf-only; `{h,v}` after role resolution (unlike `@demote`'s
+   threshold axis, `along`/`across` ARE admitted here — a floor is a
+   fact about the leaf's own content in the leaf's own frame); a
+   CONSTANT px extent only, judged on the RAW term before `ch` is folded
+   into px (so the fact that a number came from a text measure is not
+   lost before the refusal that cares about it can fire). L16's
+   structural half (`wellformed.find_l16_violations`) has three clauses:
+   the TRIGGER (a leaf that disposed of surplus via `elastic` and excess
+   via `scroll` but never declared how little room makes it unusable);
+   the JOIN TO L15 (a declared floor must be RESERVED, via `min`/`min
+   <axis>`, or the leaf must be able to LEAVE via `@demote`); and
+   reachability (a floor above the leaf's own constant cap is two facts
+   in one bag that cannot both hold).
+6. **`edge <axis> unit|item|continuous`** (`Leaf.edge_axes`, accumulated,
+   closed vocabulary `_VALID_EDGE_DISPOSITIONS`) — what a leaf's own
+   scroll BOUNDARY on an axis falls on, the first key about the boundary
+   a scroll creates rather than the area it bounds. `unit`: the
+   boundary falls on a constant-pitch sequence (the leaf's own declared
+   L10 `unit`) and is QUANTIZED — the sub-unit remainder is given back,
+   never painted through. `item`: the content is made of indivisible
+   things of no constant pitch, and the boundary is ANNOUNCED rather
+   than placed — a standing lane says the content continues, so a
+   partial item reads as "more below" rather than as a slice. `continuous`:
+   nothing indivisible stands at the boundary, and it owes neither.
+   `unit` is biconditional with L10's own `unit <axis>` — both directions
+   refused at load — which is what keeps a three-member vocabulary from
+   collapsing to a derivable two. L17's structural half
+   (`wellformed.find_l17_violations`) has three clauses: the TRIGGER (a
+   leaf declaring `content unbounded` and `scroll <a>` owes an `edge
+   <a>` — deliberately WIDER than L16's own trigger, since an edge is
+   created by the scroll itself and not by having reasoned about a
+   residual); an edge is only where a scroll is; and the JOIN TO L13
+   (`edge <a> unit` and `elastic <a>` dispose of the same pixels in
+   opposite directions, which cannot both hold).
+
+**Dormancy — this port's own acceptance bar, unchanged from Amendment
+7's [paragraph CORRECTED 2026-08-12, fix pass on the M2 substrate-port
+review's finding 2, ledger row 2312 — the original text below claimed
+"every one of L12-L17 returns `[]` unconditionally for both trees",
+which is false for two of the six; the correction is inline, not a
+rewrite of the surrounding claims that were and remain true].** No
+`.lyt` file in this repository declares any of the six keys — neither
+`lengyue_landscape.lyt` nor `lengyue_portrait.lyt` is touched by this
+amendment. `wellformed.find_l12_violations`, `find_l14_violations`,
+`find_l15_violations`, and `find_l16_violations` are gated on a genuine
+declaration or condition existing somewhere in the tree (L12 on an
+axis-keyed `min`; L14/L15/L16's structural halves fire on the
+underlying CONDITION — a two-axis scroller with a pinned partition
+axis, a wrapping leaf, a surplus-and-excess leaf — rather than on a
+declaration of their own key, which is the point: each law exists to
+find the leaf that never declared what it should have). Neither
+reference encoding declares any Amendment-8 key, and neither triggers
+any of these three condition-based checks either, so all four of these
+laws return `[]` unconditionally for both trees, and all four are wired
+into `check_wellformed`'s `all_violations` (see "What it touched"
+below) — genuinely dormant end-to-end.
+
+**L13 and L17 are NOT in the same position, and the original text above
+overstated the port's own acceptance bar by lumping them in.** Both
+functions' own structural conditions DO trip against both real,
+unedited reference encodings as they stand today: L13's trigger (an
+unbounded-both-axes leaf with no `scroll`/`elastic`/pinned-floor==cap
+disposition) fires on `CP-library`/`CP-cards` (2 violations); L17's
+trigger (an unbounded, scrolling leaf with no declared `edge`) fires
+across six sites (`boardRail`/`tree`×2/`CP-library`/`CP-cards`/
+`settingsPane`/`otherBand`, 4 violations per class). Neither firing is
+a defect in the check itself — both are correctly identifying leaves
+this stage's own encoding content genuinely hasn't been edited to
+satisfy yet, which is stage B's own job, not this port's. What keeps
+`load_layouts` from refusing on either TODAY is that `check_wellformed`'s
+`all_violations` list deliberately does NOT include L13/L17 (see "What
+it touched" below) — wiring either in without first landing stage B's
+encoding-content edits would make `load_layouts` refuse BOTH reference
+encodings outright, verified directly rather than guessed (this is the
+same fact `wellformed.check_wellformed`'s own "M2 PORT DISCLOSURE"
+docstring paragraph states in the code itself). Verified two ways: (a)
+`tests/test_loop_laws.py`'s own arc-4 test classes (ported from the
+experiment branch, appended to the file Amendment 7's own port already
+carries) assert both reference encodings load with every new field at
+its default — still true, since `load_layouts` never calls
+`find_l13_violations`/`find_l17_violations`; (b) both encodings were
+re-solved via `runner.py` before and after this amendment's code
+changes — **byte-identical solver output** (stdout diff empty), the
+same acceptance bar Amendment 7's own M1 commission set — also still
+true, since neither claim depended on L13/L17's own violation counts.
+See `.claude/dispatch-reports/lyt-m2-substrate-port.md` for the full
+before/after transcript.
+
+**What needed generalizing vs. what ported clean.** As with Amendment
+7, none of the six keys' `loader.py`/`wellformed.py`/`lyt_ast.py`/
+`parser.py`/`compiler.py` implementations reference any
+encoding-specific fact (a widget id, a tree path, a specific pixel
+value) — every accept/refuse rule is stated purely in terms of node
+kind, declared `content` class, declared axis, tree structure, and (for
+L12) the componentwise-max floor derivation `compiler._constrain`
+already carries for the pre-existing T-node case. The port is therefore
+a clean carry of the experiment's own arc-4 functions, with law-number
+citations and comment provenance (`LOOP ITERATION N / ARC 4 ROUND M`,
+ledger rows) preserved VERBATIM from the experiment branch's own
+authorship, per this port's own disclosed posture: unlike Amendment 7
+(whose L9-L11 citations were rewritten from "LOOP ITERATION N" to
+"AMENDMENT 7" phrasing at port time), this port's arc-4 comments —
+including branch-name qualifiers such as "NOT merged without
+ratification" — are left exactly as the experiment wrote them, a
+historical-record posture matching the same "a commit message is
+immutable" discipline Amendment 7's own "renumbering" section already
+states for the loop's commit messages. A future amendment may choose to
+reconcile that phrasing; this port does not, to avoid re-authoring text
+this file's own discipline treats as a dated record.
+
+**Scope narrower than the experiment's own reach, disclosed rather than
+silently absorbed.** Two surfaces the experiment branch's own arc-4
+rounds touched are explicitly OUT of this port's scope, and neither is
+touched here:
+
+- **`emit_layout_tree.py`'s realization-layer emission** (the JSON leaf
+  fields `elasticAxes`/`ceilingAxes`/`floorAxes`/`edgeAxes`/
+  `orientation`/`activity`/`demote`/`envelopeStates`, and the
+  corresponding `demand`/`ceiling` track-shape TS rendering) is NOT
+  ported — mainline's copy of this file is untouched by this amendment,
+  matching Amendment 7's own precedent of excluding
+  `emit_mockup.py`/`emit_layout_tree.py` realization-table changes.
+  Porting it would require regenerating the two committed
+  `frontend/src/state/lyt-layout*.gen.ts` files (guarded by `tests/
+  test_emit_layout_tree.py::test_render_ts_roundtrip_matches_committed_
+  file` and its portrait counterpart), which is a `frontend/`-touching
+  change this stage's own commission brief explicitly puts out of scope.
+- **The `along h|v` orientation key and its own realization consumer**
+  (frontend's `useLytActivityInvariance.ts` / `lyt-widget-registry.ts` /
+  `lyt-capability-registry.ts`) live entirely in `frontend/`, not
+  `research/lyt/` — disclosed as a STOP-and-report scope item in this
+  amendment's own dispatch report rather than ported.
+
+Both are Python/loader-side dormant either way (the language-level
+`_load_orientation`/`VALID_AXIS_ROLES`/`_resolve_axis_token` machinery
+IS ported, per the role frame item 3 above — only the frontend-facing
+realization/consumption layer is excluded).
+
+**Diff vs. the original consult document's prose.** `layout-language-
+consult.md` names none of `min <axis>`, `elastic`, `ceiling <axis>`,
+`activity`, `@demote`, `floor <axis>`, or `edge <axis>` — same footing
+as Amendments 1-7: a genuine language extension, not a reading
+recovered from existing text. As with Amendment 7, none of the six were
+authored against mainline SPEC.md directly — they were proven out on
+the experiment branch first (six iteration rounds, gallery-recorded),
+verified by that branch's own adversarial test suite and by the
+`lyt-arc4-consolidation` follow-on commission, and only then ported
+here.
+
+**What it touched.** `lyt_ast.py` (`Sizing.axis_mins` + `axis_min()`
+accessor, `Leaf.elastic_axes`/`ceiling_axes`/`activity`/`floor_axes`/
+`edge_axes`/`orientation`, `Presence.kind='demote'` +
+`demote_axis`/`demote_below_px` + the `demote()` constructor,
+`_VALID_ACTIVITY_LEVELS`/`_VALID_EDGE_DISPOSITIONS`/`_VALID_
+ORIENTATIONS`/`VALID_AXIS_ROLES`, each field's own `__post_init__`
+closed-vocabulary guard); `parser.py` (`RawSizing.axis_mins`/
+`elastic_axes`/`ceiling_axes`/`activity`/`floor_axes`/`edge_axes`/
+`orient`, `RawPresence.demote_axis`/`demote_below`, the `@demote(<axis>
+<extent>)` production, six more `parse_sizing` branches); `loader.py`
+(`_load_axis_mins`/`_load_elastic_axes`/`_load_ceiling_axes`/
+`_load_activity`/`_load_demote_presence`/`_load_floor_axes`/
+`_load_edge_axes`/`_load_orientation`, `_resolve_axis_token`, wired into
+every `load_slot` branch with `orientation` now resolved ahead of every
+axis-taking key it feeds); `wellformed.py` (`find_l12_violations`
+through `find_l17_violations` all six ported and correct, but
+`check_wellformed` generalized to arbitrate only L12/L14/L15/L16
+through the same waiver mechanism L2/L5/L10/L11 already use — L13/L17
+are deliberately NOT wired into `all_violations`, corrected 2026-08-12,
+fix pass on the M2 substrate-port review's finding 2; see the Dormancy
+paragraph above for why); `compiler.py` (`_constrain`'s `axis_min` read, the
+Exclusive branch's per-axis componentwise-max, both gated dormant on no
+axis-keyed `min` declared); `presence.py` (`validate_valuation`'s
+one-clause widening to admit a demote slot as nameable-absent);
+`coverage_matrix.py` (new file, the 24-point matrix — 2 classes × 3
+valuations × sizes — ported from the experiment branch's own
+METAMODEL-WAVE item-3 script, adapted only to drop the branch-name/
+"NOT merged without ratification" framing from its own header, per this
+file's own established posture for framing prose vs. per-law
+provenance); `tests/test_loop_laws.py` (arc-4 test classes appended to
+the file Amendment 7's own port already carries, ported from the
+experiment branch's own file of the same name); SPEC.md's §15 gains a
+matching grammar/semantics addendum for the six keys (this amendment's
+own §15.4-adjacent material); this amendment's own dispatch report,
+`.claude/dispatch-reports/lyt-m2-substrate-port.md`.
+
 ## License
 
 Public Domain (The Unlicense), matching [layout-language-consult.md](../../.claude/dispatch-reports/layout-language-consult.md)'s

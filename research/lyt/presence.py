@@ -216,13 +216,31 @@ def validate_valuation(slot: ast.Slot, valuation: PresenceValuation, *, layout_n
         is_release_toggle = (
             presence.kind == "toggle" and presence.by == "user" and presence.hidden == "release"
         )
-        if not is_release_toggle:
+        # LOOP ITERATION 11 / arc 4 round 4 (L15, ledger rows
+        # 2037/2066/2107/2157/2241): a `@demote(<axis> <px>)` slot is
+        # nameable-absent for the SAME reason a user-release toggle is, and
+        # by the same mechanism. Both release their extent to their
+        # siblings; both are reachable states of the running app the author
+        # can point at; both therefore describe a legitimately SEPARATE
+        # solve rather than a modification of one (§6 line 636-641). What
+        # differs is only the actor — the user's click there, the page
+        # measure here — and the actor is exactly what does not matter to
+        # this module, whose whole question is "may this widget honestly be
+        # absent". `lyt_ast.Presence` keeps the two kinds distinct (see its
+        # own `demote_axis` note for why demotion is NOT
+        # `toggle(by='system', hidden='release')`, which stays untypable);
+        # this predicate is the one place they are treated alike, and the
+        # `or` below is the entire widening.
+        is_demotion = presence.kind == "demote"
+        if not (is_release_toggle or is_demotion):
             raise LytLoadError(
                 f"presence valuation {valuation.name!r} names widget "
                 f"{widget!r} as absent, but its declared presence "
                 f"(kind={presence.kind!r}, by={presence.by!r}, "
-                f"hidden={presence.hidden!r}) is not a user-initiated "
-                "release toggle -- only a '@toggle(user, release)' slot "
+                f"hidden={presence.hidden!r}) is neither a user-initiated "
+                "release toggle nor a demotion -- only a "
+                "'@toggle(user, release)' slot or a '@demote(<axis> <px>)' "
+                "slot (L15, LOOP ITERATION 11) "
                 "may be named ABSENT in a presence valuation "
                 "(layout-language-consult.md line 638-639: 'release "
                 "toggles are user-initiated only'; a 'preserve' slot "

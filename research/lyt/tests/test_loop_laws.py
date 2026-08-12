@@ -34,11 +34,20 @@ lyt_ast.py/loader.py/wellformed.py comments.
 import pytest
 
 import loader
+import lyt_ast as ast
 from errors import LytLoadError
 
 
 def _load(text: str):
     return loader.load_layouts(text)
+
+
+def pytest_extent(unit: str, v: float) -> ast.Extent:
+    """Tiny fixture-construction helper -- `ast.Extent` mirrors the
+    resolved shape `_load_sizing`/`_resolve_envelope_state_extents`
+    produce, so tests compare against it directly rather than duck-typing
+    a dict."""
+    return ast.Extent(unit=unit, v=v)
 
 
 # =============================================================================
@@ -336,8 +345,11 @@ def test_l10_nesting_depth_three_finds_a_deeply_buried_violation():
 
 def test_wrap_balanced_on_a_leaf_with_declared_horizontal_unit_is_accepted():
     layouts = _load(
+        # LOOP ITERATION 11 (L15 clause (a)): a LEAF declaring `wrap` must
+        # rank itself. This fixture is about `wrap`, so it takes the minimal
+        # ranking rather than the law being relaxed for fixtures.
         "layout g = {min 66px, pref 66px, max 66px, content bounded, "
-        "unit h 33px, wrap balanced} A[chrome]"
+        "unit h 33px, wrap balanced, activity sustained} A[chrome]"
     )
     assert layouts["g"].wrap_policy == "balanced"
 
@@ -565,9 +577,13 @@ def test_ceiling_unit_and_wrap_compose_on_one_leaf():
     reservation."""
     layouts = _load(
         "layout g = {min 0px, pref 1fr, max inf} V("
+        # `activity sustained`: LOOP ITERATION 11's L15 clause (a), and the
+        # same ranking the real `A_engine` carries.
         "{62px, content bounded, ceiling, unit h 106px, "
-        "wrap balanced} A[go, action],"
-        "{min 0px, pref 1fr, max inf} B[chrome])"
+        "wrap balanced, activity sustained} A[go, action],"
+        # L15 clause (b): a ranking is a BAND-wide fact, so the sibling is
+        # ranked too. Witnessed on its own by the L15 fixtures below.
+        "{min 0px, pref 1fr, max inf, activity sustained} B[chrome])"
     )
     slot = layouts["g"].node.children[0]
     assert slot.sizing.ceiling is True
@@ -583,7 +599,7 @@ def test_unit_content_unbounded_and_scroll_compose_on_one_leaf():
     fixture confirms the loader does not require or infer one)."""
     layouts = _load(
         "layout g = {min 104px, pref 104px, max 104px, content unbounded, "
-        "scroll v, unit h 86px, unit v 56px} A[common, info+action]"
+        "scroll v, edge v unit, unit h 86px, unit v 56px} A[common, info+action]"
     )
     slot = layouts["g"]
     assert slot.sizing.ceiling is False
@@ -671,3 +687,1430 @@ def test_dormancy_holds_across_both_reference_encodings():
         text = (encodings_dir / f"{name}.lyt").read_text()
         layouts = loader_mod.load_layouts(text)
         assert f"lengyue-{name.split('_')[1]}" in layouts
+
+
+# =============================================================================
+# `orient <axis>` -- METAMODEL WAVE item 1 (ledger row 2157/2158/2166,
+# branch lyt-model-loop-experiment, NOT merged without ratification). Not a
+# structural law with its own tree-walk checker (no L-number) -- a plain
+# leaf-only declared fact, same shape as `boundary` (AMENDMENT 6): the
+# widget mount's own axis of internal self-layout, `'v'` when undeclared,
+# refused off a leaf and refused outside the closed {h, v} vocabulary.
+# =============================================================================
+
+
+def test_orient_h_on_a_leaf_is_accepted():
+    layouts = _load("layout g = {min 0px, pref 0px, max 0px, orient h} A[chrome]")
+    assert layouts["g"].node.orientation == "h"
+
+
+def test_orient_v_on_a_leaf_is_accepted():
+    layouts = _load("layout g = {min 0px, pref 0px, max 0px, orient v} A[chrome]")
+    assert layouts["g"].node.orientation == "v"
+
+
+def test_orient_undeclared_defaults_v():
+    layouts = _load("layout g = {min 0px, pref 0px, max 0px} A[chrome]")
+    assert layouts["g"].node.orientation == "v"
+
+
+def test_orient_refuses_unknown_axis():
+    with pytest.raises(LytLoadError) as exc_info:
+        _load("layout g = {min 0px, pref 0px, max 0px, orient diagonal} A[chrome]")
+    assert exc_info.value.detail.get("law") == "orientation-declaration"
+    assert exc_info.value.detail.get("prohibition") == "unknown-orientation"
+    assert exc_info.value.detail.get("got") == "diagonal"
+
+
+@pytest.mark.parametrize("node_shape", ["split", "exclusive"])
+def test_orient_refuses_on_non_leaf_nodes(node_shape):
+    """Orientation names which axis a SINGLE WIDGET renders itself along --
+    a Split/Exclusive has no interior content of its own to orient (a
+    Split's own partition axis is already `Split.axis`, a wholly different
+    fact)."""
+    open_tok, close_tok = ("H(", ")") if node_shape == "split" else ("T(", ")")
+    text = (
+        f"layout g = {{min 0px, pref 1fr, max inf, orient h}} {open_tok}"
+        "{min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome]" + close_tok
+    )
+    with pytest.raises(LytLoadError) as exc_info:
+        _load(text)
+    assert exc_info.value.detail.get("law") == "orientation-declaration"
+    assert exc_info.value.detail.get("prohibition") == "orientation-on-non-leaf"
+    assert exc_info.value.detail.get("node_kind") == node_shape
+
+
+def test_orient_composes_with_content_unit_and_wrap_on_one_leaf():
+    """Same nesting shape as `test_ceiling_unit_and_wrap_compose_on_one_leaf`
+    above (a V-split child, not the root) so L10's structural half does not
+    bind the leaf's own min against a cross-axis unit it never declared."""
+    layouts = _load(
+        "layout g = {min 0px, pref 1fr, max inf} V("
+        "{62px, content bounded, ceiling, unit h 106px, "
+        "wrap balanced, orient h, activity sustained} A[go, action],"
+        # L15 clause (b), same reason as the fixture above.
+        "{min 0px, pref 1fr, max inf, activity sustained} B[chrome])"
+    )
+    slot = layouts["g"].node.children[0]
+    assert slot.node.orientation == "h"
+    assert slot.sizing.ceiling is True
+    assert slot.wrap_policy == "balanced"
+
+
+def test_orient_defaults_v_across_both_reference_encodings():
+    """LOOP ITERATION 9 / ARC 4 ROUND 2 (ledger rows 2209/2220) REWROTE
+    this test, and the rewrite is the point rather than an incidental
+    fixup.
+
+    As written by the metamodel wave, this test asserted that portrait's
+    `tree` leaf declares `orient h` -- the per-class orientation witness.
+    Iteration 9 retired that declaration after JUDGING THE FLIPPED VIEW:
+    portrait's tree reservation is 84px WIDE by its row's full height, a
+    narrow-tall rectangle, and the captured 420x880 render showed the
+    horizontal spelling produce a squat two-node strip over dead band
+    where a vertical spine belongs. See `lengyue_portrait.lyt`'s own LOOP
+    ITERATION 9 header note.
+
+    So this test now pins what is actually true of the SHIPPED encodings
+    -- neither class declares an orientation, both keep the default `v` --
+    rather than a witness the evidence retired. The MECHANISM's own
+    coverage (that a declared `orient h` loads, refuses off a leaf, and
+    refuses outside {h,v}) lives in this module's other orient tests and
+    is untouched; a live-encoding declaration was never what proved the
+    mechanism worked, which is why retiring one costs no coverage."""
+    import loader as loader_mod
+    from pathlib import Path
+
+    encodings_dir = Path(__file__).parent.parent / "encodings"
+
+    def _find_leaf(slot, widget_id):
+        node = slot.node
+        if getattr(node, "widget", None) == widget_id and hasattr(node, "orientation"):
+            return node
+        for child in getattr(node, "children", []):
+            found = _find_leaf(child, widget_id)
+            if found is not None:
+                return found
+        return None
+
+    landscape = loader_mod.load_layouts(
+        (encodings_dir / "lengyue_landscape.lyt").read_text()
+    )["lengyue-landscape"]
+    portrait = loader_mod.load_layouts(
+        (encodings_dir / "lengyue_portrait.lyt").read_text()
+    )["lengyue-portrait"]
+
+    landscape_tree = _find_leaf(landscape, "tree")
+    portrait_tree = _find_leaf(portrait, "tree")
+    assert landscape_tree is not None and portrait_tree is not None
+    assert landscape_tree.orientation == "v"
+    assert portrait_tree.orientation == "v"
+
+
+# =============================================================================
+# LOOP ITERATION 9 / ARC 4 ROUND 2 (model-iteration loop EXPERIMENT, ledger
+# rows 2037/2066/2107/2157/2209/2211/2212/2220; branch
+# lyt-model-loop-experiment, NOT merged without ratification): `elastic
+# <axis>` and law L13, surplus attribution -- the DUAL of iteration 3's
+# `ceiling`. A reservation and its occupancy can disagree in two directions;
+# this language had a word for only one of them.
+# =============================================================================
+
+
+def _load_one(text):
+    import loader as loader_mod
+
+    layouts = loader_mod.load_layouts(text)
+    return next(iter(layouts.values()))
+
+
+def test_elastic_loads_on_an_unbounded_leaf_and_is_absent_by_default():
+    slot = _load_one(
+        "layout t = {min 0px, pref 1fr, max inf} V("
+        "  {min 10px, pref 1fr, max inf, content unbounded, scroll v, edge v item, elastic h, floor v 10px} a[common],"
+        "  {min 10px, pref 1fr, max inf} b[common]"
+        ")"
+    )
+    a_leaf = slot.node.children[0].node
+    b_leaf = slot.node.children[1].node
+    assert a_leaf.elastic_axes == frozenset({"h"})
+    assert b_leaf.elastic_axes == frozenset()
+
+
+def test_elastic_accumulates_both_axes_rather_than_last_write_wins():
+    slot = _load_one(
+        "layout t = {min 0px, pref 1fr, max inf} V("
+        "  {min 10px, pref 1fr, max inf, content unbounded, scroll v, edge v item, elastic h, elastic v, floor v 10px, floor h 10px} a[common]"
+        ")"
+    )
+    assert slot.node.children[0].node.elastic_axes == frozenset({"h", "v"})
+
+
+@pytest.mark.parametrize(
+    "content_decl,expected_content",
+    [("content bounded", "bounded"), ("content designed", "designed"), ("", None)],
+)
+def test_elastic_is_refused_without_unbounded_content(content_decl, expected_content):
+    """L13 clause (b). Bounded content has a FINITE demand, so its honest
+    answer to a too-large reservation is `ceiling` (L9), not stretching;
+    designed content is a hard reservation (L5c); an unclassified leaf has
+    made no claim to found an elasticity on. This precondition is what
+    keeps `elastic` from being a universal 'just stretch it' escape."""
+    bag = "min 10px, pref 1fr, max inf, elastic h"
+    if content_decl:
+        bag += ", " + content_decl
+    with pytest.raises(LytLoadError) as exc:
+        _load_one(f"layout t = {{min 0px, pref 1fr, max inf}} V({{{bag}}} a[common])")
+    assert exc.value.detail["law"] == "L13"
+    assert exc.value.detail["prohibition"] == "elastic-without-unbounded-content"
+    assert exc.value.detail["content"] == expected_content
+
+
+@pytest.mark.parametrize("container", ["V", "T"])
+def test_elastic_is_refused_on_a_container(container):
+    """L13 clause (a): elasticity is a fact about what OCCUPIES a
+    rectangle. A Split's occupant is its children, whose own declared
+    shares already say which takes the residual; a T's children each get
+    the WHOLE rectangle, so there is no residual between them."""
+    with pytest.raises(LytLoadError) as exc:
+        _load_one(
+            "layout t = {min 0px, pref 1fr, max inf} V("
+            "  {min 10px, pref 1fr, max inf, elastic h} " + container + "("
+            "     {min 10px, pref 1fr, max inf} a[common],"
+            "     {min 10px, pref 1fr, max inf} b[common]"
+            "  )"
+            ")"
+        )
+    assert exc.value.detail["law"] == "L13"
+    assert exc.value.detail["prohibition"] == "elastic-on-non-leaf"
+
+
+def test_elastic_axis_vocabulary_is_closed():
+    with pytest.raises(LytLoadError) as exc:
+        _load_one(
+            "layout t = {min 0px, pref 1fr, max inf} V("
+            "  {min 10px, pref 1fr, max inf, content unbounded, elastic diag} a[common]"
+            ")"
+        )
+    assert exc.value.detail["law"] == "L13"
+    assert exc.value.detail["prohibition"] == "invalid-elastic-axis"
+
+
+def test_l13_fires_on_a_t_child_whose_horizontal_residual_nobody_claims():
+    """The structural half. The T-child position is where a slot's own
+    declaration binds BOTH axes (L12's own position, for L12's own
+    reason), so it is the one place the model holds a floor/cap pair on
+    the axis a partition is NOT dividing. A `content unbounded` leaf
+    there that declares `scroll v` has disposed of its vertical axis and
+    said nothing about its horizontal one.
+
+    M2 PORT NOTE: exercises `wellformed.find_l13_violations` directly
+    rather than through `loader.load_layouts` -- `check_wellformed` does
+    NOT wire L13 into its default `all_violations` on this mainline port
+    (see that function's own M2 PORT DISCLOSURE docstring paragraph: both
+    reference encodings already carry the shape L13 fires on, and this
+    port does not carry the `elastic h` encoding edit that would satisfy
+    it), so the FUNCTION is what this test pins, not the full load path."""
+    import wellformed as _wellformed
+
+    slot = _load_one(
+        "layout t = {min 0px, pref 1fr, max inf} V("
+        "  {min 10px, pref 1fr, max inf} T("
+        "     {min 10px, pref 1fr, max inf, content unbounded, scroll v, edge v item} a[common],"
+        "     {min 10px, pref 1fr, max inf, content unbounded, scroll v, edge v item} b[common]"
+        "  )"
+        ")"
+    )
+    violations = _wellformed.find_l13_violations(slot)
+    assert len(violations) == 2
+    assert all(law == "L13" for law, _path, _msg in violations)
+    assert all("'h' axis" in msg for _law, _path, msg in violations)
+
+
+@pytest.mark.parametrize(
+    "disposition",
+    [
+        "elastic h",          # the occupant claims the residual
+        "scroll h, edge h item",  # the content exceeds it; there is no residual
+    ],
+)
+def test_l13_accepts_any_of_the_three_honest_dispositions(disposition):
+    _load_one(
+        "layout t = {min 0px, pref 1fr, max inf} V("
+        "  {min 10px, pref 1fr, max inf} T("
+        "     {min 10px, pref 1fr, max inf, content unbounded, scroll v, edge v item, floor v 10px, "
+        + disposition
+        + "} a[common]"
+        "  )"
+        ")"
+    )
+
+
+def test_l13_accepts_a_pinned_axis_where_no_surplus_can_arise():
+    """The third disposition: floor == cap, so the reservation can never
+    be granted more than its floor and there is nothing to attribute."""
+    _load_one(
+        "layout t = {min 0px, pref 1fr, max inf} V("
+        "  {min 10px, pref 1fr, max inf} T("
+        "     {min 40px, pref 40px, max 40px, content unbounded, scroll v, edge v item} a[common]"
+        "  )"
+        ")"
+    )
+
+
+def test_l13_is_silent_outside_the_both_axes_position():
+    """DISCLOSED SCOPE, pinned so it cannot drift into an unstated claim:
+    a leaf standing in a PARTITION declares an extent for one axis and
+    takes its parent's on the other, so the model holds no floor/cap pair
+    on the cross axis and this law would be guessing. `settingsPane` and
+    `otherBand` in the real encodings carry exactly this shape of unowned
+    horizontal surplus and L13 cannot see it. Honest silence, not
+    coverage."""
+    _load_one(
+        "layout t = {min 0px, pref 1fr, max inf} V("
+        "  {min 10px, pref 1fr, max inf, content unbounded, scroll v, edge v item} a[common]"
+        ")"
+    )
+
+
+# =============================================================================
+# METAMODEL WAVE item 2 (ledger row 2157/2173-2177, branch
+# lyt-model-loop-experiment, NOT merged without ratification): the
+# dict-envelope upgrade -- `envelope: {state: extent, ...}` -- rev2
+# domain-model-proposal §2.1 ("reservation is not an extent, it is a
+# function from a finite, declared set of activity states to extents, and
+# its reservation is the max over the set"). Not a new L-number: it
+# sharpens L3's existing check (a `basis=='envelope'` slot's state list
+# must be honest) into a real computed fact instead of documentation.
+# =============================================================================
+
+
+def test_dict_envelope_with_matching_pref_is_accepted():
+    layouts = _load(
+        "layout g = {min 0px, pref 60px, max 60px, "
+        "envelope: {disconnected: 28px, connected: 60px}} A[go, info]"
+    )
+    slot = layouts["g"]
+    assert slot.sizing.basis == "envelope"
+    assert slot.sizing.envelope_states == ["disconnected", "connected"]
+    assert slot.sizing.envelope_state_extents == {
+        "disconnected": pytest_extent("px", 28.0),
+        "connected": pytest_extent("px", 60.0),
+    }
+
+
+def test_dict_envelope_refuses_pref_mismatch():
+    """The declared reservation (`pref`) must equal the componentwise max
+    over the declared states -- SPEC.md §4.2's own disclosed gap
+    ("the code does not compute a max over anything") is what this check
+    closes."""
+    with pytest.raises(LytLoadError) as exc_info:
+        _load(
+            "layout g = {min 0px, pref 28px, max 60px, "
+            "envelope: {disconnected: 28px, connected: 60px}} A[go, info]"
+        )
+    assert exc_info.value.detail.get("law") == "L3"
+    assert exc_info.value.detail.get("prohibition") == "envelope-reservation-mismatch"
+    assert exc_info.value.detail.get("computed_max") == {"unit": "px", "v": 60.0}
+    assert exc_info.value.detail.get("declared_pref") == {"unit": "px", "v": 28.0}
+
+
+def test_dict_envelope_refuses_mixed_named_and_bare_states():
+    with pytest.raises(LytLoadError) as exc_info:
+        _load(
+            "layout g = {min 0px, pref 60px, max 60px, "
+            "envelope: {disconnected, connected: 60px}} A[go, info]"
+        )
+    assert exc_info.value.detail.get("law") == "L3"
+    assert exc_info.value.detail.get("prohibition") == "mixed-envelope-entries"
+    assert exc_info.value.detail.get("unnamed_states") == ["disconnected"]
+
+
+def test_dict_envelope_refuses_cross_unit_states():
+    with pytest.raises(LytLoadError) as exc_info:
+        _load(
+            "layout g = {min 0px, pref 1fr, max inf, "
+            "envelope: {disconnected: 28px, connected: 4fr}} A[go, info]"
+        )
+    assert exc_info.value.detail.get("law") == "L3"
+    assert exc_info.value.detail.get("prohibition") == "envelope-extent-unit-mismatch"
+
+
+def test_dict_envelope_on_the_fixed_shorthand_form_is_accepted():
+    """The `{67px, envelope: {...}}` shape both real encodings actually
+    use (I_metrics) -- min=pref=max=the shorthand extent, checked against
+    the SAME componentwise max as the full-triple form above."""
+    layouts = _load(
+        "layout g = {67px, envelope: {disconnected: 30px, connected: 67px}} A[go, info]"
+    )
+    slot = layouts["g"]
+    assert slot.sizing.min == slot.sizing.pref == slot.sizing.max == pytest_extent("px", 67.0)
+    assert slot.sizing.envelope_state_extents == {
+        "disconnected": pytest_extent("px", 30.0),
+        "connected": pytest_extent("px", 67.0),
+    }
+
+
+def test_legacy_bare_envelope_states_are_unaffected_by_the_dict_upgrade():
+    """The pre-wave spelling (names only, no extents) is byte-identical to
+    before: `envelope_state_extents` stays None, and no pref-vs-max check
+    fires (there is nothing computed to check against)."""
+    layouts = _load(
+        "layout g = {min 0px, pref 1fr, max inf, "
+        "envelope: {disconnected, connected}} A[go, info]"
+    )
+    slot = layouts["g"]
+    assert slot.sizing.envelope_states == ["disconnected", "connected"]
+    assert slot.sizing.envelope_state_extents is None
+
+
+def test_both_reference_encodings_dict_envelopes_still_load_clean():
+    """Neither shipped encoding uses the dict form yet as of this test
+    (both still declare the legacy bare-name spelling for I_metrics/
+    A_engine) -- this pins that the new machinery is dormant for them,
+    the same 'laws bind declarations, not silence' posture every other
+    METAMODEL WAVE addition takes."""
+    import loader as loader_mod
+    from pathlib import Path
+
+    encodings_dir = Path(__file__).parent.parent / "encodings"
+    for name in ("lengyue_landscape", "lengyue_portrait"):
+        text = (encodings_dir / f"{name}.lyt").read_text()
+        loader_mod.load_layouts(text)  # must not raise
+
+
+# =============================================================================
+# L12 -- `min <axis> <extent>` (LOOP ITERATION 8 / ARC 4, ledger rows
+# 2037/2066/2107/2157). A PER-AXIS floor, for the one position where a
+# slot's own `min` binds BOTH axes: a direct child of an Exclusive/T node
+# (and the root). Load-time half `loader._load_axis_mins`; structural half
+# `wellformed.find_l12_violations`; solver-visible in `compiler._constrain`
+# and in the Exclusive branch's componentwise-max floor derivation.
+# =============================================================================
+
+
+def _t_child_program(child_bag: str) -> str:
+    """A minimal T whose FIRST child carries `child_bag` -- the both-axes
+    position L12 is about. The sibling keeps a plain `min` so the
+    componentwise max has two genuinely different contributors."""
+    return (
+        "layout g = {min 0px, pref 1fr, max inf} T("
+        f"{child_bag} A[chrome],"
+        "{min 40px, pref 1fr, max inf} B[chrome])"
+    )
+
+
+def test_axis_min_on_a_t_child_is_accepted_and_overrides_only_that_axis():
+    layouts = _load(_t_child_program("{min 100px, min h 800px, pref 1fr, max inf}"))
+    child = layouts["g"].node.children[0]
+    assert child.sizing.axis_mins == frozenset({("h", ast.Extent(unit="px", v=800.0))})
+    # The named axis takes the override; the unnamed one keeps `min`.
+    assert child.sizing.axis_min("h") == ast.Extent(unit="px", v=800.0)
+    assert child.sizing.axis_min("v") == ast.Extent(unit="px", v=100.0)
+
+
+def test_both_axes_may_be_named_at_once():
+    layouts = _load(_t_child_program("{min 100px, min h 800px, min v 300px, pref 1fr, max inf}"))
+    child = layouts["g"].node.children[0]
+    assert child.sizing.axis_min("h") == ast.Extent(unit="px", v=800.0)
+    assert child.sizing.axis_min("v") == ast.Extent(unit="px", v=300.0)
+
+
+def test_axis_min_undeclared_leaves_every_slot_byte_identical():
+    """Dormancy, the same posture every other loop declaration takes: a
+    program naming no axis returns `min` for both axes."""
+    layouts = _load(_t_child_program("{min 100px, pref 1fr, max inf}"))
+    child = layouts["g"].node.children[0]
+    assert child.sizing.axis_mins == frozenset()
+    assert child.sizing.axis_min("h") == child.sizing.axis_min("v") == ast.Extent(unit="px", v=100.0)
+
+
+def test_axis_min_refuses_unknown_axis():
+    with pytest.raises(LytLoadError) as exc_info:
+        _load(_t_child_program("{min 100px, min z 800px, pref 1fr, max inf}"))
+    assert exc_info.value.detail.get("law") == "L12"
+    assert exc_info.value.detail.get("prohibition") == "invalid-axis-min-axis"
+    assert exc_info.value.detail.get("got") == "z"
+
+
+def test_axis_min_refuses_the_same_axis_twice():
+    with pytest.raises(LytLoadError) as exc_info:
+        _load(_t_child_program("{min 100px, min h 800px, min h 900px, pref 1fr, max inf}"))
+    assert exc_info.value.detail.get("law") == "L12"
+    assert exc_info.value.detail.get("prohibition") == "duplicate-axis-min"
+
+
+def test_axis_min_refuses_an_fr_extent():
+    """An axis floor is only meaningful where the slot's rectangle IS its
+    parent's on both axes -- precisely where there is no partition for a
+    share to denominate against."""
+    with pytest.raises(LytLoadError) as exc_info:
+        _load(_t_child_program("{min 100px, min h 2fr, pref 1fr, max inf}"))
+    assert exc_info.value.detail.get("law") == "L12"
+    assert exc_info.value.detail.get("prohibition") == "fr-axis-min"
+
+
+def test_axis_min_refuses_beside_the_fixed_shorthand():
+    """`{28px}` produces the whole triple from one declaration; an axis
+    floor beside it would be silently discarded, so it is refused."""
+    with pytest.raises(LytLoadError) as exc_info:
+        _load(_t_child_program("{28px, min h 800px}"))
+    assert exc_info.value.detail.get("law") == "L12"
+    assert exc_info.value.detail.get("prohibition") == "axis-min-with-shorthand"
+    assert exc_info.value.detail.get("shorthand") == "fixed"
+
+
+def test_axis_min_refuses_structurally_off_the_both_axes_position():
+    """A Split child's own `min` already names exactly one axis (its
+    parent's partition axis) and the other is fixed by the cross-axis
+    equality -- an axis floor there binds nothing, which is the
+    decorative-declaration failure this family refuses."""
+    text = (
+        "layout g = {min 0px, pref 1fr, max inf} V("
+        "{min 10px, min h 800px, pref 1fr, max inf} A[chrome],"
+        "{min 10px, pref 1fr, max inf} B[chrome])"
+    )
+    with pytest.raises(LytLoadError) as exc_info:
+        _load(text)
+    detail = exc_info.value.detail
+    assert detail.get("law") == "L12" or "L12" in (detail.get("laws") or [])
+    assert any("floor-attribution" in v for v in detail.get("violations", []))
+
+
+def test_axis_min_is_accepted_on_the_root():
+    """The root is the other `along=None` position -- its rectangle IS the
+    page on both axes, so an axis floor there is a real (if rarely useful)
+    fact, not a decorative one."""
+    layouts = _load("layout g = {min 0px, min h 40px, pref 1fr, max inf} A[chrome]")
+    assert layouts["g"].sizing.axis_min("h") == ast.Extent(unit="px", v=40.0)
+
+
+def test_axis_min_actually_moves_the_solver_not_just_the_ast():
+    """The point of the law: a T child that declares its 800px is a WIDTH
+    no longer raises its siblings' shared HEIGHT floor with it. Solved
+    twice against the same page, once with the number axis-agnostic and
+    once attributed."""
+    from compiler import solve_lexicographic
+
+    both_axes = _load(_t_child_program("{min 800px, pref 1fr, max inf}"))["g"]
+    attributed = _load(_t_child_program("{min 40px, min h 800px, pref 1fr, max inf}"))["g"]
+    page = dict(class_id="c", w_px=1000, h_px=300, board_widget=None, reach_preferred_widgets=None)
+    assert solve_lexicographic(both_axes, **page).status == "INFEASIBLE"
+    assert solve_lexicographic(attributed, **page).status == "OPTIMAL"
+
+
+def test_axis_min_leaves_a_program_that_declares_none_solving_identically():
+    """Mechanism inertness, pinned rather than asserted: the same program
+    with no axis-keyed `min` anywhere solves exactly as it did before this
+    law existed (the 800px binding BOTH axes, hence INFEASIBLE at a page
+    only 300px tall, and OPTIMAL once the page is tall enough)."""
+    from compiler import solve_lexicographic
+
+    prog = _load(_t_child_program("{min 800px, pref 1fr, max inf}"))["g"]
+    assert solve_lexicographic(
+        prog, class_id="c", w_px=1000, h_px=300, board_widget=None, reach_preferred_widgets=None
+    ).status == "INFEASIBLE"
+    assert solve_lexicographic(
+        prog, class_id="c", w_px=1000, h_px=900, board_widget=None, reach_preferred_widgets=None
+    ).status == "OPTIMAL"
+
+
+# =============================================================================
+# LOOP ITERATION 10 / ARC 4 ROUND 3 (model-iteration loop EXPERIMENT, ledger
+# rows 2037/2066/2107/2157/2226-2236; branch lyt-model-loop-experiment, NOT
+# merged without ratification): `ceiling <axis>` + the `along`/`across` role
+# frame, and law L14 (demand attribution). A drawn structure's extent on
+# either axis is a property OF THE STRUCTURE, never a constant -- and the
+# axis a leaf's own facts are about is a fact about the leaf's ORIENTATION,
+# not about the view it happens to be declared in.
+# =============================================================================
+
+
+def test_role_axes_resolve_through_the_leafs_own_declared_orientation():
+    """The role frame's whole point, stated as one assertion: the SAME
+    source text binds to opposite physical axes under opposite `orient`
+    declarations. Both real classes are `orient v` today, so this synthetic
+    pair is the mechanism's witness -- the same discipline METAMODEL WAVE
+    item 1's own orientation witness used, for the same reason (a fact that
+    is currently identical in both classes still has to be shown to BE the
+    mechanism, not a coincidence)."""
+    text = (
+        "layout t = {{min 0px, pref 1fr, max inf}} H("
+        "  {{min 60px, pref 60px, max 60px, content unbounded, orient {o},"
+        "    scroll along, scroll across, ceiling along, ceiling across,"
+        "    edge along item, edge across unit, unit across 24px}} a[common],"
+        "  {{min 10px, pref 1fr, max inf}} b[common]"
+        ")"
+    )
+    vert = _load_one(text.format(o="v"))
+    horiz = _load_one(text.format(o="h"))
+    v_slot, h_slot = vert.node.children[0], horiz.node.children[0]
+    # `unit across`: across == h under orient v, == v under orient h.
+    assert dict(v_slot.node.unit_axes) == {"h": 24.0}
+    assert dict(h_slot.node.unit_axes) == {"v": 24.0}
+    # `scroll along` + `scroll across` covers both axes either way, and so
+    # does the pair of ceilings (which is also this file's witness that
+    # `ceiling` ACCUMULATES per axis rather than last-write-wins).
+    assert v_slot.scroll_axes == frozenset({"h", "v"})
+    assert h_slot.scroll_axes == frozenset({"h", "v"})
+    assert v_slot.node.ceiling_axes == frozenset({"h", "v"})
+    assert h_slot.node.ceiling_axes == frozenset({"h", "v"})
+
+
+def test_role_axes_resolve_on_a_solver_visible_key_too():
+    """The same flip on L12's axis-keyed `min`, which (unlike scroll/unit/
+    elastic/ceiling) the CP-SAT solve actually reads -- so the role frame
+    is not confined to the realization-binding half of the language."""
+    text = (
+        "layout t = {{min 0px, pref 1fr, max inf}} V("
+        "  {{min 10px, pref 1fr, max inf}} T("
+        "     {{min 10px, min across 60px, pref 1fr, max inf, orient {o}}} a[common]"
+        "  )"
+        ")"
+    )
+    v_axes = {a for a, _ in _load_one(text.format(o="v")).node.children[0].node.children[0].sizing.axis_mins}
+    h_axes = {a for a, _ in _load_one(text.format(o="h")).node.children[0].node.children[0].sizing.axis_mins}
+    assert v_axes == {"h"}
+    assert h_axes == {"v"}
+
+
+def test_physical_axis_spellings_are_untouched_by_the_role_frame():
+    """Every pre-iteration-10 encoding must resolve byte-identically: a
+    physical token passes through `_resolve_axis_token` unchanged."""
+    slot = _load_one(
+        "layout t = {min 0px, pref 1fr, max inf} H("
+        "  {min 24px, pref 1fr, max inf, content unbounded, scroll h, edge h unit, unit h 24px} a[common]"
+        ")"
+    )
+    child = slot.node.children[0]
+    assert child.scroll_axes == frozenset({"h"})
+    assert dict(child.node.unit_axes) == {"h": 24.0}
+
+
+@pytest.mark.parametrize("key_decl", ["scroll along", "unit across 24px", "ceiling across"])
+@pytest.mark.parametrize("container", ["V", "T"])
+def test_role_axes_are_refused_off_a_leaf(key_decl, container):
+    """A role name resolves against an ORIENTATION, and only a leaf has
+    one: a Split's axes are its parent's partition, a T's children all
+    share one rectangle. The token would name nothing, which is the
+    decorative-declaration failure this loader's node-kind refusals exist
+    to prevent."""
+    with pytest.raises(LytLoadError) as exc:
+        _load_one(
+            "layout t = {min 0px, pref 1fr, max inf} V("
+            "  {min 10px, pref 1fr, max inf, " + key_decl + "} " + container + "("
+            "     {min 10px, pref 1fr, max inf} a[common],"
+            "     {min 10px, pref 1fr, max inf} b[common]"
+            "  )"
+            ")"
+        )
+    # Whichever refusal fires first, it must be a node-kind one and never a
+    # silent resolution to some physical axis. `unit`'s own leaf-only
+    # refusal precedes role resolution (it is checked before the token loop
+    # that resolves roles), which is the right order: the key had no
+    # business being there at all, and reporting a role complaint would name
+    # the smaller of the two problems.
+    assert exc.value.detail["prohibition"] in (
+        "role-axis-on-non-leaf",
+        "axis-ceiling-on-non-leaf",
+        "unit-on-non-leaf",
+    )
+
+
+def test_ceiling_axis_loads_beside_a_scroll_on_the_same_axis():
+    """L14 clause (c)'s admitted shape: the `scroll` owns the excess, the
+    `ceiling` owns the deficit -- together, 'take exactly your demand'."""
+    slot = _load_one(
+        "layout t = {min 0px, pref 1fr, max inf} H("
+        "  {min 40px, pref 40px, max 40px, content unbounded, scroll h, edge h item, scroll v, edge v item,"
+        "   ceiling h} a[common]"
+        ")"
+    )
+    assert slot.node.children[0].node.ceiling_axes == frozenset({"h"})
+
+
+def test_ceiling_axis_loads_on_bounded_content_without_any_scroll():
+    """L9's own precondition survives per-axis: a bounded leaf's demand is
+    finite and can never exceed the bound, so it needs no excess-owner."""
+    slot = _load_one(
+        "layout t = {min 0px, pref 1fr, max inf} H("
+        "  {min 40px, pref 40px, max 40px, content bounded, ceiling h} a[common]"
+        ")"
+    )
+    assert slot.node.children[0].node.ceiling_axes == frozenset({"h"})
+
+
+def test_bare_ceiling_and_axis_ceiling_are_different_declarations():
+    """The parser distinguishes them by one token of lookahead and nothing
+    else; the bare flag must keep going to `Sizing.ceiling` (L9) so no
+    pre-iteration-10 encoding changes meaning."""
+    slot = _load_one(
+        "layout t = {min 0px, pref 1fr, max inf} H("
+        "  {min 40px, pref 40px, max 40px, content bounded, ceiling} a[common]"
+        ")"
+    )
+    child = slot.node.children[0]
+    assert child.sizing.ceiling is True
+    assert child.node.ceiling_axes == frozenset()
+
+
+@pytest.mark.parametrize(
+    "content_decl,expected_content",
+    [("content unbounded", "unbounded"), ("content designed", "designed"), ("", None)],
+)
+def test_ceiling_axis_is_refused_when_nothing_owns_that_axis_excess(
+    content_decl, expected_content
+):
+    """L14 clause (c). A ceiling invites content past a bound; without an
+    owner for what goes past, the outcome is overprint or clip -- the two
+    things this language exists to make unconstructable. `scroll` on the
+    SAME axis is the only alternative to `content bounded`; note the
+    unbounded case here declares `scroll v`, i.e. a scroll on the OTHER
+    axis does not count."""
+    bag = "min 40px, pref 40px, max 40px, ceiling h, scroll v, edge v item"
+    if content_decl:
+        bag += ", " + content_decl
+    with pytest.raises(LytLoadError) as exc:
+        _load_one(f"layout t = {{min 0px, pref 1fr, max inf}} H({{{bag}}} a[common])")
+    assert exc.value.detail["law"] == "L14"
+    assert exc.value.detail["prohibition"] == "axis-ceiling-without-excess-owner"
+    assert exc.value.detail["axis"] == "h"
+    assert exc.value.detail["content"] == expected_content
+
+
+def test_ceiling_axis_vocabulary_is_closed():
+    with pytest.raises(LytLoadError) as exc:
+        _load_one(
+            "layout t = {min 0px, pref 1fr, max inf} H("
+            "  {min 40px, pref 40px, max 40px, content bounded, ceiling diag} a[common]"
+            ")"
+        )
+    assert exc.value.detail["law"] == "L14"
+    assert exc.value.detail["prohibition"] == "invalid-ceiling-axis"
+
+
+def test_l14_fires_on_a_pinned_two_dimensional_scroller():
+    """The structural half, at the shape that mints the law: a leaf that
+    can overflow BOTH ways draws a structure, and a pin on the axis its
+    parent partitions asserts a constant where that structure's own demand
+    belongs."""
+    with pytest.raises(LytLoadError) as exc:
+        _load_one(
+            "layout t = {min 0px, pref 1fr, max inf} H("
+            "  {min 84px, pref 84px, max 84px, content unbounded, scroll h, edge h unit, scroll v, edge v item,"
+            "   unit h 24px} a[common],"
+            "  {min 10px, pref 1fr, max inf} b[common]"
+            ")"
+        )
+    assert exc.value.detail["law"] == "L14"
+    assert len(exc.value.detail["violations"]) == 1
+    v = exc.value.detail["violations"][0]
+    assert "'h' axis" in v
+    # The message names the declared unit, so the reader sees the pin FOR
+    # WHAT IT IS -- a round multiple of the leaf's own lane.
+    assert "24px" in v
+
+
+def test_l14_is_satisfied_by_declaring_the_pin_a_bound():
+    slot = _load_one(
+        "layout t = {min 0px, pref 1fr, max inf} H("
+        "  {min 84px, pref 84px, max 84px, content unbounded, scroll along, edge along item, scroll across, edge across unit,"
+        "   ceiling across, unit across 24px} a[common],"
+        "  {min 10px, pref 1fr, max inf} b[common]"
+        ")"
+    )
+    assert slot.node.children[0].node.ceiling_axes == frozenset({"h"})
+
+
+def test_l14_is_silent_for_a_one_axis_scroller():
+    """DISCLOSED SCOPE, pinned so it cannot drift into an unstated claim. A
+    strip or a reflowing pane scrolls one way; its CROSS extent honestly IS
+    a constant, and this law says nothing about it. `settingsSubstrip`,
+    `settingsPane`, `otherBand` and `boardRail` in the real encodings are
+    all this shape."""
+    _load_one(
+        "layout t = {min 0px, pref 1fr, max inf} H("
+        "  {min 34px, pref 34px, max 34px, content unbounded, scroll v, edge v unit, unit v 24px} a[common],"
+        "  {min 10px, pref 1fr, max inf} b[common]"
+        ")"
+    )
+
+
+def test_l14_is_silent_at_the_both_axes_position():
+    """The COMPLEMENT of L12/L13's scope, and the same honest-silence
+    reason read from the other side: at a T-child (or the root) one
+    declaration is read on BOTH axes, so 'which axis is pinned' is not a
+    question this walk could answer without guessing."""
+    _load_one(
+        "layout t = {min 0px, pref 1fr, max inf} V("
+        "  {min 10px, pref 1fr, max inf} T("
+        "     {min 84px, pref 84px, max 84px, content unbounded, scroll h, edge h item, scroll v, edge v item} a[common]"
+        "  )"
+        ")"
+    )
+
+
+def test_l14_is_silent_where_the_reservation_is_not_pinned():
+    _load_one(
+        "layout t = {min 0px, pref 1fr, max inf} H("
+        "  {min 60px, pref 1fr, max 84px, content unbounded, scroll h, edge h item, scroll v, edge v item} a[common],"
+        "  {min 10px, pref 1fr, max inf} b[common]"
+        ")"
+    )
+
+
+# =============================================================================
+# LOOP ITERATION 11 / ARC 4 ROUND 4 -- L15, DEMOTION ATTRIBUTION.
+# `activity <level>` + the `@demote(<axis> <px>)` presence kind: a band's
+# members are not equally earned, and the least-active leave before anyone
+# wraps.
+# =============================================================================
+
+
+def test_activity_resolves_both_levels_on_a_leaf():
+    for level in ("sustained", "occasional"):
+        layouts = _load(
+            f"layout g = {{min 0px, pref 0px, max 0px, content bounded, "
+            f"activity {level}}} A[chrome]"
+        )
+        assert layouts["g"].node.activity == level
+
+
+def test_activity_undeclared_is_none_not_an_implicit_sustained():
+    """An unranked leaf has made NO claim -- the language must not read
+    silence as a ranking, or every pre-iteration-11 encoding would acquire
+    an opinion it never expressed."""
+    layouts = _load("layout g = {min 0px, pref 0px, max 0px, content bounded} A[chrome]")
+    assert layouts["g"].node.activity is None
+
+
+def test_activity_refuses_an_unknown_level():
+    with pytest.raises(LytLoadError) as exc:
+        _load("layout g = {min 0px, pref 0px, max 0px, activity rarely} A[chrome]")
+    assert exc.value.detail["law"] == "L15"
+    assert exc.value.detail["prohibition"] == "unknown-activity-level"
+
+
+@pytest.mark.parametrize("shape", ["V", "T"])
+def test_activity_refuses_a_container(shape):
+    """A container has no content of its own to rank; its children each
+    answer for themselves (and a T's children are alternatives, never
+    co-present)."""
+    with pytest.raises(LytLoadError) as exc:
+        _load(
+            f"layout g = {{min 0px, pref 1fr, max inf, activity sustained}} {shape}("
+            "{min 0px, pref 1fr, max inf} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome])"
+        )
+    assert exc.value.detail["law"] == "L15"
+    assert exc.value.detail["prohibition"] == "activity-on-non-leaf"
+
+
+def test_demote_is_accepted_on_an_occasional_bounded_leaf():
+    layouts = _load(
+        "layout g = {min 0px, pref 1fr, max inf} V("
+        "@demote(h 616px) {100px, content bounded, activity occasional} A[chrome],"
+        "{min 0px, pref 1fr, max inf, activity sustained} B[chrome])"
+    )
+    presence = layouts["g"].node.children[0].presence
+    assert presence.kind == "demote"
+    assert presence.demote_axis == "h"
+    assert presence.demote_below_px == 616.0
+    # And L1's own prohibition is untouched: a demotion is NOT spelled as a
+    # system-driven release toggle, so `by`/`hidden` stay unset.
+    assert presence.by is None and presence.hidden is None
+
+
+def test_demote_requires_occasional_activity():
+    """The law's whole safety property: a model that could demote content it
+    never ranked could demote the controls the user is working with."""
+    for bag in ("{100px, content bounded}", "{100px, content bounded, activity sustained}"):
+        with pytest.raises(LytLoadError) as exc:
+            _load(
+                "layout g = {min 0px, pref 1fr, max inf} V("
+                f"@demote(h 616px) {bag} A[chrome],"
+                "{min 0px, pref 1fr, max inf} B[chrome])"
+            )
+        assert exc.value.detail["law"] == "L15"
+        assert exc.value.detail["prohibition"] == "demote-without-occasional-activity"
+
+
+@pytest.mark.parametrize(
+    "inner",
+    [
+        "{100px, content unbounded, scroll v, edge v item, activity occasional}",
+        "{100px, content designed, activity occasional}",
+        "{100px, activity occasional}",
+    ],
+)
+def test_demote_requires_bounded_content(inner):
+    """A demoted slot is re-hosted in the overlay stratum, which has no
+    standing reservation at all -- only finite, known content can honestly be
+    promised a home there. The third case is the undeclared one: a leaf that
+    made no content claim founded nothing to demote."""
+    with pytest.raises(LytLoadError) as exc:
+        _load(
+            "layout g = {min 0px, pref 1fr, max inf} V("
+            f"@demote(h 616px) {inner} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome])"
+        )
+    assert exc.value.detail["law"] == "L15"
+    assert exc.value.detail["prohibition"] == "demote-without-bounded-content"
+
+
+@pytest.mark.parametrize("axis", ["z", "along", "across"])
+def test_demote_refuses_a_bad_axis_including_the_l14_role_names(axis):
+    """`along`/`across` resolve against the LEAF's own orient; the axis a
+    demotion measures is the one its BAND is under pressure on. Accepting a
+    role here would silently mean something else, so it is refused by name."""
+    with pytest.raises(LytLoadError) as exc:
+        _load(
+            "layout g = {min 0px, pref 1fr, max inf} V("
+            f"@demote({axis} 616px) "
+            "{100px, content bounded, activity occasional} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome])"
+        )
+    assert exc.value.detail["law"] == "L15"
+    assert exc.value.detail["prohibition"] == "invalid-demote-axis"
+
+
+@pytest.mark.parametrize("bad", ["1fr", "40ch"])
+def test_demote_refuses_a_non_px_threshold(bad):
+    with pytest.raises(LytLoadError) as exc:
+        _load(
+            "layout g = {min 0px, pref 1fr, max inf} V("
+            f"@demote(h {bad}) "
+            "{100px, content bounded, activity occasional} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome])"
+        )
+    assert exc.value.detail["law"] == "L15"
+    assert exc.value.detail["prohibition"] == "non-px-demote-threshold"
+
+
+@pytest.mark.parametrize("shape", ["V", "T"])
+def test_demote_refuses_a_container(shape):
+    with pytest.raises(LytLoadError) as exc:
+        _load(
+            "layout g = {min 0px, pref 1fr, max inf} V("
+            "@demote(h 616px) {min 0px, pref 1fr, max inf} " + shape + "("
+            "{min 0px, pref 1fr, max inf} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome]),"
+            "{min 0px, pref 1fr, max inf} C[chrome])"
+        )
+    assert exc.value.detail["law"] == "L15"
+    assert exc.value.detail["prohibition"] == "demote-on-non-leaf"
+
+
+def test_l15_clause_a_fires_on_a_wrapping_leaf_that_never_ranked_itself():
+    with pytest.raises(LytLoadError) as exc:
+        _load(
+            "layout g = {min 0px, pref 1fr, max inf} V("
+            "{66px, content bounded, unit h 33px, wrap balanced} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome])"
+        )
+    assert exc.value.detail["law"] == "L15"
+    assert "declares `wrap balanced`" in exc.value.detail["violations"][0]
+
+
+def test_l15_clause_a_is_silent_for_an_exclusive_that_wraps():
+    """A T's units ARE its declared children, each of which is a leaf that
+    answers for itself -- the same reasoning `_load_unit_axes` uses to refuse
+    `unit` on a container. So `wrap` on a T needs no `activity`, and both
+    encodings' own control-panel T nodes stay legal unranked."""
+    layouts = _load(
+        "layout g = {min 0px, pref 1fr, max inf, wrap balanced} T("
+        "{min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome])"
+    )
+    assert layouts["g"].wrap_policy == "balanced"
+
+
+def test_l15_clause_b_refuses_a_partially_ranked_band():
+    with pytest.raises(LytLoadError) as exc:
+        _load(
+            "layout g = {min 0px, pref 1fr, max inf} V("
+            "{min 0px, pref 1fr, max inf, activity sustained} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome])"
+        )
+    assert exc.value.detail["law"] == "L15"
+    assert "ranks 1 of its 2 leaf children" in exc.value.detail["violations"][0]
+
+
+def test_l15_clause_b_is_silent_for_a_wholly_unranked_band():
+    """Dormancy, pinned rather than asserted: an encoding that ranks nothing
+    anywhere is untouched by clause (b), which is what keeps every
+    pre-iteration-11 encoding legal."""
+    layouts = _load(
+        "layout g = {min 0px, pref 1fr, max inf} V("
+        "{min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome])"
+    )
+    assert [c.node.activity for c in layouts["g"].node.children] == [None, None]
+
+
+def test_l15_clause_b_ignores_composite_children():
+    """A ranking is about a band's LEAF members; a Split child is itself a
+    band whose own children rank themselves, so it does not have to enter its
+    parent's ordering (the same locality L2's dominance measure keeps). This
+    is what lets landscape's side column rank its four toolbar leaves while
+    the tree/panels row beside them stays out of the ordering."""
+    layouts = _load(
+        "layout g = {min 0px, pref 1fr, max inf} V("
+        "{min 0px, pref 1fr, max inf, activity sustained} A[chrome],"
+        "{min 0px, pref 1fr, max inf} H("
+        "{min 0px, pref 1fr, max inf} B[chrome],"
+        "{min 0px, pref 1fr, max inf} C[chrome]))"
+    )
+    assert layouts["g"].node.children[0].node.activity == "sustained"
+
+
+def test_l15_clause_c_refuses_a_wholly_demotable_band():
+    """A band that can vacate completely is a PRESENCE slot, and
+    `@toggle(user, release)` is already this language's word for one."""
+    with pytest.raises(LytLoadError) as exc:
+        _load(
+            "layout g = {min 0px, pref 1fr, max inf} V("
+            "{min 0px, pref 1fr, max inf} V("
+            "@demote(h 616px) {100px, content bounded, activity occasional} A[chrome],"
+            "@demote(h 616px) {100px, content bounded, activity occasional} B[chrome]),"
+            "{min 0px, pref 1fr, max inf} C[chrome])"
+        )
+    assert exc.value.detail["law"] == "L15"
+    assert "can vacate completely" in exc.value.detail["violations"][0]
+
+
+def test_a_demoted_widget_is_nameable_absent_in_a_presence_valuation():
+    """The mechanism half: `presence.validate_valuation` accepts a demote
+    slot on exactly the footing a user-release toggle already had, so a
+    demoted state is a genuinely SEPARATE solve (Amendment 4's own §6
+    reading) rather than a modification of one -- which is why the coverage
+    matrix can give it a verdict instead of an assertion."""
+    import presence as presence_mod
+
+    layouts = _load(
+        "layout g = {min 0px, pref 1fr, max inf} V("
+        "@demote(h 616px) {100px, content bounded, activity occasional} A[chrome],"
+        "{min 0px, pref 1fr, max inf, activity sustained} B[chrome])"
+    )
+    val = presence_mod.PresenceValuation(name="demoted", absent_widgets=frozenset({"A"}))
+    presence_mod.validate_valuation(layouts["g"], val, layout_name="g")  # does not raise
+    pruned = presence_mod.prune_absent(layouts["g"], val.absent_widgets)
+    assert [c.node.widget for c in pruned.node.children] == ["B"]
+
+    # And the refusal the widening did NOT weaken: a plain fixed-presence
+    # leaf is still not nameable-absent.
+    bad = presence_mod.PresenceValuation(name="bad", absent_widgets=frozenset({"B"}))
+    with pytest.raises(LytLoadError) as exc:
+        presence_mod.validate_valuation(layouts["g"], bad, layout_name="g")
+    assert exc.value.detail["prohibition"] == "not-a-release-toggle"
+
+
+def test_l1_stays_untypable_after_the_demotion_kind_exists():
+    """The load-bearing non-regression: adding a viewport-driven release kind
+    must not have opened the system-driven one L1 forbids. Plus the two
+    construction guards that keep the demotion fields from drifting onto a
+    kind with no use for them, or off the one that requires them."""
+    with pytest.raises(LytLoadError) as exc:
+        _load("layout g = @toggle(system, release) {min 0px, pref 0px, max 0px} A[chrome]")
+    assert exc.value.detail["prohibition"] == "system-release-presence"
+    with pytest.raises(ValueError):
+        ast.Presence(kind="fixed", demote_axis="h", demote_below_px=616.0)
+    with pytest.raises(ValueError):
+        ast.Presence(kind="demote")
+
+
+def _leaf_slots_by_widget(slot, out=None):
+    out = {} if out is None else out
+    node = slot.node
+    if isinstance(node, ast.Leaf):
+        out[node.widget] = slot
+        return out
+    for child in node.children:
+        _leaf_slots_by_widget(child, out)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# LOOP ITERATION 12 / ARC 4 ROUND 5 -- L16, deficit attribution
+# (`floor <axis> <px>`), ledger rows 2037/2066/2107/2157/2268-2280.
+#
+# The DEFICIT corner of the square L13 (`elastic`, surplus) and L14
+# (`ceiling`, demand) already stand in. Coverage below follows this file's
+# own house style: every load-time refusal by its own `prohibition` name,
+# all three structural clauses, the law's disclosed SILENCES pinned so they
+# cannot drift into an unstated claim, and the role frame's own witness (a
+# flipped `orient`, the discipline round 2's review asked for).
+# ---------------------------------------------------------------------------
+
+
+def _l16_leaf(floor="floor v 40px", orient="", min_decl="min 40px"):
+    """An unbounded leaf in a T (both-axes) position that satisfies L12/L13/
+    L14 and varies only in what THIS law is about."""
+    return (
+        "layout t = {min 0px, pref 1fr, max inf} V("
+        "  {min 10px, pref 1fr, max inf} T("
+        f"     {{{min_decl}, pref 1fr, max inf, content unbounded, scroll v, edge v item, "
+        f"elastic h, {floor}{orient}}} a[common]"
+        "  )"
+        ")"
+    )
+
+
+def _l16_load(text):
+    layouts = loader.load_layouts(text)
+    return next(iter(layouts.values()))
+
+
+def test_l16_floor_loads_and_is_absent_by_default():
+    slot = _l16_load(_l16_leaf())
+    leaf = slot.node.children[0].node.children[0].node
+    assert leaf.floor_axes == frozenset({("v", ast.Extent(unit="px", v=40.0))})
+    plain = _l16_load(
+        "layout t = {min 0px, pref 1fr, max inf} V("
+        "  {min 10px, pref 1fr, max inf} b[common]"
+        ")"
+    )
+    assert plain.node.children[0].node.floor_axes == frozenset()
+
+
+def test_l16_floor_accumulates_both_axes_rather_than_last_write_wins():
+    slot = _l16_load(_l16_leaf(floor="floor v 40px, floor h 30px"))
+    leaf = slot.node.children[0].node.children[0].node
+    assert {a for a, _ in leaf.floor_axes} == {"h", "v"}
+
+
+def test_l16_floor_takes_the_l14_role_frame_and_binds_through_orient():
+    """The role frame's witness is a FLIPPED-ORIENT one rather than a
+    number: `floor along` is ONE declaration resolving to two different
+    physical axes depending only on the leaf's own `orient`."""
+    import parser as _parser
+
+    def _resolved_axes(orient):
+        # BELOW `check_wellformed` on purpose: flipping `orient` moves the
+        # floor off the axis clause (a) asks for, so the structural half
+        # would (correctly) object to a fixture whose whole point is the
+        # LOAD-TIME resolution. `load_slot` is that half by itself.
+        text = _l16_leaf(floor="floor along 40px", orient=f", orient {orient}")
+        raw = _parser.parse_layouts(text)[0]
+        root = loader.load_slot(raw.slot, path=raw.name)
+        return {a for a, _ in root.node.children[0].node.children[0].node.floor_axes}
+
+    assert _resolved_axes("v") == {"v"}
+    assert _resolved_axes("h") == {"h"}
+
+
+def test_l16_refuses_a_floor_on_a_split():
+    with pytest.raises(LytLoadError) as exc:
+        _l16_load(
+            "layout t = {min 0px, pref 1fr, max inf, floor v 40px} V("
+            "  {min 10px, pref 1fr, max inf} b[common]"
+            ")"
+        )
+    assert exc.value.detail["prohibition"] == "floor-on-non-leaf"
+    assert exc.value.detail["law"] == "L16"
+
+
+def test_l16_refuses_a_floor_on_an_exclusive():
+    with pytest.raises(LytLoadError) as exc:
+        _l16_load(
+            "layout t = {min 0px, pref 1fr, max inf} V("
+            "  {min 10px, pref 1fr, max inf, floor v 40px} T("
+            "     {min 10px, pref 1fr, max inf} a[common]"
+            "  )"
+            ")"
+        )
+    assert exc.value.detail["prohibition"] == "floor-on-non-leaf"
+
+
+def test_l16_refuses_an_unknown_floor_axis():
+    with pytest.raises(LytLoadError) as exc:
+        _l16_load(_l16_leaf(floor="floor z 40px"))
+    assert exc.value.detail["prohibition"] == "invalid-floor-axis"
+
+
+def test_l16_refuses_two_floors_on_one_axis():
+    with pytest.raises(LytLoadError) as exc:
+        _l16_load(_l16_leaf(floor="floor v 40px, floor v 50px"))
+    assert exc.value.detail["prohibition"] == "duplicate-floor"
+
+
+@pytest.mark.parametrize("bad", ["floor v 4fr", "floor v 20ch"])
+def test_l16_refuses_a_non_px_floor(bad):
+    """`fr` is a share of the very partition whose sufficiency is in
+    question; `ch` is a text measure standing in for a stack of controls
+    whose extent is not text. Narrower than `min <axis>`'s own rule, on
+    purpose -- see `loader._load_floor_axes` clause (c)."""
+    with pytest.raises(LytLoadError) as exc:
+        _l16_load(_l16_leaf(floor=bad))
+    assert exc.value.detail["prohibition"] == "non-px-floor"
+
+
+def test_l16_clause_a_fires_on_an_unbounded_leaf_that_forgot_its_deficit():
+    with pytest.raises(LytLoadError) as exc:
+        _l16_load(
+            "layout t = {min 0px, pref 1fr, max inf} V("
+            "  {min 10px, pref 1fr, max inf} T("
+            "     {min 40px, pref 1fr, max inf, content unbounded, scroll v, edge v item, "
+            "elastic h} a[common]"
+            "  )"
+            ")"
+        )
+    assert exc.value.detail["law"] == "L16"
+    assert "declares no `floor v`" in exc.value.detail["violations"][0]
+
+
+@pytest.mark.parametrize(
+    "decl",
+    [
+        # a one-axis scroller with NO elastic claim never asserted it
+        # reasoned about its residual, so this law puts no words in its
+        # mouth (settingsPane / otherBand / boardRail are all this shape).
+        # Pinned floor==cap so L13 has nothing to say either -- the point
+        # is L16's silence, not another law's noise.
+        "pinned",
+        # bounded content's smallest form is its own demand, which L14's
+        # `ceiling` already governs
+        "content bounded, scroll v, ceiling v",
+        # designed content is L5c's hard reservation
+        "content designed",
+    ],
+)
+def test_l16_clause_a_is_silent_where_it_disclaims_scope(decl):
+    """DISCLOSED SCOPE, pinned so it cannot drift into an unstated claim."""
+    sizing = (
+        "min 40px, pref 40px, max 40px, content unbounded, scroll v, edge v item"
+        if decl == "pinned"
+        else f"min 40px, pref 1fr, max inf, {decl}"
+    )
+    _l16_load(
+        "layout t = {min 0px, pref 1fr, max inf} V("
+        "  {min 10px, pref 1fr, max inf} T("
+        f"     {{{sizing}}} a[common]"
+        "  )"
+        ")"
+    )
+
+
+def test_l16_clause_b_refuses_a_floor_the_leaf_can_neither_reserve_nor_leave():
+    with pytest.raises(LytLoadError) as exc:
+        _l16_load(_l16_leaf(min_decl="min 10px"))
+    assert exc.value.detail["law"] == "L16"
+    assert "neither RESERVES it" in exc.value.detail["violations"][0]
+
+
+def test_l16_clause_b_accepts_the_reserving_disposition():
+    """`min v` (L12's own axis-keyed floor) covering the declared floor is
+    the first of the two honest answers -- and it is the one BOTH reference
+    encodings take at `CP-library`/`CP-cards`."""
+    _l16_load(
+        "layout t = {min 0px, pref 1fr, max inf} V("
+        "  {min 10px, pref 1fr, max inf} T("
+        "     {min 10px, min v 40px, pref 1fr, max inf, content unbounded, "
+        "scroll v, edge v item, elastic h, floor v 40px} a[common]"
+        "  )"
+        ")"
+    )
+
+
+def test_l16_clause_b_accepts_the_leaving_disposition():
+    """THE JOIN TO L15: a leaf that may vacate its band has an honest answer
+    for a floor it cannot be granted, and needs no reservation for it."""
+    _l16_load(
+        "layout t = {min 0px, pref 1fr, max inf} V("
+        "  @demote(h 616px) {min 10px, pref 1fr, max inf, content bounded, "
+        "activity occasional, scroll v, floor v 40px} a[common],"
+        "  {min 10px, pref 1fr, max inf, activity sustained} b[common]"
+        ")"
+    )
+
+
+def test_l16_clause_c_refuses_a_floor_above_the_leafs_own_cap():
+    """The leaf RESERVES its floor on the v axis (so clause (b) is quiet)
+    and still caps itself below it -- two facts in one bag that cannot both
+    hold, which is what makes this its own clause rather than a corollary."""
+    with pytest.raises(LytLoadError) as exc:
+        _l16_load(
+            "layout t = {min 0px, pref 1fr, max inf} V("
+            "  {min 10px, pref 1fr, max inf} T("
+            "     {min 40px, min v 90px, pref 40px, max 40px, content unbounded, "
+            "scroll v, edge v item, floor v 90px} a[common]"
+            "  )"
+            ")"
+        )
+    assert exc.value.detail["law"] == "L16"
+    assert len(exc.value.detail["violations"]) == 1
+    assert "above its own cap" in exc.value.detail["violations"][0]
+
+
+# ---------------------------------------------------------------------------
+# LOOP ITERATION 13 / ARC 4 ROUND 6 -- L17, edge attribution
+# (`edge <axis> unit|item|continuous`; ledger row 2286).
+#
+# The law's own shape is documented in `wellformed.find_l17_violations` and
+# `loader._load_edge_axes`; what these tests pin is (i) the key's grammar and
+# BOTH directions of its join to L10's `unit`, (ii) the three structural
+# clauses including the two that fire nowhere on the encodings, (iii) the
+# role frame resolving through the leaf's own `orient`, (iv) the firing
+# record re-derived rather than asserted from prose, and (v) solver
+# inertness. Same discipline L14/L15/L16 each pinned for themselves.
+# ---------------------------------------------------------------------------
+
+
+def _l17_leaf(bag):
+    """A scrolling leaf in a plain H position, varying only in its own bag."""
+    return (
+        "layout t = {min 0px, pref 1fr, max inf} H("
+        f"  {{min 40px, pref 1fr, max inf, content unbounded, {bag}}} a[common],"
+        "  {min 10px, pref 1fr, max inf} b[common]"
+        ")"
+    )
+
+
+def _l17_load(text):
+    layouts = loader.load_layouts(text)
+    return next(iter(layouts.values()))
+
+
+def test_l17_edge_loads_and_is_absent_by_default():
+    slot = _l17_load(_l17_leaf("scroll v, edge v item"))
+    assert slot.node.children[0].node.edge_axes == frozenset({("v", "item")})
+    plain = _l17_load(
+        "layout t = {min 0px, pref 1fr, max inf} H("
+        "  {min 10px, pref 1fr, max inf} b[common]"
+        ")"
+    )
+    assert plain.node.children[0].node.edge_axes == frozenset()
+
+
+def test_l17_edge_accumulates_both_axes_rather_than_last_write_wins():
+    """Same departure from last-write-wins bag semantics `scroll`/`unit`/
+    `floor` already take: `edge h` and `edge v` are two facts, not a
+    correction of one another."""
+    slot = _l17_load(_l17_leaf("scroll v, scroll h, edge v item, edge h continuous"))
+    assert slot.node.children[0].node.edge_axes == frozenset(
+        {("v", "item"), ("h", "continuous")}
+    )
+
+
+def test_l17_edge_is_leaf_only():
+    with pytest.raises(LytLoadError) as exc:
+        _l17_load(
+            "layout t = {min 0px, pref 1fr, max inf, scroll v, edge v item} H("
+            "  {min 10px, pref 1fr, max inf} b[common]"
+            ")"
+        )
+    assert exc.value.detail["prohibition"] == "edge-on-non-leaf"
+
+
+@pytest.mark.parametrize(
+    "bag,prohibition",
+    [
+        ("scroll v, edge diag item", "invalid-edge-axis"),
+        ("scroll v, edge v fuzzy", "invalid-edge-disposition"),
+        ("scroll v, edge v item, edge v continuous", "duplicate-edge"),
+        # THE JOIN TO L10, FORWARD: a boundary that can be PLACED between
+        # items needs the constant pitch it would be placed on, and that
+        # pitch is not a new number -- it is L10's own `unit`.
+        ("scroll v, edge v unit", "edge-unit-without-pitch"),
+        # THE JOIN TO L10, BACKWARD: a leaf whose content along an axis IS a
+        # repetition of one constant thing may not say its boundary meets
+        # none. Together the two directions are what keep the disposition
+        # vocabulary honest at three members rather than redundant at two.
+        ("scroll v, unit v 24px, edge v item", "edge-under-unit-not-unit"),
+        ("scroll v, unit v 24px, edge v continuous", "edge-under-unit-not-unit"),
+    ],
+)
+def test_l17_load_time_refusals(bag, prohibition):
+    with pytest.raises(LytLoadError) as exc:
+        _l17_load(_l17_leaf(bag))
+    assert exc.value.detail["prohibition"] == prohibition
+    assert exc.value.detail["law"] == "L17"
+
+
+def test_l17_edge_takes_the_role_frame_through_the_leafs_own_orientation():
+    """`along`/`across` are ADMITTED here for L16's reason verbatim: what a
+    boundary falls on is a fact about the leaf's own content in the leaf's
+    own frame, which is exactly what L14's role frame resolves against. One
+    declaration, two classes, and the axis it binds follows the leaf."""
+    text = (
+        "layout t = {{min 0px, pref 1fr, max inf}} H("
+        "  {{min 40px, pref 1fr, max inf, content unbounded, orient {o},"
+        "    scroll along, edge along item}} a[common],"
+        "  {{min 10px, pref 1fr, max inf}} b[common]"
+        ")"
+    )
+    vert = _l17_load(text.format(o="v"))
+    horiz = _l17_load(text.format(o="h"))
+    assert vert.node.children[0].node.edge_axes == frozenset({("v", "item")})
+    assert horiz.node.children[0].node.edge_axes == frozenset({("h", "item")})
+
+
+def test_l17_clause_a_fires_on_a_scroller_that_never_named_its_edge():
+    """M2 PORT NOTE: exercises `wellformed.find_l17_violations` directly --
+    `check_wellformed` does NOT wire L17 into its default `all_violations`
+    on this mainline port (see that function's own M2 PORT DISCLOSURE
+    docstring paragraph), so the FUNCTION is what this test pins."""
+    import wellformed as _wellformed
+
+    slot = _l17_load(_l17_leaf("scroll v"))
+    violations = _wellformed.find_l17_violations(slot)
+    assert len(violations) == 1
+    law, _path, msg = violations[0]
+    assert law == "L17"
+    assert "declares no `edge v`" in msg
+
+
+@pytest.mark.parametrize("content", ["bounded", "designed"])
+def test_l17_clause_a_is_silent_where_it_disclaims_scope(content):
+    """A bounded leaf's content fits by construction (L14 governs its
+    demand) and `designed` content is L5c's hard reservation. Neither
+    creates a boundary that could cut, so this law does not put words in
+    either one's mouth -- the silence is pinned, not implied."""
+    import wellformed as _wellformed
+
+    slot = _l17_load(
+        "layout t = {min 0px, pref 1fr, max inf} H("
+        f"  {{min 40px, pref 1fr, max inf, content {content}}} a[common],"
+        "  {min 10px, pref 1fr, max inf} b[common]"
+        ")"
+    )
+    assert _wellformed.find_l17_violations(slot) == []
+
+
+def test_l17_clause_b_refuses_an_edge_on_an_axis_that_does_not_scroll():
+    """The converse of the trigger. Without a scroll there is no boundary
+    between shown and unshown content on that axis -- only the parent's
+    partition, and where the partition falls is not this leaf's fact.
+
+    M2 PORT NOTE: exercises `wellformed.find_l17_violations` directly --
+    see `test_l17_clause_a_fires_on_a_scroller_that_never_named_its_edge`'s
+    own note for why."""
+    import wellformed as _wellformed
+
+    slot = _l17_load(_l17_leaf("scroll v, edge v item, edge h continuous"))
+    violations = _wellformed.find_l17_violations(slot)
+    msgs = [msg for _law, _path, msg in violations]
+    assert len(msgs) == 1
+    assert "does not `scroll h`" in msgs[0]
+
+
+def test_l17_clause_c_refuses_a_placeable_edge_beside_an_elastic_claim():
+    """The join to L13, and the reason it is a refusal rather than an
+    arbitration: `edge v unit` gives the sub-unit remainder BACK so the
+    boundary can fall between two items, `elastic v` claims every pixel of
+    residual for the occupant. Same pixels, opposite directions.
+
+    M2 PORT NOTE: exercises `wellformed.find_l17_violations` directly --
+    see `test_l17_clause_a_fires_on_a_scroller_that_never_named_its_edge`'s
+    own note for why. Also declares `floor v 40px` (matching the fixture's
+    own 40px min) so this fixture does not ALSO trip L16 (which the M2 port
+    does wire, unlike L13/L17) -- L16 is not this test's own subject."""
+    import wellformed as _wellformed
+
+    slot = _l17_load(_l17_leaf("scroll v, unit v 24px, edge v unit, elastic v, floor v 40px"))
+    violations = _wellformed.find_l17_violations(slot)
+    msgs = [msg for _law, _path, msg in violations]
+    assert any("in opposite directions" in m for m in msgs)
+
+

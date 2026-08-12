@@ -1362,6 +1362,152 @@ port's own dispatch report, `.claude/dispatch-reports/lyt-m1-substrate-port.md`)
 The laws bind declarations; they do not retroactively indict silence —
 the same posture §13.3's own dormancy note states for L5/L5a/L5b/L5c.
 
+## 16. Amendment 8 — six keys and six laws ported from arc 4 of the model-iteration loop experiment: `min <axis>`/L12, `elastic <axis>`/L13, `ceiling <axis>` + the along/across role frame/L14, `activity`/`@demote`/L15, `floor <axis>`/L16, `edge <axis>`/L17
+
+Adopted per M2 of the model-implementation arc (ledger rows
+2107/2108/2157/2209/2228/2241/2269/2286; the ratified program row 1937
+continues), porting arc 4 of the `lyt-model-loop-experiment` branch's
+own six rounds to mainline, continuing §15's own M1 port of arc 1-2.
+[SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)'s own Amendment 8 entry is the
+dated ruling/rationale/provenance record; this section is the
+current-state grammar/semantics, in the same form §13/§14/§15 give
+Amendments 5/6/7.
+
+### 16.1 Grammar
+
+Six more sizing-bag keys, plus one presence kind and one axis-token
+extension, following the same "one more recognized key" precedent every
+prior amendment used:
+
+- **`min <axis> <extent>`**, `axis` ∈ `{h, v}` — accumulated like
+  `scroll`/`unit`; legal only where the slot's rectangle is its parent's
+  on both axes (root, or a direct child of an Exclusive/T node);
+  refused structurally elsewhere (`law: "L12"`).
+- **`elastic <axis>`**, `axis` ∈ `{h, v}` — LEAF-only; requires `content
+  unbounded` (`law: "L13"`).
+- **`ceiling <axis>`** — the per-axis form of §15's bare `ceiling` flag;
+  LEAF-only, `{h,v}` after role resolution, requires an excess-owner on
+  the same axis (`content bounded`, or a `scroll` on that axis) (`law:
+  "L14"`).
+- **The `along`/`across` role frame** — every axis-taking key above,
+  plus `scroll`/`unit`/`min <axis>` from §13/§15, additionally accepts
+  `along` (the leaf's own declared `orient`, §15.1 is unaffected — this
+  reuses the same `orient` key) or `across` (the other axis) in place of
+  a physical token. Resolved to a physical axis at load time
+  (`loader._resolve_axis_token`) and never survives into the AST.
+  Leaf-only — a role token on a Split or Exclusive names nothing (`law`
+  matches the key it was declared on, `prohibition:
+  "role-axis-on-non-leaf"`).
+- **`activity <level>`**, closed vocabulary `{sustained, occasional}` —
+  LEAF-only, last-write-wins (`law: "L15"`).
+- **`@demote(<axis> <extent>)`** — a fourth presence kind beside
+  `@fixed`/`@dev`/`@toggle` (§4.1); requires `activity occasional` and
+  `content bounded` on the same leaf, a closed PHYSICAL axis vocabulary
+  (roles refused by name here — a demotion's axis is the BAND's, not the
+  leaf's own frame), and a constant px threshold (`law: "L15"`).
+- **`floor <axis> <extent>`**, `axis` ∈ `{h, v}` — accumulated; LEAF-only;
+  `{h,v}` after role resolution; a constant px extent judged on the RAW
+  term before `ch` is folded into px (`law: "L16"`).
+- **`edge <axis> <disposition>`**, `disposition` ∈ `{unit, item,
+  continuous}` — accumulated; LEAF-only; `{h,v}` after role resolution;
+  both directions of a join to `unit <axis>` (§15.1) are checked (`law:
+  "L17"`).
+
+Every key stays permissive at the parser layer (any identifier/extent
+accepted) with the closed vocabularies, node-kind rules, and
+preconditions enforced by `loader.py`, matching the established "parser
+permissive, loader refuses" division of labor.
+
+### 16.2 The laws L12-L17
+
+- **L12 (floor attribution).** *Checked*, `wellformed.
+  find_l12_violations`. SOLVER-VISIBLE, unlike every other law this
+  amendment adds — `compiler._constrain` and the Exclusive branch's own
+  componentwise-max both read `Sizing.axis_min(axis)`.
+- **L13 (surplus attribution).** *Implemented, tested directly, NOT
+  wired into `check_wellformed`'s default enforcement* [corrected
+  2026-08-12, fix pass on the M2 substrate-port review's finding 2 —
+  see the Dormancy paragraph below]. `wellformed.find_l13_violations`.
+  Fires at the same both-axes position L12 distinguishes: an unbounded
+  leaf there must dispose of every axis its reservation can exceed its
+  floor on, by `scroll`, `elastic`, or a pinned floor==cap.
+- **L14 (demand attribution).** *Checked*, `wellformed.
+  find_l14_violations`. The complement of L12/L13's scope — fires only
+  at a Split child (one axis bound) whose leaf scrolls both axes and
+  pins its partition axis with no `ceiling` on it.
+- **L15 (demotion attribution).** *Checked*, `wellformed.
+  find_l15_violations`, three clauses: a wrapping leaf must declare
+  `activity`; a ranking is band-wide (all-or-nothing among a Split's
+  direct leaf children); and a Split that can vacate entirely is a
+  presence slot in disguise.
+- **L16 (deficit attribution).** *Checked*, `wellformed.
+  find_l16_violations`, three clauses: the trigger (an unbounded leaf
+  that disposed of surplus and excess but never deficit); the join to
+  L15 (reserve the floor, or be able to `@demote`); and reachability (a
+  floor above the leaf's own constant cap is incoherent).
+- **L17 (edge attribution).** *Implemented, tested directly, NOT
+  wired into `check_wellformed`'s default enforcement* [corrected
+  2026-08-12, same fix pass as L13 above]. `wellformed.
+  find_l17_violations`, three clauses: the trigger (an unbounded,
+  scrolling leaf owes an `edge` — WIDER than L16's own trigger, no
+  `elastic` precondition); an edge is only where a scroll is; and the
+  join to L13 (`edge <a> unit` and `elastic <a>` cannot both hold).
+
+L12, L14, L15, and L16 are arbitrated through the SAME `(law, path)`-keyed
+`Waiver` mechanism `check_wellformed` already generalizes for, alongside
+L2, L5, and L10/L11 (§13.3, §15.3). **L13 and L17 are not** — both fully
+ported, both fully correct, both exercised directly by their own
+dedicated tests, but neither function is called from
+`check_wellformed`'s `all_violations` list, so neither can cause
+`load_layouts` to refuse today. See the Dormancy paragraph immediately
+below for why, and for what that means on the two real reference
+encodings as they stand.
+
+**Dormancy [corrected 2026-08-12 — fix pass on the M2 substrate-port
+review, finding 2, ledger row 2312; the paragraph below replaces an
+earlier version that claimed all six laws return `[]` unconditionally,
+which is false for two of them].** L12, L14, L15, and L16 fire only
+against a genuine declaration or condition their own clause names — L12
+on a declared axis-keyed `min`; L14/L15/L16's structural halves on the
+underlying condition (a two-axis scroller with a pinned partition axis,
+a wrapping leaf, a surplus-plus-excess leaf) each law exists to find.
+Neither reference encoding declares any Amendment-8 key nor trips any of
+these three condition-based checks, so all four return `[]`
+unconditionally, and all four ARE wired into `check_wellformed`'s
+`all_violations` — genuinely, end-to-end dormant.
+
+**L13 and L17 are a different case, and the honest one matters.** Both
+functions' own structural conditions — L13's "an unbounded leaf on both
+axes must dispose of every axis it can exceed its floor on"; L17's "an
+unbounded, scrolling leaf owes an `edge`" — DO trip against both real,
+unedited reference encodings as they stand today: `find_l13_violations`
+returns 2 violations (`CP-library`/`CP-cards`), `find_l17_violations`
+returns 4 violations per class across six sites
+(`boardRail`/`tree`×2/`CP-library`/`CP-cards`/`settingsPane`/
+`otherBand`). Neither is a defect in the check — both are correctly
+naming leaves this stage's own encoding content genuinely hasn't yet
+been edited to satisfy (stage B's own job, not this port's). What keeps
+`load_layouts` from refusing on either today is that they are
+deliberately left OUT of `check_wellformed`'s `all_violations` — wiring
+either one in without first landing stage B's encoding-content edits
+would make `load_layouts` refuse BOTH reference encodings outright
+(verified directly, not guessed). Both encodings still re-solve to
+byte-identical CP-SAT output before and after this amendment (verified;
+see [SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)'s Amendment 8 entry and
+this port's own dispatch report,
+`.claude/dispatch-reports/lyt-m2-substrate-port.md`) — that claim was
+never false, only the "all six return `[]`" claim was. The laws bind
+declarations and the conditions that oblige one; they do not
+retroactively indict silence — the same posture §13.3/§15.3's own
+dormancy notes state, and the posture L12/L14/L15/L16 still hold to.
+
+**Scope note.** This port covers the `research/lyt` Python language
+substrate only. The experiment branch's own `emit_layout_tree.py`
+realization-layer emission for these six keys, and the frontend-side
+`along h|v` orientation-invariance consumer, are explicitly out of this
+amendment's scope — see [SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)'s
+Amendment 8 entry for the disclosed reasons.
+
 ## Status of the other LYT documents
 
 This file is the **current-state, standalone specification**. The two

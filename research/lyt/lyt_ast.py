@@ -97,7 +97,7 @@ license line and the umbrella's ADR-0006 per-file convention.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import FrozenSet, List, Literal, Optional, Tuple, Union
+from typing import Dict, FrozenSet, List, Literal, Optional, Tuple, Union
 
 Domain = Literal["go", "common", "debug", "board", "chrome"]
 Facet = Literal["action", "info"]
@@ -123,10 +123,68 @@ ContentClass = Literal["bounded", "designed", "unbounded"]
 # applies uniformly regardless of node kind.
 ScrollAxis = Literal["h", "v"]
 
+# METAMODEL WAVE, item 1 (ledger row 2157/2158, branch
+# lyt-model-loop-experiment, NOT merged without ratification): a leaf's
+# declared MOUNT ORIENTATION -- `orient h|v`, one more bag key following the
+# `wrap`/`content`/`boundary` precedent. Orientation is a declared fact of
+# the ENCODING, not a CSS accident or a component-local default: a widget
+# whose realization can lay itself out along either axis (TreeWidget's
+# existing `orientation` prop is the worked case) reads which axis to use
+# from the program, so a class that needs the horizontal layout (a narrow
+# portrait column, say) can declare it without touching the widget's own
+# code or its sibling class's declaration. Deliberately leaf-only, same
+# reasoning `content`/`unit_axes` already use: a Split/Exclusive's own
+# extent IS its children's partition, and "orientation" describes what a
+# LEAF renders internally, not how a container arranges its children
+# (which axis a Split partitions is already `Split.axis`, a wholly
+# different fact).
+Orientation = Literal["h", "v"]
 _VALID_UNITS = {"px", "ch", "fr"}
 _VALID_BASES = {"reserved", "envelope"}
 _VALID_CONTENT_CLASSES = {"bounded", "designed", "unbounded"}
 _VALID_SCROLL_AXES = {"h", "v"}
+_VALID_ORIENTATIONS = {"h", "v"}
+# LOOP ITERATION 11 / arc 4 round 4 (model-iteration loop EXPERIMENT,
+# ledger rows 2037/2066/2107/2157/2241; branch lyt-model-loop-experiment,
+# NOT merged without ratification): the closed vocabulary of ACTIVITY
+# LEVELS a leaf may declare -- how often the task this screen exists for
+# touches this leaf's content. `sustained` content is worked WITH
+# throughout a session; `occasional` content is CONFIGURED once and then
+# left alone. Two members, deliberately: the question the language needs
+# answered is "may this band's members leave under pressure", which is
+# binary. A finer scale (never/rare/often/constant) would invite ranking
+# arguments L15's demotion rule has no use for.
+_VALID_ACTIVITY_LEVELS = {"sustained", "occasional"}
+ActivityLevel = Literal["sustained", "occasional"]
+# LOOP ITERATION 13 / arc 4 round 6 (model-iteration loop EXPERIMENT,
+# ledger rows 2037/2066/2107/2157/2286; branch lyt-model-loop-experiment,
+# NOT merged without ratification): the closed vocabulary of EDGE
+# DISPOSITIONS -- what a leaf's own scroll BOUNDARY on an axis falls on.
+#
+#   unit       -- my content along this axis is a flat sequence of items
+#                 of ONE CONSTANT pitch, and that pitch is the `unit
+#                 <axis>` L10 already makes me declare. A boundary can be
+#                 PLACED between two items, and therefore must be: the
+#                 sub-unit remainder is given back, not painted over.
+#   item       -- my content along this axis is made of indivisible items
+#                 but of NO single constant pitch (a list of variable
+#                 rows, a stack of chrome plus a list). No arithmetic
+#                 places the boundary between items, so the boundary is
+#                 instead ANNOUNCED: a standing lane across from it says
+#                 the content continues, and a partial item at the edge
+#                 reads as "more below" rather than as a slice.
+#   continuous -- my content has no indivisible items along this axis at
+#                 all (prose, a drawing, a continuously-scaled surface).
+#                 A boundary anywhere cuts nothing, and nothing is owed.
+#
+# Three members, and the third is what keeps the key from being derivable:
+# `unit` is exactly "an L10 unit is declared on this axis" (both
+# directions of that join are refused in `loader._load_edge_axes`), so a
+# two-member vocabulary would carry no information the bag did not
+# already hold. `item` vs `continuous` is the fact only the encoding
+# knows.
+_VALID_EDGE_DISPOSITIONS = {"unit", "item", "continuous"}
+EdgeDisposition = Literal["unit", "item", "continuous"]
 # AMENDMENT 7 (ledger rows 2107/2108, ported from the model-iteration loop
 # experiment, round 6): the closed vocabulary of WRAP POLICIES a slot may
 # declare over its own units (`wrap balanced`). One member today,
@@ -200,6 +258,24 @@ class Sizing:
     aspect: Optional[float] = None
     basis: Literal["reserved", "envelope"] = "reserved"
     envelope_states: Optional[List[str]] = None
+    # METAMODEL WAVE, item 2 (ledger row 2157/2173/2174/2175, branch
+    # lyt-model-loop-experiment, NOT merged without ratification): the
+    # dict-envelope upgrade (rev2 domain-model-proposal §2.1, `.claude/
+    # dispatch-reports/lyt-domain-model-proposal.md`) -- "reservation is
+    # not an extent, it is a function from a finite, declared set of
+    # activity states to extents, and its reservation is the max over the
+    # set." SPEC.md §4.2 disclosed that the pre-wave implementation "does
+    # not compute a max over anything; it stores a fixed extent and a
+    # state list side by side" -- this field is what makes the max a real,
+    # checked fact instead of documentation: when populated (every
+    # declared state names an extent -- loader.py refuses a MIXED list of
+    # named/unnamed entries), the loader checks the slot's own `pref`
+    # equals `max(envelope_state_extents.values())`, refused loudly on a
+    # mismatch. `None` (the pre-wave default, and every entry using the
+    # legacy bare-name spelling) means the state list stays exactly what
+    # it always was -- documentation attached to a fixed extent, per L3's
+    # original, unchanged check (non-empty names only).
+    envelope_state_extents: Optional[Dict[str, "Extent"]] = None
     # AMENDMENT 7 (ledger rows 2107/2108, ported from the model-iteration
     # loop experiment round 3, ledger rows 2037/2038): this slot's declared
     # extent is an UPPER BOUND on what its content occupies, never a
@@ -221,6 +297,43 @@ class Sizing:
     # track-sizing order. Structural checker: `wellformed.find_l11_violations`
     # (L11).
     measure_bound: bool = False
+    # LOOP ITERATION 8 / ARC 4 (model-iteration loop EXPERIMENT, ledger rows
+    # 2037/2066/2107/2157 — branch lyt-model-loop-experiment, NOT merged
+    # without ratification). `min <axis> <extent>`: a PER-AXIS floor, for
+    # the one position in this language where a slot's own `min` binds BOTH
+    # of its axes at once — a direct child of an Exclusive/T node (and the
+    # root), whose rectangle IS its parent's on both axes, so there is no
+    # single "along" axis for `min` to describe (SPEC.md §4.2's own
+    # load-bearing fact 2; `compiler._constrain`'s `along=None` branch).
+    #
+    # This is L11's own ruling ("a declaration binds the axis it is about")
+    # applied one level up: not to an extent standing on the wrong axis of a
+    # partition, but to a FLOOR that is a fact about one axis and was being
+    # read as a fact about two. Both encodings carry numbers of exactly that
+    # shape — a ch-measured label-set WIDTH that also stood as a height
+    # floor, a chart's own CSS `height: 580px` that also stood as a width
+    # floor — and both encodings' own BOTH-AXES TENSION notes already named
+    # the limitation as inherited-and-disclosed rather than intended.
+    #
+    # Semantics: a `(axis, Extent)` pair here OVERRIDES `min` for that axis
+    # only; an axis nobody names keeps `min`, so every slot that declares no
+    # axis-min is byte-identical to its pre-iteration self. Solver-VISIBLE
+    # (unlike ceiling/unit/measure-bound, which bind the realization):
+    # `compiler._constrain` and the Exclusive branch's own componentwise-max
+    # derivation both read it. Load-time half: `loader._load_axis_mins`.
+    # Structural half (is this slot actually in a both-axes position?):
+    # `wellformed.find_l12_violations` (L12, floor attribution).
+    axis_mins: FrozenSet[Tuple[str, "Extent"]] = frozenset()
+
+    def axis_min(self, axis: str) -> Union["Extent", Literal["inf"]]:
+        """The floor this slot declares for `axis` ('h' horizontal / 'v'
+        vertical) — the per-axis override where one is declared, the
+        axis-agnostic `min` otherwise. One accessor so no consumer
+        re-implements the precedence rule (ADR-0012 P1)."""
+        for declared_axis, extent in self.axis_mins:
+            if declared_axis == axis:
+                return extent
+        return self.min
 
     def __post_init__(self) -> None:
         if self.basis not in _VALID_BASES:
@@ -249,10 +362,34 @@ class Presence:
     not offering the literal.
     """
 
-    kind: Literal["fixed", "build", "toggle"]
+    kind: Literal["fixed", "build", "toggle", "demote"]
     variant: Optional[Literal["dev"]] = None
     by: Optional[Literal["user", "system"]] = None
     hidden: Optional[Literal["release", "preserve"]] = None
+    # LOOP ITERATION 11 / arc 4 round 4 (L15, ledger rows
+    # 2037/2066/2107/2157/2241): the DEMOTION presence kind's own two
+    # fields -- the axis the width (or height) pressure is measured on, and
+    # the extent below which this slot vacates. Both `None` for every other
+    # kind, and both REQUIRED for `kind == 'demote'` (guarded below).
+    #
+    # WHY THIS IS A FOURTH KIND AND NOT `toggle(by='system', hidden=
+    # 'release')`, which the guard below still refuses. That prohibition
+    # (§4.1 line 268, L1 lines 353-356) is about the SYSTEM's own state --
+    # an engine connecting, a log line arriving, a search finishing --
+    # re-partitioning the page underneath a user who did not ask for it and
+    # cannot predict it: a control moves out from under a stationary
+    # cursor. A demotion's trigger is neither the user's click nor the
+    # system's state; it is the PAGE MEASURE, which is the same input the
+    # solve itself takes. A demotion therefore cannot fire without a
+    # re-solve, and a re-solve cannot happen without the viewport changing
+    # -- the one event during which the whole page is already moving and no
+    # cursor is resting on a control it expects to stay put. The viewport is
+    # a third actor, and giving it its own presence kind is what keeps L1's
+    # prohibition intact rather than quietly widened: `by` stays `None`
+    # here, so `toggle(by='system', hidden='release')` is exactly as
+    # untypable after this iteration as before it.
+    demote_axis: Optional[Literal["h", "v"]] = None
+    demote_below_px: Optional[float] = None
 
     def __post_init__(self) -> None:
         if self.kind == "toggle":
@@ -265,6 +402,36 @@ class Presence:
                     "hidden='preserve', or model the toggle as a "
                     "system-driven translation instead of a re-partition."
                 )
+        # LOOP ITERATION 11 (L15): the same "unrepresentable by
+        # construction, not just by convention" posture every other closed
+        # field in this module takes -- a direct constructor call bypassing
+        # `loader._load_presence` must not be able to mint a demotion with
+        # no threshold to demote below, nor hang a threshold off a kind
+        # that has no use for one.
+        if self.kind == "demote":
+            if self.demote_axis not in _VALID_SCROLL_AXES:
+                raise ValueError(
+                    f"Presence(kind='demote').demote_axis must be one of "
+                    f"{sorted(_VALID_SCROLL_AXES)}, got {self.demote_axis!r} "
+                    "(LOOP ITERATION 11, L15 demotion attribution, ledger "
+                    "row 2241)"
+                )
+            if self.demote_below_px is None or self.demote_below_px <= 0:
+                raise ValueError(
+                    "Presence(kind='demote').demote_below_px must be a "
+                    f"positive px extent, got {self.demote_below_px!r} — a "
+                    "demotion with no threshold demotes always or never, "
+                    "neither of which is a measure (LOOP ITERATION 11, L15, "
+                    "ledger row 2241)"
+                )
+        elif self.demote_axis is not None or self.demote_below_px is not None:
+            raise ValueError(
+                f"Presence(kind={self.kind!r}) carries demotion fields "
+                f"(axis={self.demote_axis!r}, below={self.demote_below_px!r}) "
+                "but only kind='demote' has any use for them — a decorative "
+                "threshold nothing reads is refused loudly, not carried "
+                "(LOOP ITERATION 11, L15, ledger row 2241)"
+            )
 
 
 FIXED = Presence(kind="fixed")
@@ -273,6 +440,18 @@ DEV = Presence(kind="build", variant="dev")
 
 def toggle(by: Literal["user", "system"], hidden: Literal["release", "preserve"]) -> Presence:
     return Presence(kind="toggle", by=by, hidden=hidden)
+
+
+def demote(axis: Literal["h", "v"], below_px: float) -> Presence:
+    """LOOP ITERATION 11 / arc 4 round 4 (L15, ledger row 2241): the
+    constructor for the demotion presence kind, mirroring `toggle` above.
+    Reads: while the band hosting this slot is granted less than `below_px`
+    along `axis`, this slot is ABSENT and its extent belongs to its
+    siblings; at or above it, the slot stands. Release semantics by
+    construction -- there is no preserve-flavoured demotion, because a
+    demotion that kept its rectangle would relieve no pressure and the
+    whole point is the room it gives back."""
+    return Presence(kind="demote", demote_axis=axis, demote_below_px=below_px)
 
 
 @dataclass(frozen=True)
@@ -311,6 +490,124 @@ class Leaf:
     # refusals (leaf-only, px-only, one entry per axis, and the `content
     # bounded|unbounded` precondition).
     unit_axes: FrozenSet[Tuple[str, float]] = field(default_factory=frozenset)
+    # LOOP ITERATION 9 / arc 4 round 2 (model-iteration loop EXPERIMENT,
+    # ledger rows 2037/2066/2107/2157/2209; branch lyt-model-loop-
+    # experiment, NOT merged without ratification): the axes along which
+    # this leaf's OCCUPANT claims whatever extent the leaf's reservation
+    # is given -- `elastic h` reads "along the horizontal axis, whatever
+    # this leaf is granted, its content grows to fill it; it never leaves
+    # a residual". A frozenset of axis names, at most one entry per axis
+    # (the loader enforces that); empty by default, byte-identical to
+    # every pre-iteration-9 leaf.
+    #
+    # It is the DUAL of `Sizing.ceiling` (L9). Both keys answer the same
+    # question -- what happens when a reservation is larger than what
+    # occupies it -- from opposite ends: `ceiling` shrinks the
+    # RESERVATION to the content (the honest answer for bounded content,
+    # which has a finite demand), `elastic` grows the OCCUPANT to the
+    # reservation (the only honest answer for unbounded content, which
+    # does not). Law L13 (surplus attribution,
+    # `wellformed.find_l13_violations`) is its structural checker;
+    # `loader._load_elastic_axes` carries the load-time refusals
+    # (leaf-only, `{h,v}` only, one entry per axis, and the `content
+    # unbounded` precondition -- bounded content's answer is `ceiling`,
+    # designed content's is L5c's hard reservation).
+    elastic_axes: FrozenSet[str] = field(default_factory=frozenset)
+    # METAMODEL WAVE, item 1 (ledger row 2157/2158): the leaf's declared
+    # mount orientation -- `orient h|v`. `'v'` is the default (the
+    # "one-more-bag-key" precedent's own convention: an undeclared key
+    # resolves to the byte-identical pre-wave behavior of every existing
+    # orientation-aware widget), so every leaf that predates this wave
+    # loads with `orientation == 'v'` whether or not it ever names an
+    # orientation-aware widget at all -- geometry-inert on its own, exactly
+    # like `boundary`'s own default-False landing.
+    orientation: Orientation = "v"
+    # LOOP ITERATION 10 / arc 4 round 3 (model-iteration loop EXPERIMENT,
+    # ledger rows 2037/2066/2107/2157/2227; branch lyt-model-loop-
+    # experiment, NOT merged without ratification): the axes along which
+    # this leaf's declared extent is an UPPER BOUND rather than a standing
+    # floor -- `ceiling across` reads "across this leaf's own orientation,
+    # what this leaf occupies is its content's DEMAND, and the reservation
+    # is only the bound that demand may not exceed". A frozenset of
+    # PHYSICAL axis names; the `.lyt` source may spell either physical axis
+    # (`h`/`v`) or, per L14, one of the two ROLE names (`along`/`across`),
+    # which `loader._resolve_axis_token` binds to a physical axis through
+    # this same leaf's `orientation` before construction -- so by the time
+    # a value reaches here the role frame is already gone.
+    #
+    # It is the PER-AXIS form of `Sizing.ceiling` (L9), and it is a LEAF
+    # fact rather than a Sizing one for the reason `orientation` is: only a
+    # leaf has an orientation for a role name to resolve against. L9's own
+    # `content bounded` precondition is relaxed here in exactly one way
+    # (`loader._load_ceiling_axes` clause (c)): an axis that declares
+    # `scroll` already names an owner for the EXCESS, so a ceiling on that
+    # same axis is the honest answer for the DEFICIT -- together the two
+    # say "this axis takes exactly its content's current demand". Law L14
+    # (demand attribution, `wellformed.find_l14_violations`) is its
+    # structural checker.
+    ceiling_axes: FrozenSet[str] = field(default_factory=frozenset)
+    # LOOP ITERATION 11 / arc 4 round 4 (model-iteration loop EXPERIMENT,
+    # ledger rows 2037/2066/2107/2157/2241; branch lyt-model-loop-
+    # experiment, NOT merged without ratification): how often the task this
+    # screen exists for touches this leaf's content -- `activity sustained`
+    # or `activity occasional`. `None` (the default) means the encoding has
+    # not ranked this leaf, which is where every leaf predating this
+    # iteration stands; the language reads an unranked leaf as "no claim
+    # made", never as "sustained by default", so nothing about an
+    # un-migrated encoding changes.
+    #
+    # It is a LEAF fact for the same reason `content` is: it describes what
+    # this widget IS to its user, not how a partition treats it. And it is
+    # the precondition for the `@demote` presence kind -- a slot may only
+    # vacate a band under width pressure if its own encoding has said, in
+    # so many words, that the user does not work with it continuously. That
+    # ordering is the whole safety property: the model cannot move a
+    # sustained control into a menu, because it has to declare the content
+    # occasional first, in the same file a reader is looking at.
+    activity: Optional[ActivityLevel] = None
+    # LOOP ITERATION 12 / arc 4 round 5 (model-iteration loop EXPERIMENT,
+    # ledger rows 2037/2066/2107/2157/2268-2269; branch lyt-model-loop-
+    # experiment, NOT merged without ratification): the leaf's own SMALLEST
+    # USABLE extent per physical axis -- `floor v 257px` reads "below 257px
+    # of height I am not a usable control; what you grant me under that is
+    # not a truncation of my content but a CUT THROUGH one of its members".
+    # A frozenset of `(axis, Extent)` pairs, the same shape `Sizing.
+    # axis_mins` (L12) carries, and the same physical-axis vocabulary:
+    # `loader._resolve_axis_token` has already bound any `along`/`across`
+    # role spelling against this leaf's own `orientation` before
+    # construction.
+    #
+    # It is the DEFICIT dual of `elastic_axes` (L13, surplus) and the third
+    # corner of the same square `ceiling_axes` (L14, demand) stands in.
+    # `elastic` disposes of room the leaf did not need; `scroll` (L5a)
+    # disposes of content the reservation could not hold; NEITHER says how
+    # little room makes the leaf's own vocabulary unreadable, and that is
+    # the only one of the three whose absence can put a control's glyph row
+    # across a clip edge. Law L16 (deficit attribution,
+    # `wellformed.find_l16_violations`) is its structural checker, and its
+    # second clause is the JOIN to L15: a leaf declaring a floor must
+    # either RESERVE it (its own `min` on that axis) or be able to LEAVE
+    # (`@demote`) -- being granted less than one's floor and staying is the
+    # state this key exists to make unrepresentable.
+    floor_axes: FrozenSet[Tuple[str, "Extent"]] = frozenset()
+    # LOOP ITERATION 13 / arc 4 round 6 (L17, edge attribution; ledger row
+    # 2286 -- branch lyt-model-loop-experiment, NOT merged without
+    # ratification): what this leaf's own scroll BOUNDARY on a physical
+    # axis falls on. A frozenset of `(axis, disposition)` pairs over the
+    # closed `_VALID_EDGE_DISPOSITIONS` vocabulary above; empty (the
+    # pre-iteration-13 default) means the leaf says nothing, which is
+    # exactly the state L17's trigger clause exists to find.
+    #
+    # It is the fact every key on this leaf so far presupposed and none
+    # stated. `scroll <axis>` (L5a) says the content runs PAST the
+    # rectangle; `elastic` (L13) disposes of room the occupant did not
+    # need; `ceiling` (L14) gives a finite surplus back; `floor` (L16)
+    # refuses a rectangle too small for the whole vocabulary. All four
+    # reason about the AREA. None says anything about the BOUNDARY the
+    # scroll creates -- and a boundary is where content is actually cut,
+    # which is why a leaf can satisfy every one of them and still show a
+    # row bisected through its own glyph rows at the pane's bottom edge.
+    edge_axes: FrozenSet[Tuple[str, str]] = frozenset()
 
     def __post_init__(self) -> None:
         # F3-fix precedent (Extent/Sizing/Presence, this same module):
@@ -325,6 +622,16 @@ class Leaf:
                 f"Leaf.content must be one of {sorted(_VALID_CONTENT_CLASSES)} "
                 f"or None, got {self.content!r} (AMENDMENT 5, ledger row 1937, "
                 ".claude/dispatch-reports/lyt-tab-region-consult.md §9.2)"
+            )
+        # METAMODEL WAVE, item 1: same "unrepresentable by construction"
+        # posture as `content`'s guard above -- a direct constructor call
+        # bypassing `loader._load_orientation` would otherwise mint an
+        # orientation outside the closed {h, v} vocabulary silently.
+        if self.orientation not in _VALID_ORIENTATIONS:
+            raise ValueError(
+                f"Leaf.orientation must be one of {sorted(_VALID_ORIENTATIONS)}, "
+                f"got {self.orientation!r} (METAMODEL WAVE item 1, ledger row "
+                "2157/2158)"
             )
         # AMENDMENT 7 (L10): same "unrepresentable by construction"
         # posture the `content` guard above uses -- a direct constructor
@@ -352,6 +659,90 @@ class Leaf:
                     "(AMENDMENT 7, L10 unit integrity, ledger rows 2107/2108)"
                 )
             seen_axes.add(axis)
+        # LOOP ITERATION 9 (L13): the same "unrepresentable by
+        # construction" posture every closed-vocabulary field above uses
+        # -- a direct constructor call bypassing
+        # `loader._load_elastic_axes` would otherwise mint an elastic
+        # claim on an unknown axis silently. (A frozenset cannot carry a
+        # duplicate, so the one-per-axis guard L10's list-shaped
+        # `unit_axes` needs has no analog here.)
+        bad_elastic = self.elastic_axes - _VALID_SCROLL_AXES
+        if bad_elastic:
+            raise ValueError(
+                f"Leaf.elastic_axes must be a subset of "
+                f"{sorted(_VALID_SCROLL_AXES)}, got {sorted(bad_elastic)} "
+                "(LOOP ITERATION 9, L13 surplus attribution, ledger row 2209)"
+            )
+        # LOOP ITERATION 10 (L14): same guard, same reason -- and note the
+        # vocabulary checked here is the PHYSICAL one: `along`/`across` are
+        # concrete-syntax role names `loader._resolve_axis_token` has
+        # already resolved, never a value the AST may carry.
+        bad_ceiling = self.ceiling_axes - _VALID_SCROLL_AXES
+        if bad_ceiling:
+            raise ValueError(
+                f"Leaf.ceiling_axes must be a subset of "
+                f"{sorted(_VALID_SCROLL_AXES)}, got {sorted(bad_ceiling)} "
+                "(LOOP ITERATION 10, L14 demand attribution, ledger row 2227)"
+            )
+        # LOOP ITERATION 11 (L15): same guard, same reason as `content`'s.
+        if self.activity is not None and self.activity not in _VALID_ACTIVITY_LEVELS:
+            raise ValueError(
+                f"Leaf.activity must be one of {sorted(_VALID_ACTIVITY_LEVELS)} "
+                f"or None, got {self.activity!r} (LOOP ITERATION 11, L15 "
+                "demotion attribution, ledger row 2241)"
+            )
+        # LOOP ITERATION 12 (L16): same guard, same reason as
+        # `elastic_axes`' -- and the one-per-axis check `axis_mins` needs
+        # too, since a `(axis, Extent)` frozenset CAN carry two entries for
+        # one axis when the extents differ, which would leave "how little
+        # room is too little" ambiguous exactly where the point is that it
+        # not be.
+        floor_seen: set = set()
+        for floor_axis, _extent in self.floor_axes:
+            if floor_axis not in _VALID_SCROLL_AXES:
+                raise ValueError(
+                    f"Leaf.floor_axes axis must be one of "
+                    f"{sorted(_VALID_SCROLL_AXES)}, got {floor_axis!r} "
+                    "(LOOP ITERATION 12, L16 deficit attribution, ledger "
+                    "row 2269)"
+                )
+            if floor_axis in floor_seen:
+                raise ValueError(
+                    f"Leaf.floor_axes declares axis {floor_axis!r} twice -- "
+                    "a leaf has ONE smallest-usable extent per axis (LOOP "
+                    "ITERATION 12, L16 deficit attribution, ledger row 2269)"
+                )
+            floor_seen.add(floor_axis)
+        # LOOP ITERATION 13 (L17): same "unrepresentable by construction"
+        # posture as every closed-vocabulary field above, and the same
+        # one-per-axis guard `floor_axes` needs for the same reason -- a
+        # `(axis, disposition)` frozenset CAN carry two entries for one
+        # axis when the dispositions differ, which would leave "what does
+        # my boundary fall on" ambiguous exactly where the point is that
+        # it not be.
+        edge_seen: set = set()
+        for edge_axis, disposition in self.edge_axes:
+            if edge_axis not in _VALID_SCROLL_AXES:
+                raise ValueError(
+                    f"Leaf.edge_axes axis must be one of "
+                    f"{sorted(_VALID_SCROLL_AXES)}, got {edge_axis!r} (LOOP "
+                    "ITERATION 13, L17 edge attribution, ledger row 2286)"
+                )
+            if disposition not in _VALID_EDGE_DISPOSITIONS:
+                raise ValueError(
+                    f"Leaf.edge_axes disposition must be one of "
+                    f"{sorted(_VALID_EDGE_DISPOSITIONS)}, got "
+                    f"{disposition!r} for axis {edge_axis!r} (LOOP "
+                    "ITERATION 13, L17 edge attribution, ledger row 2286)"
+                )
+            if edge_axis in edge_seen:
+                raise ValueError(
+                    f"Leaf.edge_axes declares axis {edge_axis!r} twice -- a "
+                    "leaf's boundary on an axis falls on ONE kind of thing "
+                    "(LOOP ITERATION 13, L17 edge attribution, ledger row "
+                    "2286)"
+                )
+            edge_seen.add(edge_axis)
 
 
 @dataclass(frozen=True)

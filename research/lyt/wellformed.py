@@ -662,6 +662,754 @@ def find_l11_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str
     return violations
 
 
+def find_l12_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str, str, str]]:
+    """LOOP ITERATION 8 / ARC 4 (model-iteration loop EXPERIMENT, ledger rows
+    2037/2066/2107/2157; branch lyt-model-loop-experiment, NOT merged without
+    ratification) — L12, floor attribution. Returns one `(law, path, message)`
+    triple per violation, the same shape `find_l5_violations` /
+    `find_l10_violations` / `find_l11_violations` return, arbitrated through
+    the same `(law, path)`-keyed waiver mechanism.
+
+    THE LAW. `min <axis> <extent>` (`Sizing.axis_mins`;
+    `loader._load_axis_mins` carries the load-time half) declares a floor for
+    ONE axis. That is only a distinct fact from the axis-agnostic `min` where
+    `min` is read on BOTH axes — the root, and a direct child of an
+    Exclusive/T node, the two positions `compiler._constrain` visits with
+    `along=None`. Everywhere else a slot's `min` already names exactly one
+    axis (the one its parent partitions on) and the OTHER axis is fixed by
+    the parent's own cross-axis equality, so an axis-keyed floor there is
+    either a redundant restatement of `min` or a claim about an axis this
+    slot does not get to make — and a declaration that cannot bind is the
+    decorative-declaration failure mode this language's whole L3/L5/L10
+    family exists to refuse (SPEC.md §4.2's own "the code does not compute a
+    max over anything" is the same complaint one law family over).
+
+    Only a tree walk knows a slot's parent, which is why this half cannot
+    live beside the load-time one.
+
+    DISCLOSED, NOT HIDDEN: unlike `ceiling`/L9, a cross-axis `unit`/L10 and
+    `measure-bound`/L11 — all three realization-binding — L12 is
+    SOLVER-VISIBLE. `compiler._constrain` applies the per-axis floor to the
+    matching CP-SAT variable, and the Exclusive branch's own componentwise-
+    max derivation takes each child's floor per axis. A program that
+    declares no axis-keyed `min` anywhere solves byte-identically to its
+    pre-iteration self (verified by re-running the full matrix before and
+    after the mechanism landed, with the encodings still unedited).
+    """
+    violations: List[Tuple[str, str, str]] = []
+
+    def walk(slot: ast.Slot, spath: str, both_axes: bool) -> None:
+        if slot.sizing.axis_mins and not both_axes:
+            axes = sorted(axis for axis, _ in slot.sizing.axis_mins)
+            violations.append((
+                "L12",
+                spath,
+                f"{spath}: L12 floor-attribution violation — declares a "
+                f"per-axis floor ({', '.join('min ' + a for a in axes)}) at a "
+                "slot whose own `min` already names exactly ONE axis (the "
+                "axis its parent partitions on); the other axis is fixed by "
+                "the parent's cross-axis equality, so this declaration binds "
+                "nothing. A per-axis floor is meaningful only where the "
+                "slot's rectangle IS its parent's on both axes — the root, "
+                "or a direct child of an Exclusive/T node (LOOP ITERATION 8 "
+                "/ ARC 4, ledger rows 2037/2066/2107/2157)",
+            ))
+        node = slot.node
+        if isinstance(node, ast.Split):
+            for i, child in enumerate(node.children):
+                walk(child, f"{spath}/{node.axis.upper()}{i}", False)
+        elif isinstance(node, ast.Exclusive):
+            for i, child in enumerate(node.children):
+                walk(child, f"{spath}/T{i}", True)
+
+    walk(root, path, True)
+    return violations
+
+
+def _can_exceed_its_floor(sizing: ast.Sizing, axis: str) -> bool:
+    """True when this slot's reservation on `axis` can be granted MORE than
+    its own floor — i.e. there is a residual for L13 to attribute. `max
+    inf` always can; an `fr` floor is a share, not a constant, so it is
+    treated as "cannot be compared" (ADR-0002's honest silence over a
+    confident wrong answer, the same disposition `find_l10_violations`
+    takes for a non-px `min`)."""
+    lo = sizing.axis_min(axis)
+    hi = sizing.max
+    if hi == "inf":
+        return True
+    if not isinstance(lo, ast.Extent) or not isinstance(hi, ast.Extent):
+        return False
+    if lo.unit != hi.unit:
+        return False
+    return hi.v > lo.v
+
+
+def find_l13_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str, str, str]]:
+    """LOOP ITERATION 9 / ARC 4 ROUND 2 (model-iteration loop EXPERIMENT,
+    ledger rows 2037/2066/2107/2157/2209/2212; branch
+    lyt-model-loop-experiment, NOT merged without ratification) — L13,
+    surplus attribution. Returns one `(law, path, message)` triple per
+    violation, the same shape every other structural checker in this module
+    returns, arbitrated through the same `(law, path)`-keyed waiver mechanism.
+
+    THE LAW. A rectangle that is larger than what occupies it is this
+    language's founding complaint, and until now the language could only say
+    it from one end: `ceiling` (L9) shrinks a reservation back to a FINITE
+    demand. Content declared `unbounded` has no finite demand to shrink to,
+    so for it the question is the other one — does the occupant GROW to what
+    it was granted, or does the difference fall to bare background? Nothing
+    in this language answered that, and the answer was being decided,
+    per-component and invisibly to the model, by hand-authored CSS caps.
+
+    So: a leaf declaring `content unbounded` must DISPOSE of every axis
+    along which its own reservation can be granted more than its floor.
+    There are exactly three honest dispositions, and this law asks only that
+    one of them be named:
+
+      - `scroll <axis>` — the content EXCEEDS the reservation on that axis,
+        so there is never a surplus to attribute (L5a already names its
+        owner);
+      - `elastic <axis>` — the OCCUPANT claims whatever it is granted;
+      - a pinned axis (floor == cap) — no surplus can arise in the first
+        place.
+
+    An axis with none of the three has a residual that belongs to nobody.
+
+    SCOPE, DELIBERATE AND DISCLOSED. The walk fires only where a slot's own
+    declaration binds BOTH of its axes at once — the root and a direct child
+    of an Exclusive/T node, exactly the `along=None` position L12 already
+    distinguishes. Everywhere else a leaf declares an extent for ONE axis
+    (its parent's partition axis) and simply takes the parent's extent on
+    the other, so the model holds no floor/cap pair on the cross axis to
+    compare and this law would be guessing. That is the same "honest
+    silence over a confident wrong answer" corner L10's non-px-`min` skip
+    already occupies — named here, not hidden. It also means the law's
+    reach today is the control-panel tab bodies, which is precisely where
+    the round-1 review measured the surplus.
+
+    Realization-binding, not solver-visible: `compiler.py` never reads
+    `elastic_axes`; what the declaration changes is which claimant the
+    realization's own CSS hands the residual to
+    (`useLytOverflowCss.leafElasticStyle` publishes it, the occupant's own
+    cap reads it). Same footing `ceiling`/L9 and `unit`/L10 have.
+
+    M2 PORT DISCLOSURE (ledger rows 2107/2108/2157/2209): this function is
+    fully ported and correct, and is exercised directly by its own tests
+    (see `tests/test_loop_laws.py`), but `check_wellformed` below does NOT
+    include its results in the enforced `all_violations` list -- see that
+    function's own comment for why (mainline's own `CP-library`/`CP-cards`
+    already carry the `content unbounded` + `scroll v` shape that trips
+    this law, and this port does not carry the encoding edit
+    (`elastic h`) the experiment branch made to satisfy it).
+    """
+    violations: List[Tuple[str, str, str]] = []
+
+    def walk(slot: ast.Slot, spath: str, both_axes: bool) -> None:
+        node = slot.node
+        if isinstance(node, ast.Leaf) and both_axes and node.content == "unbounded":
+            for axis in ("h", "v"):
+                if axis in slot.scroll_axes:
+                    continue
+                if axis in node.elastic_axes:
+                    continue
+                if not _can_exceed_its_floor(slot.sizing, axis):
+                    continue
+                violations.append((
+                    "L13",
+                    spath,
+                    f"{spath}: L13 surplus-attribution violation — leaf "
+                    f"'{node.widget}' declares `content unbounded` and its "
+                    f"reservation can be granted more than its floor along "
+                    f"the {axis!r} axis, but names no disposition for that "
+                    "axis: no `scroll` (content exceeds it), no `elastic` "
+                    "(the occupant claims it), and no pinned floor==cap (no "
+                    "surplus arises). The residual therefore belongs to "
+                    "nobody and is painted as bare background — the "
+                    "standing-cost defect this language exists to forbid, "
+                    "arriving from the opposite side of the same question "
+                    "`ceiling`/L9 answers for bounded content (LOOP "
+                    "ITERATION 9 / ARC 4 ROUND 2, ledger rows "
+                    "2037/2066/2107/2157/2209)",
+                ))
+        if isinstance(node, ast.Split):
+            for i, child in enumerate(node.children):
+                walk(child, f"{spath}/{node.axis.upper()}{i}", False)
+        elif isinstance(node, ast.Exclusive):
+            for i, child in enumerate(node.children):
+                walk(child, f"{spath}/T{i}", True)
+
+    walk(root, path, True)
+    return violations
+
+
+def find_l14_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str, str, str]]:
+    """LOOP ITERATION 10 / ARC 4 ROUND 3 (model-iteration loop EXPERIMENT,
+    ledger rows 2037/2066/2107/2157/2229; branch lyt-model-loop-experiment,
+    NOT merged without ratification) -- L14, demand attribution. Returns one
+    `(law, path, message)` triple per violation, the same shape every other
+    structural checker in this module returns, arbitrated through the same
+    `(law, path)`-keyed waiver mechanism.
+
+    THE LAW. A leaf that declares `scroll` on BOTH of its axes is not
+    rendering a strip or a reflowing paragraph; it is drawing a
+    TWO-DIMENSIONAL STRUCTURE, one that can outgrow its rectangle in either
+    direction independently. For such a leaf the extent on either axis is a
+    property OF THE STRUCTURE -- how wide the widest branch is, how deep the
+    deepest one -- and never a constant. So a two-dimensionally scrollable
+    leaf whose own declaration PINS its partition axis (floor == cap) has
+    asserted a fixed extent for a quantity nothing measured: at best it is
+    the structure's current demand, restated where it will go stale; at
+    worst -- and this is the observed case that mints the law -- it is a
+    round multiple of the leaf's own declared `unit`, i.e. "n lanes",
+    reserved permanently for a structure that is presently one lane wide,
+    with the difference standing as dead band for the entire length of the
+    other axis.
+
+    The remedy the law asks for is one word, and the language already had
+    the word for the ONE-dimensional case: `ceiling <axis>` (L14's own
+    load-time half, `loader._load_ceiling_axes`). Declaring it says the pin
+    is a BOUND -- the structure takes its demand, gives the rest back, and
+    the `scroll` this leaf already declares on that axis owns anything past
+    the bound. A pin with a ceiling is a reservation; a pin without one is
+    an assertion.
+
+    SCOPE, DELIBERATE AND DISCLOSED -- and note it is the COMPLEMENT of
+    L12/L13's. Those two fire only where a slot's declaration binds BOTH
+    axes at once (the root, a T-child). This one fires only where it binds
+    exactly ONE -- a Split child, where the declared extent is unambiguously
+    about the parent's partition axis and the pin is therefore a real,
+    checkable floor==cap pair on a known axis. At the root and at a T-child
+    the same declaration is read on both axes at once and "which axis is
+    pinned" is not a question this walk could answer without guessing, so it
+    stays silent there: the same "honest silence over a confident wrong
+    answer" corner L10's non-px-`min` skip and L13's own scope note already
+    occupy.
+
+    It is dormant for every leaf that does not declare scroll on both axes
+    -- a one-axis scroller (a strip, a reflowing pane) is exactly the shape
+    whose cross extent IS honestly a constant, and this law says nothing
+    about it.
+
+    Realization-binding, not solver-visible: `compiler.py` never reads
+    `ceiling_axes`. The pin is what the solve reserves and what any
+    board-priority sibling sum plans for, unchanged; what the declaration
+    changes is whether the realization's own track hands the unused part
+    back. Same footing `ceiling`/L9, `unit`/L10, `measure-bound`/L11 and
+    `elastic`/L13 all have.
+    """
+    violations: List[Tuple[str, str, str]] = []
+
+    def pinned_on(sizing: ast.Sizing) -> bool:
+        lo, hi = sizing.min, sizing.max
+        if hi == "inf":
+            return False
+        if not isinstance(lo, ast.Extent) or not isinstance(hi, ast.Extent):
+            return False
+        if lo.unit != hi.unit:
+            return False
+        return lo.v == hi.v
+
+    def walk(slot: ast.Slot, spath: str, parent_axis: Optional[str]) -> None:
+        node = slot.node
+        if (
+            isinstance(node, ast.Leaf)
+            and parent_axis is not None
+            and {"h", "v"} <= set(slot.scroll_axes)
+            and parent_axis not in node.ceiling_axes
+            and pinned_on(slot.sizing)
+        ):
+            units = dict(node.unit_axes)
+            unit_note = (
+                f" (its own declared unit on that axis is {units[parent_axis]:g}px, so the "
+                f"pin reads as a constant multiple of it)"
+                if parent_axis in units
+                else ""
+            )
+            violations.append((
+                "L14",
+                spath,
+                f"{spath}: L14 demand-attribution violation -- leaf "
+                f"'{node.widget}' declares `scroll h` AND `scroll v`, so it "
+                "draws a two-dimensional structure whose extent on either "
+                "axis is a property of that structure; but its own "
+                f"reservation on the {parent_axis!r} axis its parent "
+                "partitions is PINNED (floor == cap) with no `ceiling "
+                f"{parent_axis}` to say the pin is a BOUND{unit_note}. A pin "
+                "without a ceiling asserts a fixed extent for a quantity "
+                "nothing measured, and the difference between it and the "
+                "structure's real demand stands as dead band for the whole "
+                "length of the other axis (LOOP ITERATION 10 / ARC 4 ROUND "
+                "3, ledger rows 2037/2066/2107/2157/2229)",
+            ))
+        if isinstance(node, ast.Split):
+            for i, child in enumerate(node.children):
+                walk(child, f"{spath}/{node.axis.upper()}{i}", node.axis)
+        elif isinstance(node, ast.Exclusive):
+            for i, child in enumerate(node.children):
+                walk(child, f"{spath}/T{i}", None)
+
+    walk(root, path, None)
+    return violations
+
+
+def find_l15_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str, str, str]]:
+    """LOOP ITERATION 11 / ARC 4 ROUND 4 (model-iteration loop EXPERIMENT,
+    ledger rows 2037/2066/2107/2157/2241; branch lyt-model-loop-experiment,
+    NOT merged without ratification) -- L15, demotion attribution. Returns
+    one `(law, path, message)` triple per violation, the same shape every
+    other structural checker here returns, arbitrated through the same
+    `(law, path)`-keyed waiver mechanism.
+
+    THE LAW, in three clauses that are one idea: a band under pressure must
+    know which of its members it may shed, and the model must not be able
+    to answer that question by accident.
+
+      (a) `wrap` OBLIGES AN ACTIVITY ANSWER. A LEAF that declares `wrap
+          <policy>` has admitted, in its own bag, that its vocabulary may
+          not stand in one row. `wrap` then decides where the break BETWEEN
+          units falls (iteration 6's own ruling) -- but it takes for
+          granted that breaking is what happens, and that is the
+          assumption this round's review named: "wrapping is the fallback
+          the model should reach for LAST; right now it is the only thing
+          it does." The moment a leaf admits its vocabulary may need more
+          than one row, "may this content leave instead" is a question the
+          model has to have an answer to, and `activity` is the answer.
+          Either level is a fine answer; SILENCE is not. (An Exclusive may
+          declare `wrap` without an `activity` -- its units are its own
+          declared children, each of which is a leaf that answers for
+          itself, exactly the reasoning `_load_unit_axes` uses to refuse
+          `unit` on a container.)
+
+      (b) A RANKING IS A BAND-WIDE FACT. Within one Split, if ANY direct
+          LEAF child declares `activity`, EVERY direct leaf child must.
+          "Which member leaves first" has no answer for the members that
+          never entered the ranking, and a band that can shed some of its
+          contents on a partial ordering will shed whichever one happens to
+          be declared -- the same unambiguous-owner reasoning L5b applies
+          to scroll ownership and L13 to surplus.
+
+      (c) A BAND MAY NOT BE ENTIRELY DEMOTABLE. A Split every one of whose
+          children is a leaf declaring `@demote` can vacate completely, and
+          a band that can vacate completely is a PRESENCE SLOT -- for which
+          `@toggle(user, release)` is already this language's word (loop
+          iteration 4's own `A_setup` finding). Two mechanisms for one fact
+          is the duplication ADR-0012 P1 forbids, and the presence spelling
+          is the one that says what is actually true.
+
+    SCOPE, DISCLOSED. This walk is about SPLIT BANDS. It says nothing about
+    a T-node's children (alternatives, one on screen at a time -- there is
+    no band for them to crowd), and nothing about the root (which has no
+    siblings to shed for). Clause (a) alone is leaf-local rather than
+    band-local, and fires wherever a wrapping leaf stands.
+
+    Solver-inert, like L9/L10/L11/L13/L14: `compiler.py` never reads
+    `activity`, and the demotion presence reaches the solve only through
+    `presence.prune_absent`, which is the SAME path `@toggle(user,
+    release)` already took -- a demoted valuation is a separate solve, not
+    a modified one.
+    """
+    violations: List[Tuple[str, str, str]] = []
+
+    def walk(slot: ast.Slot, spath: str) -> None:
+        node = slot.node
+        # (a) leaf-local: a wrapping leaf must have ranked itself.
+        if isinstance(node, ast.Leaf) and slot.wrap_policy is not None and node.activity is None:
+            violations.append((
+                "L15",
+                spath,
+                f"{spath}: L15 demotion-attribution violation -- leaf "
+                f"'{node.widget}' declares `wrap {slot.wrap_policy}`, which "
+                "admits its own vocabulary may not stand in one row, but "
+                "declares no `activity`. A model that can only ever answer "
+                "width pressure by wrapping pays for every member of a band "
+                "at the same rate regardless of what that member is worth "
+                "to the task; declaring `activity sustained` (the rows are "
+                "earned) or `activity occasional` (this content may leave "
+                "for the overlay stratum instead) is the answer, and "
+                "silence is not one (LOOP ITERATION 11 / ARC 4 ROUND 4, "
+                "ledger rows 2037/2066/2107/2157/2241)",
+            ))
+        if isinstance(node, ast.Split):
+            leaf_children = [
+                (i, c) for i, c in enumerate(node.children) if isinstance(c.node, ast.Leaf)
+            ]
+            # (b) a partial ranking within one band.
+            ranked = [(i, c) for i, c in leaf_children if c.node.activity is not None]
+            if ranked and len(ranked) != len(leaf_children):
+                unranked = [
+                    c.node.widget for i, c in leaf_children if c.node.activity is None
+                ]
+                violations.append((
+                    "L15",
+                    spath,
+                    f"{spath}: L15 demotion-attribution violation -- this "
+                    f"band ranks {len(ranked)} of its {len(leaf_children)} "
+                    "leaf children by `activity` and leaves "
+                    f"{sorted(unranked)} unranked. A ranking is a fact about "
+                    "a BAND, not about one member of it: with a partial "
+                    "order, 'which member leaves first under pressure' has "
+                    "no answer for the members that never entered it, and "
+                    "the band sheds whichever one happens to be declared "
+                    "(LOOP ITERATION 11 / ARC 4 ROUND 4, ledger rows "
+                    "2037/2066/2107/2157/2241)",
+                ))
+            # (c) a band that can vacate entirely.
+            if (
+                node.children
+                and len(leaf_children) == len(node.children)
+                and all(c.presence.kind == "demote" for _, c in leaf_children)
+            ):
+                violations.append((
+                    "L15",
+                    spath,
+                    f"{spath}: L15 demotion-attribution violation -- every "
+                    f"one of this band's {len(node.children)} children "
+                    "declares `@demote`, so the band can vacate completely. "
+                    "A band that can vacate completely is a PRESENCE SLOT, "
+                    "and `@toggle(user, release)` is already this "
+                    "language's word for one — declaring the same fact "
+                    "twice, in two mechanisms, is the duplication the "
+                    "derive-don't-duplicate discipline forbids (LOOP "
+                    "ITERATION 11 / ARC 4 ROUND 4, ledger rows "
+                    "2037/2066/2107/2157/2241)",
+                ))
+            for i, child in enumerate(node.children):
+                walk(child, f"{spath}/{node.axis.upper()}{i}")
+        elif isinstance(node, ast.Exclusive):
+            for i, child in enumerate(node.children):
+                walk(child, f"{spath}/T{i}")
+
+    walk(root, path)
+    return violations
+
+
+def find_l16_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str, str, str]]:
+    """LOOP ITERATION 12 / ARC 4 ROUND 5 (model-iteration loop EXPERIMENT,
+    ledger rows 2037/2066/2107/2157/2268-2271; branch
+    lyt-model-loop-experiment, NOT merged without ratification) -- L16,
+    deficit attribution. Returns one `(law, path, message)` triple per
+    violation, the same shape every other structural checker here returns,
+    arbitrated through the same `(law, path)`-keyed waiver mechanism.
+
+    THE LAW, in three clauses that are one idea: a leaf that has reasoned
+    about having too MUCH room must also have reasoned about having too
+    LITTLE, and the answer must be one it can actually keep.
+
+      (a) THE TRIGGER -- A LEAF THAT DISPOSED OF SURPLUS AND EXCESS BUT
+          NEVER OF DEFICIT. A leaf declaring `content unbounded` plus
+          `elastic <a>` (L13: "the occupant claims the room I did not
+          need") plus `scroll <b>` (L5a: "this owner takes the content I
+          could not hold") has answered, in its own bag, both of the
+          questions a rectangle can be asked when it is TOO BIG for its
+          content or its content too big for IT. It has said nothing about
+          the third: how little room makes its own vocabulary unreadable.
+          The two it answered can only ever waste space. The one it did not
+          is the only one whose consequence is a control cut through its own
+          glyph row -- measured live at 540x960, the Decks form is granted
+          26px of a 257px demand, its deck combobox bisected, with the
+          solve reporting OPTIMAL over it. `floor <b> <px>` is the answer,
+          declared on the axis the leaf scrolls, because that is the axis
+          on which "granted less than I need" is a state this leaf has
+          already admitted it can be in.
+
+      (b) THE JOIN TO L15 -- RESERVE IT OR LEAVE. A declared floor is not a
+          wish: a leaf that names one must either RESERVE it (its own
+          floor position on that axis, `min <axis>` where declared and the
+          axis-agnostic `min` where that binds -- `Sizing.axis_min`) or be
+          able to LEAVE (`@demote`, L15's fourth presence kind, which
+          releases the whole extent to its siblings and re-hosts the
+          content in the overlay stratum). Those are the only two honest
+          dispositions. A leaf that can do NEITHER is one the solve may
+          grant 26px and still call OPTIMAL, which is exactly the state
+          this law exists to make unrepresentable -- and note this is what
+          gives a band a SECOND recourse: L15 alone left a band with one
+          demotable member and nothing after it, while a floor makes the
+          cost of the next slice VISIBLE TO THE SOLVE instead of deferred
+          to whatever the realization happens to clip.
+
+      (c) A FLOOR MUST BE REACHABLE. If the leaf's own declared cap on the
+          floored axis is a CONSTANT smaller than the floor, the bag holds
+          two facts that cannot both be true: a reservation that may never
+          grow that big, and a content unusable below it. A non-constant
+          cap (`inf`, or an `fr` share) is not comparable and is passed
+          over in honest silence, the same disposition `_can_exceed_its_
+          floor` takes.
+
+    SCOPE, DISCLOSED. Clause (a) fires only on a leaf that declares BOTH
+    `elastic` and `scroll` over `unbounded` content -- deliberately narrow.
+    A one-axis scroller with no elastic claim (`settingsPane`, `otherBand`,
+    `boardRail`) has never asserted that it reasoned about its residual, so
+    this law does not put words in its mouth; a `bounded` leaf's smallest
+    form is its demand, which `ceiling`/L14 already governs; and `designed`
+    content is L5c's hard reservation. Run against either reference
+    encoding as it stood at iteration 11's HEAD, clause (a) fires at
+    exactly the two sites round 5's review named -- `CP-library` and
+    `CP-cards` -- and nowhere else. Both silences are pinned by their own
+    tests rather than left implied.
+
+    Solver-inert in the same sense L9-L15 are: `compiler.py` never reads
+    `floor_axes`. What is NOT inert is the reservation clause (b) obliges
+    a leaf to carry, which is an ordinary `min` the solver has always read.
+    """
+    violations: List[Tuple[str, str, str]] = []
+
+    def walk(slot: ast.Slot, spath: str) -> None:
+        node = slot.node
+        if isinstance(node, ast.Leaf):
+            floors = dict(node.floor_axes)
+            # (a) the trigger.
+            if (
+                node.content == "unbounded"
+                and node.elastic_axes
+                and slot.scroll_axes
+            ):
+                for axis in sorted(slot.scroll_axes):
+                    if axis in floors:
+                        continue
+                    violations.append((
+                        "L16",
+                        spath,
+                        f"{spath}: L16 deficit-attribution violation -- leaf "
+                        f"'{node.widget}' declares `content unbounded`, "
+                        f"`elastic {sorted(node.elastic_axes)[0]}` and "
+                        f"`scroll {axis}`, so it has an owner for the room it "
+                        "does not need and an owner for the content it cannot "
+                        f"hold, but declares no `floor {axis}`: nothing says "
+                        "how little room along that axis makes this leaf's own "
+                        "vocabulary unreadable. The two facts it declared can "
+                        "only ever waste space; the one it did not is the one "
+                        "whose consequence is a control CUT THROUGH its own "
+                        "glyph row while the solve reports OPTIMAL over it. "
+                        "Measure the leaf's own smallest whole form and "
+                        "declare it (LOOP ITERATION 12 / ARC 4 ROUND 5, "
+                        "ledger rows 2037/2066/2107/2157/2268-2271)",
+                    ))
+            for axis in sorted(floors):
+                floor = floors[axis]
+                # (b) reserve it or leave.
+                reserved = slot.sizing.axis_min(axis)
+                can_reserve = (
+                    isinstance(reserved, ast.Extent)
+                    and reserved.unit == floor.unit
+                    and reserved.v >= floor.v
+                )
+                can_leave = slot.presence.kind == "demote"
+                if not can_reserve and not can_leave:
+                    shown = (
+                        f"{reserved.v:g}{reserved.unit}"
+                        if isinstance(reserved, ast.Extent)
+                        else str(reserved)
+                    )
+                    violations.append((
+                        "L16",
+                        spath,
+                        f"{spath}: L16 deficit-attribution violation -- leaf "
+                        f"'{node.widget}' declares `floor {axis} "
+                        f"{floor.v:g}{floor.unit}` but neither RESERVES it "
+                        f"(its own floor on {axis} is {shown}) nor may LEAVE "
+                        "(no `@demote`). A floor is not a wish: a leaf that "
+                        "names the extent below which it is unusable has "
+                        "exactly two honest dispositions -- stand its ground "
+                        "in the partition, or vacate the band for the overlay "
+                        "stratum L15 gave it. A leaf that can do neither is "
+                        "one the solve may grant a fraction of its floor and "
+                        "still call OPTIMAL, and an optimum over a sliced "
+                        "control is the verdict this law exists to make "
+                        "unreachable (LOOP ITERATION 12 / ARC 4 ROUND 5, "
+                        "ledger rows 2037/2066/2107/2157/2268-2271)",
+                    ))
+                # (c) reachable within the leaf's own cap.
+                cap = slot.sizing.max
+                if (
+                    isinstance(cap, ast.Extent)
+                    and cap.unit == floor.unit
+                    and cap.v < floor.v
+                ):
+                    violations.append((
+                        "L16",
+                        spath,
+                        f"{spath}: L16 deficit-attribution violation -- leaf "
+                        f"'{node.widget}' declares `floor {axis} "
+                        f"{floor.v:g}{floor.unit}` above its own cap "
+                        f"({cap.v:g}{cap.unit}), so the reservation may never "
+                        "grow to the extent the content is declared unusable "
+                        "below. That is not a tension for the solver to "
+                        "arbitrate; it is two facts in one bag that cannot "
+                        "both hold (LOOP ITERATION 12 / ARC 4 ROUND 5, ledger "
+                        "rows 2037/2066/2107/2157/2268-2271)",
+                    ))
+        if isinstance(node, ast.Split):
+            for i, child in enumerate(node.children):
+                walk(child, f"{spath}/{node.axis.upper()}{i}")
+        elif isinstance(node, ast.Exclusive):
+            for i, child in enumerate(node.children):
+                walk(child, f"{spath}/T{i}")
+
+    walk(root, path)
+    return violations
+
+
+def find_l17_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str, str, str]]:
+    """LOOP ITERATION 13 / ARC 4 ROUND 6 (model-iteration loop EXPERIMENT,
+    ledger rows 2037/2066/2107/2157/2286; branch lyt-model-loop-experiment,
+    NOT merged without ratification) -- L17, edge attribution. Returns one
+    `(law, path, message)` triple per violation, the same shape every other
+    structural checker here returns, arbitrated through the same
+    `(law, path)`-keyed waiver mechanism.
+
+    THE LAW, in three clauses that are one idea: a scroll is a promise that
+    content continues past a BOUNDARY, and the leaf that made the promise
+    owes an account of what the boundary falls on.
+
+      (a) THE TRIGGER -- A LEAF THAT DECLARED A SCROLL AND NOTHING ABOUT ITS
+          EDGE. Every key this language has minted reasons about an AREA:
+          `scroll <a>` names who owns content the rectangle could not hold
+          (L5a), `elastic` disposes of room the occupant did not need (L13),
+          `ceiling` hands a finite surplus back (L14), `floor` refuses a
+          rectangle too small for the leaf's whole vocabulary (L16). A leaf
+          can satisfy every one of them and still show a row bisected
+          through its own glyph rows, because a cut does not happen in the
+          area -- it happens at the boundary the scroll itself created, and
+          no key was about the boundary. So: a leaf declaring `content
+          unbounded` and `scroll <a>` owes an `edge <a>`. Deliberately
+          WIDER than L16's trigger, which required an `elastic` claim
+          first: a floor is a fact about a leaf's own vocabulary and only
+          a leaf that reasoned about its residual was obliged to have one,
+          while an edge is created by the scroll itself. Every scroller in
+          the app has one whether or not it has thought about it, and that
+          is the point.
+
+      (b) AN EDGE IS ONLY WHERE A SCROLL IS. An `edge <a>` on an axis this
+          slot does not declare `scroll <a>` on is a fact about nothing:
+          without a scroll there is no boundary between shown and unshown
+          content, only the partition, and the partition is the parent's.
+          This is the converse of (a) and is checked here rather than at
+          load time because `scroll` is a `Slot`-level fact resolved
+          separately from the leaf's own bag.
+
+      (c) THE JOIN TO L13 -- A PLACEABLE EDGE AND AN ELASTIC CLAIM ON THE
+          SAME AXIS ARE TWO FACTS IN ONE BAG. `edge <a> unit` says the
+          sub-unit remainder along `a` is GIVEN BACK so the boundary can
+          fall between two items; `elastic <a>` (L13) says the occupant
+          CLAIMS every pixel of residual along `a`. They dispose of the
+          same pixels in opposite directions, and no solver arbitration
+          can make both true.
+
+    WHAT THE DISPOSITIONS OBLIGE, stated here because it is the law's
+    content and not merely its realization: a `unit` edge is QUANTIZED
+    (the leaf's viewport along that axis takes a whole number of its own
+    L10 units, and the remainder is left rather than painted through); an
+    `item` edge is ANNOUNCED (a standing lane across from the boundary
+    says the content continues, so a partial item at the edge reads as
+    "more below" rather than as a slice) -- and note the honest limit
+    this vocabulary is drawing: with a fixed viewport over variable-pitch
+    content, NO placement of the boundary is between items, so `item` is
+    the language admitting a cut it cannot remove and requiring that the
+    cut not LIE; a `continuous` edge owes neither.
+
+    SCOPE, DISCLOSED. Clause (a) is silent for `bounded` and `designed`
+    content: a bounded leaf's content fits by construction (L14 governs
+    its demand) and `designed` content is L5c's hard reservation, so
+    neither creates a boundary that could cut. Run against either
+    reference encoding as it stood at iteration 12's HEAD, clause (a)
+    fires at six leaves and seven axes per class -- `boardRail`, `tree`
+    (both axes), `CP-library`, `CP-cards`, `settingsPane`, `otherBand` --
+    i.e. at EVERY scroller in the app, which is the breadth round 6's
+    review asked for over another leaf-local reservation. Clauses (b) and
+    (c) fire nowhere on the encodings and are pinned by their own tests.
+
+    Solver-inert in the same sense L9-L16 are: `compiler.py` never reads
+    `edge_axes`, and unlike L16 this law obliges no reservation either --
+    what it changes is what the realization is allowed to do at a boundary
+    the solve had already placed.
+
+    M2 PORT DISCLOSURE (ledger rows 2107/2108/2157/2286): this function is
+    fully ported and correct, and is exercised directly by its own tests
+    (see `tests/test_loop_laws.py`), but `check_wellformed` below does NOT
+    include its results in the enforced `all_violations` list -- see that
+    function's own comment for why (mainline's own `CP-library`/
+    `CP-cards`/`settingsPane`/`otherBand`/`boardRail`/`tree` already carry
+    the `content unbounded` + `scroll` shape that trips this law, and this
+    port does not carry the encoding edits (`edge <axis> <disposition>`)
+    the experiment branch made to satisfy it).
+    """
+    violations: List[Tuple[str, str, str]] = []
+
+    def walk(slot: ast.Slot, spath: str) -> None:
+        node = slot.node
+        if isinstance(node, ast.Leaf):
+            edges = dict(node.edge_axes)
+            # (a) the trigger.
+            if node.content == "unbounded":
+                for axis in sorted(slot.scroll_axes):
+                    if axis in edges:
+                        continue
+                    violations.append((
+                        "L17",
+                        spath,
+                        f"{spath}: L17 edge-attribution violation -- leaf "
+                        f"'{node.widget}' declares `content unbounded` and "
+                        f"`scroll {axis}`, so it has promised that its "
+                        "content continues past a BOUNDARY on that axis, but "
+                        f"declares no `edge {axis}`: nothing says what that "
+                        "boundary falls on. Every other key this leaf may "
+                        "carry is about its AREA -- who owns the surplus "
+                        "(`elastic`), who owns the excess (`scroll`), how "
+                        "little is too little (`floor`) -- and a leaf can "
+                        "satisfy all of them while cutting a row in half, "
+                        "because the cut happens at the edge the scroll "
+                        "itself created. Say whether that edge falls on a "
+                        "constant-pitch sequence (`unit`, which quantizes "
+                        "it), on indivisible things of no constant pitch "
+                        "(`item`, which announces it), or on nothing "
+                        "indivisible (`continuous`) (LOOP ITERATION 13 / ARC "
+                        "4 ROUND 6, ledger rows 2037/2066/2107/2157/2286)",
+                    ))
+            for axis in sorted(edges):
+                disposition = edges[axis]
+                # (b) an edge is only where a scroll is.
+                if axis not in slot.scroll_axes:
+                    violations.append((
+                        "L17",
+                        spath,
+                        f"{spath}: L17 edge-attribution violation -- leaf "
+                        f"'{node.widget}' declares `edge {axis} "
+                        f"{disposition}` on an axis it does not `scroll "
+                        f"{axis}`. Without a scroll there is no boundary "
+                        "between shown and unshown content on that axis, "
+                        "only the parent's partition -- and where the "
+                        "partition falls is not this leaf's fact to state "
+                        "(LOOP ITERATION 13 / ARC 4 ROUND 6, ledger rows "
+                        "2037/2066/2107/2157/2286)",
+                    ))
+                # (c) the join to L13.
+                if disposition == "unit" and axis in node.elastic_axes:
+                    violations.append((
+                        "L17",
+                        spath,
+                        f"{spath}: L17 edge-attribution violation -- leaf "
+                        f"'{node.widget}' declares both `edge {axis} unit` "
+                        f"and `elastic {axis}`. The first gives the "
+                        "sub-unit remainder BACK so the boundary can fall "
+                        "between two items; the second claims every pixel "
+                        "of residual for the occupant. They dispose of the "
+                        "same pixels in opposite directions, which is not a "
+                        "tension for the solver to arbitrate but two facts "
+                        "in one bag that cannot both hold (LOOP ITERATION "
+                        "13 / ARC 4 ROUND 6, ledger rows "
+                        "2037/2066/2107/2157/2286)",
+                    ))
+        if isinstance(node, ast.Split):
+            for i, child in enumerate(node.children):
+                walk(child, f"{spath}/{node.axis.upper()}{i}")
+        elif isinstance(node, ast.Exclusive):
+            for i, child in enumerate(node.children):
+                walk(child, f"{spath}/T{i}")
+
+    walk(root, path)
+    return violations
+
+
 def check_wellformed(
     root: ast.Slot, *, layout_name: str, waivers: Optional[List[Waiver]] = None
 ) -> List[Waiver]:
@@ -693,6 +1441,35 @@ def check_wellformed(
     is populated instead when a load trips more than one distinct law at
     once — a case no fixture reached before this amendment, since only
     L2 had a structural checker.
+
+    M2 PORT DISCLOSURE, read before trusting the "which laws are wired"
+    list below at face value (ledger rows 2107/2108/2157): L12, L14, L15,
+    and L16 join this walk-and-arbitrate family exactly as arc 4 wired
+    them (each is genuinely dormant against mainline's own two reference
+    encodings, verified directly -- see each function's own docstring for
+    why). **L13 and L17 do NOT** -- both fully ported, both fully correct,
+    both exercised directly by their own dedicated tests, but NEITHER is
+    included in `all_violations` below. Both fire against a CONDITION
+    (an `unbounded` leaf at the both-axes position for L13; an
+    `unbounded` + `scroll`ing leaf for L17) that mainline's own
+    `CP-library`/`CP-cards`/`settingsPane`/`otherBand`/`boardRail`/`tree`
+    leaves already satisfy (Amendment 5's own pre-existing declarations),
+    because the experiment branch that minted L13/L17 also edited both
+    `.lyt` encodings in the same round to satisfy them (`elastic h` /
+    `edge <axis> <disposition>`) -- an encoding edit this stage's own
+    brief puts out of scope (`research/lyt/encodings/*.lyt` must stay
+    byte-identical). Wiring L13/L17 into this function without that edit
+    makes `load_layouts` refuse to load EITHER reference encoding at
+    all -- verified directly, not guessed: both raise `LytLoadError` with
+    `law: 'L13'` (two sites) and, separately, `law: 'L17'` (six sites)
+    the moment the two functions are added to `all_violations`. This is
+    disclosed here, in `find_l13_violations`'/`find_l17_violations`' own
+    docstrings, and in this port's own dispatch report
+    (`.claude/dispatch-reports/lyt-m2-substrate-port.md`) -- not silently
+    resolved either way. A future stage may close this by declaring the
+    two keys on the six real sites, or by a `Waiver`; until then, this is
+    the honest, minimal-touch state: the language machinery exists and is
+    tested, the mainline encodings are unaffected by it.
     """
     waivers = list(waivers or [])
     l2 = [("L2", v.split(":", 1)[0], v) for v in find_l2_violations(root)]
@@ -705,7 +1482,40 @@ def check_wellformed(
     # encoding as of this amendment) is unaffected.
     l10 = find_l10_violations(root)
     l11 = find_l11_violations(root)
-    all_violations: List[Tuple[str, str, str]] = l2 + l5 + l10 + l11
+    # LOOP ITERATION 8 / ARC 4 (ledger rows 2037/2066/2107/2157): L12 joins
+    # the same walk-and-arbitrate family, dormant by the same construction —
+    # it fires only at a slot that genuinely declares an axis-keyed `min`.
+    l12 = find_l12_violations(root)
+    # L13 is deliberately NOT wired here -- see this function's own M2 PORT
+    # DISCLOSURE paragraph above and `find_l13_violations`' own docstring.
+    # LOOP ITERATION 10 / ARC 4 ROUND 3 (ledger row 2229): L14 joins the same
+    # walk-and-arbitrate family. It is NOT dormant on a declaration of its
+    # own key -- it fires at any Split-child leaf that scrolls on both axes
+    # and pins its partition axis, whether or not that leaf ever mentions
+    # `ceiling`, which is the point: the law exists to find the constant
+    # standing where a measured demand belongs. Verified dormant against
+    # both mainline reference encodings directly (neither has a leaf of
+    # this shape today).
+    l14 = find_l14_violations(root)
+    # LOOP ITERATION 11 / ARC 4 ROUND 4 (ledger row 2241): L15 joins the same
+    # walk-and-arbitrate family. It is NOT dormant on a declaration of its
+    # own key -- clause (a) fires at any LEAF declaring `wrap` that has not
+    # ranked itself, whether or not `activity` appears anywhere in the file.
+    # Verified dormant against both mainline reference encodings directly.
+    l15 = find_l15_violations(root)
+    # LOOP ITERATION 12 / ARC 4 ROUND 5 (ledger row 2271): L16 joins the same
+    # walk-and-arbitrate family. It is NOT dormant on a declaration of its
+    # own key -- clause (a) fires at any unbounded leaf that declared both
+    # an elastic claim and a scroll owner and never said how little room
+    # makes it unusable. Verified dormant against both mainline reference
+    # encodings directly (neither declares `elastic` today, since L13 is
+    # not wired either -- see above).
+    l16 = find_l16_violations(root)
+    # L17 is deliberately NOT wired here -- see this function's own M2 PORT
+    # DISCLOSURE paragraph above and `find_l17_violations`' own docstring.
+    all_violations: List[Tuple[str, str, str]] = (
+        l2 + l5 + l10 + l11 + l12 + l14 + l15 + l16
+    )
     waiver_index: Dict[Tuple[str, str], Waiver] = {(w.law, w.path): w for w in waivers}
     applied: List[Waiver] = []
     remaining: List[Tuple[str, str, str]] = []
