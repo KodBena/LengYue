@@ -386,7 +386,8 @@ onUnmounted(() => {
 .tab-thumb-wrap:hover .tab-label { color: var(--text-0); }
 
 .tab-thumb-wrap.active { background: var(--surface-2); }
-.tab-thumb-wrap.active .tab-label { color: var(--accent-primary); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.tab-thumb-wrap.active .tab-label { color: var(--text-0); }
 
 .tab-thumb-wrap.review-active { border-color: var(--review-active); }
 .tab-thumb-wrap.review-intermission { border-color: var(--review-intermission); }

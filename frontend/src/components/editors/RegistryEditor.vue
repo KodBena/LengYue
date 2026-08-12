@@ -404,8 +404,11 @@ const registryMeasureMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READ
   line-height: 1;
 }
 
+/* wC-contrast (F9): readable text is --text-0, not accent-primary —
+   2.08:1 in the default cluster theme. The 5% tint background and
+   border-left stay accent (ornament). */
 .branch-label {
-  color: var(--accent-primary); text-transform: uppercase; font-size: var(--text-body); font-weight: bold;
+  color: var(--text-0); text-transform: uppercase; font-size: var(--text-body); font-weight: bold;
   padding: var(--space-tight) var(--space-default); background: color-mix(in srgb, var(--accent-primary) 5%, transparent); border-left: 2px solid var(--accent-primary);
 }
 
@@ -444,7 +447,8 @@ const registryMeasureMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READ
 
 .add-key-row { display: flex; padding: var(--space-default); gap: var(--space-tight); background: rgba(0,0,0,0.2); }
 .add-input { flex: 1; border-style: dashed; }
-.add-btn { background: var(--surface-3); border: 1px solid var(--border-2); color: var(--accent-primary); cursor: pointer; font-size: var(--text-body); padding: 0 var(--space-default); text-transform: uppercase; }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.add-btn { background: var(--surface-3); border: 1px solid var(--border-2); color: var(--text-0); cursor: pointer; font-size: var(--text-body); padding: 0 var(--space-default); text-transform: uppercase; }
 
 /* `.dark-input` deliberately omitted: this component's copy was
    byte-equivalent to the shared global (assets/css/shared-chrome.css:104)

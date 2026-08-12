@@ -646,15 +646,21 @@ onUnmounted(() => {
 .deck-dropdown:focus { border-color: var(--accent-primary); }
 .hint { font-size: var(--text-body); color: var(--text-0); margin: 0 0 var(--space-tight) 0; }
 .macro-hint { font-size: var(--text-body); color: var(--text-0); margin: 2px 0 var(--space-tight) 0; font-style: italic; word-break: break-all; }
-.action-btn-large { width: 100%; background: var(--surface-2); color: var(--accent-primary); border: 1px solid var(--border-2); padding: 2px 4px; border-radius: var(--radius-default); font-size: var(--text-emphasis); cursor: pointer; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.action-btn-large { width: 100%; background: var(--surface-2); color: var(--text-0); border: 1px solid var(--border-2); padding: 2px 4px; border-radius: var(--radius-default); font-size: var(--text-emphasis); cursor: pointer; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 .action-btn-large:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
-.start-review-btn { background: var(--accent-secondary); color: var(--surface-1); margin-bottom: var(--space-tight); }
+/* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-1 text on an
+   --accent-secondary fill measures ~2.03:1 in the default cluster
+   theme. --text-on-accent is the token minted for text directly on an
+   accent fill (theme.css, ledger rows 1018/1144). */
+.start-review-btn { background: var(--accent-secondary); color: var(--text-on-accent); margin-bottom: var(--space-tight); }
 .tools-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 8px; border-bottom: 1px solid var(--surface-3); }
 .reload-btn { background: none; border: none; color: var(--text-disabled); cursor: pointer; font-size: var(--text-heading); padding: 0; line-height: 1; }
 .tree-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 .header-controls { display: flex; align-items: center; gap: var(--space-default); }
-.orient-btn { background: var(--surface-2); color: var(--accent-primary); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: 1px 3px; font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-tight); cursor: pointer; font-family: inherit; }
-.tree-meta { color: var(--accent-primary); font-size: var(--text-body); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.orient-btn { background: var(--surface-2); color: var(--text-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: 1px 3px; font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-tight); cursor: pointer; font-family: inherit; }
+.tree-meta { color: var(--text-0); font-size: var(--text-body); }
 .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-0); font-size: var(--text-emphasis); }
 .empty-state.error { color: var(--state-error); }
 .chart-wrapper { flex: 1; padding: var(--space-tight); min-height: 0; min-width: 0; overflow: hidden; display: flex; }

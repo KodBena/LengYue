@@ -95,7 +95,10 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 .clear-btn {
   background: none;
   border: none;
-  color: var(--accent-primary);
+  /* wC-contrast (F9 named site — the "CLEAR ALL" control): readable
+     text is --text-0, not accent-primary — 2.08:1 in the default
+     cluster theme. */
+  color: var(--text-0);
   font-size: var(--text-body);
   cursor: pointer;
   text-transform: uppercase;

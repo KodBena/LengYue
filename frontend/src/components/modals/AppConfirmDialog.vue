@@ -96,6 +96,7 @@ useModalKeyboard(modalContentRef, isOpen, cancel);
   border: 1px solid transparent; border-radius: var(--radius-default); cursor: pointer;
 }
 .btn-secondary { background: var(--surface-0); border-color: var(--border-2); color: var(--text-0); }
-.btn-primary { background: var(--surface-0); border-color: var(--border-2); color: var(--accent-primary); font-weight: bold; }
+/* wC-contrast (F9): label text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.btn-primary { background: var(--surface-0); border-color: var(--border-2); color: var(--text-0); font-weight: bold; }
 .btn-danger { background: var(--surface-0); border-color: var(--state-error); color: var(--state-error); font-weight: bold; }
 </style>

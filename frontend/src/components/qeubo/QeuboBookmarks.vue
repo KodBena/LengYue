@@ -142,7 +142,8 @@ async function onDelete(b: QeuboBookmark): Promise<void> {
    2026-08-06 by maintainer ruling (ledger row 609): the literals were
    near-invisible against accent-primary in the cluster theme, and
    --surface-0 is the blessed control background. */
-.new-btn { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--accent-primary); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
+/* wC-contrast (F9): label text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.new-btn { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 
 .empty-state { padding: var(--space-loose); background: var(--surface-0); border: 1px dashed var(--surface-3); border-radius: var(--radius-default); color: var(--text-0); font-size: var(--text-emphasis); line-height: 1.5; text-align: center; }
 .empty-state code { background: var(--surface-2); padding: 1px 5px; border-radius: var(--radius-default); color: var(--text-0); font-size: var(--text-body); }
@@ -157,6 +158,7 @@ async function onDelete(b: QeuboBookmark): Promise<void> {
 
 .bookmark-actions { display: flex; gap: var(--space-tight); flex-shrink: 0; }
 .apply-btn, .rename-btn, .delete-btn { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-0); padding: var(--space-tight) var(--space-default); font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
-.apply-btn { border-color: #2a5a7a; color: var(--accent-primary); }
+/* wC-contrast (F9): label text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays theme-exception ornament. */
+.apply-btn { border-color: #2a5a7a; color: var(--text-0); }
 .delete-btn { color: var(--state-error); padding: 4px 7px; font-size: var(--text-emphasis); }
 </style>

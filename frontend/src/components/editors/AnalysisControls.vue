@@ -405,7 +405,8 @@ async function purgeLedger() {
    and pushing PURGE entirely off-screen. `row-gap` keeps a
    little vertical breathing room when wrap engages. */
 .header-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: var(--space-default); row-gap: var(--space-default); }
-h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--text-0); }
 /* M11: bordered status chip — same shape as this file's own
    `.experimental-tag`/`.auto-badge` (colored border + colored text,
    no fill of its own) rather than a solid state-color fill: measured,
@@ -435,7 +436,8 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary
 .engine-status-icon { font-size: var(--text-emphasis); line-height: 1; }
 
 .palette-selector { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-body); color: var(--text-0); text-transform: uppercase; min-width: 0; }
-.dark-select { border: 1px solid var(--border-2); color: var(--accent-primary); padding: 2px 6px; border-radius: var(--radius-default); font-size: var(--text-body); outline: none; cursor: pointer; text-transform: uppercase; max-width: 100%; min-width: 0; }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.dark-select { border: 1px solid var(--border-2); color: var(--text-0); padding: 2px 6px; border-radius: var(--radius-default); font-size: var(--text-body); outline: none; cursor: pointer; text-transform: uppercase; max-width: 100%; min-width: 0; }
 
 /* theme-exception: .warning-btn uses muted-state-error variants
    (#5a1a1a border, #3a1a1a hover bg) — same pattern as
@@ -457,7 +459,8 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary
    for compact value entry (worst_quantile is sub-1, extra_visits is
    in hundreds). Same width chosen for both so the two rows align
    visually. */
-.adaptive-input { width: 100px; padding: 1px 4px; font-family: monospace; font-size: var(--text-body); background: var(--surface-0); border: 1px solid var(--border-2); color: var(--accent-primary); border-radius: var(--radius-default); outline: none; }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.adaptive-input { width: 100px; padding: 1px 4px; font-family: monospace; font-size: var(--text-body); background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); border-radius: var(--radius-default); outline: none; }
 .adaptive-input:focus { border-color: var(--accent-primary); }
 .persist-btn-row { display: flex; gap: var(--space-default); margin-top: var(--space-default); }
 .error-hint { color: var(--state-error); }
@@ -467,7 +470,8 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary
    accent-primary palette to signal "active policy" rather than
    "danger / caution". Sits inline with the experimental-tag in
    the title row when analysisAutoSave is on. */
-.auto-badge { font-size: var(--text-tiny); padding: 0 var(--space-default); border: 1px solid var(--accent-primary); color: var(--accent-primary); border-radius: var(--radius-default); text-transform: uppercase; line-height: 1.4; }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament). */
+.auto-badge { font-size: var(--text-tiny); padding: 0 var(--space-default); border: 1px solid var(--accent-primary); color: var(--text-0); border-radius: var(--radius-default); text-transform: uppercase; line-height: 1.4; }
 /* rows 1478/1479/1481/1497: --text-1 retired with no direct
    successor (only --text-2's value was carried forward, as
    --text-disabled). This "?" glyph is an icon, not readable prose,
@@ -477,7 +481,8 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary
 .info-icon { display: inline-block; width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--text-0); text-align: center; font-size: 9px; line-height: 11px; color: var(--text-0); cursor: help; }
 .settings-row { display: flex; flex-direction: column; gap: 3px; }
 .label-with-value { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-body); color: var(--text-0); }
-.value-badge { padding: 0 var(--space-default); border-radius: var(--radius-default); color: var(--accent-primary); font-family: monospace; }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.value-badge { padding: 0 var(--space-default); border-radius: var(--radius-default); color: var(--text-0); font-family: monospace; }
 .range-slider { width: 100%; accent-color: var(--accent-primary); cursor: pointer; }
 .hint { font-size: var(--text-body); color: var(--text-0); margin: 0; }
 /* Iter-2 audit Finding C: the 200px floor that lived here

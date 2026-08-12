@@ -610,7 +610,8 @@ function rowTitle(idx: number): string {
   padding: 0;
   cursor: pointer;
 }
-.th:hover { color: var(--accent-primary); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.th:hover { color: var(--text-0); }
 /* Elision indicator (audit R1/L2 fix shape) — a visible, not silent,
    signal that columns were dropped for width. Deliberately not a
    `.th` button (nothing to sort); `--text-2`/`--text-tiny` were

@@ -261,8 +261,9 @@ function optionsStr(decl: HyperparamDecl): string {
   text-transform: uppercase;
   color: var(--text-0);
 }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
 .add-btn {
-  background: none; border: none; color: var(--accent-primary); cursor: pointer;
+  background: none; border: none; color: var(--text-0); cursor: pointer;
   font-weight: bold; font-size: var(--text-heading);
 }
 .empty {

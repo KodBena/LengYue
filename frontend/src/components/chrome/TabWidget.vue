@@ -331,9 +331,10 @@ function selectTab(id: string) {
   color: var(--text-0);
 }
 
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border-bottom stays accent (ornament). */
 .tab-header li.active {
   background: var(--surface-3);
-  color: var(--accent-primary);
+  color: var(--text-0);
   border-bottom: 2px solid var(--accent-primary);
 }
 

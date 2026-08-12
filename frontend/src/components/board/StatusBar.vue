@@ -317,8 +317,16 @@ const gameStatus = computed(() =>
 .status-right { display: flex; gap: var(--space-medium); align-items: center; }
 
 .move-badge {
+  /* wC-contrast (F9 named site — the "MOVE 95" chip): --surface-0 text
+     on an --accent-primary fill measured 2.08:1 in the default cluster
+     theme (surface-0 and accent-primary are the same two colors the
+     CLEAR ALL defect measures, just swapped fill/text). --text-on-accent
+     is the token minted for exactly this "text directly on an accent
+     fill" role (theme.css, ledger rows 1018/1144; ~7.7:1 here) — the
+     same token LibraryTable.vue's .library-row.selected and
+     LibraryPreviewPane.vue's .preview-btn.primary already use. */
   background: var(--accent-primary);
-  color: var(--surface-0);
+  color: var(--text-on-accent);
   padding: 1px 6px;
   font-weight: bold;
   border-radius: var(--radius-default);
@@ -410,8 +418,9 @@ const gameStatus = computed(() =>
   padding: 0;
   outline: none;
 }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament). */
 .rules-select:focus, .rules-select:hover {
-  color: var(--accent-primary);
+  color: var(--text-0);
   border-bottom: 1px solid var(--accent-primary);
 }
 /* G29 (audit finding, opus-uiux-geometry-consult.md): the base rule's
@@ -442,8 +451,9 @@ const gameStatus = computed(() =>
   outline: none;
   text-align: center;
 }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament). */
 .komi-input:focus, .komi-input:hover {
-  color: var(--accent-primary);
+  color: var(--text-0);
   border-bottom: 1px solid var(--accent-primary);
 }
 /* G29 (audit finding, opus-uiux-geometry-consult.md): same defect and
@@ -520,8 +530,9 @@ const gameStatus = computed(() =>
   padding: 1px 8px;
   line-height: 1.4;
 }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament). */
 .pass-btn:hover:not(:disabled) {
-  color: var(--accent-primary);
+  color: var(--text-0);
   border-color: var(--accent-primary);
 }
 .pass-btn:disabled {
@@ -535,7 +546,8 @@ const gameStatus = computed(() =>
    status only (no scoring), so it reads as informational rather than
    a warning/error accent. */
 .game-end-badge {
-  color: var(--accent-primary);
+  /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+  color: var(--text-0);
   font-weight: 600;
   font-size: var(--text-body);
 }
@@ -543,12 +555,15 @@ const gameStatus = computed(() =>
 /* Move-number toggle. Inactive: --text-disabled (rows 1478/1479/
    1481/1497 — an on/off toggle affordance, not readable prose; the
    commissioner's disabled-control exception), no background.
-   Active: accent-primary, hinting "on" without a separate
-   indicator (the board itself is the indicator). Borderless to
-   match the chrome's low-contrast register; `.caps` nearby is now
-   --text-0 (readable capture-count text, rows 1478/1479/1481), so
-   this button's resting state is deliberately dimmer than its
-   neighbor — the toggle-off signal, not a shared tonal scale. */
+   Active: --text-0 (wC-contrast, F9 — accent-primary measured 2.08:1
+   in the default cluster theme; "active" is not a disabled state, so
+   the disabled-control exception doesn't cover it), hinting "on"
+   without a separate indicator (the board itself is the indicator).
+   Borderless to match the chrome's low-contrast register; `.caps`
+   nearby is now --text-0 (readable capture-count text, rows
+   1478/1479/1481), so this button's resting state is deliberately
+   dimmer than its neighbor — the toggle-off signal, not a shared
+   tonal scale. */
 /* G30 (WCAG 2.5.8): witnessed at 14x10 — under the 24x24 pointer-target
    floor. min-width/min-height is the same transparent-expansion floor
    KeybindingRow's .row-btn already carries (M16 era) — background stays
@@ -571,7 +586,7 @@ const gameStatus = computed(() =>
   justify-content: center;
 }
 .move-numbers-btn:hover { color: var(--text-0); }
-.move-numbers-btn.active { color: var(--accent-primary); }
+.move-numbers-btn.active { color: var(--text-0); }
 
 /* Transient hint surface — populated by `useTransientHint` from
    hover-driven affordances (e.g. the PV-paste discoverability text on

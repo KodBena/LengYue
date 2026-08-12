@@ -108,7 +108,8 @@ function onSelectModel(event: Event) {
    pre-extraction inline markup. */
 .metric { display: flex; align-items: center; gap: var(--space-tight); min-width: 0; }
 .m-lbl  { color: var(--border-3); font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-default); }
-.m-val  { color: var(--accent-primary); font-weight: bold; }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.m-val  { color: var(--text-0); font-weight: bold; }
 /* Engine-identity slot: the model's `internalName` can be 30–40 chars
    (`kata1-b18c384nbt-s9131461376-d4087399203` and similar). Shown in
    full — the toolbar has room and the user explicitly wanted the full

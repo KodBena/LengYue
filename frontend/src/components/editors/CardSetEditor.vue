@@ -267,13 +267,19 @@ function updateHyperparameters(decls: HyperparamDecl[]) {
 .section { border-bottom: 1px solid var(--surface-2); }
 .section-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-0); font-size: var(--text-body); text-transform: uppercase; }
 .pipeline-header { margin-top: var(--space-medium); border-top: 1px solid #1a1a1a; }
-.add-btn { background: none; border: none; color: var(--accent-primary); cursor: pointer; font-weight: bold; font-size: var(--text-heading); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.add-btn { background: none; border: none; color: var(--text-0); cursor: pointer; font-weight: bold; font-size: var(--text-heading); }
 
 .item-list { list-style: none; padding: 0; margin: 0; }
 .item-list li { padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); color: var(--text-0); cursor: pointer; border-left: 2px solid transparent; display: flex; justify-content: space-between; align-items: center;}
 .item-list li:hover { background: var(--surface-2); }
-.item-list li.active { background: var(--surface-0); border-left-color: var(--accent-primary); color: var(--accent-primary); }
-.active-badge { font-size: var(--text-tiny); background: var(--accent-primary); color: var(--surface-0); padding: 1px 4px; border-radius: var(--radius-default); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border-left stays accent (ornament). */
+.item-list li.active { background: var(--surface-0); border-left-color: var(--accent-primary); color: var(--text-0); }
+/* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-0 text on an
+   --accent-primary fill measures 2.08:1 in the default cluster theme.
+   --text-on-accent is the token minted for text directly on an accent
+   fill (theme.css, ledger rows 1018/1144). */
+.active-badge { font-size: var(--text-tiny); background: var(--accent-primary); color: var(--text-on-accent); padding: 1px 4px; border-radius: var(--radius-default); }
 
 .detail-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface-0); }
 .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--border-3); font-size: var(--text-emphasis); }

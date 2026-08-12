@@ -87,5 +87,6 @@ function onMatchClick() {
 .toolbar-btn { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-0); padding: 1px 5px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: var(--tracking-tight); min-height: 24px; display: inline-flex; align-items: center; justify-content: center; }
 .btn-connected { border-color: var(--state-success) !important; color: var(--state-success) !important; }
 .btn-stop-match { border-color: var(--state-attention) !important; color: var(--state-attention) !important; }
-.highlight-btn { border-color: #2a5a7a; color: var(--accent-primary); }
+/* wC-contrast (F9): label text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays theme-exception ornament. */
+.highlight-btn { border-color: #2a5a7a; color: var(--text-0); }
 </style>

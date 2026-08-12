@@ -578,7 +578,8 @@ async function deleteItem() {
   display: flex; justify-content: space-between; align-items: center;
   padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-0); font-size: var(--text-body); text-transform: uppercase;
 }
-.add-btn { background: none; border: none; color: var(--accent-primary); cursor: pointer; font-weight: bold; font-size: var(--text-heading); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.add-btn { background: none; border: none; color: var(--text-0); cursor: pointer; font-weight: bold; font-size: var(--text-heading); }
 /* M24: label + "+" adjacent, not spread to the row's opposite ends. */
 .section-header-tight { justify-content: flex-start; gap: var(--space-default); }
 
@@ -587,9 +588,14 @@ async function deleteItem() {
   padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); color: var(--text-0); cursor: pointer; border-left: 2px solid transparent;
 }
 .item-list li:hover { background: var(--surface-2); }
-.item-list li.active { background: var(--surface-0); border-left-color: var(--accent-primary); color: var(--accent-primary); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border-left stays accent (ornament). */
+.item-list li.active { background: var(--surface-0); border-left-color: var(--accent-primary); color: var(--text-0); }
 
-.active-badge { font-size: var(--text-tiny); background: var(--accent-primary); color: var(--surface-0); padding: 1px 4px; border-radius: var(--radius-default); margin-left: var(--space-default); }
+/* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-0 text on an
+   --accent-primary fill measures 2.08:1 in the default cluster theme.
+   --text-on-accent is the token minted for text directly on an accent
+   fill (theme.css, ledger rows 1018/1144). */
+.active-badge { font-size: var(--text-tiny); background: var(--accent-primary); color: var(--text-on-accent); padding: 1px 4px; border-radius: var(--radius-default); margin-left: var(--space-default); }
 
 /* `min-width: 0` lets the flex item shrink below the intrinsic
    width of CodeMirror's content; without it, an unwrapped long line

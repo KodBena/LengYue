@@ -291,7 +291,8 @@ async function onPin(): Promise<void> {
   color: var(--text-0);
 }
 .pbo-metric:hover .m-val {
-  color: var(--accent-primary);
+  /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+  color: var(--text-0);
 }
 .pbo-phase {
   font-family: monospace;
@@ -341,7 +342,8 @@ async function onPin(): Promise<void> {
 .seg-toggle { display: flex; border: 1px solid var(--border-3); border-radius: var(--radius-default); overflow: hidden; }
 .seg-btn { background: var(--surface-0); border: none; border-right: 1px solid var(--border-3); color: var(--text-0); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; font-family: inherit; text-transform: inherit; letter-spacing: inherit; }
 .seg-btn:last-child { border-right: none; }
-.seg-btn.active { background: var(--surface-0); color: var(--accent-primary); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.seg-btn.active { background: var(--surface-0); color: var(--text-0); }
 .seg-btn:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 .verdict-pair { display: flex; gap: var(--space-tight); }
 .action-row { display: flex; gap: var(--space-tight); align-items: center; }
@@ -350,13 +352,17 @@ async function onPin(): Promise<void> {
 /* theme-exception: .apply-btn border uses #2a5a7a — designer-
    intentional muted-cyan accent matching the legacy QeuboToolbar
    and Toolbar's .highlight-btn vocabulary. */
-.apply-btn { border-color: #2a5a7a; color: var(--accent-primary); }
+/* wC-contrast (F9): label text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays theme-exception ornament. */
+.apply-btn { border-color: #2a5a7a; color: var(--text-0); }
 .debug-toggle { background: none; border: none; color: var(--text-disabled); font-size: var(--text-emphasis); cursor: pointer; padding: 0 var(--space-tight); font-family: inherit; line-height: 1; }
-.debug-toggle.active { color: var(--accent-primary); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.debug-toggle.active { color: var(--text-0); }
 /* About-PBO `?` chip — circle outline carrying the long phase
    tooltip. Matches the QeuboToolbar's prior phase-help glyph
    vocabulary; theme-exception border (#2a5a7a) consistent with
-   the muted-cyan accent used by the action buttons. */
-.phase-help { color: var(--accent-primary); border: 1px solid #2a5a7a; border-radius: var(--radius-circle); width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: var(--text-tiny); cursor: help; margin-left: auto; }
+   the muted-cyan accent used by the action buttons.
+   wC-contrast (F9): the "?" glyph is readable text, so --text-0, not
+   accent-primary — 2.08:1 in the default cluster theme. Border stays. */
+.phase-help { color: var(--text-0); border: 1px solid #2a5a7a; border-radius: var(--radius-circle); width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: var(--text-tiny); cursor: help; margin-left: auto; }
 .params-debug { color: var(--text-0); font-size: var(--text-tiny); text-transform: none; letter-spacing: var(--tracking-default); white-space: nowrap; overflow-wrap: anywhere; }
 </style>

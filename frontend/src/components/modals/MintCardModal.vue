@@ -756,7 +756,8 @@ async function submit() {
   text-transform: none;
 }
 .tag-mode-toggle:hover { border-color: var(--accent-primary); color: var(--text-0); }
-.tag-mode-toggle.active { background: var(--border-1); border-color: var(--accent-primary); color: var(--accent-primary); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament). */
+.tag-mode-toggle.active { background: var(--border-1); border-color: var(--accent-primary); color: var(--text-0); }
 .tag-input-wrapper {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   display: flex; flex-wrap: wrap; padding: var(--space-tight); gap: var(--space-tight); position: relative;
@@ -765,7 +766,8 @@ async function submit() {
 
 .tag-badges { display: flex; flex-wrap: wrap; gap: var(--space-tight); }
 .tag-badge {
-  background: var(--border-1); color: var(--accent-primary); padding: 2px 6px; border-radius: var(--radius-default);
+  /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+  background: var(--border-1); color: var(--text-0); padding: 2px 6px; border-radius: var(--radius-default);
   font-size: var(--text-emphasis); font-family: monospace; display: flex; align-items: center; gap: var(--space-tight);
 }
 .tag-remove { background: none; border: none; color: var(--text-disabled); cursor: pointer; font-size: var(--text-emphasis); padding: 0; line-height: 1; }
@@ -782,7 +784,8 @@ async function submit() {
   list-style: none; padding: 0; margin: 0; max-height: 150px; overflow-y: auto; z-index: var(--z-popover);
 }
 .suggestions-list li { padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); font-family: monospace; color: var(--text-0); cursor: pointer; }
-.suggestions-list li:hover { background: var(--border-1); color: var(--accent-primary); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.suggestions-list li:hover { background: var(--border-1); color: var(--text-0); }
 
 .hint { font-size: var(--text-body); color: var(--text-0); margin: var(--space-tight) 0 0 0; }
 
@@ -791,6 +794,10 @@ async function submit() {
   border-top: 1px solid var(--surface-3); background: var(--surface-2);
 }
 .btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-0); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
-.btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+/* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-1 text on
+   an --accent-primary fill measures ~1.84:1 in the default cluster
+   theme. --text-on-accent is the token minted for text directly on
+   an accent fill (theme.css, ledger rows 1018/1144). */
+.btn-submit { background: var(--accent-primary); border: none; color: var(--text-on-accent); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 </style>

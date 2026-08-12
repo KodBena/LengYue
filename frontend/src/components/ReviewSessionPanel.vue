@@ -214,8 +214,12 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
       >{{ $t('review.session.goForward') }}</button>
     </div>
 
+    <!-- wC-contrast (F9): readable text is --text-0, not accent-secondary
+         (~1.91:1 in the default cluster theme); the state-attention
+         branch is a separate semantic-state token, out of this
+         defect's class. -->
     <p class="status-line"
-       :style="{ color: isReadOnlyDisplay ? 'var(--accent-secondary)' : 'var(--state-attention)' }">
+       :style="{ color: isReadOnlyDisplay ? 'var(--text-0)' : 'var(--state-attention)' }">
       {{ $t('review.session.statusLine', { state: $t(stateLabelKey(reviewSession.state.value)) }) }}
       <span v-if="reviewSession.state.value === 'ANALYZING'">{{ $t('review.session.ponderHint') }}</span>
     </p>
