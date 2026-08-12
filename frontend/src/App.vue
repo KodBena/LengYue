@@ -169,6 +169,7 @@ import LytNode           from './components/chrome/LytNode.vue';
 import { LYT_LANDSCAPE }  from './state/lyt-layout.gen';
 import { LYT_PORTRAIT }   from './state/lyt-layout-portrait.gen';
 import { useResizablePanel } from './composables/chrome/useResizablePanel';
+import { buildLytProgramIndex, lytParentPath, lytOrientationToProp } from './composables/chrome/useLytProgramIndex';
 import BoardWidget      from './components/board/BoardWidget.vue';
 import TreeWidget       from './components/tree/TreeWidget.vue';
 import SettingsSubstrip from './components/chrome/SettingsSubstrip.vue';
@@ -488,53 +489,127 @@ const layoutClass = useDeferredLayoutClass(rowWidthPx, rowHeightPx);
 const activeScreenClassId = computed(() => layoutClass.value.screenClassId);
 const activeLytProgram = computed(() => (activeScreenClassId.value === 'portrait' ? LYT_PORTRAIT : LYT_LANDSCAPE));
 
-// path -> DOM id, PORTRAIT's own map — same load-bearing legacy ids
-// (commission item 4), reassigned to portrait's own tree paths (its
-// board composite is root child '3', not '1'; its tree/control/preview
-// row is root child '5', not '2.3' — see lyt-layout-portrait.gen.ts).
-// '3'/'3.0' (was '2'/'2.0') and '5'/'5.0'/'5.1' (was '4'/'4.0'/'4.1'):
-// M2 stage B2a/B2b — the new root-level `A_setup` leaf ('2') inserted
-// ahead of the board split shifted every subsequent root child's own
-// index by one (board '2' -> '3', engine '3' -> '4' [and grew into a
-// 4-child composite in place], tree/control/preview '4' -> '5').
-const LYT_DOM_ID_BY_PATH_PORTRAIT: Record<string, string> = {
-  '': 'split-workspace',
-  '3': 'board-area',
-  '3.0': 'board-square',
-  '5': 'tree-control-wrapper',
-  '5.0': 'vue-tree-panel',
-  '5.1': 'control-panel',
-};
+// LYT R1 PART 2 (`.claude/dispatch-reports/lyt-r1-orientation-pathmap.md`,
+// ADR-0011 Rule 2 trigger, row 2345): every path-keyed fact below this
+// point is DERIVED from `activeLytProgramIndex` — a `widget id -> path`
+// index built by walking the active compiled program ONCE
+// (`useLytProgramIndex.ts`) — rather than a hand-copied literal dotted
+// path. A widget id (`B`, `tree`, `controlPanel`) is the STABLE identity
+// `emit_layout_tree.py` never renumbers; the PATH is the artifact that
+// shifts whenever a `.lyt` encoding edit inserts/removes a sibling (the
+// 2.2->2.3 incident this file's own git history records, and the M2 stage
+// B2a/B2b `A_setup` insertion's SECOND instance of the same class,
+// row 2345). `tests/unit/lyt-path-key-regression.test.ts` now asserts the
+// DERIVATION itself (a widget id resolves to a path that exists in the
+// program) rather than a set of hard-coded path literals.
+const activeLytProgramIndex = computed(() => buildLytProgramIndex(activeLytProgram.value));
+
+/** Fails loudly (ADR-0002) when a widget id this file depends on has no
+ *  path in the active compiled program — an absent widget id here means
+ *  the `.lyt` encoding dropped or renamed it, which every consumer below
+ *  needs to know about immediately rather than silently rendering with an
+ *  undefined DOM id / track override. */
+function requireWidgetPath(widgetId: string): string {
+  const path = activeLytProgramIndex.value.widgetPaths[widgetId];
+  if (path === undefined) {
+    throw new Error(
+      `App.vue: no path resolves for widget id "${widgetId}" in the active compiled LYT program ` +
+        `(classId=${JSON.stringify(activeScreenClassId.value)}) — every widget id this file's ` +
+        'path-keyed derivations depend on must exist in every registered screen class.',
+    );
+  }
+  return path;
+}
+
+// LYT R1 PART 1 (`.claude/dispatch-reports/lyt-r1-orientation-pathmap.md`,
+// commissioner ruling row 2310): the compiled program's `tree` leaf now
+// carries an `orientation` field (Amendment 9 / M2 stage F1's `orient`
+// key, `state/lyt-layout-types.ts`'s own `LytLeafNode.orientation` doc) —
+// this reads it straight through to `TreeWidget`'s own `orientation` prop
+// rather than the prop's hardcoded `'vertical'` default. DISCLOSED FACT
+// (verified directly against both `.gen.ts` files, `research/lyt/SPEC.md`
+// §17.4, and a live re-solve of both encodings at every representative
+// screen size, `research/lyt/runner.py`'s own `SCREEN_SIZES`): the
+// emitted value is `'v'` in BOTH classes today, and — because
+// `emit_layout_tree.py`'s `build_program` calls `loader.load_layouts`
+// directly and never threads the derivation through
+// `orientation.rebind`/`compute_derived_orientations` — that emitted
+// value is the LOAD-TIME UNDECLARED DEFAULT, not a value the Amendment 9
+// derivation mechanism actually computed for emission. A direct re-solve
+// (this commission's own build-report has the transcript) confirms the
+// GENUINE derivation independently agrees with `'v'` at every OPTIMAL
+// representative size in both classes — `tree`'s own residual box is
+// structurally narrow-and-tall everywhere the current encoding solves
+// (its width is capped near its own floor by the side column's `max
+// 340px+60ch` bound minus the control-panel Exclusive's now-pinned 664px
+// floor, while its height inherits the row's full — much taller —
+// extent) — so wiring the compiled static value is not a design gap: it
+// is what the model says, and no live-resize scenario within this
+// encoding's own feasible region is known to disagree with it. A future
+// `.lyt` edit that widens the side column enough for `tree` to actually
+// go wide-and-short would need `emit_layout_tree.py` to thread the
+// derivation through before this field's emitted value could ever
+// reflect it — out of this commission's own scope (research/lyt language
+// substrate), named here rather than silently assumed away.
+const activeTreeOrientation = computed<'vertical' | 'horizontal'>(() => {
+  const leaf = activeLytProgramIndex.value.leafNodes['tree'];
+  if (!leaf) {
+    throw new Error(
+      `App.vue: no leaf node resolves for widget id "tree" in the active compiled LYT program ` +
+        `(classId=${JSON.stringify(activeScreenClassId.value)}) — TreeWidget's orientation prop ` +
+        'has nothing to read.',
+    );
+  }
+  return lytOrientationToProp(leaf.orientation);
+});
+
+// path -> DOM id, derived from the widget ids each legacy id anchors on
+// (commission item 4's own load-bearing hooks, unchanged): 'board-area' /
+// 'tree-control-wrapper' are the PARENT Split of the `B` / `tree` leaves
+// respectively (the board composite, and the tree/control/preview row);
+// 'board-square' / 'vue-tree-panel' are those leaves' own paths directly;
+// 'control-panel' is the `controlPanel` Exclusive node's own path. Same
+// map shape for both classes — only the underlying paths differ (derived,
+// never hand-transcribed per class).
+const activeLytDomIdByPath = computed<Record<string, string>>(() => {
+  const boardPath = requireWidgetPath('B');
+  const treePath = requireWidgetPath('tree');
+  const controlPanelPath = requireWidgetPath('controlPanel');
+  return {
+    '': 'split-workspace',
+    [lytParentPath(boardPath)]: 'board-area',
+    [boardPath]: 'board-square',
+    [lytParentPath(treePath)]: 'tree-control-wrapper',
+    [treePath]: 'vue-tree-panel',
+    [controlPanelPath]: 'control-panel',
+  };
+});
 
 // W3 resizer drag overrides — see LytNode.vue's own header ("Resizer
 // drag overrides") for the override-wins-verbatim contract. INNER
-// (tree-panel width) applies to BOTH classes at each program's own tree
-// leaf path. OUTER (tree+control REGION width) is LANDSCAPE-ONLY this
-// wave — DISCLOSED NARROWING: landscape's OUTER bar drags root child '2'
-// (the whole side column, whose board-priority-clamp track IS a WIDTH
-// fact — see useResizablePanel.ts's header for the wrapper-vs-side-
-// column derivation); portrait has no analogous "side column beside the
-// board" concept (its board composite is a separate ROW, not a width-
-// contested sibling), so what the OUTER bar's persisted WIDTH fact
-// should even mean in a single-column stack is a genuine open design
-// question, not one this wave invents an answer to. `startResizeOuter`
+// (tree-panel width) applies to BOTH classes at the `tree` leaf's own
+// derived path. OUTER (tree+control REGION width) is LANDSCAPE-ONLY this
+// wave — DISCLOSED NARROWING: landscape's OUTER bar drags the SIDE
+// COLUMN (the `tree` leaf's own grandparent Split — the row containing
+// `tree` is itself a child of the side column, whose board-priority-clamp
+// track IS a WIDTH fact — see useResizablePanel.ts's header for the
+// wrapper-vs-side-column derivation); portrait has no analogous "side
+// column beside the board" concept (its board composite is a separate
+// ROW, not a width-contested sibling), so what the OUTER bar's persisted
+// WIDTH fact should even mean in a single-column stack is a genuine open
+// design question, not one this wave invents an answer to. `startResizeOuter`
 // and its corner bar are therefore only mounted in landscape (template
 // below); `treeControlRegionWidthPx` itself is untouched by a portrait
 // session (never written there), so returning to landscape restores
 // the user's own prior drag exactly.
 const lytTrackStyleOverrides = computed<Record<string, string>>(() => {
-  // '2.3.0' (was '2.2.0') / '5.0' (was '4.0'): M2 stage B2a/B2b —
-  // landscape's side column GREW from three V-children to four (the new
-  // `A_setup` leaf inserted at '2.2', ahead of the tree row), shifting
-  // the tree/panels row's own path from '2.2' to '2.3'; portrait's root
-  // grew the same way (its own `A_setup` leaf inserted at '2', ahead of
-  // the board split), shifting the tree/panels row from '4' to '5'.
-  const treePanelPath = activeScreenClassId.value === 'portrait' ? '5.0' : '2.3.0';
+  const treePanelPath = requireWidgetPath('tree');
   const overrides: Record<string, string> = {
     [treePanelPath]: `${effectiveTreePanelWidthPx.value}px`,
   };
   if (activeScreenClassId.value === 'landscape' && effectiveTreeControlRegionWidthPx.value !== undefined) {
-    overrides['2'] = `${effectiveTreeControlRegionWidthPx.value}px`;
+    const sideColumnPath = lytParentPath(lytParentPath(treePanelPath));
+    overrides[sideColumnPath] = `${effectiveTreeControlRegionWidthPx.value}px`;
   }
   return overrides;
 });
@@ -546,51 +621,14 @@ const lytTrackStyleOverrides = computed<Record<string, string>>(() => {
 // (`state/layout-model.ts`).
 const panelContentPolicy = computed(() => getPanelContentPolicy(layoutClass.value));
 
-// path -> DOM id, forwarded to every recursive LytNode instance.
-// Preserves the load-bearing legacy hooks (commission item 4) — the
-// existing test suite and CSS below still resolve these selectors
-// unchanged; only the mechanism producing the elements they attach to
-// changed (CSS grid item instead of a flex child). See `LytNode.vue`'s
-// own header ("DOM-id wiring") for the repair-pass fix that makes this
-// map actually resolve (W1 repair, ledger row 1781, review finding B).
-// '2.3'/'2.3.0'/'2.3.1' (was '2.2'/'2.2.0'/'2.2.1'): M2 stage B2a/B2b —
-// see `lytTrackStyleOverrides`'s own comment just above for why the
-// tree/panels row's path shifted.
-const LYT_DOM_ID_BY_PATH_LANDSCAPE: Record<string, string> = {
-  '': 'split-workspace',
-  '1': 'board-area',
-  '1.0': 'board-square',
-  '2.3': 'tree-control-wrapper',
-  '2.3.0': 'vue-tree-panel',
-  '2.3.1': 'control-panel',
-};
-
-// W3: which of the two path -> DOM id maps is active follows the SAME
-// screen-class swap as the compiled program itself — see
-// `LYT_DOM_ID_BY_PATH_PORTRAIT`'s own comment (declared above, next to
-// the other W3 screen-class-swap state) for why the paths differ between
-// classes despite sharing every DOM id's own name.
-const activeLytDomIdByPath = computed(() =>
-  activeScreenClassId.value === 'portrait' ? LYT_DOM_ID_BY_PATH_PORTRAIT : LYT_DOM_ID_BY_PATH_LANDSCAPE,
-);
-
-// REALIZATION WAVE (`.claude/dispatch-reports/lyt-realization-wave.md`):
-// the control-panel Exclusive's own dotted path, per class — derived from
-// `activeLytDomIdByPath` (the one map that already names '#control-panel'
-// per class) rather than a THIRD hand-maintained '2.3.1'/'5.1' literal
-// pair (ADR-0012 P1 — one home, not a third copy of a fact
-// `LYT_DOM_ID_BY_PATH_*` already states).
-const controlPanelLytPath = computed<string>(() => {
-  const entry = Object.entries(activeLytDomIdByPath.value).find(([, id]) => id === 'control-panel');
-  if (!entry) {
-    throw new Error(
-      'App.vue: no LYT tree path resolves to "control-panel" in activeLytDomIdByPath — ' +
-        'the control-panel Exclusive node must always have a DOM-id entry (LytNode.vue anchors ' +
-        'the resizer-inner bar and #control-panel\'s own CSS off it).',
-    );
-  }
-  return entry[0];
-});
+// REALIZATION WAVE (`.claude/dispatch-reports/lyt-realization-wave.md`),
+// re-derived per LYT R1 PART 2: the control-panel Exclusive's own dotted
+// path, per class — read directly off `activeLytProgramIndex` (the SAME
+// `controlPanel` widget id `activeLytDomIdByPath` above already resolves
+// through `requireWidgetPath`) rather than a second, independently-derived
+// copy of the same fact (ADR-0012 P1 — one home, not a second derivation
+// of a fact `activeLytProgramIndex` already states).
+const controlPanelLytPath = computed<string>(() => requireWidgetPath('controlPanel'));
 
 // LytNode's Exclusive-case active-tab wiring (file header, "Active-tab
 // state") — the SAME persisted `session.ui.activeTab` cell the pre-wave,
@@ -996,13 +1034,14 @@ const activeTab = computed<string>({
                  script-header "W3 resizer drag overrides" note for the
                  disclosed narrowing). Anchored at #vue-tree-panel's own
                  LEFT edge — topologically identical to the boundary
-                 between root child '1' (board) and root child '2' (side
-                 column) in the ROOT split, since '2.3' (this leaf's own
-                 parent split, was '2.2' before M2 stage B2a/B2b's new
-                 `A_setup` leaf shifted it) cross-fills '2''s full width
-                 with zero left offset. Paint 1px / grab ~4px per the standing
-                 resizer ruling (mirrors App.vue's pre-LYT
-                 `.panel-resizer` history — see the <style> block below). -->
+                 between the board composite and the side column in the
+                 ROOT split, since the `tree` leaf's own parent split
+                 (`lytTrackStyleOverrides`' derived `sideColumnPath`,
+                 `tree`'s own grandparent — LYT R1 PART 2) cross-fills the
+                 side column's full width with zero left offset. Paint 1px
+                 / grab ~4px per the standing resizer ruling (mirrors
+                 App.vue's pre-LYT `.panel-resizer` history — see the
+                 <style> block below). -->
             <div
               v-if="activeScreenClassId === 'landscape'"
               id="resizer-outer"
@@ -1017,6 +1056,7 @@ const activeTab = computed<string>({
               v-if="activeBoard"
               :nodes="activeBoard.nodes"
               :board-id="activeBoard.id"
+              :orientation="activeTreeOrientation"
               :game-head-ids="activeBoardGameHeadIds"
               :known-position-node-ids="activeBoardKnownPositionNodeIds"
               :review-start-node-id="reviewSession.startingNodeId.value"
