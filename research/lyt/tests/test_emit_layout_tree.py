@@ -12,9 +12,26 @@ presence slots (boardRail, previewBoard) are exactly the ones
 """
 from pathlib import Path
 
+import pytest
+
 import emit_layout_tree as elt
 import loader as loader_module
 import lyt_ast as ast
+
+# P2d no-tautology imports: a SEPARATE, independent path to the same
+# underlying facts `elt._derive_tree_orientation` consults, deliberately
+# NOT going through that function -- the tests in the "P2d" section below
+# re-derive `tree`'s own orientation from scratch (own solve, own
+# aggregation) and compare the result to what `build_program` actually
+# emits, the same "independent second opinion" discipline
+# `lyt-r1-orientation-pathmap.md`'s own fix pass established for
+# `findWidgetPathIndependently` on the frontend side.
+import loader
+import orientation
+import runner
+from compiler import solve_lexicographic
+from coverage_matrix import LANDSCAPE_SIZES, PORTRAIT_SIZES
+from presence import resolve_and_validate
 
 
 def _find(children, path: str):
@@ -775,3 +792,140 @@ def test_collapsed_blackbox_tabs_carry_null_demote_when_undeclared():
         )
         assert sp_session["kind"] == "blackbox"
         assert sp_session["demote"] is None
+
+
+# ---------------------------------------------------------------------------
+# P2d (ledger row 2310's Amendment 9 mechanism, finally threaded through to
+# emission -- `.claude/dispatch-reports/lyt-p2d-orientation-emission.md`).
+# See emit_layout_tree.py's own module docstring, "P2d -- emit the DERIVED
+# orientation" section, for the full derivation, the disclosed scope
+# narrowing (tree only, not every residual leaf), and the disclosed
+# `otherBand` landscape disagreement finding this stage does NOT resolve.
+# ---------------------------------------------------------------------------
+
+
+def _independent_tree_orientation_votes(class_id: str, sizes) -> dict:
+    """Own solve, own aggregation -- deliberately NOT calling
+    `elt._derive_tree_orientation` (the function under test below). Mirrors
+    that function's own shape (resolve the class's default valuation, prune,
+    solve at every representative size, derive via `orientation.
+    compute_derived_orientations`, collect a value -> [size label] vote map)
+    but is written independently against `runner`/`orientation`/`presence`/
+    `compiler` directly, so a bug shared between the two would have to be
+    duplicated by coincidence, not by one calling the other."""
+    reg = next(r for r in runner.REGISTRATIONS if r.name == "lengyue_landscape+portrait")
+    layout_name = reg.layout_by_class[class_id]
+    raw_layouts = {}
+    for f in reg.files:
+        text = (runner.ENCODINGS_DIR / f).read_text()
+        raw_layouts.update(loader.load_layouts(text, waivers=reg.waivers))
+    valuation = runner.valuation_for_class(reg, class_id)
+    slot = resolve_and_validate(raw_layouts, [layout_name], valuation)[layout_name]
+    reach = runner._gather_reach_preferred_widgets(slot, reg.board_widget)
+    votes: dict = {}
+    for label, w_px, h_px in sizes:
+        result = solve_lexicographic(
+            slot,
+            class_id=class_id,
+            w_px=w_px,
+            h_px=h_px,
+            board_widget=reg.board_widget,
+            reach_preferred_widgets=reach,
+            time_limit_s=20.0,
+        )
+        if result.status not in ("OPTIMAL", "FEASIBLE"):
+            continue
+        derived = orientation.compute_derived_orientations(slot, result)
+        if "tree" in derived:
+            votes.setdefault(derived["tree"], []).append(label)
+    return votes
+
+
+def test_p2d_landscape_tree_orientation_matches_independent_derivation():
+    """Landscape's `tree` derives `'v'` unanimously across its two solvable
+    representative sizes (1280x1024 is INFEASIBLE, contributing no vote) --
+    IDENTICAL to the pre-P2d load-time placeholder, so the compiled program
+    is byte-identical to before this stage. Independently re-derived here
+    (own solve, own walk -- see `_independent_tree_orientation_votes`'s own
+    docstring), then compared against what `build_program` actually emits."""
+    votes = _independent_tree_orientation_votes("landscape", LANDSCAPE_SIZES)
+    assert votes == {"v": ["1920x1080", "2560x1440"]}
+
+    program = elt.build_program_for(elt.REGISTRATIONS["landscape"])
+    side = _find(program["root"]["children"], "2")["node"]["children"]
+    tree_row = _find(side, "2.3")["node"]["children"]
+    tree = _find(tree_row, "2.3.0")["node"]
+    assert tree["widget"] == "tree"
+    assert tree["orientation"] == "v"
+
+
+def test_p2d_portrait_tree_orientation_matches_independent_derivation():
+    """Portrait's `tree` derives `'h'` unanimously across all five of its
+    representative sizes -- DIFFERENT from the pre-P2d load-time placeholder
+    (`'v'`), the one observable diff this stage produces (P2c's own
+    portrait-row-floor fix is what makes every representative size solvable
+    here; see `.claude/dispatch-reports/lyt-p2c-portrait-row-floor.md`).
+    Independently re-derived (own solve, own walk), then compared against
+    what `build_program` actually emits."""
+    votes = _independent_tree_orientation_votes("portrait", PORTRAIT_SIZES)
+    assert votes == {
+        "h": ["1080x1920", "1200x1600", "768x1024", "540x960", "420x880"],
+    }
+
+    program = elt.build_program_for(elt.REGISTRATIONS["portrait"])
+    row = _find(program["root"]["children"], "5")["node"]["children"]
+    tree = _find(row, "5.0")["node"]
+    assert tree["widget"] == "tree"
+    assert tree["orientation"] == "h"
+
+
+def test_p2d_disagreement_raises_structured_error(monkeypatch):
+    """Fail-loud refusal (ADR-0002): if a class's own solvable
+    representative sizes ever disagreed on `tree`'s derived orientation,
+    `_derive_tree_orientation` must refuse rather than pick one value
+    silently. The REAL landscape/portrait encodings are unanimous today (the
+    two tests above), so this exercises the refusal path directly via a
+    monkeypatched `orientation.compute_derived_orientations` -- a genuine
+    RED-WITHOUT-FIX witness that the refusal branch is live, not merely
+    asserted to exist (the same discipline `lyt-r1-orientation-pathmap.md`'s
+    own fix pass used for `findWidgetPathIndependently`'s mutation-red
+    check). Landscape's own two solvable representative sizes (1920x1080,
+    2560x1440 -- 1280x1024 is INFEASIBLE and never reaches `compute_derived_
+    orientations` at all, so the fake is called exactly twice) are made to
+    disagree: `'h'` then `'v'`."""
+    calls = {"n": 0}
+
+    def fake_compute(root, result):
+        calls["n"] += 1
+        return {"tree": "h" if calls["n"] == 1 else "v"}
+
+    monkeypatch.setattr(elt.orientation, "compute_derived_orientations", fake_compute)
+    with pytest.raises(elt.OrientationDerivationError) as exc_info:
+        elt._derive_tree_orientation("landscape")
+    assert calls["n"] == 2
+    assert exc_info.value.detail == {"h": ["1920x1080"], "v": ["2560x1440"]}
+
+
+def test_p2d_no_votes_raises_plain_value_error(monkeypatch):
+    """A class whose solvable representative sizes never name `tree` as a
+    residual-holding leaf at all (nothing to derive) raises a plain
+    `ValueError`, not `OrientationDerivationError` -- "nothing to derive" and
+    "derived, but disagrees" are distinct refusal shapes, not conflated."""
+    monkeypatch.setattr(elt.orientation, "compute_derived_orientations", lambda root, result: {})
+    with pytest.raises(ValueError) as exc_info:
+        elt._derive_tree_orientation("landscape")
+    assert not isinstance(exc_info.value, elt.OrientationDerivationError)
+
+
+def test_p2d_non_residual_leaves_unaffected():
+    """Non-residual leaves (module docstring's own "Non-residual leaves keep
+    their authored/default orientation exactly as today" instruction) --
+    `CP-library`, a plain leaf with no Split residual role at all, keeps
+    reading its own load-time default regardless of P2d."""
+    program = elt.build_program_for(elt.REGISTRATIONS["landscape"])
+    side = _find(program["root"]["children"], "2")["node"]["children"]
+    tree_row = _find(side, "2.3")["node"]["children"]
+    control_panel = _find(tree_row, "2.3.1")["node"]
+    library = _find(control_panel["children"], "2.3.1.0")["node"]
+    assert library["widget"] == "CP-library"
+    assert library["orientation"] == "v"

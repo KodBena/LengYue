@@ -1690,6 +1690,31 @@ was already disclosed out of scope for the language-substrate ports
 Amendment 8 began (§16's own "Scope note" above). The derivation
 genuinely runs; it has nothing downstream to show a difference in yet.
 
+**"nothing downstream to show a difference in" is now FALSE for `tree`
+specifically [corrected 2026-08-12, P2d, ledger row 2310's own commission
+`.claude/dispatch-reports/lyt-p2d-orientation-emission.md` — the
+paragraph above is preserved as the pre-P2d record for `B`/`otherBand`/
+`settingsPane`(-era), not deleted].** `emit_layout_tree.py`'s
+`build_program` now threads this derivation through to the COMPILED
+program's own `tree` leaf, for `tree` only (a disclosed scope narrowing
+— see that module's own "P2d — emit the DERIVED orientation" docstring
+section for the full account, including a real, checked finding that
+`otherBand`'s own derived orientation DISAGREES across landscape's own
+representative sizes, which threading the fully general mechanism
+through would make emission refuse over): `frontend/src/App.vue`'s
+`activeTreeOrientation` (R1, `.claude/dispatch-reports/
+lyt-r1-orientation-pathmap.md`) reads exactly this field, so portrait's
+own genuinely-derived `'h'` (unanimous across all five of portrait's
+representative sizes, `coverage_matrix.PORTRAIT_SIZES`) now reaches the
+rendered DOM — the GAME TREE panel lays its nodes out horizontally in
+portrait, screenshot-witnessed at 768x1024 and 420x880. Landscape's own
+derived value (`'v'`, unanimous across its two solvable sizes) is
+IDENTICAL to the pre-P2d placeholder, so landscape's own rendering is
+unchanged. `B`/`otherBand` (and `settingsPane`, for the stage it was
+residual) remain exactly as the paragraph above describes — this
+correction is scoped to `tree` alone, the one leaf a live consumer
+reads.
+
 **`tree` IS now the row's residual-holding sibling [corrected 2026-08-12,
 M2 stage B2a, ledger rows 2108/2331 — supersedes the paragraph below,
 which is preserved as the pre-B2a record, not deleted].** The
