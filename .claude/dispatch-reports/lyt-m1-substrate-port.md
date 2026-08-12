@@ -283,6 +283,16 @@ separate axes rather than folded into `content`/`domain`/`scroll`
 
 ## Commit(s) and merge-base
 
-See the final message for this worktree's own commit sha and the
-merge-base-vs-`lyt-phase2`-tip check performed as the LAST act, per the
-commission's own rule.
+Commit: `fae6fe11b9b0d873b849b780eb37f7e90506f907` (branch
+`worktree-agent-aef9e8a4d5a75cea6`), 8 files changed (+2049/-7):
+`.claude/dispatch-reports/lyt-m1-substrate-port.md` (new),
+`research/lyt/{SPEC-AMENDMENTS.md,SPEC.md,loader.py,lyt_ast.py,
+parser.py,wellformed.py}` (modified), `research/lyt/tests/
+test_loop_laws.py` (new).
+
+LAST-act freshness check: `git fetch origin lyt-phase2` (post-commit)
+resolved `origin/lyt-phase2` to `9fbc899b` — unchanged since this
+session's own initial fast-forward. `git merge-base --is-ancestor
+9fbc899b HEAD` confirms `9fbc899b` is still an ancestor of this
+worktree's `HEAD` — no rebase needed; `lyt-phase2`'s tip did not move
+during this session.
