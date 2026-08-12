@@ -295,6 +295,51 @@
 --     convention, not landscape's `160px`), still well over one whole
 --     unit on the v axis for both the `32px`/`39px` units, so L10 is
 --     satisfied the same way with a different (already-existing) min.
+--
+--   - LYT PRESENCE ARC P1 (2026-08-12, row 2333, mobile/portrait
+--     repetition-first disposition; `.claude/dispatch-reports/
+--     lyt-p1-presence-model.md`) -- identical CONTROL-PANEL DEMOTION
+--     mechanism to `lengyue_landscape.lyt`'s own header note (read
+--     there in full for the loader/presence.py widening this relies
+--     on) -- this class's own threshold, re-derived from THIS file's
+--     own named facts (identical derivation shape, different tree
+--     position -- portrait has no side column, so the row is a direct
+--     ROOT `V(...)` child):
+--       664px (T's own pinned floor -- SAME 664px as landscape, M2
+--         STAGE B2a above: "the SAME 664px componentwise-max floor as
+--         landscape")
+--     + 140px (tree's own floor, this file's own established
+--         `TREE_PANEL_MIN_WIDTH_PX`, unchanged by W4 -- portrait-specific)
+--     +   4px (one `--space-tight` row gap, this row's own already-
+--         declared `gap 4px`, charged once -- previewBoard already
+--         absent by default)
+--     = 808px.
+--
+--     PORTRAIT REPETITION-FIRST DEFAULT (the second part of this arc,
+--     distinct from landscape's diagnostic-only "demoted" coverage
+--     point above): per the commissioner's own disposition (row 2333,
+--     non-prescriptive but reasoned from here) -- mobile/portrait is
+--     REPETITION-FIRST, board + match/play (the board composite,
+--     `tree` navigation) primary, the control-panel tab group
+--     (analysis graphs, browse tables, settings, debug -- every one of
+--     `T(...)`'s five tabs) secondary -- `runner.py`'s own
+--     `Registration.default_valuation_by_class["portrait"]` names
+--     `"BLACK BOX"` (this Exclusive's own `[BLACK BOX]` tag, doubling
+--     as its presence identity)
+--     ABSENT alongside `boardRail`/`previewBoard`/`A_setup`, for
+--     PORTRAIT ONLY (landscape's own `default_valuation` is untouched,
+--     per row 2333's "do NOT shrink any desktop demand"). At every
+--     portrait width narrower than 808px (768x1024, 540x960, 420x880
+--     -- this repository's own three previously-INFEASIBLE `default`
+--     representative points), the row's residual demand drops from
+--     664+140+4=808px to just `tree`'s own 140px floor once T(...) is
+--     pruned, which is what makes those three points genuinely
+--     `OPTIMAL` under the new default (verified,
+--     `.claude/dispatch-reports/lyt-p1-presence-model.md`'s own
+--     before/after coverage-matrix table). `tree` itself is NOT
+--     demoted -- it is the row's residual-holding sibling (Amendment 9,
+--     M2 STAGE B2a) and the repetition-first disposition's own primary
+--     surface (reviewing/replaying a game is match/play, not analysis).
 layout lengyue-portrait =
   {min 0px, pref 1fr, max inf, gap 12px} V(
     @toggle(user, release) {min 168px, pref 168px, max 168px, activity occasional} boardRail[common, info+action],
@@ -313,7 +358,7 @@ layout lengyue-portrait =
     ),
     {pref 1fr, gap 4px} H(
       {min 140px, pref 1fr, max inf} tree[board, info+action],
-      {min 664px, pref 664px, max 664px} T(
+      @demote(h 808px) {min 664px, pref 664px, max 664px} T(
         {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v unit, unit v 32px} CP-library[common],
         {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v unit, unit v 39px} CP-cards[common],
         {min 443px, pref 1fr, max inf, gap 4px} V(

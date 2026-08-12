@@ -146,28 +146,46 @@ def rebind(
     to derive.
 
     DISCLOSED, NOT DORMANT, against the real reference encodings. This is
-    NOT the common case there: `lengyue_landscape.lyt`/
-    `lengyue_portrait.lyt` each carry THREE genuine residual-holding
-    leaves (`B` — the board, via the `pref maximize` sugar SPEC.md §1.1
-    resolves to elastic `pref 1fr` — and `settingsPane`/`otherBand`, both
-    explicit `pref 1fr` leaves beside a fixed sibling), so `rebind`
-    genuinely reloads and genuinely produces derived orientations for all
-    three, at every solved screen size. What stays invisible in
-    `runner.py`'s own stdout (see this amendment's dispatch report for the
-    byte-identical before/after proof) is a DIFFERENT fact: no consumer in
-    this Python-only substrate reads `Leaf.orientation`/the L14 role-frame
-    fields for rendering today (SPEC.md §16.1's own disclosed scope note —
-    the realization-layer consumer is `frontend/`-side and out of scope
-    for the language-substrate ports this amendment continues), so a real
-    rebind has nothing downstream to show a difference in. The genuinely
-    dormant fact is narrower and specific: `tree` itself — the leaf the
-    ruling's own illustrative language names — is FIXED (`min==pref==max`)
-    in both encodings today, not residual-holding; `T(...)`, the row's
-    actual sole `pref: fr` child, is an Exclusive (orientation is
-    leaf-only, so it was never eligible regardless). See the dispatch
-    report's own STOP-and-report section for what a future `.lyt` edit
-    would need to change for the ruling's own premise to hold for `tree`
-    specifically.
+    NOT the common case there — and has not been since M2 stage B2a
+    (SPEC.md §17.4's own corrected account; see that section for the full
+    arc, corrected here per row 2333's own P1 ride-along instruction: this
+    docstring's prior text, preserved in git history rather than repeated,
+    claimed `tree` was still FIXED and non-residual-holding, which was
+    true at Amendment 9's own original writing but has been FALSE since
+    B2a's own encoding swap landed):
+
+    `lengyue_landscape.lyt`/`lengyue_portrait.lyt` each carry THREE
+    genuine residual-holding leaves TODAY (`wellformed.
+    find_residual_leaves`, verified directly against both committed
+    files): `B` (the board, via the `pref maximize` sugar SPEC.md §1.1
+    resolves to elastic `pref 1fr`), `tree` (SINCE M2 stage B2a — the
+    ruling's own illustrative language, "because the tree is the
+    residual-holding sibling," genuinely holds today: `tree` moved from
+    `min==pref==max` to `{min <its own floor>, pref 1fr, max inf}`, and
+    `T(...)`, its row's OTHER `pref: fr` child before the swap, was
+    PINNED at its own already-existing structural floor instead), and
+    `otherBand` (an explicit `pref 1fr` leaf beside a fixed sibling,
+    unchanged since Amendment 9's own writing). `settingsPane` — a FOURTH
+    residual-holding leaf for one stage's duration (B2a) — dropped back
+    OUT of this set at stage B2b, when it was opened one level into a `T`
+    of six named sub-panes (`SP_session`/.../`SP_keybindings`): a Split or
+    Exclusive residual-holder contributes no derivation subject
+    (`orient` is leaf-only, SPEC.md §17.1), so opening a leaf into a
+    composite silently retires it from this dict — see the M2b2b census's
+    own "Test edits, individually justified" section for the regression
+    test that pins this exact transition.
+
+    `rebind` genuinely reloads and genuinely produces derived
+    orientations for all three (`B`/`tree`/`otherBand`), at every solved
+    screen size. What stays invisible in `runner.py`'s own stdout (see
+    this amendment's dispatch report for the byte-identical before/after
+    proof) is a DIFFERENT fact: no consumer in this Python-only substrate
+    reads `Leaf.orientation`/the L14 role-frame fields for rendering
+    today (SPEC.md §16.1's own disclosed scope note — the
+    realization-layer consumer is `frontend/`-side and out of scope for
+    the language-substrate ports this amendment continues), so a real
+    rebind has nothing downstream to show a difference in — THAT is the
+    genuinely dormant fact, not `tree`'s own eligibility, which is real.
     """
     derived = compute_derived_orientations(root, result)
     if not derived:

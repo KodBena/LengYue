@@ -71,6 +71,33 @@ class Registration:
     # posture `lyt_ast.Program`'s own docstring takes for objectivesec).
     default_valuation: PresenceValuation = field(default_factory=lambda: ALL_PRESENT)
     common_valuations: List[PresenceValuation] = field(default_factory=list)
+    # LYT presence arc P1 (row 2333, mobile/portrait repetition-first
+    # disposition; `.claude/dispatch-reports/lyt-p1-presence-model.md`):
+    # an OPTIONAL per-class override of `default_valuation`. Empty (the
+    # default) is byte-identical to every pre-P1 registration -- every
+    # class solves the ONE shared `default_valuation` above, unchanged.
+    # This exists because `default_valuation` is otherwise ONE object
+    # shared across every class a registration declares
+    # (`layout_by_class`), and the portrait repetition-first disposition
+    # needs the control-panel tab group absent by DEFAULT on portrait
+    # specifically, WITHOUT touching landscape's own default (row 2333's
+    # own "do NOT shrink any desktop demand to get there") -- a single
+    # shared valuation cannot express "absent for this class, present for
+    # that one" (naming an identity absent that a DIFFERENT class's tree
+    # never declares as a release-toggle/demote would make
+    # `validate_valuation` refuse THAT class's own load). Keyed by
+    # `ast.ScreenClass.id`; a class absent from this map falls back to
+    # `default_valuation` unchanged.
+    default_valuation_by_class: Dict[str, PresenceValuation] = field(default_factory=dict)
+
+
+def valuation_for_class(reg: "Registration", class_id: str) -> PresenceValuation:
+    """The one place every consumer (`run_all`, `emit_ts.py`,
+    `emit_mockup.py`, `coverage_matrix.py`) resolves which valuation a
+    given class solves as its own "default" -- so the per-class override
+    above and the shared fallback can never drift between callers (LYT
+    presence arc P1, row 2333)."""
+    return reg.default_valuation_by_class.get(class_id, reg.default_valuation)
 
 
 REGISTRATIONS: List[Registration] = [
@@ -145,6 +172,32 @@ REGISTRATIONS: List[Registration] = [
             name="default",
             absent_widgets=frozenset({"boardRail", "previewBoard", "A_setup"}),
         ),
+        # LYT presence arc P1 (row 2333, mobile/portrait repetition-first
+        # disposition): PORTRAIT ONLY, on top of the shared default above,
+        # the control-panel tab group (`"BLACK BOX"`, the `T(...)`
+        # Exclusive's own `[BLACK BOX]` tag -- see
+        # `lengyue_portrait.lyt`'s own header note for the full
+        # derivation and the row-2333 disposition it implements) is ALSO
+        # absent by default -- board + match/play (`tree`) primary,
+        # every control-panel tab (analysis graphs, browse tables,
+        # settings, debug) secondary at phone widths. Landscape's own
+        # `default_valuation` (above) is UNCHANGED -- `valuation_for_class`
+        # is the single seam every consumer resolves this through.
+        # Named "default" (same name as the shared `default_valuation`
+        # above, not "default-portrait") -- each CLASS's own default is
+        # keyed and reported separately already (`valuation_for_class`,
+        # per-class print lines, per-class overlay JSON), so there is no
+        # collision to disambiguate by name; reusing "default" is the
+        # more honest label ("this IS portrait's default"), not an
+        # alternate valuation portrait ALSO happens to solve.
+        default_valuation_by_class={
+            "portrait": PresenceValuation(
+                name="default",
+                absent_widgets=frozenset(
+                    {"boardRail", "previewBoard", "A_setup", "BLACK BOX"}
+                ),
+            ),
+        },
     ),
 ]
 
@@ -210,7 +263,15 @@ def run_all(*, cols: int = 100, rows: int = 36, time_limit_s: float = 20.0) -> i
     PRUNED one (`presence.resolve_and_validate`, boardRail/previewBoard
     genuinely removed) — see that module's own docstring for why this
     alone is sufficient to make the compiler's `(k-1)*gap` partition term
-    use the PRESENT count, with no compiler.py change needed."""
+    use the PRESENT count, with no compiler.py change needed.
+
+    LYT presence arc P1 (row 2333): resolved and validated PER CLASS now
+    (`valuation_for_class`), not once for the whole registration — a
+    registration may declare a PER-CLASS override
+    (`default_valuation_by_class`) that only some of its classes use
+    (portrait, for the lengyue registration; every other class, and every
+    other registration, still resolves the one shared `default_valuation`
+    unchanged, since `default_valuation_by_class` defaults to empty)."""
     exit_code = 0
     for reg in REGISTRATIONS:
         layouts: Dict[str, ast.Slot] = {}
@@ -221,15 +282,30 @@ def run_all(*, cols: int = 100, rows: int = 36, time_limit_s: float = 20.0) -> i
         # came from, kept alongside the merged `layouts` dict the same way
         # `reg.layout_by_class` already tracks which layout a class solves.
         layout_text: Dict[str, str] = {}
+        raw_layouts: Dict[str, ast.Slot] = {}
         for f in reg.files:
             text = (ENCODINGS_DIR / f).read_text()
             names = loader.load_layouts(text, waivers=reg.waivers)
-            layouts.update(names)
+            raw_layouts.update(names)
             for name in names:
                 layout_text[name] = text
-        layouts = resolve_and_validate(layouts, reg.layout_by_class.values(), reg.default_valuation)
+        # LYT presence arc P1: one `resolve_and_validate` call PER CLASS,
+        # each against that class's own resolved valuation
+        # (`valuation_for_class`) — the shared-registration batched call
+        # this replaces could not express "this class's own default
+        # differs from that one's" without either raising (a name absent
+        # from some OTHER class's tree) or silently applying one class's
+        # absence to every class.
+        layout_valuation: Dict[str, PresenceValuation] = {}
+        for class_id, layout_name in reg.layout_by_class.items():
+            valuation = valuation_for_class(reg, class_id)
+            layouts.update(resolve_and_validate(raw_layouts, [layout_name], valuation))
+            layout_valuation[layout_name] = valuation
         print("=" * 100)
-        print(f"ENCODING {reg.name}  (presence valuation: {reg.default_valuation.name!r}, absent={sorted(reg.default_valuation.absent_widgets)})")
+        print(f"ENCODING {reg.name}")
+        for class_id, layout_name in sorted(reg.layout_by_class.items()):
+            v = layout_valuation[layout_name]
+            print(f"  class {class_id!r} -> layout {layout_name!r}  (presence valuation: {v.name!r}, absent={sorted(v.absent_widgets)})")
         print("=" * 100)
         for label, w, h in SCREEN_SIZES:
             cls = nearest_class(reg.classes, w, h)
@@ -276,7 +352,11 @@ def run_all(*, cols: int = 100, rows: int = 36, time_limit_s: float = 20.0) -> i
                 layout_text[layout_name], layout_name, slot, result, waivers=reg.waivers
             )
             if rebound is not slot:
-                slot = prune_absent(rebound, reg.default_valuation.absent_widgets)
+                # LYT presence arc P1: re-prune with THIS layout's own
+                # resolved valuation (`layout_valuation`), not the
+                # registration-wide `reg.default_valuation` — the two
+                # differ for portrait under the lengyue registration.
+                slot = prune_absent(rebound, layout_valuation[layout_name].absent_widgets)
             print(f"  objective_values (stage-by-stage) = {result.objective_values}")
             for path in sorted(result.leaf_names):
                 widget = result.leaf_names[path]

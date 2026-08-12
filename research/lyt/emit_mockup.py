@@ -1682,8 +1682,16 @@ def build_overlay_data(
     valuation-name key."""
     layout_name = reg.layout_by_class[class_id]
     from presence import ALL_PRESENT
+    from runner import valuation_for_class
 
-    valuations: Dict[str, PresenceValuation] = {reg.default_valuation.name: reg.default_valuation}
+    # LYT presence arc P1 (row 2333): resolved PER CLASS
+    # (`runner.valuation_for_class`), not the flat `reg.default_valuation`
+    # -- a registration MAY declare a per-class override
+    # (`default_valuation_by_class`), and this function already receives
+    # `class_id` explicitly. Byte-identical to the pre-P1 flat resolution
+    # for every class/registration that declares no override.
+    class_default = valuation_for_class(reg, class_id)
+    valuations: Dict[str, PresenceValuation] = {class_default.name: class_default}
     valuations.setdefault(ALL_PRESENT.name, ALL_PRESENT)
     for v in reg.common_valuations:
         valuations.setdefault(v.name, v)
@@ -1706,6 +1714,15 @@ def build_overlay_data(
 def build_html_for_class(
     class_id: str, root_slot: ast.Slot, overlay_data: Dict[str, List[dict]], reg
 ) -> str:
+    # LYT presence arc P1 (row 2333): same per-class resolution
+    # `build_overlay_data` above already uses -- `default_absent_slugs`/
+    # `defaultValuationName` below must match the SAME valuation
+    # `overlay_data` was actually solved against for THIS class, or the
+    # debug overlay's own JS would pick a mismatched "default" entry for
+    # portrait once its own default diverges from landscape's.
+    from runner import valuation_for_class
+
+    class_default_valuation = valuation_for_class(reg, class_id)
     body_html = render_node(root_slot, path=(), class_id=class_id, extra_style="width:100%;height:100%;")
     menu_items = TOGGLE_TARGETS.get(class_id, {})
     # `checked` is now conditional on the registry's own default_visible
@@ -1732,13 +1749,13 @@ def build_html_for_class(
             for path, (label, presence, default_visible) in menu_items.items()
             if presence == "release"
             and not default_visible
-            and _widget_at_path(root_slot, path) in reg.default_valuation.absent_widgets
+            and _widget_at_path(root_slot, path) in class_default_valuation.absent_widgets
         }
     )
     overlay_json = json.dumps(
         {
             "valuations": overlay_data,
-            "defaultValuationName": reg.default_valuation.name,
+            "defaultValuationName": class_default_valuation.name,
             "allPresentValuationName": "all-present",
             "defaultAbsentSlugs": default_absent_slugs,
         }

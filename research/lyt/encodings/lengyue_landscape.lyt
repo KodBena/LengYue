@@ -1255,6 +1255,56 @@
 --     Measurements 1/4/8, an isolated Playwright rig (own DB copy, ports
 --     19100-19102, no engine, no forbidden port touched) -- WITNESSED
 --     per that report's own per-claim witness-status summary.
+--
+--   - LYT PRESENCE ARC P1 (2026-08-12, row 2333, mobile/portrait
+--     repetition-first disposition; `.claude/dispatch-reports/
+--     lyt-p1-presence-model.md`) -- CONTROL-PANEL DEMOTION. The
+--     control-panel `T(...)[BLACK BOX]` gains `@demote(h 778px)` --
+--     the FIRST composite (Exclusive) presence demotion in either
+--     encoding, per a scoped, disclosed loader/presence.py widening
+--     (see `loader._load_demote_presence`'s own docstring for why an
+--     Exclusive, unlike a Split, is eligible: every T-child already
+--     shares one rectangle and only one is ever visible, so the whole
+--     group is already ONE presence-relevant unit, the same way a
+--     single leaf is).
+--
+--     THE THRESHOLD, DERIVED FROM ALREADY-NAMED FACTS, NOT A NEW
+--     NUMBER (row 2047's own "a decision posed in pixels is a
+--     defect" discipline). This row (`H(tree, T(...), previewBoard)`)
+--     is nameable-absent below the width at which its own pinned
+--     664px floor PLUS its row-sibling `tree`'s own 110px floor PLUS
+--     one row gap can no longer both be granted (previewBoard is
+--     already absent under the `default`/`demoted` valuations this
+--     matrix checks -- a `@toggle(user, release)` slot, default-off --
+--     so its own 160px is not part of THIS threshold's own sum; were
+--     previewBoard also present, as under `all-present`, the row would
+--     need 942px = 664+110+160+2*4, a fact this comment names but the
+--     THRESHOLD itself does not encode, since `@demote` measures one
+--     constant and `all-present` is this repository's own diagnostic
+--     upper envelope, not a feasibility-bearing valuation, per the
+--     M2b2b census's own mid-flight framing):
+--       664px (T's own pinned floor, M2 STAGE B2a above, itself
+--         traced to CP-analysis's own composite floor)
+--     + 110px (tree's own floor, W4 FLOOR SOFTENING above,
+--         `layout-model.ts`'s TREE_PANEL_MIN_WIDTH_PX)
+--     +   4px (one `--space-tight` row gap, this row's own already-
+--         declared `gap 4px`, charged once since only 2 children
+--         -- tree, T(...) -- remain once previewBoard is pruned)
+--     = 778px.
+--
+--     `coverage_matrix.py`'s own `DEMOTED_EXTRA_WIDGETS` set gains
+--     `"BLACK BOX"` (this Exclusive's own `[BLACK BOX]` tag, which
+--     now doubles as its presence identity -- see `presence.py`'s own
+--     P1 docstring section) for THIS class -- the "demoted" row is a
+--     DIAGNOSTIC coverage point (does landscape stay solvable if the
+--     control panel also leaves), not a change to landscape's own
+--     `default` valuation, per row 2333's own explicit "do NOT shrink
+--     any desktop demand to get there." Landscape's `default` valuation
+--     is UNCHANGED by this arc -- `boardRail`/`previewBoard`/`A_setup`
+--     remain the only three absent-by-default widgets here; the
+--     control panel stands by default at every landscape size this
+--     repository's own representative-size tables check (all comfortably
+--     above 778px).
 layout lengyue-landscape =
   {min 0px, pref 1fr, max inf, gap 12px} H(
     @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
@@ -1274,7 +1324,7 @@ layout lengyue-landscape =
       @toggle(user, release) {92px, content bounded, activity occasional} A_setup[common, action],
       {pref 1fr, gap 4px} H(
         {min 110px, pref 1fr, max inf} tree[board, info+action],
-        {min 664px, pref 664px, max 664px} T(
+        @demote(h 778px) {min 664px, pref 664px, max 664px} T(
           {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 160px, edge v unit, unit v 32px} CP-library[common],
           {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 160px, edge v unit, unit v 39px} CP-cards[common],
           {min 443px, pref 1fr, max inf, gap 4px} V(
