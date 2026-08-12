@@ -660,6 +660,18 @@ export interface UISession {
    * §5). `treeExpanded` is DELIBERATELY UNTOUCHED by this migration —
    * see this field's own doc comment below for why (blind-review-mode's
    * unrelated, load-bearing reuse of that field name).
+   *
+   * Migration 76 -> 77 (LYT presence arc P2b, `.claude/dispatch-reports/
+   * lyt-p2b-presence-realization.md`): a compensating fix for a bug 75 ->
+   * 76 shipped with — see that later migration's own doc comment for the
+   * full account. `controlPanel`'s own compiled-program default became
+   * SCREEN-CLASS-DEPENDENT this arc (`true` landscape, `false`
+   * portrait — repetition-first); 76 -> 77 deletes an already-migrated
+   * blob's `controlPanel: true` (indistinguishable, post-76, from "never
+   * chose") so it falls through to the active class's own default again,
+   * same as a brand-new session. `A_setup` (a 4th presence-menu target
+   * this arc adds) needed no migration at all — it was never seeded by
+   * any prior schema version.
    */
   lytPresence: Record<string, boolean>;
   /**

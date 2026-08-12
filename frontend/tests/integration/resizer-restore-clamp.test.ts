@@ -357,7 +357,17 @@ describe('board-area width cap (commission row 848): narrowed to the pre-measure
     const panel = withSetup(() => useResizablePanel());
 
     // Renamed from controlsExpanded (lyt-w2-presence, migration 75 -> 76).
-    expect(store.session.ui.lytPresence.controlPanel).toBe(true);
+    // Presence arc P2b (`.claude/dispatch-reports/lyt-p2b-presence-
+    // realization.md`): a fresh store no longer SEEDS this key at all
+    // (previously a class-unaware `true` literal, permanently shadowing
+    // portrait's own genuinely-different compiled default) — it falls
+    // through to the active class's own `presenceDefaultVisible`
+    // instead (this test's own jsdom mount resolves to landscape, whose
+    // default is `true`, unchanged from before this arc — but the
+    // PERSISTED cell itself is now honestly absent until a real user
+    // choice is made, per `LytNode.vue`'s/`useLytPresenceMenu.ts`'s
+    // shared `override ?? classDefault` fallback).
+    expect(store.session.ui.lytPresence.controlPanel).toBeUndefined();
     // No longer undefined/flex-fill — the explicit default (init-vs-drag
     // divergence fix) takes over the instant the row is measured.
     const wrapperPx = panel.effectiveTreeControlRegionWidthPx.value;

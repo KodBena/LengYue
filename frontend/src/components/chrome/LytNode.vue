@@ -146,6 +146,44 @@
   TabWidget instance used — "active-tab state ... stays wherever it lives
   today" (the commission's own words).
 
+  Presence arc P2b (`.claude/dispatch-reports/lyt-p2b-presence-
+  realization.md`): `widgetIdOf` now resolves an EXCLUSIVE child's own
+  `node.widget` too (previously `null`, always-present, alongside Split —
+  see P2a's own consumer-audit finding 1, `.claude/dispatch-reports/lyt-
+  p2a-presence-contract.md`). The compiled program already carries a
+  representative `widget` id on `LytExclusiveNode` for DOM-id anchoring
+  (`lyt-layout-types.ts`'s own doc); this wave additionally treats that id
+  as the Exclusive's own presence-toggle identity, so a genuinely-opened
+  Exclusive (today: only the control panel) can be named absent by
+  `presenceOverrides`/`presenceDefaultVisible` the same way a leaf/blackbox
+  already can — a Split still has no such identity and stays `null`
+  (Split children are independently-addressable siblings, not
+  alternatives sharing one rectangle — same distinction P1's own `@demote`
+  widening drew at the LANGUAGE layer, `lyt-p1-presence-model.md` item 1).
+
+  Popover summon for an absent Exclusive (P2b item 3): when an Exclusive
+  is NOT present (class default demoted it, or the user toggled it off),
+  its grid track already collapses to 0px (the generic `trackList`
+  mechanism above, now reachable for an Exclusive via the `widgetIdOf` fix
+  just described) — but the ROW governing ruling (portrait repetition-
+  first; popover, not simultaneous with the board, row 2333/commissioner
+  ruling) additionally requires the panel stay REACHABLE. Rather than a
+  second, duplicate authoring of the Exclusive's own tab-strip+body
+  markup for a popover mount (ADR-0012 cancer B/E — convergence, not a
+  second implementation), the SAME markup below is conditionally
+  `<Teleport>`ed: `:disabled="isPresent(...)"` renders it in its natural
+  grid position (byte-identical to pre-P2b behavior) when present;
+  when absent, `:disabled="false"` relocates it into
+  `exclusivePopoverTarget` (a DOM element App.vue owns and positions via
+  `useFixedAnchoredPopover`) — but ONLY while `exclusivePopoverOpen` names
+  that widget id `true` (a session-local "summoned" flag App.vue's own
+  corner-chrome trigger button writes); otherwise the content is not
+  rendered AT ALL (unmounted — the same release semantics a toggled-off
+  leaf already gets, file header "Runtime presence overrides"). This
+  component owns none of the summon UI itself (no button, no dismiss
+  listener) — those are App.vue-level chrome, forwarded in via these two
+  new cross-cutting props, verbatim, like every other one above.
+
   Tab labels (`translateLabel`): rather than this generic renderer taking a
   DIRECT dependency on `vue-i18n`'s composition API (which would force
   every test that mounts this component — most of which have nothing to do
@@ -223,6 +261,16 @@ const props = withDefaults(
      *  function (the raw i18n key), an honest fallback for a caller that
      *  supplies none. */
     translateLabel?: (key: string) => string;
+    /** Presence arc P2b: exclusive widget id -> "summoned into its
+     *  popover" (only consulted when that widget is NOT present) —
+     *  forwarded verbatim, like every other cross-cutting prop here. See
+     *  the file header's "Popover summon for an absent Exclusive" note. */
+    exclusivePopoverOpen?: Record<string, boolean>;
+    /** Presence arc P2b: the `<Teleport>` target an absent-but-summoned
+     *  Exclusive's content relocates into. `undefined` (the default) means
+     *  no caller has wired popover summon — an absent Exclusive then never
+     *  renders at all (matches every other release-toggled leaf). */
+    exclusivePopoverTarget?: HTMLElement | string;
   }>(),
   {
     path: '',
@@ -233,6 +281,8 @@ const props = withDefaults(
     exclusiveActiveByPath: () => ({}),
     onExclusiveActiveChange: undefined,
     translateLabel: (key: string) => key,
+    exclusivePopoverOpen: () => ({}),
+    exclusivePopoverTarget: undefined,
   },
 );
 
@@ -288,11 +338,12 @@ const groups = computed<Group[]>(() => {
   return out;
 });
 
-// A Split or Exclusive child has no single widget id of its own — only a
-// leaf/blackbox descendant is an individual toggle target (file header,
-// "Runtime presence overrides"). `null` here means "always present."
+// A Split child has no single widget id of its own — only a leaf/blackbox/
+// Exclusive child is an individual toggle target (file header, "Presence
+// arc P2b" — an Exclusive gained this via its own representative `widget`
+// id). `null` here means "always present."
 function widgetIdOf(child: LytChild): string | null {
-  return child.node.kind === 'split' || child.node.kind === 'exclusive' ? null : child.node.widget;
+  return child.node.kind === 'split' ? null : child.node.widget;
 }
 
 function isPresent(child: LytChild): boolean {
@@ -300,6 +351,13 @@ function isPresent(child: LytChild): boolean {
   if (id === null) return true;
   const override = props.presenceOverrides[id];
   return override ?? child.presenceDefaultVisible;
+}
+
+// Presence arc P2b — see file header, "Popover summon for an absent
+// Exclusive". Only meaningful for an Exclusive child; called with its own
+// `node.widget` id.
+function isExclusiveSummoned(node: LytExclusiveNode): boolean {
+  return props.exclusivePopoverOpen[node.widget] ?? false;
 }
 
 // boardRail reservation generalization — see file header. Finds a
@@ -465,6 +523,8 @@ const slotNames = computed(() => Object.keys(slots));
           :exclusive-active-by-path="exclusiveActiveByPath"
           :on-exclusive-active-change="onExclusiveActiveChange"
           :translate-label="translateLabel"
+          :exclusive-popover-open="exclusivePopoverOpen"
+          :exclusive-popover-target="exclusivePopoverTarget"
         >
           <!-- Forward every named slot App.vue supplied at the top of the
                recursion. None of LytNode's leaf slots are SCOPED (App.vue
@@ -490,44 +550,59 @@ const slotNames = computed(() => Object.keys(slots));
         :id="domId(group.rep.path)"
         :style="{ ...placementStyle(group), minWidth: '0', minHeight: '0', position: 'relative' }"
       >
-        <slot :name="'exclusive-' + group.rep.node.widget" />
-        <TabWidget
-          :tabs="exclusiveTabs(group.rep.node)"
-          :model-value="exclusiveActiveTabId(group.rep.node, group.rep.path)"
-          :owns-scroll="false"
-          @update:model-value="(v: string) => onExclusiveTabModelUpdate(group.rep.path, v)"
+        <!-- Presence arc P2b, file header "Popover summon for an absent
+             Exclusive": `disabled` renders in place (byte-identical to
+             pre-P2b behavior) whenever present; when absent, content
+             relocates into `exclusivePopoverTarget` — and only renders at
+             all when summoned (`isExclusiveSummoned`), matching a toggled-
+             off leaf's own unmount-when-absent semantics otherwise. -->
+        <Teleport
+          :to="exclusivePopoverTarget ?? 'body'"
+          :disabled="isPresent(group.rep)"
         >
-          <template v-for="child in group.rep.node.children" #[child.tabId] :key="child.tabId">
-            <!-- A Split child recurses through a nested <LytNode> (exactly
-                 like a Split's own composite children); LytNode's own
-                 `node` prop is always a Split (its top-level fold target),
-                 so an Exclusive child would need an intervening Split
-                 wrapper before it could recurse the same way — not a shape
-                 any encoding produces today (an Exclusive's own children
-                 are never themselves bare Exclusive nodes), so this branch
-                 stays Split-only rather than speculatively widening. -->
-            <LytNode
-              v-if="child.node.kind === 'split'"
-              :node="child.node"
-              :path="child.path"
-              :dom-ids-by-path="domIdsByPath"
-              :presence-overrides="presenceOverrides"
-              :class-id="classId"
-              :track-style-overrides="trackStyleOverrides"
-              :exclusive-active-by-path="exclusiveActiveByPath"
-              :on-exclusive-active-change="onExclusiveActiveChange"
-              :translate-label="translateLabel"
+          <template v-if="isPresent(group.rep) || isExclusiveSummoned(group.rep.node)">
+            <slot :name="'exclusive-' + group.rep.node.widget" />
+            <TabWidget
+              :tabs="exclusiveTabs(group.rep.node)"
+              :model-value="exclusiveActiveTabId(group.rep.node, group.rep.path)"
+              :owns-scroll="false"
+              @update:model-value="(v: string) => onExclusiveTabModelUpdate(group.rep.path, v)"
             >
-              <template v-for="name in slotNames" #[name] :key="name">
-                <slot :name="name" />
+              <template v-for="child in group.rep.node.children" #[child.tabId] :key="child.tabId">
+                <!-- A Split child recurses through a nested <LytNode> (exactly
+                     like a Split's own composite children); LytNode's own
+                     `node` prop is always a Split (its top-level fold target),
+                     so an Exclusive child would need an intervening Split
+                     wrapper before it could recurse the same way — not a shape
+                     any encoding produces today (an Exclusive's own children
+                     are never themselves bare Exclusive nodes), so this branch
+                     stays Split-only rather than speculatively widening. -->
+                <LytNode
+                  v-if="child.node.kind === 'split'"
+                  :node="child.node"
+                  :path="child.path"
+                  :dom-ids-by-path="domIdsByPath"
+                  :presence-overrides="presenceOverrides"
+                  :class-id="classId"
+                  :track-style-overrides="trackStyleOverrides"
+                  :exclusive-active-by-path="exclusiveActiveByPath"
+                  :on-exclusive-active-change="onExclusiveActiveChange"
+                  :translate-label="translateLabel"
+                  :exclusive-popover-open="exclusivePopoverOpen"
+                  :exclusive-popover-target="exclusivePopoverTarget"
+                >
+                  <template v-for="name in slotNames" #[name] :key="name">
+                    <slot :name="name" />
+                  </template>
+                </LytNode>
+                <slot
+                  v-else-if="registryStatus(child.node.widget) !== 'absent'"
+                  :name="'leaf-' + child.node.widget"
+                />
               </template>
-            </LytNode>
-            <slot
-              v-else-if="registryStatus(child.node.widget) !== 'absent'"
-              :name="'leaf-' + child.node.widget"
-            />
+            </TabWidget>
           </template>
-        </TabWidget>
+        </Teleport>
       </div>
 
       <!-- Leaf / blackbox: terminal. Not rendered at all when presence

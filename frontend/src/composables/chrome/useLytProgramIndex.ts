@@ -24,6 +24,23 @@
  * contains — a leaf's own path with its last dotted segment removed), never
  * a second hand-typed path string.
  *
+ * P2b addendum (LYT presence arc, `.claude/dispatch-reports/lyt-p2b-
+ * presence-realization.md`): the walk now also captures
+ * `widgetDefaultVisible` — a leaf/blackbox/exclusive widget id's own
+ * WRAPPING `LytChild.presenceDefaultVisible` (the fact `LytNode.vue`'s own
+ * `isPresent` falls back to when no runtime override is set). Presence
+ * consumers OUTSIDE `LytNode.vue` (App.vue's own trigger-visibility
+ * gate, `useLytPresenceMenu.ts`'s per-class fallback default) need this
+ * SAME class-aware fact without hand-re-deriving it a second time
+ * (ADR-0012 P1) — this index is the one home the compiled program's own
+ * per-widget default already gets walked into, so a second walk isn't
+ * needed. Only a widget wrapped by a SPLIT's own `LytChild` carries this
+ * fact (an Exclusive's own children carry no `presenceDefaultVisible` of
+ * their own, per `LytExclusiveChild`'s own doc — "only a bare leaf can be
+ * named" a release-toggle target does not extend one level deeper into
+ * an opened Exclusive's own interior); such a child's widget id has no
+ * entry here.
+ *
  * License: Public Domain (The Unlicense)
  */
 import type { LytLeafNode, LytNodeData, LytProgram } from '../../state/lyt-layout-types';
@@ -39,6 +56,10 @@ export interface LytProgramIndex {
    *  lets a caller read a leaf-only fact (e.g. `orientation`) without a
    *  second tree walk. A blackbox/exclusive widget id has no entry here. */
   readonly leafNodes: Readonly<Record<string, LytLeafNode>>;
+  /** widget id -> that widget's own wrapping `LytChild.presenceDefaultVisible`
+   *  (module header, "P2b addendum"). Absent for a widget with no wrapping
+   *  Split `LytChild` of its own (an Exclusive child). */
+  readonly widgetDefaultVisible: Readonly<Record<string, boolean>>;
 }
 
 function visit(
@@ -46,39 +67,55 @@ function visit(
   path: string,
   widgetPaths: Record<string, string>,
   leafNodes: Record<string, LytLeafNode>,
+  widgetDefaultVisible: Record<string, boolean>,
+  presenceDefaultVisible: boolean | undefined,
 ): void {
   switch (node.kind) {
     case 'leaf':
       widgetPaths[node.widget] = path;
       leafNodes[node.widget] = node;
+      if (presenceDefaultVisible !== undefined) widgetDefaultVisible[node.widget] = presenceDefaultVisible;
       return;
     case 'blackbox':
       widgetPaths[node.widget] = path;
+      if (presenceDefaultVisible !== undefined) widgetDefaultVisible[node.widget] = presenceDefaultVisible;
       return;
     case 'split':
-      for (const child of node.children) visit(child.node, child.path, widgetPaths, leafNodes);
+      for (const child of node.children) {
+        visit(child.node, child.path, widgetPaths, leafNodes, widgetDefaultVisible, child.presenceDefaultVisible);
+      }
       return;
     case 'exclusive':
       widgetPaths[node.widget] = path;
-      for (const child of node.children) visit(child.node, child.path, widgetPaths, leafNodes);
+      if (presenceDefaultVisible !== undefined) widgetDefaultVisible[node.widget] = presenceDefaultVisible;
+      // An Exclusive's own children (`LytExclusiveChild`) carry no
+      // `presenceDefaultVisible` of their own — see this module's header.
+      for (const child of node.children) {
+        visit(child.node, child.path, widgetPaths, leafNodes, widgetDefaultVisible, undefined);
+      }
       return;
   }
 }
 
 /**
  * Walks a compiled `LytProgram` once, building the `widget id -> path` /
- * `widget id -> leaf node` index every path-keyed App.vue fact derives
- * from. Pure — no Vue reactivity here; a caller wraps it in a `computed`
- * keyed on the active program (see App.vue's `activeLytProgramIndex`).
+ * `widget id -> leaf node` / `widget id -> default-visible` index every
+ * path-keyed App.vue fact derives from. Pure — no Vue reactivity here; a
+ * caller wraps it in a `computed` keyed on the active program (see
+ * App.vue's `activeLytProgramIndex`).
  */
 export function buildLytProgramIndex(program: LytProgram): LytProgramIndex {
   const widgetPaths: Record<string, string> = {};
   const leafNodes: Record<string, LytLeafNode> = {};
+  const widgetDefaultVisible: Record<string, boolean> = {};
   // The root itself is always a Split (`LytProgram.root: LytSplitNode`) and
   // is addressed as '' — the same convention `LYT_DOM_ID_BY_PATH_*`/
-  // `LytNode.vue`'s own `path` prop default already use.
-  visit(program.root, '', widgetPaths, leafNodes);
-  return { widgetPaths, leafNodes };
+  // `LytNode.vue`'s own `path` prop default already use. The root has no
+  // wrapping `LytChild` of its own, hence `undefined` for its own
+  // `presenceDefaultVisible` (irrelevant anyway — the root is always a
+  // Split, which never populates `widgetDefaultVisible` for itself).
+  visit(program.root, '', widgetPaths, leafNodes, widgetDefaultVisible, undefined);
+  return { widgetPaths, leafNodes, widgetDefaultVisible };
 }
 
 /**

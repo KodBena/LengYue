@@ -33,11 +33,21 @@ describe('App.vue — SystemLogToggle mounted in #lyt-corner-chrome (D2 fix)', (
   });
 
   it('mounts <SystemLogToggle /> inside the #lyt-corner-chrome cluster, alongside its siblings', () => {
-    const block = /<div id="lyt-corner-chrome">([\s\S]*?)<\/div>/.exec(app);
+    // Presence arc P2b item 3 (`.claude/dispatch-reports/lyt-p2b-
+    // presence-realization.md`) added the control-panel popover summon
+    // trigger (and its own nested popover-mount `<div>`) INSIDE
+    // `#lyt-corner-chrome` — a lazy match to the FIRST `</div>` (the
+    // pre-P2b shape, when no nested div existed inside this one) would
+    // now stop at one of those nested divs' own close instead of the
+    // cluster's own. Anchored on the known LAST element this cluster
+    // mounts (`<SystemLogToggle />`) instead, robust to whatever nested
+    // markup precedes it — see App.vue's own template for the current
+    // order.
+    const block = /<div id="lyt-corner-chrome">([\s\S]*?<SystemLogToggle\s*\/>)/.exec(app);
     expect(block).not.toBeNull();
     const inner = block![1];
     expect(inner).toMatch(/<DebugMenu\s*\/>/);
-    expect(inner).toMatch(/<LytPresenceMenu\s*\/>/);
+    expect(inner).toMatch(/<LytPresenceMenu[\s\S]*?\/>/);
     expect(inner).toMatch(/<SystemLogToggle\s*\/>/);
   });
 

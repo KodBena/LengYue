@@ -181,13 +181,13 @@ export class FutureSchemaVersionError extends Error {
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 76;
+export const CURRENT_SCHEMA_VERSION = 77;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 72 → 73) are
+ * The first `N` entries (currently 1 → 2 through 74 → 75) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -209,40 +209,6 @@ export const CURRENT_SCHEMA_VERSION = 76;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 74 → 75: backfill `session.ui.showGhostStone` (boolean, default
-  // true) — the new toggle for the ghost-stone hover preview
-  // (wiki2-ghost-stone). The leaf is read by `BoardWidget` (threaded
-  // into `BoardDisplay`'s `ghost-stone-enabled` prop) and seeded in
-  // `defaults.ts`; a persisted blob predating this field would
-  // otherwise carry no value and rely on `updateFromRemote`'s
-  // deepMerge to surface the default. Backfilling explicitly keeps
-  // the persisted shape honest (the composition test pins it) rather
-  // than leaning on the merge. Exposed only through the Session (UI)
-  // `RegistryEditor` — see the field's doc comment on `UISession` in
-  // `schema.ts` for why this toggle has no dedicated StatusBar button.
-  //
-  // Container witnessed against the runtime shape (`witnessedContainer`,
-  // per step 3 of the add-a-migration recipe): `session.ui` exists
-  // from the original UISession seed (v1), so a typo'd path fails
-  // loudly here rather than no-oping and stamping the version. The
-  // blob-side resolution keeps the sibling bodies' non-null-object
-  // tolerance: a partial / legacy blob whose container is absent
-  // no-ops.
-  //
-  // Idempotent: a pre-existing boolean `showGhostStone` is preserved
-  // unchanged (a hand-edited or forward-compat blob keeps its value);
-  // only a missing / wrong-typed leaf is backfilled to the default.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const ui = witnessedContainer(out, 'session.ui');
-    if (ui) {
-      const u = ui as { showGhostStone?: unknown };
-      if (typeof u.showGhostStone !== 'boolean') {
-        u.showGhostStone = true;
-      }
-    }
-    return out;
-  },
   // 75 → 76: LYT corner presence-menu state migration (W2,
   // `.claude/dispatch-reports/lyt-vue-realization-roadmap.md` §5 +
   // ledger row 1743). Introduces `session.ui.lytPresence` (per-widget-id
@@ -322,6 +288,71 @@ export const migrations: Migration[] = [
       delete u.sidebarExpanded;
       delete u.controlsExpanded;
       delete u.boardExpanded;
+    }
+    return out;
+  },
+  // 76 → 77: compensating fix for a bug the 75 → 76 body above shipped
+  // with (LYT presence arc P2b, `.claude/dispatch-reports/lyt-p2b-
+  // presence-realization.md` — "the schema decision, and why"). Per this
+  // file's own header ("bugs in a shipped migration are addressed by
+  // adding a NEW migration later that compensates"), NOT by editing the
+  // frozen 75 → 76 body above.
+  //
+  // THE BUG: 75 → 76's own `presence.controlPanel = typeof
+  // u.controlsExpanded === 'boolean' ? u.controlsExpanded : true` wrote a
+  // LITERAL `true` for every blob whose legacy `controlsExpanded` was
+  // absent/non-boolean — indistinguishable, from that point forward, from
+  // a genuine user choice (`session.ui.lytPresence`'s own schema.ts doc:
+  // "a key's ABSENCE is not a distinct state... every reader falls back
+  // to that widget's own default" — but `controlPanel` was never left
+  // absent post-76, so that fallback path was dead for every migrated
+  // blob). This only mattered once the control panel's own compiled
+  // default became SCREEN-CLASS-DEPENDENT (P2a: portrait's own
+  // `presenceDefaultVisible` flipped to `false` — the whole reason
+  // repetition-first portrait needs the panel absent by default) — every
+  // already-migrated blob's explicit `true` permanently shadows that
+  // class-aware default, on EVERY screen class, regardless of the user
+  // ever having expressed a preference.
+  //
+  // THE COMPENSATION, disclosed and bounded (per this arc's own "the
+  // migration must not fabricate a user-chose state from an old
+  // default" instruction): `presence.controlPanel === false` is an
+  // UNAMBIGUOUS real signal — no migration or default path ever writes
+  // `false` here except a genuine legacy `controlsExpanded === false`
+  // (itself carried forward from a real pre-LYT-rework toggle) or an
+  // explicit post-76 presence-menu uncheck — so a `false` value is left
+  // completely untouched, sovereign as always. `presence.controlPanel
+  // === true`, by contrast, is IRRECOVERABLY AMBIGUOUS (see "THE BUG"
+  // above — it is written identically whether the user actively wanted
+  // it or never touched the setting at all); this migration cannot
+  // recover which case a given blob is, so it does not try — it DELETES
+  // the key when true, restoring the "never chose" absent-key state, and
+  // accepts the small, disclosed cost that a genuine minority who had
+  // explicitly re-toggled the panel back ON now needs one more toggle in
+  // portrait to get it in-grid again (a mild regression for that
+  // minority, in exchange for the class-aware default reaching the
+  // overwhelming common case — the many users who never touched this
+  // control at all). `A_setup` needs no parallel treatment: it was never
+  // seeded by ANY migration or `defaults.ts` version (its own always-on
+  // App.vue-level force-override — M2 stage boot-restoration, `.claude/
+  // dispatch-reports/lyt-boot-restoration.md` — lived entirely OUTSIDE
+  // `session.ui.lytPresence`), so no persisted blob anywhere carries a
+  // fabricated `A_setup` key to compensate for.
+  //
+  // Idempotent: re-running finds no `true` to delete (either already
+  // deleted, or a real `false` untouched either way) and no-ops on a
+  // second pass.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { lytPresence?: unknown };
+      if (typeof u.lytPresence === 'object' && u.lytPresence !== null) {
+        const presence = u.lytPresence as Record<string, unknown>;
+        if (presence.controlPanel === true) {
+          delete presence.controlPanel;
+        }
+      }
     }
     return out;
   },

@@ -126,8 +126,8 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { computed, watch } from 'vue';
-import { ref as vueRef } from 'vue';
+import { computed, watch, onBeforeUnmount } from 'vue';
+import { ref as vueRef, type ComponentPublicInstance } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { useMetadata }       from './composables/auth-app/useMetadata';
@@ -170,6 +170,8 @@ import { LYT_LANDSCAPE }  from './state/lyt-layout.gen';
 import { LYT_PORTRAIT }   from './state/lyt-layout-portrait.gen';
 import { useResizablePanel } from './composables/chrome/useResizablePanel';
 import { buildLytProgramIndex, lytParentPath, lytOrientationToProp } from './composables/chrome/useLytProgramIndex';
+import { usePopoverEdgeClamp } from './composables/chrome/usePopoverEdgeClamp';
+import type { LytPresenceTargetId } from './composables/chrome/useLytPresenceMenu';
 import BoardWidget      from './components/board/BoardWidget.vue';
 import TreeWidget       from './components/tree/TreeWidget.vue';
 import SettingsSubstrip from './components/chrome/SettingsSubstrip.vue';
@@ -660,23 +662,157 @@ function handleLytExclusiveActiveChange(path: string, tabId: string): void {
 // computed feeds to LytNode is style-conditioned, not the persisted
 // preference) — flipping back to 'slot' style restores the user's own
 // prior boardRail checkbox state exactly, not a reset default.
-// M2 stage B2b boot-restoration wiring (`.claude/dispatch-reports/lyt-
-// boot-restoration.md`, ledger row 2346): `A_setup` unconditionally
-// forced visible — see lyt-widget-registry.ts's own A_setup entry for
-// the disclosed scope call (the compiled program's own
-// `presenceDefaultVisible: false` + ruling row 2108's own
-// `@toggle(user, release)` intent anticipates a real presence-menu
-// entry this pass does not build; forcing it here preserves the setup
-// palette's pre-existing always-reachable behaviour rather than
-// silently hiding it). NOT read from `session.ui.lytPresence` — this is
-// a fixed override, not a persisted user preference, unlike
-// boardRail/previewBoard/controlPanel below.
+// Presence arc P2b (`.claude/dispatch-reports/lyt-p2b-presence-
+// realization.md`, item 4): the M2 stage B2b boot-restoration's own
+// unconditional `A_setup: true` force-override (ledger row 2346) is
+// RETIRED — `A_setup` is now a genuine 4th `useLytPresenceMenu.ts`
+// target (item 5), reading/writing `session.ui.lytPresence.A_setup` the
+// same as `boardRail`/`previewBoard`/`controlPanel` below, sovereign to
+// the user's own choice once made, defaulting to the compiled program's
+// own `presenceDefaultVisible: false` (`lytPresenceClassDefaults` below)
+// until then. `SetupToolPalette.vue`'s own internal trigger/body split
+// (its `.setup-trigger` button always rendered, `.setup-palette`'s own
+// body toggling via its OWN `paletteOpen` state — see that file's own
+// header) is unchanged; what changes here is only whether the WHOLE
+// `A_setup` LEAF (trigger included) is mounted at all — ruling row 2108's
+// own "PALETTE ADOPTION" `@toggle(user, release)` intent, finally wired
+// rather than left permanently forced on.
 const lytPresenceOverrides = computed<Record<string, boolean>>(() => {
   const presence = store.session.ui.lytPresence;
   if (store.session.ui.railStyle === 'popover') {
-    return { ...presence, boardRail: false, A_setup: true };
+    return { ...presence, boardRail: false };
   }
-  return { ...presence, A_setup: true };
+  return presence;
+});
+
+// Presence arc P2b item 1: the active screen class's own compiled
+// `presenceDefaultVisible`, per presence-menu target — derived ONCE off
+// `activeLytProgramIndex` (ADR-0012 P1, the same index
+// `activeLytDomIdByPath`/`controlPanelLytPath` above already resolve
+// through, not a second per-class derivation) and threaded into
+// `<LytPresenceMenu>`'s own `classDefaults` prop, which forwards it into
+// `useLytPresenceMenu.ts` (see that composable's own "Presence arc P2b"
+// header section for the resolution order: persisted user choice, then
+// this class default, then the composable's own static fallback).
+const lytPresenceClassDefaults = computed<Partial<Record<LytPresenceTargetId, boolean>>>(() => {
+  const d = activeLytProgramIndex.value.widgetDefaultVisible;
+  return {
+    boardRail: d.boardRail,
+    previewBoard: d.previewBoard,
+    controlPanel: d.controlPanel,
+    A_setup: d.A_setup,
+  };
+});
+
+// Presence arc P2b item 3 (control-panel popover summon). Whether the
+// control-panel Exclusive resolves PRESENT right now — the SAME formula
+// `LytNode.vue`'s own internal `isPresent` applies
+// (`presenceOverrides[id] ?? child.presenceDefaultVisible`), evaluated
+// here too because App.vue-level chrome (the summon trigger's own
+// visibility, below) needs to know this WITHOUT a prop LytNode doesn't
+// expose. Not a second, independently-driftable source of truth — both
+// read the identical `lytPresenceOverrides`/`lytPresenceClassDefaults`
+// facts this file already resolves in one place each (ADR-0012 P1).
+const controlPanelIsPresent = computed<boolean>(
+  () => lytPresenceOverrides.value.controlPanel ?? lytPresenceClassDefaults.value.controlPanel ?? true,
+);
+
+// ── Control-panel popover summon (P2b item 3) ───────────────────────────
+// Session-local (never persisted — "Dismissal restores the demoted
+// state" is the commission's own words; matches `useLytPresenceMenu.ts`'s
+// own `open` ref and `BoardRailPopoverTrigger.vue`'s own `open` ref, both
+// ephemeral UI state, not a stored preference).
+//
+// Positioning composable — DEVIATION FROM THE COMMISSION'S NAMED
+// `useFixedAnchoredPopover`, disclosed with the evidence: this trigger
+// mounts in `#lyt-corner-chrome` (`position: fixed`, viewport
+// bottom-right corner), the SAME position `BoardRailPopoverTrigger.vue`/
+// `LytPresenceMenu.vue` already occupy — and BOTH of those already use
+// `usePopoverEdgeClamp` + a `bottom: 100%` CSS anchor (opens UPWARD from
+// the trigger), not `useFixedAnchoredPopover`. `useFixedAnchoredPopover`
+// was tried first (per the commission's own naming) and empirically
+// failed AT THIS EXACT POSITION: its hardcoded `top: triggerRect.bottom`
+// anchor opens DOWNWARD, and — because the trigger already sits at the
+// viewport's own bottom edge — the composable's own viewport-bottom
+// clamp then pulls the popover back UP, directly over the trigger button
+// itself, making it un-clickable to dismiss (the screenshot witness rig
+// caught this directly: `page.click('#control-panel-summon-btn')` timed
+// out after the popover opened, Playwright reporting the button's own
+// area as occluded by `.control-panel-popover`). `useFixedAnchoredPopover`
+// exists to escape an `overflow: auto` CLIPPING ANCESTOR
+// (`EngineQueueTooltip.vue`'s own header has the full diagnosis) — a
+// precondition that doesn't hold here either: `#lyt-corner-chrome` is
+// already outside any such ancestor, exactly like its two siblings.
+const controlPanelPopoverOpen = vueRef(false);
+const { setPopoverEl: setEdgeClampPopoverEl, xShift: controlPanelPopoverXShift } =
+  usePopoverEdgeClamp(controlPanelPopoverOpen);
+// Presence arc P2b: the Teleport target `LytNode.vue`'s own Exclusive
+// branch relocates the control panel's live content into when absent —
+// see that file's header, "Popover summon for an absent Exclusive", and
+// the template's own comment (nested inside the trigger's own
+// `v-if="!controlPanelIsPresent"` wrapper) for why this element is
+// guaranteed to exist by the time a summon can occur. `v-show`, never
+// `v-if`, WITHIN that wrapper's own lifetime — Teleport needs a stable
+// target across the open/close toggle, not a remounted one each time.
+// Vue templates bind exactly one `:ref` per element; this element needs
+// TWO readers (this file's own `controlPanelPopoverEl`, used as the
+// Teleport target AND the dismiss-listener's own "is this click inside
+// the popover" check below, plus `usePopoverEdgeClamp`'s own internal
+// measurement) — `setControlPanelPopoverEl` below is a combined
+// function-ref that feeds both from the one template binding.
+const controlPanelPopoverEl = vueRef<HTMLElement | null>(null);
+function setControlPanelPopoverEl(el: Element | ComponentPublicInstance | null): void {
+  controlPanelPopoverEl.value = el as HTMLElement | null; // DOM: only ever bound to a plain <div> below
+  setEdgeClampPopoverEl(el);
+}
+const exclusivePopoverOpenMap = computed<Record<string, boolean>>(() => ({
+  controlPanel: controlPanelPopoverOpen.value,
+}));
+
+function toggleControlPanelPopover(): void {
+  controlPanelPopoverOpen.value = !controlPanelPopoverOpen.value;
+}
+function closeControlPanelPopover(): void {
+  controlPanelPopoverOpen.value = false;
+}
+
+// Dismiss idiom (click-outside + Escape) — verbatim the same shape
+// `BoardRailPopoverTrigger.vue`/`LocalePicker.vue`/`LytPresenceMenu.vue`
+// each already use (this codebase's established click-popover pattern;
+// not re-abstracted into a shared composable here for the same
+// below-extraction-threshold reason `SetupToolPalette.vue`'s own header
+// names for its own click-toggle shape — two existing instances plus
+// this one is still below the THIRD-instance threshold
+// `useHoverPopover.ts`'s header documents for ITS OWN, differently-
+// triggered (hover, not click) extraction).
+// The popover panel is a DOM DESCENDANT of `controlPanelPopoverRootEl`
+// (nested inside the trigger's own wrapper — see the template), so its
+// own `.contains()` check alone already covers a click landing in the
+// popover's own content (a tab button, a text field inside Library/
+// Settings/…). The second, explicit `controlPanelPopoverEl` check is
+// belt-and-suspenders (harmless if ever restructured to a sibling again).
+const controlPanelPopoverRootEl = vueRef<HTMLElement | null>(null);
+function onControlPanelPopoverDocumentPointerDown(e: PointerEvent): void {
+  const target = e.target as Node;
+  if (controlPanelPopoverRootEl.value?.contains(target)) return;
+  if (controlPanelPopoverEl.value?.contains(target)) return;
+  closeControlPanelPopover();
+}
+function onControlPanelPopoverKeydown(e: KeyboardEvent): void {
+  if (e.key === 'Escape') closeControlPanelPopover();
+}
+watch(controlPanelPopoverOpen, (isOpen) => {
+  if (isOpen) {
+    document.addEventListener('pointerdown', onControlPanelPopoverDocumentPointerDown, true);
+    document.addEventListener('keydown', onControlPanelPopoverKeydown);
+  } else {
+    document.removeEventListener('pointerdown', onControlPanelPopoverDocumentPointerDown, true);
+    document.removeEventListener('keydown', onControlPanelPopoverKeydown);
+  }
+});
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', onControlPanelPopoverDocumentPointerDown, true);
+  document.removeEventListener('keydown', onControlPanelPopoverKeydown);
 });
 
 const { sync } = useAppBootstrap(auth);
@@ -901,6 +1037,8 @@ const activeTab = computed<string>({
           :exclusive-active-by-path="lytExclusiveActiveByPath"
           :on-exclusive-active-change="handleLytExclusiveActiveChange"
           :translate-label="t"
+          :exclusive-popover-open="exclusivePopoverOpenMap"
+          :exclusive-popover-target="controlPanelPopoverEl ?? undefined"
         >
 
           <!-- W2: style A only (railStyle === 'slot') actually shows this
@@ -1215,7 +1353,70 @@ const activeTab = computed<string>({
         <div id="lyt-corner-chrome">
           <DebugMenu />
           <BoardRailPopoverTrigger v-if="store.session.ui.railStyle === 'popover'" />
-          <LytPresenceMenu />
+          <!-- Control-panel popover summon (P2b item 3): reachable ONLY
+               while the control panel is absent from the grid (class
+               default demoted it, or the user toggled it off via
+               LytPresenceMenu below) — when present, the grid already
+               shows it, so no summon affordance is needed.
+
+               Positioning: `usePopoverEdgeClamp` + a CSS `bottom: 100%`
+               anchor (opens UPWARD from the trigger), the SAME idiom this
+               element's own `#lyt-corner-chrome` siblings
+               (`BoardRailPopoverTrigger.vue`/`LytPresenceMenu.vue`) use —
+               NOT `useFixedAnchoredPopover` (script header's original
+               plan, per the commission's own naming). Witnessed
+               empirically wrong for THIS trigger's position: that
+               composable's `top: triggerRect.bottom` anchor opens
+               DOWNWARD, and this trigger already sits at the fixed
+               viewport BOTTOM-right corner — the viewport-bottom clamp
+               then pulls the popover back UP over the trigger itself,
+               blocking the very re-click needed to dismiss it (screenshot
+               rig transcript: `page.click('#control-panel-summon-btn')`
+               timed out, `<button>` occluded by its own now-open
+               popover). `useFixedAnchoredPopover`'s own precondition
+               (escaping an `overflow:auto` clipping ancestor) doesn't
+               even apply here either — `#lyt-corner-chrome` is already
+               `position: fixed`, outside every such ancestor, exactly
+               like its two siblings that already use
+               `usePopoverEdgeClamp` for this reason. -->
+          <div v-if="!controlPanelIsPresent" ref="controlPanelPopoverRootEl" class="control-panel-summon-wrap">
+            <button
+              id="control-panel-summon-btn"
+              type="button"
+              class="control-panel-summon-trigger"
+              :title="$t('app.chrome.presence.controlPanelSummon')"
+              :aria-label="$t('app.chrome.presence.controlPanelSummon')"
+              aria-haspopup="true"
+              :aria-expanded="controlPanelPopoverOpen"
+              aria-controls="control-panel-popover-mount"
+              @click="toggleControlPanelPopover"
+            >
+              <span aria-hidden="true">&#9776;</span>
+            </button>
+
+            <!-- The control panel's own Teleport target when absent-but-
+                 summoned — see LytNode.vue's header ("Popover summon for
+                 an absent Exclusive") for what gets relocated in here.
+                 ALWAYS mounted (`v-show`, never `v-if`) WHILE this wrapper
+                 itself is mounted — LytNode's own Teleport only ever
+                 targets this element while `controlPanelIsPresent` is
+                 false, the SAME condition gating this wrapper's own
+                 `v-if`, so the target is guaranteed to exist by the time
+                 a summon can occur (the trigger button that starts a
+                 summon lives inside this same wrapper). Opaque
+                 (--surface-0, the same standing occlusion law
+                 `LytPresenceMenu.vue`'s own header names). -->
+            <div
+              id="control-panel-popover-mount"
+              :ref="setControlPanelPopoverEl"
+              v-show="controlPanelPopoverOpen"
+              class="control-panel-popover"
+              role="dialog"
+              :aria-label="$t('app.chrome.presence.controlPanel')"
+              :style="{ transform: `translateX(${controlPanelPopoverXShift}px)` }"
+            ></div>
+          </div>
+          <LytPresenceMenu :class-defaults="lytPresenceClassDefaults" />
           <SystemLogToggle />
         </div>
       </template>
@@ -1456,6 +1657,73 @@ const activeTab = computed<string>({
   align-items: center;
   gap: var(--space-tight);
 }
+
+/* Presence arc P2b item 3: control-panel popover summon trigger. Same
+   28px pointer-target floor + look as its `#lyt-corner-chrome` siblings
+   (`BoardRailPopoverTrigger.vue`'s `.board-rail-trigger`,
+   `LytPresenceMenu.vue`'s `.lyt-presence-trigger`) — App.vue's own
+   `<style>` block is NOT scoped (see this file's own header), so this
+   rule reuses the SAME token pattern those two components' scoped
+   styles independently declare, rather than introducing a new look. */
+.control-panel-summon-wrap { position: relative; display: inline-flex; }
+.control-panel-summon-trigger {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-0);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-default);
+  color: var(--text-0);
+  cursor: pointer;
+  font-size: var(--text-emphasis);
+}
+.control-panel-summon-trigger:hover { border-color: var(--border-3); }
+.control-panel-summon-trigger[aria-expanded="true"] { border-color: var(--accent-primary); }
+
+/* Presence arc P2b item 3: the control panel's own popover panel —
+   opaque (--surface-0, the same standing occlusion law
+   `LytPresenceMenu.vue`'s own header names), anchored ABOVE the trigger
+   (`bottom: 100%`, `usePopoverEdgeClamp`'s own `xShift` piped into
+   `transform: translateX`) — the SAME anchor scheme
+   `BoardRailPopoverTrigger.vue`'s own `.board-rail-popover` uses at this
+   exact corner position; see this file's own script-header comment on
+   `controlPanelPopoverOpen` for why `useFixedAnchoredPopover` (the
+   commission's original naming) empirically does not fit here. Sized
+   generously enough for the tabbed content (Library/Cards/Settings/
+   Analysis/Other) to be genuinely usable — the SAME 664px fixed width
+   the grid's own control-panel track reserves, capped against the
+   viewport for narrow screens; a bounded, scrollable height rather than
+   an unbounded one so the panel never grows past the viewport itself. */
+.control-panel-popover {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  width: 664px;
+  max-width: calc(100vw - 8px);
+  height: 70vh;
+  max-height: 600px;
+  overflow: auto;
+  background: var(--surface-0);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-default);
+  z-index: var(--z-popover-chrome);
+}
+/* The inner tree/control-panel resizer bar (`#resizer-inner`, the
+   `#exclusive-controlPanel` slot's own content) rides along with every
+   Teleport of the control panel's content (LytNode.vue's own Exclusive
+   branch relocates the WHOLE slot, not just TabWidget) — its drag
+   affordance assumes the grid's own `#control-panel`-relative geometry,
+   which the popover doesn't reproduce. Grid and popover mounts are
+   mutually exclusive by construction (P2b: the Exclusive is never
+   simultaneously present-in-grid AND summoned-to-popover), so this
+   selector only ever hides the ONE `#resizer-inner` instance that
+   actually exists at a time — never both. */
+.control-panel-popover #resizer-inner { display: none; }
 
 /* #board-area (root child 1, the board/info/action V-composite): under
    CSS grid this is itself a nested grid container (LytNode's own

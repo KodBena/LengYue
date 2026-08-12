@@ -3143,4 +3143,38 @@ export const archivedMigrations: Migration[] = [
     }
     return out;
   },
+  // 74 → 75: backfill `session.ui.showGhostStone` (boolean, default
+  // true) — the new toggle for the ghost-stone hover preview
+  // (wiki2-ghost-stone). The leaf is read by `BoardWidget` (threaded
+  // into `BoardDisplay`'s `ghost-stone-enabled` prop) and seeded in
+  // `defaults.ts`; a persisted blob predating this field would
+  // otherwise carry no value and rely on `updateFromRemote`'s
+  // deepMerge to surface the default. Backfilling explicitly keeps
+  // the persisted shape honest (the composition test pins it) rather
+  // than leaning on the merge. Exposed only through the Session (UI)
+  // `RegistryEditor` — see the field's doc comment on `UISession` in
+  // `schema.ts` for why this toggle has no dedicated StatusBar button.
+  //
+  // Container witnessed against the runtime shape (`witnessedContainer`,
+  // per step 3 of the add-a-migration recipe): `session.ui` exists
+  // from the original UISession seed (v1), so a typo'd path fails
+  // loudly here rather than no-oping and stamping the version. The
+  // blob-side resolution keeps the sibling bodies' non-null-object
+  // tolerance: a partial / legacy blob whose container is absent
+  // no-ops.
+  //
+  // Idempotent: a pre-existing boolean `showGhostStone` is preserved
+  // unchanged (a hand-edited or forward-compat blob keeps its value);
+  // only a missing / wrong-typed leaf is backfilled to the default.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { showGhostStone?: unknown };
+      if (typeof u.showGhostStone !== 'boolean') {
+        u.showGhostStone = true;
+      }
+    }
+    return out;
+  },
 ];

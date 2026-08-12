@@ -235,6 +235,104 @@ describe('LytNode.vue — Exclusive-case rendering (REALIZATION WAVE)', () => {
   });
 });
 
+// Presence arc P2b (`.claude/dispatch-reports/lyt-p2b-presence-
+// realization.md` item 2/3): same one-level program as `program()` above,
+// parameterised on the wrapping child's own `presenceDefaultVisible` so
+// each test below can exercise the absent/present split directly.
+function programWithPresence(defaultVisible: boolean): LytSplitNode {
+  const p = program();
+  (p.children[0] as { presenceDefaultVisible: boolean }).presenceDefaultVisible = defaultVisible;
+  return p;
+}
+
+describe('LytNode.vue — Exclusive presence (P2b item 2: an Exclusive is now a real toggle target)', () => {
+  it('an absent Exclusive (presenceDefaultVisible: false, no override) renders no tab strip at all', () => {
+    const wrapper = mount(LytNode, {
+      props: { node: programWithPresence(false) },
+      slots: { 'leaf-CP-library': '<div id="library-content"></div>' },
+    });
+    expect(wrapper.find('[role="tablist"]').exists()).toBe(false);
+  });
+
+  it('presenceOverrides can name the Exclusive\'s own widget id absent even when the compiled default is present', () => {
+    const wrapper = mount(LytNode, {
+      props: { node: programWithPresence(true), presenceOverrides: { controlPanel: false } },
+      slots: { 'leaf-CP-library': '<div id="library-content"></div>' },
+    });
+    expect(wrapper.find('[role="tablist"]').exists()).toBe(false);
+  });
+
+  it('presenceOverrides can name the Exclusive\'s own widget id present even when the compiled default is absent', () => {
+    const wrapper = mount(LytNode, {
+      props: { node: programWithPresence(false), presenceOverrides: { controlPanel: true } },
+      slots: { 'leaf-CP-library': '<div id="library-content"></div>' },
+    });
+    expect(wrapper.find('[role="tablist"]').exists()).toBe(true);
+  });
+});
+
+describe('LytNode.vue — Exclusive popover summon (P2b item 3)', () => {
+  function popoverTarget(): HTMLElement {
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    return el;
+  }
+
+  it('absent + not summoned: renders nothing, not even into the popover target', () => {
+    const target = popoverTarget();
+    const wrapper = mount(LytNode, {
+      props: {
+        node: programWithPresence(false),
+        exclusivePopoverTarget: target,
+        exclusivePopoverOpen: {},
+      },
+      attachTo: document.body,
+      slots: { 'leaf-CP-library': '<div id="library-content"></div>' },
+    });
+    expect(wrapper.find('[role="tablist"]').exists()).toBe(false);
+    expect(target.querySelector('[role="tablist"]')).toBeNull();
+    wrapper.unmount();
+    target.remove();
+  });
+
+  it('absent + summoned (exclusivePopoverOpen[widget] = true): relocates the tab strip into exclusivePopoverTarget', () => {
+    const target = popoverTarget();
+    const wrapper = mount(LytNode, {
+      props: {
+        node: programWithPresence(false),
+        exclusivePopoverTarget: target,
+        exclusivePopoverOpen: { controlPanel: true },
+      },
+      attachTo: document.body,
+      slots: { 'leaf-CP-library': '<div id="library-content"></div>' },
+    });
+    // Not rendered in LytNode's own natural (wrapper) subtree...
+    expect(wrapper.find('[role="tablist"]').exists()).toBe(false);
+    // ...but present, live, inside the popover target.
+    expect(target.querySelector('[role="tablist"]')).not.toBeNull();
+    expect(target.querySelector('#library-content')).not.toBeNull();
+    wrapper.unmount();
+    target.remove();
+  });
+
+  it('present (in-grid): renders in its natural position regardless of exclusivePopoverOpen — Teleport stays disabled', () => {
+    const target = popoverTarget();
+    const wrapper = mount(LytNode, {
+      props: {
+        node: programWithPresence(true),
+        exclusivePopoverTarget: target,
+        exclusivePopoverOpen: { controlPanel: true }, // even if "summoned", present wins
+      },
+      attachTo: document.body,
+      slots: { 'leaf-CP-library': '<div id="library-content"></div>' },
+    });
+    expect(wrapper.find('[role="tablist"]').exists()).toBe(true);
+    expect(target.querySelector('[role="tablist"]')).toBeNull();
+    wrapper.unmount();
+    target.remove();
+  });
+});
+
 describe('LytNode.vue — single-tab-implementation proof (ADR-0012 cancer B/E)', () => {
   it('drives TabWidget.vue directly rather than re-authoring a second strip/body implementation', () => {
     const src = readFileSync(

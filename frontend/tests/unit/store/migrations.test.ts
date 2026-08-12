@@ -3748,8 +3748,68 @@ describe('75 → 76: LYT corner presence-menu state migration (lyt-w2-presence)'
     };
     const out = migrate(blob);
     expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(out.session.ui.lytPresence).toEqual({ boardRail: false, controlPanel: true, previewBoard: false });
+    // controlsExpanded: true carries forward into 75 → 76's own
+    // `lytPresence.controlPanel: true` — but the FULL walk also runs
+    // 76 → 77 (this blob starts below it), which deletes an
+    // (indistinguishable-from-fabricated) `controlPanel: true` — see
+    // that migration's own doc comment in migrations.ts and the
+    // dedicated '76 → 77' describe block below for the full account.
+    // The end-to-end-reachable shape is therefore the ABSENT key, not
+    // a literal `true`.
+    expect(out.session.ui.lytPresence).toEqual({ boardRail: false, previewBoard: false });
     expect(out.session.ui.railStyle).toBe('slot');
     expect('sidebarExpanded' in out.session.ui).toBe(false);
+  });
+});
+
+describe('76 → 77: controlPanel-fabrication compensation (lyt-p2b-presence-realization)', () => {
+  // See migrations.ts's own doc comment on this step for the full
+  // diagnosis — 75 → 76 wrote a literal `controlPanel: true` for every
+  // blob whose legacy `controlsExpanded` was absent/non-boolean,
+  // indistinguishable from here on from a genuine user choice. This step
+  // deletes the key when (and only when) it is exactly `true`, restoring
+  // the "never chose" absent-key state so the widget's own class-aware
+  // compiled default (P2a) can be reached again; `false` (an unambiguous
+  // real signal — no migration or default path ever fabricates `false`)
+  // is left completely untouched.
+
+  it('deletes lytPresence.controlPanel when it is true', () => {
+    const blob: any = { session: { ui: { lytPresence: { boardRail: false, controlPanel: true, previewBoard: false } } } };
+    const out = step(76)(blob);
+    expect('controlPanel' in out.session.ui.lytPresence).toBe(false);
+    // Siblings are untouched.
+    expect(out.session.ui.lytPresence.boardRail).toBe(false);
+    expect(out.session.ui.lytPresence.previewBoard).toBe(false);
+  });
+
+  it('leaves lytPresence.controlPanel untouched when it is false (an unambiguous real signal)', () => {
+    const blob: any = { session: { ui: { lytPresence: { controlPanel: false } } } };
+    const out = step(76)(blob);
+    expect(out.session.ui.lytPresence.controlPanel).toBe(false);
+  });
+
+  it('leaves lytPresence untouched when controlPanel is already absent', () => {
+    const blob: any = { session: { ui: { lytPresence: { boardRail: true } } } };
+    const out = step(76)(blob);
+    expect(out.session.ui.lytPresence).toEqual({ boardRail: true });
+  });
+
+  it('is a no-op when lytPresence itself is absent (very-legacy / partial blob)', () => {
+    const blob: any = { session: { ui: { activeTab: 'cards' } } };
+    const out = step(76)(blob);
+    expect(out.session.ui.lytPresence).toBeUndefined();
+  });
+
+  it('is a no-op when session.ui is absent', () => {
+    const blob: any = { session: {} };
+    const out = step(76)(blob);
+    expect(out.session.ui).toBeUndefined();
+  });
+
+  it('is idempotent — re-running against an already-compensated blob leaves it unchanged', () => {
+    const blob: any = { session: { ui: { lytPresence: { controlPanel: true } } } };
+    const once = step(76)(blob);
+    const twice = step(76)(once);
+    expect(twice.session.ui.lytPresence).toEqual(once.session.ui.lytPresence);
   });
 });

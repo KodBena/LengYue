@@ -205,3 +205,62 @@ describe('App.vue boot — every compiled-program widget id resolves to a render
     }
   });
 });
+
+describe('App.vue — LYT presence arc P2b (control-panel class-aware default + popover summon/dismiss)', () => {
+  let wrapper: VueWrapper | null = null;
+
+  afterEach(() => {
+    wrapper?.unmount();
+    wrapper = null;
+    document.body.innerHTML = '';
+  });
+
+  it('landscape: the control panel is present in-grid (its own tab strip renders); no summon trigger is shown', async () => {
+    stubSplitWorkspaceRect(1920, 1080);
+    wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
+    await flushPromises();
+
+    expect(wrapper.find('.reb-overlay').exists()).toBe(false);
+    expect(wrapper.find('#control-panel [role="tablist"]').exists()).toBe(true);
+    expect(wrapper.find('#control-panel-summon-btn').exists()).toBe(false);
+  });
+
+  it('portrait: the control panel is ABSENT from the grid (repetition-first default); the summon trigger IS shown', async () => {
+    stubSplitWorkspaceRect(400, 900);
+    wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
+    await flushPromises();
+
+    expect(wrapper.find('.reb-overlay').exists()).toBe(false);
+    expect(wrapper.find('#control-panel [role="tablist"]').exists()).toBe(false);
+    expect(wrapper.find('#control-panel-summon-btn').exists()).toBe(true);
+    // Never rendered simultaneously with the board in the grid itself —
+    // the popover mount exists but stays closed (v-show) until summoned.
+    expect(wrapper.find('#control-panel-popover-mount').exists()).toBe(true);
+    expect((wrapper.find('#control-panel-popover-mount').element as HTMLElement).style.display).toBe('none');
+  });
+
+  it('portrait: clicking the summon trigger opens the popover with the SAME live tab content (summon), and clicking it again dismisses (restores the demoted state)', async () => {
+    stubSplitWorkspaceRect(400, 900);
+    wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
+    await flushPromises();
+
+    await wrapper.find('#control-panel-summon-btn').trigger('click');
+    await flushPromises();
+
+    const mountEl = wrapper.find('#control-panel-popover-mount').element as HTMLElement;
+    expect(mountEl.style.display).not.toBe('none');
+    expect(mountEl.querySelector('[role="tablist"]')).not.toBeNull();
+    // Full functionality: the default-active tab's own real content
+    // (Library) is mounted, same as the in-grid case.
+    expect(mountEl.querySelector('[role="tab"]')).not.toBeNull();
+
+    // Dismiss (re-click the trigger — same idiom as
+    // BoardRailPopoverTrigger/LytPresenceMenu's own toggle-to-close).
+    await wrapper.find('#control-panel-summon-btn').trigger('click');
+    await flushPromises();
+    expect(mountEl.style.display).toBe('none');
+    expect(mountEl.querySelector('[role="tablist"]')).toBeNull();
+    // The demoted state is restored: still absent from the grid.
+    expect(wrapper.find('#control-panel [role="tablist"]').exists()).toBe(false);
+  });
+});

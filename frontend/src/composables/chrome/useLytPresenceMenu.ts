@@ -65,6 +65,29 @@
  * even though `boardRail`'s stored `lytPresence.boardRail` value is
  * irrelevant to the grid in popover style).
  *
+ * ── Presence arc P2b: a 4th target (`A_setup`) + class-aware defaults ──
+ * `.claude/dispatch-reports/lyt-p2b-presence-realization.md` item 5. Two
+ * additions on top of W2's original three:
+ *
+ * 1. `A_setup` (the setup-tool-palette leaf, M2 stage boot-restoration)
+ *    joins the target tuple — its own compiled `presenceDefaultVisible`
+ *    is `false` in BOTH classes (an "off release toggle", matching
+ *    `boardRail`/`previewBoard`'s own convention), so `LYT_PRESENCE_DEFAULT`
+ *    below carries `false` for it too, uniformly across classes (no
+ *    per-class variance to thread for this one target).
+ * 2. `controlPanel`'s own compiled default, by contrast, genuinely VARIES
+ *    per screen class (P2a: `true` landscape, `false` portrait,
+ *    repetition-first) — `LYT_PRESENCE_DEFAULT.controlPanel` below stays
+ *    the OLD class-unaware `true` literal (preserved for a caller that
+ *    supplies no `classDefaults`, e.g. this file's own pre-existing unit
+ *    tests), but a REAL caller (`LytPresenceMenu.vue`, wired from
+ *    App.vue's own `activeLytProgramIndex.widgetDefaultVisible` —
+ *    ADR-0012 P1, one home for the compiled program's own per-widget
+ *    default, not a second derivation of the same fact) passes
+ *    `classDefaults`, a per-target override map consulted FIRST, falling
+ *    back to `LYT_PRESENCE_DEFAULT` only for a target `classDefaults`
+ *    doesn't mention.
+ *
  * ADR-0003 band: 2 (chrome-coupled — reads/writes the LYT presence menu's
  * own session-state shape; no Go/engine vocabulary).
  *
@@ -73,33 +96,44 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue';
 import { store, touchSession } from '../../store';
 
-/** The presence menu's three checkbox targets, in the order the popover
- *  renders them. See this file's header for why not the mockup's seven. */
-export const LYT_PRESENCE_TARGETS = ['boardRail', 'previewBoard', 'controlPanel'] as const;
+/** The presence menu's checkbox targets, in the order the popover renders
+ *  them. See this file's header for why not the mockup's seven, and the
+ *  "Presence arc P2b" section for the 4th (`A_setup`). */
+export const LYT_PRESENCE_TARGETS = ['boardRail', 'previewBoard', 'controlPanel', 'A_setup'] as const;
 export type LytPresenceTargetId = (typeof LYT_PRESENCE_TARGETS)[number];
 
 /**
- * Fallback default per target — mirrors `lyt-layout.gen.ts`'s own
- * `presenceDefaultVisible` for `boardRail` (path '0') and `previewBoard`
+ * Static fallback default per target, consulted when `classDefaults`
+ * (below) supplies nothing for a given id — mirrors `lyt-layout.gen.ts`'s
+ * own `presenceDefaultVisible` for `boardRail` (path '0'), `previewBoard`
  * (path '2.3.2', was '2.2.2' — M2 stage B2a/B2b's new `A_setup` leaf
- * shifted the tree/panels row from '2.2' to '2.3'), both `false`, and
- * `controlPanel` (path '2.3.1', was '2.2.1')'s `true`. Kept as a literal
- * (not derived by walking `LYT_LANDSCAPE` at
- * runtime) because exactly these three ids are presence-menu targets —
- * see this file's header. `defaults.ts`'s `defaultSessionUI.lytPresence`
- * seeds the SAME triple; this is the one other place it is named (the
- * migration 75 -> 76 fallback for a key a legacy blob never wrote names
- * it a third time, independently, per that migration's own frozen-body
- * discipline — the three literals are intentionally NOT imported from a
- * shared constant across the store/composable boundary, since a shipped
- * migration body must never depend on a runtime module that could change
- * shape later).
+ * shifted the tree/panels row from '2.2' to '2.3'), and `A_setup` itself,
+ * all `false`, and `controlPanel` (path '2.3.1', was '2.2.1')'s `true`
+ * (LANDSCAPE's own value — see the file header's "Presence arc P2b"
+ * section for why this one target additionally needs a class-aware
+ * override a real caller supplies). Kept as a literal (not derived by
+ * walking `LYT_LANDSCAPE` at runtime) — `defaults.ts`'s
+ * `defaultSessionUI.lytPresence` deliberately does NOT seed a matching
+ * literal for `controlPanel`/`A_setup` any more (P2b: seeding would bake
+ * a class-unaware/stale fact into every new session — see that file's
+ * own doc comment); this map is a REALIZATION-layer fallback-of-fallback
+ * only, consulted when a persisted key is absent AND (for `controlPanel`)
+ * no `classDefaults` override was supplied.
  */
 export const LYT_PRESENCE_DEFAULT: Record<LytPresenceTargetId, boolean> = {
   boardRail: false,
   previewBoard: false,
   controlPanel: true,
+  A_setup: false,
 };
+
+export interface UseLytPresenceMenuOptions {
+  /** Per-target override of `LYT_PRESENCE_DEFAULT`, consulted FIRST —
+   *  see the file header's "Presence arc P2b" section. Typically the
+   *  active screen class's own compiled `presenceDefaultVisible` per
+   *  target, threaded from `App.vue`'s `activeLytProgramIndex`. */
+  classDefaults?: Ref<Partial<Record<LytPresenceTargetId, boolean>>>;
+}
 
 export interface LytPresenceMenuTarget {
   readonly id: LytPresenceTargetId;
@@ -119,7 +153,7 @@ export interface LytPresenceMenuHandle {
   readonly setRailStyle: (style: 'slot' | 'popover') => void;
 }
 
-export function useLytPresenceMenu(): LytPresenceMenuHandle {
+export function useLytPresenceMenu(options?: UseLytPresenceMenuOptions): LytPresenceMenuHandle {
   const open = ref(false);
 
   function toggleMenu(): void {
@@ -129,8 +163,16 @@ export function useLytPresenceMenu(): LytPresenceMenuHandle {
     open.value = false;
   }
 
+  // Presence arc P2b — see file header, "Presence arc P2b". A caller's
+  // own `classDefaults` wins over the static `LYT_PRESENCE_DEFAULT`
+  // fallback for whichever targets it names; a target it doesn't mention
+  // (or no `options` at all) falls through unchanged.
+  function defaultFor(id: LytPresenceTargetId): boolean {
+    return options?.classDefaults?.value[id] ?? LYT_PRESENCE_DEFAULT[id];
+  }
+
   function isVisible(id: LytPresenceTargetId): boolean {
-    return store.session.ui.lytPresence[id] ?? LYT_PRESENCE_DEFAULT[id];
+    return store.session.ui.lytPresence[id] ?? defaultFor(id);
   }
 
   // See file header: boardRail drops out of the guard's own accounting

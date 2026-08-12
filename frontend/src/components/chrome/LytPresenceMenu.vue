@@ -29,16 +29,37 @@
   `useLytPresenceMenu.ts`'s `targets[].disabled`): a disabled checkbox
   carries an explanatory `title`, never a silent revert.
 
+  Presence arc P2b (`.claude/dispatch-reports/lyt-p2b-presence-
+  realization.md`): a 4th target, `A_setup`, joins the three above (see
+  `useLytPresenceMenu.ts`'s own "Presence arc P2b" header section). The
+  new `classDefaults` prop threads App.vue's own per-class
+  `presenceDefaultVisible` resolution (`activeLytProgramIndex.
+  widgetDefaultVisible`) into the composable, so `controlPanel`'s
+  checkbox reflects the ACTIVE screen class's own compiled default
+  (landscape `true`, portrait `false` — repetition-first) rather than a
+  class-unaware literal, whenever the persisted store has no explicit
+  user choice recorded for it yet.
+
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useLytPresenceMenu, type LytPresenceTargetId } from '../../composables/chrome/useLytPresenceMenu';
 import { usePopoverEdgeClamp } from '../../composables/chrome/usePopoverEdgeClamp';
 
+const props = defineProps<{
+  /** Active screen class's own compiled `presenceDefaultVisible`, per
+   *  target — see this file's header, "Presence arc P2b". Optional so a
+   *  bare `<LytPresenceMenu />` (any existing/future test mount) keeps
+   *  working against `useLytPresenceMenu.ts`'s own static fallback. */
+  classDefaults?: Partial<Record<LytPresenceTargetId, boolean>>;
+}>();
+
 const { t } = useI18n();
-const { open, toggleMenu, closeMenu, targets, toggle, railStyle, setRailStyle } = useLytPresenceMenu();
+const classDefaultsRef = computed(() => props.classDefaults ?? {});
+const { open, toggleMenu, closeMenu, targets, toggle, railStyle, setRailStyle } =
+  useLytPresenceMenu({ classDefaults: classDefaultsRef });
 const { setPopoverEl, xShift } = usePopoverEdgeClamp(open);
 
 const rootRef = ref<HTMLElement | null>(null);
