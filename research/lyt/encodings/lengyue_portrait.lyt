@@ -340,6 +340,60 @@
 --     demoted -- it is the row's residual-holding sibling (Amendment 9,
 --     M2 STAGE B2a) and the repetition-first disposition's own primary
 --     surface (reviewing/replaying a game is match/play, not analysis).
+--
+--   - PORTRAIT ROW FLOOR, P2c (2026-08-12, ledger rows 2358/2359,
+--     `.claude/dispatch-reports/lyt-p2c-portrait-row-floor.md`) -- the
+--     defect P1's own item 3 diagnosed and disclosed as a recommendation,
+--     not silently patched there: this row's own sizing bag, `{pref 1fr,
+--     gap 4px} H(tree, T(...), previewBoard)`, declared no `min` of its
+--     own. Since this row is a direct child of the root `V(...)` (portrait
+--     has no side column, same structural fact the arc above already
+--     names), its `min` is a HEIGHT floor along the root's own partition
+--     axis -- and per SPEC.md §1.1's completion rule an undeclared `min`
+--     defaults to `0px`, so nothing stopped board-maximize from squeezing
+--     this row to a literal, honestly-reported zero once every sibling
+--     had claimed its own share of the height budget (witnessed at
+--     exactly 768x1024, P1's own item 3: `tree` rect `h=0`).
+--
+--     THE ARITHMETIC. Neither Amendment-8 key applies to this Split
+--     child, so this is not a `floor v`/`min v` decision: `floor <axis>`
+--     (L16) is LEAF-only (SPEC.md §16.1) and this row is an `H(...)`
+--     Split, not a leaf; `min <axis>` (L12) is legal only at the root or
+--     a direct child of an Exclusive/T node (SPEC.md §16.1) and this row
+--     is a Split child of the root `V`, neither position. The construct
+--     that DOES apply is the plain, un-axis-keyed `min` every node's own
+--     sizing bag already carries (SPEC.md §4.1) -- the SAME idiom `tree`
+--     itself already uses (`{min 140px, pref 1fr, max inf} tree[...]`,
+--     two lines below), not a fresh grammar decision.
+--
+--     The number itself is `tree`'s OWN already-declared 140px floor
+--     (`TREE_PANEL_MIN_WIDTH_PX`, the arc above's own named fact),
+--     reused cross-axis rather than freshly invented (row 2047's own "a
+--     decision posed in pixels is a defect" discipline): under this
+--     row's own `default`/`demoted` valuations, `T(...)` and
+--     `previewBoard` are BOTH absent (the repetition-first arc above),
+--     so `tree` is the row's SOLE, residual-holding content
+--     (Amendment 9, SPEC.md §17) at those points -- there is no OTHER
+--     child whose own declared facts could honestly ground this row's
+--     height floor instead. Squeezing the row below 140px squeezes
+--     `tree` below the SAME number this file already treats as "not
+--     usefully visible" on its other axis, so reusing it here (rather
+--     than picking an unrelated fresh constant) is the reservation-not-
+--     measurement posture SPEC.md §4.2 already commits this language to,
+--     applied across axes rather than inventing a second number for the
+--     same "meaningfully visible" judgment. Disclosed, not a rigorous
+--     componentwise-max derivation the way `T(...)`'s own 664px is (no
+--     such rule exists for a Split's along-axis `min` against its
+--     children's cross-axis facts) -- the honest anchor available, named
+--     as such rather than dressed up as more derived than it is.
+--
+--     Feasibility checked, not assumed: `coverage_matrix.py` before/after
+--     re-solve finds every portrait point that was `OPTIMAL` before this
+--     edit stays `OPTIMAL` after (768x1024's own `tree`/row height rises
+--     from the degenerate `0px` to a genuine `140px`; the other four
+--     portrait representative points were already at or above 140px and
+--     are unaffected) -- see the dispatch report for the full before/
+--     after table.
 layout lengyue-portrait =
   {min 0px, pref 1fr, max inf, gap 12px} V(
     @toggle(user, release) {min 168px, pref 168px, max 168px, activity occasional} boardRail[common, info+action],
@@ -356,7 +410,7 @@ layout lengyue-portrait =
       {pref 1fr, content bounded} A_engine_health[go, info],
       {pref 1fr, content bounded} A_engine_queue[go, info]
     ),
-    {pref 1fr, gap 4px} H(
+    {min 140px, pref 1fr, gap 4px} H(
       {min 140px, pref 1fr, max inf} tree[board, info+action],
       @demote(h 808px) {min 664px, pref 664px, max 664px} T(
         {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v unit, unit v 32px} CP-library[common],
