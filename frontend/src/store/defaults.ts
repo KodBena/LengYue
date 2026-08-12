@@ -764,16 +764,35 @@ export const defaultKnownTags: string[] = ['$mistake', '$opening', '$joseki', '$
 
 export const defaultSessionUI: UISession = {
   activeTab: 'cards',
-  // LYT corner presence-menu defaults (W2). Mirrors `lyt-layout.gen.ts`'s
-  // own `presenceDefaultVisible` for the three menu-governed widget ids —
-  // `boardRail` (path '0') and `previewBoard` (path '2.3.2', was '2.2.2'
-  // — M2 stage B2a/B2b's new `A_setup` leaf shifted the tree/panels row
-  // from '2.2' to '2.3') both false,
-  // `controlPanel` (path '2.3.1', was '2.2.1') true — see
+  // LYT corner presence-menu defaults (W2). `boardRail`/`previewBoard`
+  // mirror `lyt-layout.gen.ts`'s own `presenceDefaultVisible` for those
+  // two widget ids (both `false` in EVERY registered screen class — see
   // `composables/chrome/useLytPresenceMenu.ts`'s own `LYT_PRESENCE_DEFAULT`
-  // for the single other place this triple is named (the migration
-  // 75 -> 76 fallback for a key a legacy blob never wrote at all).
-  lytPresence: { boardRail: false, previewBoard: false, controlPanel: true },
+  // for the other place this pair is named, the migration 75 -> 76
+  // fallback for a key a legacy blob never wrote at all).
+  //
+  // Presence arc P2b (`.claude/dispatch-reports/lyt-p2b-presence-
+  // realization.md`): `controlPanel` (and the newer `A_setup` target) are
+  // DELIBERATELY ABSENT from this seed, not present-and-false/true.
+  // `session.ui.lytPresence`'s own schema.ts doc already establishes "a
+  // key's ABSENCE is not a distinct state: every reader falls back to
+  // that widget's own [class-scoped] default" — seeding `controlPanel:
+  // true` here (the pre-P2b shape) baked a LANDSCAPE-only fact into every
+  // brand-new session regardless of screen class, permanently shadowing
+  // portrait's own genuinely-different compiled default (`false`, P2a's
+  // own contract fix) the instant the key existed at all. Leaving the key
+  // out lets every reader (`LytNode.vue`'s `isPresent`,
+  // `useLytPresenceMenu.ts`'s `isVisible`, App.vue's own
+  // `controlPanelIsPresent`) fall through to the ACTIVE class's own
+  // compiled `presenceDefaultVisible` — true in landscape, false in
+  // portrait — until the user makes an explicit choice, at which point
+  // that choice (a real, written boolean) is sovereign per the same
+  // schema.ts fallback rule. See this file's own "no seeded controlPanel/
+  // A_setup key" decision — no schema migration accompanies it (a NEW
+  // session was never migrated in the first place; existing/legacy blobs
+  // are addressed, and their own irreversibility disclosed, in
+  // `migrations.ts`'s 75 -> 76 body's own doc comment, not here).
+  lytPresence: { boardRail: false, previewBoard: false },
   // 'slot' (style A): the presence-menu checkbox mounts SidebarWidget
   // into the boardRail LYT leaf. Roadmap §7 ruling 2's own default —
   // the user flips to 'popover' (style B) from the Session (UI) registry

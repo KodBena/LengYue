@@ -662,17 +662,30 @@ the shape.
 - **Corner presence menu.** A small button in the bottom-right
   corner opens a popover listing the panels that can be toggled
   on or off — the board rail, the position preview panel (see
-  "Multiple boards in tabs" and "Position preview panel" above) —
-  plus the board-rail style selector (docked-in-layout vs.
+  "Multiple boards in tabs" and "Position preview panel" above),
+  the **control panel**, and the **setup tool palette** — plus the
+  board-rail style selector (docked-in-layout vs.
   popover-from-a-corner-button, described there too). The menu is
   the one home for panel visibility; it replaced a set of
-  individually-scattered collapse toggles.
+  individually-scattered collapse toggles. Each checkbox reflects
+  the CURRENT screen size's own sensible starting point until the
+  user explicitly changes it — the control panel starts checked on
+  a wide window and unchecked on a narrow/tall one (repetition-
+  first: a narrow window prioritises the board and game tree), and
+  a user's own choice, once made, always wins over that starting
+  point and is remembered across sessions.
 
 - **Tabs.** The control panel hosts five named tabs: Library (the
   SGF repository above), Cards (the primary study surface above),
   Settings (managed registry + palette + deck editors + analysis
   environment), Analysis (the chart cluster), Other (gradient
-  calibration, qEUBO bookmarks).
+  calibration, qEUBO bookmarks). On a narrow/tall (portrait) window,
+  where the control panel starts hidden to keep the board and game
+  tree front-and-centre, a small button appears next to the corner
+  presence menu to open it as a temporary popover with every tab
+  still fully working — closing the popover (the same button, a
+  click outside it, or Escape) returns to the narrow layout without
+  changing the underlying show/hide choice.
 
 - **Overlay banners and alerts.** Transient chrome — the
   keybinding-capture banner, a workspace-save-error banner — and
@@ -685,7 +698,9 @@ the shape.
   a BLACK/WHITE setup stone, or a triangle mark, without it
   counting as a played move) docks as a fixed-space toolbar
   cluster — its trigger and open panel never cover the board,
-  by standing design rule.
+  by standing design rule. Hidden by default; a checkbox in the
+  corner presence menu turns it on, and the choice persists across
+  sessions.
 
 - **Debug menu** *(development builds only)*. A pill-shaped
   trigger consolidating cache-clearing, perf-scenario, popover-

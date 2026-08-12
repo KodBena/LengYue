@@ -32,6 +32,7 @@ vi.mock('../../src/services/analysis-persistence-service', async () => {
   return { analysisPersistenceService: fakeAnalysisPersistenceService };
 });
 
+import { computed, ref } from 'vue';
 import { store, resetWorkspace } from '../../src/store';
 import {
   useLytPresenceMenu,
@@ -44,8 +45,8 @@ beforeEach(() => {
 });
 
 describe('useLytPresenceMenu — defaults and target list', () => {
-  it('exposes exactly the three commissioned targets, in order', () => {
-    expect(LYT_PRESENCE_TARGETS).toEqual(['boardRail', 'previewBoard', 'controlPanel']);
+  it('exposes exactly the four commissioned targets, in order (P2b: A_setup joins the original three)', () => {
+    expect(LYT_PRESENCE_TARGETS).toEqual(['boardRail', 'previewBoard', 'controlPanel', 'A_setup']);
   });
 
   it('a fresh store (defaults.ts seed) resolves to the registration defaults', () => {
@@ -69,7 +70,13 @@ describe('useLytPresenceMenu — toggle + touchSession', () => {
     const menu = useLytPresenceMenu();
     menu.toggle('boardRail');
     expect(store.session.ui.lytPresence.boardRail).toBe(true);
-    expect(store.session.ui.lytPresence.controlPanel).toBe(true); // untouched default
+    // Untouched siblings stay ABSENT (P2b: a fresh store no longer seeds
+    // controlPanel at all — see defaults.ts's own doc comment) — the
+    // RESOLVED default (via isVisible()/menu.targets) is still `true`,
+    // asserted separately below; the persisted CELL itself is simply
+    // never written until a real choice is made for that target.
+    expect(store.session.ui.lytPresence.controlPanel).toBeUndefined();
+    expect(menu.targets.value.find((t) => t.id === 'controlPanel')!.visible).toBe(true);
     expect(store.session.ui.lytPresence.previewBoard).toBe(false); // untouched default
   });
 });
@@ -85,9 +92,13 @@ describe('useLytPresenceMenu — last-remaining-panel guard (mockup N2 fix, port
 
   it('toggle() defensively no-ops against the guarded (last-visible) target — not a silent revert, a refusal', () => {
     const menu = useLytPresenceMenu();
-    expect(store.session.ui.lytPresence.controlPanel).toBe(true);
+    // P2b: a fresh store no longer seeds controlPanel (see defaults.ts's
+    // own doc comment) — the RESOLVED default is still `true` (the sole
+    // visible target, hence guarded below).
+    expect(store.session.ui.lytPresence.controlPanel).toBeUndefined();
+    expect(menu.targets.value.find((t) => t.id === 'controlPanel')!.visible).toBe(true);
     menu.toggle('controlPanel'); // the only visible target — guarded
-    expect(store.session.ui.lytPresence.controlPanel).toBe(true); // unchanged
+    expect(store.session.ui.lytPresence.controlPanel).toBeUndefined(); // still unwritten — refused, not merely unchanged-at-true
   });
 
   it('once a second target is visible, the guard releases and either can be hidden', () => {
@@ -128,5 +139,53 @@ describe('useLytPresenceMenu — railStyle conditioning', () => {
     menu.setRailStyle('popover');
     menu.toggle('boardRail');
     expect(store.session.ui.lytPresence.boardRail).toBe(false); // unchanged
+  });
+});
+
+describe('useLytPresenceMenu — class-aware default resolution (P2b item 1)', () => {
+  // Mirrors what App.vue really wires: `classDefaults` is the ACTIVE
+  // screen class's own compiled `presenceDefaultVisible` per target,
+  // read off `activeLytProgramIndex.widgetDefaultVisible` — here a bare
+  // ref, since this composable takes it opaquely (ADR-0012 P1: the
+  // per-class DERIVATION lives in `useLytProgramIndex.ts`/App.vue, not
+  // duplicated here).
+
+  it('portrait default (controlPanel: false) resolves when no user choice is persisted', () => {
+    const classDefaults = ref<Partial<Record<'controlPanel', boolean>>>({ controlPanel: false });
+    const menu = useLytPresenceMenu({ classDefaults });
+    expect(store.session.ui.lytPresence.controlPanel).toBeUndefined(); // no seeded/persisted choice
+    expect(menu.targets.value.find((t) => t.id === 'controlPanel')!.visible).toBe(false);
+  });
+
+  it('landscape default (controlPanel: true) resolves when no user choice is persisted', () => {
+    const classDefaults = ref<Partial<Record<'controlPanel', boolean>>>({ controlPanel: true });
+    const menu = useLytPresenceMenu({ classDefaults });
+    expect(menu.targets.value.find((t) => t.id === 'controlPanel')!.visible).toBe(true);
+  });
+
+  it('a persisted user choice is sovereign over EITHER class default', () => {
+    store.session.ui.lytPresence = { ...store.session.ui.lytPresence, controlPanel: false };
+    const landscapeDefaults = ref<Partial<Record<'controlPanel', boolean>>>({ controlPanel: true });
+    const menu = useLytPresenceMenu({ classDefaults: landscapeDefaults });
+    // The class default says "true" (landscape) but the user explicitly
+    // chose "false" — the persisted choice wins.
+    expect(menu.targets.value.find((t) => t.id === 'controlPanel')!.visible).toBe(false);
+  });
+
+  it('a class default swap (landscape <-> portrait) re-resolves live for a target with no persisted choice', () => {
+    const classId = ref<'landscape' | 'portrait'>('landscape');
+    const classDefaults = computed<Partial<Record<'controlPanel', boolean>>>(() => ({
+      controlPanel: classId.value === 'landscape',
+    }));
+    const menu = useLytPresenceMenu({ classDefaults });
+    expect(menu.targets.value.find((t) => t.id === 'controlPanel')!.visible).toBe(true);
+    classId.value = 'portrait';
+    expect(menu.targets.value.find((t) => t.id === 'controlPanel')!.visible).toBe(false);
+  });
+
+  it('A_setup has no persisted seed and falls back to its own (class-invariant) default: false', () => {
+    const menu = useLytPresenceMenu();
+    expect(store.session.ui.lytPresence.A_setup).toBeUndefined();
+    expect(menu.targets.value.find((t) => t.id === 'A_setup')!.visible).toBe(false);
   });
 });
