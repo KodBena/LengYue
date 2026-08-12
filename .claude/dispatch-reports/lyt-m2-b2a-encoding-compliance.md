@@ -380,7 +380,13 @@ decide.
 
 ## Commit
 
-Committed on this worktree's own branch, `lyt-phase2-b2a`. Not pushed.
+Committed on this worktree's own branch, `lyt-phase2-b2a`, commit
+`a95f3576`. Not pushed.
+
+LAST-act freshness check (repeated, post-commit): `git fetch origin`;
+`git merge-base --is-ancestor c0f36881 HEAD` — exit 0, `c0f36881` is
+still an ancestor of `HEAD` (`lyt-phase2`'s own tip did not move during
+this session).
 
 ## License
 
