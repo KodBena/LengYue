@@ -104,6 +104,48 @@ function collectLytPaths(program: LytProgram): Set<string> {
   return paths;
 }
 
+/**
+ * R1 review follow-up (`.claude/dispatch-reports/lyt-r1-orientation-pathmap-review.md`,
+ * Duty 2): `collectLytPaths` above only proves a resolved path is a member
+ * of the program's own path set — it does NOT prove the path belongs to
+ * the widget id it was resolved for. A derivation bug that swaps two
+ * widgets' paths, or off-by-ones into a sibling's path, ships a
+ * structurally valid but WRONG path and every membership check above
+ * stays green (the reviewer's own reproduction: hardcoding
+ * `widgetPaths['tree']` to `'0'`, a real path belonging to a different
+ * widget, passed all 16 pre-fix tests).
+ *
+ * This walker closes that gap: given a widget id, it independently finds
+ * the path of the node whose OWN `.widget` field matches — a second,
+ * differently-shaped recursive walk (search-for-one-id, short-circuiting,
+ * versus `buildLytProgramIndex`'s build-the-whole-map) over the same
+ * compiled data. It does NOT import or call `buildLytProgramIndex` — using
+ * the derivation under test to compute its own expected value would be
+ * exactly the tautology the commission warned against. Cross-checking the
+ * derivation's resolved path against THIS walk's independently-found path
+ * (identity, not membership) is the round-trip check Duty 2 asked for.
+ */
+function findWidgetPathIndependently(program: LytProgram, widgetId: string): string | undefined {
+  function walkNode(node: LytNodeData, path: string): string | undefined {
+    if (node.kind === 'leaf' || node.kind === 'blackbox' || node.kind === 'exclusive') {
+      if (node.widget === widgetId) return path;
+    }
+    if (node.kind === 'split') {
+      for (const child of node.children) {
+        const found = walkNode(child.node, child.path);
+        if (found !== undefined) return found;
+      }
+    } else if (node.kind === 'exclusive') {
+      for (const child of node.children) {
+        const found = walkNode(child.node, child.path);
+        if (found !== undefined) return found;
+      }
+    }
+    return undefined;
+  }
+  return walkNode(program.root, '');
+}
+
 /** The widget ids App.vue's path-keyed derivations depend on today
  *  (`activeLytDomIdByPath`, `lytTrackStyleOverrides`) — see App.vue's own
  *  `requireWidgetPath` call sites for the live enumeration this list
@@ -161,6 +203,24 @@ describe('App.vue — LYT widget-id path derivation resolves against the real co
       expect(portraitPaths.has(path), `widget "${widgetId}"'s resolved path "${path}" does not exist in LYT_PORTRAIT's own collected path set.`).toBe(true);
       const parent = lytParentPath(path);
       expect(portraitPaths.has(parent), `widget "${widgetId}"'s derived parent path "${parent}" does not exist in LYT_PORTRAIT's own collected path set.`).toBe(true);
+    }
+  });
+
+  it('every resolved widget path in LYT_LANDSCAPE is the SAME path an independent walk finds for that widget id (identity, not just membership)', () => {
+    for (const widgetId of REQUIRED_WIDGET_IDS) {
+      const derivedPath = landscapeIndex.widgetPaths[widgetId]!;
+      const independentPath = findWidgetPathIndependently(LYT_LANDSCAPE, widgetId);
+      expect(independentPath, `independent walk found no node in LYT_LANDSCAPE whose own .widget is "${widgetId}" — the fixture itself is suspect.`).toBeDefined();
+      expect(derivedPath, `buildLytProgramIndex resolved widget "${widgetId}" to path "${derivedPath}", but an independent walk over LYT_LANDSCAPE finds "${widgetId}"'s own node at path "${independentPath}" instead — the derivation returned a path belonging to a DIFFERENT widget.`).toBe(independentPath);
+    }
+  });
+
+  it('every resolved widget path in LYT_PORTRAIT is the SAME path an independent walk finds for that widget id (identity, not just membership)', () => {
+    for (const widgetId of REQUIRED_WIDGET_IDS) {
+      const derivedPath = portraitIndex.widgetPaths[widgetId]!;
+      const independentPath = findWidgetPathIndependently(LYT_PORTRAIT, widgetId);
+      expect(independentPath, `independent walk found no node in LYT_PORTRAIT whose own .widget is "${widgetId}" — the fixture itself is suspect.`).toBeDefined();
+      expect(derivedPath, `buildLytProgramIndex resolved widget "${widgetId}" to path "${derivedPath}", but an independent walk over LYT_PORTRAIT finds "${widgetId}"'s own node at path "${independentPath}" instead — the derivation returned a path belonging to a DIFFERENT widget.`).toBe(independentPath);
     }
   });
 

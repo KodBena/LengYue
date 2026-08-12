@@ -402,6 +402,57 @@ $ echo $?
 Committed on this worktree's own branch, `lyt-r1-orientation-pathmap`
 (cut from `d2f3f7a4`, base-freshness-verified above). Not pushed.
 
+## Fix pass — 2026-08-12
+
+Follow-up to the R1 review's Duty 2 finding
+(`.claude/dispatch-reports/lyt-r1-orientation-pathmap-review.md`): the
+rewritten `lyt-path-key-regression.test.ts` only checked SET MEMBERSHIP
+(a resolved path is *some* real path in the compiled program), not
+IDENTITY (the resolved path is the widget's OWN path). The reviewer's
+own reproduction — hardcoding `widgetPaths['tree']` to `'0'`, a real
+but wrong path belonging to the timeline-strip leaf — passed all 16
+pre-fix tests.
+
+**Fix.** Added `findWidgetPathIndependently` to
+`frontend/tests/unit/lyt-path-key-regression.test.ts`: a second,
+differently-shaped recursive walk (search-for-one-widget-id,
+short-circuiting on match) over the compiled `LytProgram`, written
+without importing or calling `buildLytProgramIndex` — the derivation
+under test is never used to compute its own expected value, which
+would have been the exact tautology the original commission warned
+against. Two new test cases assert, for each of `REQUIRED_WIDGET_IDS`
+in both `LYT_LANDSCAPE` and `LYT_PORTRAIT`, that
+`buildLytProgramIndex`'s resolved path equals the independent walk's
+result — an identity round-trip, not membership.
+
+**Mutation-red witness.** Reproduced the reviewer's exact mutation in
+`useLytProgramIndex.ts`'s `visit()`:
+`widgetPaths[node.widget] = node.widget === 'tree' ? '0' : path;`.
+Re-ran `tests/unit/lyt-path-key-regression.test.ts` in isolation:
+**2 of the 2 new identity tests FAILED** (`buildLytProgramIndex
+resolved widget "tree" to path "0", but an independent walk over
+LYT_LANDSCAPE finds "tree"'s own node at path "2.3.0" instead`, and
+the portrait analog at `"5.0"`) — 11 passed, 2 failed, isolated-file
+exit code **1**. Reverted the mutation (`git diff --stat` on
+`useLytProgramIndex.ts` empty afterward, confirming a clean revert).
+
+**Gates, literal exit codes** (`NODE_OPTIONS=--max-old-space-size=2048
+VITEST_MAX_THREADS=2 VITEST_MAX_FORKS=2 nice -n 19`):
+- `npx vitest run tests/unit/lyt-path-key-regression.test.ts` (isolated,
+  post-revert): **EXIT 0**, `Test Files 1 passed (1)`, `Tests 13 passed
+  (13)` (11 original + 2 new identity checks).
+- `npm run test:run` (full suite, post-revert): **EXIT 0**, `Test Files
+  257 passed | 3 skipped (260)`, `Tests 3181 passed | 8 skipped (3189)`
+  — 2 more than the review's recorded 3179 baseline, exactly the 2 new
+  tests added here.
+
+**Scope.** Touched only
+`frontend/tests/unit/lyt-path-key-regression.test.ts`. No production
+code changed (the mutation to `useLytProgramIndex.ts` was applied and
+reverted for the red-witness step only; `git status` confirms it left
+no diff). Committed on this same branch,
+`lyt-r1-orientation-pathmap`.
+
 ## License
 
 Public Domain (The Unlicense), matching this repository's ADR-0006
