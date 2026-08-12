@@ -1410,6 +1410,159 @@ def find_l17_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str
     return violations
 
 
+def find_residual_child(node: ast.Slot) -> Optional[ast.Slot]:
+    """AMENDMENT 9 (ledger row 2310, derived orientation). Given a Split's
+    own `Slot`, structurally identify its UNIQUE residual-holding direct
+    child, if one exists — the one child whose own `pref` is `fr`-typed
+    (`ast.Extent(unit='fr', ...)`), i.e. the child that ABSORBS whatever
+    the OTHER children's declared extents (plus gaps) leave over, per the
+    partition equality (SPEC.md §2). Returns `None` when the Split has no
+    `fr`-pref child at all, or MORE than one — an ambiguous split (two or
+    more elastic siblings competing for the same residual) has no single
+    child that "the residual" can be said to belong to, so neither is
+    treated as residual-holding (disclosed choice: this is a silent
+    non-applicability, not a refusal — the ruling names a single,
+    unambiguous residual holder, and this prototype does not invent an
+    ordering rule to break a tie the ruling never adjudicated).
+
+    Applies to `ast.Split` nodes only — an `ast.Exclusive` node's children
+    each receive the WHOLE rectangle (§2), so there is no partition
+    residual between them to attribute (the same scoping `gap`/
+    `measure-bound`'s own T-node refusals already use).
+    """
+    if not isinstance(node.node, ast.Split):
+        return None
+    fr_children = [
+        c for c in node.node.children
+        if isinstance(c.sizing.pref, ast.Extent) and c.sizing.pref.unit == "fr"
+    ]
+    if len(fr_children) != 1:
+        return None
+    return fr_children[0]
+
+
+def find_residual_leaves(root: ast.Slot, *, path: str = "root") -> Dict[str, str]:
+    """AMENDMENT 9 (ledger row 2310). Walks the whole tree and returns a
+    `widget id -> tree path` map, one entry per LEAF that is the unique
+    residual-holding child (`find_residual_child`) of its own immediate
+    Split parent. A Split/Exclusive residual child (not a leaf) contributes
+    no entry — `orient`/the L14 role frame are leaf-only facts (SPEC.md
+    §16.1), so there is nothing to derive for a residual holder that is
+    itself a container.
+
+    Shared by `find_l18_violations` below (the load-time refusal) and
+    `orientation.py`'s own `compute_derived_orientations` (the post-solve
+    derivation) — ONE structural definition of "residual-holding", not two
+    independently-maintained ones.
+    """
+    out: Dict[str, str] = {}
+
+    def walk(slot: ast.Slot, spath: str) -> None:
+        node = slot.node
+        if isinstance(node, ast.Split):
+            residual = find_residual_child(slot)
+            for i, child in enumerate(node.children):
+                cpath = f"{spath}/{node.axis.upper()}{i}"
+                if child is residual and isinstance(child.node, ast.Leaf):
+                    out[child.node.widget] = cpath
+                walk(child, cpath)
+        elif isinstance(node, ast.Exclusive):
+            for i, child in enumerate(node.children):
+                walk(child, f"{spath}/T{i}")
+
+    walk(root, path)
+    return out
+
+
+def find_l18_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str, str, str]]:
+    """AMENDMENT 9 (ledger row 2310) — L18, derived-orientation authorship.
+    Returns one `(law, path, message)` triple per violation, the same
+    shape every other structural checker here returns, arbitrated through
+    the same `(law, path)`-keyed waiver mechanism.
+
+    THE RULING (commissioner-ratified, ledger row 2310): a leaf's mount
+    orientation is DERIVED from the aspect of its own residual slot (the
+    box left over after its Split siblings are placed — `find_residual_
+    child` above), not authored, whenever that leaf genuinely IS its
+    Split's unique residual-holding child. `orient` remains a legal,
+    authored OVERRIDE everywhere else (a non-residual placement, per the
+    ruling's own sub-ruling (a)) — this law fires ONLY at the specific
+    residual-holding leaf, never at a sibling.
+
+    THE LAW. A leaf that is (a) the unique residual-holding child of its
+    Split parent (`find_residual_child` returns it) AND (b) has
+    `orientation_declared == True` (the author wrote `orient`, whatever
+    physical axis it named) is a violation: the encoding is DECLARING a
+    fact the model DERIVES, which is exactly the "an authored `orient` on
+    a residual-holding leaf is a wellformedness REFUSAL" sub-ruling states,
+    verbatim. This is a genuine STRUCTURAL law (not a load-time,
+    single-node check) because "is this leaf residual-holding" is a fact
+    about its SIBLINGS, which only a tree walk with parent context can see
+    — the same reason L2's dominance test and L12's both-axes-position
+    gate live here rather than in loader.py.
+
+    Dormancy: fires only where a leaf is genuinely both residual-holding
+    AND authors `orient`. Neither reference encoding declares `orient`
+    anywhere (Amendment 8's own dormancy note), so this law returns `[]`
+    unconditionally against both — but the STRUCTURAL half is NOT
+    dormant, disclosed rather than silently assumed: both
+    `lengyue_landscape.lyt`/`lengyue_portrait.lyt` DO carry genuine
+    residual-holding leaves today (`B`, via the `pref maximize` sugar
+    that resolves to elastic `pref 1fr`; `settingsPane`/`otherBand`, both
+    explicit `pref 1fr` — three per class, `find_residual_leaves` finds
+    them directly). None of the three happens to author `orient`, which
+    is the only reason this law is silent — the same "laws bind
+    declarations, they do not retroactively indict silence" posture
+    every prior amendment's dormancy note states, not a claim that the
+    residual-holding STRUCTURE itself is absent. `tree` — the leaf the
+    ruling's own illustrative language names — is the one genuinely
+    non-residual-holding leaf of the three sites this law COULD apply to
+    in the row it actually sits in (`H(tree, T(...), previewBoard)`):
+    `tree` is fixed `min==pref==max` today, and `T(...)` (that row's own
+    sole `pref: fr` child) is an Exclusive, not a Leaf, so it was never
+    an eligible subject regardless — see this amendment's own dispatch
+    report for the full disclosure and the STOP-and-report on what an
+    encoding edit would need to change for that to hold.
+    """
+    violations: List[Tuple[str, str, str]] = []
+
+    def walk(slot: ast.Slot, spath: str) -> None:
+        node = slot.node
+        if isinstance(node, ast.Split):
+            residual = find_residual_child(slot)
+            for i, child in enumerate(node.children):
+                cpath = f"{spath}/{node.axis.upper()}{i}"
+                if (
+                    child is residual
+                    and isinstance(child.node, ast.Leaf)
+                    and child.node.orientation_declared
+                ):
+                    violations.append((
+                        "L18",
+                        cpath,
+                        f"{cpath}: L18 derived-orientation violation -- leaf "
+                        f"'{child.node.widget}' authors `orient` while also "
+                        "being the unique residual-holding child of its own "
+                        "Split parent (its `pref` is the split's sole "
+                        "`fr`-typed child). Per the ruling (ledger row 2310), "
+                        "a residual-holding leaf's orientation is DERIVED "
+                        "from its solved residual box's aspect, never "
+                        "authored -- an authored `orient` here is declaring "
+                        "what the model derives. Remove the `orient` "
+                        "declaration (or, if a fixed orientation is "
+                        "genuinely wanted, make this leaf a non-residual "
+                        "placement instead, where `orient` remains a legal "
+                        "override).",
+                    ))
+                walk(child, cpath)
+        elif isinstance(node, ast.Exclusive):
+            for i, child in enumerate(node.children):
+                walk(child, f"{spath}/T{i}")
+
+    walk(root, path)
+    return violations
+
+
 def check_wellformed(
     root: ast.Slot, *, layout_name: str, waivers: Optional[List[Waiver]] = None
 ) -> List[Waiver]:
@@ -1513,8 +1666,17 @@ def check_wellformed(
     l16 = find_l16_violations(root)
     # L17 is deliberately NOT wired here -- see this function's own M2 PORT
     # DISCLOSURE paragraph above and `find_l17_violations`' own docstring.
+    # AMENDMENT 9 (ledger row 2310): L18 joins the same walk-and-arbitrate
+    # family. It fires only where a leaf is BOTH the unique residual-
+    # holding child of its Split parent AND authors `orient`. Both real
+    # encodings DO carry genuine residual-holding leaves (`B`/
+    # `settingsPane`/`otherBand`, three per class) -- the structural half
+    # is not dormant -- but none of them authors `orient`, so this returns
+    # `[]` unconditionally against both today (see `find_l18_violations`'s
+    # own docstring for the full disclosure).
+    l18 = find_l18_violations(root)
     all_violations: List[Tuple[str, str, str]] = (
-        l2 + l5 + l10 + l11 + l12 + l14 + l15 + l16
+        l2 + l5 + l10 + l11 + l12 + l14 + l15 + l16 + l18
     )
     waiver_index: Dict[Tuple[str, str], Waiver] = {(w.law, w.path): w for w in waivers}
     applied: List[Waiver] = []

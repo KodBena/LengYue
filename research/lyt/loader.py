@@ -2095,6 +2095,7 @@ def _load_leaf(
     unit_axes: FrozenSet[Tuple[str, float]] = frozenset(),
     elastic_axes: FrozenSet[str] = frozenset(),
     orientation: str = "v",
+    orientation_declared: bool = False,
     ceiling_axes: FrozenSet[str] = frozenset(),
     activity: Optional[str] = None,
     floor_axes: FrozenSet[Tuple[str, ast.Extent]] = frozenset(),
@@ -2141,12 +2142,57 @@ def _load_leaf(
         edge_axes=edge_axes,  # LOOP ITERATION 13 (L17), ledger row 2286
         elastic_axes=elastic_axes,  # LOOP ITERATION 9 (L13), ledger row 2209
         orientation=orientation,  # METAMODEL WAVE item 1, ledger row 2157/2158
+        orientation_declared=orientation_declared,  # AMENDMENT 9, ledger row 2310
         ceiling_axes=ceiling_axes,  # LOOP ITERATION 10 (L14), ledger row 2228
         activity=activity,  # LOOP ITERATION 11 (L15), ledger row 2241
     )
 
 
-def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
+def load_slot(
+    rs: lytparser.RawSlot,
+    *,
+    path: str = "root",
+    orientation_overrides: Optional[Dict[str, str]] = None,
+) -> ast.Slot:
+    """`orientation_overrides` (AMENDMENT 9, ledger row 2310; re-scoped
+    2026-08-12, see the dated note below): an optional `widget id ->
+    physical axis` map, empty/`None` (the default) for every
+    pre-Amendment-9 call site and byte-identical to this function's prior
+    behavior when omitted. This is the DERIVATION seam's re-load hook, not
+    concrete syntax — a residual-holding leaf's orientation is derived
+    POST-SOLVE (see `orientation.py`'s own module docstring for why: the
+    residual box's aspect is only known once its siblings have solved,
+    which `load_slot` itself has no way to do), so the SAME text is loaded
+    TWICE: once with no overrides (to solve — role-frame facts are all
+    solver-inert, so this first load's solved geometry is already final),
+    once more with the derived choice threaded in here (to re-bind the
+    L14 role frame — `along`/`across` — through the derived axis instead
+    of the load-time default). A widget named here still goes through
+    `_load_orientation`'s ordinary closed-vocabulary validation; the
+    override only changes WHICH value wins, never bypasses the check
+    (`_load_orientation` is deliberately still called for its own
+    `orientation_on_non_leaf`/`unknown_orientation` refusals even when an
+    override is present, though a leaf-only override can only ever apply
+    where `_load_orientation` would have accepted the same physical axis
+    anyway).
+
+    SCOPING (2026-08-12 fix, review of ledger row 2310): `load_slot` itself
+    is single-layout by construction — it recurses over ONE `RawSlot` tree,
+    never crosses a `layout NAME = ...` boundary — so the bare
+    `widget_id -> axis` map it receives here is already implicitly scoped
+    to whichever layout the caller is loading. The scoping decision lives
+    one level up, in `load_layouts` (see that function's own docstring): it
+    is the one function that sees multiple layouts sharing a single
+    `orientation_overrides` argument, so it is the one responsible for
+    narrowing a `(layout_name, widget_id)`-keyed map down to the bare
+    per-layout map this function expects. `load_slot` must never itself be
+    handed an override addressed to a different layout — that was exactly
+    the review-found hazard: `load_layouts` previously threaded ONE
+    unscoped `widget_id -> axis` dict verbatim into every fragment parsed
+    from the same text blob, so a widget id repeated across two `layout
+    NAME = ...` fragments in one text silently received an override
+    computed for the OTHER fragment's solve."""
+    orientation_overrides = orientation_overrides or {}
     node = rs.node
     if isinstance(node, lytparser.RawLeaf):
         # AMENDMENT 5 (ledger row 1937): resolved before `_load_leaf` so
@@ -2166,6 +2212,19 @@ def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
         # is read. Resolution order is the only thing that changed -- the
         # call itself is unmoved and unedited.
         orientation = _load_orientation(rs.sizing, where=f"{path}:{node.widget}", node_kind="leaf")
+        # AMENDMENT 9 (ledger row 2310): a genuine `orient` declaration was
+        # just resolved above (or defaulted to 'v') -- record whether the
+        # AUTHOR wrote it, not just what it resolved to (`_load_leaf` needs
+        # this distinction; see `ast.Leaf.orientation_declared`'s own
+        # docstring). Then, if the caller supplied a DERIVED value for this
+        # widget (the post-solve re-load, see `load_slot`'s own docstring),
+        # that value wins over whatever `_load_orientation` resolved --
+        # L18 (`wellformed.find_l18_violations`) is what keeps these two
+        # facts from ever conflicting on a residual-holding leaf.
+        orientation_declared = rs.sizing is not None and rs.sizing.orient is not None
+        override = orientation_overrides.get(node.widget)
+        if override is not None:
+            orientation = override
         # AMENDMENT 7 (L10, see `_load_unit_axes`): resolved here, in
         # the same "resolve first, construct once" shape as `content`
         # above, because the unit's own legality DEPENDS on the resolved
@@ -2255,6 +2314,7 @@ def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
             unit_axes=unit_axes,
             elastic_axes=elastic_axes,
             orientation=orientation,
+            orientation_declared=orientation_declared,
             ceiling_axes=ceiling_axes,
             activity=activity,
             floor_axes=floor_axes,
@@ -2303,7 +2363,8 @@ def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
         )
     if isinstance(node, lytparser.RawSplit):
         children = [
-            load_slot(c, path=f"{path}/{node.axis.upper()}{i}") for i, c in enumerate(node.children)
+            load_slot(c, path=f"{path}/{node.axis.upper()}{i}", orientation_overrides=orientation_overrides)
+            for i, c in enumerate(node.children)
         ]
         # AMENDMENT 3 (ledger row 1715): `gap_px` is now resolved from an
         # optional `gap <extent>` sizing term instead of being hardcoded
@@ -2365,7 +2426,10 @@ def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
             violates=frozenset(rs.warns), scroll_axes=scroll_axes,
         )
     if isinstance(node, lytparser.RawExclusive):
-        children = [load_slot(c, path=f"{path}/T{i}") for i, c in enumerate(node.children)]
+        children = [
+            load_slot(c, path=f"{path}/T{i}", orientation_overrides=orientation_overrides)
+            for i, c in enumerate(node.children)
+        ]
         # AMENDMENT 3: a T node takes no gap — refused loudly (not
         # silently ignored) if the author declared one, same as any other
         # law this loader enforces.
@@ -2425,6 +2489,7 @@ def load_layouts(
     text: str,
     *,
     waivers: Optional["Dict[str, List[object]]"] = None,
+    orientation_overrides: Optional[Dict[str, Dict[str, str]]] = None,
 ) -> "dict[str, ast.Slot]":
     """Parse + type-check every `layout NAME = ...` fragment in `text`.
     Runs the L1/L2 well-formedness pass on each before returning (see
@@ -2441,14 +2506,45 @@ def load_layouts(
     itself absent) gets `waivers=None` passed to `check_wellformed`,
     which that function treats as "no waivers for this layout" — same
     strict behavior, not a silent skip of the check itself.
+
+    `orientation_overrides` (AMENDMENT 9, ledger row 2310; RE-SCOPED
+    2026-08-12 — see the dated note below): a `layout name -> {widget id ->
+    physical axis}` map, mirroring `waivers`' own per-layout shape. For
+    each `raw` this function loads, only `orientation_overrides.get(raw.name)`
+    — the sub-map addressed to THAT layout, or `None` if it names none — is
+    passed down to `load_slot`. Omitted (the default, `None`) is
+    byte-identical to every pre-Amendment-9 call.
+
+    2026-08-12 FIX (review of ledger row 2310, Duty 6 finding): before this
+    date, this parameter was a BARE `widget id -> physical axis` map
+    threaded VERBATIM into `load_slot` for every fragment this call loads
+    — no `(layout_name, widget_id)` scoping anywhere. Because `text` can
+    (and the `.lyt` grammar explicitly supports) carry more than one
+    `layout NAME = ...` fragment, a widget id repeated across two fragments
+    in the same text blob would silently receive an override computed from
+    a DIFFERENT layout's own solve — confirmed live by a synthetic two-
+    layout-one-widget-id probe during review; dormant only because every
+    `.lyt` file committed to `research/lyt/encodings/` today happens to
+    contain exactly one `layout NAME = ...` fragment. The per-layout
+    `Dict[str, Dict[str, str]]` shape here makes that collision
+    unrepresentable: a sub-map addressed to layout A is never even reachable
+    while loading layout B's fragment. `orientation.rebind` (the only
+    caller that ever passes a non-`None` value here) was updated in the
+    same change to address its single derived map to the one layout it
+    computed the derivation for.
     """
     from wellformed import check_wellformed
 
     waivers = waivers or {}
+    orientation_overrides = orientation_overrides or {}
     raws = lytparser.parse_layouts(text)
     out = {}
     for raw in raws:
-        slot = load_slot(raw.slot, path=raw.name)
+        slot = load_slot(
+            raw.slot,
+            path=raw.name,
+            orientation_overrides=orientation_overrides.get(raw.name),
+        )
         check_wellformed(slot, layout_name=raw.name, waivers=waivers.get(raw.name))
         out[raw.name] = slot
     return out

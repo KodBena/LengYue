@@ -522,6 +522,18 @@ class Leaf:
     # orientation-aware widget at all -- geometry-inert on its own, exactly
     # like `boundary`'s own default-False landing.
     orientation: Orientation = "v"
+    # AMENDMENT 9 (ledger row 2310): whether `orient` was AUTHORED in the
+    # concrete syntax, as opposed to defaulted to `'v'` by `_load_orientation`
+    # (both cases store an identical `orientation` value, so that field alone
+    # cannot tell "declared v" from "silent default"). This is provenance the
+    # DERIVATION seam needs: a residual-holding leaf's orientation is DERIVED
+    # from its solved residual box's aspect (see `orientation.py`), never
+    # authored — L18 (`wellformed.find_l18_violations`) refuses a leaf that
+    # is both structurally residual-holding AND has this flag `True`,
+    # exactly the "declaring what the model derives" refusal the ruling
+    # names. `False` (the default) is byte-identical for every leaf that
+    # predates this amendment, since none of them ever set it `True`.
+    orientation_declared: bool = False
     # LOOP ITERATION 10 / arc 4 round 3 (model-iteration loop EXPERIMENT,
     # ledger rows 2037/2066/2107/2157/2227; branch lyt-model-loop-
     # experiment, NOT merged without ratification): the axes along which
