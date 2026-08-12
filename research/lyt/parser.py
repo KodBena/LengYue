@@ -9,6 +9,7 @@
     leaf      ::= widgetid "[" domain ("," facet)* "]"
     presence  ::= "@fixed" | "@dev"
                 | "@toggle" "(" ("user" | "system") "," ("release" | "preserve") ")"
+                | "@demote" "(" axis extent ")"        -- LOOP ITERATION 11 (L15)
     sizing    ::= "{" "min" extent "," "pref" extent "," "max" (extent | "inf")
                   ("," "aspect" number)? ("," "envelope")? "}"
     extent    ::= number ("px" | "ch" | "fr")
@@ -247,8 +248,48 @@ class RawSizing:
     aspect: Optional[float] = None
     envelope_states: Optional[List[str]] = None
     envelope_bare: bool = False  # bare `envelope` keyword, no `: {states}` — F8 fix, see parse_sizing
+    # METAMODEL WAVE, item 2 (ledger row 2157/2173): each envelope entry,
+    # in declared order, as `(state_name, extent_or_None)` — `None` for the
+    # legacy bare-name spelling (`envelope: {disconnected, connected}`,
+    # unchanged since Amendment 5), an extent for the new dict spelling
+    # (`envelope: {disconnected: 28px, connected: 60px}`). `envelope_states`
+    # above stays populated (name-only) either way, for L3's existing
+    # non-empty check and every consumer that only needs the names;
+    # this field is additionally populated whenever at least one entry
+    # names an extent, and loader.py is where a MIXED list (some entries
+    # named, some not) is refused rather than silently guessed at.
+    envelope_entries: Optional[List[Tuple[str, Optional[RawExtentLike]]]] = None
     aspect_coupled: bool = False
     drag_persisted: bool = False
+    # LOOP ITERATION 10 / arc 4 round 3 (ledger rows 2037/2066/2107/2157):
+    # `ceiling <axis>` -- the PER-AXIS form of the bare flag above,
+    # accumulated (not overwritten) for the same reason `scroll`/`unit`/
+    # `elastic` accumulate: `ceiling h` and `ceiling v` name two different
+    # axes, so a second occurrence is a second fact and not a correction of
+    # the first. Raw lowercased tokens, which may be a PHYSICAL axis
+    # (`h`/`v`) or one of L14's two ROLE names (`along`/`across`, resolved
+    # against the leaf's own declared `orient`); NOTHING is validated here
+    # -- the closed vocabulary, the leaf-only rule, the one-per-axis rule
+    # and the "who owns the excess on this axis" precondition are all
+    # loader.py's job, per this module's own "parser permissive, loader
+    # refuses" architecture.
+    ceiling_axes: List[str] = field(default_factory=list)
+    # METAMODEL WAVE, item 1 (ledger row 2157/2158): `orient <axis>` --
+    # last-write-wins, like every other single-valued sizing key. Raw
+    # string, lowercased, NOT validated here against {'h', 'v'} or against
+    # "leaf-only" -- loader.py's job, same "parser permissive, loader
+    # refuses" division of labor `content`/`unit` already use.
+    orient: Optional[str] = None
+    # LOOP ITERATION 8 / ARC 4 (ledger rows 2037/2066/2107/2157): `min
+    # <axis> <extent>` -- accumulated (not overwritten), for the same reason
+    # `unit`/`scroll` accumulate: `min h` and `min v` name two different
+    # axes, so a second occurrence is a second fact and not a correction of
+    # the first. Raw `(axis, extent)` pairs, axis lowercased, NOT validated
+    # here against {'h','v'}, against one-per-axis, against the constant-
+    # extent rule, or against the both-axes tree position the declaration is
+    # only meaningful in -- loader.py and wellformed.py respectively, per
+    # this module's own "parser permissive, loader refuses" architecture.
+    axis_mins: List[Tuple[str, RawExtentLike]] = field(default_factory=list)
     fixed: Optional[RawExtentLike] = None  # `{28px}` shorthand, see §5.4/5.5
     gap: Optional[RawExtentLike] = None  # AMENDMENT 3 (ledger row 1715), H/V splits only
     # AMENDMENT 5 (ledger row 1937): `scroll <axis>` -- accumulated (not
@@ -304,13 +345,70 @@ class RawSizing:
     # and the leaf-only/content-class preconditions are all loader.py's
     # job (parser permissive, loader refuses).
     unit_axes: List[Tuple[str, "RawExtentLike"]] = field(default_factory=list)
+    # LOOP ITERATION 9 / arc 4 round 2 (ledger rows 2209/2210): `elastic
+    # <axis>` -- accumulated (not overwritten), the SAME departure from
+    # last-write-wins bag semantics `scroll_axes`/`unit_axes` above
+    # already take, and for the same reason. Raw lowercased axis tokens,
+    # NOT validated here: the closed `{h,v}` vocabulary, the one-per-axis
+    # rule and the leaf-only/`content unbounded` preconditions are all
+    # loader.py's job (parser permissive, loader refuses).
+    elastic_axes: List[str] = field(default_factory=list)
+    # LOOP ITERATION 11 / arc 4 round 4 (ledger row 2241): `activity
+    # <level>` -- last-write-wins, like every other single-valued sizing
+    # key. Raw lowercased string, NOT validated here against the closed
+    # {sustained, occasional} vocabulary nor against the leaf-only rule --
+    # loader.py's job, per this module's own "parser permissive, loader
+    # refuses" architecture.
+    activity: Optional[str] = None
+    # LOOP ITERATION 12 / arc 4 round 5 (L16, ledger row 2268): `floor
+    # <axis> <extent>` -- accumulated (not overwritten), the SAME departure
+    # from last-write-wins bag semantics `scroll_axes`/`unit_axes`/
+    # `axis_mins` above already take, and for the same reason: `floor h`
+    # and `floor v` name two different axes, so a second occurrence is a
+    # second fact and not a correction of the first. Raw `(axis, extent)`
+    # pairs, axis lowercased, and NOTHING validated here -- the closed
+    # `{h,v}` vocabulary (after L14 role resolution), the one-per-axis
+    # rule, the px-only rule, the leaf-only rule and the reserve-or-leave
+    # join to L15 are loader.py's and wellformed.py's respectively, per
+    # this module's own "parser permissive, loader refuses" architecture.
+    #
+    # UNLIKE `min`, this key needs NO lookahead disambiguation: `floor`
+    # has no axis-less spelling at all (a floor with no axis is exactly
+    # the ambiguity L12 minted `min <axis>` to escape), so its value
+    # position always begins with an axis token.
+    floor_axes: List[Tuple[str, RawExtentLike]] = field(default_factory=list)
+    # LOOP ITERATION 13 / arc 4 round 6 (L17, ledger row 2286): `edge
+    # <axis> <disposition>` -- accumulated (not overwritten), the SAME
+    # departure from last-write-wins bag semantics `scroll_axes`/
+    # `unit_axes`/`floor_axes` above already take, and for the same
+    # reason: `edge h` and `edge v` are two facts, not a correction.
+    # Raw `(axis, disposition)` pairs, both lowercased, NEITHER validated
+    # here -- the closed `{h,v}` axis vocabulary (after L14 role
+    # resolution), the closed `{unit,item,continuous}` disposition
+    # vocabulary, the one-per-axis rule, the leaf-only rule and both
+    # directions of the join to L10's `unit <axis>` are loader.py's; the
+    # "every declared scroll owes an edge" trigger is wellformed.py's.
+    # Parser permissive, loader refuses.
+    #
+    # Like `floor`, this key needs NO lookahead: its value position
+    # always begins with an axis token, so an IDENT here is always it.
+    edge_axes: List[Tuple[str, str]] = field(default_factory=list)
 
 
 @dataclass
 class RawPresence:
-    kind: str  # 'fixed' | 'dev' | 'toggle'
+    kind: str  # 'fixed' | 'dev' | 'toggle' | 'demote'
     by: Optional[str] = None
     hidden: Optional[str] = None
+    # LOOP ITERATION 11 / arc 4 round 4 (L15, ledger row 2241): the
+    # `@demote(<axis> <extent>)` presence kind's own two raw fields. Axis
+    # lowercased, extent left as a RawExtentLike -- NEITHER validated here
+    # (the closed {h,v} axis vocabulary, the px-only rule, and the
+    # `activity occasional` / `content bounded` / leaf-only preconditions
+    # are all loader.py's), same division of labor `@toggle`'s own
+    # by/hidden words already use.
+    demote_axis: Optional[str] = None
+    demote_below: Optional["RawExtentLike"] = None
 
 
 @dataclass
@@ -432,6 +530,22 @@ class Parser:
             return RawPresence(
                 kind="toggle", by=by_tok.text.lower(), hidden=hidden_tok.text.lower()
             )
+        if word == "demote":
+            # LOOP ITERATION 11 / arc 4 round 4 (L15, ledger row 2241):
+            # `@demote(<axis> <extent>)`. Note the argument list is
+            # `AXIS EXTENT` with NO comma between them, unlike `@toggle`'s
+            # `by, hidden` pair -- deliberately, and for the same reason
+            # `unit h 24px` / `min v 664px` are spelled without one inside
+            # a sizing bag: an axis and the extent it governs are ONE fact
+            # in two tokens, not two independent words. The spelling
+            # matches the axis-taking sizing keys a reader already knows.
+            self._expect("LPAREN")
+            axis_tok = self._expect("IDENT")
+            below = self.parse_extent()
+            self._expect("RPAREN")
+            return RawPresence(
+                kind="demote", demote_axis=axis_tok.text.lower(), demote_below=below
+            )
         raise LytParseError(
             f"unknown presence keyword '@{kw.text}'", {"line": kw.line, "got": kw.text}
         )
@@ -482,7 +596,32 @@ class Parser:
             key_tok = self._expect("IDENT")
             key = key_tok.text.lower()
             if key == "min":
-                rs.min = self.parse_extent()
+                # LOOP ITERATION 8 / ARC 4 (ledger rows 2037/2066/2107/2157):
+                # `min <axis> <extent>` -- a PER-AXIS floor, accumulated like
+                # `scroll`/`unit` rather than last-write-wins, since `min h`
+                # and `min v` are two different facts and not repetitions of
+                # "the same key". Disambiguated by a TWO-token lookahead, not
+                # one: `min`'s value position ALREADY admits a bare IDENT --
+                # a symbolic extent constant (`{min WRAPPER_MIN, ...}` in
+                # `current_row_repaired.lyt`) and the `maximize`/`inf`
+                # sentinels -- so "the next token is an identifier" does not
+                # by itself mean an axis was named, and a one-token peek here
+                # broke every registration carrying a symbolic min (caught by
+                # this suite, not by inspection). An axis-keyed `min` is
+                # recognized only as the pair IDENT + an extent's own opening
+                # NUMBER/NUMUNIT, which no symbolic spelling can produce (a
+                # symbol stands alone; a ',' or '}' follows it).
+                # Deliberately NOT gated on the identifier being literally
+                # 'h'/'v': `min z 4px` is a MISSPELLED AXIS and should reach
+                # `loader._load_axis_mins`' own closed-vocabulary refusal by
+                # name, rather than dying here as a parse error about an
+                # extent -- the same "parser permissive, loader refuses"
+                # division of labor `content`/`unit`/`wrap` already use.
+                if self._peek().kind == "IDENT" and self.toks[self.i + 1].kind in ("NUMBER", "NUMUNIT"):
+                    axis_tok = self._expect("IDENT")
+                    rs.axis_mins.append((axis_tok.text.lower(), self.parse_extent()))
+                else:
+                    rs.min = self.parse_extent()
             elif key == "pref":
                 rs.pref = self.parse_extent()
             elif key == "max":
@@ -499,14 +638,27 @@ class Parser:
                     self._advance()
                     self._expect("LBRACE")
                     states = []
+                    entries: List[Tuple[str, Optional[RawExtentLike]]] = []
                     sfirst = True
                     while self._peek().kind != "RBRACE":
                         if not sfirst:
                             self._expect("COMMA")
                         sfirst = False
-                        states.append(self._expect("IDENT").text)
+                        name = self._expect("IDENT").text
+                        states.append(name)
+                        # METAMODEL WAVE, item 2 (ledger row 2157/2173/2174):
+                        # each entry MAY carry `: <extent>` -- the dict-
+                        # envelope upgrade (rev2 domain-model-proposal
+                        # §2.1). Permissive here (any entry may or may not
+                        # carry one); loader.py refuses a MIXED list.
+                        extent: Optional[RawExtentLike] = None
+                        if self._peek().kind == "COLON":
+                            self._advance()
+                            extent = self.parse_extent()
+                        entries.append((name, extent))
                     self._expect("RBRACE")
                     rs.envelope_states = states
+                    rs.envelope_entries = entries
                 else:
                     # F8 fix (review row 1609): the base grammar's bare
                     # `envelope` keyword (line 286) IS spec-legal syntax —
@@ -529,6 +681,47 @@ class Parser:
                 # AMENDMENT 6 (ledger row 1937): bare flag, same shape as
                 # aspect-coupled/drag-persisted above.
                 rs.boundary = True
+            elif key == "orient":
+                # METAMODEL WAVE, item 1 (ledger row 2157/2158): last-write-
+                # wins, parsed permissively (any identifier); loader.py
+                # validates the closed {h, v} vocabulary and the leaf-only
+                # precondition.
+                orient_tok = self._expect("IDENT")
+                rs.orient = orient_tok.text.lower()
+            elif key == "floor":
+                # LOOP ITERATION 12 / arc 4 round 5 (L16, ledger row 2268):
+                # `floor <axis> <extent>` -- the leaf's own SMALLEST USABLE
+                # extent along an axis, the deficit dual of L13's `elastic`.
+                # No lookahead needed (see `RawSizing.floor_axes`): the axis
+                # token is mandatory, so an IDENT here is always it.
+                # Deliberately NOT gated on the identifier being literally
+                # 'h'/'v'/'along'/'across' -- a misspelled axis should reach
+                # `loader._load_floor_axes`' own closed-vocabulary refusal by
+                # name rather than dying here as a parse error, the same
+                # "parser permissive, loader refuses" division of labor
+                # `min <axis>` / `ceiling <axis>` already use.
+                floor_axis_tok = self._expect("IDENT")
+                rs.floor_axes.append((floor_axis_tok.text.lower(), self.parse_extent()))
+            elif key == "edge":
+                # LOOP ITERATION 13 / arc 4 round 6 (L17, ledger row 2286):
+                # `edge <axis> <disposition>` -- what this leaf's own scroll
+                # BOUNDARY on that axis falls on. Two IDENTs, both taken
+                # permissively (see `RawSizing.edge_axes`): a misspelled axis
+                # or disposition should reach the loader's own closed-
+                # vocabulary refusal BY NAME rather than dying here as a
+                # parse error, the same division of labor `floor`/`unit`/
+                # `activity` above already use.
+                edge_axis_tok = self._expect("IDENT")
+                edge_disp_tok = self._expect("IDENT")
+                rs.edge_axes.append((edge_axis_tok.text.lower(), edge_disp_tok.text.lower()))
+            elif key == "activity":
+                # LOOP ITERATION 11 / arc 4 round 4 (L15, ledger row 2241):
+                # last-write-wins, parsed permissively (any identifier);
+                # loader.py validates the closed {sustained, occasional}
+                # vocabulary and the leaf-only precondition. Same shape as
+                # `content`/`orient`/`wrap` above.
+                activity_tok = self._expect("IDENT")
+                rs.activity = activity_tok.text.lower()
             elif key == "width":
                 rs.pref = self.parse_extent()  # alias, see module docstring
             elif key == "gap":
@@ -544,6 +737,15 @@ class Parser:
                 # and the module docstring's AMENDMENT 5 note for why.
                 axis_tok = self._expect("IDENT")
                 rs.scroll_axes.append(axis_tok.text.lower())
+            elif key == "elastic":
+                # LOOP ITERATION 9 (ledger rows 2209/2210): `elastic
+                # <axis>` -- accumulated, not overwritten (see
+                # RawSizing.elastic_axes' own docstring). Parsed as
+                # permissively as `scroll` is: any identifier; loader.py
+                # refuses everything outside {h,v} and everything outside
+                # an unbounded leaf.
+                elastic_axis_tok = self._expect("IDENT")
+                rs.elastic_axes.append(elastic_axis_tok.text.lower())
             elif key == "content":
                 # AMENDMENT 5 (ledger row 1937): last-write-wins, parsed
                 # permissively (any identifier); loader.py validates the
@@ -555,7 +757,21 @@ class Parser:
                 # model-iteration loop experiment round 3): bare flag,
                 # same shape as aspect-coupled/drag-persisted/boundary
                 # above.
-                rs.ceiling = True
+                #
+                # LOOP ITERATION 10 / arc 4 round 3 (L14): the key now takes
+                # an OPTIONAL axis/role token. The two spellings are
+                # distinguished by one token of lookahead and nothing else:
+                # inside a sizing bag a key is always followed by `,` or `}`
+                # unless it takes an argument, so an IDENT here can only be
+                # this key's own axis. The bare spelling is untouched (it
+                # still sets the whole-leaf `ceiling` flag L9 governs) --
+                # `{... , ceiling, ...}` and `{... , ceiling across, ...}`
+                # are different declarations, not two ways of writing one.
+                if self._peek().kind == "IDENT":
+                    ceiling_axis_tok = self._expect("IDENT")
+                    rs.ceiling_axes.append(ceiling_axis_tok.text.lower())
+                else:
+                    rs.ceiling = True
             elif key == "measure-bound":
                 # AMENDMENT 7 (ported from the model-iteration loop
                 # experiment round 6): bare flag, same shape as

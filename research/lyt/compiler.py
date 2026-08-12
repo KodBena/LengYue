@@ -299,8 +299,19 @@ def _constrain(
         targets.append(("w", w))
     if along in (None, "h"):
         targets.append(("h", h))
+    # LOOP ITERATION 8 / ARC 4 (ledger rows 2037/2066/2107/2157) — L12, floor
+    # attribution. `along is None` is exactly the both-axes position (root or
+    # T-child) where a single `min` was being read as a floor on two axes at
+    # once; where the author has said which axis a floor is a fact about,
+    # `Sizing.axis_min` returns it, and every slot declaring none returns
+    # `s.min` unchanged. `dim` is the VARIABLE name ('w'/'h'); the language's
+    # own axis names are 'h' (horizontal) / 'v' (vertical), so the mapping is
+    # w<-h, h<-v — deliberately spelled out rather than left to look like a
+    # coincidence between two different 'h's.
+    _DIM_TO_AXIS = {"w": "h", "h": "v"}
     for dim, t in targets:
-        _apply_bound(model, t, s.min, is_max=False, parent_along_extent=parent_along_extent, path=path, dim=dim)
+        lo = s.axis_min(_DIM_TO_AXIS[dim]) if along is None else s.min
+        _apply_bound(model, t, lo, is_max=False, parent_along_extent=parent_along_extent, path=path, dim=dim)
         _apply_bound(model, t, s.max, is_max=True, parent_along_extent=parent_along_extent, path=path, dim=dim)
 
     node = slot.node
@@ -367,8 +378,13 @@ def _constrain(
         child_min_w = []
         child_min_h = []
         for i, child in enumerate(node.children):
-            cw = _extent_px(child.sizing.min, upper_bound=W)
-            ch = _extent_px(child.sizing.min, upper_bound=H)
+            # LOOP ITERATION 8 / ARC 4 (L12): the componentwise max is taken
+            # per axis over each child's per-axis floor — a child that names
+            # only `min` contributes the same number to both components it
+            # always did, and one that has said "this 838px is a WIDTH" no
+            # longer raises its siblings' shared HEIGHT floor with it.
+            cw = _extent_px(child.sizing.axis_min("h"), upper_bound=W)
+            ch = _extent_px(child.sizing.axis_min("v"), upper_bound=H)
             if cw is not None:
                 child_min_w.append(cw)
             if ch is not None:
