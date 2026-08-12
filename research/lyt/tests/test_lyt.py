@@ -865,15 +865,19 @@ def test_lengyue_portrait_default_valuation_solves_optimal_at_420x880():
 
 def test_lengyue_default_valuation_registered_on_the_runner_registration():
     """The LANGUAGE SURFACE: `runner.REGISTRATIONS`' lengyue entry must
-    declare its default valuation as exactly {boardRail, previewBoard}
-    absent -- the two live default-OFF release toggles named by the
-    tree-always-visible build report and re-confirmed in both `.lyt`
-    files' own headers."""
+    declare its default valuation as exactly {boardRail, previewBoard,
+    A_setup} absent -- the three live default-OFF release toggles named
+    by the tree-always-visible build report (boardRail/previewBoard) and
+    M2 stage B2b's own palette-adoption ruling (A_setup, ledger row
+    2108), re-confirmed in both `.lyt` files' own headers. [Updated
+    2026-08-12, M2 stage B2b: was {boardRail, previewBoard} only.]"""
     import runner as runner_mod
 
     reg = [r for r in runner_mod.REGISTRATIONS if r.name == "lengyue_landscape+portrait"][0]
     assert reg.default_valuation.name == "default"
-    assert reg.default_valuation.absent_widgets == frozenset({"boardRail", "previewBoard"})
+    assert reg.default_valuation.absent_widgets == frozenset(
+        {"boardRail", "previewBoard", "A_setup"}
+    )
     # every OTHER registration keeps the spec's own §6 baseline (nothing
     # absent) -- byte-identical to this prototype's pre-Amendment-4
     # behavior for q5go/ogs/current-row-repaired/current-row-asis.
@@ -1824,11 +1828,20 @@ def test_portrait_composite_row_carries_the_board_priority_cap(mockup_pages):
     holder instead. The T-node's own emitted track therefore changes
     shape from `minmax(664px, 1fr)` (elastic-with-a-floor) to a plain
     `664px` (fixed) -- verified directly against `emit_mockup.py`'s own
-    output, not assumed from the encoding edit alone."""
+    output, not assumed from the encoding edit alone.
+
+    STALE-ASSERTION UPDATE (2026-08-12, M2 stage B2b, ledger rows
+    2073/2108/2151): the track var's own index shifts, `--track-4-1` ->
+    `--track-5-1` -- the palette-adoption ruling's own new `A_setup`
+    leaf (item 2) inserts as a new direct root child ahead of the
+    tree/panels row in this class (portrait has no separate side column,
+    so `A_setup` sits at root level, shifting every LATER root child's
+    own index by one, matching the encoding's own M2 STAGE B2b header
+    note)."""
     assert "minmax(0px, calc(100vw + 52px))" in mockup_pages["portrait"]
-    # T-node's own now-fixed track (`var(--track-4-1, 664px)`), still driven
+    # T-node's own now-fixed track (`var(--track-5-1, 664px)`), still driven
     # by CP-analysis's floor, no longer wrapped in `minmax(..., 1fr)`.
-    assert "var(--track-4-1, 664px)" in mockup_pages["portrait"]
+    assert "var(--track-5-1, 664px)" in mockup_pages["portrait"]
     assert "minmax(664px, 1fr)" not in mockup_pages["portrait"]
 
 
@@ -1862,9 +1875,19 @@ def test_tree_panels_t_node_track_carries_its_derived_floor(mockup_pages):
     -- the track shape changes from `minmax(664px, 1fr)` to a plain fixed
     `664px` (`tree` is the row's residual holder now) -- see
     `test_portrait_composite_row_carries_the_board_priority_cap`'s own
-    updated docstring for the full derivation."""
-    assert "var(--track-2-2-1, 664px)" in mockup_pages["landscape"]
-    assert "var(--track-4-1, 664px)" in mockup_pages["portrait"]
+    updated docstring for the full derivation.
+
+    STALE-ASSERTION UPDATE (2026-08-12, M2 stage B2b, ledger rows
+    2073/2108/2151): both track vars' own indices shift, landscape's
+    `--track-2-2-1` -> `--track-2-3-1` and portrait's `--track-4-1` ->
+    `--track-5-1` -- the palette-adoption ruling's own new `A_setup`
+    leaf (item 2) inserts as a new direct sibling ahead of the
+    tree/panels row (the side column's own child, landscape; the root's
+    own child, portrait -- see
+    `test_portrait_composite_row_carries_the_board_priority_cap`'s own
+    updated docstring)."""
+    assert "var(--track-2-3-1, 664px)" in mockup_pages["landscape"]
+    assert "var(--track-5-1, 664px)" in mockup_pages["portrait"]
     assert "minmax(664px, 1fr)" not in mockup_pages["landscape"]
     assert "minmax(664px, 1fr)" not in mockup_pages["portrait"]
 
@@ -1953,7 +1976,17 @@ def test_find_board_composite_child_recognizes_both_encodings_shapes():
     the board composite's own index by one at both classes -- an index
     shift caused by a legitimate new leading sibling, not a change to
     which child is recognized as the composite (still uniquely matched
-    by shape, per `_find_board_composite_child`'s own docstring)."""
+    by shape, per `_find_board_composite_child`'s own docstring).
+
+    STALE-ASSERTION UPDATE (2026-08-12, M2 stage B2b, ledger rows
+    2073/2108/2151): portrait's own index shifts again, 2 -> 3 -- the
+    palette-adoption ruling's own new `A_setup` leaf (item 2) inserts as
+    a new direct root child between `A_app` and the board composite
+    (portrait has no separate side column, so `A_setup` sits at root
+    level -- see the encoding's own M2 STAGE B2b header note).
+    Landscape's own index is UNCHANGED (`A_setup` lands inside the side
+    column, not at the root, so the root's own board-composite index
+    stays 1)."""
     reg, layouts = emit_mockup.load_class_slots()
     landscape_root = layouts[reg.layout_by_class["landscape"]].node
     portrait_root = layouts[reg.layout_by_class["portrait"]].node
@@ -1964,7 +1997,7 @@ def test_find_board_composite_child_recognizes_both_encodings_shapes():
 
     p_match = emit_mockup._find_board_composite_child(portrait_root)
     assert p_match is not None
-    assert p_match[0] == 2  # composite is the THIRD child of portrait's V root (after boardRail, A_app)
+    assert p_match[0] == 3  # composite is the FOURTH child of portrait's V root (after boardRail, A_app, A_setup)
     assert p_match[2] == 52.0
 
 

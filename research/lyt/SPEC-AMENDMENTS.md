@@ -26,6 +26,14 @@ This file is the living amendment record: the four rulings, their
 rationale (as recorded on the ledger rows), and a diff against the
 original document's prose.
 
+**[Corrected 2026-08-12, M2 stage B2b, the ruling-basket census — this
+paragraph's own "four"/"the four rulings" phrasing describes this
+section's state when it was FIRST written, before Amendments 5-9 were
+appended below; preserved verbatim above per this file's own append-only
+convention, not rewritten.]** This file now carries **nine** amendments
+(Amendments 1-9, in order below) — "the living amendment record" framing
+still holds; only the count in the paragraph above is stale.
+
 Build report for the implementation of Amendments 1/2:
 [.claude/dispatch-reports/lyt-language-amendments-build.md](../../.claude/dispatch-reports/lyt-language-amendments-build.md). Build
 report for Amendment 3: [.claude/dispatch-reports/lyt-gap-amendment-build.md](../../.claude/dispatch-reports/lyt-gap-amendment-build.md).

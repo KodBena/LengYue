@@ -268,13 +268,25 @@ CLASS_ID = "landscape"
 # (A_go/I_engine/A_common/tree-row) to three (A_engine/A_app/tree-row) --
 # the tree/panels/preview row's own path shifts from (2, 3, ...) to
 # (2, 2, ...) accordingly.
+#
+# M2 STAGE B2b (2026-08-12, ledger rows 2073/2108/2151): the side column
+# gains a FOURTH direct child, `A_setup` -- the palette-adoption
+# presence slot (item 2), genuinely `@toggle(user, release)`, default
+# OFF, same footing as `boardRail`/`previewBoard`. `A_engine` itself
+# (2, 0) is now a composite `H(...)` of four leaves (the three-vocabulary
+# engine-status decomposition, item 1) rather than a bare leaf -- its own
+# path is unaffected (`presenceDefaultVisible` reads the SPLIT child's
+# own track/visibility, independent of what kind of node occupies it).
+# The tree/panels/preview row's own path shifts AGAIN, (2, 2, ...) ->
+# (2, 3, ...).
 DEFAULT_VISIBLE_BY_PATH: Dict[Tuple[int, ...], bool] = {
     (0,): False,       # boardRail
     (1,): True,        # V-composite (board + info + action rows)
-    (2, 0): True,       # A_engine
+    (2, 0): True,       # A_engine (composite H of four leaves)
     (2, 1): True,       # A_app
-    (2, 2, 1): True,     # T(CP-*) -- the control-panel black box
-    (2, 2, 2): False,    # previewBoard
+    (2, 2): False,       # A_setup (palette, default off)
+    (2, 3, 1): True,     # T(CP-*) -- the control-panel black box
+    (2, 3, 2): False,    # previewBoard
 }
 
 # Reproduced verbatim from emit_mockup.py's own TOGGLE_TARGETS["portrait"]
@@ -292,14 +304,22 @@ DEFAULT_VISIBLE_BY_PATH: Dict[Tuple[int, ...], bool] = {
 # TOGGLE_TARGETS doesn't mention is default-visible, per that table's own
 # convention). Paths themselves are UNCHANGED from pre-reencode (portrait's
 # tree structure needed only a rename, not a reshuffle).
+# M2 STAGE B2b (2026-08-12, ledger rows 2073/2108/2151): the root gains
+# a new direct child, `A_setup` (item 2, palette-adoption presence slot,
+# default off, portrait has no separate side column so it sits at the
+# ROOT), inserted right after `A_app` -- every LATER root child's own
+# path index shifts by one. `A_engine` (now path (4,)) is a composite
+# `H(...)` of four leaves (item 1), unaffected structurally at this
+# dict's own granularity.
 DEFAULT_VISIBLE_BY_PATH_PORTRAIT: Dict[Tuple[int, ...], bool] = {
     (0,): False,      # boardRail
     (1,): True,       # A_app
-    (2,): True,       # V-composite (board + info + action rows)
-    (3,): True,       # A_engine
-    (4, 0): True,      # tree
-    (4, 1): True,      # T(CP-*) -- the control-panel black box
-    (4, 2): False,     # previewBoard
+    (2,): False,      # A_setup (palette, default off)
+    (3,): True,       # V-composite (board + info + action rows)
+    (4,): True,       # A_engine (composite H of four leaves)
+    (5, 0): True,      # tree
+    (5, 1): True,      # T(CP-*) -- the control-panel black box
+    (5, 2): False,     # previewBoard
 }
 
 
@@ -529,6 +549,7 @@ def _build_node(
     open_control_panel: bool = False,
     control_panel_tab_ids: Tuple[str, ...] = (),
     control_panel_collapse_indices: frozenset = frozenset(),
+    _within_opened_tab: bool = False,
 ) -> dict:
     node = slot.node
     if isinstance(node, ast.Leaf):
@@ -562,13 +583,42 @@ def _build_node(
         # -- today, only CP-analysis's own inner analysis-tabs T -- keeps
         # the pre-wave full-collapse behavior unless a FUTURE wave opts it
         # in explicitly by the same mechanism). An Exclusive this parameter
-        # does not flag (every OTHER Exclusive in the tree, structurally
-        # unreachable this wave since the one nested Exclusive lives inside
-        # a still-collapsed subtree -- see the collapse-indices branch
-        # below, which never calls back into `_build_node` for a collapsed
-        # child's interior) falls through to the byte-identical pre-wave
-        # collapse.
+        # does not flag falls through to a genuine collapse, the SAME shape
+        # the pre-wave code always produced for the whole control panel.
+        #
+        # M2 STAGE B2b (ledger rows 2073/2108/2151, the pane-granularity
+        # fix): this branch is NO LONGER reachable ONLY at the true top
+        # level -- the settingsPane leaf this stage opens one level (a new
+        # nested `T(SP_session, ...)`) sits inside the SETTINGS tab, which
+        # is NOT a `control_panel_collapse_indices` member, so the walk
+        # genuinely recurses into it with `open_control_panel=False` and
+        # lands here TOO. The two callers are distinguishable only by
+        # HISTORY, not by local state (`open_control_panel` reads False in
+        # both) -- `_within_opened_tab` (new parameter, set True at the
+        # ONE recursive call site inside an opened tab's own subtree
+        # below, threaded through unconditionally by the Split branch)
+        # carries that history: False means "this Exclusive IS the
+        # top-level control panel itself" (the pre-existing, still-correct
+        # `"controlPanel"` id); True means "this Exclusive is nested inside
+        # an ALREADY-open tab's own interior" (a genuinely different
+        # region, needing its OWN identity). For the True case, the
+        # collapsed placeholder's own widget id is its FIRST collected leaf
+        # (`_collect_leaf_widgets(node)[0]`), the SAME "represent a
+        # composite by its first leaf" convention `emit_mockup.py`'s own
+        # `_first_leaf_widget` already uses for an analogous
+        # composite-T-child placeholder -- for the settingsPane case this
+        # yields `"SP_session"` (its own first declared leaf), an honest,
+        # real widget id rather than a name belonging to an unrelated
+        # sibling region.
         if not open_control_panel:
+            if _within_opened_tab:
+                child_widgets = [w for c in node.children for w in _collect_leaf_widgets(c)]
+                return {
+                    "kind": "blackbox",
+                    "widget": child_widgets[0] if child_widgets else "controlPanel",
+                    "tag": node.tag,
+                    "childWidgets": child_widgets,
+                }
             child_widgets = [w for c in node.children for w in _collect_leaf_widgets(c)]
             return {
                 "kind": "blackbox",
@@ -602,6 +652,12 @@ def _build_node(
                     open_control_panel=False,
                     control_panel_tab_ids=(),
                     control_panel_collapse_indices=frozenset(),
+                    # M2 STAGE B2b: marks every descendant of an opened
+                    # tab's own subtree as "inside", so a nested Exclusive
+                    # found deeper in (e.g. settingsPane's own new T) is
+                    # never confused with the top-level control panel
+                    # itself -- see the Exclusive branch's own comment.
+                    _within_opened_tab=True,
                 )
             ex_children.append(
                 {
@@ -658,6 +714,7 @@ def _build_node(
                         open_control_panel=open_control_panel,
                         control_panel_tab_ids=control_panel_tab_ids,
                         control_panel_collapse_indices=control_panel_collapse_indices,
+                        _within_opened_tab=_within_opened_tab,
                     ),
                 }
             )

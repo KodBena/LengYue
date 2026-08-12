@@ -313,21 +313,36 @@ TOGGLE_TARGETS: Dict[str, Dict[Tuple[int, ...], Tuple[str, str, bool]]] = {
     # to three (Engine cluster / App cluster / tree-row) — every path at
     # or after the collapsed trio shifts by one component (index 3 -> 2
     # for the tree/panels/preview row and its own children).
+    # M2 STAGE B2b (ledger rows 2073/2108, the ruling-basket census): two
+    # index shifts, per class, from the same structural edits both
+    # encodings' own headers document — (a) `A_engine` is no longer the
+    # side column's/root's own single toggleable-labeled leaf but a
+    # composite `H(...)` of four leaves (the three-vocabulary engine-
+    # status decomposition, row 2073); its own path is unaffected (still
+    # the same child index, just naming a composite instead of a leaf now
+    # — `_widget_at_path`'s own fold already handles a composite target),
+    # but every SUBSEQUENT sibling shifts by one to make room for the new
+    # `A_setup` leaf (b) — the palette-adoption presence slot (row 2108),
+    # genuinely `@toggle(user, release)`, default OFF, so it earns a
+    # `False`-seeded corner-menu entry the same way `boardRail`/
+    # `previewBoard` already do.
     "landscape": {
         (0,): ("Board Rail", "release", False),
         (1,): ("Board & Controls", "preserve", True),
         (2, 0): ("Engine Cluster", "release", True),
         (2, 1): ("App Cluster", "release", True),
-        (2, 2, 1): ("Tree & Panels", "release", True),
-        (2, 2, 2): ("Preview Board", "release", False),
+        (2, 2): ("Setup Palette", "release", False),
+        (2, 3, 1): ("Tree & Panels", "release", True),
+        (2, 3, 2): ("Preview Board", "release", False),
     },
     "portrait": {
         (0,): ("Board Rail", "release", False),
         (1,): ("App Cluster", "release", True),
-        (2,): ("Board & Controls", "preserve", True),
-        (3,): ("Engine Cluster", "release", True),
-        (4, 1): ("Tree & Panels", "release", True),
-        (4, 2): ("Preview Board", "release", False),
+        (2,): ("Setup Palette", "release", False),
+        (3,): ("Board & Controls", "preserve", True),
+        (4,): ("Engine Cluster", "release", True),
+        (5, 1): ("Tree & Panels", "release", True),
+        (5, 2): ("Preview Board", "release", False),
     },
 }
 
@@ -460,19 +475,37 @@ ROW_WIDGETS: Dict[str, Tuple[str, str]] = {
     # already exists for a content-dense wrapped row (portrait's old
     # `A_top` used it), reused here rather than inventing a third row
     # shape for the mixed-facet case.
-    "A_engine": (
-        "actions-row actions-row-wrap",
-        "<span>KataGo v1.0.27</span>"
-        "<span>Connected</span>"
-        "<span>Model: b18-8192</span>"
-        "<span>1200 pps</span>"
-        "<span>40 ms</span>"
-        "<span>Queue 2</span>"
+    # M2 STAGE B2b (ledger row 2073, three-vocabulary engine-status
+    # decomposition): the single `A_engine` row above is RETIRED —
+    # replaced by four leaves inside a new `H(...)` occupying the SAME
+    # tree position, each carrying the honest-proxy slice of the OLD
+    # entry's own content its own vocabulary owns (never invented
+    # content, just re-partitioned): the connect/mint/learn/play/match
+    # button cluster (`A_engine_controls`), {winrate, lead}
+    # (`A_engine_eval`), {pps, latency, watchdog} (`A_engine_health`),
+    # {queue} (`A_engine_queue`).
+    "A_engine_controls": (
+        "actions-row",
         '<button class="btn">Mint Card</button>'
         '<button class="btn">Learn Path</button>'
         '<button class="btn">Play</button>'
         '<button class="btn">Match</button>'
         '<button class="btn">Connect</button>',
+    ),
+    "A_engine_eval": (
+        "info-row",
+        "<span>Win B 54.2%</span>"
+        "<span>Score B +3.5</span>",
+    ),
+    "A_engine_health": (
+        "info-row",
+        "<span>1200 pps</span>"
+        "<span>40 ms</span>"
+        "<span>● Watchdog OK</span>",
+    ),
+    "A_engine_queue": (
+        "info-row",
+        "<span>Queue 2</span>",
     ),
     "A_app": (
         "actions-row actions-row-wrap",
@@ -481,6 +514,20 @@ ROW_WIDGETS: Dict[str, Tuple[str, str]] = {
         '<button class="btn">Sliders</button>'
         '<button class="btn">Setup</button>'
         '<button class="btn debug-pill" title="Autonav, popover test, clear cache (dev-only, C-domain)">Debug (3)</button>',
+    ),
+    # M2 STAGE B2b (ledger row 2108, palette-as-presence-slot): the
+    # setup-tool palette's own honest-proxy content -- reuses the SAME
+    # tool-row pattern the real `SetupToolPalette.vue` presents (a strip
+    # of stone/marker tool buttons), released entirely when the toggle is
+    # OFF (this widget's own default-off `TOGGLE_TARGETS` entry).
+    "A_setup": (
+        "actions-row",
+        '<button class="btn">Black</button>'
+        '<button class="btn">White</button>'
+        '<button class="btn">Empty</button>'
+        '<button class="btn">Triangle</button>'
+        '<button class="btn">Square</button>'
+        '<button class="btn">Clear</button>',
     ),
 }
 

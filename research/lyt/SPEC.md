@@ -21,7 +21,11 @@ consult document") and has since been implemented, exercised, and
 amended by a Python prototype living in this directory
 (`research/lyt/`). **This file is the current-state specification —
 what LYT means and how it behaves today**, reconciling the consult
-document's original design with five ledger-adjudicated amendments
+document's original design with nine ledger-adjudicated amendments
+[corrected 2026-08-12, M2 stage B2b, the ruling-basket census — this
+count previously (and, by the time of Amendments 6-9, staled to)
+read "five"; §14-§17 below cover Amendments 6-9 and are themselves
+proof of the current count]
 ([SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)) and with the prototype's own disclosed narrowings
 and inventions where the two sources diverge. Every claim below about
 implemented behavior is checked against the code in this directory as
@@ -1719,7 +1723,9 @@ different roles:
   divergence; it is not restated or rewritten, and it is not itself
   kept current — this file is.
 - **[SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)** is the append-only, dated **amendment
-  record**: the five ledger-adjudicated rulings, their rationale as
+  record**: the nine ledger-adjudicated rulings [corrected 2026-08-12,
+  M2 stage B2b, same staleness as this file's own opening paragraph
+  above], their rationale as
   recorded on each ledger row, and each amendment's diff against the
   consult document's original prose. It remains the place to find *why*
   a rule changed and *when*; this specification is the place to find

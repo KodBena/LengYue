@@ -78,7 +78,35 @@ export const LYT_LANDSCAPE: LytProgram = {
               path: "2.0",
               presenceDefaultVisible: true,
               track: { kind: "fixed", px: 60 },
-              node: { kind: "leaf", widget: "A_engine", domain: "go", facets: ["action", "info"], aspect: null, scrollAxes: [], content: "bounded" },
+              node: {
+                kind: "split", axis: "h", gapPx: 4,
+                children: [
+                  {
+                    path: "2.0.0",
+                    presenceDefaultVisible: true,
+                    track: { kind: "elastic", minPx: 0, frWeight: 1 },
+                    node: { kind: "leaf", widget: "A_engine_controls", domain: "go", facets: ["action"], aspect: null, scrollAxes: [], content: "bounded" },
+                  },
+                  {
+                    path: "2.0.1",
+                    presenceDefaultVisible: true,
+                    track: { kind: "elastic", minPx: 0, frWeight: 1 },
+                    node: { kind: "leaf", widget: "A_engine_eval", domain: "go", facets: ["info"], aspect: null, scrollAxes: [], content: "bounded" },
+                  },
+                  {
+                    path: "2.0.2",
+                    presenceDefaultVisible: true,
+                    track: { kind: "elastic", minPx: 0, frWeight: 1 },
+                    node: { kind: "leaf", widget: "A_engine_health", domain: "go", facets: ["info"], aspect: null, scrollAxes: [], content: "bounded" },
+                  },
+                  {
+                    path: "2.0.3",
+                    presenceDefaultVisible: true,
+                    track: { kind: "elastic", minPx: 0, frWeight: 1 },
+                    node: { kind: "leaf", widget: "A_engine_queue", domain: "go", facets: ["info"], aspect: null, scrollAxes: [], content: "bounded" },
+                  },
+                ],
+              },
             },
             {
               path: "2.1",
@@ -88,79 +116,85 @@ export const LYT_LANDSCAPE: LytProgram = {
             },
             {
               path: "2.2",
+              presenceDefaultVisible: false,
+              track: { kind: "fixed", px: 80 },
+              node: { kind: "leaf", widget: "A_setup", domain: "common", facets: ["action"], aspect: null, scrollAxes: [], content: "bounded" },
+            },
+            {
+              path: "2.3",
               presenceDefaultVisible: true,
               track: { kind: "elastic", minPx: 0, frWeight: 1 },
               node: {
                 kind: "split", axis: "h", gapPx: 4,
                 children: [
                   {
-                    path: "2.2.0",
+                    path: "2.3.0",
                     presenceDefaultVisible: true,
                     track: { kind: "elastic", minPx: 110, frWeight: 1 },
                     node: { kind: "leaf", widget: "tree", domain: "board", facets: ["action", "info"], aspect: null, scrollAxes: [], content: null },
                   },
                   {
-                    path: "2.2.1",
+                    path: "2.3.1",
                     presenceDefaultVisible: true,
                     track: { kind: "fixed", px: 664 },
                     node: {
                       kind: "exclusive", widget: "controlPanel", tag: "BLACK BOX", defaultTabId: "library",
                       children: [
                         {
-                          path: "2.2.1.0",
+                          path: "2.3.1.0",
                           tabId: "library",
                           tabLabelKey: "app.tabs.library",
                           node: { kind: "leaf", widget: "CP-library", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded" },
                         },
                         {
-                          path: "2.2.1.1",
+                          path: "2.3.1.1",
                           tabId: "cards",
                           tabLabelKey: "app.tabs.cards",
                           node: { kind: "leaf", widget: "CP-cards", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded" },
                         },
                         {
-                          path: "2.2.1.2",
+                          path: "2.3.1.2",
                           tabId: "settings",
                           tabLabelKey: "app.tabs.settings",
                           node: {
                             kind: "split", axis: "v", gapPx: 4,
                             children: [
                               {
-                                path: "2.2.1.2.0",
+                                path: "2.3.1.2.0",
                                 presenceDefaultVisible: true,
                                 track: { kind: "fixed", px: 77 },
                                 node: { kind: "leaf", widget: "settingsSubstrip", domain: "common", facets: [], aspect: null, scrollAxes: [], content: "bounded" },
                               },
                               {
-                                path: "2.2.1.2.1",
+                                path: "2.3.1.2.1",
                                 presenceDefaultVisible: true,
                                 track: { kind: "elastic", minPx: 200, frWeight: 1 },
-                                node: { kind: "leaf", widget: "settingsPane", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded" },
+                                node: { kind: "blackbox", widget: "SP_session", tag: null, childWidgets: ["SP_session", "SP_analysisEnv", "SP_cardSets", "SP_advancedRegistry", "SP_analysis", "SP_keybindings"] },
                               },
                             ],
                           },
                         },
                         {
-                          path: "2.2.1.3",
+                          path: "2.3.1.3",
                           tabId: "analysis",
                           tabLabelKey: "app.tabs.analysis",
                           node: { kind: "blackbox", widget: "CP-analysis", tag: null, childWidgets: ["timelineStrip", "AT_basic_interval", "AT_basic_scoreLead", "AT_basic_mergedDelta", "AT_dist_deltaDist", "AT_dist_mistakeGap", "AT_stab_stability", "AT_stab_crossCorr", "AT_multires"] },
                         },
                         {
-                          path: "2.2.1.4",
+                          path: "2.3.1.4",
                           tabId: "other",
                           tabLabelKey: "app.tabs.other",
                           node: {
                             kind: "split", axis: "v", gapPx: 4,
                             children: [
                               {
-                                path: "2.2.1.4.0",
+                                path: "2.3.1.4.0",
                                 presenceDefaultVisible: true,
                                 track: { kind: "fixed", px: 264 },
                                 node: { kind: "leaf", widget: "otherColorDebug", domain: "debug", facets: [], aspect: null, scrollAxes: [], content: "designed" },
                               },
                               {
-                                path: "2.2.1.4.1",
+                                path: "2.3.1.4.1",
                                 presenceDefaultVisible: true,
                                 track: { kind: "elastic", minPx: 160, frWeight: 1 },
                                 node: { kind: "leaf", widget: "otherBand", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded" },
@@ -172,7 +206,7 @@ export const LYT_LANDSCAPE: LytProgram = {
                     },
                   },
                   {
-                    path: "2.2.2",
+                    path: "2.3.2",
                     presenceDefaultVisible: false,
                     track: { kind: "fixed", px: 160 },
                     node: { kind: "leaf", widget: "previewBoard", domain: "common", facets: ["info"], aspect: 1, scrollAxes: [], content: null },
