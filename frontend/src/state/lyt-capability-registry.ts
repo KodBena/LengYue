@@ -5,7 +5,7 @@
  * lyt-model-loop-experiment, NOT merged without ratification): a typed
  * action-capability IR — DATA ONLY, covering the toolbar's action
  * elements. The census below is derived from a DIRECT read of
- * `ToolbarEngineCluster.vue`'s own `emit(...)` calls and
+ * `ToolbarEngineControls.vue`'s own `emit(...)` calls and
  * `ToolbarAppCluster.vue`'s own `@click`/child-component list (not the
  * domain-model consult's secondhand census), the same "verify, don't
  * transcribe" posture item 2b's registry sweep takes.
@@ -27,8 +27,12 @@
  * baked component grouping. `LYT_CAPABILITY_REALIZATION` selects a
  * realization KIND per (class point, capability) — it does not itself
  * construct or group any chrome. No new Vue component is authored or
- * implied by this file; `ToolbarEngineCluster.vue`/`ToolbarAppCluster.vue`
- * are UNCHANGED by this wave and continue to render every capability
+ * implied by this file; `ToolbarEngineControls.vue`/`ToolbarAppCluster.vue`
+ * (M2 stage B2b boot-restoration wiring retired `ToolbarEngineCluster.vue`
+ * in favour of four independent leaves — see `lyt-widget-registry.ts`'s
+ * own header — `ToolbarEngineControls.vue` is its direct successor for
+ * the capabilities this census covers) are UNCHANGED by this wave and
+ * continue to render every capability
  * below as a `button-cluster` today (the realization the data below
  * selects for both existing class points), exactly as they did before
  * this file existed. A future wave that wires a realization-selection
@@ -67,7 +71,7 @@ export interface LytCapabilityEntry {
 
 /**
  * The toolbar's action-element census. Derived by reading:
- *   - `ToolbarEngineCluster.vue`'s own `emit('mint-card')` /
+ *   - `ToolbarEngineControls.vue`'s own `emit('mint-card')` /
  *     `emit('open-learn-path')` / `emit('open-play')` / `onMatchClick`
  *     (toggles `match`/`stopMatch`) / `emit('toggle-engine')` (toggles
  *     `connect`/`disconnect`) — the SESSION-ACTIONS cluster (`A_engine`).
@@ -181,7 +185,7 @@ export const A_APP_CAPABILITY_IDS = [
  * actually uses, without either one baking a component grouping. Both
  * declared class points select `button-cluster` for every capability
  * today, matching this wave's own petrification guard: nothing in
- * `ToolbarEngineCluster.vue`/`ToolbarAppCluster.vue` reads this map, so
+ * `ToolbarEngineControls.vue`/`ToolbarAppCluster.vue` reads this map, so
  * changing an entry here has ZERO effect on the running app until a
  * future wave wires a consumer — this table is the declared SELECTION,
  * not yet the mechanism that acts on it.

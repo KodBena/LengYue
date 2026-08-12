@@ -54,8 +54,8 @@
 
   Split composition, `part` (work item `lyt-settings-live-opening`, ledger
   rows 2007/2009/2001): the settings interior opens live as TWO separately-
-  mounted LYT leaves (`settingsSubstrip`/`settingsPane` — the encoding's own
-  `V(settingsSubstrip, settingsPane)`), which cannot both be one DOM subtree
+  mounted LYT leaves (`settingsSubstrip`/`SP_session` (formerly `settingsPane`) — the encoding's own
+  `V(settingsSubstrip, SP_session)`), which cannot both be one DOM subtree
   the way every other TabWidget consumer's strip+body pair is. Rather than
   author a second strip/body implementation for that ONE consumer (the
   single-tab-implementation invariant this component's own realization-wave

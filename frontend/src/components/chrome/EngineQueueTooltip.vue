@@ -42,9 +42,12 @@ const { open, onMouseEnter, onMouseLeave } = useHoverPopover({ devId: 'queue' })
 
 // Clip-ancestor fix (commission lyt-popover-clip-class, ratified
 // program row 1937). This popover mounts inside `App.vue`'s
-// `.lyt-toolbar-strip` (via ToolbarEngineMetrics -> ToolbarEngineCluster
-// -> the `#leaf-A_engine` slot), the SAME `overflow-y: auto` clipping
-// ancestor `ToolbarSliderPopover.vue`'s D1 fix escaped
+// `.lyt-toolbar-strip` (M2 stage B2b boot-restoration wiring,
+// `.claude/dispatch-reports/lyt-boot-restoration.md`: directly at the
+// `#leaf-A_engine_queue` slot now — this component no longer mounts as
+// ToolbarEngineMetrics's child via the retired ToolbarEngineCluster.vue,
+// see `lyt-widget-registry.ts`'s own header), the SAME `overflow-y: auto`
+// clipping ancestor `ToolbarSliderPopover.vue`'s D1 fix escaped
 // (`.claude/dispatch-reports/lyt-sliders-popover-defects.md`). Not
 // visually re-witnessed for THIS component in this commission — see
 // `.claude/dispatch-reports/lyt-popover-clip-class.md`'s per-member

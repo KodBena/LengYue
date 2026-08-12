@@ -37,6 +37,7 @@ import type {
   ContentHash,
   ResolveRootsResult,
   ReviewCard,
+  TagStat,
 } from '../../src/types';
 
 export const fakeBackendService = {
@@ -69,6 +70,11 @@ export const fakeBackendService = {
   // useKnownPositions.hydrateKnownPositions.
   fetchKnownPositionHashes:
     vi.fn<() => Promise<Array<{ contentHash: ContentHash; cardId: CardId }>>>(),
+  // App-boot mechanism test (`tests/integration/App-boot.test.ts`,
+  // `.claude/dispatch-reports/lyt-boot-restoration.md`): useAppBootstrap's
+  // cold-start sequence fetches the tag dictionary unconditionally
+  // (`getTags`) — mounting the real App.vue exercises this call.
+  getTags: vi.fn<() => Promise<TagStat[]>>(),
 };
 
 export function resetFakeBackendService(): void {
@@ -82,4 +88,5 @@ export function resetFakeBackendService(): void {
   fakeBackendService.hashPosition.mockReset();
   fakeBackendService.hashPositionsBatch.mockReset();
   fakeBackendService.fetchKnownPositionHashes.mockReset();
+  fakeBackendService.getTags.mockReset();
 }

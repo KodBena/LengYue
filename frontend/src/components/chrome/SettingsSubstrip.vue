@@ -5,7 +5,7 @@
  * Work item `lyt-settings-live-opening` (ledger rows 2007/2009/2001),
  * SettingsTab/TabWidget composition-boundary refactor. Mounts at the
  * encoding's own `settingsSubstrip` leaf (`V(settingsSubstrip,
- * settingsPane)`, `research/lyt/encodings/lengyue_landscape.lyt` /
+ * SP_session)` (formerly `settingsPane`), `research/lyt/encodings/lengyue_landscape.lyt` /
  * `lengyue_portrait.lyt` — the flow-envelope-declared, wrap-capable sub-tab
  * strip that used to be `SettingsTab.vue`'s own internal `<TabWidget>`
  * header half. The SAME `TabWidget.vue` still owns every tab-strip
@@ -21,7 +21,7 @@
  * header for why a singleton, not a persisted store field.
  *
  * DISCLOSED SCOPE NARROWING (vertical orientation): the flow-envelope
- * modeling and the LYT encoding's own `V(settingsSubstrip, settingsPane)`
+ * modeling and the LYT encoding's own `V(settingsSubstrip, SP_session)`
  * shape are HORIZONTAL-strip-shaped — SPEC.md §8.2's own resolution names
  * horizontal as the modeled default, the vertical variant a separate,
  * unscheduled "second solve." When `store.session.ui.settingsTabsOrientation

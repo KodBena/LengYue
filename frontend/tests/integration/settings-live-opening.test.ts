@@ -6,7 +6,7 @@
  * refactor: `SettingsTab.vue` retired, split into `SettingsSubstrip.vue`
  * (the flow-wrap-capable strip, mounted at the encoding's own
  * `settingsSubstrip` leaf) and `SettingsPane.vue` (the six sub-tab bodies,
- * mounted at `settingsPane`) — see `state/lyt-widget-registry.ts`'s
+ * mounted at `SP_session` (formerly `settingsPane`)) — see `state/lyt-widget-registry.ts`'s
  * updated entries and both components' own headers, read in full before
  * authoring this file.
  *

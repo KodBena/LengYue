@@ -224,8 +224,17 @@ describe('the four dev-only affordances no longer live on the main chrome surfac
   // polices) and ToolbarAppCluster.vue — the W4 item 5 invariant (no
   // dev-only affordances on the main chrome surface) is re-pinned against
   // both, since either could theoretically reabsorb one.
-  it('ToolbarEngineCluster.vue no longer IMPORTS useAutoNavigatePerf/useAutoPopoverPerf, nor renders a Clear Cache button', () => {
-    const sfc = src('src/components/chrome/ToolbarEngineCluster.vue');
+  //
+  // M2 stage B2b boot-restoration wiring (`.claude/dispatch-reports/lyt-
+  // boot-restoration.md`, ledger row 2346): ToolbarEngineCluster.vue is
+  // itself now retired — the ruling row 2073 three-vocabulary engine-
+  // status decomposition needs FOUR independently-mounted leaves
+  // (A_engine_controls/_eval/_health/_queue), not one merged cluster, so
+  // the button markup this guard polices moved into a dedicated
+  // ToolbarEngineControls.vue. Re-pinned against that file, same
+  // assertions, unchanged intent.
+  it('ToolbarEngineControls.vue no longer IMPORTS useAutoNavigatePerf/useAutoPopoverPerf, nor renders a Clear Cache button', () => {
+    const sfc = src('src/components/chrome/ToolbarEngineControls.vue');
     expect(sfc).not.toMatch(/from '..\/..\/composables\/useAutoNavigatePerf'/);
     expect(sfc).not.toMatch(/from '..\/..\/composables\/useAutoPopoverPerf'/);
     expect(sfc).not.toMatch(/@click="clearCache"/);

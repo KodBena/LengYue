@@ -206,8 +206,13 @@ describe('.toolbar-btn clears the 24px height floor at every scoped-CSS copy (G3
   // into ToolbarEngineCluster.vue/ToolbarAppCluster.vue, each carrying
   // its own copy (verbatim carry-over from Toolbar.vue's own rule); the
   // census grows from two files to three, ToolbarMoveNav.vue unchanged.
+  // M2 stage B2b boot-restoration wiring (`.claude/dispatch-reports/lyt-
+  // boot-restoration.md`, ledger row 2346): ToolbarEngineCluster.vue is
+  // retired (the ruling row 2073 decomposition needs four independent
+  // leaves, not one merged cluster) — its `.toolbar-btn` copy moved
+  // verbatim into the new ToolbarEngineControls.vue.
   for (const file of [
-    'src/components/chrome/ToolbarEngineCluster.vue',
+    'src/components/chrome/ToolbarEngineControls.vue',
     'src/components/chrome/ToolbarAppCluster.vue',
     'src/components/chrome/ToolbarMoveNav.vue',
   ]) {
