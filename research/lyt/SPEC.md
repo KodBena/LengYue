@@ -1508,6 +1508,121 @@ realization-layer emission for these six keys, and the frontend-side
 amendment's scope — see [SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)'s
 Amendment 8 entry for the disclosed reasons.
 
+## 17. Amendment 9 — derived orientation and law L18
+
+Adopted per M2 stage B1 (ledger row 2310). Where Amendment 8 gave a leaf
+an AUTHORED mount orientation (`orient h|v`), this amendment makes that
+orientation DERIVED, not authored, for the one leaf-shape the ruling
+names: a leaf that is its own Split's UNIQUE residual-holding child.
+[SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)'s own Amendment 9 entry is the
+dated ruling/rationale/provenance record, including the real-encoding
+finding and the STOP-and-report on `tree` specifically; this section is
+the current-state grammar/semantics, in the same form §13/§14/§15/§16
+give Amendments 5/6/7/8.
+
+### 17.1 Residual-holding, structurally
+
+A Split's UNIQUE direct child whose `pref` is `fr`-typed is that
+Split's residual-holding child (`wellformed.find_residual_child`) — the
+one child the partition equality (§2) leaves whatever the OTHER
+children's fixed/bounded extents (plus gaps) do not claim. Two or more
+`fr`-typed children, or none, is silently non-applicable — no
+derivation, no refusal — a disclosed choice: the ruling names a single,
+unambiguous holder and no tie-break rule is invented for a case it does
+not adjudicate. Scoped to Split nodes only (an Exclusive's children all
+share the whole rectangle, §2 — no residual to attribute between them).
+Only a LEAF residual-holder is a derivation subject, since `orient` is
+leaf-only (§16.1) — a Split/Exclusive residual-holder (today's real
+encodings' own `T(...)` control-panel group is exactly this case)
+contributes nothing.
+
+### 17.2 Law L18 — derived-orientation authorship
+
+**Checked**, `wellformed.find_l18_violations`, in the same structural
+walk-and-arbitrate family L2/L5/L10-L17 use, wired into
+`check_wellformed`. Fires exactly where a leaf is BOTH the unique
+residual-holding child of its Split parent AND authors `orient`
+(`Leaf.orientation_declared`, distinct from `Leaf.orientation` itself,
+which cannot tell "declared v" from "defaulted to v"). `orient` remains
+fully legal on every OTHER leaf, including one sitting beside the
+residual holder in the same Split — this is sub-ruling (a), stated as a
+checkable law: derivation is the default, authorship is an override
+everywhere it is not decorative.
+
+### 17.3 The derivation
+
+`orientation.py` (new module): `derive_orientation(w, h)` is the
+tie-to-vertical rule (sub-ruling (b)) as code — `aspect = w / h`;
+`aspect > 1` derives `'h'`; `aspect <= 1` derives `'v'`, which is what
+makes the `aspect == 1` tie fall to `'v'` without a separate branch.
+`compute_derived_orientations(root, result)` combines `find_residual_
+leaves` with a `compiler.SolveResult`'s own solved rectangles (keyed by
+the same dotted path `loader.py`/`compiler.py` already share) to derive
+one physical axis per residual-holding leaf actually present in the
+solve. `rebind(text, layout_name, root, result, *, waivers=None)`
+re-loads `text` a second time through a new `orientation_overrides`
+parameter on `loader.load_slot`/`load_layouts` (widget id → physical
+axis; `None`/`{}` is byte-identical to every pre-Amendment-9 call),
+returning the SAME object, unchanged, when nothing was derived.
+
+**Single pass, no fixed point — the structural reason.** Every
+axis-taking key the L14 role frame threads through
+(`ceiling`/`elastic`/`floor`/`edge`/`unit`/`scroll`) is
+realization-binding only (§15.2/§16.1: `compiler.py` never reads any of
+them). The one exception, `min <axis>` (L12), is solver-visible, but is
+refused everywhere except the "both-axes" position — a Split child,
+which is what a residual-holding leaf always is, can never legally
+declare it. A residual-holding leaf's own orientation-dependent facts
+therefore never feed the CP-SAT model: the solved geometry is identical
+whether its true orientation is known, guessed, or left at the
+load-time placeholder. One solve suffices — solve once, read the
+residual leaf's own solved `(w, h)`, derive, re-bind. No second solve.
+
+**Why a second text-load, not an in-place patch.** Re-binding the L14
+role frame means re-resolving `along`/`across` tokens to physical axes
+(`loader._resolve_axis_token`) — but those tokens are already gone by
+the time a tree is loaded (§16.1: "never survives into the AST"), so an
+already-loaded `Leaf` has nothing left to re-resolve. Rather than widen
+the typed AST to retain raw, pre-resolution tokens for a fact only a
+residual-holding leaf ever needs, this amendment re-loads the same
+source text a second time with the derived choice threaded in — a
+disclosed engineering tradeoff, not a reading recovered from the
+ruling's own text (which states the WHAT, not the HOW).
+
+### 17.4 Real-encoding finding — not structurally dormant, but invisible today
+
+Unlike every prior amendment's own dormancy note, this mechanism is NOT
+structurally dormant against `lengyue_landscape.lyt`/
+`lengyue_portrait.lyt`. Both encodings carry THREE genuine
+residual-holding leaves per class: `B` (the board, via the `pref
+maximize` sugar §1.1 resolves to elastic `pref 1fr`) and
+`settingsPane`/`otherBand` (both explicit `pref 1fr` leaves beside a
+fixed sibling). L18 itself IS dormant — none of the three, nor any
+other leaf in either encoding, authors `orient` — but
+`compute_derived_orientations` genuinely derives real values for all
+three, at every solved screen size, and `rebind` genuinely re-loads and
+re-binds. `runner.py`'s own before/after stdout stays byte-identical
+(verified — `diff` reports zero differences, for both `runner.py` and
+`emit_mockup.py`) for a narrower, different reason: no consumer in this
+Python-only substrate reads `Leaf.orientation`/the L14 role-frame
+fields for rendering today — the realization-layer consumer is
+`frontend/`-side and was already disclosed out of scope for the
+language-substrate ports Amendment 8 began (§16's own "Scope note"
+above). The derivation genuinely runs; it has nothing downstream to
+show a difference in yet.
+
+`tree` itself — the leaf the ruling's own illustrative language names
+("because the tree is the residual-holding sibling") — is the one
+genuinely non-residual-holding case among the sites this law could
+apply to. In the row both encodings ship, `H(tree, T(...),
+previewBoard)`, `tree` is FIXED (`min==pref==max`) and `T(...)` (that
+row's own sole `pref: fr` child) is an Exclusive, never an eligible
+derivation subject regardless. The ruling's own premise does not yet
+hold against the committed `.lyt` content — see
+[SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)'s Amendment 9 entry for the
+full STOP-and-report on what an encoding edit would need to change, not
+made unilaterally by this stage.
+
 ## Status of the other LYT documents
 
 This file is the **current-state, standalone specification**. The two

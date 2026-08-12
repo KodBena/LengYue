@@ -25,10 +25,11 @@ from typing import Dict, List, Tuple
 
 import lyt_ast as ast
 import loader
+import orientation
 from advisory import compute_t_group_shortfalls, format_shortfalls
 from baseline import BASELINE_WAIVERS
 from compiler import solve_lexicographic
-from presence import ALL_PRESENT, PresenceValuation, resolve_and_validate
+from presence import ALL_PRESENT, PresenceValuation, prune_absent, resolve_and_validate
 from render import render_ascii
 
 ENCODINGS_DIR = Path(__file__).parent / "encodings"
@@ -206,9 +207,19 @@ def run_all(*, cols: int = 100, rows: int = 36, time_limit_s: float = 20.0) -> i
     exit_code = 0
     for reg in REGISTRATIONS:
         layouts: Dict[str, ast.Slot] = {}
+        # AMENDMENT 9 (ledger row 2310): `orientation.rebind` re-loads a
+        # layout's own SOURCE TEXT a second time (see that function's own
+        # docstring for why) once a residual-holding leaf's orientation has
+        # been derived from a solve -- this needs the text each layout name
+        # came from, kept alongside the merged `layouts` dict the same way
+        # `reg.layout_by_class` already tracks which layout a class solves.
+        layout_text: Dict[str, str] = {}
         for f in reg.files:
             text = (ENCODINGS_DIR / f).read_text()
-            layouts.update(loader.load_layouts(text, waivers=reg.waivers))
+            names = loader.load_layouts(text, waivers=reg.waivers)
+            layouts.update(names)
+            for name in names:
+                layout_text[name] = text
         layouts = resolve_and_validate(layouts, reg.layout_by_class.values(), reg.default_valuation)
         print("=" * 100)
         print(f"ENCODING {reg.name}  (presence valuation: {reg.default_valuation.name!r}, absent={sorted(reg.default_valuation.absent_widgets)})")
@@ -237,6 +248,28 @@ def run_all(*, cols: int = 100, rows: int = 36, time_limit_s: float = 20.0) -> i
                 print(f"  {result.status}")
                 exit_code = 1
                 continue
+            # AMENDMENT 9 (ledger row 2310): derive any residual-holding
+            # leaf's orientation from THIS solve's own geometry and re-bind
+            # the L14 role frame through it (`orientation.rebind`'s own
+            # docstring). NOT a no-op against the real reference encodings
+            # today -- `B`/`settingsPane`/`otherBand` genuinely are
+            # residual-holding, so this genuinely re-derives and re-binds
+            # for all three, every size -- but it changes nothing THIS
+            # function prints, since none of `Leaf.orientation`/the L14
+            # role-frame fields is read anywhere below (only solved
+            # rectangles, which orientation-dependent facts never feed --
+            # see `orientation.py`'s own "WHY THIS IS SOLVER-INERT").
+            # Presence pruning (above) already ran on `slot`; re-apply it to the
+            # rebound tree too, so `slot`/`result.rects` (keyed by the
+            # PRUNED tree's own paths) stay consistent for the render/
+            # shortfall calls below — a no-op re-prune when rebind itself
+            # was a no-op, since pruning an already-pruned tree by the same
+            # absent set removes nothing further.
+            rebound = orientation.rebind(
+                layout_text[layout_name], layout_name, slot, result, waivers=reg.waivers
+            )
+            if rebound is not slot:
+                slot = prune_absent(rebound, reg.default_valuation.absent_widgets)
             print(f"  objective_values (stage-by-stage) = {result.objective_values}")
             for path in sorted(result.leaf_names):
                 widget = result.leaf_names[path]
