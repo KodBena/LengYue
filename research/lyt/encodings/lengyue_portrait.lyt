@@ -254,6 +254,31 @@
 --     floor, so no cross-class number choice was needed here the way
 --     landscape's 160px-vs-200px distinction required its own header
 --     note).
+--
+--     (4) ENGINE-ROW HEIGHT RE-GROUNDING (ledger row 2347, reviewer
+--     finding 1) -- identical defect and identical fix to
+--     `lengyue_landscape.lyt`'s own dated section of the same name
+--     (read there for the full derivation: the retired merged
+--     `ToolbarEngineCluster.vue`'s wrapping-H measurement carried
+--     forward unexamined into item (1) above's decomposition,
+--     `ToolbarEngineControls.vue`'s five buttons -- mint-card /
+--     learn-path / play / match / connect-disconnect -- wrap to THREE
+--     rows at the real post-decomposition column width, clipping Match
+--     and Connect/Disconnect in the stale 60px track). MEASURED on the
+--     SAME isolated rig, THIS class's own 768x1024 size (live column
+--     width 189px): `.engine-controls` naturally needs **80px** (3
+--     rows x 24px + 2 gaps x 4px), matching both the reviewer's own
+--     finding and the landscape class's own 1920x1080 measurement
+--     (197.5px column width) exactly -- the wrap count, not the column
+--     width, is what changed between classes, and both land on the
+--     same 3-row/80px shape. The other three groups checked the same
+--     way (`.engine-metrics-bar`/`.queue-metric` declare no
+--     `flex-wrap`, so neither can wrap regardless of width) and the
+--     same STRUCTURAL LIMITATION applies (`H(...)` shares one
+--     cross-axis fact across children; per-group heights are not
+--     expressible without a tree restructure or new grammar, filed as
+--     a frontier item, not undertaken here). Fix: raise the shared row
+--     height from `60px` to `80px`, uniformly, same as landscape.
 layout lengyue-portrait =
   {min 0px, pref 1fr, max inf, gap 12px} V(
     @toggle(user, release) {min 168px, pref 168px, max 168px, activity occasional} boardRail[common, info+action],
@@ -264,7 +289,7 @@ layout lengyue-portrait =
       {24px} I_board[board, info],
       {28px} A_board[board, action]
     ),
-    {60px, envelope: {disconnected, connected}, gap 4px} H(
+    {80px, envelope: {disconnected, connected}, gap 4px} H(
       {pref 1fr, content bounded} A_engine_controls[go, action],
       {pref 1fr, content bounded} A_engine_eval[go, info],
       {pref 1fr, content bounded} A_engine_health[go, info],

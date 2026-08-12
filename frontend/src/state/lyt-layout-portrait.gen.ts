@@ -83,7 +83,7 @@ export const LYT_PORTRAIT: LytProgram = {
       {
         path: "4",
         presenceDefaultVisible: true,
-        track: { kind: "fixed", px: 60 },
+        track: { kind: "fixed", px: 80 },
         node: {
           kind: "split", axis: "h", gapPx: 4,
           children: [
