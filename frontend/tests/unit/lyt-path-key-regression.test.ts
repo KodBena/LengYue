@@ -120,8 +120,13 @@ describe('App.vue — LYT literal path keys resolve against the real compiled pr
     expect(portraitPaths.size).toBeGreaterThan(5);
     // The specific paths this suite's other assertions depend on being
     // real, confirmed present in the freshly-derived set (not assumed).
-    expect(landscapePaths.has('2.2.1')).toBe(true);
-    expect(portraitPaths.has('4.1')).toBe(true);
+    // '2.3.1' / '5.1' (was '2.2.1' / '4.1'): M2 stage B2a/B2b — the new
+    // `A_setup` leaf inserted ahead of each class's tree/panels row
+    // shifted the control-panel Exclusive's own path (landscape '2.2'
+    // -> '2.3', portrait '4' -> '5' — see lyt-layout.gen.ts /
+    // lyt-layout-portrait.gen.ts).
+    expect(landscapePaths.has('2.3.1')).toBe(true);
+    expect(portraitPaths.has('5.1')).toBe(true);
   });
 
   it('every LYT_DOM_ID_BY_PATH_LANDSCAPE key resolves against LYT_LANDSCAPE', () => {
