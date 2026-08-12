@@ -511,11 +511,164 @@ def find_l5_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str,
     return violations
 
 
+def find_l10_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str, str, str]]:
+    """AMENDMENT 7 (ledger rows 2107/2108, ported from the model-iteration
+    loop experiment round 5, ledger rows 2037/2038/2066/2079) — L10, unit
+    integrity. Returns one `(law, path, message)` triple per violation,
+    the same shape `find_l5_violations` returns and arbitrated through
+    the same `(law, path)`-keyed waiver mechanism.
+
+    THE LAW. A leaf may declare the indivisible UNIT its content is made
+    of (`unit <axis> <px>`, `Leaf.unit_axes`, see
+    `loader._load_unit_axes` for the load-time half of this law). Where
+    the declared axis is the axis the slot is actually PARTITIONED on,
+    its declared `min` must reserve at least ONE WHOLE UNIT: a
+    reservation that cannot stand one whole unit of the thing it is made
+    of is refused, because every honest realization of it must then
+    split a unit — the wrap falling between a label and its own value,
+    the scroll edge falling mid-word, the strip standing a fraction of a
+    tab.
+
+    WHICH AXIS A SLOT IS PARTITIONED ON is a fact only a tree walk has,
+    which is why this half of the law cannot live in the loader beside
+    the other half: a slot inside an H split declares a WIDTH, inside a V
+    split a HEIGHT, and a T-child declares BOTH (SPEC.md §8's own
+    `along=None` branch). The root slot is likewise both-axes.
+
+    DISCLOSED, NOT HIDDEN — the two places this law is deliberately
+    silent:
+      - A unit on the CROSS axis constrains no declared extent in this
+        1-D-per-slot sizing bag, so it is REALIZATION-BINDING ONLY, the
+        same footing `ceiling`/L9 has.
+      - A `min` that is not a plain px extent (an `fr` share, a symbolic
+        sentinel) is skipped rather than guessed at: comparing a share of
+        an unknown partition against a px unit would be a fabricated
+        comparison, and ADR-0002 prefers an honest silence to a
+        confident wrong answer.
+    """
+    violations: List[Tuple[str, str, str]] = []
+
+    def walk(slot: ast.Slot, path: str, along: Optional[str]) -> None:
+        node = slot.node
+        if isinstance(node, ast.Leaf) and node.unit_axes:
+            # `along is None` means both axes bind (root slot, or a
+            # T-child sharing one rectangle with its siblings).
+            binding = {"h", "v"} if along is None else {along}
+            for axis, unit_px in sorted(node.unit_axes):
+                if axis not in binding:
+                    continue
+                m = slot.sizing.min
+                if m.unit != "px":
+                    continue
+                if m.v + 1e-9 < unit_px:
+                    violations.append((
+                        "L10",
+                        path,
+                        f"{path}: L10 unit-integrity violation — leaf "
+                        f"{node.widget!r} declares an indivisible {unit_px:g}px "
+                        f"unit along its own partition axis {axis!r} but "
+                        f"reserves only {m.v:g}px, so no realization of this "
+                        "reservation can stand one whole unit; a container "
+                        "that reserves less than the thing it is made of can "
+                        "only split it (AMENDMENT 7, ledger rows 2107/2108)",
+                    ))
+        if isinstance(node, ast.Split):
+            for i, child in enumerate(node.children):
+                walk(child, f"{path}/{node.axis.upper()}{i}", node.axis)
+        elif isinstance(node, ast.Exclusive):
+            for i, child in enumerate(node.children):
+                walk(child, f"{path}/T{i}", None)
+
+    walk(root, path, None)
+    return violations
+
+
+def find_l11_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str, str, str]]:
+    """AMENDMENT 7 (ledger rows 2107/2108, ported from the model-iteration
+    loop experiment round 6, ledger rows 2037/2038/2066) — L11, measure
+    integrity. Returns one `(law, path, message)` triple per violation,
+    the same shape `find_l5_violations`/`find_l10_violations` return and
+    arbitrated through the same `(law, path)`-keyed waiver mechanism.
+
+    THE LAW. A slot may declare that its extent along its parent's
+    partition axis comes from the PAGE MEASURE its aspect-locked content
+    is bound by, rather than from a share of that partition
+    (`measure-bound`, `Sizing.measure_bound`; see
+    `loader._load_measure_bound` for the load-time half of this law). Two
+    structural conditions make that declaration meaningful, and both need
+    a tree walk, which is why they cannot live beside the other half:
+
+      (a) NOT THE ROOT. The root's own rectangle IS the page; it has no
+          parent partition to be measured against and no sibling to
+          leave the residual to. A root declaring it would be claiming
+          the page from itself.
+      (b) EXACTLY ONE ASPECT-LOCKED LEAF IN ITS SUBTREE (itself
+          included). The measure becomes an extent only by passing
+          through an aspect lock — that leaf is the whole mechanism.
+          None, and there is nothing to convert a width into a height;
+          more than one, and WHICH leaf's lock does the converting is
+          ambiguous, the same "unambiguous owner" reasoning L5b applies
+          to scroll.
+
+    DISCLOSED, NOT HIDDEN: like `ceiling`/L9 and a cross-axis `unit`/L10,
+    this law binds the REALIZATION rather than the solve — nothing in
+    `compiler.py` reads it.
+    """
+    violations: List[Tuple[str, str, str]] = []
+
+    def count_aspect_leaves(slot: ast.Slot) -> int:
+        node = slot.node
+        if isinstance(node, ast.Leaf):
+            return 1 if slot.sizing.aspect is not None else 0
+        if isinstance(node, (ast.Split, ast.Exclusive)):
+            return sum(count_aspect_leaves(c) for c in node.children)
+        return 0
+
+    def walk(slot: ast.Slot, spath: str, is_root: bool) -> None:
+        if slot.sizing.measure_bound:
+            if is_root:
+                violations.append((
+                    "L11",
+                    spath,
+                    f"{spath}: L11 measure-integrity violation — the ROOT slot "
+                    "declares 'measure-bound', but the root's rectangle IS the "
+                    "page: it has no parent partition to take a measure "
+                    "against and no sibling to leave the residual to "
+                    "(AMENDMENT 7, ledger rows 2107/2108)",
+                ))
+            n = count_aspect_leaves(slot)
+            if n != 1:
+                violations.append((
+                    "L11",
+                    spath,
+                    f"{spath}: L11 measure-integrity violation — 'measure-bound' "
+                    f"declared over a subtree holding {n} aspect-locked leaves; "
+                    "exactly one is required, because the aspect lock IS the "
+                    "mechanism that turns a page measure into an extent (none "
+                    "leaves nothing to convert it; several leave WHICH lock "
+                    "converts it ambiguous, the same unambiguous-owner "
+                    "reasoning L5b applies to scroll) (AMENDMENT 7, ledger "
+                    "rows 2107/2108)",
+                ))
+        node = slot.node
+        if isinstance(node, ast.Split):
+            for i, child in enumerate(node.children):
+                walk(child, f"{spath}/{node.axis.upper()}{i}", False)
+        elif isinstance(node, ast.Exclusive):
+            for i, child in enumerate(node.children):
+                walk(child, f"{spath}/T{i}", False)
+
+    walk(root, path, True)
+    return violations
+
+
 def check_wellformed(
     root: ast.Slot, *, layout_name: str, waivers: Optional[List[Waiver]] = None
 ) -> List[Waiver]:
-    """Runs the L2 dominance check AND the AMENDMENT 5 L5/L5a/L5b/L5c
-    walk (`find_l5_violations`), and arbitrates BOTH against any declared
+    """Runs the L2 dominance check, the AMENDMENT 5 L5/L5a/L5b/L5c walk
+    (`find_l5_violations`), the AMENDMENT 7 L10 unit-integrity walk
+    (`find_l10_violations`) AND the AMENDMENT 7 L11 measure-integrity
+    walk (`find_l11_violations`), and arbitrates all of them against any declared
     `Waiver`s (see that dataclass's docstring for the full mechanism —
     this is the `--baseline` load-mode support the lyt-constants-swap
     commission asks for, generalized here to every law that gains a
@@ -544,7 +697,15 @@ def check_wellformed(
     waivers = list(waivers or [])
     l2 = [("L2", v.split(":", 1)[0], v) for v in find_l2_violations(root)]
     l5 = find_l5_violations(root)
-    all_violations: List[Tuple[str, str, str]] = l2 + l5
+    # AMENDMENT 7 (ledger rows 2107/2108): L10 and L11 join the same
+    # walk-and-arbitrate family, dormant by the same construction L5's
+    # own dormancy paragraph names — L10 fires only at a leaf that
+    # genuinely declares a `unit`, L11 only at a slot that genuinely
+    # declares `measure-bound`, so a tree with neither anywhere (every
+    # encoding as of this amendment) is unaffected.
+    l10 = find_l10_violations(root)
+    l11 = find_l11_violations(root)
+    all_violations: List[Tuple[str, str, str]] = l2 + l5 + l10 + l11
     waiver_index: Dict[Tuple[str, str], Waiver] = {(w.law, w.path): w for w in waivers}
     applied: List[Waiver] = []
     remaining: List[Tuple[str, str, str]] = []

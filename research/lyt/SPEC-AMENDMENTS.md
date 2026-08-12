@@ -865,6 +865,167 @@ not to earn its own place — see this amendment's companion work item's
 own delivery report for the full account,
 `.claude/dispatch-reports/lyt-optionc-encoding.md`).
 
+## Amendment 7 (ledger rows 2107/2108, M1 of the model-implementation arc; ratified program row 1937 continues) — four keys and three laws ported from the model-iteration loop experiment: `ceiling`/L9, `unit <axis> <px>`/L10, `wrap <policy>`, `measure-bound`/L11
+
+**A numbering note before the ruling.** This is mainline's SEVENTH
+amendment, not sixth — the commission that authorized this port
+(`lyt-substrate-consolidation`, ledger row 2107; M1 build brief, ledger
+rows 2107/2108) named it "the proper mainline Amendment 6 entry" at
+authoring time, but Amendment 6 above (the boundary-marker re-homing)
+had already landed on mainline by the time this port was built — same
+provenance (ledger row 1937), different work item, filed first. Named
+here rather than silently resolved either way, per this file's own
+"diff vs. the original" discipline: the port is Amendment 7; the
+commission's own prose is quoted honestly above, not retroactively
+edited.
+
+**Ruling.** Port the model-iteration loop experiment's (branch
+`lyt-model-loop-experiment`) three formalized language extensions —
+`ceiling` (round 3), `unit <axis> <px>` (round 5), `wrap <policy>` +
+`measure-bound` (round 6) — to mainline `research/lyt`, together with
+the three structural laws two of them earned (`ceiling` is load-time
+only; `unit`/`measure-bound` each have a structural half). The
+experiment branch's own substrate-consolidation commission
+(`.claude/dispatch-reports/lyt-substrate-consolidation.md`, ledger row
+2107) had already verified the language-level implementation correct
+and complete against 46 adversarial tests before this port began; this
+amendment carries that verified implementation to mainline unchanged,
+adapted only where the experiment's own encoding-specific assumptions
+needed generalizing (none did — see "What needed generalizing" below).
+
+**Law numbers, preserved from the experiment's own renumbering.** The
+loop's six iteration commits originally minted these laws as "L6"/"L7"/
+"L8". The experiment branch's own renumbering commit moved them to
+"L9"/"L10"/"L11" to avoid a collision with a separate, not-yet-shipped
+mainline proposal (`.claude/dispatch-reports/lyt-domain-model-proposal.md`,
+§2.2/§2.7) that independently claims L6 (activity invariance) and L7
+(elasticity honesty) for its own laws — a proposal document, not
+mainline SPEC.md text, so there was never an ACTUAL collision in shipped
+mainline code, only a live-document one this renumbering pre-empted.
+This port keeps L9/L10/L11 exactly as the experiment branch chose them:
+next-free numbering past mainline's own L1-L5 and the proposal's claimed
+L6/L7, in the laws' own discovery order (`ceiling` before `unit` before
+`measure-bound`, matching rounds 3/5/6). `wrap <policy>` was never a
+numbered law on the experiment branch (its own round-6 commit message
+called it "L8", but that number actually belongs to `measure-bound`'s
+structural checker) and is not one here either — it stays untyped,
+`detail.law == "wrap-policy"`.
+
+**What this amendment implements**, all four following the "one more
+recognized key in the existing sizing bag" precedent Amendments 3/5/6
+already established:
+
+1. **`ceiling`** (`Sizing.ceiling`, bare flag) — a leaf's declared
+   extent is an UPPER BOUND on what its content occupies, never a
+   standing floor the realization must fill. Leaf-only; requires
+   `content bounded`; solver-inert (`compiler.py` never reads it) —
+   purely a load-time law (L9) plus a realization-binding fact.
+2. **`unit <axis> <px>`** (`Leaf.unit_axes`, accumulated like `scroll`)
+   — the indivisible occupancy unit of a leaf's content, per axis.
+   Leaf-only; requires `content` in `{bounded, unbounded}`; `{h,v}`
+   only, px only, at most one per axis. L10's load-time half lives in
+   `loader._load_unit_axes`; its structural half — "a slot must reserve
+   at least one whole unit along its own partition axis" — lives in
+   `wellformed.find_l10_violations`, since only a tree walk knows which
+   axis a slot is partitioned on (both axes for the root or a T-child,
+   the same `along=None` reading L2's dominance test and the
+   preserve-reservation rule already use).
+3. **`measure-bound`** (`Sizing.measure_bound`, bare flag) — a slot's
+   extent along its parent's partition axis is derived from the PAGE
+   MEASURE its own aspect-locked content is bound by (its own cross
+   axis), never from a share of the partition; the residual belongs to
+   its siblings. Refused on an Exclusive at load time (every T-child
+   shares one rectangle, so there is no residual to hand a sibling); its
+   structural half (L11, `wellformed.find_l11_violations`) refuses the
+   root (no parent partition to measure against) and any subtree that
+   does not hold EXACTLY ONE aspect-locked leaf (none leaves nothing to
+   convert; more than one leaves which lock converts ambiguous, the same
+   unambiguous-owner reasoning L5b applies to scroll). Also solver-inert
+   — the staged solve already maximizes the board's own dimension first
+   (stage 1), so there is no solver-side preference left for the flag to
+   express; it binds only the realization's track-sizing order.
+4. **`wrap <policy>`** (`Slot.wrap_policy`, closed vocabulary
+   `{balanced}` today) — how a slot's own vocabulary of units
+   distributes when it needs more than one row. Refused on a Split (its
+   children are already placed by its own partition); on a Leaf it
+   requires the leaf to have already declared a horizontal `unit`
+   (`wrap` is a statement ABOUT units); an Exclusive needs no such
+   declaration, since its units ARE its declared children.
+
+**Dormancy — this port's own acceptance bar.** No `.lyt` file in this
+repository declares any of the four keys — neither `lengyue_landscape
+.lyt` nor `lengyue_portrait.lyt` is touched by this amendment, and no
+other reference encoding declares them either. `wellformed.
+find_l10_violations`/`find_l11_violations` return `[]` unconditionally
+for such a tree, the same "laws bind declarations, they do not
+retroactively indict silence" posture Amendment 5's own dormancy
+paragraph states. Verified two ways: (a) `tests/test_loop_laws.py`'s own
+dormancy section (ported near-clean from the experiment branch, 46 tests
+total) asserts both reference encodings load with every new field at its
+default; (b) both encodings were re-solved via `runner.py` before and
+after this amendment's code changes — **byte-identical solver output**
+(stdout diff empty), the acceptance bar the M1 commission set. See
+`.claude/dispatch-reports/lyt-m1-substrate-port.md` for the full
+before/after transcript.
+
+**What needed generalizing vs. what ported clean.** The commission's
+own brief anticipated that "where the experiment implementation assumed
+experiment-encoding shapes, generalize" — in practice, none of the four
+keys' `loader.py`/`wellformed.py`/`lyt_ast.py`/`parser.py`
+implementations referenced any encoding-specific fact (a widget id, a
+tree path, a specific pixel value): every accept/refuse rule is stated
+purely in terms of node kind, declared `content` class, declared axis,
+and tree structure. The port is therefore a clean carry of the
+experiment's own four functions
+(`_load_ceiling_flag`/`_load_unit_axes`/`_load_measure_bound`/
+`_load_wrap_policy` in `loader.py`; `find_l10_violations`/
+`find_l11_violations` in `wellformed.py`; the four new dataclass fields
+in `lyt_ast.py`; the four new `RawSizing` fields and parse branches in
+`parser.py`), with law numbers, docstring citations (LOOP ITERATION N →
+AMENDMENT 7), and error-message provenance strings (ledger rows
+2037/2038/2066/2079 → 2107/2108) updated to mainline's own citation
+conventions. What did NOT come along, per the commission's explicit
+instruction: the experiment branch's own `emit_mockup.py`/
+`emit_layout_tree.py` realization-table changes, its `.lyt` encoding
+edits (the settings-live restructuring these four keys were originally
+authored against), and its `screenshot.mjs` harness-view additions —
+none of those are language machinery, and mainline's own `research/lyt`
+has diverged from the experiment's encodings since the branch point
+(mainline's `flow.py`/settings-live work, landed independently). `git
+diff` against `research/lyt/encodings/` for this amendment is empty,
+confirming no encoding content crossed the port.
+
+**Diff vs. the original consult document's prose.** `layout-language-
+consult.md` names none of `ceiling`, `unit`, `wrap`, or `measure-bound`
+at all — same footing as Amendments 1-6: a genuine language extension,
+not a reading recovered from existing text. Nor were any of the four
+authored against mainline SPEC.md directly — they were proven out on the
+experiment branch first (six iteration rounds, gallery-recorded,
+`research/lyt/tools/loop/gallery/manifest.json`), verified by that
+branch's own adversarial test suite, and only then ported here. This is
+a new provenance shape relative to Amendments 1-6 (each of which was
+authored directly against a commissioner ruling or consult report), and
+is named as such rather than folded silently into the established
+"ruling → implementation" pattern.
+
+**What it touched.** `lyt_ast.py` (`Sizing.ceiling`, `Sizing.
+measure_bound`, `Leaf.unit_axes`, `Slot.wrap_policy`, `_VALID_WRAP_
+POLICIES`, each field's own `__post_init__` closed-vocabulary guard —
+the F3-fix precedent every prior amendment's typed field already uses);
+`parser.py` (`RawSizing.ceiling`/`.measure_bound`/`.wrap`/`.unit_axes`,
+four more `parse_sizing` branches); `loader.py`
+(`_load_ceiling_flag`/`_load_measure_bound`/`_load_wrap_policy`/
+`_load_unit_axes`, `VALID_WRAP_POLICIES`, wired into every `load_slot`
+branch — leaf/split/exclusive); `wellformed.py`
+(`find_l10_violations`/`find_l11_violations`, `check_wellformed`
+generalized to arbitrate L10/L11 through the same waiver mechanism L2/L5
+already use); `tests/test_loop_laws.py` (new file, 46 tests ported
+near-clean from the experiment branch's own file of the same name — see
+that file's own header for the porting disclosure); SPEC.md gains a
+matching grammar/semantics section (this file's own §1.1/§4.3-adjacent
+material); this amendment's own dispatch report,
+`.claude/dispatch-reports/lyt-m1-substrate-port.md`.
+
 ## License
 
 Public Domain (The Unlicense), matching [layout-language-consult.md](../../.claude/dispatch-reports/layout-language-consult.md)'s
