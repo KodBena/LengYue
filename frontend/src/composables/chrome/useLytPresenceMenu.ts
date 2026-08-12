@@ -88,6 +88,21 @@
  *    back to `LYT_PRESENCE_DEFAULT` only for a target `classDefaults`
  *    doesn't mention.
  *
+ * ── Finish-pass wave A: width-forced demotion disclosure ─────────────
+ * (`.claude/dispatch-reports/lyt-wA-width-demotion.md`, F1's "USER
+ * SOVEREIGNTY" clause.) `controlPanel`'s resolved presence is now ALSO
+ * width-conditional (App.vue's own `lytPresenceOverrides` /
+ * `resolveWidthConditionalPresence`) — an explicit user "visible" choice
+ * that the currently-available width cannot grant must not silently
+ * clip, but it also must not silently pretend the checkbox did nothing:
+ * `forcedAbsent` (an optional per-target `Ref`, same shape as
+ * `classDefaults`) lets a caller disclose "the user wants this visible
+ * but it's currently demoted for width" — `targets[].forcedAbsent`
+ * carries that fact through for `LytPresenceMenu.vue`'s own template to
+ * render a hint on. The checkbox itself stays fully functional either
+ * way (toggling still writes the real preference — it just doesn't take
+ * visible effect until the width evaluator agrees).
+ *
  * ADR-0003 band: 2 (chrome-coupled — reads/writes the LYT presence menu's
  * own session-state shape; no Go/engine vocabulary).
  *
@@ -133,12 +148,18 @@ export interface UseLytPresenceMenuOptions {
    *  active screen class's own compiled `presenceDefaultVisible` per
    *  target, threaded from `App.vue`'s `activeLytProgramIndex`. */
   classDefaults?: Ref<Partial<Record<LytPresenceTargetId, boolean>>>;
+  /** Per-target "wants visible but currently width-demoted" disclosure —
+   *  see the file header's "Finish-pass wave A" section. A target absent
+   *  from the map (or the whole option omitted) reads `false`. */
+  forcedAbsent?: Ref<Partial<Record<LytPresenceTargetId, boolean>>>;
 }
 
 export interface LytPresenceMenuTarget {
   readonly id: LytPresenceTargetId;
   readonly visible: boolean;
   readonly disabled: boolean;
+  /** See `UseLytPresenceMenuOptions.forcedAbsent`'s own doc. */
+  readonly forcedAbsent: boolean;
 }
 
 export interface LytPresenceMenuHandle {
@@ -198,6 +219,7 @@ export function useLytPresenceMenu(options?: UseLytPresenceMenuOptions): LytPres
       // disable (a different reason, same disabled affordance; the
       // template's :title differentiates the two).
       disabled: store.session.ui.railStyle === 'popover' && id === 'boardRail' ? true : isOnlyVisible(id),
+      forcedAbsent: options?.forcedAbsent?.value[id] ?? false,
     })),
   );
 

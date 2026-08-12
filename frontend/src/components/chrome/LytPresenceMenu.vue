@@ -40,6 +40,17 @@
   class-unaware literal, whenever the persisted store has no explicit
   user choice recorded for it yet.
 
+  Finish-pass wave A (`.claude/dispatch-reports/lyt-wA-width-demotion.md`,
+  F1's "USER SOVEREIGNTY" clause): a new `forced-absent` prop, threaded
+  the same way as `classDefaults`, discloses when a target's checkbox is
+  checked (the user WANTS it visible) but the width evaluator
+  (`resolveWidthConditionalPresence`) currently can't grant it — a hint
+  row replaces silently doing nothing, per `useLytPresenceMenu.ts`'s own
+  header section of the same name. The checkbox itself is NOT disabled in
+  this state (distinct from the last-remaining-panel guard above) —
+  toggling still writes the real preference, it just doesn't render until
+  width allows.
+
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
@@ -54,12 +65,19 @@ const props = defineProps<{
    *  bare `<LytPresenceMenu />` (any existing/future test mount) keeps
    *  working against `useLytPresenceMenu.ts`'s own static fallback. */
   classDefaults?: Partial<Record<LytPresenceTargetId, boolean>>;
+  /** "Wants visible, currently width-demoted" per target — see this
+   *  file's header, "Finish-pass wave A". Optional, defaults to no
+   *  target forced-absent (byte-identical to pre-wave rendering). */
+  forcedAbsent?: Partial<Record<LytPresenceTargetId, boolean>>;
 }>();
 
 const { t } = useI18n();
 const classDefaultsRef = computed(() => props.classDefaults ?? {});
-const { open, toggleMenu, closeMenu, targets, toggle, railStyle, setRailStyle } =
-  useLytPresenceMenu({ classDefaults: classDefaultsRef });
+const forcedAbsentRef = computed(() => props.forcedAbsent ?? {});
+const { open, toggleMenu, closeMenu, targets, toggle, railStyle, setRailStyle } = useLytPresenceMenu({
+  classDefaults: classDefaultsRef,
+  forcedAbsent: forcedAbsentRef,
+});
 const { setPopoverEl, xShift } = usePopoverEdgeClamp(open);
 
 const rootRef = ref<HTMLElement | null>(null);
@@ -86,12 +104,18 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown);
 });
 
-function targetTitle(id: LytPresenceTargetId, disabled: boolean): string {
-  if (!disabled) return '';
-  if (id === 'boardRail' && railStyle.value === 'popover') {
-    return t('app.chrome.presence.boardRailPopoverStyleHint');
+function targetTitle(id: LytPresenceTargetId, disabled: boolean, forcedAbsent: boolean): string {
+  if (disabled) {
+    if (id === 'boardRail' && railStyle.value === 'popover') {
+      return t('app.chrome.presence.boardRailPopoverStyleHint');
+    }
+    return t('app.chrome.presence.guardTooltip');
   }
-  return t('app.chrome.presence.guardTooltip');
+  // Finish-pass wave A: not a disable reason (the checkbox stays
+  // enabled — see this file's header, "Finish-pass wave A") but still an
+  // explanatory title for the same hint the row's own inline text shows.
+  if (forcedAbsent) return t('app.chrome.presence.widthDemotedHint');
+  return '';
 }
 
 function onRailStyleChange(e: Event): void {
@@ -136,8 +160,8 @@ const popoverId = 'lyt-presence-popover';
         v-for="target in targets"
         :key="target.id"
         class="lyt-presence-row"
-        :class="{ disabled: target.disabled }"
-        :title="targetTitle(target.id, target.disabled)"
+        :class="{ disabled: target.disabled, 'width-demoted': target.forcedAbsent }"
+        :title="targetTitle(target.id, target.disabled, target.forcedAbsent)"
         :data-lyt-presence-target="target.id"
       >
         <input
@@ -147,6 +171,11 @@ const popoverId = 'lyt-presence-popover';
           @change="toggle(target.id)"
         />
         <span>{{ $t(`app.chrome.presence.${target.id}`) }}</span>
+        <!-- Finish-pass wave A: disclosed rather than silent — see this
+             file's own header, "Finish-pass wave A". -->
+        <span v-if="target.forcedAbsent" class="lyt-presence-width-hint" aria-hidden="true">
+          {{ $t('app.chrome.presence.widthDemotedHint') }}
+        </span>
       </label>
 
       <div class="lyt-presence-divider" role="separator"></div>
@@ -232,6 +261,19 @@ const popoverId = 'lyt-presence-popover';
   cursor: pointer;
 }
 .lyt-presence-row.disabled input[type='checkbox'] { cursor: not-allowed; }
+
+/* Finish-pass wave A: a hint, not a disable — the row stays fully
+   interactive (see this file's header, "Finish-pass wave A"), so no
+   contrast-toning here (readable text stays --text-0 per the standing
+   max-contrast rule; --text-disabled above is reserved for the
+   genuinely-disabled last-remaining-panel guard case). Size alone
+   (--text-tiny) marks it as secondary. */
+.lyt-presence-width-hint {
+  font-size: var(--text-tiny);
+  color: var(--text-0);
+  margin-left: auto;
+  white-space: nowrap;
+}
 
 .lyt-presence-divider {
   border-top: 1px solid var(--border-1);

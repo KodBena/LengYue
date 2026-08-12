@@ -41,9 +41,26 @@
  * an opened Exclusive's own interior); such a child's widget id has no
  * entry here.
  *
+ * Finish-pass wave A addendum (`.claude/dispatch-reports/lyt-wA-width-
+ * demotion.md`): the walk now also captures `demoteByWidget` — a
+ * blackbox/exclusive widget id's own `@demote` declaration
+ * (`LytBlackboxNode.demote`/`LytExclusiveNode.demote`), the same fact
+ * `lyt-layout.gen.ts`/`lyt-layout-portrait.gen.ts` already carry per P2a
+ * but that no consumer read yet (the finish-pass F1/F2-partial gap: the
+ * compiled `@demote(h 778px)`/`@demote(h 808px)` on `controlPanel` was
+ * data with no runtime evaluator). `App.vue`'s width-conditional
+ * demotion reads this the SAME way it already reads `widgetDefaultVisible`
+ * off this one index (ADR-0012 P1) rather than a second walk. A leaf's
+ * own `demote` (`LytLeafNode.demote`, e.g. `A_app`'s `616px`) is NOT
+ * captured here — that field is consumed by a different, already-shipped
+ * mechanism (`lyt-capability-registry.ts`'s `LYT_CAPABILITY_REALIZATION.
+ * demoted`, not this index) and this wave's scope is the Exclusive/
+ * blackbox `controlPanel` case only; widening this index to leaves too is
+ * a natural follow-up but not commissioned here.
+ *
  * License: Public Domain (The Unlicense)
  */
-import type { LytLeafNode, LytNodeData, LytProgram } from '../../state/lyt-layout-types';
+import type { LytDemotion, LytLeafNode, LytNodeData, LytProgram } from '../../state/lyt-layout-types';
 
 export interface LytProgramIndex {
   /** widget id -> the dotted path of the node (leaf, blackbox, or
@@ -60,6 +77,11 @@ export interface LytProgramIndex {
    *  (module header, "P2b addendum"). Absent for a widget with no wrapping
    *  Split `LytChild` of its own (an Exclusive child). */
   readonly widgetDefaultVisible: Readonly<Record<string, boolean>>;
+  /** widget id -> that blackbox/exclusive widget's own `@demote`
+   *  declaration (module header, "Finish-pass wave A addendum"). Absent
+   *  for a widget with no `demote` declared, and for leaf widgets (not
+   *  walked here — see the header disclosure). */
+  readonly demoteByWidget: Readonly<Record<string, LytDemotion>>;
 }
 
 function visit(
@@ -68,6 +90,7 @@ function visit(
   widgetPaths: Record<string, string>,
   leafNodes: Record<string, LytLeafNode>,
   widgetDefaultVisible: Record<string, boolean>,
+  demoteByWidget: Record<string, LytDemotion>,
   presenceDefaultVisible: boolean | undefined,
 ): void {
   switch (node.kind) {
@@ -79,19 +102,29 @@ function visit(
     case 'blackbox':
       widgetPaths[node.widget] = path;
       if (presenceDefaultVisible !== undefined) widgetDefaultVisible[node.widget] = presenceDefaultVisible;
+      if (node.demote !== null) demoteByWidget[node.widget] = node.demote;
       return;
     case 'split':
       for (const child of node.children) {
-        visit(child.node, child.path, widgetPaths, leafNodes, widgetDefaultVisible, child.presenceDefaultVisible);
+        visit(
+          child.node,
+          child.path,
+          widgetPaths,
+          leafNodes,
+          widgetDefaultVisible,
+          demoteByWidget,
+          child.presenceDefaultVisible,
+        );
       }
       return;
     case 'exclusive':
       widgetPaths[node.widget] = path;
       if (presenceDefaultVisible !== undefined) widgetDefaultVisible[node.widget] = presenceDefaultVisible;
+      if (node.demote !== null) demoteByWidget[node.widget] = node.demote;
       // An Exclusive's own children (`LytExclusiveChild`) carry no
       // `presenceDefaultVisible` of their own — see this module's header.
       for (const child of node.children) {
-        visit(child.node, child.path, widgetPaths, leafNodes, widgetDefaultVisible, undefined);
+        visit(child.node, child.path, widgetPaths, leafNodes, widgetDefaultVisible, demoteByWidget, undefined);
       }
       return;
   }
@@ -99,23 +132,24 @@ function visit(
 
 /**
  * Walks a compiled `LytProgram` once, building the `widget id -> path` /
- * `widget id -> leaf node` / `widget id -> default-visible` index every
- * path-keyed App.vue fact derives from. Pure — no Vue reactivity here; a
- * caller wraps it in a `computed` keyed on the active program (see
- * App.vue's `activeLytProgramIndex`).
+ * `widget id -> leaf node` / `widget id -> default-visible` /
+ * `widget id -> demote` index every path-keyed App.vue fact derives from.
+ * Pure — no Vue reactivity here; a caller wraps it in a `computed` keyed
+ * on the active program (see App.vue's `activeLytProgramIndex`).
  */
 export function buildLytProgramIndex(program: LytProgram): LytProgramIndex {
   const widgetPaths: Record<string, string> = {};
   const leafNodes: Record<string, LytLeafNode> = {};
   const widgetDefaultVisible: Record<string, boolean> = {};
+  const demoteByWidget: Record<string, LytDemotion> = {};
   // The root itself is always a Split (`LytProgram.root: LytSplitNode`) and
   // is addressed as '' — the same convention `LYT_DOM_ID_BY_PATH_*`/
   // `LytNode.vue`'s own `path` prop default already use. The root has no
   // wrapping `LytChild` of its own, hence `undefined` for its own
   // `presenceDefaultVisible` (irrelevant anyway — the root is always a
   // Split, which never populates `widgetDefaultVisible` for itself).
-  visit(program.root, '', widgetPaths, leafNodes, widgetDefaultVisible, undefined);
-  return { widgetPaths, leafNodes, widgetDefaultVisible };
+  visit(program.root, '', widgetPaths, leafNodes, widgetDefaultVisible, demoteByWidget, undefined);
+  return { widgetPaths, leafNodes, widgetDefaultVisible, demoteByWidget };
 }
 
 /**

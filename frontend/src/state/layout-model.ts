@@ -90,6 +90,7 @@
  */
 import { ref, watch, type Ref } from 'vue';
 import { LYT_SOLVED_BY_LABEL } from './lyt-solved-layout-asis.gen.ts';
+import type { LytDemotion } from './lyt-layout-types';
 
 // ── LayoutClass: the discriminated type ──────────────────────────────
 
@@ -821,4 +822,60 @@ export function useDeferredLayoutClass(
   }
 
   return committed;
+}
+
+// ── Finish-pass wave A: width-conditional demotion ───────────────────
+//
+// `.claude/dispatch-reports/lyt-wA-width-demotion.md` (F1/F2-partial).
+// The compiled `controlPanel` Exclusive already carries a `@demote(h
+// 778px)` (landscape) / `@demote(h 808px)` (portrait) declaration
+// (`lyt-layout.gen.ts` / `lyt-layout-portrait.gen.ts`, threaded through
+// `useLytProgramIndex.ts`'s `demoteByWidget`) — this is the runtime
+// EVALUATOR that was missing: while the band hosting the control panel
+// (the tree/panels/preview row, `#tree-control-wrapper`) is granted less
+// than that threshold, the panel must not stand — its content re-hosts in
+// the overlay stratum via the ALREADY-BUILT P2b summon popover
+// (LytNode.vue's own "Popover summon for an absent Exclusive"), never
+// clipped, never scrolled-off.
+//
+// User sovereignty (the commission's own framing): a user's explicit
+// presence choice still wins WHERE SATISFIABLE — `desiredVisible` is
+// whatever the normal presence-resolution chain (persisted choice, then
+// class default) already produced. But an explicit 'visible' choice this
+// function CANNOT grant (the width genuinely doesn't fit) must not clip —
+// it demotes anyway; the caller discloses that in the presence menu
+// (App.vue's own `controlPanelForcedAbsent`), it is not silently dropped
+// here.
+/**
+ * Pure width-vs-threshold resolution — no Vue reactivity, no DOM read,
+ * unit-testable directly. `measuredWidthPx <= 0` means "not yet measured"
+ * (the ResizeObserver hasn't landed its first reading, e.g. the single
+ * frame between mount and attach) — `desiredVisible` passes through
+ * unchanged rather than demoting against a fantasy zero width, mirroring
+ * `useResizablePanel.ts`'s own `rowWidthPx.value <= 0` precedent for the
+ * identical "not yet measured" case.
+ */
+export function resolveWidthConditionalPresence(
+  measuredWidthPx: number,
+  demote: LytDemotion | null,
+  desiredVisible: boolean,
+): boolean {
+  if (demote === null) return desiredVisible;
+  if (measuredWidthPx <= 0) return desiredVisible;
+  // ADR-0002: this evaluator only knows how to measure a horizontal band
+  // (against `#tree-control-wrapper`'s own live width — see
+  // `useResizablePanel.ts`'s `sideColumnWidthPx`) — a `demote` declared on
+  // the vertical axis would need a different measured quantity this
+  // function is not wired to read; failing loudly rather than silently
+  // measuring the wrong axis. No current `.lyt` encoding declares this
+  // (both mainline programs' `controlPanel.demote.axis` are `'h'`), so
+  // this branch is defensive, not a known-live case.
+  if (demote.axis !== 'h') {
+    throw new Error(
+      `resolveWidthConditionalPresence: unsupported demote axis ${JSON.stringify(demote.axis)} — ` +
+        'only "h" (measured against the side column\'s own live width) is wired.',
+    );
+  }
+  const fits = measuredWidthPx >= demote.belowPx;
+  return fits ? desiredVisible : false;
 }

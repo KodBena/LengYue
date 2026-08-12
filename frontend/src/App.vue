@@ -135,7 +135,7 @@ import { useEngineControls } from './composables/useEngineControls';
 import { useUserIORegistry } from './composables/useUserIORegistry';
 import { useAuth }           from './composables/auth-app/useAuth';
 import { workspaceIdentityKey } from './composables/auth-app/workspace-identity-key';
-import { getPanelContentPolicy, useDeferredLayoutClass } from './state/layout-model';
+import { getPanelContentPolicy, resolveWidthConditionalPresence, useDeferredLayoutClass } from './state/layout-model';
 import { useDirtyBoardGuard } from './composables/board/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
 import { useWorkspaceRecovery } from './composables/auth-app/useWorkspaceRecovery';
@@ -468,6 +468,7 @@ const {
   effectiveTreePanelWidthPx,
   rowWidthPx,
   rowHeightPx,
+  sideColumnWidthPx,
 } = useResizablePanel();
 
 const layoutClass = useDeferredLayoutClass(rowWidthPx, rowHeightPx);
@@ -677,12 +678,37 @@ function handleLytExclusiveActiveChange(path: string, tabId: string): void {
 // `A_setup` LEAF (trigger included) is mounted at all — ruling row 2108's
 // own "PALETTE ADOPTION" `@toggle(user, release)` intent, finally wired
 // rather than left permanently forced on.
+//
+// Finish-pass wave A (`.claude/dispatch-reports/lyt-wA-width-demotion.md`,
+// F1/F2-partial): `controlPanel`'s own resolved presence is now ALSO
+// width-conditional — the compiled Exclusive's `@demote(h ...)`
+// threshold (`controlPanelDemote` below, read off `activeLytProgramIndex.
+// demoteByWidget`), evaluated against `sideColumnWidthPx`'s own live
+// measurement (`useResizablePanel.ts`'s ResizeObserver on
+// `#tree-control-wrapper`), via the pure `resolveWidthConditionalPresence`
+// (`state/layout-model.ts`). USER SOVEREIGNTY: the "desired" value fed in
+// is still the ordinary persisted-choice-then-class-default chain — width
+// only ever narrows `true` down to `false` when the granted band
+// genuinely cannot hold the panel (F1's own defect: the track was
+// narrower than the panel's own structural floor at every landscape size
+// the finish pass exercised); it never turns a `false` into a `true`. An
+// explicit user 'visible' choice that width cannot currently grant is NOT
+// silently dropped — LytNode.vue's own P2b summon-popover machinery keeps
+// the panel reachable (Teleport into the corner trigger's popover), and
+// `controlPanelForcedAbsent` below (consumed by `<LytPresenceMenu>`)
+// discloses the "wants visible, currently can't" state in the presence
+// menu rather than presenting the checkbox as a silent no-op.
 const lytPresenceOverrides = computed<Record<string, boolean>>(() => {
   const presence = store.session.ui.lytPresence;
-  if (store.session.ui.railStyle === 'popover') {
-    return { ...presence, boardRail: false };
-  }
-  return presence;
+  const base: Record<string, boolean> =
+    store.session.ui.railStyle === 'popover' ? { ...presence, boardRail: false } : { ...presence };
+  const desiredControlPanel = base.controlPanel ?? lytPresenceClassDefaults.value.controlPanel ?? true;
+  base.controlPanel = resolveWidthConditionalPresence(
+    sideColumnWidthPx.value,
+    controlPanelDemote.value,
+    desiredControlPanel,
+  );
+  return base;
 });
 
 // Presence arc P2b item 1: the active screen class's own compiled
@@ -704,6 +730,13 @@ const lytPresenceClassDefaults = computed<Partial<Record<LytPresenceTargetId, bo
   };
 });
 
+// Finish-pass wave A: the `controlPanel` Exclusive's own compiled
+// `@demote` declaration (778px landscape / 808px portrait — P1's derived
+// thresholds), read off the SAME `activeLytProgramIndex` walk every other
+// per-class fact above already reads (ADR-0012 P1) rather than a second,
+// hand-typed literal per class.
+const controlPanelDemote = computed(() => activeLytProgramIndex.value.demoteByWidget.controlPanel ?? null);
+
 // Presence arc P2b item 3 (control-panel popover summon). Whether the
 // control-panel Exclusive resolves PRESENT right now — the SAME formula
 // `LytNode.vue`'s own internal `isPresent` applies
@@ -713,9 +746,28 @@ const lytPresenceClassDefaults = computed<Partial<Record<LytPresenceTargetId, bo
 // expose. Not a second, independently-driftable source of truth — both
 // read the identical `lytPresenceOverrides`/`lytPresenceClassDefaults`
 // facts this file already resolves in one place each (ADR-0012 P1).
+// `lytPresenceOverrides.value.controlPanel` is now ALWAYS width-resolved
+// (never `undefined` — see that computed above), so the `??` fallbacks
+// below are defensive continuity with the pre-wave formula, not a live
+// path.
 const controlPanelIsPresent = computed<boolean>(
   () => lytPresenceOverrides.value.controlPanel ?? lytPresenceClassDefaults.value.controlPanel ?? true,
 );
+
+// Finish-pass wave A: disclosed in `<LytPresenceMenu>` (F1's "USER
+// SOVEREIGNTY" clause) — true exactly when the user's own persisted-or-
+// class-default choice for `controlPanel` is "visible" but the width
+// evaluator above demoted it anyway. Read by the presence menu to show a
+// hint instead of presenting the checkbox as a silent no-op; the
+// checkbox itself stays enabled (toggling the underlying preference is
+// still meaningful — it takes effect the instant width allows).
+const controlPanelForcedAbsent = computed<boolean>(() => {
+  const desired = store.session.ui.lytPresence.controlPanel ?? lytPresenceClassDefaults.value.controlPanel ?? true;
+  return desired && !controlPanelIsPresent.value;
+});
+const lytPresenceForcedAbsent = computed<Partial<Record<LytPresenceTargetId, boolean>>>(() => ({
+  controlPanel: controlPanelForcedAbsent.value,
+}));
 
 // ── Control-panel popover summon (P2b item 3) ───────────────────────────
 // Session-local (never persisted — "Dismissal restores the demoted
@@ -1416,7 +1468,7 @@ const activeTab = computed<string>({
               :style="{ transform: `translateX(${controlPanelPopoverXShift}px)` }"
             ></div>
           </div>
-          <LytPresenceMenu :class-defaults="lytPresenceClassDefaults" />
+          <LytPresenceMenu :class-defaults="lytPresenceClassDefaults" :forced-absent="lytPresenceForcedAbsent" />
           <SystemLogToggle />
         </div>
       </template>
