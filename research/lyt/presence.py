@@ -42,8 +42,32 @@ some of its entries name a composite SUBTREE with no single widget id (the
 LEAF can be named in a `PresenceValuation`; a whole-subtree presence
 valuation is a genuinely broader concept this amendment does not attempt to
 generalize to (disclosed narrowing, not silently assumed away). In
-practice this is no real restriction for the two live cases (`boardRail`,
-`previewBoard` are both bare leaves).
+practice this was no real restriction for the two original live cases
+(`boardRail`, `previewBoard` are both bare leaves).
+
+## LYT presence arc P1 widening (row 2333) -- a second identity: the tagged Exclusive
+
+Amendment 8's `@demote` presence kind (L15, ledger row 2241) was originally
+leaf-only, for exactly this module's own reason above -- only a bare leaf
+had a `widget` id this module's naming scheme could use. `loader.py`'s
+`_load_demote_presence` now also admits an EXCLUSIVE (`T`) node declaring
+`@demote`, on the strength of a fact a Split does not share: per SPEC.md
+§2, every child of a `T` already receives the IDENTICAL rectangle and
+exactly one is visible at a time -- the whole group is already ONE
+presence-relevant unit from its own parent's perspective, the same way a
+single leaf is (see `loader._load_demote_presence`'s own docstring for the
+full disclosure of why this widening is scoped to Exclusive and not
+Split). An Exclusive has no `widget` id of its own, so this module's
+identity namespace widens to a SECOND kind of entry: an Exclusive's own
+declared `[TAG]` (SPEC.md §1.1, previously documentation-only) NOW ALSO
+serves as its presence-pruning identity when `@demote` names it --
+`absent_widgets` is, as of this widening, "a leaf widget id OR a tagged
+Exclusive's own tag string," one flat namespace, not two separately-typed
+fields (`loader._load_demote_presence`'s own clause (f) refuses `@demote`
+on an untagged Exclusive for exactly this reason -- an untagged Exclusive
+has no honest identity to be named by). This is still narrower than
+`emit_mockup.py`'s own path-keyed registry (a `[TAG]` names one Exclusive
+node, not an arbitrary subtree), but it is no longer leaf-only.
 
 ## Pruning semantics
 
@@ -120,17 +144,40 @@ class PresenceValuation:
 ALL_PRESENT = PresenceValuation(name="all-present", absent_widgets=frozenset())
 
 
+def _is_named_absent(slot: ast.Slot, absent_widgets: FrozenSet[str]) -> bool:
+    """LYT presence arc P1 (row 2333): the ONE predicate both the Split and
+    Exclusive branches of `prune_absent` below consult, so the two branches
+    can never drift on which identities count -- a Leaf matches by its own
+    `widget` id (the original, Amendment-4 scope); an Exclusive matches by
+    its own declared `[TAG]`, when non-empty (the widening this arc adds --
+    see this module's own docstring section for the full rationale). A
+    Split never matches -- `loader._load_demote_presence` already refuses
+    `@demote` on a Split at load time, so a well-formed tree can never
+    present one here, but this predicate stays honest about that rather
+    than assuming it."""
+    node = slot.node
+    if isinstance(node, ast.Leaf):
+        return node.widget in absent_widgets
+    if isinstance(node, ast.Exclusive):
+        return bool(node.tag) and node.tag in absent_widgets
+    return False
+
+
 def prune_absent(slot: ast.Slot, absent_widgets: FrozenSet[str]) -> ast.Slot:
-    """Returns a NEW Slot tree with every Leaf child whose widget id is in
-    `absent_widgets` removed from its parent Split/Exclusive's children.
+    """Returns a NEW Slot tree with every Leaf child whose widget id, OR
+    every Exclusive child whose own `[TAG]`, is in `absent_widgets` --
+    removed from its parent Split/Exclusive's children.
     `absent_widgets=frozenset()` returns `slot` itself, unchanged (no new
     tree built) -- the identity case every non-lengyue registration hits.
 
-    Only DIRECT Leaf children are pruned by matching their own widget id;
-    a Leaf can never itself be "this slot" at the top of the recursion (a
-    program's root is never a bare leaf named absent — the recursion below
-    only ever removes a CHILD, never the slot passed in), matching this
-    module's own "only a bare leaf can be named absent" disclosed scope.
+    Only DIRECT children are pruned by matching their own identity (leaf
+    widget id, or -- LYT presence arc P1, row 2333 -- a tagged Exclusive's
+    own tag); a Leaf/Exclusive can never itself be "this slot" at the top
+    of the recursion (a program's root is never a bare leaf or a tagged
+    Exclusive named absent — the recursion below only ever removes a
+    CHILD, never the slot passed in), matching this module's own disclosed
+    scope (originally "only a bare leaf," now "a bare leaf or a tagged
+    Exclusive" -- see the module docstring's own P1 section).
     """
     if not absent_widgets:
         return slot
@@ -141,7 +188,7 @@ def prune_absent(slot: ast.Slot, absent_widgets: FrozenSet[str]) -> ast.Slot:
         new_children = [
             prune_absent(c, absent_widgets)
             for c in node.children
-            if not (isinstance(c.node, ast.Leaf) and c.node.widget in absent_widgets)
+            if not _is_named_absent(c, absent_widgets)
         ]
         new_node = ast.Split(axis=node.axis, gap_px=node.gap_px, children=new_children)
         # AMENDMENT 5 fix (review finding 1, lyt-amendment5-review.md): this
@@ -159,10 +206,19 @@ def prune_absent(slot: ast.Slot, absent_widgets: FrozenSet[str]) -> ast.Slot:
             violates=slot.violates, scroll_axes=slot.scroll_axes,
         )
     if isinstance(node, ast.Exclusive):
+        if _is_named_absent(slot, absent_widgets):
+            # This slot IS the tagged, named-absent Exclusive itself --
+            # mirrors the bare-Leaf early return above: actual removal only
+            # ever happens from a PARENT's filtered children list (the
+            # Split/Exclusive branches' own list comprehensions), never
+            # from within the matched node's own recursive call. Reached
+            # only if some caller passes this slot directly rather than as
+            # a child being filtered (LYT presence arc P1, row 2333).
+            return slot
         new_children = [
             prune_absent(c, absent_widgets)
             for c in node.children
-            if not (isinstance(c.node, ast.Leaf) and c.node.widget in absent_widgets)
+            if not _is_named_absent(c, absent_widgets)
         ]
         new_node = ast.Exclusive(children=new_children, selector=node.selector, tag=node.tag)
         # AMENDMENT 5 fix -- same forwarding, same rationale as the Split
@@ -175,11 +231,25 @@ def prune_absent(slot: ast.Slot, absent_widgets: FrozenSet[str]) -> ast.Slot:
 
 
 def _collect_leaf_presence(slot: ast.Slot, out: Dict[str, ast.Presence]) -> None:
+    """LYT presence arc P1 (row 2333): despite the name (kept for minimal
+    footprint against every existing caller), this now collects BOTH
+    identity kinds this module's `absent_widgets` namespace admits -- a
+    Leaf's own `widget` id (original scope) and a tagged Exclusive's own
+    `[TAG]` (the widening; see module docstring). An untagged Exclusive
+    contributes nothing -- it has no honest identity to be looked up by,
+    matching `loader._load_demote_presence` clause (f)'s own refusal of
+    `@demote` on one."""
     node = slot.node
     if isinstance(node, ast.Leaf):
         out[node.widget] = slot.presence
         return
-    if isinstance(node, (ast.Split, ast.Exclusive)):
+    if isinstance(node, ast.Exclusive):
+        if node.tag:
+            out[node.tag] = slot.presence
+        for c in node.children:
+            _collect_leaf_presence(c, out)
+        return
+    if isinstance(node, ast.Split):
         for c in node.children:
             _collect_leaf_presence(c, out)
         return
@@ -188,12 +258,17 @@ def _collect_leaf_presence(slot: ast.Slot, out: Dict[str, ast.Presence]) -> None
 
 def validate_valuation(slot: ast.Slot, valuation: PresenceValuation, *, layout_name: str) -> None:
     """Refuses loudly (`LytLoadError`, `detail.law == "presence-valuation"`)
-    when a valuation names an ABSENT widget that either doesn't exist in
+    when a valuation names an ABSENT identity that either doesn't exist in
     this tree at all, or exists but whose declared `Presence` isn't a
-    genuine user-release toggle -- the commission's own words: "a named
-    slot that isn't a user-release toggle is an error." A no-op for
-    `ALL_PRESENT` (and any other valuation with an empty `absent_widgets`),
-    matching `prune_absent`'s own identity treatment of the empty case."""
+    genuine user-release toggle or a demotion -- the commission's own
+    words: "a named slot that isn't a user-release toggle is an error."
+    A no-op for `ALL_PRESENT` (and any other valuation with an empty
+    `absent_widgets`), matching `prune_absent`'s own identity treatment of
+    the empty case. LYT presence arc P1 (row 2333): "identity" now spans
+    both a leaf's own widget id and a tagged Exclusive's own `[TAG]` (see
+    `_collect_leaf_presence`'s own updated docstring); the messages below
+    are worded generically ("leaf or tagged group") rather than assuming
+    every name is a leaf."""
     if not valuation.absent_widgets:
         return
     presence_by_widget: Dict[str, ast.Presence] = {}
@@ -201,9 +276,9 @@ def validate_valuation(slot: ast.Slot, valuation: PresenceValuation, *, layout_n
     for widget in sorted(valuation.absent_widgets):
         if widget not in presence_by_widget:
             raise LytLoadError(
-                f"presence valuation {valuation.name!r} names widget "
-                f"{widget!r} as absent, but layout {layout_name!r} has no "
-                "leaf with that widget id",
+                f"presence valuation {valuation.name!r} names {widget!r} "
+                f"as absent, but layout {layout_name!r} has no leaf and no "
+                "tagged Exclusive group with that id",
                 {
                     "law": "presence-valuation",
                     "valuation": valuation.name,

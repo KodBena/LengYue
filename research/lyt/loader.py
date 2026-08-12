@@ -669,6 +669,7 @@ def _load_demote_presence(
     node_kind: str,
     activity: Optional[str],
     content: Optional[str],
+    tag: Optional[str] = None,
 ) -> ast.Presence:
     """LOOP ITERATION 11 / arc 4 round 4 (model-iteration loop EXPERIMENT,
     ledger rows 2037/2066/2107/2157/2241; branch lyt-model-loop-experiment,
@@ -692,32 +693,73 @@ def _load_demote_presence(
     say — and would have hidden it from `presence.py`, which is the one
     module that knows what "absent" means.
 
-    THE FIVE REFUSALS.
+    THE FIVE REFUSALS, PLUS ONE SCOPED WIDENING (LYT presence arc P1,
+    row 2333, mobile/portrait repetition-first disposition; see
+    `.claude/dispatch-reports/lyt-p1-presence-model.md`).
 
-      (a) LEAF-ONLY (`"demote-on-non-leaf"`). `presence.prune_absent`'s own
-          disclosed scope is that only a bare LEAF can be named absent in a
-          valuation; a Split declaring `@demote` would take a whole subtree
-          out on a threshold none of its descendants ever agreed to, and
-          none of them could be re-hosted individually. Same leaf-only
-          discipline `activity` itself takes, for a related reason.
-      (b) REQUIRES `activity occasional` (`"demote-without-occasional-
-          activity"`, `detail.activity` naming what was declared instead,
-          including `None`). This is the law's whole safety property: a
-          slot may only leave the band if the ENCODING has said, in the
-          same bag a reader is looking at, that its content is configured
-          rather than worked with. Without it, `@demote` would be a
-          general "move this into a menu when cramped" escape hatch, and
-          the first thing a cramped layout would reach for is whatever
-          happens to be widest — which on this screen is the metrics strip
-          the user reads continuously.
-      (c) REQUIRES `content bounded` (`"demote-without-bounded-content"`).
-          A demoted slot's content has to be re-hostable somewhere with no
-          standing reservation at all. `unbounded` content is content that
-          does not fit its own rectangle by declaration (that is what its
-          `scroll` owner is for) and cannot honestly be promised a corner
-          popover; `designed` content is a hard reservation by L5c. Same
-          gate, same three-way `detail.content` report, `_load_ceiling_
-          flag` uses.
+      (a) LEAF-OR-CONTROL-PANEL-EXCLUSIVE ONLY
+          (`"demote-on-non-leaf-non-exclusive"`). `presence.prune_absent`'s
+          own disclosed scope was originally that only a bare LEAF can be
+          named absent in a valuation; a SPLIT declaring `@demote` still
+          takes exactly this refusal (a Split's children are independently
+          addressable siblings, not alternatives — pruning the whole band
+          on one threshold none of its descendants individually agreed to
+          would hide facts about which specific child paid for the
+          decision). An EXCLUSIVE (`T`) node is structurally different:
+          per SPEC.md §2, every child of a `T` already receives the
+          IDENTICAL rectangle and exactly one is visible at a time — the
+          group is already ONE presence-relevant unit from its own
+          parent's perspective, the same way a single leaf is. Demoting
+          the whole group is therefore not "hiding a subtree no
+          descendant agreed to" in the way a Split's demotion would be; it
+          is "hiding the one alternative-set unit this group already
+          is" — no descendant NEEDS to individually agree, because no
+          descendant is ever shown without the others being just as
+          absent (Exclusive semantics already make them one screen-time
+          unit). `presence.prune_absent` is widened to match (see that
+          module's own docstring for the pruning-identity mechanism this
+          widening needed — an Exclusive has no `widget` id of its own,
+          so its declared `[TAG]` doubles as its presence identity when
+          `@demote` names it). Same leaf-only discipline `activity`
+          itself takes for the Split case, for a related reason — this
+          widening is scoped to Exclusive only, Split stays refused.
+      (b) LEAF ONLY: REQUIRES `activity occasional`
+          (`"demote-without-occasional-activity"`, `detail.activity`
+          naming what was declared instead, including `None`). This is
+          the leaf-level law's own safety property: a leaf may only leave
+          the band if the ENCODING has said, in the same bag a reader is
+          looking at, that its content is configured rather than worked
+          with. Without it, `@demote` would be a general "move this into
+          a menu when cramped" escape hatch, and the first thing a
+          cramped layout would reach for is whatever happens to be
+          widest — which on this screen is the metrics strip the user
+          reads continuously. NOT checked for an Exclusive — `activity`
+          is a `Leaf`-only field (SPEC.md §16.1), and an Exclusive's own
+          "occasional-ness" is exactly the fact that only ONE of its
+          alternatives is ever on screen at a time, already a narrower
+          claim than any single leaf's own `activity sustained` could
+          make.
+      (c) LEAF ONLY: REQUIRES `content bounded`
+          (`"demote-without-bounded-content"`). A demoted leaf's content
+          has to be re-hostable somewhere with no standing reservation at
+          all. `unbounded` content is content that does not fit its own
+          rectangle by declaration (that is what its `scroll` owner is
+          for) and cannot honestly be promised a corner popover;
+          `designed` content is a hard reservation by L5c. Same gate,
+          same three-way `detail.content` report, `_load_ceiling_flag`
+          uses. NOT checked for an Exclusive — `content` is a `Leaf`-only
+          field too; an Exclusive's own children each carry their own
+          `content` classification independently, and demoting the whole
+          group re-hosts whichever one is showing, at whatever
+          reservation THAT tab already declares for itself.
+      (f) EXCLUSIVE ONLY: REQUIRES A DECLARED `[TAG]`
+          (`"demote-exclusive-without-tag"`). `presence.PresenceValuation`
+          identifies a leaf by its `widget` id; an Exclusive has none, so
+          its declared `[TAG]` (SPEC.md §1.1, e.g. `[BLACK BOX]`,
+          previously documentation-only) is what a valuation names when
+          it names this group absent. An Exclusive with no `[TAG]` has no
+          honest identity to be named by — refused loudly rather than
+          silently un-nameable.
       (d) CLOSED AXIS VOCABULARY (`"invalid-demote-axis"`). Roles
           (`along`/`across`) are deliberately NOT accepted here: L14's role
           frame resolves against the LEAF's own `orient`, and the axis a
@@ -733,21 +775,39 @@ def _load_demote_presence(
     """
     axis = rp.demote_axis
     ext = rp.demote_below
-    if node_kind != "leaf":
+    if node_kind not in ("leaf", "exclusive"):
         raise LytLoadError(
-            f"@demote declared at {where} but demotion is a LEAF-only "
-            f"presence kind — a {node_kind} node would take a whole subtree "
-            "out of the tree on a threshold none of its descendants "
-            "declared, and none of them could be re-hosted individually "
-            "(presence.py's own 'only a bare leaf can be named absent' "
-            "scope; L15 — LOOP ITERATION 11, ledger row 2241)",
+            f"@demote declared at {where} but demotion is a LEAF-or-"
+            f"control-panel-EXCLUSIVE-only presence kind — a {node_kind} "
+            "node (Split) would take a whole band of independently-"
+            "addressable siblings out on a threshold none of them "
+            "individually agreed to, and none of them could be re-hosted "
+            "individually (presence.py's own pruning scope; L15 — LOOP "
+            "ITERATION 11, ledger row 2241; widened for Exclusive, LYT "
+            "presence arc P1, row 2333)",
             {
                 "where": where,
                 "law": "L15",
-                "prohibition": "demote-on-non-leaf",
+                "prohibition": "demote-on-non-leaf-non-exclusive",
                 "node_kind": node_kind,
             },
         )
+    if node_kind == "exclusive":
+        if not tag:
+            raise LytLoadError(
+                f"@demote declared at {where} on an Exclusive with no "
+                "declared [TAG] — presence.PresenceValuation identifies a "
+                "leaf by its widget id; an Exclusive has none of its own, "
+                "so its [TAG] is what a valuation must name to prune it. "
+                "An untagged Exclusive has no honest identity to be named "
+                "by (L15, LYT presence arc P1, row 2333)",
+                {
+                    "where": where,
+                    "law": "L15",
+                    "prohibition": "demote-exclusive-without-tag",
+                },
+            )
+        return _load_demote_axis_and_threshold(axis, ext, where=where)
     if activity != "occasional":
         raise LytLoadError(
             f"@demote declared at {where} but this leaf's declared activity "
@@ -779,6 +839,18 @@ def _load_demote_presence(
                 "content": content,
             },
         )
+    return _load_demote_axis_and_threshold(axis, ext, where=where)
+
+
+def _load_demote_axis_and_threshold(
+    axis: Optional[str], ext: object, *, where: str
+) -> ast.Presence:
+    """Clauses (d)/(e) of `_load_demote_presence`'s own docstring — the
+    axis-vocabulary and threshold-unit refusals, shared verbatim by both
+    the leaf and the Exclusive branches (LYT presence arc P1, row 2333:
+    factored out of `_load_demote_presence` so the Exclusive branch can
+    reach it without duplicating the leaf branch's own clauses (b)/(c),
+    which do not apply to a composite)."""
     if axis not in VALID_SCROLL_AXES:
         raise LytLoadError(
             f"@demote axis {axis!r} at {where} is not one of "
@@ -895,6 +967,7 @@ def _load_presence(
     node_kind: str = "leaf",
     activity: Optional[str] = None,
     content: Optional[str] = None,
+    tag: Optional[str] = None,
 ) -> ast.Presence:
     if rp is None:
         return ast.FIXED
@@ -904,7 +977,7 @@ def _load_presence(
         return ast.DEV
     if rp.kind == "demote":
         return _load_demote_presence(
-            rp, where=where, node_kind=node_kind, activity=activity, content=content
+            rp, where=where, node_kind=node_kind, activity=activity, content=content, tag=tag
         )
     assert rp.kind == "toggle"
     by = rp.by
@@ -2475,7 +2548,10 @@ def load_slot(
         excl = ast.Exclusive(children=children, tag=node.tag)
         sizing = _load_sizing(rs.sizing, where=path, node_kind="exclusive")
         # LOOP ITERATION 11 (L15): same threading as the Split branch.
-        presence = _load_presence(rs.presence, where=path, node_kind="exclusive")
+        # LYT presence arc P1 (row 2333): `tag` is threaded through too --
+        # an Exclusive declaring `@demote` needs its own [TAG] as its
+        # presence-pruning identity (`_load_demote_presence` clause (f)).
+        presence = _load_presence(rs.presence, where=path, node_kind="exclusive", tag=node.tag)
         sizing = _apply_preserve_reservation(sizing, presence, where=path)
         return ast.Slot(
             node=excl, presence=presence, sizing=sizing,

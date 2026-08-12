@@ -1405,10 +1405,27 @@ prior amendment used:
 - **`activity <level>`**, closed vocabulary `{sustained, occasional}` —
   LEAF-only, last-write-wins (`law: "L15"`).
 - **`@demote(<axis> <extent>)`** — a fourth presence kind beside
-  `@fixed`/`@dev`/`@toggle` (§4.1); requires `activity occasional` and
-  `content bounded` on the same leaf, a closed PHYSICAL axis vocabulary
-  (roles refused by name here — a demotion's axis is the BAND's, not the
-  leaf's own frame), and a constant px threshold (`law: "L15"`).
+  `@fixed`/`@dev`/`@toggle` (§4.1); on a LEAF, requires `activity
+  occasional` and `content bounded` on that same leaf; a closed PHYSICAL
+  axis vocabulary (roles refused by name here — a demotion's axis is the
+  BAND's, not the leaf's own frame), and a constant px threshold
+  (`law: "L15"`). **[Widened 2026-08-12, LYT presence arc P1, ledger row
+  2333 — `.claude/dispatch-reports/lyt-p1-presence-model.md`]**: also
+  legal on a TAGGED Exclusive (`T(...)[TAG]`) — every `T`-child already
+  shares one rectangle and only one is ever visible (§2), so the whole
+  group is already ONE presence-relevant unit, the same way a single
+  leaf is; unlike the leaf case, no `activity`/`content` precondition
+  applies (both are `Leaf`-only fields an Exclusive has none of), but the
+  Exclusive MUST carry a non-empty `[TAG]` (`prohibition:
+  "demote-exclusive-without-tag"`) — `presence.PresenceValuation`'s own
+  identity namespace widens correspondingly: a valuation names an
+  Exclusive absent by its `[TAG]` string, the same flat
+  `absent_widgets: FrozenSet[str]` a leaf's own `widget` id already
+  uses (see `presence.py`'s own P1 docstring section for the full
+  disclosure). Still refused on a Split (`prohibition:
+  "demote-on-non-leaf-non-exclusive"`) — a Split's children are
+  independently-addressable siblings, not alternatives, so this
+  widening does not extend there.
 - **`floor <axis> <extent>`**, `axis` ∈ `{h, v}` — accumulated; LEAF-only;
   `{h,v}` after role resolution; a constant px extent judged on the RAW
   term before `ch` is folded into px (`law: "L16"`).

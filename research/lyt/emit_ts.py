@@ -64,7 +64,13 @@ import lyt_ast as ast
 import loader
 from compiler import solve_lexicographic, SolveResult
 from presence import ALL_PRESENT, resolve_and_validate
-from runner import ENCODINGS_DIR, REGISTRATIONS, SCREEN_SIZES, _gather_reach_preferred_widgets
+from runner import (
+    ENCODINGS_DIR,
+    REGISTRATIONS,
+    SCREEN_SIZES,
+    _gather_reach_preferred_widgets,
+    valuation_for_class,
+)
 
 DEFAULT_OUT = Path(__file__).parent.parent.parent / "frontend" / "src" / "state" / "lyt-solved-layout.gen.ts"
 
@@ -169,14 +175,35 @@ def build_solved_registrations(
     (`current_row_repaired.lyt`, `current_row_asis.lyt`); only the
     lengyue registration's reference now correctly excludes
     boardRail/previewBoard, matching the live render it's diffed against.
+    LYT presence arc P1 (row 2333) widens this once more: when `class_id`
+    is given, the valuation resolved is `runner.valuation_for_class`'s
+    own per-class result, not the flat `default_valuation` — portrait's
+    own reference now correctly excludes the control-panel group too
+    (`"BLACK BOX"`), matching the same repetition-first default the
+    solver and `runner.py` now share.
     """
     reg = _find_registration(registration_name)
     layouts: Dict[str, ast.Slot] = {}
     for f in reg.files:
         text = (ENCODINGS_DIR / f).read_text()
         layouts.update(loader.load_layouts(text, waivers=reg.waivers))
-    default_valuation = getattr(reg, "default_valuation", ALL_PRESENT)
-    layouts = resolve_and_validate(layouts, reg.layout_by_class.values(), default_valuation)
+    # LYT presence arc P1 (row 2333): a registration MAY declare a
+    # per-class override of its own default valuation
+    # (`Registration.default_valuation_by_class`, `runner.
+    # valuation_for_class`) — resolved here per the SAME class this
+    # call's own `class_id` already names explicitly (this function's own
+    # docstring: every representative size is solved against the SAME
+    # caller-chosen class). When `class_id` is `None` (a single-class
+    # registration, every one of which declares no per-class override
+    # today), this is byte-identical to the pre-P1 flat
+    # `reg.default_valuation` resolution below.
+    if class_id is not None:
+        default_valuation = valuation_for_class(reg, class_id)
+        layout_name = reg.layout_by_class[class_id]
+        layouts = resolve_and_validate(layouts, [layout_name], default_valuation)
+    else:
+        default_valuation = getattr(reg, "default_valuation", ALL_PRESENT)
+        layouts = resolve_and_validate(layouts, reg.layout_by_class.values(), default_valuation)
 
     screen_classes: List[dict] = [
         {"id": c.id, "wPx": c.w_px, "hPx": c.h_px} for c in sorted(reg.classes, key=lambda c: c.id)

@@ -1590,18 +1590,61 @@ def test_demote_refuses_a_non_px_threshold(bad):
     assert exc.value.detail["prohibition"] == "non-px-demote-threshold"
 
 
-@pytest.mark.parametrize("shape", ["V", "T"])
-def test_demote_refuses_a_container(shape):
+def test_demote_refuses_a_split():
+    # LYT presence arc P1 (row 2333): a Split still refuses `@demote`
+    # unconditionally -- its children are independently-addressable
+    # siblings, not alternatives, so a whole-band demotion still hides
+    # facts about which specific child paid for the decision. Only an
+    # Exclusive gained the widening (below).
     with pytest.raises(LytLoadError) as exc:
         _load(
             "layout g = {min 0px, pref 1fr, max inf} V("
-            "@demote(h 616px) {min 0px, pref 1fr, max inf} " + shape + "("
+            "@demote(h 616px) {min 0px, pref 1fr, max inf} V("
             "{min 0px, pref 1fr, max inf} A[chrome],"
             "{min 0px, pref 1fr, max inf} B[chrome]),"
             "{min 0px, pref 1fr, max inf} C[chrome])"
         )
     assert exc.value.detail["law"] == "L15"
-    assert exc.value.detail["prohibition"] == "demote-on-non-leaf"
+    assert exc.value.detail["prohibition"] == "demote-on-non-leaf-non-exclusive"
+
+
+def test_demote_refuses_an_untagged_exclusive():
+    # LYT presence arc P1 (row 2333): an Exclusive IS eligible for
+    # `@demote` now (every T-child already shares one rectangle and only
+    # one is ever visible, so the whole group is already one
+    # presence-relevant unit) -- but only when it carries a `[TAG]`,
+    # since that tag is what `presence.PresenceValuation` names it by. An
+    # untagged Exclusive has no honest identity to be pruned by.
+    with pytest.raises(LytLoadError) as exc:
+        _load(
+            "layout g = {min 0px, pref 1fr, max inf} V("
+            "@demote(h 616px) {min 0px, pref 1fr, max inf} T("
+            "{min 0px, pref 1fr, max inf} A[chrome],"
+            "{min 0px, pref 1fr, max inf} B[chrome]),"
+            "{min 0px, pref 1fr, max inf} C[chrome])"
+        )
+    assert exc.value.detail["law"] == "L15"
+    assert exc.value.detail["prohibition"] == "demote-exclusive-without-tag"
+
+
+def test_demote_accepts_a_tagged_exclusive():
+    # LYT presence arc P1 (row 2333): the positive case -- a TAGGED
+    # Exclusive declaring `@demote` loads clean, and its presence kind is
+    # genuinely "demote" (not silently coerced to "fixed").
+    root = _load(
+        "layout g = {min 0px, pref 1fr, max inf} V("
+        "@demote(h 616px) {min 0px, pref 1fr, max inf} T("
+        "{min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome]"
+        ")[MY TAG],"
+        "{min 0px, pref 1fr, max inf} C[chrome])"
+    )["g"]
+    excl_slot = root.node.children[0]
+    assert excl_slot.node.kind == "exclusive"
+    assert excl_slot.node.tag == "MY TAG"
+    assert excl_slot.presence.kind == "demote"
+    assert excl_slot.presence.demote_axis == "h"
+    assert excl_slot.presence.demote_below_px == 616.0
 
 
 def test_l15_clause_a_fires_on_a_wrapping_leaf_that_never_ranked_itself():

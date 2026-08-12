@@ -1686,6 +1686,25 @@ def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_
     # own board-forced-width/floor-collision finding, or all-present's own
     # boardRail+previewBoard reservation) — re-verified by direct re-solve,
     # not assumed unchanged.
+    #
+    # LYT presence arc P1 (row 2333, mobile/portrait repetition-first
+    # disposition; `.claude/dispatch-reports/lyt-p1-presence-model.md`) —
+    # THREE more entries flip INFEASIBLE -> OPTIMAL, re-solved directly
+    # (not assumed): `("default", "portrait", "768x1024"/"540x960"/
+    # "420x880")`, removed from the set below. Portrait's own DEFAULT
+    # valuation now genuinely demotes the control-panel tab group
+    # (`"BLACK BOX"`, the `T(...)` Exclusive's own `@demote(h 808px)` --
+    # see `lengyue_portrait.lyt`'s own header for the derivation) alongside
+    # boardRail/previewBoard/A_setup — at these three narrow-viewport
+    # portrait sizes, the row's own residual demand drops from
+    # 664(T)+140(tree)+4(gap)=808px to just `tree`'s own 140px floor once
+    # `T(...)` is pruned, which is what makes them genuinely solve.
+    # Landscape's own entries are UNCHANGED — its `default_valuation` is
+    # untouched by this arc (row 2333's own "do NOT shrink any desktop
+    # demand"); only a SEPARATE, diagnostic-only "demoted" coverage point
+    # (`coverage_matrix.py`, not this mockup-overlay JSON, which embeds
+    # only `default`/`all-present`) exercises the control panel's absence
+    # on landscape.
     known_infeasible_by_valuation = {
         ("all-present", "landscape", "1920x1080"),
         ("all-present", "landscape", "2560x1440"),
@@ -1704,9 +1723,6 @@ def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_
         ("all-present", "portrait", "540x960"),
         ("all-present", "portrait", "420x880"),
         ("all-present", "portrait", "1920x1080-in-portrait"),
-        ("default", "portrait", "768x1024"),
-        ("default", "portrait", "540x960"),
-        ("default", "portrait", "420x880"),
     }
     for class_id, html_text in mockup_pages.items():
         m = re.search(r'<script id="lyt-solved-data" type="application/json">(.*?)</script>', html_text, re.S)

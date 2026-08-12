@@ -1451,6 +1451,38 @@ matching grammar/semantics addendum for the six keys (this amendment's
 own §15.4-adjacent material); this amendment's own dispatch report,
 `.claude/dispatch-reports/lyt-m2-substrate-port.md`.
 
+**[ADDENDUM 2026-08-12, LYT presence arc P1, ledger row 2333 —
+`.claude/dispatch-reports/lyt-p1-presence-model.md`, not a renumbered
+amendment, a dated widening of this amendment's own `@demote` entry,
+per this file's own "append, don't rewrite" convention.]** `@demote`
+(item 4 above) is no longer leaf-only. `loader._load_demote_presence`
+now also admits a TAGGED Exclusive (`T(...)[TAG]`) — the group's own
+`[TAG]` (previously documentation-only, SPEC.md §1.1) doubles as its
+presence-pruning identity when named absent, since every `T`-child
+already shares one rectangle and only one is ever visible (§2), making
+the whole group already ONE presence-relevant unit the same way a
+single leaf is; a Split remains refused (its children are
+independently-addressable siblings, not alternatives — the widening
+does not extend there). `presence.py`'s `absent_widgets` namespace
+widens correspondingly (a leaf's `widget` id OR a tagged Exclusive's
+own `[TAG]`, one flat `FrozenSet[str]`, not two typed fields). Both
+`lengyue_landscape.lyt`/`lengyue_portrait.lyt` now declare `@demote` on
+their own control-panel `T(...)[BLACK BOX]` — a WIDTH threshold derived
+from already-named facts (664px pinned T floor + tree's own floor + one
+row gap; see each file's own header for the exact per-class derivation)
+— and `runner.Registration` gains a per-class default-valuation override
+(`default_valuation_by_class`) so portrait's own DEFAULT genuinely
+demotes the control panel (mobile/portrait repetition-first: board +
+`tree` match/play primary, the tab group secondary) while landscape's
+own default is UNCHANGED (row 2333's own "do NOT shrink any desktop
+demand" — landscape's own control-panel absence is exercised only via
+`coverage_matrix.py`'s existing diagnostic "demoted" row). See the
+dispatch report for the full before/after coverage-matrix delta
+(three portrait `default` points, 768x1024/540x960/420x880, flip
+INFEASIBLE → OPTIMAL) and the model-side diagnosis of the
+already-filed zero-height-tree-row symptom (row 2350) this arc's own
+work surfaced a clean re-solve for.
+
 ## Amendment 9 (ledger row 2310, M2 stage B1) — derived orientation: `orient` becomes DERIVED for a residual-holding leaf, law L18
 
 **Ruling, verbatim substance (commissioner-ratified 2026-08-12).** Tree

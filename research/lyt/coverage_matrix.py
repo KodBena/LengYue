@@ -57,7 +57,7 @@ import lyt_ast as ast
 import loader
 from compiler import solve_lexicographic
 from presence import ALL_PRESENT, PresenceValuation, resolve_and_validate
-from runner import REGISTRATIONS, _gather_reach_preferred_widgets, nearest_class
+from runner import REGISTRATIONS, _gather_reach_preferred_widgets, nearest_class, valuation_for_class
 
 ENCODINGS_DIR = Path(__file__).parent / "encodings"
 
@@ -101,15 +101,20 @@ def _find_leaf_orientation(slot: ast.Slot, widget_id: str) -> str:
 
 def _find_leaf_presence_kind(slot: ast.Slot, widget_id: str) -> "str | None":
     """Walks the (unpruned) tree for `widget_id`'s declared `Presence.kind`
-    -- `None` if the widget doesn't appear in this tree at all. Same
+    -- `None` if the identity doesn't appear in this tree at all. Same
     generic-children walk as `_find_leaf_orientation_raw` above; the
     fix-pass counterpart that lets the "demoted" valuation below tell
     "this encoding never declared `@demote` here" (a legal state, per
     `loader._load_presence`'s own `ast.FIXED` default for an undecorated
     leaf) apart from "this encoding declared something else that
-    conflicts" -- both distinct from a crash."""
+    conflicts" -- both distinct from a crash. LYT presence arc P1 (row
+    2333): `widget_id` now also matches a tagged Exclusive's own `[TAG]`
+    (`presence._collect_leaf_presence`'s own identical widening), since
+    `DEMOTED_EXTRA_WIDGETS` names one ("BLACK BOX")."""
     node = slot.node
     if isinstance(node, ast.Leaf) and node.widget == widget_id:
+        return slot.presence.kind
+    if isinstance(node, ast.Exclusive) and node.tag == widget_id:
         return slot.presence.kind
     for child in getattr(node, "children", []):
         found = _find_leaf_presence_kind(child, widget_id)
@@ -130,7 +135,16 @@ def _find_leaf_presence_kind(slot: ast.Slot, widget_id: str) -> "str | None":
 # below checks for it explicitly per class and reports an honest N/A
 # rather than letting `presence.validate_valuation` raise `LytLoadError`
 # (which is what this tool did, uncaught, before this fix).
-DEMOTED_EXTRA_WIDGETS = frozenset({"A_app"})
+# LYT presence arc P1 (row 2333): "BLACK BOX" (the control-panel
+# Exclusive's own `[BLACK BOX]` tag, now a genuine `@demote` presence
+# identity on both classes) joins `A_app` here -- landscape's own
+# DIAGNOSTIC "demoted" coverage point (its `default_valuation` is
+# unchanged; only this coverage row exercises the control panel's
+# absence there) and portrait's own "demoted" row (which already
+# includes it via `default_valuation_by_class["portrait"]`, so the
+# union below is a no-op addition for portrait specifically, not a
+# double-count -- `frozenset | frozenset` is idempotent).
+DEMOTED_EXTRA_WIDGETS = frozenset({"A_app", "BLACK BOX"})
 
 
 def run_matrix() -> Tuple[List[dict], bool]:
@@ -140,21 +154,22 @@ def run_matrix() -> Tuple[List[dict], bool]:
         text = (ENCODINGS_DIR / f).read_text()
         layouts_raw.update(loader.load_layouts(text, waivers=reg.waivers))
 
-    demoted = PresenceValuation(
-        name="demoted",
-        absent_widgets=reg.default_valuation.absent_widgets | DEMOTED_EXTRA_WIDGETS,
-    )
-    base_valuations = {"all-present": ALL_PRESENT, "default": reg.default_valuation}
     rows: List[dict] = []
     all_ok = True
 
     # all-present / default: genuinely declared on every encoding this
     # branch loads (Amendment 4), so always solved, no honesty caveat
-    # needed.
-    for valuation_name, valuation in base_valuations.items():
-        layouts = resolve_and_validate(dict(layouts_raw), reg.layout_by_class.values(), valuation)
+    # needed. LYT presence arc P1 (row 2333): "default" is now resolved
+    # PER CLASS (`runner.valuation_for_class`) -- portrait's own default
+    # differs from landscape's (the control-panel repetition-first
+    # demotion), so a single shared valuation can no longer be validated
+    # against both layouts in one call (see `runner.run_all`'s own P1
+    # docstring update for the identical reasoning).
+    for valuation_name in ("all-present", "default"):
         for class_id, sizes in (("landscape", LANDSCAPE_SIZES), ("portrait", PORTRAIT_SIZES)):
             layout_name = reg.layout_by_class[class_id]
+            valuation = ALL_PRESENT if valuation_name == "all-present" else valuation_for_class(reg, class_id)
+            layouts = resolve_and_validate(dict(layouts_raw), [layout_name], valuation)
             slot = layouts[layout_name]
             tree_orientation = _find_leaf_orientation(slot, "tree")
             reach = _gather_reach_preferred_widgets(slot, reg.board_widget)
@@ -191,6 +206,10 @@ def run_matrix() -> Tuple[List[dict], bool]:
     for class_id, sizes in (("landscape", LANDSCAPE_SIZES), ("portrait", PORTRAIT_SIZES)):
         layout_name = reg.layout_by_class[class_id]
         raw_slot = layouts_raw[layout_name]
+        demoted = PresenceValuation(
+            name="demoted",
+            absent_widgets=valuation_for_class(reg, class_id).absent_widgets | DEMOTED_EXTRA_WIDGETS,
+        )
         undeclared = sorted(
             w for w in DEMOTED_EXTRA_WIDGETS if _find_leaf_presence_kind(raw_slot, w) != "demote"
         )
