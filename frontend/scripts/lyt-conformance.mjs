@@ -337,7 +337,6 @@ async function measureAtSize(browser, { label, wPx, hPx }) {
   if (workspaceReached) {
     for (const [widget, { selector }] of Object.entries(selectors)) {
       if (selector === null) continue;
-      // eslint-disable-next-line no-await-in-loop -- sequential DOM reads, not a hot path
       const rect = await page.evaluate((sel) => {
         const el = document.querySelector(sel);
         if (!el) return null;
@@ -506,7 +505,6 @@ async function main() {
         runs.push({ label: reg.label, wPx: reg.wPx, hPx: reg.hPx, solvedStatus: reg.status, solvedSlots: {}, workspaceReached: false, measurements: {}, consoleErrors: [] });
         continue;
       }
-      // eslint-disable-next-line no-await-in-loop -- sequential viewport sizes, not parallelizable against one browser instance
       const result = await measureAtSize(browser, reg);
       runs.push({ ...result, wPx: reg.wPx, hPx: reg.hPx, solvedStatus: reg.status, solvedSlots: reg.slots });
     }

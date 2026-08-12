@@ -81,6 +81,8 @@ function rescan(): void {
   void proxyUpstream.discover();
 }
 async function choosePicked(event: Event): Promise<void> {
+  // DOM cast: bound as the `change` handler on the discovered-upstreams
+  // <select>, so `event.target` is always that element.
   const url = (event.target as HTMLSelectElement).value;
   if (!url) return; // the disabled placeholder option
   proxyUpstream.discoveryState.value = { kind: 'idle' };

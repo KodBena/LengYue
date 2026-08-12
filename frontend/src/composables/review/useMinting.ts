@@ -117,7 +117,7 @@ export function resolveBoardLineage(
   // runtime, so this is the standard ADR-0002-justified brand-erasure
   // cast on the way to a snake_case wire payload.
   if (board.sourceCardId !== undefined) {
-    return { parent_card_id: board.sourceCardId as unknown as number };
+    return { parent_card_id: board.sourceCardId as unknown as number }; // brand-erasure cast, see docstring above
   }
   return {
     game_metadata: {
@@ -278,6 +278,10 @@ export function useMinting() {
       const cardId = cardIds[i];
       learnTags(card.tags);
       try {
+        // Brand mint: `cardIds` are wire numbers straight off the batch
+        // response (`backendService.createCardsBatch`); this is the ACL
+        // handoff re-branding the freshly-minted id into the domain
+        // CardId used by known-positions recording.
         await rememberMintedCard(card.raw_content, cardId as unknown as CardId);
       } catch (err) {
         console.warn('[useMinting] rememberMintedCard failed for batch item (non-fatal):', err);
