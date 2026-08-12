@@ -81,9 +81,10 @@ export type LytPresenceTargetId = (typeof LYT_PRESENCE_TARGETS)[number];
 /**
  * Fallback default per target — mirrors `lyt-layout.gen.ts`'s own
  * `presenceDefaultVisible` for `boardRail` (path '0') and `previewBoard`
- * (path '2.2.2', formerly '2.3.2' — LYT toolbar ontology reencode,
- * 2026-08-11), both `false`, and `controlPanel` (path '2.2.1', formerly
- * '2.3.1')'s `true`. Kept as a literal (not derived by walking `LYT_LANDSCAPE` at
+ * (path '2.3.2', was '2.2.2' — M2 stage B2a/B2b's new `A_setup` leaf
+ * shifted the tree/panels row from '2.2' to '2.3'), both `false`, and
+ * `controlPanel` (path '2.3.1', was '2.2.1')'s `true`. Kept as a literal
+ * (not derived by walking `LYT_LANDSCAPE` at
  * runtime) because exactly these three ids are presence-menu targets —
  * see this file's header. `defaults.ts`'s `defaultSessionUI.lytPresence`
  * seeds the SAME triple; this is the one other place it is named (the
