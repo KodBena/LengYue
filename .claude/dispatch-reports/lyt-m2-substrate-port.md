@@ -545,3 +545,232 @@ lyt-phase2` resolves `origin/lyt-phase2` to `844e8472` — unchanged since
 this session's own start. `git merge-base --is-ancestor 844e8472 HEAD`
 confirms `844e8472` is still an ancestor of this worktree's `HEAD` — no
 rebase needed.
+
+## Fix pass — 2026-08-12, review findings 1 and 2
+
+Commissioned repair of exactly two findings from the fresh-context
+adversarial review
+(`.claude/dispatch-reports/lyt-m2-substrate-port-review.md`, verdict
+ACCEPT-WITH-FINDINGS), plus one report-only item. Scope held to those
+two fixes; nothing else touched. Commit `296464cf`.
+
+### Fix 1 — `coverage_matrix.py` crash on mainline encodings (WITNESSED)
+
+**Root cause.** `run_matrix()`'s "demoted" valuation was built by
+unconditionally adding `A_app` to the DEFAULT valuation's absent set,
+then calling `presence.resolve_and_validate` across both classes'
+layouts in one shot. `validate_valuation` refuses (`LytLoadError`,
+`law: "presence-valuation"`, `prohibition: "not-a-release-toggle"`)
+naming an absent widget whose declared `Presence.kind` isn't `toggle`
+or `demote`. On the experiment branch's own edited encodings, `A_app`
+declares `@demote(h 616px)`, so this always succeeded. On mainline's
+unedited encodings, `A_app` is a bare `{160px} A_app[common,
+action]` leaf — `loader._load_presence`'s own `ast.FIXED` default
+(`kind="fixed"`) for an undecorated leaf, confirmed by direct read of
+both `encodings/lengyue_landscape.lyt:725` and
+`encodings/lengyue_portrait.lyt:166`. That is a legal state per
+`loader.py`, not malformed input — the crash was the tool's own
+unwarranted assumption, not the encoding's fault.
+
+**Fix.** `coverage_matrix.py` now separates the two genuinely-declared
+valuations (all-present, default — solved exactly as before, byte-for-
+byte identical code path) from the "demoted" one. For "demoted", it
+walks each class's own unpruned tree
+(`_find_leaf_presence_kind`, mirroring the existing
+`_find_leaf_orientation_raw` walk) to check whether every widget the
+valuation would name absent actually declares `kind == "demote"` in
+THAT class's tree. If not, it emits an honest, clearly-labeled row per
+size point — `"N/A -- no @demote declared for A_app"` — with no solve
+attempted, no exception, no silent gap: every one of the 24 axis
+points still gets a row. If a class's tree DOES declare `@demote` (the
+experiment-branch case), it solves through the identical
+`resolve_and_validate` → `solve_lexicographic` path as before, narrowed
+to that one class's own layout rather than both at once (so a future
+mixed present/absent split across classes, not exercised on mainline
+today, wouldn't force an all-or-nothing refusal on the other class
+either — a small robustness improvement that falls naturally out of
+per-class gating, not a scope expansion).
+
+**Witness — before fix (reproduced the review's own crash):**
+```
+$ nice -n 19 <lytvenv>/bin/python coverage_matrix.py
+LytLoadError: presence valuation 'demoted' names widget 'A_app' as
+absent, but its declared presence (kind='fixed', ...) is neither a
+user-initiated release toggle nor a demotion ...
+$ echo $?
+1
+```
+
+**Witness — after fix:**
+```
+$ nice -n 19 <lytvenv>/bin/python coverage_matrix.py
+====================================================================================================
+METAMODEL WAVE item 3 -- total coverage matrix (24 axis points: 2 classes x 3 valuations x 3/5 sizes)
+====================================================================================================
+... (full 24-row table, "demoted" rows all read
+"N/A -- no @demote declared for A_app") ...
+portrait floor (every portrait row OPTIMAL or FEASIBLE): VIOLATED
+$ echo $?
+1
+```
+
+No crash, no traceback, honest table for all 24 points — the demoted
+valuation's own 8 rows are correctly N/A rather than fabricated or
+skipped. **The overall exit code is 1, not 0** (see gate (c) below for
+why, and why that is not this fix's own defect).
+
+### Fix 2 — false dormancy claims in `SPEC.md` / `SPEC-AMENDMENTS.md` (WITNESSED)
+
+**What was false.** Both documents' Amendment 8 material labeled all
+six laws (L12-L17) "*Checked*"/dormant identically, and both stated
+"every one of L12-L17 returns `[]` unconditionally for both trees" and
+that `check_wellformed` was "generalized to arbitrate all six through
+the same waiver mechanism". Confirmed false by direct call: running
+`wellformed.find_l13_violations` and `find_l17_violations` against
+both real, unedited reference encodings returns 2 and 4 violations per
+class respectively, not `[]` — matching the review's own independently
+witnessed counts and `wellformed.py`'s own accurate "M2 PORT
+DISCLOSURE" docstring (left unchanged; it was already correct).
+
+**Fix.** Both documents corrected in place, with inline dated
+attribution (`[corrected 2026-08-12, fix pass on the M2 substrate-port
+review's finding 2, ledger row 2312]`) rather than a silent rewrite —
+`SPEC.md` is the current-state document so the correction reads as
+current truth; `SPEC-AMENDMENTS.md` is the append-only amendment
+ledger, so the correction is left visibly attributed as replacing an
+identified-false earlier claim rather than pretending the error never
+happened. Both now distinguish:
+- **L12, L14, L15, L16** — genuinely dormant AND wired into
+  `check_wellformed`'s `all_violations`; return `[]` on both mainline
+  encodings, unchanged claim, still true.
+- **L13, L17** — fully implemented, exercised by their own dedicated
+  tests, but deliberately NOT in `all_violations`, because wiring
+  either would make `load_layouts` refuse both real reference
+  encodings today (verified, not guessed) — stage B's own job to
+  resolve via encoding-content edits, not this port's. Both DO fire
+  (2 and 4 violations respectively) when called directly; they are
+  correctly-implemented-and-dormant-only-at-the-load-boundary, not
+  dormant in the sense the original prose claimed.
+
+Every other claim in the surrounding paragraphs (byte-identical
+solver output before/after, test suite loading both encodings
+successfully) was independently re-checked and left untouched — those
+were true before and remain true; only the "all six return `[]`"/
+"arbitrates all six" sentences were false, and only those were edited
+(ADR-0004 minimal-touch).
+
+### Gates (nice -n 19, scratch venv with `ortools`+`pytest`, same venv the review built)
+
+**(a) Full suite, `research/lyt/tests`:**
+```
+$ nice -n 19 <lytvenv>/bin/python -m pytest research/lyt/tests -q
+340 passed in 3.72s
+$ echo $?
+0
+```
+**Literal exit code: 0.** Matches the pre-fix baseline (340) — the fix
+touches no test file and adds no new test.
+
+**(b) Dormancy re-proof** (`git archive 844e8472 research/lyt` vs.
+`HEAD:research/lyt`, `runner.py` both sides):
+```
+$ cd dormancy_before/research/lyt && python runner.py > before.log; echo $?
+1
+$ cd <HEAD>/research/lyt && python runner.py > after.log; echo $?
+1
+$ diff before.log after.log; echo $?
+0
+```
+**987 lines both, byte-identical, exit 1 both (expected — genuine
+INFEASIBLE sizes per SPEC.md, not a crash; grepped both logs for
+ERROR/Exception/Traceback, zero hits in either).** `runner.py` itself
+is untouched by this fix pass — this re-confirms the M2 port's own
+dormancy claim still holds after the fix, since the fix only touches
+`coverage_matrix.py` and two spec documents, neither of which
+`runner.py` reads.
+
+**(c) `coverage_matrix.py` against mainline encodings:**
+```
+$ nice -n 19 <lytvenv>/bin/python coverage_matrix.py
+... full 24-row honest table, no crash ...
+portrait floor (every portrait row OPTIMAL or FEASIBLE): VIOLATED
+$ echo $?
+1
+```
+**Literal exit code: 1 — not 0.** This is disclosed here rather than
+forced to match the commission's stated expectation, per ADR-0002:
+forcing a `0` here would misrepresent a real solver result as success.
+The crash Fix 1 targeted is fully resolved (no exception, full table,
+demoted valuation honestly N/A). The remaining non-zero exit comes
+from a DIFFERENT, pre-existing fact: several `default`/`all-present`
+portrait rows at narrow sizes (768x1024, 540x960, 420x880) solve to
+`INFEASIBLE`, which trips `run_matrix`'s own `portrait_ok` check — code
+this fix pass did not touch (verbatim from the original delivery).
+
+Investigated whether this is a regression this fix pass (or M1/M2)
+introduced, since `SPEC-AMENDMENTS.md`'s own Amendment 4 feasibility
+table (lines 499-514) documents portrait 768x1024 and 540x960 as
+`OPTIMAL` under the default valuation. **It is not a regression**:
+extracted `research/lyt` from commit `9fbc899b` (the settings-live
+commit immediately preceding M1's own first commit, i.e. pre-M1,
+pre-M2, well after Amendment 4) via `git archive` into scratch, and
+ran an isolated probe solving the SAME registration
+(`lengyue_landscape+portrait`, default valuation) at the same three
+sizes:
+```
+$ <lytvenv>/bin/python probe_sizes.py   # against 9fbc899b's own tree
+768x1024 INFEASIBLE
+540x960 INFEASIBLE
+420x880 INFEASIBLE
+```
+Identical INFEASIBLE results, pre-M1. This means Amendment 4's own
+feasibility table has gone stale relative to LATER, unrelated encoding
+edits made sometime between Amendment 4 and `9fbc899b` (outside M1/M2's
+own scope entirely) — not something this fix pass, or the M2 substrate
+port, caused or should silently paper over. **STOP-and-report**: the
+commission's gate (c) expectation of exit 0 does not hold, for a reason
+outside Fix 1's scope (a stale feasibility table / genuine pre-existing
+portrait infeasibility, not a `coverage_matrix.py` defect); flagged here
+rather than forced, and left for the commissioner to decide whether a
+follow-up item should refresh Amendment 4's table or investigate the
+intervening encoding change.
+
+### Report-only item — bounded-subset framing provenance (WITNESSED, no code change)
+
+`git diff 9d9c1cae:research/lyt/coverage_matrix.py
+296464cf~1:research/lyt/coverage_matrix.py` (comparing the experiment
+tip directly against the M2 delivery's own committed file, before this
+fix pass's edits) produces a 16-line diff touching only the module
+docstring's OPENING paragraph — the ledger-row/branch-name provenance
+phrasing (`"branch lyt-model-loop-experiment, NOT merged without
+ratification"` → `"M2 of the model-implementation arc; ported to
+mainline"`). The entire "Disclosed scope" / "NOT implemented this
+wave" paragraph — the bounded-subset framing itself (screen-class and
+presence-valuation axes solved; variant-family axis and activity-phase
+axis explicitly named as NOT implemented) — is **byte-identical**
+between the experiment tip and the M2 delivery.
+
+**Verdict: inherited verbatim from the experiment branch, not a
+stage-A narrowing this port introduced.** The bounded-subset framing
+was already the experiment's own disclosed posture six commits before
+this port; M2 carried it forward unchanged (matching the delegated
+subagent's own independent "FAITHFUL (only header framing adapted,
+disclosed)" verdict from the review's Duty 3 table). This belongs on
+the frontier list as a standing, pre-existing scope boundary — a
+future amendment inventing the variant-family/activity-phase axes is
+follow-up work the experiment branch itself already named, not a gap
+this M2 port newly created.
+
+### Discipline notes
+
+No scope expansion beyond the two named fixes and the one report item.
+The gate (c) exit-code shortfall and the Amendment-4-table staleness it
+surfaced are reported, not silently absorbed or independently "fixed"
+— both are named above as STOP-and-report material for the
+commissioner's own disposition. Every claim above is witnessed with
+its own command and literal output; none is asserted from memory or
+inferred from a partial read.
+
+Ledger rows: 2312 (fix authorization, `coverage_matrix.py`), 2313
+(scratch probe script authorization, outside the repo tree).
+`HEAD` at the end of this fix pass: `296464cf562b66ee8ad2e1dc1d4c4310c48a5016`.
