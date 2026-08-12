@@ -1424,11 +1424,13 @@ permissive, loader refuses" division of labor.
   find_l12_violations`. SOLVER-VISIBLE, unlike every other law this
   amendment adds — `compiler._constrain` and the Exclusive branch's own
   componentwise-max both read `Sizing.axis_min(axis)`.
-- **L13 (surplus attribution).** *Checked*, `wellformed.
-  find_l13_violations`. Fires at the same both-axes position L12
-  distinguishes: an unbounded leaf there must dispose of every axis its
-  reservation can exceed its floor on, by `scroll`, `elastic`, or a
-  pinned floor==cap.
+- **L13 (surplus attribution).** *Implemented, tested directly, NOT
+  wired into `check_wellformed`'s default enforcement* [corrected
+  2026-08-12, fix pass on the M2 substrate-port review's finding 2 —
+  see the Dormancy paragraph below]. `wellformed.find_l13_violations`.
+  Fires at the same both-axes position L12 distinguishes: an unbounded
+  leaf there must dispose of every axis its reservation can exceed its
+  floor on, by `scroll`, `elastic`, or a pinned floor==cap.
 - **L14 (demand attribution).** *Checked*, `wellformed.
   find_l14_violations`. The complement of L12/L13's scope — fires only
   at a Split child (one axis bound) whose leaf scrolls both axes and
@@ -1443,32 +1445,61 @@ permissive, loader refuses" division of labor.
   that disposed of surplus and excess but never deficit); the join to
   L15 (reserve the floor, or be able to `@demote`); and reachability (a
   floor above the leaf's own constant cap is incoherent).
-- **L17 (edge attribution).** *Checked*, `wellformed.
+- **L17 (edge attribution).** *Implemented, tested directly, NOT
+  wired into `check_wellformed`'s default enforcement* [corrected
+  2026-08-12, same fix pass as L13 above]. `wellformed.
   find_l17_violations`, three clauses: the trigger (an unbounded,
   scrolling leaf owes an `edge` — WIDER than L16's own trigger, no
   `elastic` precondition); an edge is only where a scroll is; and the
   join to L13 (`edge <a> unit` and `elastic <a>` cannot both hold).
 
-All six are arbitrated through the SAME `(law, path)`-keyed `Waiver`
-mechanism `check_wellformed` already generalizes for, alongside L2, L5,
-and L10/L11 (§13.3, §15.3).
+L12, L14, L15, and L16 are arbitrated through the SAME `(law, path)`-keyed
+`Waiver` mechanism `check_wellformed` already generalizes for, alongside
+L2, L5, and L10/L11 (§13.3, §15.3). **L13 and L17 are not** — both fully
+ported, both fully correct, both exercised directly by their own
+dedicated tests, but neither function is called from
+`check_wellformed`'s `all_violations` list, so neither can cause
+`load_layouts` to refuse today. See the Dormancy paragraph immediately
+below for why, and for what that means on the two real reference
+encodings as they stand.
 
-**Dormancy.** Every one of L12-L17 fires only against a genuine
-declaration or condition its own clause names — L12 on a declared
-axis-keyed `min`; L13/L14/L15/L16/L17's structural halves on the
-underlying condition (unbounded content, a two-axis scroller, a
-wrapping leaf, a surplus-plus-excess leaf, a scroll) each law exists to
-find, rather than only on a declaration of the law's own key. Neither
-reference encoding declares any Amendment-8 key nor trips any of the
-five condition-based checks, so all six return `[]` unconditionally as
-of this amendment; both encodings re-solve to byte-identical CP-SAT
-output before and after (verified; see
-[SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)'s Amendment 8 entry and this
-port's own dispatch report,
-`.claude/dispatch-reports/lyt-m2-substrate-port.md`). The laws bind
+**Dormancy [corrected 2026-08-12 — fix pass on the M2 substrate-port
+review, finding 2, ledger row 2312; the paragraph below replaces an
+earlier version that claimed all six laws return `[]` unconditionally,
+which is false for two of them].** L12, L14, L15, and L16 fire only
+against a genuine declaration or condition their own clause names — L12
+on a declared axis-keyed `min`; L14/L15/L16's structural halves on the
+underlying condition (a two-axis scroller with a pinned partition axis,
+a wrapping leaf, a surplus-plus-excess leaf) each law exists to find.
+Neither reference encoding declares any Amendment-8 key nor trips any of
+these three condition-based checks, so all four return `[]`
+unconditionally, and all four ARE wired into `check_wellformed`'s
+`all_violations` — genuinely, end-to-end dormant.
+
+**L13 and L17 are a different case, and the honest one matters.** Both
+functions' own structural conditions — L13's "an unbounded leaf on both
+axes must dispose of every axis it can exceed its floor on"; L17's "an
+unbounded, scrolling leaf owes an `edge`" — DO trip against both real,
+unedited reference encodings as they stand today: `find_l13_violations`
+returns 2 violations (`CP-library`/`CP-cards`), `find_l17_violations`
+returns 4 violations per class across six sites
+(`boardRail`/`tree`×2/`CP-library`/`CP-cards`/`settingsPane`/
+`otherBand`). Neither is a defect in the check — both are correctly
+naming leaves this stage's own encoding content genuinely hasn't yet
+been edited to satisfy (stage B's own job, not this port's). What keeps
+`load_layouts` from refusing on either today is that they are
+deliberately left OUT of `check_wellformed`'s `all_violations` — wiring
+either one in without first landing stage B's encoding-content edits
+would make `load_layouts` refuse BOTH reference encodings outright
+(verified directly, not guessed). Both encodings still re-solve to
+byte-identical CP-SAT output before and after this amendment (verified;
+see [SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)'s Amendment 8 entry and
+this port's own dispatch report,
+`.claude/dispatch-reports/lyt-m2-substrate-port.md`) — that claim was
+never false, only the "all six return `[]`" claim was. The laws bind
 declarations and the conditions that oblige one; they do not
 retroactively indict silence — the same posture §13.3/§15.3's own
-dormancy notes state.
+dormancy notes state, and the posture L12/L14/L15/L16 still hold to.
 
 **Scope note.** This port covers the `research/lyt` Python language
 substrate only. The experiment branch's own `emit_layout_tree.py`

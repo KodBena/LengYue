@@ -1198,29 +1198,57 @@ already established:
    opposite directions, which cannot both hold).
 
 **Dormancy — this port's own acceptance bar, unchanged from Amendment
-7's.** No `.lyt` file in this repository declares any of the six keys —
-neither `lengyue_landscape.lyt` nor `lengyue_portrait.lyt` is touched by
-this amendment. `wellformed.find_l12_violations` through
-`find_l17_violations` are gated on a genuine declaration existing
-somewhere in the tree (L12 on an axis-keyed `min`, L16's clause (a) and
-L17's own trigger are the two exceptions among this amendment's laws
-that are NOT dormant purely on the absence of their OWN key — L13/L14/
-L15/L16/L17's structural halves fire on the underlying CONDITION
-(unbounded content, a two-axis scroller, a wrapping leaf, a
-surplus-and-excess leaf, a scroll) rather than on a declaration of their
-own key, which is the point: each law exists to find the leaf that
-never declared what it should have. Since neither reference encoding
-declares any Amendment-8 key, and neither triggers any of the five
-condition-based checks either, every one of L12-L17 returns `[]`
-unconditionally for both trees). Verified two ways: (a) `tests/
-test_loop_laws.py`'s own arc-4 test classes (ported from the experiment
-branch, appended to the file Amendment 7's own port already carries)
-assert both reference encodings load with every new field at its
-default; (b) both encodings were re-solved via `runner.py` before and
-after this amendment's code changes — **byte-identical solver output**
-(stdout diff empty), the same acceptance bar Amendment 7's own M1
-commission set. See `.claude/dispatch-reports/lyt-m2-substrate-port.md`
-for the full before/after transcript.
+7's [paragraph CORRECTED 2026-08-12, fix pass on the M2 substrate-port
+review's finding 2, ledger row 2312 — the original text below claimed
+"every one of L12-L17 returns `[]` unconditionally for both trees",
+which is false for two of the six; the correction is inline, not a
+rewrite of the surrounding claims that were and remain true].** No
+`.lyt` file in this repository declares any of the six keys — neither
+`lengyue_landscape.lyt` nor `lengyue_portrait.lyt` is touched by this
+amendment. `wellformed.find_l12_violations`, `find_l14_violations`,
+`find_l15_violations`, and `find_l16_violations` are gated on a genuine
+declaration or condition existing somewhere in the tree (L12 on an
+axis-keyed `min`; L14/L15/L16's structural halves fire on the
+underlying CONDITION — a two-axis scroller with a pinned partition
+axis, a wrapping leaf, a surplus-and-excess leaf — rather than on a
+declaration of their own key, which is the point: each law exists to
+find the leaf that never declared what it should have). Neither
+reference encoding declares any Amendment-8 key, and neither triggers
+any of these three condition-based checks either, so all four of these
+laws return `[]` unconditionally for both trees, and all four are wired
+into `check_wellformed`'s `all_violations` (see "What it touched"
+below) — genuinely dormant end-to-end.
+
+**L13 and L17 are NOT in the same position, and the original text above
+overstated the port's own acceptance bar by lumping them in.** Both
+functions' own structural conditions DO trip against both real,
+unedited reference encodings as they stand today: L13's trigger (an
+unbounded-both-axes leaf with no `scroll`/`elastic`/pinned-floor==cap
+disposition) fires on `CP-library`/`CP-cards` (2 violations); L17's
+trigger (an unbounded, scrolling leaf with no declared `edge`) fires
+across six sites (`boardRail`/`tree`×2/`CP-library`/`CP-cards`/
+`settingsPane`/`otherBand`, 4 violations per class). Neither firing is
+a defect in the check itself — both are correctly identifying leaves
+this stage's own encoding content genuinely hasn't been edited to
+satisfy yet, which is stage B's own job, not this port's. What keeps
+`load_layouts` from refusing on either TODAY is that `check_wellformed`'s
+`all_violations` list deliberately does NOT include L13/L17 (see "What
+it touched" below) — wiring either in without first landing stage B's
+encoding-content edits would make `load_layouts` refuse BOTH reference
+encodings outright, verified directly rather than guessed (this is the
+same fact `wellformed.check_wellformed`'s own "M2 PORT DISCLOSURE"
+docstring paragraph states in the code itself). Verified two ways: (a)
+`tests/test_loop_laws.py`'s own arc-4 test classes (ported from the
+experiment branch, appended to the file Amendment 7's own port already
+carries) assert both reference encodings load with every new field at
+its default — still true, since `load_layouts` never calls
+`find_l13_violations`/`find_l17_violations`; (b) both encodings were
+re-solved via `runner.py` before and after this amendment's code
+changes — **byte-identical solver output** (stdout diff empty), the
+same acceptance bar Amendment 7's own M1 commission set — also still
+true, since neither claim depended on L13/L17's own violation counts.
+See `.claude/dispatch-reports/lyt-m2-substrate-port.md` for the full
+before/after transcript.
 
 **What needed generalizing vs. what ported clean.** As with Amendment
 7, none of the six keys' `loader.py`/`wellformed.py`/`lyt_ast.py`/
@@ -1298,9 +1326,12 @@ closed-vocabulary guard); `parser.py` (`RawSizing.axis_mins`/
 `_load_edge_axes`/`_load_orientation`, `_resolve_axis_token`, wired into
 every `load_slot` branch with `orientation` now resolved ahead of every
 axis-taking key it feeds); `wellformed.py` (`find_l12_violations`
-through `find_l17_violations`, `check_wellformed` generalized to
-arbitrate all six through the same waiver mechanism L2/L5/L10/L11
-already use); `compiler.py` (`_constrain`'s `axis_min` read, the
+through `find_l17_violations` all six ported and correct, but
+`check_wellformed` generalized to arbitrate only L12/L14/L15/L16
+through the same waiver mechanism L2/L5/L10/L11 already use — L13/L17
+are deliberately NOT wired into `all_violations`, corrected 2026-08-12,
+fix pass on the M2 substrate-port review's finding 2; see the Dormancy
+paragraph above for why); `compiler.py` (`_constrain`'s `axis_min` read, the
 Exclusive branch's per-axis componentwise-max, both gated dormant on no
 axis-keyed `min` declared); `presence.py` (`validate_valuation`'s
 one-clause widening to admit a demote slot as nameable-absent);
