@@ -121,7 +121,7 @@ export const LYT_PORTRAIT: LytProgram = {
                         {
                           path: "4.1.2.0",
                           presenceDefaultVisible: true,
-                          track: { kind: "fixed", px: 60 },
+                          track: { kind: "fixed", px: 77 },
                           node: { kind: "leaf", widget: "settingsSubstrip", domain: "common", facets: [], aspect: null, scrollAxes: [], content: "bounded" },
                         },
                         {

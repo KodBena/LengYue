@@ -153,6 +153,13 @@
 --     derive differently"). Portrait's own narrower available width
 --     (line 122-126 above) means this correction is, if anything, MORE
 --     load-bearing here than in landscape.
+--
+--     REPAIR (2026-08-12, independent review Finding 3 — identical
+--     correction to `lengyue_landscape.lyt`'s own REPAIR header note,
+--     read there in full): `settingsSubstrip` moves `{60px}` -> `{77px}`
+--     (the review's own live-measured 67px + this file's established
+--     ~10px margin posture). Composite `min` unchanged at 443px (the new
+--     281px height floor stays under the 443px width floor).
 layout lengyue-portrait =
   {min 0px, pref 1fr, max inf, gap 12px} V(
     @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
@@ -169,7 +176,7 @@ layout lengyue-portrait =
         {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} CP-library[common],
         {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} CP-cards[common],
         {min 443px, pref 1fr, max inf, gap 4px} V(
-          {60px, boundary, content bounded} settingsSubstrip[common],
+          {77px, boundary, content bounded} settingsSubstrip[common],
           {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} settingsPane[common]
         ),
         {min 664px, pref 1fr, max inf, gap 4px} V(

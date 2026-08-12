@@ -202,7 +202,7 @@ def test_control_panel_exclusive_opens_library_cards_settings_other_collapses_an
     settings_children = {c["node"]["widget"]: c for c in settings["node"]["children"]}
     assert set(settings_children) == {"settingsSubstrip", "settingsPane"}
     substrip = settings_children["settingsSubstrip"]
-    assert substrip["track"] == {"kind": "fixed", "px": 60.0}
+    assert substrip["track"] == {"kind": "fixed", "px": 77.0}
     assert substrip["node"]["scrollAxes"] == []
     assert substrip["node"]["content"] == "bounded"
     pane = settings_children["settingsPane"]
@@ -378,7 +378,7 @@ def test_portrait_control_panel_blackbox_floor_is_wrapper_min_derived():
         c["node"]["widget"]: c for c in settings_child["node"]["children"]
     }
     assert set(settings_children) == {"settingsSubstrip", "settingsPane"}
-    assert settings_children["settingsSubstrip"]["track"] == {"kind": "fixed", "px": 60.0}
+    assert settings_children["settingsSubstrip"]["track"] == {"kind": "fixed", "px": 77.0}
     analysis_child = _find(control_panel["node"]["children"], "4.1.3")
     assert analysis_child["tabId"] == "analysis"
     assert analysis_child["node"]["widget"] == "CP-analysis"

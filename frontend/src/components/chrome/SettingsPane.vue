@@ -21,20 +21,30 @@
  * `leafOverflowStyle`) — so the driven `TabWidget` instance below is told
  * `owns-scroll="false"` (horizontal mode): its own `.tab-body` carries NO
  * further forced overflow, keeping the outer leaf cell the SOLE scroll
- * owner on this path (L5b). DISCLOSED RESIDUAL: four of the six panes
- * below (Session/Analysis Environment/Card Sets/Advanced Registry) keep
- * their own pre-existing `.registry-container` internal scroll
- * (`overflow-y: auto`, `shared-chrome.css`) unchanged from before this
- * refactor — the ratified per-pane classification (§8.4's table: those
- * four "no-scroll at declared demand", only Advanced Registry + Keybindings
- * "scroll-owned") is not fully re-derived at the component-CSS level this
- * work item — a possible double-scroll-owner path in the pathological
- * case where BOTH the outer leaf cell and an inner `.registry-container`
- * genuinely overflow simultaneously, named honestly rather than silently
- * redesigned (the encoding itself still models `settingsPane` as ONE
- * opaque leaf — the second-level opening that would let each body carry
- * its own true classification remains the SAME named residual the
- * Option C wave's own encoding header already discloses).
+ * owner on this path (L5b). **DISCLOSED RESIDUAL, SEVERITY CORRECTED
+ * (2026-08-12, independent review, `.claude/dispatch-reports/
+ * lyt-settings-live-review.md` Finding 2):** the ratified per-pane
+ * classification (§8.4's table: Session (UI)/Analysis Environment/Card
+ * Sets/Advanced Registry "no-scroll at declared demand", only Advanced
+ * Registry + Keybindings "scroll-owned" — Session (UI) itself belongs to
+ * the NO-scroll group) is NOT fully re-derived at the component-CSS
+ * level this work item — and the review's own live Playwright
+ * measurement at the pinned OPTIMAL size 1920×1080 found this is not a
+ * theoretical gap: **the Session (UI) pane — the DEFAULT-ACTIVE tab, the
+ * one most users see first — genuinely scrolls today**
+ * (`scrollHeight=1086 > clientHeight=755`), a direct breach of its own
+ * ratified "no-scroll" classification, not merely a "possible... BOTH
+ * simultaneously" edge case (the phrasing this comment originally used,
+ * which understated the finding — corrected here per the review's own
+ * instruction not to accept "disclosed" as "authorized"). The mechanism
+ * is exactly as described above (all six panes share ONE `scrollAxes:
+ * [v]` declaration because the encoding still models `settingsPane` as
+ * ONE opaque leaf); what changed is the severity record, not the cause.
+ * Filed as a deferral to the model-implementation wave (a second
+ * encoding-level opening of `settingsPane` into a `T` of six named
+ * panes, each carrying its own true classification — the SAME residual
+ * the Option C wave's own encoding header already discloses), per
+ * orchestrator adjudication — NOT fixed in this pass.
  *
  * DISCLOSED SCOPE NARROWING (vertical orientation): when
  * `store.session.ui.settingsTabsOrientation === 'vertical'`, this

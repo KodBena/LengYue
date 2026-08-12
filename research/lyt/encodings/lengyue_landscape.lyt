@@ -675,6 +675,43 @@
 --     if any were pinned at that exact boundary) is disclosed
 --     individually in the delivery report per this work item's own
 --     commission, not summarized away here.
+--
+--     REPAIR (2026-08-12, independent review of work item
+--     `lyt-settings-live-opening`, `.claude/dispatch-reports/
+--     lyt-settings-live-review.md` Finding 3): the flow-derived 60px
+--     height above is the OFFLINE model's own honest output
+--     (`row_height_px=28` -- this file's own established fixed-strip
+--     convention -- times 2 rows, plus one 4px row gap) but is NOT what
+--     the strip actually renders at live, real font metrics -- the
+--     review's own Playwright measurement found `scrollH=67px` at
+--     1920x1080 (a 2-row-of-real-`<li>`-elements measurement, not a
+--     re-guess), 7px taller than the 60px reservation, absorbed silently
+--     since this leaf's own `overflow-y` is left at its CSS default
+--     (`visible`, not `auto`) -- no scrollbar, no clip, but a genuine,
+--     live, unexercised numeric gap between the offline row-height
+--     assumption and the DOM the review correctly flagged as
+--     unmeasured. Corrected the SAME way this file's own REPAIR PASS/W4
+--     FLOOR CORRECTION/otherColorDebug sections already ground a
+--     measured-but-short reservation: **measured value (67px, the
+--     review's own live number) + this file's own established ~10px
+--     margin posture = 77px.** `settingsSubstrip` moves `{60px}` ->
+--     `{77px}`; still a FIXED reservation (`content bounded`, no
+--     scroll), still comfortably under the 820px side-column cap on the
+--     WIDTH axis (unaffected -- only the height leg of this leaf's
+--     shorthand changes). The wrapping composite's own T-child `min`
+--     is UNCHANGED at 443px: the new height floor
+--     (77+4+200=281) is still smaller than the 443px width floor, so
+--     the width term keeps dominating (max(443, 281) = 443, same as
+--     before this repair) -- re-verified by direct re-solve, not
+--     assumed; `research/lyt`'s own suite (177/177) stays green with no
+--     further pin changes from this one-line height correction.
+--     `flow.py`'s own `row_height_px=28` design-point calculation is
+--     UNCHANGED (it remains the correct, independently-verified OFFLINE
+--     packing/width math the review's own §1 re-derived byte-for-byte);
+--     this repair grounds the ENCODING's declared reservation in a live
+--     measurement layered on top of that offline number, the same
+--     two-step shape (compute, then measure-and-margin) this file's own
+--     other REPAIR sections already use.
 layout lengyue-landscape =
   {min 0px, pref 1fr, max inf, gap 12px} H(
     @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
@@ -692,7 +729,7 @@ layout lengyue-landscape =
           {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v} CP-library[common],
           {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v} CP-cards[common],
           {min 443px, pref 1fr, max inf, gap 4px} V(
-            {60px, boundary, content bounded} settingsSubstrip[common],
+            {77px, boundary, content bounded} settingsSubstrip[common],
             {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} settingsPane[common]
           ),
           {min 664px, pref 1fr, max inf, gap 4px} V(

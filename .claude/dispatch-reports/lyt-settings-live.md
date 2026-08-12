@@ -267,30 +267,47 @@ pre-refactor. Pinned by `settings-live-opening.test.ts`'s own
 mode, absent — reverting to the self-contained default — in vertical
 mode).
 
-**DISCLOSED NARROWING — the per-pane classification table (§8.4 of the
-ratified consult: Advanced Registry + Keybindings scroll-owned; Session/
-Analysis-Env/Card-Sets/Analysis no-scroll at declared demand) is NOT
-fully re-derived at the component-CSS level this wave.** The encoding
-still models `settingsPane` as ONE opaque leaf (the encoding's own header
-names this as a disclosed conservative choice, unchanged by this work
-item: "a single leaf cannot carry two different classifications for two
-different... runtime states"). Four of the six real sub-panes
-(Session/Analysis-Env/Card-Sets/Advanced-Registry) already had their OWN
-pre-existing `.registry-container` internal scroll
-(`overflow-y: auto`, `shared-chrome.css`, predating this wave) — unchanged
-by this refactor. This creates a genuine, named residual: in the
-pathological case where BOTH the outer leaf cell (now legitimately
-scroll-owning per the encoding's worst-case-superset declaration) AND an
-inner `.registry-container` overflow simultaneously, two scroll owners
-exist on one DOM path — a real gap against L5b's spirit, though L5b
-itself is a LYT-level law over the DECLARED tree (one leaf, one scroll
-declaration; genuinely satisfied), not over the un-modeled real DOM
-beneath that one leaf. Closing this fully requires opening `settingsPane`
-a SECOND encoding level (a `T` of six named panes, each with its own true
-classification) — the SAME residual the Option C wave's own encoding
-header already named as future work, not closed by this wave either.
-Named here per the commission's own "STOP-and-report" scope-narrowing
-rule, not silently redesigned or silently left implicit.
+**DISCLOSED NARROWING, SEVERITY CORRECTED 2026-08-12 (independent
+review, `.claude/dispatch-reports/lyt-settings-live-review.md` Finding
+2 — the original version of this paragraph understated the finding as
+a "pathological… both simultaneously" edge case; the review's own live
+Playwright measurement at the pinned OPTIMAL size 1920×1080 proved it
+is not one, and this section is corrected accordingly, per the
+review's own instruction not to accept "disclosed" as "authorized").**
+The per-pane classification table (§8.4 of the ratified consult:
+Advanced Registry + Keybindings scroll-owned; Session/Analysis-Env/
+Card-Sets/Analysis no-scroll at declared demand) is **NOT** fully
+re-derived at the component-CSS level this wave — the encoding still
+models `settingsPane` as ONE opaque leaf carrying one shared
+`scrollAxes: [v]` declaration across all six real sub-panes. The
+review measured the LIVE consequence directly, per sub-tab, at
+1920×1080: Advanced Registry and Keybindings correctly scroll
+(`scrollHeight > clientHeight`); Analysis Environment, Card Sets, and
+Analysis Layout correctly do NOT scroll (`scrollHeight == clientHeight`);
+**Session (UI) — the DEFAULT-ACTIVE tab, the pane most users see
+first — genuinely scrolls today** (`scrollHeight=1086 >
+clientHeight=755`), a direct, live breach of its own ratified
+"no-scroll at declared demand" classification, at a mainline pinned
+size, with no narrow-viewport or special condition required. This is
+not the double-scroll-owner artifact the original disclosure named
+(the review separately confirmed Session's own `.registry-container`
+does NOT independently overflow at this size — no NESTED scrollbar
+exists here, so L5b's single-scroll-owner property holds locally, just
+on the wrong pane): it is a single, plainly wrong classification for
+the majority-traffic tab, a structural consequence of all six panes
+sharing one `scrollAxes` declaration that the disclosure's mechanism
+description was accurate about but whose real-world severity it
+understated.
+
+**Disposition (orchestrator-adjudicated, not this delivery's to fix):**
+per the ratified consult (§8.4) and the Option C wave's own encoding
+header, the type-level fix is a second encoding-level opening of
+`settingsPane` into a `T` of six named panes, each carrying its own
+true classification — pane-interior granularity is the model-
+implementation wave's subject, not this work item's. This delivery
+does not attempt that fix; it corrects the record so the gap is
+tracked at its real severity (a live, mainline, default-tab defect)
+rather than filed as a theoretical corner case.
 
 ### Item 4 — Witnesses: WITNESSED
 
@@ -338,8 +355,22 @@ INFEASIBLE→OPTIMAL, zero regressions.**
 
 ## 4. Visual verification — UNEXERCISED, blocker named
 
-**Not performed this session.** Three compounding, honestly-named
-reasons, none of them "ran out of interest":
+**UPDATE (2026-08-12): superseded.** The independent review
+(`.claude/dispatch-reports/lyt-settings-live-review.md` §5) performed
+the full visual-verification ceremony this section names as a blocking
+follow-up — own Playwright rig, own backend on a DB copy, ports
+≥19120, `systemd-run` memory-capped Chromium, both mandated viewports
+plus a narrower probe. Its own witnessed output (2-row/3-row wrap
+confirmed exactly matching `flow.py`'s own predicted splits, no
+horizontal scrollbar at any tested viewport, Advanced Registry/
+Keybindings correctly scroll) is the now-authoritative visual record
+for this delivery, superseding the UNEXERCISED disposition below
+(kept verbatim as the honest record of what THIS delivery itself did
+and did not check). The review's own visual witness is also what
+surfaced Findings 2 and 3, addressed above and in §9.
+
+**Not performed BY THIS DELIVERY, this session.** Three compounding,
+honestly-named reasons, none of them "ran out of interest":
 
 1. **Demonstrated host resource fragility, witnessed directly during
    this session.** Multiple `npm run test:run` invocations under this
@@ -522,16 +553,94 @@ or created (`SettingsSubstrip.vue`, `SettingsPane.vue`, `TabWidget.vue`,
 `frontend/tests/integration/settings-live-opening.test.ts` (new),
 `frontend/tests/integration/SettingsTab-vertical-orientation.test.ts`,
 `frontend/tests/unit/settings-registry-geometry.test.ts`,
-`frontend/tests/unit/labels-text0-named-surfaces.test.ts`.
+`frontend/tests/unit/labels-text0-named-surfaces.test.ts`,
+`frontend/tests/unit/tab-idiom-convergence.test.ts` (review response),
+`research/lyt/tests/test_emit_layout_tree.py` (review response, track
+pin), `research/lyt/tests/test_flow.py` (review response, docstring).
 
-## 8. Commit and merge-base
+## 9. Independent review response (2026-08-12)
 
-Committed as `6b2e0e0c5e0103e986d400483aca0f2c856c41bd`. LAST-ACT fetch:
-`git fetch origin lyt-phase2` found `lyt-phase2` had **not** moved since
-this worktree's own base (`e3198724`) — `git log HEAD..origin/lyt-phase2`
-returns 0 commits. `git merge-base HEAD origin/lyt-phase2` ==
-`origin/lyt-phase2`'s own tip (`e3198724`) == this branch's own base — no
-rebase needed, a clean single commit ahead of `lyt-phase2`.
+Review at `.claude/dispatch-reports/lyt-settings-live-review.md`,
+verdict **ACCEPT-WITH-NOTES**, read in full. Disposition below, per
+finding.
+
+**Finding 1 (minor, mechanism gap) — FIXED, not merely accepted as a
+residual.** `tests/unit/tab-idiom-convergence.test.ts`'s own
+single-tab-implementation proof was a hardcoded two-file scan — the
+review sabotage-proved it does not reach `SettingsSubstrip.vue`/
+`SettingsPane.vue` at all (a fake `role="tab"` in `SettingsPane.vue`'s
+Session pane body went undetected by all 3164 tests). Per ADR-0011
+Rule 4 (quantify over the class, not the instance), the proof is now a
+recursive sweep of the WHOLE `src/components/` tree (reusing
+`token-integrity-appwide.test.ts`'s own `collectSourceFiles` walker
+shape, ADR-0012 P1) asserting `role="tab"` appears in exactly one
+file, `chrome/TabWidget.vue` — plus one disclosed, explicitly-
+allowlisted pre-existing exception (`wizard/WizardStepIndicator.vue`,
+a genuinely different ARIA genre — a numbered step-progress indicator,
+never a content-tab strip — surfaced by running the sweep app-wide for
+the first time, same shape as `token-integrity-appwide.test.ts`'s own
+`PRE_EXISTING_GHOST_TOKENS` allowlist). **Re-ran the review's own
+Sabotage B verbatim**: planted `<div role="tab"
+class="fake-second-tab-impl">` inside `SettingsPane.vue`'s `#session`
+template body, ran the new sweep — **failed red**, flagging
+`chrome/SettingsPane.vue` by name — then restored the file (`git diff`
+against the committed tree shows zero change). A permanent, in-memory
+reproduction of the same sabotage shape is now one of the sweep's own
+regression tests, so the CLASS stays exercised on every future run, not
+just this one manual verification.
+
+**Finding 2 (MAJOR) — report framing corrected; fix filed as a
+deferral, not performed this pass (orchestrator adjudication).** §2
+item 3 above, `SettingsPane.vue`'s own header comment, and
+`lyt-widget-registry.ts`'s `settingsPane` entry all originally
+characterized the per-pane-classification residual as a "possible…
+pathological… both simultaneously" edge case. The review's own live
+Playwright measurement at the pinned OPTIMAL size 1920×1080 found the
+Session (UI) pane — the default-active tab — genuinely scrolls today,
+a direct, mainline breach of its own ratified "no-scroll"
+classification, not an edge case. All three locations are corrected in
+this response to state that plainly. The underlying fix (opening
+`settingsPane` a second encoding level so each of the six real panes
+carries its own true classification) is confirmed, per the
+orchestrator's own adjudication, to be the model-implementation wave's
+subject, not this work item's — not attempted here.
+
+**Finding 3 (minor, live/offline drift) — FIXED.** The review measured
+the settings-substrip's live rendered height at 1920×1080 as 67px
+against the encoding's declared 60px reservation (real font-metric
+line-height exceeding the `row_height_px=28` offline design input).
+Corrected the SAME way this file's own prior REPAIR sections ground a
+measured-but-short reservation: `settingsSubstrip` moves `{60px}` →
+`{77px}` (the review's own 67px measurement + this file's established
+~10px margin posture), in both `lengyue_landscape.lyt` and
+`lengyue_portrait.lyt`. The wrapping composite's own T-child `min`
+stays unchanged at 443px (the new 281px height floor — 77+4+200 — is
+still under the 443px width floor; re-verified by direct re-solve, not
+assumed). `flow.py`'s own `row_height_px=28` offline calculation is
+UNCHANGED — the review's own §1 independently re-derived it byte-for-
+byte and found no fault; this repair layers a live-measurement margin
+on top of that number in the ENCODING, the same two-step shape (compute,
+then measure-and-margin) this file's own other REPAIR sections already
+use. `research/lyt`'s full suite (177/177) re-verified green after
+this change, with the two affected track pins (`test_emit_layout_
+tree.py`) updated 60px→77px.
+
+**Finding 4 (note, out of scope) — no action.** The review names this
+explicitly as "not a finding against this delivery specifically" and
+"outside this review's mandate" to resolve provenance for; no fix or
+rebuttal requested.
+
+**Visual verification** — see §4's own update note: the review's own
+performed ceremony supersedes this delivery's UNEXERCISED disposition
+and is now the authoritative visual record.
+
+## 10. Commit and merge-base
+
+Main delivery committed as `6b2e0e0c5e0103e986d400483aca0f2c856c41bd`,
+report-record commit `7e4e8012`. This review-response commit: recorded
+in the final message. LAST-ACT fetch (re-run for this response): `git
+fetch origin lyt-phase2` — merge-base and rebase status recorded in
+the final message alongside the new commit sha.
 
 ## License
 

@@ -4,9 +4,18 @@ order preservation, degenerate widths (an item wider than the available
 width refuses loudly), monotonicity of row count in width, and the
 concrete settings-substrip design point
 (`encodings/lengyue_landscape.lyt`/`lengyue_portrait.lyt`'s own header
-comment — the 443px/2-row/60px numbers this module's own derivation
-produced, pinned here so a change to the label set or the padding/border
-constants is caught as a deliberate encoding change, not silent drift).
+comment — the 443px/2-row/60px numbers this module's OWN offline
+derivation produces, pinned here so a change to the label set or the
+padding/border constants is caught as a deliberate encoding change, not
+silent drift). NOTE (2026-08-12, independent-review Finding 3 repair):
+the ENCODING's actual declared `settingsSubstrip` height is `{77px}`,
+not the bare `60px` this module computes — the encoding layers a
+live-measured margin on top of this module's offline output (see
+`lengyue_landscape.lyt`'s own "REPAIR" header section for the full
+derivation). This file tests `flow.py` ALONE, at its own offline
+`row_height_px=28` design input, which stays the honest, independently-
+verified offline number; it does not assert the encoding's own final,
+margin-adjusted reservation.
 """
 import pytest
 
