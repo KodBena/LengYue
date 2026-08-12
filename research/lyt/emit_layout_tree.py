@@ -189,16 +189,21 @@ row 1737, `research/lyt/presence.py`). The toggle annotation only
 affects `slot.presence` (consumed by `presence.py`'s valuation
 machinery -- `runner.py`, `emit_ts.py`, `emit_mockup.py`), never
 `slot.sizing` -- this emitter reads only `slot.sizing`
-(`_track_shape_for_child`), so it is presence-BLIND by construction
-and needs no change to keep working against a presence-annotated
-encoding. Each registration's own `default_visible_by_path` table
-remains the ONE fact this emitter needs from the presence story --
-reproduced verbatim from `emit_mockup.py.TOGGLE_TARGETS[class_id]`'s
-own third tuple element for that class, independently of `presence.
-py`'s valuation-solving machinery (which this W1/W3 runtime renderer
-has no use for: there is no presence MENU this wave, roadmap S8, so
-"default visible or not" is the only fact consumed, not "which
-valuation is currently active").
+(`_track_shape_for_child`), so it stays presence-BLIND for TRACK
+SHAPES specifically and needs no change there to keep working against
+a presence-annotated encoding. `presenceDefaultVisible` itself is a
+DIFFERENT fact this emitter DOES need from the presence story --
+originally (W1/W3) a hand-maintained, path-keyed table kept
+independently of `presence.py`'s own valuation-solving machinery ("no
+presence MENU this wave... 'default visible or not' is the only fact
+consumed"); LYT presence arc P2a (see the module docstring's own
+section by that name) retires that independence -- the fact is now
+DERIVED from `presence.py`'s own machinery (`is_named_absent` against
+`runner.valuation_for_class`'s resolved `absent_widgets`), not
+duplicated ahead of it, so a future presence-model change (a new
+default-off widget, a class-specific override) reaches this emitter's
+own output automatically rather than needing its own, easily-forgotten
+mirror edit here.
 
 Regeneration command (also written into each generated file's own
 header):
@@ -275,6 +280,44 @@ compiled programs' CONSUMED behavior is unchanged even though their DATA
 is richer (verified by the roundtrip regeneration this stage's own
 delivery report records).
 
+LYT presence arc P2a (`.claude/dispatch-reports/lyt-p2a-presence-contract.md`,
+row 2358 follow-up 1): closes two gaps P1 (the model side, `.claude/dispatch-
+reports/lyt-p1-presence-model.md`) left in this EMITTER, reviewer-confirmed.
+
+(a) Exclusive-node `demote`: the leaf branch below already emitted a
+`demote` field (M2 STAGE F1 PORT, `slot.presence.kind == "demote"`), but
+every Exclusive-node construction site (both `blackbox` shapes and the
+genuinely-opened `exclusive` shape) never did -- the control panel's own
+`@demote(h 778px)`/`@demote(h 808px)` declaration (both encodings' own
+`T(...)[BLACK BOX]` wrapping slot) was therefore invisible to the compiled
+contract even though `slot.presence` carries it exactly the same way a
+leaf's does. Fixed by extracting the shared `_demote_field(slot)` helper
+the leaf branch now also calls, applied uniformly at all FOUR
+blackbox/exclusive construction sites (including the one inline `child_node`
+built directly in the `open_control_panel` loop for a still-collapsed tab,
+e.g. `CP-analysis` -- that site reads `_demote_field(child)`, the TAB's own
+wrapping slot, not the outer T's).
+
+(b) `presenceDefaultVisible` derivation: `DEFAULT_VISIBLE_BY_PATH`/
+`DEFAULT_VISIBLE_BY_PATH_PORTRAIT` -- two hand-maintained, path-keyed
+dicts duplicating exactly the disease rows 2345/2350 retired in App.vue
+-- are RETIRED outright. Every Split child's `presenceDefaultVisible` is
+now derived at emit time from the SAME identity rule `presence.py`'s own
+`prune_absent`/`validate_valuation` already use (`presence.is_named_absent`,
+made public this arc for exactly this second call site) against the
+class's own resolved default valuation (`runner.valuation_for_class`, P1's
+own single seam) -- a leaf's `widget` id, or a tagged Exclusive's `[TAG]`,
+checked against that valuation's `absent_widgets`. This is what makes
+portrait's own repetition-first default (the control-panel `T(...)[BLACK
+BOX]` genuinely absent by default on portrait, per P1 item 2) finally
+reach the compiled program: the hand-authored table could only ever encode
+what its own author remembered to mirror, and P1's portrait valuation
+change was never mirrored into it (the exact reviewer-confirmed gap this
+arc closes). No path-keyed literal survives in this module after this
+change -- `default_visible_by_path` is no longer a `Registration` field,
+`build_program` parameter, or `_build_node` parameter; `absent_widgets:
+FrozenSet[str]` (threaded through the same positions) is what replaces it.
+
 Shared TS types (ADR-0012 one-home-per-fact, W3): the `LytProgram`
 data-shape types (`LytAxis`, `LytTrackShape`, etc.) used to be
 duplicated verbatim inside this script's own `render_ts` (the only
@@ -297,10 +340,12 @@ import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, FrozenSet, List, Optional, Tuple
 
 import lyt_ast as ast
 import loader
+import runner
+from presence import is_named_absent
 from runner import ENCODINGS_DIR
 
 STATE_DIR = Path(__file__).parent.parent.parent / "frontend" / "src" / "state"
@@ -315,73 +360,15 @@ LAYOUT_FILE = "lengyue_landscape.lyt"
 LAYOUT_NAME = "lengyue-landscape"
 CLASS_ID = "landscape"
 
-# Reproduced verbatim from emit_mockup.py's own TOGGLE_TARGETS["landscape"]
-# table (see that module's docstring for the full corner-menu-affordance
-# disclosure) -- W1 only consumes the third tuple element (default_visible).
-# Kept as a path-tuple -> bool map, not re-imported from emit_mockup.py
-# directly, since that module also carries the (out-of-scope) label/
-# release-vs-preserve machinery this script has no use for; duplicating
-# just the one fact this emitter needs is more honest than importing a
-# generator module built for a different consumer (static HTML) and
-# picking one field back out of it.
-# LYT toolbar ontology reencode (commissioner-ratified 2026-08-11, ledger
-# rows 1930/1931): the side column's V-split shrank from four children
-# (A_go/I_engine/A_common/tree-row) to three (A_engine/A_app/tree-row) --
-# the tree/panels/preview row's own path shifts from (2, 3, ...) to
-# (2, 2, ...) accordingly.
-#
-# M2 STAGE B2b (2026-08-12, ledger rows 2073/2108/2151): the side column
-# gains a FOURTH direct child, `A_setup` -- the palette-adoption
-# presence slot (item 2), genuinely `@toggle(user, release)`, default
-# OFF, same footing as `boardRail`/`previewBoard`. `A_engine` itself
-# (2, 0) is now a composite `H(...)` of four leaves (the three-vocabulary
-# engine-status decomposition, item 1) rather than a bare leaf -- its own
-# path is unaffected (`presenceDefaultVisible` reads the SPLIT child's
-# own track/visibility, independent of what kind of node occupies it).
-# The tree/panels/preview row's own path shifts AGAIN, (2, 2, ...) ->
-# (2, 3, ...).
-DEFAULT_VISIBLE_BY_PATH: Dict[Tuple[int, ...], bool] = {
-    (0,): False,       # boardRail
-    (1,): True,        # V-composite (board + info + action rows)
-    (2, 0): True,       # A_engine (composite H of four leaves)
-    (2, 1): True,       # A_app
-    (2, 2): False,       # A_setup (palette, default off)
-    (2, 3, 1): True,     # T(CP-*) -- the control-panel black box
-    (2, 3, 2): False,    # previewBoard
-}
-
-# Reproduced verbatim from emit_mockup.py's own TOGGLE_TARGETS["portrait"]
-# table -- same discipline as DEFAULT_VISIBLE_BY_PATH above, one class's
-# worth of the one fact this emitter needs. Derived from
-# encodings/lengyue_portrait.lyt's own root V(...) child order: boardRail
-# (0, toggle-off), A_app (1, formerly A_top -- LYT toolbar ontology
-# reencode, 2026-08-11), the board composite V(B, I_board, A_board)
-# (2, always visible -- not itself toggleable), A_engine (3, formerly
-# I_engine, always visible), and the tree/panels/preview row H(tree,
-# T(CP-*), previewBoard) (4) whose own three children are tree (4,0,
-# always visible), the control-panel T-node (4,1, always visible), and
-# previewBoard (4,2, toggle-off) -- matching TOGGLE_TARGETS["portrait"]'s
-# (0,)/(1,)/(2,)/(3,)/(4,1)/(4,2) entries exactly (every path
-# TOGGLE_TARGETS doesn't mention is default-visible, per that table's own
-# convention). Paths themselves are UNCHANGED from pre-reencode (portrait's
-# tree structure needed only a rename, not a reshuffle).
-# M2 STAGE B2b (2026-08-12, ledger rows 2073/2108/2151): the root gains
-# a new direct child, `A_setup` (item 2, palette-adoption presence slot,
-# default off, portrait has no separate side column so it sits at the
-# ROOT), inserted right after `A_app` -- every LATER root child's own
-# path index shifts by one. `A_engine` (now path (4,)) is a composite
-# `H(...)` of four leaves (item 1), unaffected structurally at this
-# dict's own granularity.
-DEFAULT_VISIBLE_BY_PATH_PORTRAIT: Dict[Tuple[int, ...], bool] = {
-    (0,): False,      # boardRail
-    (1,): True,       # A_app
-    (2,): False,      # A_setup (palette, default off)
-    (3,): True,       # V-composite (board + info + action rows)
-    (4,): True,       # A_engine (composite H of four leaves)
-    (5, 0): True,      # tree
-    (5, 1): True,      # T(CP-*) -- the control-panel black box
-    (5, 2): False,     # previewBoard
-}
+# LYT presence arc P2a: `DEFAULT_VISIBLE_BY_PATH`/`DEFAULT_VISIBLE_BY_PATH_
+# PORTRAIT`, the two hand-maintained path-keyed dicts this module used to
+# carry here, are RETIRED -- see the module docstring's own "LYT presence
+# arc P2a" section for the full rationale (reviewer-confirmed gap: the
+# tables were a hand-mirror of `presence.py`'s own valuation machinery that
+# P1's portrait repetition-first default was never re-mirrored into). Each
+# Split child's `presenceDefaultVisible` is now derived at emit time,
+# per-class, from `runner.valuation_for_class` + `presence.is_named_absent`
+# -- see `_absent_widgets_for_class` and `_build_node`'s Split branch below.
 
 
 @dataclass(frozen=True)
@@ -394,7 +381,6 @@ class Registration:
     layout_file: str
     layout_name: str
     class_id: str
-    default_visible_by_path: Dict[Tuple[int, ...], bool]
     const_name: str
     default_out: Path
     # REALIZATION WAVE additions (see module docstring's own section by that
@@ -419,7 +405,6 @@ REGISTRATIONS: Dict[str, Registration] = {
         layout_file=LAYOUT_FILE,
         layout_name=LAYOUT_NAME,
         class_id=CLASS_ID,
-        default_visible_by_path=DEFAULT_VISIBLE_BY_PATH,
         const_name="LYT_LANDSCAPE",
         default_out=DEFAULT_OUT,
         open_control_panel=True,
@@ -430,7 +415,6 @@ REGISTRATIONS: Dict[str, Registration] = {
         layout_file="lengyue_portrait.lyt",
         layout_name="lengyue-portrait",
         class_id="portrait",
-        default_visible_by_path=DEFAULT_VISIBLE_BY_PATH_PORTRAIT,
         const_name="LYT_PORTRAIT",
         default_out=DEFAULT_OUT_PORTRAIT,
         open_control_panel=True,
@@ -438,6 +422,35 @@ REGISTRATIONS: Dict[str, Registration] = {
         control_panel_collapse_indices=frozenset({3}),
     ),
 }
+
+
+def _runner_registration_for_class(class_id: str) -> runner.Registration:
+    """LYT presence arc P2a: locates the `runner.Registration` (a DIFFERENT
+    dataclass from this module's own `Registration` above -- same name,
+    two separate concepts, see each module's own docstring) that declares
+    `class_id` among its `layout_by_class` keys. For both screen classes
+    this module knows about today, that is the one `"lengyue_landscape+
+    portrait"` entry in `runner.REGISTRATIONS` -- resolved by search rather
+    than hardcoded, so a future third class registered on either side stays
+    correctly paired without this function needing an edit."""
+    for reg in runner.REGISTRATIONS:
+        if class_id in reg.layout_by_class:
+            return reg
+    raise ValueError(
+        f"no runner.Registration declares screen class {class_id!r} -- "
+        "emit_layout_tree.py's presence derivation (LYT presence arc P2a) "
+        "has no valuation to resolve against."
+    )
+
+
+def _absent_widgets_for_class(class_id: str) -> FrozenSet[str]:
+    """The one seam `build_program` below resolves a class's own default
+    presence valuation through (LYT presence arc P2a) -- `runner.
+    valuation_for_class` is P1's own single seam for "which valuation does
+    this class solve as its default"; this function just narrows the
+    result to the `absent_widgets` set `_build_node`'s Split branch needs."""
+    reg = _runner_registration_for_class(class_id)
+    return runner.valuation_for_class(reg, class_id).absent_widgets
 
 
 def _px(e: ast.Extent, *, where: str) -> float:
@@ -602,11 +615,24 @@ def _collect_leaf_widgets(slot: ast.Slot) -> List[str]:
     raise TypeError(f"unknown LayoutNode kind: {node!r}")
 
 
+def _demote_field(slot: ast.Slot) -> Optional[dict]:
+    """LYT presence arc P2a (module docstring, section by that name, item
+    (a)): the ONE place a Slot's own `@demote(<axis> <extent>)` declaration
+    (`slot.presence.kind == "demote"`) becomes the emitted `demote` field
+    shape -- the leaf branch below used to inline this; the Exclusive
+    branch never called an equivalent at all (the reviewer-confirmed gap
+    this arc closes), so both now share this one function rather than the
+    Exclusive branch growing its own second copy of the same three lines."""
+    if slot.presence.kind != "demote":
+        return None
+    return {"axis": slot.presence.demote_axis, "belowPx": slot.presence.demote_below_px}
+
+
 def _build_node(
     slot: ast.Slot,
     *,
     path: Tuple[int, ...],
-    default_visible_by_path: Dict[Tuple[int, ...], bool],
+    absent_widgets: FrozenSet[str] = frozenset(),
     open_control_panel: bool = False,
     control_panel_tab_ids: Tuple[str, ...] = (),
     control_panel_collapse_indices: frozenset = frozenset(),
@@ -649,14 +675,7 @@ def _build_node(
             ],
             "orientation": node.orientation,
             "activity": node.activity,
-            "demote": (
-                {
-                    "axis": slot.presence.demote_axis,
-                    "belowPx": slot.presence.demote_below_px,
-                }
-                if slot.presence.kind == "demote"
-                else None
-            ),
+            "demote": _demote_field(slot),
             "envelopeStates": (
                 sorted(slot.sizing.envelope_states) if slot.sizing.envelope_states else None
             ),
@@ -711,6 +730,7 @@ def _build_node(
                     "widget": child_widgets[0] if child_widgets else "controlPanel",
                     "tag": node.tag,
                     "childWidgets": child_widgets,
+                    "demote": _demote_field(slot),
                 }
             child_widgets = [w for c in node.children for w in _collect_leaf_widgets(c)]
             return {
@@ -718,6 +738,7 @@ def _build_node(
                 "widget": "controlPanel",
                 "tag": node.tag,
                 "childWidgets": child_widgets,
+                "demote": _demote_field(slot),
             }
         if len(node.children) != len(control_panel_tab_ids):
             raise ValueError(
@@ -736,12 +757,17 @@ def _build_node(
                     "widget": f"CP-{tab_id}",
                     "tag": None,
                     "childWidgets": child_widgets,
+                    # LYT presence arc P2a: `child` (not the outer T's own
+                    # `slot`) -- this is the TAB's own wrapping slot, a
+                    # collapsed placeholder for that tab's interior, not for
+                    # the control panel itself.
+                    "demote": _demote_field(child),
                 }
             else:
                 child_node = _build_node(
                     child,
                     path=cpath,
-                    default_visible_by_path=default_visible_by_path,
+                    absent_widgets=absent_widgets,
                     open_control_panel=False,
                     control_panel_tab_ids=(),
                     control_panel_collapse_indices=frozenset(),
@@ -766,6 +792,7 @@ def _build_node(
             "tag": node.tag,
             "defaultTabId": control_panel_tab_ids[0],
             "children": ex_children,
+            "demote": _demote_field(slot),
         }
     if isinstance(node, ast.Split):
         axis = node.axis
@@ -791,12 +818,23 @@ def _build_node(
             children.append(
                 {
                     "path": ".".join(str(p) for p in cpath),
-                    "presenceDefaultVisible": default_visible_by_path.get(cpath, True),
+                    # LYT presence arc P2a: derived, not table-looked-up --
+                    # `is_named_absent` is the SAME identity predicate
+                    # `presence.py`'s own `prune_absent`/`validate_valuation`
+                    # consult (a leaf's own `widget` id, or a tagged
+                    # Exclusive's own `[TAG]`), checked against THIS class's
+                    # own resolved default valuation's `absent_widgets`. A
+                    # Split child (no identity of its own) is never named
+                    # absent, so this is `True` for every Split/plain
+                    # container child, matching the retired table's own
+                    # "every path it doesn't mention defaults True"
+                    # convention exactly -- see `_absent_widgets_for_class`.
+                    "presenceDefaultVisible": not is_named_absent(child, absent_widgets),
                     "track": shapes[i],
                     "node": _build_node(
                         child,
                         path=cpath,
-                        default_visible_by_path=default_visible_by_path,
+                        absent_widgets=absent_widgets,
                         # Threaded through unconditionally (REALIZATION WAVE):
                         # a Split ancestor of the control-panel Exclusive must
                         # forward the SAME open_control_panel/tab-id/collapse
@@ -820,7 +858,6 @@ def build_program(
     layout_file: str = LAYOUT_FILE,
     layout_name: str = LAYOUT_NAME,
     class_id: str = CLASS_ID,
-    default_visible_by_path: Dict[Tuple[int, ...], bool] = DEFAULT_VISIBLE_BY_PATH,
     open_control_panel: bool = False,
     control_panel_tab_ids: Tuple[str, ...] = (),
     control_panel_collapse_indices: frozenset = frozenset(),
@@ -830,10 +867,16 @@ def build_program(
     slot = layouts[layout_name]
     if not isinstance(slot.node, ast.Split):
         raise TypeError(f"{layout_name}'s root is not a Split: {slot.node!r}")
+    # LYT presence arc P2a: resolved ONCE per build, off `class_id` alone --
+    # `_build_node`'s Split branch consults this same frozenset at every
+    # depth via `is_named_absent`, so a widget's presence identity (leaf id
+    # or tagged-Exclusive tag) drives its own `presenceDefaultVisible`
+    # wherever in the tree it appears, no path table required.
+    absent_widgets = _absent_widgets_for_class(class_id)
     root = _build_node(
         slot,
         path=(),
-        default_visible_by_path=default_visible_by_path,
+        absent_widgets=absent_widgets,
         open_control_panel=open_control_panel,
         control_panel_tab_ids=control_panel_tab_ids,
         control_panel_collapse_indices=control_panel_collapse_indices,
@@ -848,7 +891,6 @@ def build_program_for(registration: Registration) -> dict:
         layout_file=registration.layout_file,
         layout_name=registration.layout_name,
         class_id=registration.class_id,
-        default_visible_by_path=registration.default_visible_by_path,
         open_control_panel=registration.open_control_panel,
         control_panel_tab_ids=registration.control_panel_tab_ids,
         control_panel_collapse_indices=registration.control_panel_collapse_indices,
@@ -885,6 +927,16 @@ def _ts_track_shape(shape: dict) -> str:
     raise ValueError(f"unknown track shape kind: {kind!r}")
 
 
+def _ts_demote(demote: Optional[dict]) -> str:
+    """Shared TS-literal rendering for a `demote` field's value -- LYT
+    presence arc P2a: both the leaf branch and the (newly demote-carrying)
+    blackbox/exclusive branches of `_ts_node` below call this, rather than
+    each inlining its own copy of the same null-vs-object ternary."""
+    if demote is None:
+        return "null"
+    return f'{{ axis: {json.dumps(demote["axis"])}, belowPx: {demote["belowPx"]:g} }}'
+
+
 def _ts_node(node: dict, indent: str) -> str:
     kind = node["kind"]
     if kind == "leaf":
@@ -906,14 +958,7 @@ def _ts_node(node: dict, indent: str) -> str:
         )
         orientation = json.dumps(node["orientation"])
         activity = "null" if node["activity"] is None else json.dumps(node["activity"])
-        demote = (
-            "null"
-            if node["demote"] is None
-            else (
-                f'{{ axis: {json.dumps(node["demote"]["axis"])}, '
-                f'belowPx: {node["demote"]["belowPx"]:g} }}'
-            )
-        )
+        demote = _ts_demote(node["demote"])
         envelope_states = (
             "null"
             if node["envelopeStates"] is None
@@ -931,13 +976,20 @@ def _ts_node(node: dict, indent: str) -> str:
     if kind == "blackbox":
         tag = "null" if node["tag"] is None else json.dumps(node["tag"])
         child_widgets = ", ".join(json.dumps(w) for w in node["childWidgets"])
+        # LYT presence arc P2a, item (a): `demote` now carried here too --
+        # see the module docstring's own section by that name.
+        demote = _ts_demote(node["demote"])
         return (
             f'{{ kind: "blackbox", widget: {json.dumps(node["widget"])}, tag: {tag}, '
-            f"childWidgets: [{child_widgets}] }}"
+            f"childWidgets: [{child_widgets}], demote: {demote} }}"
         )
     if kind == "exclusive":
         inner = indent + "  "
         tag = "null" if node["tag"] is None else json.dumps(node["tag"])
+        # LYT presence arc P2a, item (a): same addition as the blackbox
+        # case above -- the genuinely-opened control panel's own `@demote`
+        # declaration reaches the compiled program too.
+        demote = _ts_demote(node["demote"])
         children_lines = []
         for child in node["children"]:
             children_lines.append(f"{inner}  {{")
@@ -949,7 +1001,7 @@ def _ts_node(node: dict, indent: str) -> str:
         children_block = "\n".join(children_lines)
         return (
             f'{{\n{inner}kind: "exclusive", widget: {json.dumps(node["widget"])}, tag: {tag}, '
-            f'defaultTabId: {json.dumps(node["defaultTabId"])},\n'
+            f'defaultTabId: {json.dumps(node["defaultTabId"])}, demote: {demote},\n'
             f"{inner}children: [\n{children_block}\n{inner}],\n{indent}}}"
         )
     if kind == "split":
@@ -1000,6 +1052,15 @@ def render_ts(program: dict, *, registration: Registration) -> str:
         "reads them yet; see this tool's own module docstring, 'M2 STAGE F1 "
         "PORT' section, for the disclosed narrowing (unitAxes/wrapPolicy and "
         "two track-shape algorithm changes are NOT ported this stage)."
+    )
+    lines.append(
+        " * LYT presence arc P2a: `presenceDefaultVisible` (on every Split child) is "
+        "now DERIVED per class from `runner.valuation_for_class`'s own resolved "
+        "presence valuation, not a hand-maintained path table — a class's own "
+        "portrait/landscape default is a single fact this file mechanically reflects. "
+        "`demote` is also now carried on 'blackbox'/'exclusive' nodes (previously "
+        "leaf-only) — see this tool's own module docstring, 'LYT presence arc P2a' "
+        "section."
     )
     lines.append(
         " * Data-shape types (LytProgram, LytTrackShape, etc.) are NOT declared here — "

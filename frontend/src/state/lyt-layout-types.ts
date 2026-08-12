@@ -167,6 +167,14 @@ export interface LytBlackboxNode {
   readonly widget: string;
   readonly tag: string | null;
   readonly childWidgets: readonly string[];
+  /** LYT presence arc P2a (`.claude/dispatch-reports/lyt-p2a-presence-
+   *  contract.md`): the collapsed Exclusive's OWN wrapping slot may declare
+   *  `@demote(<axis> <belowPx>)` the same way a leaf can (`LytLeafNode.
+   *  demote`'s own doc) — e.g. the control-panel `T(...)[BLACK BOX]`'s
+   *  `@demote(h 778px)`/`@demote(h 808px)`. Previously silently dropped by
+   *  the emitter (a reviewer-confirmed gap); `null` for a blackbox whose
+   *  own slot declares no demotion. */
+  readonly demote: LytDemotion | null;
 }
 
 export type LytTrackShape =
@@ -231,6 +239,11 @@ export interface LytExclusiveNode {
    *  state overrides it. */
   readonly defaultTabId: string;
   readonly children: readonly LytExclusiveChild[];
+  /** LYT presence arc P2a: same fact as `LytBlackboxNode.demote` — this
+   *  node's OWN wrapping slot's `@demote` declaration, carried through for
+   *  a genuinely-opened Exclusive the same way a collapsed one now gets
+   *  it. `null` when the slot declares no demotion. */
+  readonly demote: LytDemotion | null;
 }
 
 /** One tab of an opened Exclusive node. Unlike `LytChild` (a Split child),

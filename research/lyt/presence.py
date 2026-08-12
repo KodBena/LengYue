@@ -144,7 +144,7 @@ class PresenceValuation:
 ALL_PRESENT = PresenceValuation(name="all-present", absent_widgets=frozenset())
 
 
-def _is_named_absent(slot: ast.Slot, absent_widgets: FrozenSet[str]) -> bool:
+def is_named_absent(slot: ast.Slot, absent_widgets: FrozenSet[str]) -> bool:
     """LYT presence arc P1 (row 2333): the ONE predicate both the Split and
     Exclusive branches of `prune_absent` below consult, so the two branches
     can never drift on which identities count -- a Leaf matches by its own
@@ -154,7 +154,16 @@ def _is_named_absent(slot: ast.Slot, absent_widgets: FrozenSet[str]) -> bool:
     Split never matches -- `loader._load_demote_presence` already refuses
     `@demote` on a Split at load time, so a well-formed tree can never
     present one here, but this predicate stays honest about that rather
-    than assuming it."""
+    than assuming it.
+
+    LYT presence arc P2a (`.claude/dispatch-reports/lyt-p2a-presence-
+    contract.md`): made public (dropped the leading underscore) -- this is
+    now a second module's own seam too. `emit_layout_tree.py` derives each
+    compiled `LytChild.presenceDefaultVisible` from this SAME predicate
+    (against `runner.valuation_for_class`'s own `absent_widgets`), rather
+    than re-implementing "which identity does a Split child present" a
+    second time in the emitter -- the exact fact this module's docstring
+    already establishes as canonical, now shared rather than duplicated."""
     node = slot.node
     if isinstance(node, ast.Leaf):
         return node.widget in absent_widgets
@@ -188,7 +197,7 @@ def prune_absent(slot: ast.Slot, absent_widgets: FrozenSet[str]) -> ast.Slot:
         new_children = [
             prune_absent(c, absent_widgets)
             for c in node.children
-            if not _is_named_absent(c, absent_widgets)
+            if not is_named_absent(c, absent_widgets)
         ]
         new_node = ast.Split(axis=node.axis, gap_px=node.gap_px, children=new_children)
         # AMENDMENT 5 fix (review finding 1, lyt-amendment5-review.md): this
@@ -206,7 +215,7 @@ def prune_absent(slot: ast.Slot, absent_widgets: FrozenSet[str]) -> ast.Slot:
             violates=slot.violates, scroll_axes=slot.scroll_axes,
         )
     if isinstance(node, ast.Exclusive):
-        if _is_named_absent(slot, absent_widgets):
+        if is_named_absent(slot, absent_widgets):
             # This slot IS the tagged, named-absent Exclusive itself --
             # mirrors the bare-Leaf early return above: actual removal only
             # ever happens from a PARENT's filtered children list (the
@@ -218,7 +227,7 @@ def prune_absent(slot: ast.Slot, absent_widgets: FrozenSet[str]) -> ast.Slot:
         new_children = [
             prune_absent(c, absent_widgets)
             for c in node.children
-            if not _is_named_absent(c, absent_widgets)
+            if not is_named_absent(c, absent_widgets)
         ]
         new_node = ast.Exclusive(children=new_children, selector=node.selector, tag=node.tag)
         # AMENDMENT 5 fix -- same forwarding, same rationale as the Split
