@@ -1083,6 +1083,88 @@
 --     unbounded`, which none of the four bounded leaves declares.
 --     `find_l13_violations`/`find_l16_violations`/`find_l17_violations`
 --     all re-verified `[]` against this file after the change.
+--
+--     (4) ENGINE-ROW HEIGHT RE-GROUNDING (ledger row 2347, reviewer
+--     finding 1): the `60px` height this `H(A_engine_controls,
+--     A_engine_eval, A_engine_health, A_engine_queue)` row carries was
+--     item 1's own "SAME `{60px, envelope: {disconnected, connected}}`
+--     height reservation the single leaf declared before" -- i.e. it is
+--     the RETIRED merged `ToolbarEngineCluster.vue`'s own wrapping-H
+--     measurement, carried forward unexamined when the decomposition
+--     split one leaf into four. That carry-forward is now known stale:
+--     `ToolbarEngineControls.vue` (the realization of
+--     `A_engine_controls`, five buttons -- mint-card / learn-path /
+--     play / match / connect-disconnect -- `.engine-controls { display:
+--     flex; flex-wrap: wrap; ... min-height: 28px }`, `.toolbar-btn {
+--     min-height: 24px }`) wraps to THREE rows at its real post-
+--     decomposition column width, not the two rows the old merged
+--     cluster's wider strip needed -- Match and Connect/Disconnect
+--     clip invisible in the 60px track.
+--
+--     MEASURED (isolated rig: `npm run build`, `vite preview` on a
+--     scratch port, unauthenticated cold boot -- no backend needed,
+--     same posture `frontend/scripts/lyt-conformance.mjs`'s own header
+--     documents -- Playwright, one Chromium instance, closed `finally`,
+--     `.engine-controls` cloned into a detached `height:auto` sandbox
+--     at its own LIVE rendered width so the flex-wrap content need is
+--     read independent of the clamping 60px cell): at BOTH tested
+--     sizes -- 1920x1080 (live column width 197.5px) and 768x1024 (live
+--     column width 189px) -- `.engine-controls` naturally needs
+--     **80px** (3 rows x 24px `.toolbar-btn` min-height + 2 gaps x 4px
+--     `--space-tight` = 72+8 = 80, the SAME "N*28/24 + (N-1)*4"
+--     decomposition this file's own settingsSubstrip section above
+--     uses for its "60px (2*28 + 1*4)" derivation). Matches the
+--     reviewer's own "~80px" finding exactly.
+--
+--     THE OTHER THREE GROUPS, CHECKED (disclosed non-runtime-measured,
+--     same isolation limit `EngineQueueTooltip.vue`'s own header already
+--     names for this exact rig: `ToolbarEngineMetrics.vue`/
+--     `EngineQueueTooltip.vue` mount only while
+--     `useEngineControls().isConnected` is true, which a dead-pinned,
+--     backend-less isolated rig cannot provide). Checked by reading the
+--     realized CSS instead: `.engine-metrics-bar` (A_engine_eval /
+--     A_engine_health) and `.queue-metric` (A_engine_queue) both declare
+--     `display: flex` with NO `flex-wrap` property at all (default
+--     `nowrap`) -- unlike `.engine-controls`, neither can EVER wrap to a
+--     second row regardless of column width; each stays a single text
+--     line, well under the 60px the row already reserved. None of the
+--     three siblings' own real need moved -- only `A_engine_controls`'s
+--     did.
+--
+--     STRUCTURAL LIMITATION, NAMED (STOP-and-report per this stage's own
+--     commission): LYT's `H(...)` shares ONE cross-axis (height) fact
+--     across every child -- the grammar has no per-child height
+--     override inside an H split (only the split's own sizing block, on
+--     the `H(...)` itself, carries a height; SPEC.md's own H/V duality
+--     puts per-child variation on the SPLIT AXIS only, main-axis `pref`/
+--     `min`/`max`, never the cross axis). Genuinely honest per-group
+--     heights (80px / ~28px / ~28px / ~24px) cannot be expressed without
+--     either (a) restructuring this row into a `V(H(...), H(...), ...)`
+--     nest (four independently-tracked rows, a real tree-shape change
+--     touching every downstream consumer of this row's own DOM
+--     structure -- `App.vue`'s slot wiring, `lyt-widget-registry.ts`,
+--     the coverage-matrix solve), or (b) a new LYT language construct
+--     for per-child cross-axis overrides inside a Split (grammar work,
+--     out of this stage's scope). NEITHER is undertaken here -- filed as
+--     the honest remaining gap, per this stage's own STOP-and-report
+--     discipline, rather than silently picking (a) or (b) unasked.
+--
+--     THE FIX LANDED: raise the ONE shared row height from `60px` to
+--     `80px` -- the row's real worst-case need (A_engine_controls'
+--     measured 80px), applied uniformly. This is NOT the structural
+--     fix (a)/(b) above -- it is the SAME single-row shape, with the
+--     stale carried-forward fact replaced by the honest one, exactly
+--     what this stage's own commission asks for ("give the engine-
+--     status row/groups their honest post-decomposition height
+--     fact(s)"). The three lighter groups gain ~52-56px of harmless
+--     vertical slack inside their own now-taller cells (no clipping,
+--     no coverage regression -- `coverage_matrix.py`'s own landscape
+--     default 1920x1080 point stays OPTIMAL, re-verified after this
+--     change) rather than being clipped, which is the correct
+--     direction to be wrong in if the single-row shape must pick one
+--     number. Restructuring to genuinely differentiated per-group
+--     heights (option (a) above) is filed as a frontier item, not
+--     undertaken here.
 layout lengyue-landscape =
   {min 0px, pref 1fr, max inf, gap 12px} H(
     @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
@@ -1092,7 +1174,7 @@ layout lengyue-landscape =
       {min 28px, pref 28px, max 28px} A_board[board, action]
     ),
     {min 345px, pref 32fr, max 340px+60ch, gap 4px} V(
-      {60px, envelope: {disconnected, connected}, gap 4px} H(
+      {80px, envelope: {disconnected, connected}, gap 4px} H(
         {pref 1fr, content bounded} A_engine_controls[go, action],
         {pref 1fr, content bounded} A_engine_eval[go, info],
         {pref 1fr, content bounded} A_engine_health[go, info],

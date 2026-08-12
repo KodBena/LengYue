@@ -78,7 +78,7 @@ export const LYT_LANDSCAPE: LytProgram = {
             {
               path: "2.0",
               presenceDefaultVisible: true,
-              track: { kind: "fixed", px: 60 },
+              track: { kind: "fixed", px: 80 },
               node: {
                 kind: "split", axis: "h", gapPx: 4,
                 children: [
