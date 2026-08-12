@@ -330,6 +330,105 @@ Every existing consumer's import path (`from '../../state/lyt-layout.
 gen'`) keeps resolving unchanged, since the re-export makes the types
 transitively available there too.
 
+P2d -- emit the DERIVED orientation (2026-08-12, ledger row 2310's own
+Amendment 9 mechanism, finally threaded through to emission; commission
+`.claude/dispatch-reports/lyt-p2d-orientation-emission.md`). Closes the
+gap R1 disclosed and left open (`.claude/dispatch-reports/
+lyt-r1-orientation-pathmap.md`, "CRITICAL SUBTLETY" section): the `tree`
+leaf's `orientation` field used to come from `_load_orientation`'s bare
+load-time placeholder default (`'v'`, unconditionally, for EVERY class --
+`orientation.py`'s own derivation machinery was never called by this
+emitter at all), not from the genuine per-solve verdict Amendment 9's own
+mechanism (`orientation.compute_derived_orientations`) computes.
+
+`_derive_tree_orientation(class_id)` (new function, below) reproduces
+`runner.run_all`'s own solve shape for `tree` specifically: resolve the
+class's own default presence valuation (`runner.valuation_for_class`,
+the same seam `_absent_widgets_for_class` above already uses), prune via
+`presence.resolve_and_validate` (so `tree` is genuinely the row's SOLE
+residual-holding content wherever a `@toggle`d sibling is absent by
+default -- SPEC.md §17.4's own portrait finding), then solve at EVERY
+size the class's own representative solve set names --
+`coverage_matrix.LANDSCAPE_SIZES`/`PORTRAIT_SIZES`, reused verbatim per
+this commission's own "do not invent sizes" instruction, since that is
+already the encoding's own declared coverage-checked point set (Amendment
+4's own feasibility table, `coverage_matrix.py`'s module docstring). An
+INFEASIBLE size contributes no derived value (there is no solved
+rectangle to derive an aspect from -- the same honest skip
+`compute_derived_orientations` itself already applies) and is not treated
+as a disagreement.
+
+If every solvable size's derived value agrees, that value is threaded
+into `_build_node`'s leaf branch for the `tree` widget specifically (a
+new `tree_orientation` parameter, threaded the same way `absent_widgets`
+already is) -- every OTHER leaf keeps reading its own load-time
+`node.orientation` exactly as before (this section's own "non-residual
+leaves keep their authored/default orientation" instruction, read
+together with the disclosed scope narrowing two paragraphs below: `tree`
+is the only RESIDUAL leaf this stage threads the derivation through, not
+every residual leaf the language could in principle name one for).
+
+**Result, both classes, verified by direct re-solve (see this
+commission's own dispatch report for the full table).** Landscape: `tree`
+derives `'v'` at both its solvable representative sizes (1920x1080,
+2560x1440 -- 1280x1024 is INFEASIBLE, contributing no vote) -- unanimous,
+and IDENTICAL to the pre-P2d static default, so landscape's compiled
+program is byte-identical to before this stage. Portrait: `tree` derives
+`'h'` at all five of its representative sizes -- unanimous, and DIFFERENT
+from the pre-P2d static default (`'v'`) -- this is the one observable
+diff this stage produces, exactly matching the commission's own named
+expectation and R1's own `activeTreeOrientation` wiring's downstream
+consumption (`frontend/src/App.vue`; no frontend source change needed,
+since R1 already reads `leafNodes['tree'].orientation` off whichever
+value the compiled program itself carries).
+
+**Fail-loud disagreement refusal (ADR-0002), exercised, not merely
+theoretical.** If a class's own solvable representative sizes ever
+disagreed on `tree`'s derived orientation, `_derive_tree_orientation`
+raises `OrientationDerivationError` (below) naming every disagreeing
+size and its derived value, rather than picking one silently or
+averaging/interpolating -- the static compiled contract cannot honestly
+carry a size-varying fact as one field. This is not a hypothetical
+branch: running the FULLY GENERAL form of Amendment 9's own mechanism
+(`orientation.compute_derived_orientations`, which derives a value for
+EVERY residual leaf `wellformed.find_residual_leaves` names, not just
+`tree`) against landscape's own pruned default-valuation tree finds
+THREE residual leaves -- `B`, `tree`, `otherBand` -- and `otherBand`
+GENUINELY DISAGREES across landscape's own two solvable representative
+sizes: `'h'` at 1920x1080 (solved rect 664x564, aspect 1.18 > 1) versus
+`'v'` at 2560x1440 (solved rect 664x924, aspect 0.72 < 1) -- a real,
+checked fact about the current encoding (`otherBand`'s width is pinned
+to the control panel's own fixed 664px column while its height is
+genuinely elastic, so it flips wide-short to narrow-tall as the viewport
+grows taller), not a derivation bug. `B`'s own derived value is
+unanimous `'v'` in both classes at every solvable size (matching its own
+pre-existing static default exactly, so deriving it would be a byte-
+identical no-op either way).
+
+**DISCLOSED, DELIBERATE SCOPE NARROWING (STOP-and-report per the
+umbrella CLAUDE.md; recorded in this stage's own dispatch report).** This
+stage threads the derivation through for `tree` ONLY, not for every
+residual leaf Amendment 9's mechanism could in principle name one for.
+Three reasons, together: (1) this arc's own named target, throughout the
+commission's own text, is `tree`'s orientation specifically -- the one
+leaf a live consumer (`frontend/src/App.vue`'s `activeTreeOrientation`,
+wired in R1) actually reads; (2) `B`'s derivation is a verified no-op (no
+behavior to gain by threading it); (3) `otherBand`'s derivation
+GENUINELY DISAGREES within landscape, and there is no current downstream
+consumer of `otherBand`'s `orientation` field at all (it is one of the
+M2 STAGE F1 PORT's own disclosed "no current consumer reads them yet"
+fields) -- threading the fully general mechanism through emission today
+would make landscape's ENTIRE compiled program refuse to build over a
+field nothing reads, a consequence far outside this arc's own scope and
+squarely the kind of disposition (does the static contract simply never
+carry `otherBand`'s orientation, does a future consumer need runtime
+re-derivation instead, does the encoding itself need to change) the
+commission's own text reserves for the orchestrator, not something to
+improvise here. `otherBand`/`B` therefore keep reading their own
+load-time `node.orientation` default exactly as every leaf did before
+this stage, byte-identical -- this stage touches only the `tree` widget's
+own emitted value, in both classes.
+
 License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
 license line and the umbrella's ADR-0006 per-file convention.
 """
@@ -344,11 +443,48 @@ from typing import Dict, FrozenSet, List, Optional, Tuple
 
 import lyt_ast as ast
 import loader
+import orientation
 import runner
-from presence import is_named_absent
-from runner import ENCODINGS_DIR
+from compiler import solve_lexicographic
+from coverage_matrix import LANDSCAPE_SIZES, PORTRAIT_SIZES
+from presence import is_named_absent, resolve_and_validate
+from runner import ENCODINGS_DIR, _gather_reach_preferred_widgets
 
 STATE_DIR = Path(__file__).parent.parent.parent / "frontend" / "src" / "state"
+
+# P2d: the one leaf widget id this stage threads Amendment 9's derivation
+# through (module docstring, "P2d -- emit the DERIVED orientation" /
+# "DISCLOSED, DELIBERATE SCOPE NARROWING" sections).
+TREE_WIDGET_ID = "tree"
+
+# P2d: `_derive_tree_orientation`'s own representative-size lookup, keyed
+# by class id -- reuses `coverage_matrix.py`'s own declared size lists
+# verbatim (the commission's own "the sizes the encoding/coverage
+# machinery already names -- reuse the existing size lists, do not invent
+# sizes" instruction), never a fresh list invented here.
+_REPRESENTATIVE_SIZES: Dict[str, List[Tuple[str, int, int]]] = {
+    "landscape": LANDSCAPE_SIZES,
+    "portrait": PORTRAIT_SIZES,
+}
+
+
+class OrientationDerivationError(ValueError):
+    """P2d (module docstring, "Fail-loud disagreement refusal" section):
+    raised by `_derive_tree_orientation` when a class's own solvable
+    representative sizes disagree on `tree`'s genuinely derived
+    orientation -- the compiled static contract cannot honestly carry a
+    size-varying fact as one field (ADR-0002). `.detail` carries the
+    disagreement as data (size label -> derived value), not just the
+    formatted message, so a caller can assert on *why* this was refused
+    without re-parsing prose -- the same "structured error" posture
+    `errors.py`'s own `LytError` family uses elsewhere in this
+    substrate (this exception is a plain `ValueError` subclass, not that
+    dataclass family, since this is an emit-time-only refusal with no
+    parse/load-error sibling to share a base with)."""
+
+    def __init__(self, message: str, *, detail: Dict[str, List[str]]):
+        super().__init__(message)
+        self.detail = detail
 
 # Landscape's default output path is unchanged from the pre-W3 script
 # (kept as its own name, `DEFAULT_OUT`, for backward compatibility with
@@ -451,6 +587,74 @@ def _absent_widgets_for_class(class_id: str) -> FrozenSet[str]:
     result to the `absent_widgets` set `_build_node`'s Split branch needs."""
     reg = _runner_registration_for_class(class_id)
     return runner.valuation_for_class(reg, class_id).absent_widgets
+
+
+def _derive_tree_orientation(class_id: str) -> str:
+    """P2d (module docstring, "P2d -- emit the DERIVED orientation"
+    section): the one seam `build_program` resolves the `tree` leaf's
+    genuine per-solve orientation through. Reproduces `runner.run_all`'s
+    own solve shape for this ONE widget (raw load -> per-class prune via
+    `resolve_and_validate` -> solve at every representative size), then
+    applies Amendment 9's own `orientation.compute_derived_orientations`
+    at each solvable size and requires unanimous agreement -- see
+    `OrientationDerivationError`'s own docstring for the disagreement
+    refusal shape.
+
+    An INFEASIBLE representative size contributes no vote (there is no
+    solved rectangle to derive an aspect from -- `compute_derived_
+    orientations` itself already skips these; this function does too, by
+    construction, since it only records a vote when that dict actually
+    names `TREE_WIDGET_ID`). A class with NO solvable representative size
+    at all, or one whose pruned tree never makes `tree` a residual leaf
+    in the first place, raises a plain `ValueError` -- there is nothing
+    to derive, which is itself a fact worth failing loudly over rather
+    than silently falling back to the load-time placeholder."""
+    reg = _runner_registration_for_class(class_id)
+    layout_name = reg.layout_by_class[class_id]
+    if class_id not in _REPRESENTATIVE_SIZES:
+        raise ValueError(
+            f"_derive_tree_orientation has no representative-size list for class {class_id!r} -- "
+            f"only {sorted(_REPRESENTATIVE_SIZES)} are known (coverage_matrix.py's own declared lists)."
+        )
+    raw_layouts: Dict[str, ast.Slot] = {}
+    for f in reg.files:
+        text = (ENCODINGS_DIR / f).read_text()
+        raw_layouts.update(loader.load_layouts(text, waivers=reg.waivers))
+    valuation = runner.valuation_for_class(reg, class_id)
+    slot = resolve_and_validate(raw_layouts, [layout_name], valuation)[layout_name]
+    reach = _gather_reach_preferred_widgets(slot, reg.board_widget)
+    votes: Dict[str, List[str]] = {}
+    for label, w_px, h_px in _REPRESENTATIVE_SIZES[class_id]:
+        result = solve_lexicographic(
+            slot,
+            class_id=class_id,
+            w_px=w_px,
+            h_px=h_px,
+            board_widget=reg.board_widget,
+            reach_preferred_widgets=reach,
+            time_limit_s=20.0,
+        )
+        if result.status not in ("OPTIMAL", "FEASIBLE"):
+            continue  # INFEASIBLE: no solved rectangle, no vote (not a disagreement).
+        derived = orientation.compute_derived_orientations(slot, result)
+        value = derived.get(TREE_WIDGET_ID)
+        if value is not None:
+            votes.setdefault(value, []).append(label)
+    if not votes:
+        raise ValueError(
+            f"_derive_tree_orientation: class {class_id!r} has no solvable representative size at "
+            f"which {TREE_WIDGET_ID!r} is a residual-holding leaf -- nothing to derive."
+        )
+    if len(votes) > 1:
+        raise OrientationDerivationError(
+            f"class {class_id!r}: representative sizes disagree on {TREE_WIDGET_ID!r}'s derived "
+            f"orientation -- {votes!r}. The compiled static contract cannot honestly carry a "
+            "size-varying fact as one field (ADR-0002); resolving this (runtime re-derivation, an "
+            "encoding change, or something else) is a disposition for the orchestrator, not this "
+            "emitter.",
+            detail=votes,
+        )
+    return next(iter(votes))
 
 
 def _px(e: ast.Extent, *, where: str) -> float:
@@ -636,11 +840,23 @@ def _build_node(
     open_control_panel: bool = False,
     control_panel_tab_ids: Tuple[str, ...] = (),
     control_panel_collapse_indices: frozenset = frozenset(),
+    tree_orientation: Optional[str] = None,
     _within_opened_tab: bool = False,
 ) -> dict:
     node = slot.node
     if isinstance(node, ast.Leaf):
         domain, facets = _domain_facets(node)
+        # P2d (module docstring, "P2d -- emit the DERIVED orientation"
+        # section): `tree_orientation` is the genuinely derived value for
+        # the ONE widget id this stage threads Amendment 9's mechanism
+        # through -- every OTHER leaf (including the two other residual
+        # leaves, `B`/`otherBand`, disclosed narrowing above) still reads
+        # its own load-time `node.orientation` exactly as before.
+        orientation_value = (
+            tree_orientation
+            if (node.widget == TREE_WIDGET_ID and tree_orientation is not None)
+            else node.orientation
+        )
         return {
             "kind": "leaf",
             "widget": node.widget,
@@ -673,7 +889,7 @@ def _build_node(
                 {"axis": a, "disposition": d}
                 for a, d in sorted(node.edge_axes, key=lambda pair: pair[0])
             ],
-            "orientation": node.orientation,
+            "orientation": orientation_value,
             "activity": node.activity,
             "demote": _demote_field(slot),
             "envelopeStates": (
@@ -771,6 +987,7 @@ def _build_node(
                     open_control_panel=False,
                     control_panel_tab_ids=(),
                     control_panel_collapse_indices=frozenset(),
+                    tree_orientation=tree_orientation,
                     # M2 STAGE B2b: marks every descendant of an opened
                     # tab's own subtree as "inside", so a nested Exclusive
                     # found deeper in (e.g. settingsPane's own new T) is
@@ -845,6 +1062,7 @@ def _build_node(
                         open_control_panel=open_control_panel,
                         control_panel_tab_ids=control_panel_tab_ids,
                         control_panel_collapse_indices=control_panel_collapse_indices,
+                        tree_orientation=tree_orientation,
                         _within_opened_tab=_within_opened_tab,
                     ),
                 }
@@ -873,6 +1091,11 @@ def build_program(
     # or tagged-Exclusive tag) drives its own `presenceDefaultVisible`
     # wherever in the tree it appears, no path table required.
     absent_widgets = _absent_widgets_for_class(class_id)
+    # P2d: resolved ONCE per build, same posture as `absent_widgets` above --
+    # `_derive_tree_orientation` raises (`OrientationDerivationError` or a
+    # plain `ValueError`) rather than let a bad derivation reach emission
+    # silently (module docstring, "P2d -- emit the DERIVED orientation").
+    tree_orientation = _derive_tree_orientation(class_id)
     root = _build_node(
         slot,
         path=(),
@@ -880,6 +1103,7 @@ def build_program(
         open_control_panel=open_control_panel,
         control_panel_tab_ids=control_panel_tab_ids,
         control_panel_collapse_indices=control_panel_collapse_indices,
+        tree_orientation=tree_orientation,
     )
     return {"classId": class_id, "root": root}
 
@@ -1061,6 +1285,15 @@ def render_ts(program: dict, *, registration: Registration) -> str:
         "`demote` is also now carried on 'blackbox'/'exclusive' nodes (previously "
         "leaf-only) — see this tool's own module docstring, 'LYT presence arc P2a' "
         "section."
+    )
+    lines.append(
+        " * P2d: the `tree` leaf's `orientation` field is now the GENUINELY DERIVED "
+        "value (Amendment 9, SPEC.md §17; `orientation.compute_derived_orientations`), "
+        "not the load-time placeholder default — every OTHER leaf (including the two "
+        "other residual leaves, `B`/`otherBand`) still reads its own load-time default, "
+        "a disclosed scope narrowing; see this tool's own module docstring, 'P2d — emit "
+        "the DERIVED orientation' section, for the full derivation and the disclosed "
+        "`otherBand` disagreement finding this stage does NOT resolve."
     )
     lines.append(
         " * Data-shape types (LytProgram, LytTrackShape, etc.) are NOT declared here — "
