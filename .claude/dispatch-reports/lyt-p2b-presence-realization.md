@@ -542,3 +542,56 @@ branch" instruction (not "push").
 Public Domain (The Unlicense), matching this repository's ADR-0006
 per-file convention (this report is a dispatch record, not source code,
 so no header is added to it).
+
+## Fix pass — 2026-08-12 (P2b review corrective)
+
+The P2b review flagged one ESLint violation introduced by this branch:
+an unjustified `as Node` cast at `frontend/src/App.vue:796`
+(`local/justification-adjacency`, cast-hygiene stage 2 — "an `as`
+needs a justification or it doesn't ship").
+
+**Fix shape chosen: comment, not cast elimination.** The cast is
+genuinely required — `PointerEvent.target` types as `EventTarget |
+null`, and `Node.contains()` requires a `Node` argument, so no sound
+narrowing eliminates it. Three sibling call sites in the same chrome
+neighborhood already carry the justification for the identical cast:
+`LocalePicker.vue:62`, `BoardRailPopoverTrigger.vue:70`, and
+`LytPresenceMenu.vue:69`, each reading:
+
+```
+if (rootRef.value.contains(e.target as Node)) return; // DOM: event.target is an EventTarget; Node is contains()'s arg type
+```
+
+`App.vue`'s shape differs slightly — the cast result is bound to a
+local (`target`) and reused across two `.contains()` checks rather than
+inlined — so the same trailing comment was applied to the assignment
+line instead of the call site:
+
+```ts
+const target = e.target as Node; // DOM: event.target is an EventTarget; Node is contains()'s arg type
+```
+
+**Gate results (from `frontend/`):**
+
+- `nice -n 19 npm run build` → exit 0.
+- `NODE_OPTIONS=--max-old-space-size=2048 nice -n 19 npx vitest run
+  tests/integration/App-boot.test.ts` → exit 0 (5/5 tests pass).
+- `npx eslint .` → exit **1**, not 0. `App.vue:796` no longer appears
+  in the output — the branch-introduced violation is resolved — but
+  the repo-wide lint carries 15 pre-existing errors (plus 2 warnings)
+  across six files this branch never touches: `ProxyUpstreamSettingField.vue`,
+  `AnalysisDashboard.vue`, `chart-data.ts`, `LibraryTable.vue`,
+  `WizardStepPalette.vue`, `batch-mint-core.ts`, `useMinting.ts`. Verified
+  by checking out `HEAD~1` (the commit before this branch's own commit)
+  into the working tree and re-running `npx eslint .`: the identical 15
+  errors / 2 warnings appear there too, byte-for-byte the same messages —
+  confirming these predate this branch and are not part of its diff.
+  Working tree was restored to `HEAD` afterward (`git checkout HEAD --
+  .`); no files were modified by that check.
+
+  Per this session's scope ("exactly this fix, nothing else"), these
+  pre-existing violations were left untouched rather than swept up here.
+  The literal `npx eslint .` exit-0 gate as stated in the commission is
+  therefore **not met** for the full repo — only the branch's own
+  contribution to lint failures is resolved. Surfacing this rather than
+  silently declaring the gate green, per ADR-0002.

@@ -793,7 +793,7 @@ function closeControlPanelPopover(): void {
 // belt-and-suspenders (harmless if ever restructured to a sibling again).
 const controlPanelPopoverRootEl = vueRef<HTMLElement | null>(null);
 function onControlPanelPopoverDocumentPointerDown(e: PointerEvent): void {
-  const target = e.target as Node;
+  const target = e.target as Node; // DOM: event.target is an EventTarget; Node is contains()'s arg type
   if (controlPanelPopoverRootEl.value?.contains(target)) return;
   if (controlPanelPopoverEl.value?.contains(target)) return;
   closeControlPanelPopover();
