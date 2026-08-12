@@ -4,6 +4,7 @@
  * Source encoding: research/lyt/encodings/lengyue_portrait.lyt (layout `lengyue-portrait`)
  * The compiled LYT program (H/V/Exclusive tree, unsolved) as typed TS data — consumed at runtime by LytNode.vue, which realizes each Split as a live CSS Grid container (roadmap S3, 'layout as data, not template').
  * REALIZATION WAVE: the control-panel Exclusive (T) node is now genuinely opened (kind 'exclusive', widget 'controlPanel') for library/cards/settings/other; analysis stays collapsed to a 'blackbox' leaf (CP-analysis) — a disclosed, deliberate scope narrowing (dynamic user-configurable analysis tabs) — see this tool's own module docstring, 'REALIZATION WAVE' and 'SETTINGS OPENED LIVE' sections.
+ * M2 STAGE F1 PORT: leaf nodes now carry eight additional realization-layer metadata fields (elasticAxes/ceilingAxes/floorAxes/edgeAxes/orientation/activity/demote/envelopeStates), ported from the model-iteration loop experiment as inert data — no current consumer reads them yet; see this tool's own module docstring, 'M2 STAGE F1 PORT' section, for the disclosed narrowing (unitAxes/wrapPolicy and two track-shape algorithm changes are NOT ported this stage).
  * Data-shape types (LytProgram, LytTrackShape, etc.) are NOT declared here — see './lyt-layout-types.ts' (hand-written, ADR-0012 one-home-per-fact), re-exported below.
  * Regenerate: cd research/lyt && nice -n 19 ~/w/vdc/venvs/generic/bin/python emit_layout_tree.py --registration portrait
  *
@@ -37,19 +38,19 @@ export const LYT_PORTRAIT: LytProgram = {
         path: "0",
         presenceDefaultVisible: false,
         track: { kind: "fixed", px: 168 },
-        node: { kind: "leaf", widget: "boardRail", domain: "common", facets: ["action", "info"], aspect: null, scrollAxes: [], content: null },
+        node: { kind: "leaf", widget: "boardRail", domain: "common", facets: ["action", "info"], aspect: null, scrollAxes: [], content: null, elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: "occasional", demote: null, envelopeStates: null },
       },
       {
         path: "1",
         presenceDefaultVisible: true,
         track: { kind: "fixed", px: 160 },
-        node: { kind: "leaf", widget: "A_app", domain: "common", facets: ["action"], aspect: null, scrollAxes: [], content: "bounded" },
+        node: { kind: "leaf", widget: "A_app", domain: "common", facets: ["action"], aspect: null, scrollAxes: [], content: "bounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: "occasional", demote: { axis: "h", belowPx: 616 }, envelopeStates: null },
       },
       {
         path: "2",
         presenceDefaultVisible: false,
         track: { kind: "fixed", px: 80 },
-        node: { kind: "leaf", widget: "A_setup", domain: "common", facets: ["action"], aspect: null, scrollAxes: [], content: "bounded" },
+        node: { kind: "leaf", widget: "A_setup", domain: "common", facets: ["action"], aspect: null, scrollAxes: [], content: "bounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: "occasional", demote: null, envelopeStates: null },
       },
       {
         path: "3",
@@ -62,19 +63,19 @@ export const LYT_PORTRAIT: LytProgram = {
               path: "3.0",
               presenceDefaultVisible: true,
               track: { kind: "elastic", minPx: 0, frWeight: 100 },
-              node: { kind: "leaf", widget: "B", domain: "board", facets: [], aspect: 1, scrollAxes: [], content: null },
+              node: { kind: "leaf", widget: "B", domain: "board", facets: [], aspect: 1, scrollAxes: [], content: null, elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: null, demote: null, envelopeStates: null },
             },
             {
               path: "3.1",
               presenceDefaultVisible: true,
               track: { kind: "fixed", px: 24 },
-              node: { kind: "leaf", widget: "I_board", domain: "board", facets: ["info"], aspect: null, scrollAxes: [], content: null },
+              node: { kind: "leaf", widget: "I_board", domain: "board", facets: ["info"], aspect: null, scrollAxes: [], content: null, elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: null, demote: null, envelopeStates: null },
             },
             {
               path: "3.2",
               presenceDefaultVisible: true,
               track: { kind: "fixed", px: 28 },
-              node: { kind: "leaf", widget: "A_board", domain: "board", facets: ["action"], aspect: null, scrollAxes: [], content: null },
+              node: { kind: "leaf", widget: "A_board", domain: "board", facets: ["action"], aspect: null, scrollAxes: [], content: null, elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: null, demote: null, envelopeStates: null },
             },
           ],
         },
@@ -90,25 +91,25 @@ export const LYT_PORTRAIT: LytProgram = {
               path: "4.0",
               presenceDefaultVisible: true,
               track: { kind: "elastic", minPx: 0, frWeight: 1 },
-              node: { kind: "leaf", widget: "A_engine_controls", domain: "go", facets: ["action"], aspect: null, scrollAxes: [], content: "bounded" },
+              node: { kind: "leaf", widget: "A_engine_controls", domain: "go", facets: ["action"], aspect: null, scrollAxes: [], content: "bounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: null, demote: null, envelopeStates: null },
             },
             {
               path: "4.1",
               presenceDefaultVisible: true,
               track: { kind: "elastic", minPx: 0, frWeight: 1 },
-              node: { kind: "leaf", widget: "A_engine_eval", domain: "go", facets: ["info"], aspect: null, scrollAxes: [], content: "bounded" },
+              node: { kind: "leaf", widget: "A_engine_eval", domain: "go", facets: ["info"], aspect: null, scrollAxes: [], content: "bounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: null, demote: null, envelopeStates: null },
             },
             {
               path: "4.2",
               presenceDefaultVisible: true,
               track: { kind: "elastic", minPx: 0, frWeight: 1 },
-              node: { kind: "leaf", widget: "A_engine_health", domain: "go", facets: ["info"], aspect: null, scrollAxes: [], content: "bounded" },
+              node: { kind: "leaf", widget: "A_engine_health", domain: "go", facets: ["info"], aspect: null, scrollAxes: [], content: "bounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: null, demote: null, envelopeStates: null },
             },
             {
               path: "4.3",
               presenceDefaultVisible: true,
               track: { kind: "elastic", minPx: 0, frWeight: 1 },
-              node: { kind: "leaf", widget: "A_engine_queue", domain: "go", facets: ["info"], aspect: null, scrollAxes: [], content: "bounded" },
+              node: { kind: "leaf", widget: "A_engine_queue", domain: "go", facets: ["info"], aspect: null, scrollAxes: [], content: "bounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: null, demote: null, envelopeStates: null },
             },
           ],
         },
@@ -124,7 +125,7 @@ export const LYT_PORTRAIT: LytProgram = {
               path: "5.0",
               presenceDefaultVisible: true,
               track: { kind: "elastic", minPx: 140, frWeight: 1 },
-              node: { kind: "leaf", widget: "tree", domain: "board", facets: ["action", "info"], aspect: null, scrollAxes: [], content: null },
+              node: { kind: "leaf", widget: "tree", domain: "board", facets: ["action", "info"], aspect: null, scrollAxes: [], content: null, elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: null, demote: null, envelopeStates: null },
             },
             {
               path: "5.1",
@@ -137,13 +138,13 @@ export const LYT_PORTRAIT: LytProgram = {
                     path: "5.1.0",
                     tabId: "library",
                     tabLabelKey: "app.tabs.library",
-                    node: { kind: "leaf", widget: "CP-library", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded" },
+                    node: { kind: "leaf", widget: "CP-library", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded", elasticAxes: ["h"], ceilingAxes: [], floorAxes: [{ axis: "v", px: 200 }], edgeAxes: [{ axis: "v", disposition: "item" }], orientation: "v", activity: null, demote: null, envelopeStates: null },
                   },
                   {
                     path: "5.1.1",
                     tabId: "cards",
                     tabLabelKey: "app.tabs.cards",
-                    node: { kind: "leaf", widget: "CP-cards", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded" },
+                    node: { kind: "leaf", widget: "CP-cards", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded", elasticAxes: ["h"], ceilingAxes: [], floorAxes: [{ axis: "v", px: 200 }], edgeAxes: [{ axis: "v", disposition: "item" }], orientation: "v", activity: null, demote: null, envelopeStates: null },
                   },
                   {
                     path: "5.1.2",
@@ -156,7 +157,7 @@ export const LYT_PORTRAIT: LytProgram = {
                           path: "5.1.2.0",
                           presenceDefaultVisible: true,
                           track: { kind: "fixed", px: 77 },
-                          node: { kind: "leaf", widget: "settingsSubstrip", domain: "common", facets: [], aspect: null, scrollAxes: [], content: "bounded" },
+                          node: { kind: "leaf", widget: "settingsSubstrip", domain: "common", facets: [], aspect: null, scrollAxes: [], content: "bounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: null, demote: null, envelopeStates: null },
                         },
                         {
                           path: "5.1.2.1",
@@ -184,13 +185,13 @@ export const LYT_PORTRAIT: LytProgram = {
                           path: "5.1.4.0",
                           presenceDefaultVisible: true,
                           track: { kind: "fixed", px: 264 },
-                          node: { kind: "leaf", widget: "otherColorDebug", domain: "debug", facets: [], aspect: null, scrollAxes: [], content: "designed" },
+                          node: { kind: "leaf", widget: "otherColorDebug", domain: "debug", facets: [], aspect: null, scrollAxes: [], content: "designed", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: null, demote: null, envelopeStates: null },
                         },
                         {
                           path: "5.1.4.1",
                           presenceDefaultVisible: true,
                           track: { kind: "elastic", minPx: 200, frWeight: 1 },
-                          node: { kind: "leaf", widget: "otherBand", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded" },
+                          node: { kind: "leaf", widget: "otherBand", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [{ axis: "v", disposition: "continuous" }], orientation: "v", activity: null, demote: null, envelopeStates: null },
                         },
                       ],
                     },
@@ -202,7 +203,7 @@ export const LYT_PORTRAIT: LytProgram = {
               path: "5.2",
               presenceDefaultVisible: false,
               track: { kind: "fixed", px: 96 },
-              node: { kind: "leaf", widget: "previewBoard", domain: "common", facets: ["info"], aspect: 1, scrollAxes: [], content: null },
+              node: { kind: "leaf", widget: "previewBoard", domain: "common", facets: ["info"], aspect: 1, scrollAxes: [], content: null, elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: null, demote: null, envelopeStates: null },
             },
           ],
         },
