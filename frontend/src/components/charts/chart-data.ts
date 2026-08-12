@@ -27,9 +27,15 @@ interface ChartSeriesLike {
 
 function pointY(pt: unknown): number | null | undefined {
   if (pt && typeof pt === 'object' && 'value' in pt) {
+    // ECharts structural read: the `in` check above already narrowed `pt`
+    // to an object carrying a `value` key; this cast supplies the shape
+    // ECharts' `{ value: [x, y], ... }` per-point form uses.
     const v = (pt as { value?: unknown }).value;
+    // Tuple read: `Array.isArray` confirms `v` is an array; ECharts' own
+    // `[x, y]` tuple has no narrower runtime-checkable type than `unknown`.
     return Array.isArray(v) ? (v[1] as number | null | undefined) : undefined;
   }
+  // Same tuple read as above, for the bare `[x, y]` per-point form.
   return Array.isArray(pt) ? (pt[1] as number | null | undefined) : undefined;
 }
 

@@ -193,9 +193,13 @@ function isSortableColumn(key: LibraryColumnKey): boolean {
 }
 function onSortableHeaderClick(key: LibraryColumnKey): void {
   if (!isSortableColumn(key)) return;
+  // Not a type predicate (see isSortableColumn's docstring above): the
+  // guard above rules out 'ordinal', the one LibraryColumnKey member
+  // outside LibrarySortColumn, so every key reaching here is one.
   onHeaderClick(key as LibrarySortColumn);
 }
 function sortIndicatorFor(key: LibraryColumnKey): string {
+  // Same non-predicate narrowing as onSortableHeaderClick above.
   return isSortableColumn(key) ? sortIndicator(key as LibrarySortColumn) : '';
 }
 // aria-sort (audit L4/L19 roles item): only meaningful on the

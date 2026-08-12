@@ -89,6 +89,11 @@ export function orderSelectionForBatch<T extends NodeId>(
   const stack: NodeId[] = [rootNodeId];
   while (stack.length > 0) {
     const id = stack.pop()!;
+    // `stack` walks the tree at the plain-NodeId level (it's seeded from
+    // `rootNodeId: NodeId` and re-pushes `node.children`, both plain
+    // NodeId), while `selected`/`out` carry the caller's brand `T`; every
+    // id popped here is a plain NodeId that MAY also be a `T` — the
+    // membership test against `selected` is exactly what confirms it.
     if (selected.has(id as T)) out.push(id as T);
     const node = nodes[id];
     if (!node) continue;
@@ -177,6 +182,9 @@ export function filterUncardedSelection(
       excludedAsKnown.push(nodeId);
       continue;
     }
+    // Sole construction site (see UncardedNodeId's docstring above): this
+    // branch is reached only when `hash` is absent or not in
+    // `knownHashes`, which IS the uncarded condition the brand asserts.
     ids.add(nodeId as UncardedNodeId);
   }
   return { ids, excludedAsKnown };

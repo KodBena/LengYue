@@ -167,8 +167,9 @@ const selectedPalette = computed<AnalysisPalette | undefined>(() =>
 // ever writes the cell — simply displaying 'custom' never does.
 const aggregationValue = computed<AggregationValue>(() => {
   const fn = selectedPalette.value?.summary_fn;
-  return (KNOWN_AGGREGATIONS as readonly string[]).includes(fn ?? '')
-    ? (fn as KnownAggregation)
+  return (KNOWN_AGGREGATIONS as readonly string[]) // widen the readonly tuple so .includes accepts the plain-string `fn`
+    .includes(fn ?? '')
+    ? (fn as KnownAggregation) // just confirmed by the .includes check above: `fn` is one of the three known symbols
     : 'custom';
 });
 

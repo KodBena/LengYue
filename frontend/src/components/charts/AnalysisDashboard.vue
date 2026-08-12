@@ -89,6 +89,10 @@ const soloTabPanels = computed<AnalysisPanelDescriptor[]>(() => {
 });
 
 function onTabModelUpdate(id: string): void {
+  // Re-brand: TabWidget is a generic {id,label}[] widget over plain
+  // strings; the ids it emits here originate from `tabs` (AnalysisTab[]),
+  // so every value TabWidget can hand back is already an AnalysisTabId
+  // string under the hood — this is the domain boundary re-minting it.
   setActiveTab(id as AnalysisTabId);
 }
 </script>
@@ -109,7 +113,7 @@ function onTabModelUpdate(id: string): void {
       :model-value="activeTab?.id ?? ''"
       @update:model-value="onTabModelUpdate"
     >
-      <template v-for="tab in tabs" #[tab.id]>
+      <template v-for="tab in tabs" :key="tab.id" #[tab.id]>
         <div class="scrollable-content">
           <component
             v-for="panel in resolvePanels(tab)"
