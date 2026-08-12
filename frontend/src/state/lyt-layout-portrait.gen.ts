@@ -49,7 +49,7 @@ export const LYT_PORTRAIT: LytProgram = {
       {
         path: "2",
         presenceDefaultVisible: false,
-        track: { kind: "fixed", px: 80 },
+        track: { kind: "fixed", px: 92 },
         node: { kind: "leaf", widget: "A_setup", domain: "common", facets: ["action"], aspect: null, scrollAxes: [], content: "bounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: "occasional", demote: null, envelopeStates: null },
       },
       {
@@ -138,13 +138,13 @@ export const LYT_PORTRAIT: LytProgram = {
                     path: "5.1.0",
                     tabId: "library",
                     tabLabelKey: "app.tabs.library",
-                    node: { kind: "leaf", widget: "CP-library", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded", elasticAxes: ["h"], ceilingAxes: [], floorAxes: [{ axis: "v", px: 200 }], edgeAxes: [{ axis: "v", disposition: "item" }], orientation: "v", activity: null, demote: null, envelopeStates: null },
+                    node: { kind: "leaf", widget: "CP-library", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded", elasticAxes: ["h"], ceilingAxes: [], floorAxes: [{ axis: "v", px: 200 }], edgeAxes: [{ axis: "v", disposition: "unit" }], orientation: "v", activity: null, demote: null, envelopeStates: null },
                   },
                   {
                     path: "5.1.1",
                     tabId: "cards",
                     tabLabelKey: "app.tabs.cards",
-                    node: { kind: "leaf", widget: "CP-cards", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded", elasticAxes: ["h"], ceilingAxes: [], floorAxes: [{ axis: "v", px: 200 }], edgeAxes: [{ axis: "v", disposition: "item" }], orientation: "v", activity: null, demote: null, envelopeStates: null },
+                    node: { kind: "leaf", widget: "CP-cards", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded", elasticAxes: ["h"], ceilingAxes: [], floorAxes: [{ axis: "v", px: 200 }], edgeAxes: [{ axis: "v", disposition: "unit" }], orientation: "v", activity: null, demote: null, envelopeStates: null },
                   },
                   {
                     path: "5.1.2",

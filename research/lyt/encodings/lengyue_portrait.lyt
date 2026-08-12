@@ -279,11 +279,27 @@
 --     expressible without a tree restructure or new grammar, filed as
 --     a frontier item, not undertaken here). Fix: raise the shared row
 --     height from `60px` to `80px`, uniformly, same as landscape.
+--
+--   - MEASUREMENT-GROUNDED ENCODING PASS (2026-08-12) -- identical
+--     rationale to `lengyue_landscape.lyt`'s own header note of the same
+--     name (read there in full: the isolated-rig methodology, the
+--     CP-library/CP-cards unit values, the SP_advancedRegistry/
+--     SP_keybindings non-uniform-pitch reasoning for why they stay
+--     `item`, the timelineStrip full-grounding, and the A_setup 92px
+--     re-grounding with its unattributed 12px delta) -- every number
+--     this pass introduces is IDENTICAL across both classes (the same
+--     live components render regardless of screen orientation, this
+--     file's own established convention, see the OPTION C header note
+--     above). This class's own difference: `CP-library`/`CP-cards`'
+--     already-declared per-leaf `min` here is `200px` (this file's own
+--     convention, not landscape's `160px`), still well over one whole
+--     unit on the v axis for both the `32px`/`39px` units, so L10 is
+--     satisfied the same way with a different (already-existing) min.
 layout lengyue-portrait =
   {min 0px, pref 1fr, max inf, gap 12px} V(
     @toggle(user, release) {min 168px, pref 168px, max 168px, activity occasional} boardRail[common, info+action],
     @demote(h 616px) {160px, content bounded, activity occasional} A_app[common, action],
-    @toggle(user, release) {80px, content bounded, activity occasional} A_setup[common, action],
+    @toggle(user, release) {92px, content bounded, activity occasional} A_setup[common, action],
     {pref 1fr} V(
       {width 100fr, aspect 1} B[board],
       {24px} I_board[board, info],
@@ -298,8 +314,8 @@ layout lengyue-portrait =
     {pref 1fr, gap 4px} H(
       {min 140px, pref 1fr, max inf} tree[board, info+action],
       {min 664px, pref 664px, max 664px} T(
-        {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v item} CP-library[common],
-        {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v item} CP-cards[common],
+        {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v unit, unit v 32px} CP-library[common],
+        {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v unit, unit v 39px} CP-cards[common],
         {min 443px, pref 1fr, max inf, gap 4px} V(
           {77px, boundary, content bounded} settingsSubstrip[common],
           {min 200px, pref 1fr, max inf} T(
