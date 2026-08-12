@@ -285,9 +285,10 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
   text-align: left;
   font-family: inherit;
 }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament). */
 .library-player-row:hover {
   border-color: var(--accent-primary);
-  color: var(--accent-primary);
+  color: var(--text-0);
 }
 .library-player-name {
   white-space: nowrap;
@@ -299,7 +300,8 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
   font-variant-numeric: tabular-nums;
 }
 .library-player-row:hover .library-player-count {
-  color: var(--accent-primary);
+  /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+  color: var(--text-0);
 }
 .library-split {
   flex: 1 1 0;

@@ -99,5 +99,9 @@ useModalKeyboard(modalContentRef, isOpen, () => handle('cancel'));
 }
 .btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-0); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-overwrite { background: transparent; border: 1px solid var(--state-attention); color: var(--state-attention); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
-.btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+/* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-1 text on
+   an --accent-primary fill measures ~1.84:1 in the default cluster
+   theme. --text-on-accent is the token minted for text directly on
+   an accent fill (theme.css, ledger rows 1018/1144). */
+.btn-submit { background: var(--accent-primary); border: none; color: var(--text-on-accent); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 </style>

@@ -81,5 +81,6 @@ const { expanded, toggle } = useSystemLogToggle();
 /* Reflects the PERSISTED `systemLogExpanded` intent, not the transient
    auto-reveal — a message-triggered flash does not paint this button
    "active" (it isn't the user's own standing choice). */
-.system-log-toggle.active { border-color: var(--accent-primary); color: var(--accent-primary); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament). */
+.system-log-toggle.active { border-color: var(--accent-primary); color: var(--text-0); }
 </style>

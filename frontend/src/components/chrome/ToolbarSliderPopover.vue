@@ -220,7 +220,8 @@ const count = computed(() => orderedKnobs.value.length);
 }
 .sliders-trigger:hover .m-val,
 .sliders-trigger:focus-visible .m-val {
-  color: var(--accent-primary);
+  /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+  color: var(--text-0);
 }
 
 /* Floating panel — anchored bottom-of-toolbar, drops down flush

@@ -202,5 +202,9 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown));
    "SLIDERS11" and EngineQueueTooltip's own concatenated-text defect;
    see those files' own header comments). */
 .debug-item.btn-connected { border-color: var(--state-success); color: var(--state-success); }
-.debug-item.running { background: var(--accent-primary); color: var(--surface-0); }
+/* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-0 text on an
+   --accent-primary fill measures 2.08:1 in the default cluster theme.
+   --text-on-accent is the token minted for text directly on an accent
+   fill (theme.css, ledger rows 1018/1144). */
+.debug-item.running { background: var(--accent-primary); color: var(--text-on-accent); }
 </style>

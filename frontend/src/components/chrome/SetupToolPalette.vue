@@ -253,10 +253,11 @@ const TOOLS: ReadonlyArray<{ id: SetupTool; labelKey: string; swatch: 'black' | 
   text-transform: uppercase;
   letter-spacing: var(--tracking-tight);
 }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament). */
 .setup-toolkit.open .setup-trigger,
 .setup-trigger.tool-armed {
   border-color: var(--accent-primary);
-  color: var(--accent-primary);
+  color: var(--text-0);
 }
 
 .setup-palette {
@@ -316,7 +317,8 @@ const TOOLS: ReadonlyArray<{ id: SetupTool; labelKey: string; swatch: 'black' | 
   font-size: var(--text-emphasis);
 }
 .tool-btn:hover { border-color: var(--border-3); color: var(--text-0); }
-.tool-btn.active { border-color: var(--accent-primary); color: var(--accent-primary); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament). */
+.tool-btn.active { border-color: var(--accent-primary); color: var(--text-0); }
 
 .handicap-trigger {
   margin-top: var(--space-tight);
@@ -331,7 +333,8 @@ const TOOLS: ReadonlyArray<{ id: SetupTool; labelKey: string; swatch: 'black' | 
   text-align: left;
 }
 .handicap-trigger:hover { border-color: var(--border-3); color: var(--text-0); }
-.handicap-trigger.active { border-color: var(--accent-primary); color: var(--accent-primary); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament). */
+.handicap-trigger.active { border-color: var(--accent-primary); color: var(--text-0); }
 
 .swatch {
   display: inline-block;

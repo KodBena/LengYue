@@ -253,7 +253,8 @@ onUnmounted(rowsThrottle.cancel);
   color: var(--text-0);
 }
 .queue-metric.queue-active .m-val {
-  color: var(--accent-primary);
+  /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+  color: var(--text-0);
   font-weight: bold;
 }
 

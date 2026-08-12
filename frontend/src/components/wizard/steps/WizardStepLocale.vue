@@ -96,5 +96,6 @@ function pick(loc: SupportedLocale): void {
 
 .locale-flag { font-size: var(--text-heading); line-height: 1; }
 .locale-name { flex: 1; text-align: left; color: var(--text-0); font-size: var(--text-emphasis); }
-.check { color: var(--accent-primary); font-size: var(--text-emphasis); }
+/* wC-contrast (F9): readable glyph text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.check { color: var(--text-0); font-size: var(--text-emphasis); }
 </style>

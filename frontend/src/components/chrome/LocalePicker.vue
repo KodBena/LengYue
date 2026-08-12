@@ -198,10 +198,11 @@ onBeforeUnmount(() => {
   font-size: var(--text-emphasis);
 }
 .locale-option:hover { background: var(--surface-2); color: var(--text-0); }
-.locale-option.active { color: var(--accent-primary); }
-.locale-option.active:hover { color: var(--accent-primary); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.locale-option.active { color: var(--text-0); }
+.locale-option.active:hover { color: var(--text-0); }
 
 .locale-option .flag { font-size: var(--text-body); line-height: 1; }
 .locale-option .name { flex: 1; }
-.locale-option .check { color: var(--accent-primary); font-size: var(--text-emphasis); }
+.locale-option .check { color: var(--text-0); font-size: var(--text-emphasis); }
 </style>

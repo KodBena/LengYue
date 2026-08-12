@@ -168,5 +168,5 @@ useModalKeyboard(modalContentRef, computed(() => true), wizard.cancel);
 }
 .btn:disabled { cursor: not-allowed; opacity: var(--alpha-disabled); }
 .btn-secondary { background: var(--surface-0); border-color: var(--border-2); color: var(--text-0); /* rows 681/742: surface bg + border edge */ }
-.btn-primary { background: var(--surface-0); border-color: var(--border-2); color: var(--accent-primary); font-weight: bold; /* standard SPA button shape (rows 609/681): NOT an accent-filled slab — commissioner directive 2026-08-07 */ }
+.btn-primary { background: var(--surface-0); border-color: var(--border-2); color: var(--text-0); font-weight: bold; /* standard SPA button shape (rows 609/681): NOT an accent-filled slab — commissioner directive 2026-08-07. wC-contrast (F9): label text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */ }
 </style>

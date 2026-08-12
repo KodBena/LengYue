@@ -334,7 +334,8 @@ const displayed = useThrottledSnapshot(liveMetrics, TOOLBAR_METRICS_REDRAW_THROT
    state the .lyt encoding's own envelope names, i.e. "99999ms" (7ch,
    the label text itself contributes the "ms" suffix via
    `metric.latencyValue`'s own `{ms}ms` interpolation, counted here). */
-.m-val  { color: var(--accent-primary); font-weight: bold; display: inline-block; text-align: right; }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.m-val  { color: var(--text-0); font-weight: bold; display: inline-block; text-align: right; }
 .eval-val.winrate-val, .m-val.winrate-val { min-width: 6ch; }
 .eval-val.score-lead-val, .m-val.score-lead-val { min-width: 6ch; }
 .metric-pps .m-val { min-width: 4ch; }

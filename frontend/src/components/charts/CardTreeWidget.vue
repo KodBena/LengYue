@@ -312,13 +312,15 @@ watch(
 .tree-header .chevron { font-size: var(--text-tiny); color: var(--text-disabled); width: 10px; flex-shrink: 0; }
 .tree-header .title { font-size: var(--text-emphasis); color: var(--text-0); font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tree-header .meta { font-size: var(--text-body); color: var(--text-0); white-space: nowrap; }
-.tree-header .counts { margin-left: auto; font-size: var(--text-body); color: var(--accent-primary); white-space: nowrap; }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.tree-header .counts { margin-left: auto; font-size: var(--text-body); color: var(--text-0); white-space: nowrap; }
 /* "Collapse all" button on the expanded tree-section's header.
-   Matches the toolbar-btn aesthetic (compact, monospace, accent
-   colour) so it reads as a chrome action rather than a content
-   element. Visible only on the expanded tree; renders flush to
-   the right edge of the header beside `counts`. */
-.collapse-all-btn { background: var(--surface-2); color: var(--accent-primary); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: 1px 6px; font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-tight); cursor: pointer; font-family: 'Courier New', monospace; flex-shrink: 0; }
+   Matches the toolbar-btn aesthetic (compact, monospace) so it reads
+   as a chrome action rather than a content element. Visible only on
+   the expanded tree; renders flush to the right edge of the header
+   beside `counts`. wC-contrast (F9): label text is --text-0, not
+   accent-primary — 2.08:1 in the default cluster theme. */
+.collapse-all-btn { background: var(--surface-2); color: var(--text-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: 1px 6px; font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-tight); cursor: pointer; font-family: 'Courier New', monospace; flex-shrink: 0; }
 .tree-canvas { flex: 1; min-height: 0; width: 100%; cursor: crosshair; }
 .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--border-3); font-size: var(--text-emphasis); }
 </style>

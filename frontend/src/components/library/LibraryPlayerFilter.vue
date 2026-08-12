@@ -125,7 +125,11 @@ function onBlur(): void {
   cursor: pointer;
 }
 .filter-suggest-item:hover {
+  /* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-1 text on
+     an --accent-primary fill measures ~1.84:1 in the default cluster
+     theme. --text-on-accent is the token minted for text directly on
+     an accent fill (theme.css, ledger rows 1018/1144). */
   background: var(--accent-primary);
-  color: var(--surface-1);
+  color: var(--text-on-accent);
 }
 </style>

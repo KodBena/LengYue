@@ -127,7 +127,14 @@ function onDragOver(ev: DragEvent): void {
   gap: var(--space-tight);
 }
 .import-counts { font-size: var(--text-tiny); color: var(--text-0); }
-.ok { color: var(--accent-positive, var(--accent-primary)); }
-.err { color: var(--accent-negative, #c75450); }
+/* wC-contrast (F9): --accent-positive is undefined so this resolved to
+   accent-primary — 2.08:1 in the default cluster theme. Readable text
+   is --text-0, not an accent fallback. */
+.ok { color: var(--text-0); }
+/* wC-contrast (F9): --accent-negative is undefined so this resolved to
+   the literal #c75450 fallback — ~3.45:1 against --surface-0 in the
+   default cluster theme (fails the 4.5:1 normal-text floor). Readable
+   text is --text-0, not an accent-family fallback. */
+.err { color: var(--text-0); }
 .muted { color: var(--text-0); }
 </style>

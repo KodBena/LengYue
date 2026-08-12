@@ -87,8 +87,12 @@ function reload(): void {
 }
 /* theme-exception: .reb-reload:hover #5bc0ff is the same lightened-
    accent variant as MintCardModal's btn-submit hover. */
+/* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-1 text on an
+   --accent-primary fill measures ~1.84:1 in the default cluster theme.
+   --text-on-accent is the token minted for text directly on an accent
+   fill (theme.css, ledger rows 1018/1144). */
 .reb-reload {
-  background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold;
+  background: var(--accent-primary); border: none; color: var(--text-on-accent); font-weight: bold;
   padding: 8px 18px; border-radius: var(--radius-default); cursor: pointer; font-size: var(--text-emphasis);
 }
 .reb-reload:hover { background: #5bc0ff; }

@@ -321,7 +321,10 @@ onUnmounted(() => {
 }
 
 .capture-prompt {
-  color: var(--accent-primary);
+  /* wC-contrast (F9): readable text is always --text-0; accent-primary
+     measures 2.08:1 against --surface-0 in the default cluster theme.
+     Not a disabled control, so no exception applies. */
+  color: var(--text-0);
   font-style: italic;
 }
 
