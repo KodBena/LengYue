@@ -1165,6 +1165,96 @@
 --     number. Restructuring to genuinely differentiated per-group
 --     heights (option (a) above) is filed as a frontier item, not
 --     undertaken here.
+--
+--   - MEASUREMENT-GROUNDED ENCODING PASS (2026-08-12, `.claude/
+--     dispatch-reports/lyt-measurement-wave.md`, Measurements 1/4/8 and
+--     the M2 B2b census's own Frontier A item): three corrections, each
+--     citing a live Playwright measurement against an isolated app
+--     instance (own DB copy, backend/frontend/KataGo-WS ports
+--     19100-19102, no engine connection ever established) rather than a
+--     further estimate.
+--
+--     (1) FRONTIER A, PARTIALLY RESOLVED -- `CP-library`/`CP-cards` GAIN
+--     `edge v unit`. The M2 STAGE B2a header's own L17 COMPLIANCE note
+--     above ("no measured constant pitch grounded anywhere in this
+--     repository to justify `unit`") is now STALE for these two leaves
+--     specifically -- Measurement 1 found a real, uniform, live row
+--     pitch for both: `CP-library` (`.library-row`, `LibraryTable.vue`)
+--     32px, uniform across all 9 sampled gaps (16 rows visible);
+--     `CP-cards` (`.game-row`, `ForestTreeNav.vue`'s Browse view) 39px,
+--     uniform across all 9 sampled gaps (2829 real rows sampled from a
+--     seeded library-tagged fixture). Distinct numbers for distinct
+--     components -- CP-cards' own row carries a chevron button and a
+--     two-line title+meta block, CP-library's is a flatter single-line
+--     row -- no single shared constant covers both, so each leaf gets
+--     its OWN `unit v <px>`, not a shared sentinel. `edge v item` ->
+--     `edge v unit, unit v 32px` (CP-library) / `edge v unit, unit v
+--     39px` (CP-cards); L10 satisfied trivially (both leaves' own
+--     already-declared `min 160px` reserves well over one whole unit on
+--     the v axis, which is the axis this T-child is partitioned on per
+--     §8's `along=None` reading).
+--
+--     `SP_advancedRegistry`/`SP_keybindings` are DELIBERATELY NOT
+--     touched by this pass -- the SAME measurement wave swept both and
+--     found NEITHER has a uniform pitch (`RegistryEditor.vue`'s own
+--     `.registry-row`: 15 sampled pitches `[31, 22, 22, 22, 22, 22, 25,
+--     55, 22, 25, 25, 27, 25, 25]`, modal 22px, one 55px multi-line
+--     outlier; `KeybindingRow.vue`'s own `.keybinding-row`: 11 sampled
+--     pitches `[37.5, 38, 38, 38, 38, 38, 92.5, 92, 37.5, 38, 38]`,
+--     modal 38px, two ~92px outliers, plausibly a wrapped
+--     reserved-key/conflict-notice row, not independently confirmed
+--     which). `unit <axis> <extent>` (§15.1) names ONE extent, and
+--     forcing a single number over a genuinely non-uniform measured
+--     distribution would be the exact false-precision failure this
+--     file's own disclosure posture (REPAIR PASS, W4 FLOOR CORRECTION,
+--     otherColorDebug, et al.) consistently avoids -- `edge v item`
+--     stays honest (an ANNOUNCED, not quantized, boundary) for both.
+--     Frontier A is therefore resolved for two of its four named
+--     leaves, still open for the other two -- not a full closure.
+--
+--     (2) `timelineStrip`'s `80px` -- PARTLY GROUNDED, NOW FULLY
+--     GROUNDED. The CP-analysis OPENED ONE LEVEL section above disclosed
+--     this leaf's `80px` as "PARTLY grounded ... and partly estimated
+--     (header + controls rows, not individually measured)". Measurement
+--     8 closes that gap: a live per-sub-region decomposition of
+--     `AnalysisTimelinePanel.vue`'s mounted DOM at 1920x1080, empty-state
+--     (`.timeline-header` 12px + `.timeline-body` 28px +
+--     `.timeline-controls` 40px = 80px exact), with the `.timeline-
+--     container` data-track's own already-cited 16px CSS fact
+--     (`HorizontalTimelineVisualizer.vue:429`) re-confirmed live
+--     (16px measured, exact match) inside the 28px body figure. No value
+--     changes here -- `80px` was already correct -- only the disclosure
+--     upgrades from a partial citation to a full one.
+--
+--     (3) `A_setup`'s `80px` -> `92px`, RE-GROUNDED AGAINST MAINLINE.
+--     The PALETTE-AS-PRESENCE-SLOT section above already disclosed its
+--     own `80px` as carried forward from `lyt-model-loop-experiment`'s
+--     measured "70px at every width" + this file's own ~10px margin
+--     posture, NOT independently re-measured against mainline's real
+--     `SetupToolPalette.vue`. Measurement 4 closes that gap directly:
+--     live-measured 296.34px x 92px at THREE widths (1920px, 1280px,
+--     900px), byte-identical at all three -- a genuine width-INVARIANT
+--     constant, the same footing `A_app`'s own `@demote(h 616px)`
+--     threshold already stands on ("probes at 615.3px, identical at 1920
+--     and at 420"), not a single-pinned-size sweep-maximum needing this
+--     file's own separate "+~10px margin" posture (that posture exists
+--     to cover un-swept intermediate widths between a sweep's own pinned
+--     samples; there is no such gap here -- three widths spanning this
+--     class's own tested range all agree exactly). Reservation moves
+--     from the carried-forward `80px` to the measured `92px` directly,
+--     no margin added on top. The 12px gap between the old
+--     carried-forward figure and this measurement is NOT attributed to
+--     any specific structural cause in the measurement report -- it
+--     notes only that the gap runs the SAME direction
+--     (measured-over-declared) as two other leaves' own REPAIR
+--     corrections, not a named cause (e.g. a specific extra
+--     padding/border line); reported honestly as an unattributed delta
+--     rather than a guessed one.
+--
+--     Witness: `.claude/dispatch-reports/lyt-measurement-wave.md`,
+--     Measurements 1/4/8, an isolated Playwright rig (own DB copy, ports
+--     19100-19102, no engine, no forbidden port touched) -- WITNESSED
+--     per that report's own per-claim witness-status summary.
 layout lengyue-landscape =
   {min 0px, pref 1fr, max inf, gap 12px} H(
     @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
@@ -1181,12 +1271,12 @@ layout lengyue-landscape =
         {pref 1fr, content bounded} A_engine_queue[go, info]
       ),
       @demote(h 616px) {160px, content bounded, activity occasional} A_app[common, action],
-      @toggle(user, release) {80px, content bounded, activity occasional} A_setup[common, action],
+      @toggle(user, release) {92px, content bounded, activity occasional} A_setup[common, action],
       {pref 1fr, gap 4px} H(
         {min 110px, pref 1fr, max inf} tree[board, info+action],
         {min 664px, pref 664px, max 664px} T(
-          {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 160px, edge v item} CP-library[common],
-          {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 160px, edge v item} CP-cards[common],
+          {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 160px, edge v unit, unit v 32px} CP-library[common],
+          {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 160px, edge v unit, unit v 39px} CP-cards[common],
           {min 443px, pref 1fr, max inf, gap 4px} V(
             {77px, boundary, content bounded} settingsSubstrip[common],
             {min 200px, pref 1fr, max inf} T(

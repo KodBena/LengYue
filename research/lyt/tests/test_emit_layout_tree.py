@@ -575,7 +575,11 @@ def test_f1_port_a_setup_activity_no_demote():
 
 def test_f1_port_cp_library_elastic_floor_edge():
     """`CP-library`/`CP-cards` declare `elastic h, floor v 160px, edge v
-    item` -- verified directly against the encoding."""
+    unit` -- verified directly against the encoding. `edge v unit`
+    [corrected 2026-08-12, measurement-grounded encoding pass, `.claude/
+    dispatch-reports/lyt-measurement-wave.md` Measurement 1 -- a live,
+    uniform 32px row pitch grounds `unit v 32px` for CP-library, superseding
+    the prior `edge v item` this test's own docstring named]."""
     program = elt.build_program_for(elt.REGISTRATIONS["landscape"])
     side = _find(program["root"]["children"], "2")["node"]["children"]
     tree_row = _find(side, "2.3")["node"]["children"]
@@ -584,7 +588,7 @@ def test_f1_port_cp_library_elastic_floor_edge():
     assert library["widget"] == "CP-library"
     assert library["elasticAxes"] == ["h"]
     assert library["floorAxes"] == [{"axis": "v", "px": 160.0}]
-    assert library["edgeAxes"] == [{"axis": "v", "disposition": "item"}]
+    assert library["edgeAxes"] == [{"axis": "v", "disposition": "unit"}]
     assert library["ceilingAxes"] == []
     assert library["orientation"] == "v"
 
