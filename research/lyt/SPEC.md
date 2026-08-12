@@ -1250,6 +1250,118 @@ instance (ADR-0000): a depth-assumption in a consumer, foreclosed by
 naming the fold total over the type's own constructors rather than
 patching the one instance in view.
 
+## 15. Amendment 7 — four keys and three laws ported from the model-iteration loop experiment: `ceiling`/L9, `unit <axis> <px>`/L10, `wrap <policy>`, `measure-bound`/L11
+
+Adopted per M1 of the model-implementation arc (ledger rows 2107/2108;
+the ratified program row 1937 continues), porting a verified language
+extension proven out on the `lyt-model-loop-experiment` branch (six
+iteration rounds, gallery-recorded) to mainline. [SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)'s
+own Amendment 7 entry is the dated ruling/rationale/provenance record;
+this section is the current-state grammar/semantics, in the same form
+§13/§14 give Amendments 5/6.
+
+### 15.1 Grammar
+
+Four more sizing-bag keys (§1.1), following the same "one more
+recognized key in the existing bag" precedent every prior amendment's
+extension used:
+
+- **`ceiling`** (bare flag) — LEAF-only; requires `content bounded`
+  (§13.1's `content` key). Refused loudly (`law: "L9"`) on a Split or
+  Exclusive, or on a leaf whose `content` is not `bounded`.
+- **`unit <axis> <extent>`**, `axis` ∈ `{h, v}` — LEAF-only; requires
+  `content` in `{bounded, unbounded}`. Like `scroll` (§13.1), may be
+  declared more than once in the same block to name both axes
+  (accumulated, not overwritten); unlike `scroll`, at most ONE
+  declaration per axis is legal — a second on the same axis is refused
+  (`prohibition: "duplicate-unit-axis"`). The extent must resolve to a
+  bare `px` literal — `fr`, `ch`, extent sums, and symbolic sentinels
+  are all refused (`prohibition: "non-px-unit"`), the same "never
+  silently reinterpret the author's declared unit" posture `gap` (§9.4)
+  already takes.
+- **`measure-bound`** (bare flag) — legal on a Leaf or a Split; refused
+  on an Exclusive (`law: "L11"`, `prohibition:
+  "measure-bound-on-exclusive"`) — every T-child shares one rectangle,
+  so there is no residual for the declaration to name.
+- **`wrap <policy>`**, closed vocabulary `{balanced}` — legal on a Leaf
+  (requires a declared horizontal `unit`) or an Exclusive (no `unit`
+  declaration required or accepted, since a T-group's own children ARE
+  its units); refused on a Split (`law: "wrap-policy"`, `prohibition:
+  "wrap-on-split"`).
+
+Both `ceiling` and `measure-bound` keep the parser permissive (any
+identifier accepted as a bare flag token) and the loader as the
+enforcement point (`loader.py`'s `_load_ceiling_flag`/
+`_load_measure_bound`), matching this parser's established "parser
+permissive, loader refuses" division of labor. `unit`/`wrap` are
+likewise parsed permissively (`parser.py`'s `_load_unit_axes` equivalent
+at parse time accepts any identifier/extent pair) with the closed
+vocabularies and node-kind/precondition refusals enforced by
+`loader._load_unit_axes`/`_load_wrap_policy`.
+
+### 15.2 Why these are four separate keys, not folded into existing ones
+
+`ceiling` and `measure-bound` are both **realization-binding, solver-
+inert** facts (like a cross-axis `scroll`/`unit` declaration, §13.3's
+own "disclosed, not hidden" note) — `compiler.py` never reads either
+field; both change only how the CSS Grid realization (§10) distributes
+residual space once the CP-SAT solve has already run. `unit` and `wrap`
+are a **declared vocabulary and its distribution policy** — orthogonal
+to `content` (which says *what kind* of content a leaf holds) and to
+`scroll` (which says *which container absorbs overflow*), the same
+"don't conscript an orthogonal axis into an existing one" reasoning
+§13.2 gives for keeping `content` off of `domain`/`facets`.
+
+### 15.3 The laws L9, L10, L11
+
+- **L9 (ceiling honesty).** *Load-time only* (`loader._load_ceiling_flag`)
+  — no structural tree-walk checker, unlike L10/L11 below. A `ceiling`
+  declaration says the slot's extent is an upper bound its content may
+  occupy less than; enforcing that promise is a realization-time fact
+  (does the rendered content actually stay within the reservation), not
+  something a static tree walk over declared extents can check.
+- **L10 (unit integrity).** *Checked*, by `wellformed.find_l10_violations`,
+  in the SAME enforcement family as L2's dominance test and L5's overflow
+  walk. Where a leaf's declared `unit <axis>` names the axis the leaf's
+  own slot is actually PARTITIONED on (both axes for the root or a
+  T-child, the `along=None` reading §8's bound-application branch
+  already establishes), the slot's declared `min` must reserve at least
+  one whole unit — a reservation that cannot stand one whole unit of the
+  thing it is made of can only realize by splitting a unit. A unit on
+  the CROSS axis constrains nothing checkable in this 1-D-per-slot
+  sizing model (disclosed silence, same footing as `ceiling`); a `min`
+  that is not a plain `px` extent is skipped rather than compared
+  (ADR-0002: an honest silence over a fabricated comparison).
+- **L11 (measure integrity).** *Checked*, by `wellformed.find_l11_violations`,
+  same enforcement family. A `measure-bound` declaration is refused at
+  the root (no parent partition to measure against, no sibling to leave
+  the residual to) and over any subtree that does not hold EXACTLY ONE
+  aspect-locked leaf (§4.1's `aspect` constraint) — none leaves nothing
+  to convert a page measure into an extent; more than one leaves which
+  leaf's lock does the converting ambiguous, the same unambiguous-owner
+  reasoning L5b (§13.3) applies to scroll ownership.
+- **`wrap-policy`** is deliberately UNTYPED — `detail.law ==
+  "wrap-policy"`, a string token, not a numbered law. It never claimed a
+  law number on the experiment branch that authored it (its own
+  round-6 commit message called it "L8", but that number belongs to
+  `measure-bound`'s own structural checker) and this port does not mint
+  one for it retroactively.
+
+All three numbered laws are arbitrated through the SAME `(law,
+path)`-keyed `Waiver` mechanism `check_wellformed` already generalizes
+for (§9.2), alongside L2 and L5/L5a/L5b/L5c.
+
+**Dormancy.** Every one of L9/L10/L11 (and every `wrap-policy` refusal)
+fires only when the tree it walks contains a genuine `ceiling`/`unit`/
+`measure-bound`/`wrap` declaration. Neither reference encoding
+(`lengyue_landscape.lyt`/`lengyue_portrait.lyt`) declares any of the
+four keys as of this amendment — both are byte-identical, and both
+re-solve to byte-identical CP-SAT output before and after this
+amendment (verified; see [SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)'s Amendment 7 entry and this
+port's own dispatch report, `.claude/dispatch-reports/lyt-m1-substrate-port.md`).
+The laws bind declarations; they do not retroactively indict silence —
+the same posture §13.3's own dormancy note states for L5/L5a/L5b/L5c.
+
 ## Status of the other LYT documents
 
 This file is the **current-state, standalone specification**. The two

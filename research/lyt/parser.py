@@ -111,6 +111,35 @@ EBNF does not cover):
     prohibition #1), WRAPPER_MIN is resolved by the loader to a disclosed
     concrete constant (300px, matching the control-panel floor the same
     document's own footnote cites at `layout-model.ts:186-191`).
+  - AMENDMENT 7 (ledger rows 2107/2108, M1 of the model-implementation
+    arc; SPEC-AMENDMENTS.md's own Amendment 7 entry; ported from the
+    model-iteration loop experiment, rounds 3/5/6): four more sizing-bag
+    keys, the same "one more recognized key" precedent as `gap`/`scroll`/
+    `content`/`boundary`:
+      * bare `ceiling` — "this declared extent is an upper bound, not a
+        standing floor". Parsed as a bare flag; loader.py refuses it on a
+        non-leaf, and on a leaf that is not `content bounded` (L9).
+      * `unit <axis> <extent>` — the indivisible occupancy UNIT of a
+        leaf's content along that axis. Accumulated across repeated
+        occurrences exactly like `scroll` (two `unit` terms naming
+        different axes are not repetitions of one key); any identifier in
+        axis position, any extent in value position — `{h,v}` only, px
+        only, at most one per axis, leaf-only, and only on a leaf whose
+        `content` is `bounded`/`unbounded` are all loader.py's refusal
+        (L10, unit integrity).
+      * bare `measure-bound` — "this region's extent comes from the page
+        measure its aspect-locked content is bound by; the residual on
+        the partition axis belongs to its siblings". Parsed as a bare
+        flag; loader.py refuses it on an Exclusive, and
+        `wellformed.find_l11_violations` refuses it structurally where
+        the subtree holds no single aspect-locked leaf to take a measure
+        from (L11).
+      * `wrap <policy>` — how a slot's own vocabulary of units
+        distributes when it needs more than one row (`balanced` today).
+        Last-write-wins, any identifier accepted here; the closed policy
+        vocabulary, the Split refusal, and the "a leaf must have declared
+        the `unit h` it proposes to wrap" precondition are all loader.py's
+        (`_load_wrap_policy`).
 
 License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
 license line and the umbrella's ADR-0006 per-file convention.
@@ -241,6 +270,40 @@ class RawSizing:
     # permissive, loader refuses" division of labor every other key here
     # uses).
     boundary: bool = False
+    # AMENDMENT 7 (ledger rows 2107/2108, ported from the model-iteration
+    # loop experiment round 3): bare `ceiling` flag — "this declared
+    # extent is an upper bound, not a standing floor". Parsed
+    # permissively here; loader.py refuses it on a non-leaf, and on a
+    # leaf that is not `content bounded` (L9).
+    ceiling: bool = False
+    # AMENDMENT 7 (ported from the model-iteration loop experiment round
+    # 6): bare `measure-bound` flag — "this region's extent comes from
+    # the page measure its aspect-locked content is bound by, and the
+    # residual belongs to its siblings". Parsed permissively here;
+    # loader.py refuses it on an Exclusive, and
+    # `wellformed.find_l11_violations` refuses it structurally where the
+    # subtree has no single aspect-locked leaf to take a measure from
+    # (L11).
+    measure_bound: bool = False
+    # AMENDMENT 7 (ported from the model-iteration loop experiment round
+    # 6): `wrap <policy>` -- last-write-wins, like every other
+    # single-valued sizing key. Raw string, lowercased, NOT validated
+    # here against the closed policy vocabulary or against the
+    # node-kind/unit preconditions -- loader.py's job, same "parser
+    # permissive, loader refuses" division of labor `content`/`unit`
+    # already use.
+    wrap: Optional[str] = None
+    # AMENDMENT 7 (ported from the model-iteration loop experiment round
+    # 5): `unit <axis> <extent>` -- accumulated (not overwritten) across
+    # repeated occurrences, the SAME disclosed departure from
+    # last-write-wins bag semantics `scroll_axes` above already takes,
+    # and for the same reason: two `unit` terms naming DIFFERENT axes are
+    # not repetitions of "the same key" in any useful sense. Raw
+    # `(axis, extent)` pairs, axis lowercased, NEITHER validated here --
+    # the closed axis vocabulary, the px-only rule, the one-per-axis rule
+    # and the leaf-only/content-class preconditions are all loader.py's
+    # job (parser permissive, loader refuses).
+    unit_axes: List[Tuple[str, "RawExtentLike"]] = field(default_factory=list)
 
 
 @dataclass
@@ -487,6 +550,35 @@ class Parser:
                 # closed vocabulary and the leaf-only restriction.
                 content_tok = self._expect("IDENT")
                 rs.content = content_tok.text.lower()
+            elif key == "ceiling":
+                # AMENDMENT 7 (ledger rows 2107/2108, ported from the
+                # model-iteration loop experiment round 3): bare flag,
+                # same shape as aspect-coupled/drag-persisted/boundary
+                # above.
+                rs.ceiling = True
+            elif key == "measure-bound":
+                # AMENDMENT 7 (ported from the model-iteration loop
+                # experiment round 6): bare flag, same shape as
+                # ceiling/boundary above.
+                rs.measure_bound = True
+            elif key == "wrap":
+                # AMENDMENT 7 (ported from the model-iteration loop
+                # experiment round 6): last-write-wins, parsed
+                # permissively (any identifier); loader.py validates the
+                # closed policy vocabulary and the node-kind /
+                # declared-unit preconditions.
+                wrap_tok = self._expect("IDENT")
+                rs.wrap = wrap_tok.text.lower()
+            elif key == "unit":
+                # AMENDMENT 7 (ported from the model-iteration loop
+                # experiment round 5): `unit <axis> <extent>` --
+                # accumulated, not overwritten (see RawSizing.unit_axes'
+                # own docstring). Parsed as permissively as `scroll`+`min`
+                # are, each in its own layer: any identifier for the
+                # axis, any extent for the value; loader.py refuses
+                # everything that is not `{h,v} x px`.
+                unit_axis_tok = self._expect("IDENT")
+                rs.unit_axes.append((unit_axis_tok.text.lower(), self.parse_extent()))
             else:
                 raise LytParseError(
                     f"unknown sizing key '{key_tok.text}'",

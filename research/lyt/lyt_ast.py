@@ -61,13 +61,43 @@ anticipated:
    and `emit_mockup.py`) now branch on `.boundary` instead — see those
    modules' own docstrings for the AMENDMENT 6 disclosure.
 
+AMENDMENT 7 (ledger rows 2107/2108, M1 of the model-implementation arc;
+SPEC-AMENDMENTS.md's own Amendment 7 entry is the ruling/rationale record)
+ports four keys and three laws proven out on the model-iteration loop
+experiment branch (`lyt-model-loop-experiment`, rounds 3/5/6) and verified
+by the loop's own substrate-consolidation commission
+(`.claude/dispatch-reports/lyt-substrate-consolidation.md`) before this
+port. All four are dormant for both mainline encodings — no key declared,
+no law fires, byte-identical solver output — see this port's own dispatch
+report (`.claude/dispatch-reports/lyt-m1-substrate-port.md`) for the
+before/after dormancy proof.
+
+6. `Sizing.ceiling` — a leaf's declared extent is an upper bound on what
+   its content occupies, never a standing floor (L9, ceiling honesty).
+   Solver-inert; realization-binding only.
+7. `Sizing.measure_bound` — a slot's extent along its parent's partition
+   axis is derived from the page measure its own aspect-locked content is
+   bound by, not from a share of the partition; the residual belongs to
+   its siblings (L11, measure integrity). Also solver-inert;
+   realization-binding only.
+8. `Leaf.unit_axes` — the indivisible occupancy unit of a leaf's content,
+   per axis (L10, unit integrity): a slot must reserve a whole number of
+   units along its own partition axis.
+9. `Slot.wrap_policy` — how a slot's own vocabulary of units distributes
+   when it needs more than one row (`wrap <policy>`, closed vocabulary
+   `{balanced}` today). Untyped (`detail.law == "wrap-policy"`, a string
+   token, not a numbered law) — see the loop consolidation report's own
+   naming correction: this key was called "L8" in the loop's own round-6
+   commit message, but that number belonged to `measure-bound`'s
+   structural checker; `wrap` never claimed a law number of its own.
+
 License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
 license line and the umbrella's ADR-0006 per-file convention.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import FrozenSet, List, Literal, Optional, Union
+from typing import FrozenSet, List, Literal, Optional, Tuple, Union
 
 Domain = Literal["go", "common", "debug", "board", "chrome"]
 Facet = Literal["action", "info"]
@@ -97,6 +127,15 @@ _VALID_UNITS = {"px", "ch", "fr"}
 _VALID_BASES = {"reserved", "envelope"}
 _VALID_CONTENT_CLASSES = {"bounded", "designed", "unbounded"}
 _VALID_SCROLL_AXES = {"h", "v"}
+# AMENDMENT 7 (ledger rows 2107/2108, ported from the model-iteration loop
+# experiment, round 6): the closed vocabulary of WRAP POLICIES a slot may
+# declare over its own units (`wrap balanced`). One member today,
+# deliberately: the policy the loop's own review asked for is "a
+# vocabulary either fits on one row or distributes its units across the
+# rows it needs without leaving a single-unit orphan", and inventing a
+# second, unexercised policy name beside it would be vocabulary this port
+# has not paid for.
+_VALID_WRAP_POLICIES = {"balanced"}
 
 
 @dataclass(frozen=True)
@@ -161,6 +200,27 @@ class Sizing:
     aspect: Optional[float] = None
     basis: Literal["reserved", "envelope"] = "reserved"
     envelope_states: Optional[List[str]] = None
+    # AMENDMENT 7 (ledger rows 2107/2108, ported from the model-iteration
+    # loop experiment round 3, ledger rows 2037/2038): this slot's declared
+    # extent is an UPPER BOUND on what its content occupies, never a
+    # standing floor the realization must fill. Solver-inert by
+    # construction — min/pref/max are untouched, so every feasibility
+    # result this program already proves is unchanged; the flag binds only
+    # the REALIZATION. Loader-refused unless the leaf also declares
+    # `content bounded` (L9) — see loader._load_ceiling_flag.
+    ceiling: bool = False
+    # AMENDMENT 7 (ledger rows 2107/2108, ported from the model-iteration
+    # loop experiment round 6, ledger rows 2037/2038/2066): this slot's
+    # extent along its parent's partition axis is derived from the PAGE
+    # MEASURE its own aspect-locked content is bound by (its own cross
+    # axis), never from a share of the partition — the residual belongs to
+    # its siblings, not to it. Solver-inert by construction, the same
+    # footing `ceiling` has: the staged solve already maximizes the
+    # board's own dimension first, so there is no solver-side preference
+    # left for this flag to express; what it binds is the realization's
+    # track-sizing order. Structural checker: `wellformed.find_l11_violations`
+    # (L11).
+    measure_bound: bool = False
 
     def __post_init__(self) -> None:
         if self.basis not in _VALID_BASES:
@@ -235,6 +295,22 @@ class Leaf:
     # module docstring point 5. `False` (default) is the pre-Amendment-6
     # state for every leaf that was never `domain == 'blackbox'`.
     boundary: bool = False
+    # AMENDMENT 7 (ledger rows 2107/2108, ported from the model-iteration
+    # loop experiment round 5, ledger rows 2037/2038/2066/2079): the
+    # INDIVISIBLE OCCUPANCY UNIT of this leaf's content, per axis --
+    # `unit h 86px` reads "along the horizontal axis this leaf's content
+    # is a repetition of an 86px unit that may never be split". A
+    # frozenset of `(axis, px)` pairs, at most one entry per axis (the
+    # loader enforces that); empty by default, byte-identical to every
+    # pre-Amendment-7 leaf.
+    #
+    # A LEAF fact, not a Slot fact, for the same reason `content` is: it
+    # describes what the leaf RENDERS, not how the partition treats it.
+    # Law L10 (unit integrity, `wellformed.find_l10_violations`) is its
+    # structural checker; `loader._load_unit_axes` carries the load-time
+    # refusals (leaf-only, px-only, one entry per axis, and the `content
+    # bounded|unbounded` precondition).
+    unit_axes: FrozenSet[Tuple[str, float]] = field(default_factory=frozenset)
 
     def __post_init__(self) -> None:
         # F3-fix precedent (Extent/Sizing/Presence, this same module):
@@ -250,6 +326,32 @@ class Leaf:
                 f"or None, got {self.content!r} (AMENDMENT 5, ledger row 1937, "
                 ".claude/dispatch-reports/lyt-tab-region-consult.md §9.2)"
             )
+        # AMENDMENT 7 (L10): same "unrepresentable by construction"
+        # posture the `content` guard above uses -- a direct constructor
+        # call bypassing `loader._load_unit_axes` would otherwise mint a
+        # unit on an unknown axis, or two conflicting units on one axis,
+        # silently.
+        seen_axes: set = set()
+        for axis, px in self.unit_axes:
+            if axis not in _VALID_SCROLL_AXES:
+                raise ValueError(
+                    f"Leaf.unit_axes axis must be one of "
+                    f"{sorted(_VALID_SCROLL_AXES)}, got {axis!r} (AMENDMENT 7, "
+                    "L10 unit integrity, ledger rows 2107/2108)"
+                )
+            if px <= 0:
+                raise ValueError(
+                    f"Leaf.unit_axes extent must be positive, got {px!r} for "
+                    f"axis {axis!r} — a zero-extent unit is not a unit "
+                    "(AMENDMENT 7, L10 unit integrity, ledger rows 2107/2108)"
+                )
+            if axis in seen_axes:
+                raise ValueError(
+                    f"Leaf.unit_axes declares axis {axis!r} more than once — "
+                    "a leaf's content has ONE indivisible unit per axis "
+                    "(AMENDMENT 7, L10 unit integrity, ledger rows 2107/2108)"
+                )
+            seen_axes.add(axis)
 
 
 @dataclass(frozen=True)
@@ -292,8 +394,34 @@ class Slot:
     # `gap_px` (Split-only, lives on `Split` itself), `scroll` is a
     # Slot-level fact because it is not restricted by node kind.
     scroll_axes: FrozenSet[ScrollAxis] = field(default_factory=frozenset)
+    # AMENDMENT 7 (ledger rows 2107/2108, ported from the model-iteration
+    # loop experiment round 6, ledger rows 2037/2038/2066): how this
+    # slot's own VOCABULARY of units distributes when it needs more than
+    # one row. Round 5 (L10) gave a leaf the unit its content is made of
+    # so a wrap could never fall THROUGH a unit; this is the next
+    # question the same law asks: where the break BETWEEN units falls.
+    # `balanced` says the vocabulary either stands on one row or
+    # distributes its units across the rows it needs, evenly.
+    #
+    # A Slot fact rather than a Leaf/Exclusive one, the same placement
+    # `scroll_axes` takes: legal on two node kinds for two different
+    # reasons the loader spells out (`_load_wrap_policy`) — a LEAF wraps
+    # the units it declares (`unit h`, required there), an EXCLUSIVE
+    # wraps its own tab strip, whose units ARE its declared children.
+    # Refused on a Split, whose children are separately-reserved slots
+    # its own partition already places. `None` (the default) is
+    # byte-identical to every pre-Amendment-7 slot.
+    wrap_policy: Optional[str] = None
 
     def __post_init__(self) -> None:
+        if self.wrap_policy is not None and self.wrap_policy not in _VALID_WRAP_POLICIES:
+            raise ValueError(
+                f"Slot.wrap_policy must be one of {sorted(_VALID_WRAP_POLICIES)} "
+                f"or None, got {self.wrap_policy!r} (AMENDMENT 7, ledger rows "
+                "2107/2108) — same 'unrepresentable by construction, not just "
+                "by convention' posture the F3 fix established for "
+                "Extent/Sizing/Presence and Amendment 5 for Leaf.content."
+            )
         bad = self.scroll_axes - _VALID_SCROLL_AXES
         if bad:
             raise ValueError(

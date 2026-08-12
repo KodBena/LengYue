@@ -97,12 +97,48 @@ above accepts any identifier in axis/class position; these two
 functions are where the actual closed vocabularies and node-kind
 restrictions are enforced.
 
+AMENDMENT 7 (ledger rows 2107/2108, M1 of the model-implementation arc;
+SPEC-AMENDMENTS.md's own Amendment 7 entry is the ruling/rationale
+record) ports four load-time resolutions proven out on the
+model-iteration loop experiment branch (rounds 3/5/6) and verified by
+that branch's own substrate-consolidation commission
+(`.claude/dispatch-reports/lyt-substrate-consolidation.md`):
+
+  - `_load_ceiling_flag` resolves the bare `ceiling` sizing-bag flag
+    (leaf-only; requires `content bounded`; solver-inert — L9, ceiling
+    honesty).
+  - `_load_unit_axes` resolves the (possibly-repeated) `unit <axis>
+    <extent>` sizing-bag key into `Leaf.unit_axes` (leaf-only; requires
+    `content` in `{bounded, unbounded}`; `{h,v}` only; px only; one unit
+    per axis). L10's load-time half lives here; its structural half — "a
+    slot must reserve a whole number of units along its own partition
+    axis" — needs to know which axis a slot is partitioned on, which
+    only a tree walk knows, so it lives in
+    `wellformed.find_l10_violations`.
+  - `_load_measure_bound` resolves the bare `measure-bound` flag into
+    `Sizing.measure_bound` (refused on an Exclusive; its structural half
+    is `wellformed.find_l11_violations`, L11).
+  - `_load_wrap_policy` resolves `wrap <policy>` into `Slot.wrap_policy`
+    (closed vocabulary; refused on a Split; on a Leaf it requires the
+    leaf to have already declared the horizontal `unit` it proposes to
+    wrap; an Exclusive needs no such declaration, since its units ARE
+    its declared children). Untyped (`detail.law == "wrap-policy"`), not
+    a numbered law — see this port's own dispatch report
+    (`.claude/dispatch-reports/lyt-m1-substrate-port.md`) for the naming
+    note inherited from the loop's own round-6 commit message.
+
+Every one of the four keys is dormant for both mainline encodings — no
+existing `.lyt` file declares any of them, so no verdict this program
+already proves changes; see the dispatch report above for the
+before/after dormancy proof.
+
 License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
 license line and the umbrella's ADR-0006 per-file convention.
 """
 from __future__ import annotations
 
-from typing import Dict, FrozenSet, List, Optional
+import dataclasses
+from typing import Dict, FrozenSet, List, Optional, Tuple
 
 import lyt_ast as ast
 import parser as lytparser
@@ -118,6 +154,13 @@ VALID_FACETS = {"action", "info"}
 # `_load_content_class` / `_load_scroll_axes` below.
 VALID_CONTENT_CLASSES = {"bounded", "designed", "unbounded"}
 VALID_SCROLL_AXES = {"h", "v"}
+# AMENDMENT 7 (ledger rows 2107/2108, ported from the model-iteration
+# loop experiment round 6): the closed wrap-policy vocabulary this
+# loader refuses against — the loader-side mirror of
+# `lyt_ast._VALID_WRAP_POLICIES` (which guards the direct-constructor
+# path), the same two-layer posture `VALID_DOMAINS`/`VALID_CONTENT_
+# CLASSES` already use.
+VALID_WRAP_POLICIES = {"balanced"}
 
 
 def _resolve_extent_like(
@@ -610,8 +653,327 @@ def _load_boundary_marker(
     return True
 
 
+def _load_ceiling_flag(
+    rs: Optional[lytparser.RawSizing], *, where: str, node_kind: str, content: Optional[str]
+) -> bool:
+    """AMENDMENT 7 (ledger rows 2107/2108, ported from the model-iteration
+    loop experiment round 3, ledger rows 2037/2038/2066): resolves the
+    bare `ceiling` sizing-bag flag.
+
+    The flag says: this slot's declared extent is an UPPER BOUND on what
+    its content occupies, never a standing floor the realization must
+    fill.
+
+    L9 (ceiling honesty), refused here rather than merely documented:
+
+      (a) LEAF-ONLY, the same discipline `_load_content_class` /
+          `_load_boundary_marker` apply — a Split's own extent is the
+          partition its children live in, and "occupy less than declared"
+          there would silently re-partition siblings the children never
+          agreed to.
+      (b) REQUIRES `content bounded`. `unbounded` content has no honest
+          realized extent to shrink to (that is what its declared scroll
+          owner is FOR), and `designed` content is a hard reservation by
+          L5c. Only a bounded leaf enumerates a finite content set whose
+          per-state extents are reserved INSIDE the leaf — which is what
+          makes "occupies less than its ceiling" a declared fact about the
+          negotiated cross-extent rather than a content measurement
+          re-partitioning its neighbours (the one thing this language
+          exists to forbid; research/lyt/README.md, "Why LYT exists").
+    """
+    if rs is None or not rs.ceiling:
+        return False
+    if node_kind != "leaf":
+        raise LytLoadError(
+            f"ceiling declared at {where} but 'ceiling' is a LEAF-only "
+            "flag — a split's extent IS its children's partition, and a "
+            "partition that occupies less than it declares re-partitions "
+            f"siblings that never declared it (L9) — a {node_kind} node "
+            "may not declare it (AMENDMENT 7, ledger rows 2107/2108)",
+            {
+                "where": where,
+                "law": "L9",
+                "prohibition": "ceiling-on-non-leaf",
+                "node_kind": node_kind,
+            },
+        )
+    if content != "bounded":
+        raise LytLoadError(
+            f"ceiling declared at {where} but the leaf's content class is "
+            f"{content!r} — L9 (ceiling honesty) admits 'bounded' only: "
+            "'unbounded' content yields by scrolling (its declared scroll "
+            "owner already absorbs the excess) and 'designed' content is a "
+            "hard reservation by L5c, so neither has an honest realized "
+            "extent smaller than its declaration (AMENDMENT 7, ledger "
+            "rows 2107/2108)",
+            {
+                "where": where,
+                "law": "L9",
+                "prohibition": "ceiling-without-bounded-content",
+                "content": content,
+            },
+        )
+    return True
+
+
+def _load_measure_bound(
+    rs: Optional[lytparser.RawSizing], *, where: str, node_kind: str
+) -> bool:
+    """AMENDMENT 7 (ported from the model-iteration loop experiment round
+    6, ledger rows 2037/2038/2066): resolves the bare `measure-bound`
+    sizing-bag flag.
+
+    The flag says: this slot's extent along its parent's partition axis
+    comes from the PAGE MEASURE its aspect-locked content is bound by —
+    its own cross axis — and the residual on the partition axis belongs
+    to its siblings.
+
+    Load-time refusal, one clause only:
+
+      - NOT ON AN EXCLUSIVE. Every child of a T node receives the SAME
+        rectangle (SPEC.md §2) — there is no partition axis for a
+        measure to be traded against and no residual to hand a sibling,
+        so the declaration would name nothing. Legal on a Leaf (an
+        aspect-locked leaf standing directly in a partition) and on a
+        Split (a board composite shape).
+
+    The substantive check is structural, not local: whether an
+    aspect-locked leaf actually stands in this slot's subtree for the
+    measure to bind through is a subtree fact, so it lives in
+    `wellformed.find_l11_violations` (L11) — the same split L10 already
+    makes between its load-time and structural halves.
+    """
+    if rs is None or not rs.measure_bound:
+        return False
+    if node_kind == "exclusive":
+        raise LytLoadError(
+            f"measure-bound declared at {where} but a T (exclusive) node's "
+            "children all share ONE rectangle — there is no partition axis "
+            "to take a measure on and no residual to leave a sibling, so the "
+            "declaration names nothing (L11 — AMENDMENT 7, ledger rows "
+            "2107/2108)",
+            {
+                "where": where,
+                "law": "L11",
+                "prohibition": "measure-bound-on-exclusive",
+                "node_kind": node_kind,
+            },
+        )
+    return True
+
+
+def _load_wrap_policy(
+    rs: Optional[lytparser.RawSizing],
+    *,
+    where: str,
+    node_kind: str,
+    unit_axes: FrozenSet[Tuple[str, float]],
+) -> Optional[str]:
+    """AMENDMENT 7 (ported from the model-iteration loop experiment round
+    6, ledger rows 2037/2038/2066): resolves the `wrap <policy>`
+    sizing-bag key into `Slot.wrap_policy`, or `None` when undeclared —
+    byte-identical to every pre-Amendment-7 slot.
+
+    The key says: when this slot's vocabulary of units needs more than
+    one row, THIS is how the rows are cut. `balanced`: the vocabulary
+    either stands on one row or distributes its units evenly across the
+    rows it needs, so the break is a vocabulary boundary rather than
+    wherever the flow happened to run out, and the last unit is never
+    orphaned alone beneath the rest of its own vocabulary.
+
+    Refusals:
+
+      (a) CLOSED VOCABULARY (`balanced` today) — an unknown policy is
+          refused, never silently ignored.
+      (b) NOT ON A SPLIT. A Split's children are separately-reserved
+          slots the partition already places; "wrapping" them would be
+          a second, competing placement mechanism for the same tree.
+      (c) ON A LEAF, REQUIRES A DECLARED HORIZONTAL UNIT (`unit h`). A
+          wrap policy is a statement ABOUT units; a leaf whose units the
+          model has not declared has no vocabulary to distribute, and
+          accepting the policy there would be a promise nothing could
+          keep. An EXCLUSIVE needs no such declaration: its units ARE its
+          declared children, which the tree already names (the same
+          reasoning `_load_unit_axes` uses to refuse `unit` on a
+          container in the first place).
+    """
+    if rs is None or rs.wrap is None:
+        return None
+    policy = rs.wrap
+    if policy not in VALID_WRAP_POLICIES:
+        raise LytLoadError(
+            f"unknown wrap policy {policy!r} at {where} — the closed "
+            f"vocabulary is {sorted(VALID_WRAP_POLICIES)} (AMENDMENT 7, "
+            "ledger rows 2107/2108)",
+            {
+                "where": where,
+                "law": "wrap-policy",
+                "prohibition": "unknown-wrap-policy",
+                "got": policy,
+                "valid": sorted(VALID_WRAP_POLICIES),
+            },
+        )
+    if node_kind == "split":
+        raise LytLoadError(
+            f"wrap declared at {where} but 'wrap' is refused on a split — a "
+            "split's children are separately-reserved slots its own "
+            "partition already places, so a wrap policy there would be a "
+            "second, competing placement mechanism for the same tree "
+            "(AMENDMENT 7, ledger rows 2107/2108)",
+            {
+                "where": where,
+                "law": "wrap-policy",
+                "prohibition": "wrap-on-split",
+                "node_kind": node_kind,
+            },
+        )
+    if node_kind == "leaf" and not any(axis == "h" for axis, _ in unit_axes):
+        raise LytLoadError(
+            f"wrap declared at {where} but this leaf declares no horizontal "
+            "unit — a wrap policy is a statement ABOUT units, and a leaf "
+            "whose units the model has not declared (`unit h <px>`, L10) has "
+            "no vocabulary to distribute (AMENDMENT 7, ledger rows "
+            "2107/2108)",
+            {
+                "where": where,
+                "law": "wrap-policy",
+                "prohibition": "wrap-without-declared-unit",
+                "unit_axes": sorted(unit_axes),
+            },
+        )
+    return policy
+
+
+def _load_unit_axes(
+    rs: Optional[lytparser.RawSizing],
+    *,
+    where: str,
+    node_kind: str,
+    content: Optional[str],
+) -> FrozenSet[Tuple[str, float]]:
+    """AMENDMENT 7 (ported from the model-iteration loop experiment round
+    5, ledger rows 2037/2038/2066/2079): resolves the (possibly-repeated)
+    `unit <axis> <extent>` sizing-bag key into a frozenset of `(axis, px)`
+    pairs, or the empty frozenset when no `unit` term was declared — the
+    pre-Amendment-7 default, byte-identical for every leaf that does not
+    declare one.
+
+    The key says: along this axis, the leaf's content is a REPETITION of
+    an indivisible unit of this extent — the container knew its own
+    extent but not the extent of the thing it is made of.
+
+    L10 (unit integrity) is the law. Its LOAD-TIME half is refused here
+    (the structural half — "a slot must reserve a whole number of units
+    along its own partition axis" — is `wellformed.find_l10_violations`,
+    since only a tree walk knows which axis a slot is partitioned on):
+
+      (a) LEAF-ONLY, the same discipline `_load_content_class` /
+          `_load_boundary_marker` / `_load_ceiling_flag` apply: a unit is
+          a fact about what a leaf RENDERS. A split's own "unit" is its
+          children, which the tree already names.
+      (b) REQUIRES `content bounded` or `content unbounded`. A `designed`
+          leaf's content is ONE designed picture (a chart), not a
+          repetition of anything — claiming a unit for it would be as
+          dishonest as L5c's own chart exclusion, and an unclassified
+          leaf has made no claim about its content at all yet.
+      (c) `{h,v}` axes only, at most ONE unit per axis (a leaf's content
+          has one indivisible unit per axis, not two competing ones), and
+          a bare `px` literal only — same "the author's declared unit is
+          never silently reinterpreted" posture `_load_gap_px` takes, and
+          for the stronger reason here that `fr` (a share of a partition)
+          is exactly what a unit is NOT.
+    """
+    if rs is None or not rs.unit_axes:
+        return frozenset()
+    if node_kind != "leaf":
+        raise LytLoadError(
+            f"unit declared at {where} but 'unit' is a LEAF-only key — a "
+            "unit names the indivisible thing a leaf's CONTENT is made "
+            f"of, and a {node_kind} node's own 'units' are its children, "
+            "which the tree already names (L10, unit integrity — "
+            "AMENDMENT 7, ledger rows 2107/2108)",
+            {
+                "where": where,
+                "law": "L10",
+                "prohibition": "unit-on-non-leaf",
+                "node_kind": node_kind,
+            },
+        )
+    if content not in ("bounded", "unbounded"):
+        raise LytLoadError(
+            f"unit declared at {where} but the leaf's content class is "
+            f"{content!r} — L10 (unit integrity) admits 'bounded' and "
+            "'unbounded' only: 'designed' content is ONE designed picture "
+            "(L5c already forbids yielding it piecewise), and an "
+            "unclassified leaf has made no claim about its content to "
+            "declare a unit of (AMENDMENT 7, ledger rows 2107/2108)",
+            {
+                "where": where,
+                "law": "L10",
+                "prohibition": "unit-without-repeatable-content",
+                "content": content,
+            },
+        )
+    resolved: List[Tuple[str, float]] = []
+    seen: set = set()
+    for axis, ext in rs.unit_axes:
+        if axis not in VALID_SCROLL_AXES:
+            raise LytLoadError(
+                f"unit axis at {where} must be 'h' or 'v', got {axis!r} "
+                "(L10 — AMENDMENT 7, ledger rows 2107/2108)",
+                {
+                    "where": where,
+                    "law": "L10",
+                    "prohibition": "invalid-unit-axis",
+                    "got": axis,
+                },
+            )
+        if axis in seen:
+            raise LytLoadError(
+                f"unit axis {axis!r} declared more than once at {where} — a "
+                "leaf's content has ONE indivisible unit per axis; two "
+                "competing units on one axis leave 'what may not be split' "
+                "ambiguous (L10 — AMENDMENT 7, ledger rows 2107/2108)",
+                {
+                    "where": where,
+                    "law": "L10",
+                    "prohibition": "duplicate-unit-axis",
+                    "got": axis,
+                },
+            )
+        seen.add(axis)
+        if isinstance(ext, lytparser.RawExtent) and ext.kind == "numunit" and ext.unit == "px":
+            resolved.append((axis, float(ext.v)))
+            continue
+        bad_unit = ext.unit if isinstance(ext, lytparser.RawExtent) and ext.unit else None
+        bad_symbol = ext.symbol if isinstance(ext, lytparser.RawExtent) and ext.symbol else None
+        raise LytLoadError(
+            f"unit extent at {where} must be a constant px extent — 'fr' "
+            "is a SHARE OF A PARTITION, which is precisely what an "
+            "indivisible content unit is not; 'ch', extent sums and "
+            "symbolic sentinels are refused in unit position for the same "
+            "'never silently reinterpret the author's declared unit' "
+            "reason `gap` refuses them (L10 — AMENDMENT 7, ledger rows "
+            "2107/2108)",
+            {
+                "where": where,
+                "law": "L10",
+                "prohibition": "non-px-unit",
+                "unit": bad_unit,
+                "symbol": bad_symbol,
+                "is_sum": isinstance(ext, lytparser.RawExtentSum),
+            },
+        )
+    return frozenset(resolved)
+
+
 def _load_leaf(
-    rl: lytparser.RawLeaf, *, where: str, content: Optional[str] = None, boundary: bool = False
+    rl: lytparser.RawLeaf,
+    *,
+    where: str,
+    content: Optional[str] = None,
+    boundary: bool = False,
+    unit_axes: FrozenSet[Tuple[str, float]] = frozenset(),
 ) -> ast.Leaf:
     domain = rl.domain
     facets = set()
@@ -649,6 +1011,7 @@ def _load_leaf(
         flagged=rl.flagged,
         content=content,  # AMENDMENT 5, ledger row 1937
         boundary=boundary,  # AMENDMENT 6, ledger row 1937
+        unit_axes=unit_axes,  # AMENDMENT 7 (L10), ledger rows 2107/2108
     )
 
 
@@ -661,18 +1024,55 @@ def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
         # `_load_sizing`/`_load_presence` already use).
         content = _load_content_class(rs.sizing, where=f"{path}:{node.widget}", node_kind="leaf")
         boundary = _load_boundary_marker(rs.sizing, where=f"{path}:{node.widget}", node_kind="leaf")
-        leaf = _load_leaf(node, where=f"{path}:{node.widget}", content=content, boundary=boundary)
+        # AMENDMENT 7 (L10, see `_load_unit_axes`): resolved here, in
+        # the same "resolve first, construct once" shape as `content`
+        # above, because the unit's own legality DEPENDS on the resolved
+        # content class (clause (b): only a bounded/unbounded leaf's
+        # content is a repetition of anything).
+        unit_axes = _load_unit_axes(
+            rs.sizing, where=f"{path}:{node.widget}", node_kind="leaf", content=content
+        )
+        leaf = _load_leaf(
+            node,
+            where=f"{path}:{node.widget}",
+            content=content,
+            boundary=boundary,
+            unit_axes=unit_axes,
+        )
         # AMENDMENT 3: a leaf has no children at all, so `gap` is refused
         # here too (same law as the T-node refusal below) rather than
         # silently dropped.
         _load_gap_px(rs.sizing, where=f"{path}:{node.widget}", node_kind="leaf")
         scroll_axes = _load_scroll_axes(rs.sizing, where=f"{path}:{node.widget}")
         sizing = _load_sizing(rs.sizing, where=f"{path}:{node.widget}", node_kind="leaf")
+        # AMENDMENT 7 (L9, see `_load_ceiling_flag`): resolved AFTER
+        # `_load_sizing` and folded in with `dataclasses.replace` rather
+        # than threaded through every `_load_sizing` return path — the flag
+        # is orthogonal to how the extents themselves were spelled (bare
+        # shorthand / explicit min-pref-max / aspect-coupled sugar), and
+        # `Sizing` is frozen, so one replace at the single site that has
+        # both the sizing and the resolved content class is the honest seam.
+        if _load_ceiling_flag(
+            rs.sizing, where=f"{path}:{node.widget}", node_kind="leaf", content=content
+        ):
+            sizing = dataclasses.replace(sizing, ceiling=True)
+        # AMENDMENT 7 (L11, see `_load_measure_bound`): folded in the
+        # same `dataclasses.replace` way `ceiling` is, and for the same
+        # reason — the flag is orthogonal to how the extents were spelled.
+        if _load_measure_bound(rs.sizing, where=f"{path}:{node.widget}", node_kind="leaf"):
+            sizing = dataclasses.replace(sizing, measure_bound=True)
+        # AMENDMENT 7 (see `_load_wrap_policy`): resolved AFTER
+        # `unit_axes`, because a leaf's wrap policy is legal only over
+        # units the same leaf has already declared.
+        wrap_policy = _load_wrap_policy(
+            rs.sizing, where=f"{path}:{node.widget}", node_kind="leaf", unit_axes=unit_axes
+        )
         presence = _load_presence(rs.presence, where=f"{path}:{node.widget}")
         sizing = _apply_preserve_reservation(sizing, presence, where=f"{path}:{node.widget}")
         return ast.Slot(
             node=leaf, presence=presence, sizing=sizing,
             violates=frozenset(rs.warns), scroll_axes=scroll_axes,
+            wrap_policy=wrap_policy,
         )
     if isinstance(node, lytparser.RawSplit):
         children = [
@@ -690,9 +1090,22 @@ def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
         _load_content_class(rs.sizing, where=path, node_kind="split")
         # AMENDMENT 6: `boundary` is leaf-only too, same reason.
         _load_boundary_marker(rs.sizing, where=path, node_kind="split")
+        # AMENDMENT 7: `ceiling` is leaf-only too (L9), same reason.
+        _load_ceiling_flag(rs.sizing, where=path, node_kind="split", content=None)
+        # AMENDMENT 7: `unit` is leaf-only too (L10), same reason.
+        _load_unit_axes(rs.sizing, where=path, node_kind="split", content=None)
+        # AMENDMENT 7: `wrap` is refused on a split (its children are
+        # already placed by its own partition) — refused loudly here, same
+        # shape as every other node-kind refusal above.
+        _load_wrap_policy(rs.sizing, where=path, node_kind="split", unit_axes=frozenset())
         scroll_axes = _load_scroll_axes(rs.sizing, where=path)
         split = ast.Split(axis=node.axis, gap_px=gap_px, children=children)
         sizing = _load_sizing(rs.sizing, where=path, node_kind="split")
+        # AMENDMENT 7 (L11): a Split IS the shape a board composite may
+        # declare `measure-bound` on, so this branch resolves it rather
+        # than refusing it.
+        if _load_measure_bound(rs.sizing, where=path, node_kind="split"):
+            sizing = dataclasses.replace(sizing, measure_bound=True)
         presence = _load_presence(rs.presence, where=path)
         sizing = _apply_preserve_reservation(sizing, presence, where=path)
         return ast.Slot(
@@ -709,6 +1122,19 @@ def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
         _load_content_class(rs.sizing, where=path, node_kind="exclusive")
         # AMENDMENT 6: `boundary` is leaf-only too, same reason.
         _load_boundary_marker(rs.sizing, where=path, node_kind="exclusive")
+        # AMENDMENT 7: `ceiling` is leaf-only too (L9), same reason.
+        _load_ceiling_flag(rs.sizing, where=path, node_kind="exclusive", content=None)
+        # AMENDMENT 7: `unit` is leaf-only too (L10), same reason.
+        _load_unit_axes(rs.sizing, where=path, node_kind="exclusive", content=None)
+        # AMENDMENT 7 (L11): `measure-bound` is refused on a T node —
+        # every child shares one rectangle, so there is no residual.
+        _load_measure_bound(rs.sizing, where=path, node_kind="exclusive")
+        # AMENDMENT 7: `wrap` IS legal here — a T group's own tab
+        # strip is a vocabulary whose units are its declared children, so
+        # no `unit` declaration is required (or accepted) alongside it.
+        wrap_policy = _load_wrap_policy(
+            rs.sizing, where=path, node_kind="exclusive", unit_axes=frozenset()
+        )
         scroll_axes = _load_scroll_axes(rs.sizing, where=path)
         excl = ast.Exclusive(children=children, tag=node.tag)
         sizing = _load_sizing(rs.sizing, where=path, node_kind="exclusive")
@@ -717,6 +1143,7 @@ def load_slot(rs: lytparser.RawSlot, *, path: str = "root") -> ast.Slot:
         return ast.Slot(
             node=excl, presence=presence, sizing=sizing,
             violates=frozenset(rs.warns), scroll_axes=scroll_axes,
+            wrap_policy=wrap_policy,
         )
     raise LytLoadError("unknown raw node kind", {"path": path, "node": repr(node)})
 
