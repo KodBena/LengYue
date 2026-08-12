@@ -4,7 +4,7 @@
  *
  * Work item `lyt-settings-live-opening` (ledger rows 2007/2009/2001),
  * SettingsTab/TabWidget composition-boundary refactor. Mounts at the
- * encoding's own `settingsPane` leaf (`V(settingsSubstrip, settingsPane)`)
+ * encoding's own `SP_session` (formerly `settingsPane`) leaf (`V(settingsSubstrip, SP_session)`)
  * — the six settings sub-tab BODIES, moved verbatim from the retired
  * `SettingsTab.vue`. The sibling `SettingsSubstrip.vue` owns the STRIP half
  * (`TabWidget.vue`'s own `part="header"`); this component drives the SAME
@@ -38,10 +38,10 @@
  * which understated the finding — corrected here per the review's own
  * instruction not to accept "disclosed" as "authorized"). The mechanism
  * is exactly as described above (all six panes share ONE `scrollAxes:
- * [v]` declaration because the encoding still models `settingsPane` as
+ * [v]` declaration because the encoding still models `SP_session` (formerly `settingsPane`) as
  * ONE opaque leaf); what changed is the severity record, not the cause.
  * Filed as a deferral to the model-implementation wave (a second
- * encoding-level opening of `settingsPane` into a `T` of six named
+ * encoding-level opening of `SP_session` (formerly `settingsPane`) into a `T` of six named
  * panes, each carrying its own true classification — the SAME residual
  * the Option C wave's own encoding header already discloses), per
  * orchestrator adjudication — NOT fixed in this pass.

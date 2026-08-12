@@ -52,6 +52,32 @@
  * I_engine's disclosed absence) are resolved by portrait gaining a real,
  * working engine cluster it never had before.
  *
+ * M2 STAGE B2b BOOT-RESTORATION WIRING (`.claude/dispatch-reports/lyt-
+ * boot-restoration.md`, ledger row 2346, superseding the single `A_engine`
+ * leaf above): M2 stage B2b's own ruling census
+ * (`.claude/dispatch-reports/lyt-m2-b2b-ruling-census.md`) retired
+ * `A_engine` again, this time into FOUR independent leaves
+ * (`A_engine_controls`/`_eval`/`_health`/`_queue`, ruling row 2073's
+ * "three-vocabulary engine-status decomposition" plus the retired leaf's
+ * own action facet-half) and added `A_setup` (ruling row 2108, "PALETTE
+ * ADOPTION" — the setup-tool palette as its own `@toggle(user, release)`
+ * presence slot) as a new direct sibling. `ToolbarEngineCluster.vue` is
+ * retired in favour of `ToolbarEngineControls.vue` (the button cluster)
+ * plus `ToolbarEngineMetrics.vue` (now `group`-parameterised over
+ * `'eval'`/`'health'`) plus `EngineQueueTooltip.vue` (mounted directly).
+ * `settingsPane` is renamed `SP_session` (ruling rows 2134/2151 —
+ * `emit_layout_tree.py`'s own collapsed-subtree id-derivation rule
+ * renames the representative id when the settings tab's own interior
+ * gains a nested, still-collapsed `T(...)` over the six real sub-tab
+ * ids; only `SP_session` is ever an actual `node.widget` value in the
+ * compiled program — the other five (`SP_analysisEnv`/`SP_cardSets`/
+ * `SP_advancedRegistry`/`SP_analysis`/`SP_keybindings`) appear ONLY
+ * inside the blackbox's own informational `childWidgets` array, never
+ * independently looked up by `lytMountingWidgetId`/`lytRegistryStatus` —
+ * see that blackbox's own entry below for why no registry entries exist
+ * for them). See each new entry's own note for its real-component
+ * grounding and any disclosed scope call.
+ *
  * License: Public Domain (The Unlicense)
  */
 
@@ -155,15 +181,48 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     note: 'See I_board\'s note — StatusBar\'s own action row satisfies this leaf; no separate mount.',
   },
 
-  // ── Side column clusters (root child 2: A_engine / A_app) ──────────────
-  A_engine: {
-    widget: 'A_engine',
-    component: 'ToolbarEngineCluster',
+  // ── Side column clusters (root child 2: A_engine_* / A_app / A_setup) ──
+  // M2 stage B2b boot-restoration wiring (see file header): the retired
+  // A_engine leaf's ruling row 2073 decomposition. All four sit in the
+  // SAME compiled-program Split (path "2.0", a 60px-fixed row of four
+  // elastic 1fr tracks) — LytNode.vue's own CSS Grid handles the row
+  // layout the retired ToolbarEngineCluster.vue's `.engine-cluster` flex
+  // wrapper used to.
+  A_engine_controls: {
+    widget: 'A_engine_controls',
+    component: 'ToolbarEngineControls',
     status: 'mounted',
-    slotName: '#leaf-A_engine',
+    slotName: '#leaf-A_engine_controls',
     absorbedInto: null,
     activityStates: null,
-    note: 'LYT toolbar ontology reencode (item 2, "ONE ENGINE CLUSTER, ENVELOPE-RESERVED"): connect/disconnect, the engine-controls button cluster (mint-card/learn-path/play/match), and engine metrics (ToolbarEngineMetrics) are ONE dedicated component now, mounted here in its own right — no absorption, no merge with A_app. The encoding\'s own `envelope: {disconnected, connected}` sizing basis (see lengyue_landscape.lyt/lengyue_portrait.lyt) reserves the MAX across engine states, so ToolbarEngineMetrics mounting/unmounting on connect/disconnect never re-partitions a sibling — the commissioner\'s witnessed defect ("actions still reorganize the buttons...e.g. connecting") forecloses by construction.',
+    note: 'Ruling row 2073\'s own action facet-half (connect/disconnect + mint-card/learn-path/play/match) — extracted verbatim from the retired ToolbarEngineCluster.vue into its own component. Mounted unconditionally (connect/disconnect must stay reachable while disconnected), unlike the three info groups below.',
+  },
+  A_engine_eval: {
+    widget: 'A_engine_eval',
+    component: 'ToolbarEngineMetrics',
+    status: 'mounted',
+    slotName: '#leaf-A_engine_eval',
+    absorbedInto: null,
+    activityStates: null,
+    note: 'Ruling row 2073\'s own "eval" vocabulary ({winrate, lead}) — `ToolbarEngineMetrics.vue`\'s own `winrateDisplay`/`scoreLeadDisplay` block, per the census\'s own per-leaf grounding. Mounted with `group="eval"`; DISCLOSED JUDGMENT CALL (see that component\'s own header): the pre-existing identity slot (version + model-select), not one of the ruling\'s three named vocabularies, stays folded into this group rather than inventing a fifth leaf. App.vue gates the mount on `engineControls.isConnected` (unchanged from the pre-split single-leaf behaviour — ToolbarEngineMetrics only ever rendered while connected).',
+  },
+  A_engine_health: {
+    widget: 'A_engine_health',
+    component: 'ToolbarEngineMetrics',
+    status: 'mounted',
+    slotName: '#leaf-A_engine_health',
+    absorbedInto: null,
+    activityStates: null,
+    note: 'Ruling row 2073\'s own "health" vocabulary ({pps, latency, watchdog}) — `ToolbarEngineMetrics.vue`\'s own `metric-pps`/`metric-latency`/watchdog-dot block, per the census\'s own per-leaf grounding. Mounted with `group="health"` (a second instance of the SAME component as A_engine_eval, parameterised — see that file\'s own header for why one file, not two, and the render-cost tradeoff of two independently-subscribing instances). Same connected-only gate as A_engine_eval.',
+  },
+  A_engine_queue: {
+    widget: 'A_engine_queue',
+    component: 'EngineQueueTooltip',
+    status: 'mounted',
+    slotName: '#leaf-A_engine_queue',
+    absorbedInto: null,
+    activityStates: null,
+    note: 'Ruling row 2073\'s own "queue" vocabulary ({queue}) — `EngineQueueTooltip.vue` was already a fully self-contained sibling component (self-sources `useQueryTelemetry`, no shared state with ToolbarEngineMetrics beyond living in the same flex row), so it mounts directly here rather than through a wrapper. Same connected-only gate as the other three (unchanged from its pre-split behaviour, where the gate lived one level up at the retired ToolbarEngineCluster.vue).',
   },
   A_app: {
     widget: 'A_app',
@@ -172,7 +231,16 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     slotName: '#leaf-A_app',
     absorbedInto: null,
     activityStates: null,
-    note: 'LYT toolbar ontology reencode (item 3, "ONE APP CLUSTER"): Load/Save SGF, the sliders/setup/PBO popover triggers, the engine URI editor, and the locale picker — self-contained (see ToolbarAppCluster.vue\'s own header for why it sources its own composables rather than App.vue threading them through). Structurally independent of engine connection state (audited: no widget in this cluster reads `useEngineControls`).',
+    note: 'LYT toolbar ontology reencode (item 3, "ONE APP CLUSTER"): Load/Save SGF, the sliders/PBO popover triggers, the engine URI editor, and the locale picker — self-contained (see ToolbarAppCluster.vue\'s own header for why it sources its own composables rather than App.vue threading them through). Structurally independent of engine connection state (audited: no widget in this cluster reads `useEngineControls`). M2 stage B2b: SetupToolPalette moved OUT to its own A_setup leaf below (ruling row 2108) — see that entry\'s own note.',
+  },
+  A_setup: {
+    widget: 'A_setup',
+    component: 'SetupToolPalette',
+    status: 'mounted',
+    slotName: '#leaf-A_setup',
+    absorbedInto: null,
+    activityStates: null,
+    note: 'Ruling row 2108, "PALETTE ADOPTION": the setup-tool palette (trigger + click-open body) as its own presence slot, a direct sibling of A_app rather than folded into the side column\'s own blanket width floor. Mounts the WHOLE existing SetupToolPalette.vue unchanged (it already owns its own trigger button internally — see that file\'s own header, "Placement"). DISCLOSED SCOPE CALL (boot-restoration commission, `.claude/dispatch-reports/lyt-boot-restoration.md`): the compiled program declares this leaf `presenceDefaultVisible: false` (a default-off release toggle, matching boardRail/previewBoard\'s own W2 convention) and the ruling\'s own "trigger relocated out of the slot" wording anticipates a further SetupPaletteTrigger.vue split (named, not yet built — see `lyt-capability-registry.ts`\'s own census) with a new presence-menu entry. Building that full split is a genuine feature addition beyond "restore boot"; this pass instead forces the leaf permanently visible via App.vue\'s own `lytPresenceOverrides` computed (`A_setup: true`, unconditional — NOT wired to `session.ui.lytPresence` or the three-target presence menu), preserving the palette\'s pre-existing always-reachable behaviour exactly. A real, working, boot-safe mount; the presence-menu integration is a named follow-up, not attempted here.',
   },
 
   // ── Tree / control-panel / preview row (root child 2.3) ────────────────
@@ -251,14 +319,14 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     activityStates: null,
     note: 'The flow-wrap-capable settings sub-tab strip (research/lyt/flow.py; `SPEC-AMENDMENTS.md` rows 2007/2009). `content bounded`, no scrollAxes — the strip never scrolls; CSS flex-wrap (TabWidget.vue\'s own `wrap` prop) realizes the SAME greedy left-to-right packing the encoding\'s own flow-envelope derivation computes offline.',
   },
-  settingsPane: {
-    widget: 'settingsPane',
+  SP_session: {
+    widget: 'SP_session',
     component: 'SettingsPane',
     status: 'mounted',
-    slotName: '#leaf-settingsPane',
+    slotName: '#leaf-SP_session',
     absorbedInto: null,
     activityStates: null,
-    note: 'The six settings sub-tab bodies (Session/Analysis Environment/Card Sets/Advanced Registry/Analysis/Keybindings), moved verbatim from the retired SettingsTab.vue. scrollAxes: [v] (encoding-declared, the disclosed worst-case-superset classification — see `lengyue_landscape.lyt`\'s own header) derives this leaf\'s own outer overflow; TabWidget\'s own `.tab-body` blanket scroll is retired for this instance (`ownsScroll=false`) so each sub-pane\'s own existing internal scroll owner (`.registry-container`\'s own `overflow-y:auto`, KeybindingsView\'s own) is the SOLE scroll owner on its path (L5b single-scroll-owner) — disclosed narrowing, SEVERITY CORRECTED 2026-08-12 per independent review (`.claude/dispatch-reports/lyt-settings-live-review.md` Finding 2): the ratified per-pane classification table (Advanced Registry/Keybindings scroll-owned, the other four no-scroll AT DECLARED DEMAND) is not fully re-derived at the component-CSS level this wave, and the Session (UI) pane — the DEFAULT-ACTIVE tab — genuinely SCROLLS TODAY at the pinned OPTIMAL size 1920x1080 (review-measured, not theoretical), a live breach of its own "no-scroll" classification, not merely a possible edge case. Filed as a deferral to the model-implementation wave (a second encoding-level opening of `settingsPane`), per orchestrator adjudication — not fixed this pass.',
+    note: 'RENAMED from `settingsPane` (M2 stage B2b, ruling rows 2134/2151 — see file header): the compiled program\'s own `kind: "blackbox"` node at this position now carries the id `SP_session` (the emitter\'s collapsed-subtree id-derivation rule, applied because the settings tab\'s own interior gained a nested, still-collapsed `T(SP_session, SP_analysisEnv, SP_cardSets, SP_advancedRegistry, SP_analysis, SP_keybindings)` this stage — see `childWidgets` on that node). Disposition and component are otherwise UNCHANGED from the retired `settingsPane` entry: mounts the six settings sub-tab bodies (Session/Analysis Environment/Card Sets/Advanced Registry/Analysis/Keybindings), moved verbatim from the retired SettingsTab.vue. scrollAxes: [v] (encoding-declared, the disclosed worst-case-superset classification — see `lengyue_landscape.lyt`\'s own header) derives this leaf\'s own outer overflow; TabWidget\'s own `.tab-body` blanket scroll is retired for this instance (`ownsScroll=false`) so each sub-pane\'s own existing internal scroll owner (`.registry-container`\'s own `overflow-y:auto`, KeybindingsView\'s own) is the SOLE scroll owner on its path (L5b single-scroll-owner) — disclosed narrowing, SEVERITY CORRECTED 2026-08-12 per independent review (`.claude/dispatch-reports/lyt-settings-live-review.md` Finding 2): the ratified per-pane classification table (Advanced Registry/Keybindings scroll-owned, the other four no-scroll AT DECLARED DEMAND) is not fully re-derived at the component-CSS level this wave, and the Session (UI) pane — the DEFAULT-ACTIVE tab — genuinely SCROLLS TODAY at the pinned OPTIMAL size 1920x1080 (review-measured, not theoretical), a live breach of its own "no-scroll" classification, not merely a possible edge case. Filed as a deferral to a future model-implementation wave (per §8.4\'s own per-pane classification table — the six SP_* sub-panes are NOT independently mounted this stage either: `SP_session`\'s own component, SettingsPane.vue, still internally drives all six via TabWidget, matching what the compiled program\'s own still-collapsed blackbox shape actually declares) — not fixed this pass.',
   },
   'CP-analysis': {
     widget: 'CP-analysis',

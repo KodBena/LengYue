@@ -1,8 +1,11 @@
 <!--
   src/components/board/StatusBar.vue
   Purely presentational game status bar. Engine info (version,
-  model, telemetry) lives in ToolbarEngineCluster — this bar is for
-  board-state vocabulary (move number, players, captures, turn).
+  model, telemetry) lives in ToolbarEngineControls/ToolbarEngineMetrics
+  (M2 stage B2b boot-restoration wiring split the retired
+  ToolbarEngineCluster into these — `.claude/dispatch-reports/lyt-boot-
+  restoration.md`) — this bar is for board-state vocabulary (move
+  number, players, captures, turn).
 
   Move-navigation cluster (LYT toolbar ontology reencode,
   commissioner-ratified 2026-08-11, ledger rows 1930/1931, item 1

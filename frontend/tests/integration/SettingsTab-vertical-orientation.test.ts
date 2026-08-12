@@ -22,7 +22,7 @@
  * `SettingsTab.vue` is RETIRED — its composition boundary split into
  * `SettingsSubstrip.vue` (the strip, mounted at the LYT-modeled
  * `settingsSubstrip` leaf) and `SettingsPane.vue` (the six sub-tab
- * bodies, mounted at `settingsPane`) — see `state/lyt-widget-
+ * bodies, mounted at `SP_session` (formerly `settingsPane`)) — see `state/lyt-widget-
  * registry.ts`'s updated entries and both files' own headers. The
  * filename is kept unchanged (the same "repoint the consumer list,
  * don't rename the file" precedent the realization wave's own

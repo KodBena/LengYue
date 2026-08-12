@@ -107,6 +107,23 @@
  * stands as the historical record of why; it does not describe live code
  * after this dated note per ADR-0002 Rule 6.
  *
+ * [corrected 2026-08-12, M2 stage B2b boot-restoration wiring,
+ * `.claude/dispatch-reports/lyt-boot-restoration.md`, ledger row 2346]:
+ * `ToolbarEngineCluster.vue` (named several places above) is itself now
+ * retired — ruling row 2073's own three-vocabulary decomposition needs
+ * FOUR independently-mounted leaves (`A_engine_controls`/`_eval`/
+ * `_health`/`_queue`), not one merged cluster. `ToolbarEngineControls.vue`
+ * is its direct successor for the button cluster;
+ * `ToolbarEngineMetrics.vue` (now `group`-parameterised) and
+ * `EngineQueueTooltip.vue` (mounted directly) cover the three info
+ * groups. `SetupToolPalette` also moves out of `ToolbarAppCluster.vue`
+ * into its own new `A_setup` leaf (ruling row 2108) — see
+ * `state/lyt-widget-registry.ts`'s own updated entries for the full
+ * grounding and disclosed scope calls. The paragraphs above describing
+ * the pre-B2b two-cluster shape are historical, not live code, per the
+ * same ADR-0002 Rule 6 convention Finding A's dated note already
+ * establishes in this file.
+ *
  * License: Public Domain (The Unlicense)
  */
 import { computed, watch } from 'vue';
@@ -157,8 +174,11 @@ import TreeWidget       from './components/tree/TreeWidget.vue';
 import SettingsSubstrip from './components/chrome/SettingsSubstrip.vue';
 import SettingsPane     from './components/chrome/SettingsPane.vue';
 import AnalysisControls from './components/editors/AnalysisControls.vue';
-import ToolbarEngineCluster from './components/chrome/ToolbarEngineCluster.vue';
+import ToolbarEngineControls from './components/chrome/ToolbarEngineControls.vue';
+import ToolbarEngineMetrics  from './components/chrome/ToolbarEngineMetrics.vue';
+import EngineQueueTooltip    from './components/chrome/EngineQueueTooltip.vue';
 import ToolbarAppCluster    from './components/chrome/ToolbarAppCluster.vue';
+import SetupToolPalette     from './components/chrome/SetupToolPalette.vue';
 import StatusBar        from './components/board/StatusBar.vue';
 import MintCardModal    from './components/modals/MintCardModal.vue';
 import LearnPathModal   from './components/modals/LearnPathModal.vue';
@@ -602,12 +622,23 @@ function handleLytExclusiveActiveChange(path: string, tabId: string): void {
 // computed feeds to LytNode is style-conditioned, not the persisted
 // preference) — flipping back to 'slot' style restores the user's own
 // prior boardRail checkbox state exactly, not a reset default.
+// M2 stage B2b boot-restoration wiring (`.claude/dispatch-reports/lyt-
+// boot-restoration.md`, ledger row 2346): `A_setup` unconditionally
+// forced visible — see lyt-widget-registry.ts's own A_setup entry for
+// the disclosed scope call (the compiled program's own
+// `presenceDefaultVisible: false` + ruling row 2108's own
+// `@toggle(user, release)` intent anticipates a real presence-menu
+// entry this pass does not build; forcing it here preserves the setup
+// palette's pre-existing always-reachable behaviour rather than
+// silently hiding it). NOT read from `session.ui.lytPresence` — this is
+// a fixed override, not a persisted user preference, unlike
+// boardRail/previewBoard/controlPanel below.
 const lytPresenceOverrides = computed<Record<string, boolean>>(() => {
   const presence = store.session.ui.lytPresence;
   if (store.session.ui.railStyle === 'popover') {
-    return { ...presence, boardRail: false };
+    return { ...presence, boardRail: false, A_setup: true };
   }
-  return presence;
+  return { ...presence, A_setup: true };
 });
 
 const { sync } = useAppBootstrap(auth);
@@ -882,17 +913,21 @@ const activeTab = computed<string>({
             />
           </template>
 
-          <!-- LYT toolbar ontology reencode (item 2, "ONE ENGINE CLUSTER,
-               ENVELOPE-RESERVED"): connect/disconnect, the engine-controls
-               button cluster, and engine metrics are now ONE component,
-               mounted at this one leaf — SAME widget id in both classes
-               (landscape's own root child '2', portrait's own root V
-               child previously named `I_engine`; see
-               research/lyt/encodings/lengyue_portrait.lyt's header for why
-               that class needed no tree reshuffle). -->
-          <template #leaf-A_engine>
+          <!-- M2 stage B2b boot-restoration wiring
+               (`.claude/dispatch-reports/lyt-boot-restoration.md`, ledger
+               row 2346): ruling row 2073's three-vocabulary decomposition
+               retires the single `A_engine` leaf into FOUR leaves, each
+               mounted at its own slot — see lyt-widget-registry.ts's own
+               per-leaf notes for the real-component grounding and the
+               disclosed identity-slot judgment call. All four sit in the
+               SAME compiled-program Split (path "2.0"), so LytNode.vue's
+               own CSS Grid lays them out in one row — no wrapping flex
+               component needed here the way the retired
+               ToolbarEngineCluster.vue's `.engine-cluster` used to
+               provide. -->
+          <template #leaf-A_engine_controls>
             <div class="lyt-toolbar-strip">
-              <ToolbarEngineCluster
+              <ToolbarEngineControls
                 :is-match-running="matchControls.isRunning.value"
                 @toggle-engine="engineControls.toggle"
                 @mint-card="triggerMint"
@@ -904,18 +939,55 @@ const activeTab = computed<string>({
             </div>
           </template>
 
+          <template #leaf-A_engine_eval>
+            <div class="lyt-toolbar-strip">
+              <ToolbarEngineMetrics v-if="engineControls.isConnected.value" group="eval" />
+            </div>
+          </template>
+
+          <template #leaf-A_engine_health>
+            <div class="lyt-toolbar-strip">
+              <ToolbarEngineMetrics v-if="engineControls.isConnected.value" group="health" />
+            </div>
+          </template>
+
+          <template #leaf-A_engine_queue>
+            <div class="lyt-toolbar-strip">
+              <EngineQueueTooltip v-if="engineControls.isConnected.value" />
+            </div>
+          </template>
+
           <!-- LYT toolbar ontology reencode (item 3, "ONE APP CLUSTER"):
-               Load/Save SGF, the sliders/setup/PBO popover triggers, the
+               Load/Save SGF, the sliders/PBO popover triggers, the
                engine URI editor, and the locale picker — SAME widget id
                in both classes (landscape's own root child '2', portrait's
                own root V child previously named `A_top`). Self-contained
                (ToolbarAppCluster.vue sources its own SGF composables —
                see that file's own header), so this mount needs no
                App.vue-local wiring at all, unlike the pre-reencode
-               `.lyt-toolbar-strip` block this replaces. -->
+               `.lyt-toolbar-strip` block this replaces. M2 stage B2b:
+               SetupToolPalette moved OUT of this cluster to its own
+               A_setup leaf below (ruling row 2108). -->
           <template #leaf-A_app>
             <div class="lyt-toolbar-strip">
               <ToolbarAppCluster />
+            </div>
+          </template>
+
+          <!-- M2 stage B2b (ruling row 2108, "PALETTE ADOPTION"): the
+               setup-tool palette as its own presence slot, a direct
+               sibling of A_app. DISCLOSED SCOPE CALL (see
+               lyt-widget-registry.ts's own A_setup entry and
+               ToolbarAppCluster.vue's own header): the compiled program
+               declares this leaf `presenceDefaultVisible: false`; rather
+               than build the ruling's own anticipated trigger/body split
+               plus a new presence-menu entry (out of this commission's
+               "restore boot" scope), `lytPresenceOverrides` below forces
+               it permanently visible, preserving the palette's
+               pre-existing always-reachable behaviour. -->
+          <template #leaf-A_setup>
+            <div class="lyt-toolbar-strip">
+              <SetupToolPalette />
             </div>
           </template>
 
@@ -997,18 +1069,27 @@ const activeTab = computed<string>({
                 </div>
               </template>
 
-              <!-- settingsSubstrip / settingsPane: OPENED LIVE (work item
-                   `lyt-settings-live-opening`, ledger rows 2007/2009/2001) —
-                   the encoding's own modeled V(settingsSubstrip, settingsPane)
-                   interior now mounts as TWO separately-mounted LYT leaves,
-                   reached via CP-settings' own now-genuine `split` node
-                   (LytNode.vue's existing generic Split recursion, no
-                   LytNode.vue change needed). See SettingsSubstrip.vue/
-                   SettingsPane.vue's own headers and lyt-widget-registry.ts's
-                   updated entries. CP-analysis: DISCLOSED SCOPE NARROWING
-                   (unchanged from the realization wave's own delivery
-                   report) — the encoding's own modeled nested-T interior
-                   stays solver-visible but UNOPENED in the DOM; still mounts
+              <!-- settingsSubstrip / SP_session (formerly settingsPane):
+                   OPENED LIVE (work item `lyt-settings-live-opening`,
+                   ledger rows 2007/2009/2001) — the encoding's own modeled
+                   V(settingsSubstrip, SP_session) interior now mounts as
+                   TWO separately-mounted LYT leaves, reached via
+                   CP-settings' own now-genuine `split` node (LytNode.vue's
+                   existing generic Split recursion, no LytNode.vue change
+                   needed). M2 stage B2b (`.claude/dispatch-reports/lyt-
+                   boot-restoration.md`): the second leaf's own compiled
+                   id renamed settingsPane -> SP_session (a `kind:
+                   "blackbox"` node now, not `"leaf"` — the settings tab's
+                   own interior gained a nested, still-collapsed six-way
+                   T over the real sub-tab ids; LytNode.vue's leaf/blackbox
+                   terminal case treats both kinds identically, so this
+                   slot rename is the only change needed here). See
+                   SettingsSubstrip.vue/SettingsPane.vue's own headers and
+                   lyt-widget-registry.ts's updated entries. CP-analysis:
+                   DISCLOSED SCOPE NARROWING (unchanged from the
+                   realization wave's own delivery report) — the
+                   encoding's own modeled nested-T interior stays
+                   solver-visible but UNOPENED in the DOM; still mounts
                    as ONE component, unchanged wiring from the pre-wave
                    #analysis TabWidget slot. -->
               <template #leaf-settingsSubstrip>
@@ -1017,7 +1098,7 @@ const activeTab = computed<string>({
                 </div>
               </template>
 
-              <template #leaf-settingsPane>
+              <template #leaf-SP_session>
                 <div :key="controlPanelIdentityKey" style="flex: 1; display: flex; min-height: 0; width: 100%;">
                   <SettingsPane @force-save="sync.forceSave()" />
                 </div>
@@ -1461,11 +1542,22 @@ const activeTab = computed<string>({
    classes are retired, along with the global (non-scoped) override rules
    that used to reach past its scoping boundary from here. The wrap/
    shrink behaviour those rules patched in from outside is now authored
-   directly in `ToolbarEngineCluster.vue`/`ToolbarAppCluster.vue`'s own
-   scoped stylesheets (`.engine-cluster`/`.app-cluster`/`.toolbar-cluster`/
-   `.engine-controls` there), since both components only ever mount in
-   this narrow side-column context — no external override needed. */
-.lyt-toolbar-strip .engine-cluster,
+   directly in each mounted component's own scoped stylesheet
+   (`.engine-controls`/`.app-cluster`/`.toolbar-cluster` there), since
+   every one of them only ever mounts in this narrow side-column
+   context — no external override needed.
+   [corrected 2026-08-12, M2 stage B2b boot-restoration wiring]:
+   `.engine-cluster` (the retired ToolbarEngineCluster.vue's own root
+   class) is replaced by three new root classes now that the ruling row
+   2073 decomposition mounts three independent components per row —
+   `.engine-controls` (ToolbarEngineControls.vue), `.engine-metrics-bar`
+   (ToolbarEngineMetrics.vue, both groups), `.queue-metric`
+   (EngineQueueTooltip.vue's own root, a `<div class="metric
+   queue-metric">`). Each gets the same flex-basis treatment
+   `.engine-cluster` used to. */
+.lyt-toolbar-strip .engine-controls,
+.lyt-toolbar-strip .engine-metrics-bar,
+.lyt-toolbar-strip .queue-metric,
 .lyt-toolbar-strip .app-cluster {
   flex: 1 1 0;
   min-width: 0;

@@ -20,13 +20,37 @@
   docs/dispatch-reports/ui-fix-1b-diagnosis.md). Giving the select its
   own component instance gives it an independent render effect with no
   dependency on the tick — see that file's header for the full account.
+
+  M2 stage B2b boot-restoration wiring (`.claude/dispatch-reports/lyt-
+  boot-restoration.md`; ledger row 2346; ruling row 2073,
+  "three-vocabulary engine-status decomposition"): the compiled program
+  retires the single `A_engine` leaf this component used to mount inside
+  (via the now-retired `ToolbarEngineCluster.vue`) in favour of four
+  independently-tracked leaves. This component now renders ONE of two
+  `group`s at a time (`'eval'` = identity {version, model} + {winrate,
+  scoreLead}; `'health'` = {pps, latency, watchdog}) — the ruling's own
+  per-leaf grounding names `eval` as "`winrateDisplay`/`scoreLeadDisplay`
+  block" and `health` as "`metric-pps`/`metric-latency`/watchdog-dot
+  block", but says nothing about the pre-existing identity (version/model)
+  slot, which isn't one of the ruling's three named vocabularies at all.
+  DISCLOSED JUDGMENT CALL: identity stays folded into `eval` (it read
+  immediately left of winrate/scoreLead before this split, so `eval`
+  keeps that same reading order) rather than inventing a fifth leaf the
+  compiled program doesn't declare — named here, not hidden, per the
+  boot-restoration commission's own STOP-and-report discipline for
+  judgment calls the ruling itself left open. `App.vue` mounts one
+  instance per group at `#leaf-A_engine_eval` / `#leaf-A_engine_health`;
+  `queue` is no longer rendered by this component at all —
+  `EngineQueueTooltip.vue` mounts directly at `#leaf-A_engine_queue`
+  now, since it was already a fully self-contained sibling (no shared
+  state with this component beyond living in the same flex row).
+
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useThrottledSnapshot } from '../../composables/useThrottledSnapshot';
 import { useI18n } from 'vue-i18n';
-import EngineQueueTooltip from './EngineQueueTooltip.vue';
 import EngineModelSelect from './EngineModelSelect.vue';
 import { store, activeBoard } from '../../store';
 import { activeAnalysisKeys } from '../../state/analysis-config';
@@ -35,6 +59,15 @@ import { useEngineControls } from '../../composables/useEngineControls';
 import { TOOLBAR_METRICS_REDRAW_THROTTLE_MS } from '../../lib/timing';
 
 const { t } = useI18n();
+
+// M2 stage B2b: which of the two remaining vocabulary groups this
+// instance renders — see the file header's boot-restoration note.
+// Defaults to 'eval' (identity + winrate/scoreLead) so an existing
+// caller that mounts this component with no prop (e.g. the render-count
+// regression guard, `tests/integration/render-count/ToolbarEngineMetrics.
+// render-count.test.ts`, predates this split) keeps its pre-split
+// behaviour unchanged.
+const props = withDefaults(defineProps<{ group?: 'eval' | 'health' }>(), { group: 'eval' });
 
 // Self-sourced here rather than in the parent Toolbar (RB-1 routed it through
 // Toolbar; this leaf is the next step so the per-tick metric reads no longer
@@ -217,62 +250,61 @@ const displayed = useThrottledSnapshot(liveMetrics, TOOLBAR_METRICS_REDRAW_THROT
 
 <template>
   <div class="engine-metrics-bar">
-    <!-- Engine identity, split into two adjacent slots so VERSION
-         and MODEL are independently legible and each carries the
-         full corresponding probe payload in its hover tooltip.
-         Placed leftmost in the metrics cluster so they read as
-         "what am I talking to" context for the live-telemetry
-         slots that follow. Both slots render unconditionally while
-         connected, with a `—` placeholder during the brief
-         connect-and-probe window so the layout doesn't shift when
-         the responses arrive. -->
-    <div class="metric engine-identity" :title="versionTooltip">
-      <span class="m-lbl">{{ $t('toolbar.metric.version') }}</span>
-      <span class="m-val engine-version-val">{{ engineVersion !== null ? `v${engineVersion}` : '—' }}</span>
-    </div>
-    <!-- MODEL slot: self-sourcing leaf (see EngineModelSelect.vue's
-         header comment). Reads no metrics-derived state, so it never
-         re-renders on the metrics tick regardless of how often THIS
-         component's own render runs. -->
-    <EngineModelSelect />
-    <!-- Live engine evaluation — slim preview of the user-
-         captured rootInfo display arc (see the corresponding
-         computeds in <script>). Two hardcoded W-framed
-         scalars; tooltips name the framing so the value is
-         unambiguous without reading the source. Renders
-         unconditionally inside the connected-only metrics bar;
-         '—' placeholder when no packet exists for the active
-         node (pre-analysis, fresh navigation, or post-purge). -->
-    <div class="metric" :title="$t('toolbar.metric.winrateTooltip')">
-      <span class="m-lbl">{{ $t('toolbar.metric.winrate') }}</span>
-      <span class="m-val eval-val winrate-val">{{ displayed.winrate }}</span>
-    </div>
-    <div class="metric" :title="$t('toolbar.metric.scoreLeadTooltip')">
-      <span class="m-lbl">{{ $t('toolbar.metric.scoreLead') }}</span>
-      <span class="m-val eval-val score-lead-val">{{ displayed.scoreLead }}</span>
-    </div>
-    <div class="metric metric-pps">
-      <span class="m-lbl">{{ $t('toolbar.metric.pps') }}</span>
-      <span class="m-val">{{ displayed.pps }}</span>
-    </div>
-    <div class="metric metric-latency">
-      <span class="m-lbl">{{ $t('toolbar.metric.latency') }}</span>
-      <span class="m-val">{{ $t('toolbar.metric.latencyValue', { ms: displayed.latency }) }}</span>
-    </div>
-    <div class="metric">
-      <span class="m-lbl">{{ $t('toolbar.metric.watchdog') }}</span>
-      <span
-        class="m-val watchdog-dot"
-        :class="watchdogClasses"
-        :style="watchdogStyle"
-      >●</span>
-    </div>
-    <!-- Queue tooltip — hover the count to see every in-flight
-         proxy query, with kind, SELECTOR model label, turn /
-         visit progress and ETA. Always rendered while connected
-         so the user knows whether the engine has outstanding
-         work even when no per-board ponder is active. -->
-    <EngineQueueTooltip />
+    <template v-if="props.group === 'eval'">
+      <!-- Engine identity, split into two adjacent slots so VERSION
+           and MODEL are independently legible and each carries the
+           full corresponding probe payload in its hover tooltip.
+           Placed leftmost so they read as "what am I talking to"
+           context for the eval readouts that follow (see the file
+           header's boot-restoration note for why identity rides in
+           this group rather than a fifth leaf). Both slots render
+           unconditionally while connected, with a `—` placeholder
+           during the brief connect-and-probe window so the layout
+           doesn't shift when the responses arrive. -->
+      <div class="metric engine-identity" :title="versionTooltip">
+        <span class="m-lbl">{{ $t('toolbar.metric.version') }}</span>
+        <span class="m-val engine-version-val">{{ engineVersion !== null ? `v${engineVersion}` : '—' }}</span>
+      </div>
+      <!-- MODEL slot: self-sourcing leaf (see EngineModelSelect.vue's
+           header comment). Reads no metrics-derived state, so it never
+           re-renders on the metrics tick regardless of how often THIS
+           component's own render runs. -->
+      <EngineModelSelect />
+      <!-- Live engine evaluation — slim preview of the user-
+           captured rootInfo display arc (see the corresponding
+           computeds in <script>). Two hardcoded W-framed
+           scalars; tooltips name the framing so the value is
+           unambiguous without reading the source. Renders
+           unconditionally inside the connected-only metrics bar;
+           '—' placeholder when no packet exists for the active
+           node (pre-analysis, fresh navigation, or post-purge). -->
+      <div class="metric" :title="$t('toolbar.metric.winrateTooltip')">
+        <span class="m-lbl">{{ $t('toolbar.metric.winrate') }}</span>
+        <span class="m-val eval-val winrate-val">{{ displayed.winrate }}</span>
+      </div>
+      <div class="metric" :title="$t('toolbar.metric.scoreLeadTooltip')">
+        <span class="m-lbl">{{ $t('toolbar.metric.scoreLead') }}</span>
+        <span class="m-val eval-val score-lead-val">{{ displayed.scoreLead }}</span>
+      </div>
+    </template>
+    <template v-else>
+      <div class="metric metric-pps">
+        <span class="m-lbl">{{ $t('toolbar.metric.pps') }}</span>
+        <span class="m-val">{{ displayed.pps }}</span>
+      </div>
+      <div class="metric metric-latency">
+        <span class="m-lbl">{{ $t('toolbar.metric.latency') }}</span>
+        <span class="m-val">{{ $t('toolbar.metric.latencyValue', { ms: displayed.latency }) }}</span>
+      </div>
+      <div class="metric">
+        <span class="m-lbl">{{ $t('toolbar.metric.watchdog') }}</span>
+        <span
+          class="m-val watchdog-dot"
+          :class="watchdogClasses"
+          :style="watchdogStyle"
+        >●</span>
+      </div>
+    </template>
   </div>
 </template>
 

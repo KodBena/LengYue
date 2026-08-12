@@ -3,24 +3,46 @@
 
   LYT toolbar ontology reencode (commissioner-ratified 2026-08-11, ledger
   rows 1930/1931, item 3 "ONE APP CLUSTER"). Extracted from the former
-  Toolbar.vue: Load/Save SGF, the sliders/setup/PBO popover triggers, and
+  Toolbar.vue: Load/Save SGF, the sliders/PBO popover triggers, and
   the remaining application-scoped chrome (the engine WebSocket URI editor,
   the locale picker) form the second cluster — mounted into the `.lyt`
   encoding's own `A_app` leaf, structurally independent of engine
   connection state (no widget here reads `useEngineControls` at all, which
-  is the audit ToolbarEngineCluster.vue's own header cites).
+  is the audit ToolbarEngineControls.vue's own header cites — M2 stage B2b
+  boot-restoration wiring retired ToolbarEngineCluster.vue in favour of
+  four independent leaves, `.claude/dispatch-reports/lyt-boot-
+  restoration.md`; ToolbarEngineControls.vue is its direct successor for
+  the button cluster).
+
+  M2 stage B2b boot-restoration wiring (same commission, ruling row 2108
+  "PALETTE ADOPTION"): `SetupToolPalette` moves OUT of this cluster to its
+  own dedicated `A_setup` leaf — see `lyt-widget-registry.ts`'s own
+  `A_setup` entry and `App.vue`'s own `#leaf-A_setup` mount. DISCLOSED
+  SCOPE CALL: the ruling's own "trigger relocated out of the slot" wording
+  anticipates a `SetupPaletteTrigger.vue` split (named as an anticipated,
+  not-yet-built component in `lyt-capability-registry.ts`'s own census) —
+  building that split plus a new presence-menu entry is a genuine feature
+  addition beyond this commission's "restore boot" mandate, so this pass
+  mounts the WHOLE existing `SetupToolPalette.vue` (trigger + body,
+  unchanged) at `A_setup` instead, forced visible via an App.vue presence
+  override (`lytPresenceOverrides`) rather than through the compiled
+  program's own `presenceDefaultVisible: false` + a togglable menu entry —
+  a real, working mount preserving the palette's current always-reachable
+  behaviour, not a stub, but not the fuller trigger/body split either.
+  Named here per the boot-restoration commission's own STOP-and-report
+  discipline for judgment calls a ruling left open, not hidden.
 
   Self-contained (ADR-0010 read-locality applied to actions, not just
   reads): SGF load/save and the locale picker were previously wired
   through App.vue-local composable calls threaded into the template.
   Every dependency here (`useSgfLoader`, `useSgfDownload`,
-  ToolbarEngineUri/ToolbarSliderPopover/PboPopover/SetupToolPalette/
-  LocalePicker) is itself a self-sourcing composable or a self-contained
-  component with no external props, so this cluster owns its own wiring
-  rather than App.vue threading it through — one fewer place App.vue's
-  template has to duplicate per screen class (this cluster mounts
-  identically at both `#leaf-A_app` (landscape) and portrait's own A_app
-  leaf, replacing the prior duplicated `.lyt-toolbar-strip` block).
+  ToolbarEngineUri/ToolbarSliderPopover/PboPopover/LocalePicker) is itself
+  a self-sourcing composable or a self-contained component with no
+  external props, so this cluster owns its own wiring rather than App.vue
+  threading it through — one fewer place App.vue's template has to
+  duplicate per screen class (this cluster mounts identically at both
+  `#leaf-A_app` (landscape) and portrait's own A_app leaf, replacing the
+  prior duplicated `.lyt-toolbar-strip` block).
 
   License: Public Domain (The Unlicense)
 -->
@@ -28,7 +50,6 @@
 import ToolbarEngineUri from './ToolbarEngineUri.vue';
 import ToolbarSliderPopover from './ToolbarSliderPopover.vue';
 import PboPopover from '../qeubo/PboPopover.vue';
-import SetupToolPalette from './SetupToolPalette.vue';
 import LocalePicker from './LocalePicker.vue';
 import { useSgfLoader } from '../../composables/sgf/useSgfLoader';
 import { useSgfDownload } from '../../composables/sgf/useSgfDownload';
@@ -53,7 +74,6 @@ const { downloadActiveBoard } = useSgfDownload();
     <div class="toolbar-cluster">
       <ToolbarSliderPopover />
       <PboPopover />
-      <SetupToolPalette />
     </div>
     <LocalePicker />
   </div>
@@ -65,7 +85,7 @@ const { downloadActiveBoard } = useSgfDownload();
    row at narrow widths (same mechanism the W1 REPAIR pass's measured
    sweep relies on) rather than clipping. */
 .app-cluster { min-height: 28px; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-default); min-width: 0; }
-/* See ToolbarEngineCluster.vue's own comment on this same rule shape —
+/* See ToolbarEngineControls.vue's own comment on this same rule shape —
    wrap+shrink authored directly here rather than via an external
    App.vue override, since this component only ever mounts in the
    narrow side-column context. */

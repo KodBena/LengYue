@@ -73,12 +73,15 @@ describe('checkActivityInvarianceL6 — the real compiled programs', () => {
   });
 
   it('dormancy: a leaf with no registry activityStates (most of the registry) is not checked at all, even though it may carry its own envelope or none', () => {
-    // A_engine itself is not a leaf (it is now a composite Split of four
-    // sub-leaves, mainline's own post-B2b "three-vocabulary engine
-    // decomposition") and carries no `activityStates` registry entry --
-    // confirms the checker does not invent a violation for a widget
-    // nobody has swept.
-    expect(LYT_WIDGET_REGISTRY.A_engine.activityStates).toBeNull();
+    // A_engine itself is no longer a widget id at all — M2 stage B2b
+    // (`.claude/dispatch-reports/lyt-boot-restoration.md`) retired it a
+    // second time into four independent sub-leaves (mainline's own
+    // post-B2b "three-vocabulary engine decomposition"), none of which
+    // carry an `activityStates` registry entry -- confirms the checker
+    // does not invent a violation for a widget nobody has swept.
+    for (const widget of ['A_engine_controls', 'A_engine_eval', 'A_engine_health', 'A_engine_queue']) {
+      expect(LYT_WIDGET_REGISTRY[widget].activityStates).toBeNull();
+    }
   });
 
   it("the domain model's own positive template (B/I_board/tree/CP-analysis) is NOT flagged despite declaring activityStates with no envelope", () => {
