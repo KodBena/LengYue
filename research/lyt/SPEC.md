@@ -1561,9 +1561,19 @@ the same dotted path `loader.py`/`compiler.py` already share) to derive
 one physical axis per residual-holding leaf actually present in the
 solve. `rebind(text, layout_name, root, result, *, waivers=None)`
 re-loads `text` a second time through a new `orientation_overrides`
-parameter on `loader.load_slot`/`load_layouts` (widget id → physical
-axis; `None`/`{}` is byte-identical to every pre-Amendment-9 call),
-returning the SAME object, unchanged, when nothing was derived.
+parameter on `loader.load_slot`/`load_layouts` (`None`/`{}` is
+byte-identical to every pre-Amendment-9 call), returning the SAME
+object, unchanged, when nothing was derived. `load_slot`'s own shape is
+widget id → physical axis, scoped to the one layout it loads;
+`load_layouts`'s is layout name → widget id → physical axis (mirroring
+`waivers`' own per-layout shape) — **2026-08-12 correction** (review of
+ledger row 2310, Duty 6 finding): `load_layouts` originally took the
+SAME bare widget-id-keyed shape as `load_slot` and threaded it verbatim
+into every `layout NAME = ...` fragment in `text`, so a widget id
+repeated across two fragments in one text blob could silently inherit
+an override computed from a different layout's own solve. Re-scoped to
+close that hazard; see `SPEC-AMENDMENTS.md`'s Amendment 9 entry, item 5,
+for the full account.
 
 **Single pass, no fixed point — the structural reason.** Every
 axis-taking key the L14 role frame threads through

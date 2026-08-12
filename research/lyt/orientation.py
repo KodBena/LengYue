@@ -172,4 +172,13 @@ def rebind(
     derived = compute_derived_orientations(root, result)
     if not derived:
         return root
-    return loader.load_layouts(text, waivers=waivers, orientation_overrides=derived)[layout_name]
+    # 2026-08-12 (review of ledger row 2310, Duty 6 finding): address this
+    # call's derived map to layout_name specifically, not as a bare
+    # widget_id -> axis dict — load_layouts now scopes orientation_overrides
+    # by layout name (`{layout_name: {widget_id: axis}}`) precisely so a
+    # widget id shared with some OTHER layout in the same `text` can never
+    # inherit an override computed from THIS layout's own solve. See
+    # `loader.load_layouts`'s own docstring for the full hazard this closes.
+    return loader.load_layouts(
+        text, waivers=waivers, orientation_overrides={layout_name: derived}
+    )[layout_name]

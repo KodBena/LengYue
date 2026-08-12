@@ -200,3 +200,122 @@ exercise `orientation.py` directly.
 
 Committed on this worktree's own branch,
 `lyt-m2-b1-derived-orientation`. Not pushed.
+
+## Fix pass — 2026-08-12 (fresh-context review, Duty 6 finding)
+
+The fresh-context review of this delivery
+(`.claude/dispatch-reports/lyt-m2-b1-derived-orientation-review.md`,
+verdict ACCEPT-WITH-FINDINGS) found one real, undisclosed hazard in
+Duty 6: `loader.load_layouts`'s `orientation_overrides` parameter was a
+BARE `widget id -> physical axis` map, threaded VERBATIM into `load_slot`
+for every `layout NAME = ...` fragment `load_layouts` parses from one
+`text` blob — no `(layout_name, widget_id)` scoping anywhere. The
+reviewer confirmed this live with a synthetic two-layout probe: a widget
+id shared across two layouts in one text, an override addressed to one
+layout's own solve, silently landing on the OTHER layout's same-named,
+structurally unrelated leaf too. Dormant against every `.lyt` file
+committed to `research/lyt/encodings/` today only because each file
+happens to contain exactly one `layout NAME = ...` fragment — not a
+correctness bug in today's shipped behavior, but a real gap in the
+"assess for hidden state" duty the commission asked for, and load-
+bearing for any future stage that builds on `rebind` with a multi-layout
+encoding.
+
+**The fix (ADR-0000 Rule 2(a) — the type forecloses the class).**
+`load_layouts`'s own `orientation_overrides` parameter is now
+`Dict[str, Dict[str, str]]` — `layout name -> {widget id -> physical
+axis}`, mirroring `waivers`' own already-correct per-layout shape (that
+parameter was never affected; it was scoped by layout name from the
+start). `load_layouts` narrows this down to the one sub-map addressed to
+each fragment (`orientation_overrides.get(raw.name)`) BEFORE calling
+`load_slot`, so a sub-map addressed to layout A is never reachable while
+loading layout B's fragment — the collision the review found is now
+unrepresentable, not merely absent by corpus luck. `load_slot`'s own
+signature is UNCHANGED (`Dict[str, str]`, still bare widget id -> axis):
+it was already single-layout by construction (one `RawSlot` tree,
+never crossing a `layout NAME = ...` boundary), so the natural scoping
+seam is one level up, in `load_layouts`, exactly where the review's own
+"whichever the code's structure makes natural" framing pointed.
+`orientation.rebind` — the only caller that ever passes a non-`None`
+value here — now addresses its derived map to the specific layout it
+computed the derivation for: `orientation_overrides={layout_name:
+derived}` rather than the bare `derived` dict. `runner.py` needed no
+change: it never calls `load_layouts` with `orientation_overrides`
+itself, only `orientation.rebind`, whose own signature is unchanged.
+
+**Quantification universe (per-claim sibling check, ADR-0000 2026-07-02
+amendment).** The seam family this bug lives in is `loader.py`'s
+per-widget maps threaded across `load_layouts`' `for raw in raws` loop:
+- `orientation_overrides` — the flaw, now fixed (covered).
+- `waivers` (`Dict[str, List[Waiver]]`) — already keyed by layout name
+  from the start (`waivers.get(raw.name)` passed to `check_wellformed`
+  per fragment); never shared a bare widget-id-only shape. Covered,
+  no change needed.
+- `find_residual_leaves`'s own `Dict[str, str]` return (`wellformed.py`)
+  — always called with a single `root` already scoped to one layout's
+  own tree (never threaded across `load_layouts`' fragment loop itself);
+  the widget-id keying here has no cross-layout surface to collide on.
+  Covered, no change needed.
+- `compute_derived_orientations`'s own `Dict[str, str]` return
+  (`orientation.py`) — likewise always computed from one `root`/`result`
+  pair belonging to a single layout's own solve; it is `rebind` that
+  then had to address this map to its own layout by name when handing it
+  to `load_layouts`, which is the fix above. Covered.
+- No other per-widget map crossing a multi-layout boundary was found in
+  `loader.py`, `orientation.py`, `wellformed.py`, or `runner.py`.
+
+**Denomination check:** n/a — this fix is a type/scoping correction, not
+a numeric bound or threshold; there is no denomination to check.
+
+**Regression tests** (`research/lyt/tests/test_derived_orientation.py`,
+3 new tests) reconstruct the reviewer's own probe shape directly: two
+`layout NAME = ...` fragments in one `text` blob sharing a widget id
+`shared` (residual-holding in `g1`, a small FIXED non-residual leaf in
+`g2`), an override addressed only to `g1`, and a direct assertion that
+`g2`'s same-named leaf is unaffected —
+`test_orientation_overrides_scoped_by_layout_name_does_not_bleed_across_layouts`,
+a stronger byte-for-byte-equal variant against a `g2`-only load
+(`test_orientation_overrides_unaddressed_layout_is_byte_identical_to_no_override`),
+and an end-to-end variant through `orientation.rebind` itself
+(`test_rebind_end_to_end_addresses_its_derived_map_to_the_solved_layout_only`).
+
+**Documentation.** `SPEC-AMENDMENTS.md`'s Amendment 9 entry (item 5) and
+`SPEC.md` §17.3 both get a dated 2026-08-12 correction note in place,
+per this codebase's own convention for correcting a previously-shipped
+claim rather than silently rewriting history.
+`loader.load_layouts`'s and `loader.load_slot`'s own docstrings, and
+`orientation.rebind`'s call site, name the scoping directly.
+
+**Gates.**
+- `nice -n 19 /home/bork/w/vdc/venvs/generic/bin/python -m pytest
+  research/lyt/tests -q`: `361 passed`, exit `0` (358 baseline + 3 new
+  regression tests — exact match to the expected count).
+- `runner.py` stdout: byte-identical before/after (`diff` exit `0`),
+  compared against a HEAD-`4bb315c8` copy of `loader.py`/`orientation.py`
+  substituted into an isolated scratch copy of `research/lyt/` (both
+  runs exit `1`, pre-existing INFEASIBLE sizes, identical in both,
+  unrelated to this change).
+- `emit_mockup.py`-generated `mockups/landscape.html`
+  (45754 bytes)/`mockups/portrait.html` (47726 bytes): byte-identical
+  before/after (`diff` exit `0` on both), same byte counts the original
+  review recorded.
+
+**Scope discipline.** Exactly the Duty 6 finding: `loader.py`,
+`orientation.py`, `SPEC-AMENDMENTS.md`, `SPEC.md`, the new regression
+tests, and this report. No `runner.py`/`emit_mockup.py` code change (the
+byte-identical-output gate is a witness that none was needed), no
+`frontend/` touch, no `.lyt` encoding touch, no other stage-B1 behavior
+altered.
+
+**Ledger.** Every source-file touch in this pass went through a
+preceding `./autoharn led -f <file> decision "..."` entry (rows
+2325-2330), same discipline the original delivery used. One shell-side
+mishap self-caught and corrected before this report was written: an
+early `rm -rf mockups` (meant to force a clean `emit_mockup.py`
+regeneration for the before/after diff) deleted git-tracked
+screenshot/verification-script content under `research/lyt/mockups/`
+that was never part of `emit_mockup.py`'s own generated output; caught
+via `git status` immediately after, restored with `git checkout --
+research/lyt/mockups/` before anything was committed, and the
+before/after comparison was redone through an isolated scratch copy
+instead of destructive in-place regeneration.

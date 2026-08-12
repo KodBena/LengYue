@@ -2154,8 +2154,9 @@ def load_slot(
     path: str = "root",
     orientation_overrides: Optional[Dict[str, str]] = None,
 ) -> ast.Slot:
-    """`orientation_overrides` (AMENDMENT 9, ledger row 2310): an optional
-    `widget id -> physical axis` map, empty/`None` (the default) for every
+    """`orientation_overrides` (AMENDMENT 9, ledger row 2310; re-scoped
+    2026-08-12, see the dated note below): an optional `widget id ->
+    physical axis` map, empty/`None` (the default) for every
     pre-Amendment-9 call site and byte-identical to this function's prior
     behavior when omitted. This is the DERIVATION seam's re-load hook, not
     concrete syntax — a residual-holding leaf's orientation is derived
@@ -2173,7 +2174,24 @@ def load_slot(
     `orientation_on_non_leaf`/`unknown_orientation` refusals even when an
     override is present, though a leaf-only override can only ever apply
     where `_load_orientation` would have accepted the same physical axis
-    anyway)."""
+    anyway).
+
+    SCOPING (2026-08-12 fix, review of ledger row 2310): `load_slot` itself
+    is single-layout by construction — it recurses over ONE `RawSlot` tree,
+    never crosses a `layout NAME = ...` boundary — so the bare
+    `widget_id -> axis` map it receives here is already implicitly scoped
+    to whichever layout the caller is loading. The scoping decision lives
+    one level up, in `load_layouts` (see that function's own docstring): it
+    is the one function that sees multiple layouts sharing a single
+    `orientation_overrides` argument, so it is the one responsible for
+    narrowing a `(layout_name, widget_id)`-keyed map down to the bare
+    per-layout map this function expects. `load_slot` must never itself be
+    handed an override addressed to a different layout — that was exactly
+    the review-found hazard: `load_layouts` previously threaded ONE
+    unscoped `widget_id -> axis` dict verbatim into every fragment parsed
+    from the same text blob, so a widget id repeated across two `layout
+    NAME = ...` fragments in one text silently received an override
+    computed for the OTHER fragment's solve."""
     orientation_overrides = orientation_overrides or {}
     node = rs.node
     if isinstance(node, lytparser.RawLeaf):
@@ -2471,7 +2489,7 @@ def load_layouts(
     text: str,
     *,
     waivers: Optional["Dict[str, List[object]]"] = None,
-    orientation_overrides: Optional[Dict[str, str]] = None,
+    orientation_overrides: Optional[Dict[str, Dict[str, str]]] = None,
 ) -> "dict[str, ast.Slot]":
     """Parse + type-check every `layout NAME = ...` fragment in `text`.
     Runs the L1/L2 well-formedness pass on each before returning (see
@@ -2489,19 +2507,44 @@ def load_layouts(
     which that function treats as "no waivers for this layout" — same
     strict behavior, not a silent skip of the check itself.
 
-    `orientation_overrides` (AMENDMENT 9, ledger row 2310): a `widget id ->
-    physical axis` map, threaded verbatim into `load_slot` for EVERY
-    layout this call loads — see that function's own docstring for the
-    two-load derivation seam this supports. Omitted (the default) is
+    `orientation_overrides` (AMENDMENT 9, ledger row 2310; RE-SCOPED
+    2026-08-12 — see the dated note below): a `layout name -> {widget id ->
+    physical axis}` map, mirroring `waivers`' own per-layout shape. For
+    each `raw` this function loads, only `orientation_overrides.get(raw.name)`
+    — the sub-map addressed to THAT layout, or `None` if it names none — is
+    passed down to `load_slot`. Omitted (the default, `None`) is
     byte-identical to every pre-Amendment-9 call.
+
+    2026-08-12 FIX (review of ledger row 2310, Duty 6 finding): before this
+    date, this parameter was a BARE `widget id -> physical axis` map
+    threaded VERBATIM into `load_slot` for every fragment this call loads
+    — no `(layout_name, widget_id)` scoping anywhere. Because `text` can
+    (and the `.lyt` grammar explicitly supports) carry more than one
+    `layout NAME = ...` fragment, a widget id repeated across two fragments
+    in the same text blob would silently receive an override computed from
+    a DIFFERENT layout's own solve — confirmed live by a synthetic two-
+    layout-one-widget-id probe during review; dormant only because every
+    `.lyt` file committed to `research/lyt/encodings/` today happens to
+    contain exactly one `layout NAME = ...` fragment. The per-layout
+    `Dict[str, Dict[str, str]]` shape here makes that collision
+    unrepresentable: a sub-map addressed to layout A is never even reachable
+    while loading layout B's fragment. `orientation.rebind` (the only
+    caller that ever passes a non-`None` value here) was updated in the
+    same change to address its single derived map to the one layout it
+    computed the derivation for.
     """
     from wellformed import check_wellformed
 
     waivers = waivers or {}
+    orientation_overrides = orientation_overrides or {}
     raws = lytparser.parse_layouts(text)
     out = {}
     for raw in raws:
-        slot = load_slot(raw.slot, path=raw.name, orientation_overrides=orientation_overrides)
+        slot = load_slot(
+            raw.slot,
+            path=raw.name,
+            orientation_overrides=orientation_overrides.get(raw.name),
+        )
         check_wellformed(slot, layout_name=raw.name, waivers=waivers.get(raw.name))
         out[raw.name] = slot
     return out

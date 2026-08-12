@@ -1411,13 +1411,35 @@ construct exists or is added.
    `orientation_overrides` parameter on `loader.load_slot`/
    `load_layouts` — see "the re-load seam" below — returning `root`
    UNCHANGED, the same object, when nothing was derived).
-5. **`loader.load_slot`/`load_layouts` gain `orientation_overrides:
-   Dict[str, str]`** (widget id → physical axis), defaulting to
+5. **`loader.load_slot`/`load_layouts` gain `orientation_overrides`**
+   — `load_slot`'s own parameter is `Dict[str, str]` (widget id →
+   physical axis), scoped to the ONE layout it is loading; `load_layouts`'s
+   is `Dict[str, Dict[str, str]]` (layout name → widget id → physical
+   axis, mirroring `waivers`' own per-layout shape), defaulting to
    `None`/`{}` — byte-identical to every pre-Amendment-9 call. When a
-   leaf's widget id appears in the map, its resolved value wins over
-   whatever `_load_orientation` would otherwise have produced (the
-   load-time default `'v'`, since L18 already forbids an authored
-   `orient` from ever reaching this branch for a residual leaf).
+   leaf's widget id appears in the map addressed to its own layout, its
+   resolved value wins over whatever `_load_orientation` would otherwise
+   have produced (the load-time default `'v'`, since L18 already forbids
+   an authored `orient` from ever reaching this branch for a residual
+   leaf).
+
+   **2026-08-12 CORRECTION** (review of ledger row 2310, Duty 6 finding):
+   `load_layouts`'s parameter was originally specified and shipped as the
+   SAME bare `Dict[str, str]` as `load_slot`'s, threaded verbatim into
+   every `layout NAME = ...` fragment parsed from one `text` blob — no
+   `(layout_name, widget_id)` scoping. Since a `.lyt` text blob can carry
+   more than one layout fragment, a widget id repeated across two
+   fragments could silently inherit an override computed from a
+   DIFFERENT layout's own solve (confirmed live by a synthetic probe
+   during review; dormant against every `.lyt` file committed to
+   `research/lyt/encodings/` today only because each contains exactly one
+   fragment). `load_layouts` now takes the `Dict[str, Dict[str, str]]`
+   shape described above and narrows it to the per-layout sub-map before
+   ever calling `load_slot`, making the cross-layout collision
+   unrepresentable rather than merely absent-by-corpus-luck.
+   `orientation.rebind` — the only caller that ever passes a non-`None`
+   value here — was updated in the same change to address its derived
+   map to the specific layout it derived from.
 6. **`runner.py` wires `orientation.rebind` into `run_all`'s own
    per-size solve loop** — after each solve, before printing/rendering,
    re-deriving and re-binding for that specific screen size (orientation

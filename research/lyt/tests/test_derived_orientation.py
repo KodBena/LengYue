@@ -345,3 +345,104 @@ def test_tree_leaf_specifically_is_not_residual_holding_in_either_encoding():
         text = (ENCODINGS_DIR / f"{filename}.lyt").read_text()
         slot = loader.load_layouts(text)[layout_name]
         assert "tree" not in find_residual_leaves(slot)
+
+
+# =============================================================================
+# Cross-layout `orientation_overrides` scoping (2026-08-12 fix, review of
+# ledger row 2310, Duty 6). Before this fix, `loader.load_layouts` threaded
+# ONE bare `widget id -> axis` map verbatim into every `layout NAME = ...`
+# fragment parsed from the same `text` -- no `(layout_name, widget_id)`
+# scoping anywhere. These tests reconstruct the reviewer's own synthetic
+# probe shape: two layouts sharing a widget id in one text blob, an override
+# addressed to only ONE of them by name, and a direct assertion that the
+# OTHER layout's same-named, structurally unrelated leaf is unaffected.
+# =============================================================================
+
+# `shared` is `g1`'s own residual-holding leaf (the unique `pref 1fr`
+# sibling beside a FIXED one) -- exactly the shape a real derived override
+# would be computed for.
+_TWO_LAYOUTS_SHARED_WIDGET_ID = (
+    "layout g1 = {min 0px, pref 1fr, max inf} H("
+    "{min 100px, pref 100px, max 100px} fixedLeaf[chrome],"
+    "{min 0px, pref 1fr, max inf} shared[common]"
+    ")\n"
+    "layout g2 = {min 0px, pref 1fr, max inf} H("
+    "{min 50px, pref 50px, max 50px} shared[chrome],"
+    "{min 0px, pref 1fr, max inf} other[common]"
+    ")"
+)
+
+
+def test_orientation_overrides_scoped_by_layout_name_does_not_bleed_across_layouts():
+    """The direct loader-level reproduction of the reviewer's probe. `g1`
+    and `g2` both declare a widget called `shared`; only `g1`'s `shared` is
+    residual-holding (`g2`'s is a small FIXED, non-residual leaf beside its
+    own `pref 1fr` sibling `other`). An override addressed to `g1` alone
+    (`{"g1": {"shared": "h"}}`, the post-fix per-layout shape) must land on
+    `g1.shared` and must NOT be visible on `g2.shared`, which was never
+    solved for this override at all."""
+    layouts = loader.load_layouts(
+        _TWO_LAYOUTS_SHARED_WIDGET_ID,
+        orientation_overrides={"g1": {"shared": "h"}},
+    )
+    g1_shared = layouts["g1"].node.children[1]
+    g2_shared = layouts["g2"].node.children[0]
+    assert g1_shared.node.widget == "shared"
+    assert g2_shared.node.widget == "shared"
+    # The override landed where it was addressed.
+    assert g1_shared.node.orientation == "h"
+    assert g1_shared.node.orientation_declared is False
+    # It did NOT bleed into the other layout's same-named leaf -- `g2`'s
+    # `shared` still resolves to the ordinary load-time default ('v'),
+    # exactly as if no override had been passed at all.
+    assert g2_shared.node.orientation == "v"
+    assert g2_shared.node.orientation_declared is False
+
+
+def test_orientation_overrides_unaddressed_layout_is_byte_identical_to_no_override():
+    """A stronger form of the same assertion: `g2`'s loaded `Slot`, when an
+    override is present but addressed only to `g1`, is identical to `g2`'s
+    own `Slot` loaded from a text carrying `g2` ALONE with no override at
+    all -- i.e. the presence of an override elsewhere in the same text
+    blob has literally zero effect on a layout it does not name."""
+    with_override = loader.load_layouts(
+        _TWO_LAYOUTS_SHARED_WIDGET_ID,
+        orientation_overrides={"g1": {"shared": "h"}},
+    )["g2"]
+    g2_only_text = (
+        "layout g2 = {min 0px, pref 1fr, max inf} H("
+        "{min 50px, pref 50px, max 50px} shared[chrome],"
+        "{min 0px, pref 1fr, max inf} other[common]"
+        ")"
+    )
+    without_override = loader.load_layouts(g2_only_text)["g2"]
+    assert with_override == without_override
+
+
+def test_rebind_end_to_end_addresses_its_derived_map_to_the_solved_layout_only():
+    """The realistic end-to-end path: `orientation.rebind` computes a
+    derived override for `g1` from `g1`'s own solve and re-loads the FULL
+    `text` (which still contains `g2`) through `loader.load_layouts`. Post-
+    fix, `rebind` addresses its derived map to `layout_name` (`g1`)
+    specifically, so a subsequent independent load of `g2` from the same
+    text is unaffected by whatever `g1`'s solve derived for the widget id
+    `g1` and `g2` happen to share."""
+    text = _TWO_LAYOUTS_SHARED_WIDGET_ID
+    g1 = loader.load_layouts(text)["g1"]
+    # residual along-extent = 500 - 100 (fixedLeaf) = 400; cross-extent =
+    # 200 -- aspect 2 > 1 -> 'h', a genuine CHANGE from the load-time
+    # placeholder default 'v', so this proves the derived value actually
+    # took effect rather than merely matching the default either way.
+    result = _solve(g1, w_px=500, h_px=200)
+    assert result.status == "OPTIMAL"
+    derived = orientation.compute_derived_orientations(g1, result)
+    assert derived == {"shared": "h"}
+    rebound_g1 = orientation.rebind(text, "g1", g1, result)
+    assert rebound_g1.node.children[1].node.orientation == "h"
+    # `g2`, loaded independently from the SAME text, never saw this
+    # derivation -- its own `shared` leaf is still the ordinary load-time
+    # default, not `g1`'s derived 'h'.
+    g2 = loader.load_layouts(text)["g2"]
+    assert g2.node.children[0].node.widget == "shared"
+    assert g2.node.children[0].node.orientation == "v"
+    assert g2.node.children[0].node.orientation_declared is False
