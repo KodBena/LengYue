@@ -304,47 +304,68 @@ def test_compute_derived_orientations_skips_a_widget_absent_from_the_solve():
 # =============================================================================
 
 
-def test_real_encodings_have_three_residual_holding_leaves_per_class():
+def test_real_encodings_have_four_residual_holding_leaves_per_class():
+    """[Updated 2026-08-12, M2 stage B2a, ledger rows 2108/2331 -- the
+    fork-1 ruling's own tree/T(...) residual-holder swap: this test used
+    to be named "...three_residual_holding_leaves..." and pinned only
+    `B`/`settingsPane`/`otherBand`. `tree` is now a fourth genuine
+    residual-holding leaf, per the encoding edit both `lengyue_landscape
+    .lyt`/`lengyue_portrait.lyt`'s own headers document (M2 STAGE B2a
+    section): `tree` moved from `{min==pref==max}` (fixed) to `{pref
+    1fr}` (elastic), and its former `T(...)` sibling moved the other way
+    (now pinned at its own already-existing 664px componentwise-max
+    floor), making `tree` the row's unique `fr`-typed child."""
     for filename, layout_name, expected in [
         (
             "lengyue_landscape",
             "lengyue-landscape",
-            {"B": "root/H1/V0", "settingsPane": "root/H2/V2/H1/T2/V1", "otherBand": "root/H2/V2/H1/T4/V1"},
+            {
+                "B": "root/H1/V0",
+                "tree": "root/H2/V2/H0",
+                "settingsPane": "root/H2/V2/H1/T2/V1",
+                "otherBand": "root/H2/V2/H1/T4/V1",
+            },
         ),
         (
             "lengyue_portrait",
             "lengyue-portrait",
-            {"B": "root/V2/V0", "settingsPane": "root/V4/H1/T2/V1", "otherBand": "root/V4/H1/T4/V1"},
+            {
+                "B": "root/V2/V0",
+                "tree": "root/V4/H0",
+                "settingsPane": "root/V4/H1/T2/V1",
+                "otherBand": "root/V4/H1/T4/V1",
+            },
         ),
     ]:
         text = (ENCODINGS_DIR / f"{filename}.lyt").read_text()
         slot = loader.load_layouts(text)[layout_name]
         assert find_residual_leaves(slot) == expected
-        # L18 itself is dormant: none of the three (nor any other leaf)
+        # L18 itself is dormant: none of the four (nor any other leaf)
         # authors `orient`, so the REFUSAL never fires even though the
         # residual-holding STRUCTURE is real.
         assert find_l18_violations(slot) == []
 
 
-def test_tree_leaf_specifically_is_not_residual_holding_in_either_encoding():
-    """The ruling's own illustrative language centers on the `tree` widget
-    ("because the tree is the residual-holding sibling") -- this is the
-    one, specific, disclosed gap: in the row `H(tree, T(...), previewBoard)`
-    both encodings actually ship, `tree` is FIXED (`min==pref==max`,
-    110px landscape / 140px portrait) and `T(...)` (an Exclusive, not a
-    Leaf -- orientation is leaf-only, so it could never be a derivation
-    subject regardless) is the row's own sole `pref: fr` child today. The
-    ruling's own premise does not yet hold against the committed `.lyt`
-    content -- see this amendment's dispatch report for the STOP-and-
-    report on what encoding edit would be needed to make it hold, which
-    this stage does not make unilaterally."""
+def test_tree_leaf_is_now_residual_holding_in_both_encodings():
+    """[Updated 2026-08-12, M2 stage B2a, ledger rows 2108/2331 --
+    supersedes the prior "...is_not_residual_holding..." test, which
+    pinned the STOP-and-report this ruling left open at B1: `tree` was
+    fixed and `T(...)` (an Exclusive, never an eligible derivation
+    subject regardless) was the row's own sole `pref: fr` child. The
+    fork-1 ruling (row 2108) resolves that STOP-and-report by making the
+    swap the ruling's own illustrative language ("because the tree is
+    the residual-holding sibling") already assumed: `tree` now carries
+    `{min <its own established floor>, pref 1fr, max inf}` and is the
+    row's unique `fr`-typed child; `T(...)` is pinned at its own
+    already-existing componentwise-max floor (664px, unchanged by the
+    swap -- see the encodings' own M2 STAGE B2a header note)."""
     for filename, layout_name in [
         ("lengyue_landscape", "lengyue-landscape"),
         ("lengyue_portrait", "lengyue-portrait"),
     ]:
         text = (ENCODINGS_DIR / f"{filename}.lyt").read_text()
         slot = loader.load_layouts(text)[layout_name]
-        assert "tree" not in find_residual_leaves(slot)
+        assert "tree" in find_residual_leaves(slot)
 
 
 # =============================================================================

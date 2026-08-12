@@ -160,24 +160,72 @@
 --     (the review's own live-measured 67px + this file's established
 --     ~10px margin posture). Composite `min` unchanged at 443px (the new
 --     281px height floor stays under the 443px width floor).
+--
+--   - M2 STAGE B2a (2026-08-12, ledger rows 2108/2331) — identical
+--     rationale to `lengyue_landscape.lyt`'s own M2 STAGE B2a header note
+--     (read there in full for the fork-1 ruling, the L13/L16/L17 cascade
+--     reasoning, and the `@demote` measurement basis); this class's own
+--     numbers, where they differ:
+--       - TREE BECOMES RESIDUAL-HOLDING: `tree` moves from
+--         `{min 140px, pref 140px, max 140px}` to
+--         `{min 140px, pref 1fr, max inf}` (its own established 140px
+--         floor unchanged); `T(...)` is PINNED at `{min 664px, pref
+--         664px, max 664px}` — the SAME 664px componentwise-max floor as
+--         landscape (this file's own header, line 118-121: "every
+--         genuinely NEW number... is IDENTICAL across both classes").
+--       - L13/L16: `CP-library`/`CP-cards` gain `elastic h` + `floor v
+--         200px` — 200px is this leaf's own already-declared `min` in
+--         THIS file (line 116-117's own "200px, matching this file's own
+--         pre-existing WRAPPER_MIN-analog convention"), not landscape's
+--         160px.
+--       - L17: direct load against this file finds `find_l17_violations`
+--         fires at the same four sites as landscape (`CP-library`,
+--         `CP-cards`, `settingsPane`, `otherBand`) — `boardRail`/`tree`
+--         do not trip it here either, same correction as landscape's own
+--         header note. `edge v item` (library/cards/settingsPane),
+--         `edge v continuous` (otherBand) — same content-nature reasoning
+--         as landscape.
+--       - `@demote(h 616px)` on `A_app`: the measured threshold is
+--         WIDTH-INVARIANT (identical at 1920 and 420 per the experiment
+--         branch's own measurement, landscape header note above), so the
+--         same 616px applies here. L15's own band-wide clause (b) cascade
+--         is WIDER in this class: `A_app`'s own Split parent is the
+--         ROOT `V(...)` itself (portrait has no separate side column —
+--         `boardRail`, `A_app`, and `A_engine` are all THREE direct leaf
+--         children of the same root split; the board composite and the
+--         tree/panels row are composites, excluded), so all three need
+--         `activity`. `A_engine` gains `activity sustained` (same
+--         grounding as landscape). `boardRail` gains `activity
+--         occasional` — grounded in its own product nature (an
+--         open-boards navigation aid, already a default-OFF user toggle
+--         per Amendment 4 — used when switching boards, not continuously
+--         read the way the engine metrics are), distinct from landscape
+--         where `boardRail` sits alone in the root `H`'s own split (no
+--         other direct leaf child there) and so triggers no band-wide
+--         cascade at all — an asymmetry between the two files driven
+--         purely by tree shape, disclosed here rather than silently
+--         matched. Verified directly: `find_l15_violations` returns `[]`
+--         for every Split in this file's tree after these three
+--         additions, and no other leaf anywhere in this file gains
+--         `activity`.
 layout lengyue-portrait =
   {min 0px, pref 1fr, max inf, gap 12px} V(
-    @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
-    {160px} A_app[common, action],
+    @toggle(user, release) {min 168px, pref 168px, max 168px, activity occasional} boardRail[common, info+action],
+    @demote(h 616px) {160px, content bounded, activity occasional} A_app[common, action],
     {pref 1fr} V(
       {width 100fr, aspect 1} B[board],
       {24px} I_board[board, info],
       {28px} A_board[board, action]
     ),
-    {60px, envelope: {disconnected, connected}} A_engine[go, action+info],
+    {60px, envelope: {disconnected, connected}, content bounded, activity sustained} A_engine[go, action+info],
     {pref 1fr, gap 4px} H(
-      {min 140px, pref 140px, max 140px} tree[board, info+action],
-      {min 200px, pref 1fr, max inf} T(
-        {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} CP-library[common],
-        {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} CP-cards[common],
+      {min 140px, pref 1fr, max inf} tree[board, info+action],
+      {min 664px, pref 664px, max 664px} T(
+        {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v item} CP-library[common],
+        {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v item} CP-cards[common],
         {min 443px, pref 1fr, max inf, gap 4px} V(
           {77px, boundary, content bounded} settingsSubstrip[common],
-          {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} settingsPane[common]
+          {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, edge v item} settingsPane[common]
         ),
         {min 664px, pref 1fr, max inf, gap 4px} V(
           {min 80px, pref 80px, max 80px, boundary, content designed} timelineStrip[go],
@@ -214,7 +262,7 @@ layout lengyue-portrait =
           -- number here is the conservative, disclosed choice, not a
           -- from-scratch portrait measurement.
           {min 264px, pref 264px, max 264px, boundary, content designed} otherColorDebug[debug],
-          {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} otherBand[common]
+          {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, edge v continuous} otherBand[common]
         )
       )[BLACK BOX],
       @toggle(user, release) {min 96px, pref 96px, max 96px, aspect 1} previewBoard[common, info]

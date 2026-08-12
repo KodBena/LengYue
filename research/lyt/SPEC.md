@@ -1424,13 +1424,15 @@ permissive, loader refuses" division of labor.
   find_l12_violations`. SOLVER-VISIBLE, unlike every other law this
   amendment adds — `compiler._constrain` and the Exclusive branch's own
   componentwise-max both read `Sizing.axis_min(axis)`.
-- **L13 (surplus attribution).** *Implemented, tested directly, NOT
-  wired into `check_wellformed`'s default enforcement* [corrected
-  2026-08-12, fix pass on the M2 substrate-port review's finding 2 —
-  see the Dormancy paragraph below]. `wellformed.find_l13_violations`.
-  Fires at the same both-axes position L12 distinguishes: an unbounded
-  leaf there must dispose of every axis its reservation can exceed its
-  floor on, by `scroll`, `elastic`, or a pinned floor==cap.
+- **L13 (surplus attribution).** *Checked, wired into `check_wellformed`'s
+  default enforcement* [corrected 2026-08-12, M2 stage B2a encoding-
+  compliance pass, ledger rows 2108/2331 — supersedes the fix-pass-era
+  text below, which correctly described the state BEFORE stage B2a's own
+  encoding edits; see the Dormancy paragraph below]. `wellformed.
+  find_l13_violations`. Fires at the same both-axes position L12
+  distinguishes: an unbounded leaf there must dispose of every axis its
+  reservation can exceed its floor on, by `scroll`, `elastic`, or a
+  pinned floor==cap.
 - **L14 (demand attribution).** *Checked*, `wellformed.
   find_l14_violations`. The complement of L12/L13's scope — fires only
   at a Split child (one axis bound) whose leaf scrolls both axes and
@@ -1445,28 +1447,70 @@ permissive, loader refuses" division of labor.
   that disposed of surplus and excess but never deficit); the join to
   L15 (reserve the floor, or be able to `@demote`); and reachability (a
   floor above the leaf's own constant cap is incoherent).
-- **L17 (edge attribution).** *Implemented, tested directly, NOT
-  wired into `check_wellformed`'s default enforcement* [corrected
-  2026-08-12, same fix pass as L13 above]. `wellformed.
+- **L17 (edge attribution).** *Checked, wired into `check_wellformed`'s
+  default enforcement* [corrected 2026-08-12, M2 stage B2a, same
+  supersession as L13 above]. `wellformed.
   find_l17_violations`, three clauses: the trigger (an unbounded,
   scrolling leaf owes an `edge` — WIDER than L16's own trigger, no
   `elastic` precondition); an edge is only where a scroll is; and the
   join to L13 (`edge <a> unit` and `elastic <a>` cannot both hold).
 
-L12, L14, L15, and L16 are arbitrated through the SAME `(law, path)`-keyed
-`Waiver` mechanism `check_wellformed` already generalizes for, alongside
-L2, L5, and L10/L11 (§13.3, §15.3). **L13 and L17 are not** — both fully
-ported, both fully correct, both exercised directly by their own
-dedicated tests, but neither function is called from
-`check_wellformed`'s `all_violations` list, so neither can cause
-`load_layouts` to refuse today. See the Dormancy paragraph immediately
-below for why, and for what that means on the two real reference
-encodings as they stand.
+L12, L13, L14, L15, L16, and L17 are ALL arbitrated through the SAME
+`(law, path)`-keyed `Waiver` mechanism `check_wellformed` already
+generalizes for, alongside L2, L5, and L10/L11 (§13.3, §15.3) — as of
+stage B2a, every law in this section's own family is wired.
 
-**Dormancy [corrected 2026-08-12 — fix pass on the M2 substrate-port
-review, finding 2, ledger row 2312; the paragraph below replaces an
-earlier version that claimed all six laws return `[]` unconditionally,
-which is false for two of them].** L12, L14, L15, and L16 fire only
+**Dormancy [corrected 2026-08-12, M2 stage B2a encoding-compliance pass,
+ledger rows 2108/2331 — supersedes the fix-pass-era paragraphs below,
+which correctly described the state as of the M2 substrate port and its
+own review fix pass; kept here, not deleted, per this document's own
+"supersede honestly" convention].** L12, L14, L15, and L16 fire only
+against a genuine declaration or condition their own clause names — L12
+on a declared axis-keyed `min`; L14/L15/L16's structural halves on the
+underlying condition (a two-axis scroller with a pinned partition axis,
+a wrapping leaf, a surplus-plus-excess leaf) each law exists to find.
+Neither reference encoding declares any Amendment-8 key (beyond what
+stage B2a itself added, see below) nor trips any of these three
+condition-based checks, so all four still return `[]` unconditionally,
+and all four remain wired into `check_wellformed`'s `all_violations` —
+genuinely, end-to-end dormant, unchanged by stage B2a.
+
+**L13 and L17 are now SATISFIED, not dormant.** Stage B2a
+(`.claude/dispatch-reports/lyt-m2-b2a-encoding-compliance.md`) edited
+both `lengyue_landscape.lyt`/`lengyue_portrait.lyt` to satisfy both
+laws' own structural conditions, per each leaf's own content nature:
+`CP-library`/`CP-cards` (both T-children, the both-axes position L13
+inspects) gained `elastic h` (a browse table's width reflows into
+whatever it is granted, never scrolls sideways); `CP-library`/
+`CP-cards`/`settingsPane`/`otherBand` (the leaves L17 actually fires on
+— see below) each gained an `edge v <disposition>` reasoned from their
+own content (`item` for the two browse tables and the settings
+placeholder's own registry-shaped sub-tabs; `continuous` for the
+freeform-JSON/registry editor). `find_l13_violations`/
+`find_l17_violations` both now return `[]` against both committed
+reference encodings (verified directly), so both are wired into
+`check_wellformed`'s `all_violations` and both encodings load CLEAN
+under strict enforcement.
+
+**A further correction, made at the same time.** The pre-stage-B2a text
+(preserved immediately below) named `boardRail`/`tree` among L17's
+violating sites ("six sites... `boardRail`/`tree`×2/..."). Direct load
+against mainline's own committed encodings at stage B2a's own start
+found this FALSE: neither `boardRail` nor `tree` declares `content`/
+`scroll` in either `.lyt` file, so neither ever tripped L17's trigger —
+that prose was inherited from the experiment branch's own differently-
+shaped encoding and was never independently re-verified against
+mainline's own committed tree before being written here. The real,
+witnessed firing record on mainline, before stage B2a's own edits, was
+FOUR sites (`CP-library`, `CP-cards`, `settingsPane`, `otherBand`), not
+six — corrected here rather than silently matched.
+
+**The paragraphs immediately below are the pre-stage-B2a record,
+preserved verbatim per this document's own "supersede, do not delete"
+convention — they describe the M2-substrate-port-and-review-fix-pass
+state (2026-08-12, earlier the same day), not the current one.**
+
+L12, L14, L15, and L16 fire only
 against a genuine declaration or condition their own clause names — L12
 on a declared axis-keyed `min`; L14/L15/L16's structural halves on the
 underlying condition (a two-axis scroller with a pinned partition axis,
@@ -1476,7 +1520,7 @@ these three condition-based checks, so all four return `[]`
 unconditionally, and all four ARE wired into `check_wellformed`'s
 `all_violations` — genuinely, end-to-end dormant.
 
-**L13 and L17 are a different case, and the honest one matters.** Both
+L13 and L17 are a different case, and the honest one matters. Both
 functions' own structural conditions — L13's "an unbounded leaf on both
 axes must dispose of every axis it can exceed its floor on"; L17's "an
 unbounded, scrolling leaf owes an `edge`" — DO trip against both real,
@@ -1603,23 +1647,52 @@ ruling's own text (which states the WHAT, not the HOW).
 
 Unlike every prior amendment's own dormancy note, this mechanism is NOT
 structurally dormant against `lengyue_landscape.lyt`/
-`lengyue_portrait.lyt`. Both encodings carry THREE genuine
-residual-holding leaves per class: `B` (the board, via the `pref
-maximize` sugar §1.1 resolves to elastic `pref 1fr`) and
-`settingsPane`/`otherBand` (both explicit `pref 1fr` leaves beside a
-fixed sibling). L18 itself IS dormant — none of the three, nor any
-other leaf in either encoding, authors `orient` — but
-`compute_derived_orientations` genuinely derives real values for all
-three, at every solved screen size, and `rebind` genuinely re-loads and
-re-binds. `runner.py`'s own before/after stdout stays byte-identical
-(verified — `diff` reports zero differences, for both `runner.py` and
-`emit_mockup.py`) for a narrower, different reason: no consumer in this
-Python-only substrate reads `Leaf.orientation`/the L14 role-frame
-fields for rendering today — the realization-layer consumer is
-`frontend/`-side and was already disclosed out of scope for the
-language-substrate ports Amendment 8 began (§16's own "Scope note"
-above). The derivation genuinely runs; it has nothing downstream to
-show a difference in yet.
+`lengyue_portrait.lyt`. Both encodings carry FOUR genuine
+residual-holding leaves per class [corrected 2026-08-12, M2 stage B2a,
+ledger rows 2108/2331 — was THREE at Amendment 9's own original writing;
+see the paragraph below]: `B` (the board, via the `pref maximize` sugar
+§1.1 resolves to elastic `pref 1fr`), `tree` (as of stage B2a's own
+encoding edit — see below), and `settingsPane`/`otherBand` (both
+explicit `pref 1fr` leaves beside a fixed sibling). L18 itself IS
+dormant — none of the four, nor any other leaf in either encoding,
+authors `orient` — but `compute_derived_orientations` genuinely derives
+real values for all four, at every solved screen size, and `rebind`
+genuinely re-loads and re-binds. `runner.py`'s own before/after stdout
+for these three sites' own solved rectangles stays presence-independent
+of the derivation itself (verified at stage B2a — `runner.py`'s
+OPTIMAL/INFEASIBLE verdicts at every representative size are unchanged
+before/after stage B2a's own encoding edits) for the SAME narrower
+reason Amendment 9 originally named: no consumer in this Python-only
+substrate reads `Leaf.orientation`/the L14 role-frame fields for
+rendering today — the realization-layer consumer is `frontend/`-side and
+was already disclosed out of scope for the language-substrate ports
+Amendment 8 began (§16's own "Scope note" above). The derivation
+genuinely runs; it has nothing downstream to show a difference in yet.
+
+**`tree` IS now the row's residual-holding sibling [corrected 2026-08-12,
+M2 stage B2a, ledger rows 2108/2331 — supersedes the paragraph below,
+which is preserved as the pre-B2a record, not deleted].** The
+fork-1 ruling (row 2108) resolved the STOP-and-report the paragraph
+below names: `lengyue_landscape.lyt`/`lengyue_portrait.lyt`'s own
+`H(tree, T(...), previewBoard)` row was edited so `tree` carries `{min
+<its own established floor>, pref 1fr, max inf}` (elastic) and `T(...)`
+is PINNED at its own already-existing componentwise-max floor (664px,
+unchanged by the swap) instead of being the row's `pref: fr` child.
+`tree` is now the row's unique `fr`-typed child in both encodings —
+`find_residual_child`/`find_residual_leaves` name it directly
+(`wellformed`'s own regression tests pin the exact widget→path map for
+both classes). The swap is feasibility-neutral by construction and by
+direct re-solve (see `.claude/dispatch-reports/
+lyt-m2-b2a-encoding-compliance.md` for the full witness): `T(...)`'s own
+real structural floor was always 664px regardless of what its `pref`
+declared, so pinning `pref`/`max` to that already-binding floor changes
+only which sibling the reach-preferred objective stage grows into
+available slack, never the hard feasibility boundary.
+
+**The paragraph immediately below is the pre-stage-B2a record, preserved
+verbatim per this document's own "supersede, do not delete" convention —
+it describes the state as Amendment 9 originally shipped it, not the
+current one.**
 
 `tree` itself — the leaf the ruling's own illustrative language names
 ("because the tree is the residual-holding sibling") — is the one

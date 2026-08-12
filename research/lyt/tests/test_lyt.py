@@ -1814,9 +1814,22 @@ def test_portrait_composite_row_carries_the_board_priority_cap(mockup_pages):
     (the flow-envelope fix, `research/lyt/flow.py`); the T-node's own
     componentwise-max floor is now driven by `CP-analysis`'s UNCHANGED
     664px instead — verified directly against `emit_mockup.py`'s own
-    output, not carried forward from the pre-fix pin."""
+    output, not carried forward from the pre-fix pin.
+
+    STALE-ASSERTION UPDATE (2026-08-12, M2 stage B2a, ledger rows
+    2108/2331): the fork-1 ruling's own tree/T(...) residual-holder swap
+    PINS `T(...)` at its own already-existing 664px componentwise-max
+    floor (`{min 664px, pref 664px, max 664px}`) instead of leaving it
+    elastic (`pref 1fr, max inf`) -- `tree` is now the row's residual
+    holder instead. The T-node's own emitted track therefore changes
+    shape from `minmax(664px, 1fr)` (elastic-with-a-floor) to a plain
+    `664px` (fixed) -- verified directly against `emit_mockup.py`'s own
+    output, not assumed from the encoding edit alone."""
     assert "minmax(0px, calc(100vw + 52px))" in mockup_pages["portrait"]
-    assert "minmax(664px, 1fr)" in mockup_pages["portrait"]  # T-node's floor, now driven by CP-analysis
+    # T-node's own now-fixed track (`var(--track-4-1, 664px)`), still driven
+    # by CP-analysis's floor, no longer wrapped in `minmax(..., 1fr)`.
+    assert "var(--track-4-1, 664px)" in mockup_pages["portrait"]
+    assert "minmax(664px, 1fr)" not in mockup_pages["portrait"]
 
 
 def test_tree_panels_t_node_track_carries_its_derived_floor(mockup_pages):
@@ -1841,9 +1854,19 @@ def test_tree_panels_t_node_track_carries_its_derived_floor(mockup_pages):
     opening`): 838px -> 664px, now shadowed by `CP-analysis`'s own
     UNCHANGED floor instead of settings' retired one — see
     `test_portrait_composite_row_carries_the_board_priority_cap`'s own
+    updated docstring for the full derivation.
+
+    STALE-ASSERTION UPDATE (2026-08-12, M2 stage B2a, ledger rows
+    2108/2331): the fork-1 ruling's own tree/T(...) residual-holder swap
+    pins `T(...)` at this SAME 664px floor instead of leaving it elastic
+    -- the track shape changes from `minmax(664px, 1fr)` to a plain fixed
+    `664px` (`tree` is the row's residual holder now) -- see
+    `test_portrait_composite_row_carries_the_board_priority_cap`'s own
     updated docstring for the full derivation."""
-    assert "minmax(664px, 1fr)" in mockup_pages["landscape"]
-    assert "minmax(664px, 1fr)" in mockup_pages["portrait"]
+    assert "var(--track-2-2-1, 664px)" in mockup_pages["landscape"]
+    assert "var(--track-4-1, 664px)" in mockup_pages["portrait"]
+    assert "minmax(664px, 1fr)" not in mockup_pages["landscape"]
+    assert "minmax(664px, 1fr)" not in mockup_pages["portrait"]
 
 
 def test_render_is_deterministic_given_the_same_overlay_data():
@@ -2183,7 +2206,13 @@ def test_content_class_parses_and_round_trips_on_a_leaf():
         # must NOT (that would trip L5c, chart exclusion) and 'bounded'
         # needs none either. This test is about PARSING/ROUND-TRIP, not
         # law enforcement (L5a/L5c get their own dedicated tests below).
-        extra = ", scroll v" if cls == "unbounded" else ""
+        # [Updated 2026-08-12, M2 stage B2a, ledger rows 2108/2331: L17
+        # is now wired into `check_wellformed`'s default enforcement
+        # (`_l5_load` goes through the full `load_layouts` path) -- an
+        # `unbounded` leaf declaring `scroll v` on itself now also owes
+        # an `edge v`; `continuous` is the honest disposition for this
+        # fixture's own content-free stand-in leaf.]
+        extra = ", scroll v, edge v continuous" if cls == "unbounded" else ""
         layouts = _l5_load(
             f"layout g = {{min 0px, pref 0px, max 0px, content {cls}"
             f"{extra}}} A[chrome]"
@@ -2287,10 +2316,17 @@ def test_l5a_unbounded_leaf_covered_by_an_ancestor_scroll_owner_is_accepted():
 
 def test_l5a_unbounded_leaf_covered_by_declaring_scroll_on_itself_is_accepted():
     """A leaf may satisfy its own coverage requirement by declaring
-    `scroll` on itself -- no ancestor container is required."""
+    `scroll` on itself -- no ancestor container is required.
+
+    [Updated 2026-08-12, M2 stage B2a, ledger rows 2108/2331: L17 is now
+    wired into `check_wellformed`'s default enforcement -- `A`'s own
+    `content unbounded` + `scroll v` now also owes an `edge v`, which
+    this test isn't exercising, so `continuous` (the honest disposition
+    for a fixture with no real content nature) is added rather than
+    leaving the fixture accidentally L17-noncompliant.]"""
     layouts = _l5_load(
         "layout g = {min 0px, pref 1fr, max inf} H("
-        "{min 0px, pref 1fr, max inf, content unbounded, scroll v} A[chrome],"
+        "{min 0px, pref 1fr, max inf, content unbounded, scroll v, edge v continuous} A[chrome],"
         "{min 0px, pref 1fr, max inf} B[chrome])"
     )
     assert "g" in layouts
@@ -2332,10 +2368,15 @@ def test_l5b_second_declaration_on_the_same_axis_on_the_same_path_is_refused():
 
 def test_l5b_two_different_axes_on_the_same_path_are_accepted():
     """`scroll h` at one slot and `scroll v` at a descendant on the SAME
-    path are NOT in conflict -- L5b is scoped per axis."""
+    path are NOT in conflict -- L5b is scoped per axis.
+
+    [Updated 2026-08-12, M2 stage B2a, ledger rows 2108/2331: `edge v
+    continuous` added -- L17 is now wired, and `A`'s `content unbounded`
+    + `scroll v` owes an edge; `h` carries no `content`/`scroll` of its
+    own on the leaf, so nothing else is owed on that axis.]"""
     layouts = _l5_load(
         "layout g = {min 0px, pref 1fr, max inf, scroll h} H("
-        "{min 0px, pref 1fr, max inf, scroll v, content unbounded} A[chrome],"
+        "{min 0px, pref 1fr, max inf, scroll v, content unbounded, edge v continuous} A[chrome],"
         "{min 0px, pref 1fr, max inf} B[chrome])"
     )
     assert "g" in layouts
@@ -2344,11 +2385,15 @@ def test_l5b_two_different_axes_on_the_same_path_are_accepted():
 def test_l5b_same_axis_on_two_different_paths_is_accepted():
     """Two SIBLING subtrees each declaring `scroll v` on their OWN,
     disjoint root-to-leaf paths do not conflict -- L5b is quantified per
-    path, not over the whole tree."""
+    path, not over the whole tree.
+
+    [Updated 2026-08-12, M2 stage B2a, ledger rows 2108/2331: `edge v
+    continuous` added to both leaves -- L17 is now wired, and each
+    leaf's own `content unbounded` + `scroll v` owes its own edge.]"""
     layouts = _l5_load(
         "layout g = {min 0px, pref 1fr, max inf} H("
-        "{min 0px, pref 1fr, max inf, scroll v, content unbounded} A[chrome],"
-        "{min 0px, pref 1fr, max inf, scroll v, content unbounded} B[chrome])"
+        "{min 0px, pref 1fr, max inf, scroll v, content unbounded, edge v continuous} A[chrome],"
+        "{min 0px, pref 1fr, max inf, scroll v, content unbounded, edge v continuous} B[chrome])"
     )
     assert "g" in layouts
 
@@ -2419,12 +2464,18 @@ def test_l5c_the_other_tab_shaped_composition_is_refused():
     assert exc_info.value.detail.get("law") == "L5c"
     # Honest restructure per the report: split the scroll-owning band so
     # the designed leaf sits OUTSIDE it, in its own fixed reservation.
+    # [Updated 2026-08-12, M2 stage B2a, ledger rows 2108/2331: `edge v
+    # continuous` added to `freeformJsonEditor` -- L17 is now wired, and
+    # its own `content unbounded` + `scroll v` owes an edge; `continuous`
+    # matches this leaf's own freeform-text nature, the same reasoning
+    # `otherBand` uses in the real encodings (no indivisible thing stands
+    # at a freeform-JSON scroll boundary the way a table row does).]
     fixed = _l5_load(
         "layout g = {min 0px, pref 1fr, max inf} V("
         "{min 0px, pref 1fr, max inf} T("
         "{min 0px, pref 1fr, max inf} V("
         "{min 0px, pref 1fr, max inf, content designed} colorDebugStrip[chrome],"
-        "{min 0px, pref 1fr, max inf, content unbounded, scroll v} "
+        "{min 0px, pref 1fr, max inf, content unbounded, scroll v, edge v continuous} "
         "freeformJsonEditor[chrome]"
         "),"
         "{min 0px, pref 1fr, max inf} otherTabSibling[chrome]"
