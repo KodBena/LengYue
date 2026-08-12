@@ -90,7 +90,7 @@
  */
 import { ref, watch, type Ref } from 'vue';
 import { LYT_SOLVED_BY_LABEL } from './lyt-solved-layout-asis.gen.ts';
-import type { LytDemotion } from './lyt-layout-types';
+import type { LytDemotion, LytTrackShape } from './lyt-layout-types';
 
 // ── LayoutClass: the discriminated type ──────────────────────────────
 
@@ -665,6 +665,93 @@ export function computeTreePanelClampedWidthPx(naturalWidthPx: number, regionWid
     Math.round(regionWidthPx - CONTROL_PANEL_MIN_WIDTH_PX - TREE_CONTROL_WRAPPER_ROW_GAP_PX * 2),
   );
   return Math.min(naturalWidthPx, maxTreeWidthPx);
+}
+
+// ── Finish-pass wave A completion pass (2026-08-13 dated section,
+//    `.claude/dispatch-reports/lyt-wA-width-demotion.md`) ──────────────
+//
+// STOP-and-report item 1 disposition: the 2560x1440 clip left open by the
+// original wave. At that size `controlPanel` correctly resolves PRESENT
+// (819px measured `sideColumnWidthPx` >= the compiled 778px threshold),
+// but the REALIZED tree width (`effectiveTreePanelWidthPx`,
+// `useResizablePanel.ts` — the stored-or-viewport-scaled-default tree
+// width) is unaware of the panel's own REAL demand:
+// `computeTreePanelClampedWidthPx`'s existing small-viewport clamp
+// reserves `CONTROL_PANEL_MIN_WIDTH_PX` (a model-layer estimate, 300px,
+// projected from the tab registry — this module's own header) against
+// the OUTER bar's own DESIRED region width — neither of which is the
+// right fact for THIS row: the compiled `controlPanel` Exclusive's own
+// track is a FIXED 664px (`lyt-layout.gen.ts` / `lyt-layout-portrait.gen.ts`),
+// and the row's own REAL rendered width is `sideColumnWidthPx` (a DOM
+// measurement of `#tree-control-wrapper`), not the desired region width.
+//
+// The compiled `@demote(h ...)` threshold itself (778px landscape / 808px
+// portrait — `controlPanelDemote`, App.vue) is composed as `panel's fixed
+// track px + tree leaf's own floor + ONE row gap` — verified directly
+// against both `.gen.ts` files: 664+110+4=778 (landscape), 664+140+4=808
+// (portrait). This clamp reuses the SAME one-gap composition for the
+// tree's own realized width, so the two facts stay internally
+// consistent: right at the demote boundary (`sideColumnWidthPx ===
+// belowPx`), the available track for the tree resolves to EXACTLY its
+// own compiled floor, never less. A fully literal reading of the row's
+// 3-track grid (tree, controlPanel, previewBoard — 2 inter-track gaps)
+// would reserve a SECOND gap here; deliberately not reintroduced, since
+// it would make this clamp's own floor composition inconsistent with the
+// ALREADY-COMPILED threshold by exactly one gap-width right at the
+// boundary — a discrepancy this clamp exists to avoid, not reproduce.
+//
+// Never auto-widens (ledger row 414's standing invariant, untouched by
+// this wave — see `useResizablePanel.ts`'s own header): this only ever
+// shrinks `naturalTreeWidthPx` down, when the side column's own REAL
+// rendered width can't hold both the tree and the panel's real demand —
+// mirroring the "resizer-restore-clamp" shape
+// (`computeTreePanelClampedWidthPx` / `sanitizeTreeControlRegionWidthPx`)
+// with the compiled program's own real facts substituted for that
+// existing function's model-layer estimates: composing with the
+// established clamp DISCIPLINE, not forking an unrelated (e.g.
+// auto-grow) mechanism. Kept as its OWN function rather than folded into
+// `computeTreePanelClampedWidthPx` itself: that function's existing
+// 2-argument contract is exercised directly by
+// `tests/unit/state/layout-model.test.ts`'s own W3-fix corrective suite
+// against the SMALL-VIEWPORT (900x600) regression it was built for;
+// widening its signature to also carry compiled-track data would graft a
+// second, unrelated concern onto an already-shipped, already-tested
+// contract (ADR-0004 minimal-touch) rather than simplify anything.
+/**
+ * `sideColumnWidthPx <= 0` (not yet measured) passes `naturalTreeWidthPx`
+ * through unchanged, mirroring `resolveWidthConditionalPresence`'s own
+ * "not yet measured" convention. `controlPanelPresent` gates the
+ * reservation entirely: when the panel is width-demoted (or otherwise
+ * absent), its compiled 664px track renders 0px regardless of its own
+ * declaration, so reserving against it here would starve the tree for no
+ * reason — no reservation, no clamp, in that case.
+ */
+export function clampTreeWidthForSideColumn(
+  naturalTreeWidthPx: number,
+  sideColumnWidthPx: number,
+  controlPanelPresent: boolean,
+  controlPanelTrack: LytTrackShape,
+  treeTrack: LytTrackShape,
+  gapPx: number,
+): number {
+  if (controlPanelTrack.kind !== 'fixed') {
+    throw new Error(
+      `clampTreeWidthForSideColumn: controlPanel's own compiled track is ` +
+        `${JSON.stringify(controlPanelTrack.kind)}, not "fixed" — this clamp only knows how to ` +
+        'reserve a fixed-px panel demand (ADR-0002); the compiled program declared something else.',
+    );
+  }
+  if (treeTrack.kind !== 'elastic') {
+    throw new Error(
+      `clampTreeWidthForSideColumn: tree's own compiled track is ${JSON.stringify(treeTrack.kind)}, ` +
+        "not \"elastic\" — this clamp only knows how to read an elastic leaf's own minPx floor " +
+        '(ADR-0002); the compiled program declared something else.',
+    );
+  }
+  if (!Number.isFinite(sideColumnWidthPx) || sideColumnWidthPx <= 0) return naturalTreeWidthPx;
+  const reservedPx = controlPanelPresent ? controlPanelTrack.px + gapPx : 0;
+  const maxTreeWidthPx = Math.max(treeTrack.minPx, Math.round(sideColumnWidthPx - reservedPx));
+  return Math.min(naturalTreeWidthPx, maxTreeWidthPx);
 }
 
 /** `computeTreePanelBoundWidth`'s result — a discriminated union rather

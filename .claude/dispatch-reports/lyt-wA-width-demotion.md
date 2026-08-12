@@ -360,6 +360,209 @@ mechanism to yield when a sibling collapses.
 - `npx eslint .` → `0` (0 errors, 0 warnings)
 - `npx vitest run` → `0` (3201 passed, 8 skipped)
 
+## 11. Completion pass (2026-08-13)
+
+Commission: close 2560x1440 (STOP-and-report item 1), add unit tests for
+`resolveWidthConditionalPresence`/the new clamp (item 6), and land the
+ja/ko/zh-CN translations for the presence-menu hint (item 5). Items 2
+("tree widens"), 3 (`A_engine` Connect unreachable at 1280x1024), and 4
+(portrait not screenshot-verified) are UNCHANGED — none were in this
+pass's named scope, and none of this pass's edits touch the mechanisms
+those items name (§7's ledger-row-414 invariant is untouched by
+construction — see below).
+
+### 11.1 Base freshness
+
+Worked directly in the already-checked-out worktree
+(`worktree-agent-a7258127f21e13c64`), HEAD `e8e41f8b` at start — already
+an ancestor of this report's own §1 commit (`3fa062a1f`); no reset
+needed.
+
+### 11.2 The fix
+
+Root cause, confirmed against the compiled program directly
+(`lyt-layout.gen.ts`/`lyt-layout-portrait.gen.ts`): the `controlPanel`
+Exclusive's own compiled track is a FIXED **664px**, and the `tree`
+leaf's own compiled floor is **110px** (landscape) / **140px**
+(portrait) — the SAME two facts the compiled `@demote` threshold is
+itself composed from (`664+110+4=778`, `664+140+4=808`, one row gap).
+`useResizablePanel.ts`'s existing tree-width clamp
+(`computeTreePanelClampedWidthPx`, the W3-fix corrective for the 900x600
+regression) reserves `CONTROL_PANEL_MIN_WIDTH_PX` instead — a
+model-layer estimate (300px, projected from the tab registry) that has
+nothing to do with this row's real content — against
+`effectiveTreeControlRegionWidthPx` (a DESIRED region width), not
+`sideColumnWidthPx` (the row's REAL rendered width). At 2560x1440 this
+under-reserved by 364px, so the tree's own 307px viewport-scaled default
+was never clamped down, and `307 + 664 = 971px` was asked of an 819px
+track.
+
+**`clampTreeWidthForSideColumn`** (new, `state/layout-model.ts`) is a
+second clamp pass, composing with (not forking) the existing clamp
+discipline: `min(natural, max(floor, sideColumnWidthPx - reservedPx))`,
+where `reservedPx`/`floor` are read off the compiled program's OWN
+`controlPanel`/`tree` tracks (via a new `trackByWidget` fact on
+`useLytProgramIndex.ts`'s walk, mirroring its existing
+`widgetDefaultVisible`/`demoteByWidget` facts) rather than re-derived
+model-layer numbers. Gated by `controlPanelIsPresent` — when the panel
+is width-demoted, nothing is reserved against its (0px-rendered) track.
+Kept as its own function rather than widening
+`computeTreePanelClampedWidthPx`'s own signature: that function's
+existing 2-argument contract is exercised directly by
+`layout-model.test.ts`'s own W3-fix suite (the 900x600 regression), and
+widening it would graft an unrelated concern onto an already-shipped
+contract (ADR-0004 minimal-touch) rather than simplify anything.
+Applied in `App.vue`'s `lytTrackStyleOverrides` (the ONE place that
+already has both `activeLytProgramIndex` and `sideColumnWidthPx` in
+scope), as a second pass over `effectiveTreePanelWidthPx.value` before
+it's written into the tree leaf's track override.
+
+**No auto-widen, ledger row 414 untouched.** This clamp only ever
+SHRINKS the natural tree width down to fit; it never grows it into
+freed space. §7's own disclosed fork ("tree widens when a sibling
+demotes") remains exactly as disclosed — this pass does not touch
+`lytTrackStyleOverrides`' unconditional tree-leaf override or
+`useResizablePanel.ts`'s own "never automatic" invariant in any way
+that would resolve that fork; it is still a commissioner decision, not
+made here.
+
+**Generalizes to portrait for free.** Portrait's own compiled program
+carries the identical structural shape (`controlPanel` fixed 664px,
+`tree` floor 140px, one row gap, `demote` 808px = 664+140+4) at a
+DIFFERENT H-row (`path "5"`, no `previewBoard` sibling there) — since
+`clampTreeWidthForSideColumn` reads everything off the active compiled
+program via `activeLytProgramIndex`, the fix applies identically in
+portrait without a class branch. Not independently screenshot-verified
+in this pass (STOP item 4, still open) — pinned by a dedicated unit
+test instead (`tests/unit/lyt-path-key-regression.test.ts`, portrait's
+own `trackByWidget` facts) and exercised structurally by
+`clampTreeWidthForSideColumn`'s own portrait-fixture test case in
+`layout-model.test.ts`.
+
+### 11.3 Unit tests added
+
+- `tests/unit/state/layout-model.test.ts` — two new `describe` blocks:
+  - `resolveWidthConditionalPresence`: demote-null pass-through,
+    not-yet-measured pass-through, above/at/below the threshold
+    (inclusive `>=` boundary), the `forcedAbsent`
+    explicit-visible-but-width-cannot-grant case, the "narrows true to
+    false, never promotes false to true" sovereignty direction, and the
+    `axis !== 'h'` throw.
+  - `clampTreeWidthForSideColumn`: no-op when already fits; the EXACT
+    reported 2560x1440 numbers (307 natural / 819 measured -> clamps to
+    151, which plus the panel + one gap sums to exactly 819, no slack);
+    the demote-boundary consistency property (at `sideColumnWidthPx ===
+    belowPx`, clamps to exactly the tree's own floor); never-shrinks-
+    below-floor; never-grows-above-natural (ledger row 414); the
+    `controlPanelPresent === false` no-reservation case; not-yet-
+    measured pass-through; portrait's own fixture reproducing its own
+    808px boundary; and the two ADR-0002 throw branches (wrong track
+    kind for either input).
+- `tests/unit/lyt-path-key-regression.test.ts` — one new assertion
+  pinning `trackByWidget.controlPanel`/`.tree` against the literal
+  numbers read directly off both `.gen.ts` files (not re-derived from
+  the index under test), in both classes.
+
+All expectations were derived from the compiled program's own literal
+numbers and the function's documented contract, not from reading back
+the implementation — e.g. the 151px expectation is `819 - 664 - 4`,
+computed independently before running the test, not copied from a
+debug print.
+
+### 11.4 i18n
+
+`app.chrome.presence.widthDemotedHint` added to `ja.json`/`ko.json`/
+`zh-CN.json`. Checked the file's own convention for a new,
+not-yet-translated string first (rather than guessing): the `sync.*`
+recovery-banner keys added in a prior pass carry a literal `"[TODO] "`
+prefix ahead of the English source string, identically across all
+three locale files — followed that convention verbatim rather than
+inventing a different marker or a real (unreviewed) translation. The
+pre-existing `app.chrome.presence.A_setup` gap in the same three files
+(added by an earlier, unrelated wave) was left untouched — out of this
+pass's named scope.
+
+### 11.5 Re-verification (isolated rig)
+
+Ports `19200`/`19201`/`19202`, each probed dead via `/dev/tcp` before
+use and confirmed dead again after teardown. Backend: main checkout's
+venv, `DATABASE_URI` pointed at a **copy** of
+`backend/samples/cards.sample.db` in scratchpad (`QEUBO_ENABLED=false`);
+verified live via `GET /docs` -> 200. Frontend: `vite --strictPort`,
+`VITE_KATAGO_WS_URL` pointed at `19202`, which was never contacted
+(confirmed dead before AND after). None of 4173/5173/5174/8764/1235/
+1242/195xx touched — only this session's own three PIDs were started
+and explicitly killed at the end.
+`frontend/node_modules` symlinked from the main checkout after diffing
+`package-lock.json` (`LOCK-IDENTICAL`), same precedent as every prior
+LYT rig.
+
+**Theme.** `'light'` is retired (migrates to `'dark'` — `schema.ts`
+confirms). Drove the real Settings UI (`#session-theme-select`) to
+`'cluster'` after boot, via the summon popover where the panel starts
+demoted. Every capture confirms `data-theme="cluster"`.
+
+**Playwright**: `systemd-run --user --scope -p MemoryMax=4G -- node
+--max-old-space-size=1024`, chromium at `/usr/bin/chromium` with
+`--js-flags=--max-old-space-size=1024` (playwright-core, no
+`@playwright/test`), one browser per run, closed in a `finally`. No
+wall-clock waits except one disclosed `50ms` DOM-settle after a
+tab-strip click (mirrors the prior wave's own one instance) — every
+other wait is `waitForSelector`/`waitForFunction` on a real DOM
+condition, including a poll on `#tree-control-wrapper`'s own measured
+width settling across two consecutive reads (letting both
+ResizeObservers reach their steady-state reading before measuring).
+
+**Per-size results** (screenshots under
+`…/scratchpad/wA-completion-rig/shots/`, not committed — established
+LYT convention):
+
+| Size | `controlPanelIsPresent` | `gridTemplateColumns` | `#main-area` overflow | Re-run setup wizard | Registry ↺ reset | Registry selects |
+|---|---|---|---|---|---|---|
+| 1920x1080 | false (unchanged) | `230px 0px 0px` | `scrollWidth === clientWidth === 1920`, no overflow | reachable (via summon popover) | n/a | n/a |
+| 1280x1024 | false (unchanged) | `140px 0px 0px` | `scrollWidth === clientWidth === 1280`, no overflow | reachable (via summon popover) | n/a | n/a |
+| 2560x1440 | **true** | `151px 664px 0px` | `scrollWidth === clientWidth === 2560`, **no overflow (was 2716 before this pass)** | reachable | reachable | 4 of 6 reachable (see below) |
+
+2560x1440 is the fix's own target: tree clamped from its natural 307px
+down to exactly **151px** — `151 + 664 (panel) + 4 (gap) = 819`, the
+row's own measured width, with **zero slack and zero overflow**.
+`#control-panel`'s own `getBoundingClientRect()`: `x=1896, width=664,
+right=2560` — flush with the viewport's own right edge, not past it.
+
+**Disclosed, out of this fix's scope**: 2 of the 6 visible Advanced
+Registry selects at 2560x1440 are NOT hit-test-reachable
+(`atPointTag: null`) — but their own rects sit at `y=1431`/`y=1632`,
+below the 1440px viewport's own bottom edge. This is a VERTICAL
+scroll-position fact (the registry's own content is taller than the
+viewport), unrelated to the HORIZONTAL width-demotion clip this pass
+fixes — not a regression from this pass (the same rows would need the
+same scroll before AND after this fix), and not investigated further
+here.
+
+1280x1024's own pre-existing F2 defect (`A_engine`'s `Connect` button
+unreachable) and 1920x1080's own portrait/F4 items are unrelated to
+this pass and were not re-probed (STOP items 2/3/4 above remain the
+authoritative disposition).
+
+### 11.6 Gate exit codes (literal, this pass)
+
+- `npx vue-tsc -b` → `0`
+- `npm run build` → `0`
+- `npx eslint .` → `0` (0 errors, 0 warnings)
+- `npx vitest run` → `0` (**3220** passed, 8 skipped — 3201 baseline +
+  19 new: 8 for `resolveWidthConditionalPresence`, 10 for
+  `clampTreeWidthForSideColumn`, 1 for `trackByWidget`)
+- `npx vitest run tests/integration/App-boot.test.ts` (isolated) → `0`
+  (5 passed)
+
+### 11.7 STOP-and-report (this pass)
+
+Nothing new. The three items carried over from §9 (tree-widens fork,
+`A_engine` Connect defect, portrait not screenshot-verified) are
+unchanged in disposition — this pass's own scope (the 2560x1440 clip,
+the two test suites, the three locale entries) is fully closed with no
+new forks discovered.
+
 ## License
 
 Public Domain (The Unlicense), matching this repository's ADR-0006

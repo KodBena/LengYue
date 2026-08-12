@@ -135,7 +135,13 @@ import { useEngineControls } from './composables/useEngineControls';
 import { useUserIORegistry } from './composables/useUserIORegistry';
 import { useAuth }           from './composables/auth-app/useAuth';
 import { workspaceIdentityKey } from './composables/auth-app/workspace-identity-key';
-import { getPanelContentPolicy, resolveWidthConditionalPresence, useDeferredLayoutClass } from './state/layout-model';
+import {
+  getPanelContentPolicy,
+  resolveWidthConditionalPresence,
+  useDeferredLayoutClass,
+  clampTreeWidthForSideColumn,
+  TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+} from './state/layout-model';
 import { useDirtyBoardGuard } from './composables/board/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
 import { useWorkspaceRecovery } from './composables/auth-app/useWorkspaceRecovery';
@@ -605,10 +611,48 @@ const activeLytDomIdByPath = computed<Record<string, string>>(() => {
 // below); `treeControlRegionWidthPx` itself is untouched by a portrait
 // session (never written there), so returning to landscape restores
 // the user's own prior drag exactly.
+// Finish-pass wave A completion pass (2026-08-13 dated section,
+// `.claude/dispatch-reports/lyt-wA-width-demotion.md`): STOP-and-report
+// item 1, the 2560x1440 clip. `effectiveTreePanelWidthPx` (above, from
+// `useResizablePanel.ts`) is the stored-or-viewport-scaled-default tree
+// width, already clamped once against the OUTER bar's own DESIRED region
+// width — but that clamp (`computeTreePanelClampedWidthPx`'s existing
+// small-viewport corrective) reserves `CONTROL_PANEL_MIN_WIDTH_PX`, a
+// model-layer estimate (300px) unrelated to THIS row's real content: the
+// compiled `controlPanel` Exclusive's own track is a FIXED 664px
+// (`lyt-layout*.gen.ts`), not derived from the tab registry at all. A
+// second clamp pass, `clampTreeWidthForSideColumn`
+// (`state/layout-model.ts`), reads the REAL compiled facts off
+// `activeLytProgramIndex.trackByWidget` and the row's own REAL rendered
+// width (`sideColumnWidthPx`, `useResizablePanel.ts`'s second
+// ResizeObserver) — see that function's own header for the full
+// derivation and why it composes with, rather than forks, the existing
+// clamp discipline. Gated by `controlPanelIsPresent` (defined below,
+// forward-referenced the same way `lytPresenceOverrides` already
+// forward-references `controlPanelDemote` in this file): when the panel
+// is width-demoted (or otherwise absent), its 664px track renders 0px
+// regardless of its own declaration, so nothing is reserved against it.
 const lytTrackStyleOverrides = computed<Record<string, string>>(() => {
   const treePanelPath = requireWidgetPath('tree');
+  const controlPanelTrack = activeLytProgramIndex.value.trackByWidget.controlPanel;
+  const treeTrack = activeLytProgramIndex.value.trackByWidget.tree;
+  if (!controlPanelTrack || !treeTrack) {
+    throw new Error(
+      `App.vue: no compiled track resolves for widget id "controlPanel"/"tree" in the active LYT ` +
+        `program (classId=${JSON.stringify(activeScreenClassId.value)}) — the side-column tree ` +
+        'clamp has nothing to read.',
+    );
+  }
+  const clampedTreePanelWidthPx = clampTreeWidthForSideColumn(
+    effectiveTreePanelWidthPx.value,
+    sideColumnWidthPx.value,
+    controlPanelIsPresent.value,
+    controlPanelTrack,
+    treeTrack,
+    TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+  );
   const overrides: Record<string, string> = {
-    [treePanelPath]: `${effectiveTreePanelWidthPx.value}px`,
+    [treePanelPath]: `${clampedTreePanelWidthPx}px`,
   };
   if (activeScreenClassId.value === 'landscape' && effectiveTreeControlRegionWidthPx.value !== undefined) {
     const sideColumnPath = lytParentPath(lytParentPath(treePanelPath));

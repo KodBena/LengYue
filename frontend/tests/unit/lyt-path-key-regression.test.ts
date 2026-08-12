@@ -303,4 +303,23 @@ describe('App.vue — LYT widget-id path derivation resolves against the real co
     expect(app).toContain('buildLytProgramIndex');
     expect(app).toContain('requireWidgetPath');
   });
+
+  // Finish-pass wave A completion pass (2026-08-13 dated section,
+  // `.claude/dispatch-reports/lyt-wA-width-demotion.md`): `trackByWidget`
+  // is the new fact this pass added to the index (App.vue's side-column
+  // tree clamp, `clampTreeWidthForSideColumn`, reads it). Pinned here
+  // against the compiled `.gen.ts` files' OWN literal numbers (read
+  // directly, not re-derived from the index under test) so a future `.lyt`
+  // edit that moves either fixture silently is caught the same way this
+  // file's other checks catch a path/widget-id drift.
+  it('trackByWidget resolves controlPanel/tree to the SAME real fixed-px/floor facts the demote threshold itself is composed from, in both classes', () => {
+    // landscape: controlPanel fixed 664px, tree floor 110px, demote 778px
+    // = 664 + 110 + 4 (one row gap).
+    expect(landscapeIndex.trackByWidget.controlPanel).toEqual({ kind: 'fixed', px: 664 });
+    expect(landscapeIndex.trackByWidget.tree).toEqual({ kind: 'elastic', minPx: 110, frWeight: 1 });
+    // portrait: controlPanel fixed 664px, tree floor 140px, demote 808px
+    // = 664 + 140 + 4.
+    expect(portraitIndex.trackByWidget.controlPanel).toEqual({ kind: 'fixed', px: 664 });
+    expect(portraitIndex.trackByWidget.tree).toEqual({ kind: 'elastic', minPx: 140, frWeight: 1 });
+  });
 });

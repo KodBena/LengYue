@@ -56,7 +56,10 @@ import {
   computeTreeControlRegionDefaultWidthPx,
   TREE_CONTROL_WRAPPER_ROW_GAP_PX,
   computeTreePanelClampedWidthPx,
+  resolveWidthConditionalPresence,
+  clampTreeWidthForSideColumn,
 } from '../../../src/state/layout-model';
+import type { LytDemotion, LytTrackShape } from '../../../src/state/lyt-layout-types';
 
 describe('deriveAxis — row/column split, now derived from nearestScreenClassId (W3)', () => {
   it('stays row when width/height is well above the threshold (a wide desktop window)', () => {
@@ -455,5 +458,213 @@ describe('computeTreePanelClampedWidthPx — W3-fix corrective, the 900x600 clip
     expect(computeTreePanelClampedWidthPx(347, 0)).toBe(347);
     expect(computeTreePanelClampedWidthPx(347, -10)).toBe(347);
     expect(computeTreePanelClampedWidthPx(347, NaN)).toBe(347);
+  });
+});
+
+/**
+ * resolveWidthConditionalPresence — LYT finish-pass wave A completion
+ * pass (2026-08-13 dated section, `.claude/dispatch-reports/
+ * lyt-wA-width-demotion.md`), closing a disclosed gap from the original
+ * wave's own §8 ("not independently unit-tested in this wave"). Every
+ * branch is exercised directly, with expectations derived from the
+ * function's own documented contract (module header, "Finish-pass wave
+ * A: width-conditional demotion") rather than by re-reading its
+ * implementation — a demote-null pass-through, a not-yet-measured
+ * pass-through, the fits/doesn't-fit boundary (>= wins, matching the
+ * compiled program's own >= semantics), and the two user-sovereignty
+ * directions (an explicit 'visible' choice the width can't grant is
+ * demoted anyway — the `forcedAbsent` disclosure case — but width never
+ * promotes a 'hidden' choice to visible).
+ */
+describe('resolveWidthConditionalPresence — LYT finish-pass wave A (width-conditional demotion)', () => {
+  const LANDSCAPE_CONTROL_PANEL_DEMOTE: LytDemotion = { axis: 'h', belowPx: 778 };
+
+  it('demote === null: desiredVisible passes through unchanged, both directions', () => {
+    expect(resolveWidthConditionalPresence(300, null, true)).toBe(true);
+    expect(resolveWidthConditionalPresence(300, null, false)).toBe(false);
+    expect(resolveWidthConditionalPresence(9999, null, true)).toBe(true);
+  });
+
+  it('measuredWidthPx <= 0 (not yet measured): desiredVisible passes through unchanged, even with a real demote declared', () => {
+    expect(resolveWidthConditionalPresence(0, LANDSCAPE_CONTROL_PANEL_DEMOTE, true)).toBe(true);
+    expect(resolveWidthConditionalPresence(-1, LANDSCAPE_CONTROL_PANEL_DEMOTE, true)).toBe(true);
+    expect(resolveWidthConditionalPresence(0, LANDSCAPE_CONTROL_PANEL_DEMOTE, false)).toBe(false);
+  });
+
+  it('above the threshold: fits, desiredVisible wins verbatim (both true and false)', () => {
+    expect(resolveWidthConditionalPresence(900, LANDSCAPE_CONTROL_PANEL_DEMOTE, true)).toBe(true);
+    expect(resolveWidthConditionalPresence(900, LANDSCAPE_CONTROL_PANEL_DEMOTE, false)).toBe(false);
+  });
+
+  it('exactly AT the threshold: >= is inclusive — fits, same as above-threshold', () => {
+    expect(resolveWidthConditionalPresence(778, LANDSCAPE_CONTROL_PANEL_DEMOTE, true)).toBe(true);
+  });
+
+  it('one px below the threshold: does not fit — demoted regardless of desiredVisible', () => {
+    expect(resolveWidthConditionalPresence(777, LANDSCAPE_CONTROL_PANEL_DEMOTE, true)).toBe(false);
+    expect(resolveWidthConditionalPresence(777, LANDSCAPE_CONTROL_PANEL_DEMOTE, false)).toBe(false);
+  });
+
+  it('user-sovereignty / forcedAbsent case: an explicit \'visible\' choice the width genuinely cannot grant is demoted, not silently honored', () => {
+    // This is the exact case App.vue's own `controlPanelForcedAbsent`
+    // (desired && !resolved) is built to disclose in the presence menu.
+    const resolved = resolveWidthConditionalPresence(500, LANDSCAPE_CONTROL_PANEL_DEMOTE, true);
+    expect(resolved).toBe(false);
+  });
+
+  it('width narrows a true down to false, but never promotes a false up to true — the "only ever narrows" contract', () => {
+    // A user who explicitly hid the panel (desiredVisible false) stays
+    // hidden even at a generously wide measurement; width is a ceiling
+    // on presence, never a floor that overrides an explicit hide.
+    expect(resolveWidthConditionalPresence(5000, LANDSCAPE_CONTROL_PANEL_DEMOTE, false)).toBe(false);
+  });
+
+  it('demote.axis !== "h" throws loudly (ADR-0002) rather than silently measuring the wrong axis', () => {
+    const verticalDemote: LytDemotion = { axis: 'v', belowPx: 500 };
+    expect(() => resolveWidthConditionalPresence(900, verticalDemote, true)).toThrow(/unsupported demote axis/);
+  });
+});
+
+/**
+ * clampTreeWidthForSideColumn — LYT finish-pass wave A completion pass,
+ * STOP-and-report item 1 (the 2560x1440 clip). Fixtures mirror the
+ * REAL compiled facts read directly off `lyt-layout.gen.ts` (landscape)
+ * and `lyt-layout-portrait.gen.ts` (portrait) at authoring time, not
+ * re-derived from this module's own implementation — a tautology-proof
+ * expectation source, per the commission's own instruction.
+ */
+describe('clampTreeWidthForSideColumn — LYT finish-pass wave A completion (the 2560x1440 clip)', () => {
+  // lyt-layout.gen.ts: controlPanel `{ kind: "fixed", px: 664 }`, tree
+  // `{ kind: "elastic", minPx: 110, frWeight: 1 }` — landscape's own
+  // compiled facts, read at path "2.3.1"/"2.3.0" respectively.
+  const LANDSCAPE_CONTROL_PANEL_TRACK: LytTrackShape = { kind: 'fixed', px: 664 };
+  const LANDSCAPE_TREE_TRACK: LytTrackShape = { kind: 'elastic', minPx: 110, frWeight: 1 };
+  // lyt-layout-portrait.gen.ts: controlPanel `{ kind: "fixed", px: 664 }`,
+  // tree `{ kind: "elastic", minPx: 140, frWeight: 1 }` — path "5.1"/"5.0".
+  const PORTRAIT_TREE_TRACK: LytTrackShape = { kind: 'elastic', minPx: 140, frWeight: 1 };
+
+  it('a stored/natural width that already fits the available track is left unchanged (no-op on the common/healthy case)', () => {
+    // 2000 - (664 + 4) = 1332, comfortably more than the 200px asked for.
+    const clamped = clampTreeWidthForSideColumn(
+      200,
+      2000,
+      true,
+      LANDSCAPE_CONTROL_PANEL_TRACK,
+      LANDSCAPE_TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+    );
+    expect(clamped).toBe(200);
+  });
+
+  it('reproduces the exact reported 2560x1440 clip: 307px natural, 819px measured side column, clamps to exactly 151px (which, plus the panel + one gap, sums to precisely the measured track — no overflow, no slack)', () => {
+    const naturalTreeWidthPx = 307;
+    const sideColumnWidthPx = 819;
+    const clamped = clampTreeWidthForSideColumn(
+      naturalTreeWidthPx,
+      sideColumnWidthPx,
+      true,
+      LANDSCAPE_CONTROL_PANEL_TRACK,
+      LANDSCAPE_TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+    );
+    expect(clamped).toBeLessThan(naturalTreeWidthPx);
+    expect(clamped + LANDSCAPE_CONTROL_PANEL_TRACK.px + TREE_CONTROL_WRAPPER_ROW_GAP_PX).toBe(sideColumnWidthPx);
+    expect(clamped).toBe(151);
+  });
+
+  it('right at the compiled demote boundary (sideColumnWidthPx === belowPx, 778), the available track resolves to EXACTLY the tree\'s own compiled floor — consistent with the threshold\'s own composition (panel + floor + one gap)', () => {
+    const clamped = clampTreeWidthForSideColumn(
+      9999, // any generous natural/stored width
+      778,
+      true,
+      LANDSCAPE_CONTROL_PANEL_TRACK,
+      LANDSCAPE_TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+    );
+    expect(clamped).toBe(LANDSCAPE_TREE_TRACK.minPx);
+  });
+
+  it('never shrinks below the tree\'s own compiled floor, even in a track narrower than the floor composition itself allows (the demotion resolver is what actually handles this case in App.vue — this clamp still refuses to go below the floor on its own)', () => {
+    const clamped = clampTreeWidthForSideColumn(
+      500,
+      500, // narrower than 778 -- would never reach this call with controlPanelPresent true in practice
+      true,
+      LANDSCAPE_CONTROL_PANEL_TRACK,
+      LANDSCAPE_TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+    );
+    expect(clamped).toBe(LANDSCAPE_TREE_TRACK.minPx);
+  });
+
+  it('never grows a natural width that is already smaller than the available track — clamps down only, never up (ledger row 414\'s standing invariant)', () => {
+    const clamped = clampTreeWidthForSideColumn(
+      110,
+      3000, // far more room than needed
+      true,
+      LANDSCAPE_CONTROL_PANEL_TRACK,
+      LANDSCAPE_TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+    );
+    expect(clamped).toBe(110);
+  });
+
+  it('controlPanelPresent === false: no reservation at all — the natural width is only bounded by the raw side-column width itself (the panel\'s absent 664px track renders 0px, so nothing is reserved against it)', () => {
+    const clamped = clampTreeWidthForSideColumn(
+      600,
+      614, // 1920x1080's own reported measured width, panel demoted there
+      false,
+      LANDSCAPE_CONTROL_PANEL_TRACK,
+      LANDSCAPE_TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+    );
+    expect(clamped).toBe(600); // 600 <= 614, fits with no panel reservation
+  });
+
+  it('sideColumnWidthPx <= 0 or non-finite (not yet measured) passes naturalTreeWidthPx through unchanged', () => {
+    for (const notYetMeasured of [0, -10, NaN]) {
+      expect(
+        clampTreeWidthForSideColumn(
+          307,
+          notYetMeasured,
+          true,
+          LANDSCAPE_CONTROL_PANEL_TRACK,
+          LANDSCAPE_TREE_TRACK,
+          TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+        ),
+      ).toBe(307);
+    }
+  });
+
+  it('portrait\'s own compiled facts (140px tree floor) reproduce its own 808px demote threshold composition the same way landscape\'s 778px does', () => {
+    const clamped = clampTreeWidthForSideColumn(
+      9999,
+      808,
+      true,
+      LANDSCAPE_CONTROL_PANEL_TRACK, // portrait's controlPanel track is also { fixed, 664 }
+      PORTRAIT_TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+    );
+    expect(clamped).toBe(PORTRAIT_TREE_TRACK.minPx);
+  });
+
+  it('a non-"fixed" controlPanel track throws loudly (ADR-0002) rather than silently reserving the wrong shape\'s own field', () => {
+    const wrongShape: LytTrackShape = { kind: 'elastic', minPx: 0, frWeight: 1 };
+    expect(() =>
+      clampTreeWidthForSideColumn(307, 819, true, wrongShape, LANDSCAPE_TREE_TRACK, TREE_CONTROL_WRAPPER_ROW_GAP_PX),
+    ).toThrow(/controlPanel.*compiled track/);
+  });
+
+  it('a non-"elastic" tree track throws loudly (ADR-0002)', () => {
+    const wrongShape: LytTrackShape = { kind: 'fixed', px: 140 };
+    expect(() =>
+      clampTreeWidthForSideColumn(
+        307,
+        819,
+        true,
+        LANDSCAPE_CONTROL_PANEL_TRACK,
+        wrongShape,
+        TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+      ),
+    ).toThrow(/tree.*compiled track/);
   });
 });
