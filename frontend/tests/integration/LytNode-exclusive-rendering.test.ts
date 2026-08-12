@@ -58,6 +58,7 @@ function program(): LytSplitNode {
           widget: 'controlPanel',
           tag: 'TEST',
           defaultTabId: 'library',
+          demote: null,
           children: [
             {
               path: '0.0',

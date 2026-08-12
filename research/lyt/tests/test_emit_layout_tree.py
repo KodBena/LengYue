@@ -13,6 +13,8 @@ presence slots (boardRail, previewBoard) are exactly the ones
 from pathlib import Path
 
 import emit_layout_tree as elt
+import loader as loader_module
+import lyt_ast as ast
 
 
 def _find(children, path: str):
@@ -20,6 +22,30 @@ def _find(children, path: str):
         if c["path"] == path:
             return c
     raise KeyError(f"no child at path {path!r} among {[c['path'] for c in children]}")
+
+
+def _find_tagged_exclusive_slot(slot: ast.Slot, tag: str) -> ast.Slot:
+    """LYT presence arc P2a: walks the RAW (unemitted) AST for the Slot
+    wrapping a tagged Exclusive node, so a test can assert the emitter's
+    `demote` output against the model's own `slot.presence` directly --
+    independent of `emit_layout_tree.py`'s own output, per this arc's own
+    'no tautology' discipline."""
+    node = slot.node
+    if isinstance(node, ast.Exclusive) and node.tag == tag:
+        return slot
+    if isinstance(node, ast.Split):
+        for c in node.children:
+            found = _find_tagged_exclusive_slot(c, tag)
+            if found is not None:
+                return found
+        return None
+    if isinstance(node, ast.Exclusive):
+        for c in node.children:
+            found = _find_tagged_exclusive_slot(c, tag)
+            if found is not None:
+                return found
+        return None
+    return None
 
 
 def test_build_program_deterministic():
@@ -334,14 +360,27 @@ def test_portrait_default_visible_by_path_matches_toggle_targets():
     module's own docstring is the ledger-cited source): boardRail (path
     0) and previewBoard (path 5.2) are default-off; A_app (1, formerly
     A_top — LYT toolbar ontology reencode, 2026-08-11), the board
-    composite (3), A_engine (4, formerly I_engine), tree (5.0), and the
-    control-panel T-node (5.1) are all default-visible.
+    composite (3), A_engine (4, formerly I_engine), and tree (5.0) are all
+    default-visible.
 
     M2 STAGE B2b (2026-08-12, ledger rows 2073/2108/2151): `A_setup`
     (path 2, item 2, palette-adoption presence slot) is a THIRD
     default-off slot, inserted between `A_app` and the board composite —
     every later path shifts by one (board composite 2->3, A_engine
-    3->4, tree/panels row 4->5)."""
+    3->4, tree/panels row 4->5).
+
+    STALE-ASSERTION UPDATE (LYT presence arc P2a, `.claude/dispatch-reports/
+    lyt-p2a-presence-contract.md`): the control-panel T-node (5.1) used to
+    be pinned `True` here, matching the RETIRED `DEFAULT_VISIBLE_BY_PATH_
+    PORTRAIT` table's own (stale, reviewer-confirmed) entry — that table
+    was never updated when P1 (`.claude/dispatch-reports/lyt-p1-presence-
+    model.md`) added `"BLACK BOX"` (this Exclusive's own `[BLACK BOX]` tag)
+    to portrait's own default valuation's `absent_widgets`. Now that
+    `presenceDefaultVisible` is DERIVED from that same valuation
+    (`is_named_absent` against `runner.valuation_for_class`), this flips to
+    `False` — asserted below against the model's own valuation directly
+    (not against this emitter's own prior output), so this test cannot
+    pass by re-encoding the same bug it is meant to catch."""
     program = _portrait_program()
     root = program["root"]
 
@@ -360,7 +399,24 @@ def test_portrait_default_visible_by_path_matches_toggle_targets():
     control_panel = _find(row, "5.1")
     preview = _find(row, "5.2")
     assert tree["presenceDefaultVisible"] is True
-    assert control_panel["presenceDefaultVisible"] is True
+    # Derived against the MODEL's own valuation, not a literal -- the tag
+    # this Exclusive node itself carries (`node["tag"]`) is exactly the
+    # identity `runner.valuation_for_class`'s own `absent_widgets` names.
+    # Located by searching `runner.REGISTRATIONS` for the entry that
+    # declares "portrait" (mirroring `emit_layout_tree.py`'s own
+    # `_runner_registration_for_class`, but re-derived here independently
+    # rather than calling into that private helper -- this test's own job
+    # is to check the emitter's OUTPUT against the model's fact, not to
+    # exercise the emitter's own lookup machinery a second time).
+    import runner as runner_module
+
+    portrait_runner_reg = next(
+        reg for reg in runner_module.REGISTRATIONS if "portrait" in reg.layout_by_class
+    )
+    portrait_valuation = runner_module.valuation_for_class(portrait_runner_reg, "portrait")
+    assert control_panel["node"]["tag"] == "BLACK BOX"
+    assert "BLACK BOX" in portrait_valuation.absent_widgets
+    assert control_panel["presenceDefaultVisible"] is False
     assert preview["node"]["widget"] == "previewBoard"
     assert preview["presenceDefaultVisible"] is False
 
@@ -631,3 +687,91 @@ def test_cli_default_registration_is_landscape(tmp_path):
         elt.build_program_for(elt.REGISTRATIONS["landscape"]), registration=elt.REGISTRATIONS["landscape"]
     )
     assert out.read_text() == expected
+
+
+# ---------------------------------------------------------------------------
+# LYT presence arc P2a (`.claude/dispatch-reports/lyt-p2a-presence-
+# contract.md`, row 2358 follow-up 1): closes the two reviewer-confirmed
+# gaps P1 left in this emitter -- (a) Exclusive-node `demote`, (b)
+# `presenceDefaultVisible` derived from the model's own valuation rather
+# than a hand-mirrored path table. Every assertion below is checked against
+# an INDEPENDENT source of truth (the raw loaded AST for (a), `runner.
+# valuation_for_class` for (b)) rather than against this emitter's own
+# output, per this arc's own commissioned "no tautology" discipline.
+# ---------------------------------------------------------------------------
+
+
+def test_landscape_control_panel_exclusive_emits_demote_matching_encoding():
+    """The control-panel `T(...)[BLACK BOX]` wrapping slot declares
+    `@demote(h 778px)` (encodings/lengyue_landscape.lyt's own header,
+    'REPAIR' section) -- previously silently dropped by the Exclusive
+    branch (the leaf branch already emitted an equivalent field; the
+    Exclusive branch never did, until this arc)."""
+    text = (elt.ENCODINGS_DIR / elt.LAYOUT_FILE).read_text()
+    raw_slot = _find_tagged_exclusive_slot(loader_module.load_layouts(text)[elt.LAYOUT_NAME], "BLACK BOX")
+    assert raw_slot is not None
+    assert raw_slot.presence.kind == "demote"
+
+    program = elt.build_program_for(elt.REGISTRATIONS["landscape"])
+    side = _find(program["root"]["children"], "2")["node"]["children"]
+    tree_row = _find(side, "2.3")["node"]["children"]
+    control_panel = _find(tree_row, "2.3.1")["node"]
+    assert control_panel["kind"] == "exclusive"
+    assert control_panel["demote"] == {
+        "axis": raw_slot.presence.demote_axis,
+        "belowPx": raw_slot.presence.demote_below_px,
+    }
+
+
+def test_portrait_control_panel_exclusive_emits_demote_matching_encoding():
+    """Same check as the landscape test above, against portrait's own
+    `@demote(h 808px)` declaration (encodings/lengyue_portrait.lyt's own
+    header) -- a DIFFERENT threshold (808 vs. 778px, per each encoding's
+    own tree-floor derivation), confirming this isn't a hardcoded/shared
+    constant leaking across classes."""
+    text = (elt.ENCODINGS_DIR / "lengyue_portrait.lyt").read_text()
+    raw_slot = _find_tagged_exclusive_slot(
+        loader_module.load_layouts(text)["lengyue-portrait"], "BLACK BOX"
+    )
+    assert raw_slot is not None
+    assert raw_slot.presence.kind == "demote"
+
+    program = elt.build_program_for(elt.REGISTRATIONS["portrait"])
+    row = _find(program["root"]["children"], "5")["node"]["children"]
+    control_panel = _find(row, "5.1")["node"]
+    assert control_panel["kind"] == "exclusive"
+    assert control_panel["demote"] == {
+        "axis": raw_slot.presence.demote_axis,
+        "belowPx": raw_slot.presence.demote_below_px,
+    }
+
+
+def test_collapsed_blackbox_tabs_carry_null_demote_when_undeclared():
+    """Sanity companion to the two tests above: a collapsed TAB's own
+    blackbox (`CP-analysis`, `SP_session`) declares no `@demote` of its
+    own (only the OUTER control-panel Exclusive does) -- `demote` reads
+    `null` for both, on both classes, confirming the field is genuinely
+    PER-SLOT (the tab's own wrapping slot), not a copy of the outer T's
+    value leaking down."""
+    for reg_key, side_path, row_path in (("landscape", "2", "2.3"), ("portrait", None, "5")):
+        program = elt.build_program_for(elt.REGISTRATIONS[reg_key])
+        if side_path is not None:
+            row = _find(program["root"]["children"], side_path)["node"]["children"]
+            row = _find(row, row_path)["node"]["children"]
+        else:
+            row = _find(program["root"]["children"], row_path)["node"]["children"]
+        control_panel = next(c["node"] for c in row if c["node"]["kind"] == "exclusive")
+        by_tab = {c["tabId"]: c["node"] for c in control_panel["children"]}
+        assert by_tab["analysis"]["kind"] == "blackbox"
+        assert by_tab["analysis"]["demote"] is None
+        # CP-settings' own SP_session blackbox is nested inside the opened
+        # settings split -- locate it structurally rather than assuming a
+        # fixed relative path (its own path already differs between
+        # classes, e.g. '2.3.1.2.1' landscape vs '5.1.2.1' portrait).
+        settings_split = by_tab["settings"]
+        assert settings_split["kind"] == "split"
+        sp_session = next(
+            c["node"] for c in settings_split["children"] if c["node"].get("widget") == "SP_session"
+        )
+        assert sp_session["kind"] == "blackbox"
+        assert sp_session["demote"] is None
