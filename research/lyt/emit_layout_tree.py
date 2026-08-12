@@ -214,6 +214,67 @@ pass --out PATH to redirect either, e.g. for this emitter's own tests.
 `--registration` defaults to `landscape`, matching this script's
 pre-W3 behavior when called with no arguments.)
 
+M2 STAGE F1 PORT (2026-08-12, ledger row 2311 disposition 2): brings the
+model-iteration loop experiment's (`lyt-model-loop-experiment`, tip
+9d9c1cae) realization-layer LEAF METADATA fields into this, mainline's
+post-B2b emitter: `elasticAxes` (L13), `ceilingAxes` (L14, the PER-AXIS
+form -- distinct from the whole-leaf `Sizing.ceiling` flag), `floorAxes`
+(L16), `edgeAxes` (L17), `orientation` (METAMODEL WAVE item 1), `activity`
+and `demote` (L15), `envelopeStates` (METAMODEL WAVE item 2c). Every one of
+these reads an AST attribute (`ast.Leaf.elastic_axes` /
+`.ceiling_axes` / `.floor_axes` / `.edge_axes` / `.orientation` /
+`.activity`, `ast.Slot.presence`, `ast.Sizing.envelope_states`) that a
+SEPARATE, EARLIER port (AMENDMENT 7 to `lyt_ast.py`/`loader.py`, ledger
+rows 2107/2108, the "M1 substrate port") already landed on mainline --
+this stage's own job is narrower: read those already-loaded, already-
+validated attributes and carry them into the EMITTED program, the same
+"expose, don't re-derive" posture every other leaf fact in this function
+already takes.
+
+DISCLOSED, DELIBERATE SCOPE NARROWING relative to the experiment's own
+emitter (STOP-and-report per the umbrella CLAUDE.md; recorded in this
+stage's own delivery report): the experiment's emitter ALSO carries
+`unitAxes` (L10) and `wrapPolicy` (a leaf's own wrap declaration, plus an
+Exclusive node's own `wrapPolicy` field) and wires TWO track-shape-
+algorithm changes off Sizing flags that are NOT metadata pass-through --
+a `ceiling`/`demand` track-shape kind in `_track_shape_for_child` (driven
+by the whole-leaf `Sizing.ceiling` flag and by a leaf's `ceiling_axes`
+matching its parent's own partition axis) and a `Sizing.measure_bound`
+gate on `_apply_board_priority`'s CASE B. None of these three is ported
+this stage. The reason is a genuine, checked fact about mainline's own
+`.lyt` encodings, not a arbitrary cut: mainline's `lengyue_landscape.lyt`/
+`lengyue_portrait.lyt` never declare the `ceiling` (whole-leaf),
+`measure-bound`, `unit`, or `wrap` concrete-syntax tokens ANYWHERE today
+(confirmed by direct grep across both files) -- `Sizing.ceiling` and
+`Sizing.measure_bound` read `False` and `Leaf.unit_axes`/`Slot.wrap_policy`
+read empty/`None` for every leaf the AMENDMENT 7 port's own dispatch
+report already established as "dormant... byte-identical solver output".
+Porting the `ceiling`/`demand` track-kind branches would therefore be
+inert TODAY -- but porting the experiment's `measure_bound` GATE on CASE B
+would NOT be inert: mainline's own CASE B (portrait's board composite)
+currently applies `board-priority-self-clamp` UNCONDITIONALLY whenever
+`_find_board_composite_child`'s shape match fires, with no declaration
+gate. The experiment's own portrait encoding declares `measure-bound` on
+that composite (verified: mainline's does not), so porting the
+experiment's gated condition verbatim onto mainline's UN-declared encoding
+would SILENTLY REMOVE portrait's board-priority-self-clamp track override
+-- a genuine rendered-output regression, exactly the "realization changes
+as a side effect of this port" stop condition the commission names. `_
+apply_board_priority`, `_track_shape_for_child`'s track-KIND vocabulary,
+`LytExclusiveNode.wrapPolicy`, and `LytLeafNode.unitAxes`/`.wrapPolicy` are
+therefore left untouched by this port; a future stage that wants the
+`ceiling`/`demand`/`measure-bound` behavior needs its own encoding-level
+change (declaring the tokens) alongside the emitter change, not a
+metadata-only port. The 8 fields this stage DOES port carry through
+already-loaded AST data with no algorithmic branch added anywhere in this
+module -- confirmed additive-only: every existing consumer of the leaf
+node shape (`LytNode.vue`, `useLytTrackCss.ts`, `useLytOverflowCss.ts`,
+the widget registry) reads only the fields it already read before this
+port; none is wired to read any of the 8 new ones this wave, so the
+compiled programs' CONSUMED behavior is unchanged even though their DATA
+is richer (verified by the roundtrip regeneration this stage's own
+delivery report records).
+
 Shared TS types (ADR-0012 one-home-per-fact, W3): the `LytProgram`
 data-shape types (`LytAxis`, `LytTrackShape`, etc.) used to be
 duplicated verbatim inside this script's own `render_ts` (the only
@@ -567,6 +628,38 @@ def _build_node(
             # component. Sorted for deterministic emitted output.
             "scrollAxes": sorted(slot.scroll_axes),
             "content": node.content,
+            # M2 STAGE F1 PORT (module docstring, same name): the eight
+            # realization-layer leaf metadata fields, read off already-
+            # loaded ast.Leaf/ast.Slot/ast.Sizing attributes (AMENDMENT 7's
+            # own earlier port already put them on the AST -- this stage
+            # only exposes them to the emitted program). See the module
+            # docstring's own disclosed-narrowing paragraph for the three
+            # experiment fields/behaviors this port deliberately does NOT
+            # carry (unitAxes, wrapPolicy, the ceiling/demand track kinds,
+            # the measure_bound CASE B gate).
+            "elasticAxes": sorted(node.elastic_axes),
+            "ceilingAxes": sorted(node.ceiling_axes),
+            "floorAxes": [
+                {"axis": a, "px": e.v}
+                for a, e in sorted(node.floor_axes, key=lambda pair: pair[0])
+            ],
+            "edgeAxes": [
+                {"axis": a, "disposition": d}
+                for a, d in sorted(node.edge_axes, key=lambda pair: pair[0])
+            ],
+            "orientation": node.orientation,
+            "activity": node.activity,
+            "demote": (
+                {
+                    "axis": slot.presence.demote_axis,
+                    "belowPx": slot.presence.demote_below_px,
+                }
+                if slot.presence.kind == "demote"
+                else None
+            ),
+            "envelopeStates": (
+                sorted(slot.sizing.envelope_states) if slot.sizing.envelope_states else None
+            ),
         }
     if isinstance(node, ast.Exclusive):
         # AMENDMENT 6 (ledger row 1937, .claude/dispatch-reports/
@@ -799,10 +892,41 @@ def _ts_node(node: dict, indent: str) -> str:
         facets = ", ".join(json.dumps(f) for f in node["facets"])
         scroll_axes = ", ".join(json.dumps(a) for a in node["scrollAxes"])
         content = "null" if node["content"] is None else json.dumps(node["content"])
+        # M2 STAGE F1 PORT (module docstring, same name): serialization for
+        # the eight ported realization-layer leaf metadata fields.
+        elastic_axes = ", ".join(json.dumps(a) for a in node["elasticAxes"])
+        ceiling_axes = ", ".join(json.dumps(a) for a in node["ceilingAxes"])
+        floor_axes = ", ".join(
+            f'{{ axis: {json.dumps(f["axis"])}, px: {f["px"]:g} }}' for f in node["floorAxes"]
+        )
+        edge_axes = ", ".join(
+            f'{{ axis: {json.dumps(e["axis"])}, '
+            f'disposition: {json.dumps(e["disposition"])} }}'
+            for e in node["edgeAxes"]
+        )
+        orientation = json.dumps(node["orientation"])
+        activity = "null" if node["activity"] is None else json.dumps(node["activity"])
+        demote = (
+            "null"
+            if node["demote"] is None
+            else (
+                f'{{ axis: {json.dumps(node["demote"]["axis"])}, '
+                f'belowPx: {node["demote"]["belowPx"]:g} }}'
+            )
+        )
+        envelope_states = (
+            "null"
+            if node["envelopeStates"] is None
+            else "[" + ", ".join(json.dumps(s) for s in node["envelopeStates"]) + "]"
+        )
         return (
             f'{{ kind: "leaf", widget: {json.dumps(node["widget"])}, '
             f'domain: {json.dumps(node["domain"])}, facets: [{facets}], aspect: {aspect}, '
-            f"scrollAxes: [{scroll_axes}], content: {content} }}"
+            f"scrollAxes: [{scroll_axes}], content: {content}, "
+            f"elasticAxes: [{elastic_axes}], ceilingAxes: [{ceiling_axes}], "
+            f"floorAxes: [{floor_axes}], edgeAxes: [{edge_axes}], "
+            f"orientation: {orientation}, activity: {activity}, demote: {demote}, "
+            f"envelopeStates: {envelope_states} }}"
         )
     if kind == "blackbox":
         tag = "null" if node["tag"] is None else json.dumps(node["tag"])
@@ -867,6 +991,15 @@ def render_ts(program: dict, *, registration: Registration) -> str:
         "disclosed, deliberate scope narrowing (dynamic user-configurable analysis "
         "tabs) — see this tool's own module docstring, 'REALIZATION WAVE' and "
         "'SETTINGS OPENED LIVE' sections."
+    )
+    lines.append(
+        " * M2 STAGE F1 PORT: leaf nodes now carry eight additional "
+        "realization-layer metadata fields (elasticAxes/ceilingAxes/floorAxes/"
+        "edgeAxes/orientation/activity/demote/envelopeStates), ported from the "
+        "model-iteration loop experiment as inert data — no current consumer "
+        "reads them yet; see this tool's own module docstring, 'M2 STAGE F1 "
+        "PORT' section, for the disclosed narrowing (unitAxes/wrapPolicy and "
+        "two track-shape algorithm changes are NOT ported this stage)."
     )
     lines.append(
         " * Data-shape types (LytProgram, LytTrackShape, etc.) are NOT declared here — "

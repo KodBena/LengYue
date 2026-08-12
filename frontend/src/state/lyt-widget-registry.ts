@@ -81,6 +81,34 @@ export interface LytWidgetRegistryEntry {
    *  target are rendered as one wrapper spanning every one of their
    *  tracks, in encoding order). */
   readonly absorbedInto: string | null;
+  /** METAMODEL WAVE, item 2b (ledger row 2157/2184, branch
+   *  lyt-model-loop-experiment, NOT merged without ratification; ported to
+   *  mainline under M2 stage F1, ledger row 2311 disposition 2): the
+   *  ACTIVITY-STATE SET this widget renders across — which states a
+   *  widget renders in (rev2 domain-model-proposal §2.2's own wording).
+   *  `null` (the default) means "not swept yet" — most entries below,
+   *  since this wave populates it only where a direct read of the
+   *  mounting condition (an App.vue `v-if`, a component's own gated
+   *  render) verified the states rather than assuming them from the
+   *  domain-model census's own secondhand table. A non-null set is
+   *  consulted by `useLytActivityInvariance.ts`'s L6 checker: when a
+   *  leaf's OWN compiled `envelopeStates` (a genuinely declared envelope)
+   *  is present, it must equal this set exactly — catching DRIFT between
+   *  the two authorities (the registry's own component sweep, and the
+   *  `.lyt` encoding's own envelope declaration), not asserting that
+   *  every widget named here must own an envelope at all (several of the
+   *  entries below are the domain model's own POSITIVE template — a
+   *  standing reservation painting nothing when its content is absent —
+   *  and would be WRONGLY flagged by a stronger "missing envelope is a
+   *  violation" rule; see that checker's own header for the full
+   *  disposition). F1 ports the field verbatim but populates it only on
+   *  the widget ids that exist identically on both the experiment branch
+   *  and mainline and whose value the experiment verified directly
+   *  against component source (`B` / `I_board` / `tree` / `CP-analysis` /
+   *  `A_board`); mainline's `settingsSubstrip`/`settingsPane`/`A_engine`/
+   *  `A_app` split has no experiment-side counterpart to port a verified
+   *  value from, so those (and every other entry) stay `null`. */
+  readonly activityStates: readonly string[] | null;
   readonly note: string;
 }
 
@@ -96,6 +124,14 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     status: 'mounted',
     slotName: '#leaf-B',
     absorbedInto: null,
+    // METAMODEL WAVE item 2b: verified directly (frontend/src/App.vue,
+    // `<BoardWidget v-if="activeBoard" .../>`) — mounts nothing when no
+    // board is active, a standing reservation that paints empty. No
+    // envelope declared in the encoding (a fixed `aspect`-locked leaf,
+    // not an envelope basis) and none is needed: L6's checker treats
+    // this as the drift-detection case, not a missing-envelope violation
+    // (see LytWidgetRegistryEntry's own doc).
+    activityStates: ['boardLoaded', 'boardEmpty'],
     note: 'Mounted inside the aspect-leaf containment wrapper LytNode.vue applies to every node.aspect !== null leaf (the .board-cell/.board-square pattern proven in research/lyt/emit_mockup.py).',
   },
   I_board: {
@@ -104,6 +140,9 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     status: 'mounted',
     slotName: '#leaf-I_board',
     absorbedInto: null,
+    // METAMODEL WAVE item 2b: same v-if="activeBoard" gate as `B` above
+    // (App.vue), same disposition.
+    activityStates: ['boardLoaded', 'boardEmpty'],
     note: 'Judgment call: the encoding reserves I_board (24px, info) and A_board (28px, action) as two adjacent bands under the board, but the real StatusBar.vue is ALREADY one component carrying both an info readout and its action buttons internally (unlike the encoding\'s split). I_board\'s mount spans both tracks (spanTracks: 2 in the renderer call site) rather than splitting StatusBar in two; A_board is registered ABSORBED into I_board below. Total reserved height (52px) is unchanged from the encoding\'s own two-band sum. LYT toolbar ontology reencode (item 1, "board controls go to the board"): StatusBar.vue now ALSO mounts the relocated move-navigation cluster (ToolbarMoveNav) inside this same span — see that file\'s own header.',
   },
   A_board: {
@@ -112,6 +151,7 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     status: 'absorbed',
     slotName: null,
     absorbedInto: 'I_board',
+    activityStates: null,
     note: 'See I_board\'s note — StatusBar\'s own action row satisfies this leaf; no separate mount.',
   },
 
@@ -122,6 +162,7 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     status: 'mounted',
     slotName: '#leaf-A_engine',
     absorbedInto: null,
+    activityStates: null,
     note: 'LYT toolbar ontology reencode (item 2, "ONE ENGINE CLUSTER, ENVELOPE-RESERVED"): connect/disconnect, the engine-controls button cluster (mint-card/learn-path/play/match), and engine metrics (ToolbarEngineMetrics) are ONE dedicated component now, mounted here in its own right — no absorption, no merge with A_app. The encoding\'s own `envelope: {disconnected, connected}` sizing basis (see lengyue_landscape.lyt/lengyue_portrait.lyt) reserves the MAX across engine states, so ToolbarEngineMetrics mounting/unmounting on connect/disconnect never re-partitions a sibling — the commissioner\'s witnessed defect ("actions still reorganize the buttons...e.g. connecting") forecloses by construction.',
   },
   A_app: {
@@ -130,6 +171,7 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     status: 'mounted',
     slotName: '#leaf-A_app',
     absorbedInto: null,
+    activityStates: null,
     note: 'LYT toolbar ontology reencode (item 3, "ONE APP CLUSTER"): Load/Save SGF, the sliders/setup/PBO popover triggers, the engine URI editor, and the locale picker — self-contained (see ToolbarAppCluster.vue\'s own header for why it sources its own composables rather than App.vue threading them through). Structurally independent of engine connection state (audited: no widget in this cluster reads `useEngineControls`).',
   },
 
@@ -140,6 +182,9 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     status: 'mounted',
     slotName: '#leaf-tree',
     absorbedInto: null,
+    // METAMODEL WAVE item 2b: same v-if="activeBoard" gate (App.vue),
+    // same disposition as `B`/`I_board` above.
+    activityStates: ['boardLoaded', 'boardEmpty'],
     note: 'Direct mount, unchanged wiring from the pre-rework App.vue (same props/events).',
   },
   controlPanel: {
@@ -159,6 +204,7 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     // against (App.vue's own resizer-inner anchor).
     slotName: null,
     absorbedInto: null,
+    activityStates: null,
     note: 'The now-OPENED Exclusive(T) node (see lyt-layout.gen.ts header, "REALIZATION WAVE"). LytNode.vue\'s Exclusive case reuses TabWidget.vue directly (v-model + dynamic named slots per child) rather than mounting App.vue\'s own TabWidget instance — App.vue instead fills the five per-tab leaf slots below (#leaf-CP-library / #leaf-CP-cards / #leaf-CP-settings / #leaf-CP-analysis, plus #leaf-otherColorDebug / #leaf-otherBand for the opened Other tab).',
   },
   'CP-library': {
@@ -167,6 +213,7 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     status: 'mounted',
     slotName: '#leaf-CP-library',
     absorbedInto: null,
+    activityStates: null,
     note: 'REALIZATION WAVE: the control-panel T\'s own Library tab, opened live (item 1/2). Unchanged component/wiring from the pre-wave #library TabWidget slot — only the mount path moved (LytNode\'s Exclusive case instead of App.vue-authored TabWidget). scrollAxes: [v] (encoding-declared) derives this leaf\'s own overflow-y — see useLytOverflowCss.ts.',
   },
   'CP-cards': {
@@ -175,6 +222,7 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     status: 'mounted',
     slotName: '#leaf-CP-cards',
     absorbedInto: null,
+    activityStates: null,
     note: 'REALIZATION WAVE: the control-panel T\'s own Cards tab, opened live — see CP-library\'s own note for the shape (identical: pre-wave #cards TabWidget slot, unchanged wiring, scrollAxes: [v] derived overflow).',
   },
   // ── Settings interior, OPENED LIVE (work item `lyt-settings-live-
@@ -200,6 +248,7 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     status: 'mounted',
     slotName: '#leaf-settingsSubstrip',
     absorbedInto: null,
+    activityStates: null,
     note: 'The flow-wrap-capable settings sub-tab strip (research/lyt/flow.py; `SPEC-AMENDMENTS.md` rows 2007/2009). `content bounded`, no scrollAxes — the strip never scrolls; CSS flex-wrap (TabWidget.vue\'s own `wrap` prop) realizes the SAME greedy left-to-right packing the encoding\'s own flow-envelope derivation computes offline.',
   },
   settingsPane: {
@@ -208,6 +257,7 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     status: 'mounted',
     slotName: '#leaf-settingsPane',
     absorbedInto: null,
+    activityStates: null,
     note: 'The six settings sub-tab bodies (Session/Analysis Environment/Card Sets/Advanced Registry/Analysis/Keybindings), moved verbatim from the retired SettingsTab.vue. scrollAxes: [v] (encoding-declared, the disclosed worst-case-superset classification — see `lengyue_landscape.lyt`\'s own header) derives this leaf\'s own outer overflow; TabWidget\'s own `.tab-body` blanket scroll is retired for this instance (`ownsScroll=false`) so each sub-pane\'s own existing internal scroll owner (`.registry-container`\'s own `overflow-y:auto`, KeybindingsView\'s own) is the SOLE scroll owner on its path (L5b single-scroll-owner) — disclosed narrowing, SEVERITY CORRECTED 2026-08-12 per independent review (`.claude/dispatch-reports/lyt-settings-live-review.md` Finding 2): the ratified per-pane classification table (Advanced Registry/Keybindings scroll-owned, the other four no-scroll AT DECLARED DEMAND) is not fully re-derived at the component-CSS level this wave, and the Session (UI) pane — the DEFAULT-ACTIVE tab — genuinely SCROLLS TODAY at the pinned OPTIMAL size 1920x1080 (review-measured, not theoretical), a live breach of its own "no-scroll" classification, not merely a possible edge case. Filed as a deferral to the model-implementation wave (a second encoding-level opening of `settingsPane`), per orchestrator adjudication — not fixed this pass.',
   },
   'CP-analysis': {
@@ -216,6 +266,11 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     status: 'mounted',
     slotName: '#leaf-CP-analysis',
     absorbedInto: null,
+    // METAMODEL WAVE item 2b: verified directly (App.vue,
+    // `<AnalysisControls v-if="activeBoard" .../>`) — same disposition
+    // as `B`/`I_board`/`tree` above (a collapsed T-child leaf, not a
+    // presence toggle: mounted or not per the SAME boolean).
+    activityStates: ['boardLoaded', 'boardEmpty'],
     note: 'REALIZATION WAVE: a SYNTHETIC collapsed-subtree leaf, same shape as CP-settings above. Mounts AnalysisControls/AnalysisDashboard.vue unchanged — DELIBERATELY not opened to the encoding\'s own nested `T(AT_basic, AT_distributions, AT_stability, AT_multires)` this wave: AnalysisDashboard owns a genuinely DYNAMIC, user-configurable tab set (`AppSettings.analysisTabs`), and the encoding models only the STATIC default configuration (ratified consult §8.3\'s own named residual) — rendering it live would silently override a user\'s customized tabs. No scrollAxes derived here — AnalysisDashboard\'s own `.scrollable-content{overflow-y:auto}` keeps its pre-wave behavior unchanged.',
   },
 
@@ -226,6 +281,7 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     status: 'mounted',
     slotName: '#leaf-boardRail',
     absorbedInto: null,
+    activityStates: null,
     note: 'W2: mounts SidebarWidget.vue into this leaf when `session.ui.railStyle === \'slot\'` AND `session.ui.lytPresence.boardRail` is true (style A, roadmap §7 ruling 2). Style B (`railStyle === \'popover\'`) keeps this leaf\'s runtime presence override forced false regardless of `lytPresence.boardRail` — App.vue computes the override map, not LytNode.vue — so the grid track never claims standing space in that style; the rail instead renders inside `BoardRailPopoverTrigger.vue`\'s own popover, reusing the SAME SidebarWidget instance shape (a second mount, not a shared component instance — Vue components are not multiply-homed).',
   },
   previewBoard: {
@@ -234,6 +290,7 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     status: 'mounted',
     slotName: '#leaf-previewBoard',
     absorbedInto: null,
+    activityStates: null,
     note: 'W2: mounts PreviewBoardPanel.vue (components/board/PreviewBoardPanel.vue), a read-only MiniBoard-based preview reusing LibraryPreviewPane\'s boardSnapshot-projection machinery. DISCLOSED SCOPE NARROWING (commission item 3, P1/P2): the variation-to-display fact ("what is the user currently hovering/considering in the tree/analysis surfaces") does not exist as readable derived state yet, so this mounts the ACTIVE BOARD\'s current position as a placeholder — a real, honest preview of *something* (today\'s board), not a stub — rather than inventing new analysis plumbing. Upgrading to true variation-hover content is a later, disclosed arc.',
   },
 
@@ -246,6 +303,7 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     status: 'mounted',
     slotName: '#leaf-otherColorDebug',
     absorbedInto: null,
+    activityStates: null,
     note: 'REALIZATION WAVE item 4: the fixed, designed-height band (content designed, no scroll declared — L5c\'s chart-exclusion) of the Other tab\'s split. Mounts ColorDebugStrip.vue, unchanged wiring from the pre-wave single #other slot.',
   },
   otherBand: {
@@ -254,6 +312,7 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     status: 'mounted',
     slotName: '#leaf-otherBand',
     absorbedInto: null,
+    activityStates: null,
     note: 'REALIZATION WAVE item 4: the scroll-owned band (content unbounded, scroll v declared) of the Other tab\'s split — KnobRegistryEditor + the gradient-calibration notice + VisitsLerpConfig + PerQueryOverridesConfig + QeuboBookmarks, the SAME four components the pre-wave single #other slot mounted together, now grouped under one scroll owner rather than riding the retired ancestor TabWidget `.tab-body` scroll. `component: null` because this leaf mounts a GROUP, not one named component — see App.vue\'s own #leaf-otherBand template for the full list.',
   },
 };

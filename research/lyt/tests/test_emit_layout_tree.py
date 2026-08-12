@@ -522,6 +522,96 @@ def test_cli_registration_portrait_writes_matching_content(tmp_path):
     assert out.read_text() == expected
 
 
+# ---------------------------------------------------------------------------
+# M2 STAGE F1 PORT (ledger row 2311 disposition 2): the eight realization-
+# layer leaf metadata fields ported from the model-iteration loop
+# experiment. See emit_layout_tree.py's own module docstring, 'M2 STAGE F1
+# PORT' section, for the disclosed scope narrowing (unitAxes/wrapPolicy and
+# two track-shape algorithm changes are NOT ported this stage).
+# ---------------------------------------------------------------------------
+
+
+def test_f1_port_leaf_fields_default_empty_for_a_plain_leaf():
+    """`tree` declares none of the eight fields -- every one reads its
+    byte-identical-to-pre-port default (empty list / 'v' / null)."""
+    program = elt.build_program()
+    side = _find(program["root"]["children"], "2")["node"]["children"]
+    tree_row = _find(side, "2.3")["node"]["children"]
+    tree = _find(tree_row, "2.3.0")["node"]
+    assert tree["elasticAxes"] == []
+    assert tree["ceilingAxes"] == []
+    assert tree["floorAxes"] == []
+    assert tree["edgeAxes"] == []
+    assert tree["orientation"] == "v"
+    assert tree["activity"] is None
+    assert tree["demote"] is None
+    assert tree["envelopeStates"] is None
+
+
+def test_f1_port_a_app_activity_and_demote():
+    """`A_app` declares `@demote(h 616px) {..., activity occasional}` --
+    verified directly against the encoding (module docstring's own
+    'disclosed narrowing' paragraph names this as one of the two mainline
+    leaves the port's fields are genuinely non-null for)."""
+    program = elt.build_program_for(elt.REGISTRATIONS["landscape"])
+    side = _find(program["root"]["children"], "2")["node"]["children"]
+    a_app = _find(side, "2.1")["node"]
+    assert a_app["widget"] == "A_app"
+    assert a_app["activity"] == "occasional"
+    assert a_app["demote"] == {"axis": "h", "belowPx": 616.0}
+    assert a_app["envelopeStates"] is None
+
+
+def test_f1_port_a_setup_activity_no_demote():
+    """`A_setup` declares `activity occasional` but no `@demote` (it is a
+    `@toggle(user, release)` presence slot, a different presence kind)."""
+    program = elt.build_program_for(elt.REGISTRATIONS["landscape"])
+    side = _find(program["root"]["children"], "2")["node"]["children"]
+    a_setup = _find(side, "2.2")["node"]
+    assert a_setup["widget"] == "A_setup"
+    assert a_setup["activity"] == "occasional"
+    assert a_setup["demote"] is None
+
+
+def test_f1_port_cp_library_elastic_floor_edge():
+    """`CP-library`/`CP-cards` declare `elastic h, floor v 160px, edge v
+    item` -- verified directly against the encoding."""
+    program = elt.build_program_for(elt.REGISTRATIONS["landscape"])
+    side = _find(program["root"]["children"], "2")["node"]["children"]
+    tree_row = _find(side, "2.3")["node"]["children"]
+    control_panel = _find(tree_row, "2.3.1")["node"]
+    library = _find(control_panel["children"], "2.3.1.0")["node"]
+    assert library["widget"] == "CP-library"
+    assert library["elasticAxes"] == ["h"]
+    assert library["floorAxes"] == [{"axis": "v", "px": 160.0}]
+    assert library["edgeAxes"] == [{"axis": "v", "disposition": "item"}]
+    assert library["ceilingAxes"] == []
+    assert library["orientation"] == "v"
+
+
+def test_f1_port_envelope_states_null_for_every_leaf_this_wave():
+    """Mainline's ONE `envelope: {disconnected, connected}` declaration
+    wraps the `A_engine` composite's own containing Split slot, not a bare
+    leaf -- so this leaf-only field is `null` everywhere in the compiled
+    landscape program this wave (see the module docstring / LytLeafNode's
+    own doc-comment on `envelopeStates` for the full disclosure). A_engine
+    itself is not a leaf (kind 'split'), so it is not iterated here."""
+    program = elt.build_program_for(elt.REGISTRATIONS["landscape"])
+
+    def _walk(node):
+        if node["kind"] == "leaf":
+            assert node["envelopeStates"] is None, node["widget"]
+        elif node["kind"] == "split":
+            for c in node["children"]:
+                _walk(c["node"])
+        elif node["kind"] == "exclusive":
+            for c in node["children"]:
+                _walk(c["node"])
+        # 'blackbox' carries no leaf of its own.
+
+    _walk(program["root"])
+
+
 def test_cli_default_registration_is_landscape(tmp_path):
     """No --registration flag reproduces this script's pre-W3 behavior
     (landscape) exactly -- exercised end-to-end via --out redirection
