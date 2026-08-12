@@ -136,6 +136,19 @@ NOT in the collapse set -- they open normally via the SAME generic recursion
 every other node kind already gets, with no special-casing beyond the
 collapse-set membership test.
 
+SETTINGS OPENED LIVE (2026-08-11, work item `lyt-settings-live-opening`,
+ledger rows 2007/2009/2001): the SETTINGS narrowing named above is RETIRED.
+`control_panel_collapse_indices` drops from `{2, 3}` to `{3}` -- index 2
+(`CP-settings`) now opens generically like library/cards/other, per the
+composition-boundary refactor named in that work item's own commission (the
+frontend's own `SettingsTab.vue` is split into `SettingsSubstrip.vue`/
+`SettingsPane.vue`, mounted at the encoding's own `settingsSubstrip`/
+`settingsPane` leaves -- see those files' own headers and `frontend/src/
+state/lyt-widget-registry.ts`'s updated entries). ANALYSIS (index 3) is
+UNCHANGED and stays collapsed -- the reason above (a genuinely dynamic,
+user-configurable tab set the static encoding only models the default
+configuration of) is untouched by this work item and remains valid.
+
 REPAIR (2026-08-11, `.claude/dispatch-reports/lyt-optionc-review.md`
 Finding 2, corrected in `.claude/dispatch-reports/lyt-optionc-repair.md`):
 the paragraph above's own "UNCHANGED... byte-identical" claim was FALSE for
@@ -330,7 +343,7 @@ REGISTRATIONS: Dict[str, Registration] = {
         default_out=DEFAULT_OUT,
         open_control_panel=True,
         control_panel_tab_ids=("library", "cards", "settings", "analysis", "other"),
-        control_panel_collapse_indices=frozenset({2, 3}),
+        control_panel_collapse_indices=frozenset({3}),
     ),
     "portrait": Registration(
         layout_file="lengyue_portrait.lyt",
@@ -341,7 +354,7 @@ REGISTRATIONS: Dict[str, Registration] = {
         default_out=DEFAULT_OUT_PORTRAIT,
         open_control_panel=True,
         control_panel_tab_ids=("library", "cards", "settings", "analysis", "other"),
-        control_panel_collapse_indices=frozenset({2, 3}),
+        control_panel_collapse_indices=frozenset({3}),
     ),
 }
 
@@ -792,11 +805,11 @@ def render_ts(program: dict, *, registration: Registration) -> str:
     )
     lines.append(
         " * REALIZATION WAVE: the control-panel Exclusive (T) node is now genuinely "
-        "opened (kind 'exclusive', widget 'controlPanel') for library/cards/other; "
-        "settings/analysis stay collapsed to a 'blackbox' leaf each (CP-settings / "
-        "CP-analysis) — a disclosed, deliberate scope narrowing (dynamic "
-        "user-configurable analysis tabs) — see this tool's own module docstring, "
-        "'REALIZATION WAVE' section."
+        "opened (kind 'exclusive', widget 'controlPanel') for library/cards/settings/"
+        "other; analysis stays collapsed to a 'blackbox' leaf (CP-analysis) — a "
+        "disclosed, deliberate scope narrowing (dynamic user-configurable analysis "
+        "tabs) — see this tool's own module docstring, 'REALIZATION WAVE' and "
+        "'SETTINGS OPENED LIVE' sections."
     )
     lines.append(
         " * Data-shape types (LytProgram, LytTrackShape, etc.) are NOT declared here — "

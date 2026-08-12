@@ -56,11 +56,21 @@ def test_bench_real_encodings_smoke():
     The landscape INFEASIBLE finding, and the 820px-vs-~838px tension it
     surfaces, is left for the commissioner (see the repair report's own
     Finding 3 section) -- this test only pins the now-honest status, it
-    does not adjudicate a remedy."""
+    does not adjudicate a remedy.
+
+    STALE-ASSERTION UPDATE (2026-08-11, work item `lyt-settings-live-
+    opening`, ledger rows 2007/2009): the flow-envelope settings-substrip
+    fix (`research/lyt/flow.py`) drops the settings composite's floor
+    838px -> 443px, well under the 820px cap this test's own docstring
+    names — `lengyue-landscape@1920x1080` (this spec prunes
+    boardRail/previewBoard absent, i.e. the SAME solve as the "default"
+    valuation `test_generated_pages_embed_valid_overlay_json_matching_
+    overlay_sizes` also pins) returns to OPTIMAL, verified directly.
+    `known_infeasible` is now empty; every spec is asserted OPTIMAL."""
     results = bench_solve.bench_real_encodings(n=2, time_limit_s=20.0)
     assert len(results) == len(bench_solve.REAL_SPECS)
     by_label = {r.label: r for r in results}
-    known_infeasible = {"lengyue-landscape@1920x1080"}
+    known_infeasible: set = set()
     for r in results:
         assert r.n_solves == 2
         assert r.mean_ms > 0.0

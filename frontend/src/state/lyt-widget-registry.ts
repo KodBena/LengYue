@@ -177,13 +177,38 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     absorbedInto: null,
     note: 'REALIZATION WAVE: the control-panel T\'s own Cards tab, opened live — see CP-library\'s own note for the shape (identical: pre-wave #cards TabWidget slot, unchanged wiring, scrollAxes: [v] derived overflow).',
   },
-  'CP-settings': {
-    widget: 'CP-settings',
-    component: 'SettingsTab',
+  // ── Settings interior, OPENED LIVE (work item `lyt-settings-live-
+  //    opening`, ledger rows 2007/2009/2001) ─────────────────────────────
+  // `CP-settings` is no longer a collapsed synthetic leaf — the encoding's
+  // own `V(settingsSubstrip, settingsPane)` interior (research/lyt's own
+  // `control_panel_collapse_indices` drops `{2, 3}` -> `{3}`) is a genuine
+  // `split` node LytNode.vue's existing generic Split recursion already
+  // handles (no LytNode.vue change needed — the recursion was already
+  // total over Leaf|Split|Exclusive). SettingsTab.vue's own composition
+  // boundary is split accordingly: `SettingsSubstrip.vue` (the flow-
+  // wrap-capable sub-tab strip, TabWidget driven with `part="header"`)
+  // mounts at `settingsSubstrip`; `SettingsPane.vue` (the six sub-tab
+  // bodies, TabWidget driven with `part="body"`) mounts at `settingsPane`
+  // — ONE tab implementation still (TabWidget.vue), driven twice from two
+  // separately-mounted LYT leaves sharing state via
+  // `composables/chrome/useSettingsSubTab.ts`'s own module-singleton ref
+  // (see that file's header for why a singleton, not a store field, is
+  // the honest shape here). `SettingsTab.vue` is retired.
+  settingsSubstrip: {
+    widget: 'settingsSubstrip',
+    component: 'SettingsSubstrip',
     status: 'mounted',
-    slotName: '#leaf-CP-settings',
+    slotName: '#leaf-settingsSubstrip',
     absorbedInto: null,
-    note: 'REALIZATION WAVE: a SYNTHETIC collapsed-subtree leaf (emit_layout_tree.py\'s own `control_panel_collapse_indices`), not a leaf the .lyt encoding itself declares. Mounts SettingsTab.vue unchanged — the encoding\'s own modeled `V(settingsSubstrip, settingsPane)` interior stays solver-visible but UNOPENED in the DOM this wave (disclosed scope narrowing: splitting SettingsTab\'s own internal TabWidget into two separately-mounted LYT leaves is a real refactor outside this wave\'s budget, named in the delivery report). No scrollAxes derived here — SettingsTab\'s own internal TabWidget keeps its pre-wave `.tab-body{overflow-y:auto}` unchanged.',
+    note: 'The flow-wrap-capable settings sub-tab strip (research/lyt/flow.py; `SPEC-AMENDMENTS.md` rows 2007/2009). `content bounded`, no scrollAxes — the strip never scrolls; CSS flex-wrap (TabWidget.vue\'s own `wrap` prop) realizes the SAME greedy left-to-right packing the encoding\'s own flow-envelope derivation computes offline.',
+  },
+  settingsPane: {
+    widget: 'settingsPane',
+    component: 'SettingsPane',
+    status: 'mounted',
+    slotName: '#leaf-settingsPane',
+    absorbedInto: null,
+    note: 'The six settings sub-tab bodies (Session/Analysis Environment/Card Sets/Advanced Registry/Analysis/Keybindings), moved verbatim from the retired SettingsTab.vue. scrollAxes: [v] (encoding-declared, the disclosed worst-case-superset classification — see `lengyue_landscape.lyt`\'s own header) derives this leaf\'s own outer overflow; TabWidget\'s own `.tab-body` blanket scroll is retired for this instance (`ownsScroll=false`) so each sub-pane\'s own existing internal scroll owner (`.registry-container`\'s own `overflow-y:auto`, KeybindingsView\'s own) is the SOLE scroll owner on its path (L5b single-scroll-owner) — disclosed narrowing, SEVERITY CORRECTED 2026-08-12 per independent review (`.claude/dispatch-reports/lyt-settings-live-review.md` Finding 2): the ratified per-pane classification table (Advanced Registry/Keybindings scroll-owned, the other four no-scroll AT DECLARED DEMAND) is not fully re-derived at the component-CSS level this wave, and the Session (UI) pane — the DEFAULT-ACTIVE tab — genuinely SCROLLS TODAY at the pinned OPTIMAL size 1920x1080 (review-measured, not theoretical), a live breach of its own "no-scroll" classification, not merely a possible edge case. Filed as a deferral to the model-implementation wave (a second encoding-level opening of `settingsPane`), per orchestrator adjudication — not fixed this pass.',
   },
   'CP-analysis': {
     widget: 'CP-analysis',

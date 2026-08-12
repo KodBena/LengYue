@@ -138,6 +138,28 @@
 --     actual 92ch/838px (a systematic +1-per-label ch-count error, five of
 --     six labels affected — see the landscape header's Finding 3 note for
 --     the full per-label table).
+--
+--     FLOW-CAPABLE SETTINGS SUBSTRIP (2026-08-11, work item
+--     lyt-settings-live-opening, ledger rows 2007/2009): identical
+--     derivation to `lengyue_landscape.lyt`'s own header note (read there
+--     in full — the six item widths, `research/lyt/flow.py`'s
+--     `narrowest_width_for_row_count`/`flow_envelope`, the 2-row/443px/
+--     60px design point, the BOTH-AXES-TENSION-driven composite min drop
+--     from 838px to 443px). Applied identically here per this file's own
+--     established convention (this section's own header line 120-121:
+--     "every genuinely NEW number ... is IDENTICAL across both classes —
+--     the underlying components render the same regardless of screen
+--     orientation, so there is no honest portrait-specific number to
+--     derive differently"). Portrait's own narrower available width
+--     (line 122-126 above) means this correction is, if anything, MORE
+--     load-bearing here than in landscape.
+--
+--     REPAIR (2026-08-12, independent review Finding 3 — identical
+--     correction to `lengyue_landscape.lyt`'s own REPAIR header note,
+--     read there in full): `settingsSubstrip` moves `{60px}` -> `{77px}`
+--     (the review's own live-measured 67px + this file's established
+--     ~10px margin posture). Composite `min` unchanged at 443px (the new
+--     281px height floor stays under the 443px width floor).
 layout lengyue-portrait =
   {min 0px, pref 1fr, max inf, gap 12px} V(
     @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
@@ -153,8 +175,8 @@ layout lengyue-portrait =
       {min 200px, pref 1fr, max inf} T(
         {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} CP-library[common],
         {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} CP-cards[common],
-        {min 838px, pref 1fr, max inf, gap 4px} V(
-          {28px, boundary, content bounded} settingsSubstrip[common],
+        {min 443px, pref 1fr, max inf, gap 4px} V(
+          {77px, boundary, content bounded} settingsSubstrip[common],
           {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} settingsPane[common]
         ),
         {min 664px, pref 1fr, max inf, gap 4px} V(
