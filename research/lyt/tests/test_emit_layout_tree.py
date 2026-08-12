@@ -151,7 +151,16 @@ def test_control_panel_blackbox_floor_is_wrapper_min_derived():
     # at the pinned sizes (`test_lyt.py`'s own AMENDMENT 6 / Option C
     # section) -- this assertion is about the EMITTED track only, unchanged
     # from pre-Option-C behavior by design.
-    assert control_panel["track"] == {"kind": "elastic", "minPx": 160.0, "frWeight": 1.0}
+    #
+    # STALE-ASSERTION UPDATE (2026-08-12, M2 stage B2a, ledger rows
+    # 2108/2331): the fork-1 ruling's own tree/T(...) residual-holder swap
+    # PINS `T(...)` at `{min 664px, pref 664px, max 664px}` (its own
+    # already-existing componentwise-max floor, dominated by CP-analysis's
+    # 664px) instead of leaving it elastic (`pref 1fr, max inf`) -- `tree`
+    # is the row's residual holder now. The emitted track shape changes
+    # from `elastic` (minPx 160) to a plain `fixed` 664 accordingly --
+    # verified directly against `emit_layout_tree.py`'s own output.
+    assert control_panel["track"] == {"kind": "fixed", "px": 664.0}
 
 
 def test_control_panel_exclusive_opens_library_cards_settings_other_collapses_analysis():
@@ -396,7 +405,14 @@ def test_portrait_control_panel_blackbox_floor_is_wrapper_min_derived():
     # T's INTERIOR, since the wrapping slot's track is a fact of the SPLIT
     # child (the control-panel T's own parent Split), computed independently
     # of the T's own node-kind.
-    assert control_panel["track"] == {"kind": "elastic", "minPx": 200.0, "frWeight": 1.0}
+    #
+    # STALE-ASSERTION UPDATE (2026-08-12, M2 stage B2a, ledger rows
+    # 2108/2331): same fork-1 ruling swap as landscape's own updated test
+    # (read that one's own note in full) -- `T(...)` is now PINNED at its
+    # own already-existing 664px componentwise-max floor (same number as
+    # landscape -- both classes' CP-analysis composite declares the
+    # identical, unchanged `min 664px`), not elastic.
+    assert control_panel["track"] == {"kind": "fixed", "px": 664.0}
 
 
 def test_portrait_render_ts_roundtrip_matches_committed_file():

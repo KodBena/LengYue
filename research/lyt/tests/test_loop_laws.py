@@ -905,27 +905,29 @@ def test_l13_fires_on_a_t_child_whose_horizontal_residual_nobody_claims():
     there that declares `scroll v` has disposed of its vertical axis and
     said nothing about its horizontal one.
 
-    M2 PORT NOTE: exercises `wellformed.find_l13_violations` directly
-    rather than through `loader.load_layouts` -- `check_wellformed` does
-    NOT wire L13 into its default `all_violations` on this mainline port
-    (see that function's own M2 PORT DISCLOSURE docstring paragraph: both
-    reference encodings already carry the shape L13 fires on, and this
-    port does not carry the `elastic h` encoding edit that would satisfy
-    it), so the FUNCTION is what this test pins, not the full load path."""
-    import wellformed as _wellformed
-
-    slot = _load_one(
-        "layout t = {min 0px, pref 1fr, max inf} V("
-        "  {min 10px, pref 1fr, max inf} T("
-        "     {min 10px, pref 1fr, max inf, content unbounded, scroll v, edge v item} a[common],"
-        "     {min 10px, pref 1fr, max inf, content unbounded, scroll v, edge v item} b[common]"
-        "  )"
-        ")"
-    )
-    violations = _wellformed.find_l13_violations(slot)
-    assert len(violations) == 2
-    assert all(law == "L13" for law, _path, _msg in violations)
-    assert all("'h' axis" in msg for _law, _path, msg in violations)
+    M2 STAGE B2a UPDATE (2026-08-12, ledger rows 2108/2331): restored to
+    the original experiment-branch shape (`pytest.raises(LytLoadError)`
+    around the full `loader.load_layouts` path) now that `check_wellformed`
+    wires L13 into its default `all_violations` -- both mainline reference
+    encodings now satisfy L13 (`CP-library`/`CP-cards` gained `elastic h`),
+    so the FULL LOAD PATH is what this test can exercise again, not merely
+    the standalone function (the prior M2-port-era adaptation, calling
+    `find_l13_violations` directly on an already-loaded slot, is no longer
+    necessary or even possible: a fixture that leaves L13 unsatisfied now
+    fails INSIDE `load_layouts` itself, before any direct-call assertion
+    could run)."""
+    with pytest.raises(LytLoadError) as exc:
+        _load_one(
+            "layout t = {min 0px, pref 1fr, max inf} V("
+            "  {min 10px, pref 1fr, max inf} T("
+            "     {min 10px, pref 1fr, max inf, content unbounded, scroll v, edge v item} a[common],"
+            "     {min 10px, pref 1fr, max inf, content unbounded, scroll v, edge v item} b[common]"
+            "  )"
+            ")"
+        )
+    assert exc.value.detail["law"] == "L13"
+    assert len(exc.value.detail["violations"]) == 2
+    assert all("'h' axis" in v for v in exc.value.detail["violations"])
 
 
 @pytest.mark.parametrize(
@@ -2047,18 +2049,17 @@ def test_l17_edge_takes_the_role_frame_through_the_leafs_own_orientation():
 
 
 def test_l17_clause_a_fires_on_a_scroller_that_never_named_its_edge():
-    """M2 PORT NOTE: exercises `wellformed.find_l17_violations` directly --
-    `check_wellformed` does NOT wire L17 into its default `all_violations`
-    on this mainline port (see that function's own M2 PORT DISCLOSURE
-    docstring paragraph), so the FUNCTION is what this test pins."""
-    import wellformed as _wellformed
-
-    slot = _l17_load(_l17_leaf("scroll v"))
-    violations = _wellformed.find_l17_violations(slot)
-    assert len(violations) == 1
-    law, _path, msg = violations[0]
-    assert law == "L17"
-    assert "declares no `edge v`" in msg
+    """M2 STAGE B2a UPDATE (2026-08-12, ledger rows 2108/2331): restored to
+    the original experiment-branch shape now that `check_wellformed` wires
+    L17 into its default `all_violations` -- see
+    `test_l13_fires_on_a_t_child_whose_horizontal_residual_nobody_claims`'s
+    own updated note for the full rationale (both mainline reference
+    encodings now satisfy L17 too)."""
+    with pytest.raises(LytLoadError) as exc:
+        _l17_load(_l17_leaf("scroll v"))
+    assert exc.value.detail["law"] == "L17"
+    assert len(exc.value.detail["violations"]) == 1
+    assert "declares no `edge v`" in exc.value.detail["violations"][0]
 
 
 @pytest.mark.parametrize("content", ["bounded", "designed"])
@@ -2083,14 +2084,13 @@ def test_l17_clause_b_refuses_an_edge_on_an_axis_that_does_not_scroll():
     between shown and unshown content on that axis -- only the parent's
     partition, and where the partition falls is not this leaf's fact.
 
-    M2 PORT NOTE: exercises `wellformed.find_l17_violations` directly --
-    see `test_l17_clause_a_fires_on_a_scroller_that_never_named_its_edge`'s
-    own note for why."""
-    import wellformed as _wellformed
-
-    slot = _l17_load(_l17_leaf("scroll v, edge v item, edge h continuous"))
-    violations = _wellformed.find_l17_violations(slot)
-    msgs = [msg for _law, _path, msg in violations]
+    M2 STAGE B2a UPDATE (2026-08-12, ledger rows 2108/2331): restored to
+    the original experiment-branch shape -- see
+    `test_l17_clause_a_fires_on_a_scroller_that_never_named_its_edge`'s
+    own updated note for why."""
+    with pytest.raises(LytLoadError) as exc:
+        _l17_load(_l17_leaf("scroll v, edge v item, edge h continuous"))
+    msgs = exc.value.detail["violations"]
     assert len(msgs) == 1
     assert "does not `scroll h`" in msgs[0]
 
@@ -2101,16 +2101,15 @@ def test_l17_clause_c_refuses_a_placeable_edge_beside_an_elastic_claim():
     boundary can fall between two items, `elastic v` claims every pixel of
     residual for the occupant. Same pixels, opposite directions.
 
-    M2 PORT NOTE: exercises `wellformed.find_l17_violations` directly --
-    see `test_l17_clause_a_fires_on_a_scroller_that_never_named_its_edge`'s
-    own note for why. Also declares `floor v 40px` (matching the fixture's
-    own 40px min) so this fixture does not ALSO trip L16 (which the M2 port
-    does wire, unlike L13/L17) -- L16 is not this test's own subject."""
-    import wellformed as _wellformed
-
-    slot = _l17_load(_l17_leaf("scroll v, unit v 24px, edge v unit, elastic v, floor v 40px"))
-    violations = _wellformed.find_l17_violations(slot)
-    msgs = [msg for _law, _path, msg in violations]
+    M2 STAGE B2a UPDATE (2026-08-12, ledger rows 2108/2331): restored to
+    the original experiment-branch shape -- see
+    `test_l17_clause_a_fires_on_a_scroller_that_never_named_its_edge`'s
+    own updated note for why. Also declares `floor v 40px` (matching the
+    fixture's own 40px min) so this fixture does not ALSO trip L16 (also
+    wired) -- L16 is not this test's own subject."""
+    with pytest.raises(LytLoadError) as exc:
+        _l17_load(_l17_leaf("scroll v, unit v 24px, edge v unit, elastic v, floor v 40px"))
+    msgs = exc.value.detail["violations"]
     assert any("in opposite directions" in m for m in msgs)
 
 

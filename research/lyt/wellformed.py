@@ -793,14 +793,20 @@ def find_l13_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str
     (`useLytOverflowCss.leafElasticStyle` publishes it, the occupant's own
     cap reads it). Same footing `ceiling`/L9 and `unit`/L10 have.
 
-    M2 PORT DISCLOSURE (ledger rows 2107/2108/2157/2209): this function is
-    fully ported and correct, and is exercised directly by its own tests
-    (see `tests/test_loop_laws.py`), but `check_wellformed` below does NOT
-    include its results in the enforced `all_violations` list -- see that
-    function's own comment for why (mainline's own `CP-library`/`CP-cards`
-    already carry the `content unbounded` + `scroll v` shape that trips
-    this law, and this port does not carry the encoding edit
-    (`elastic h`) the experiment branch made to satisfy it).
+    M2 PORT DISCLOSURE [corrected 2026-08-12, M2 stage B2a, ledger rows
+    2108/2331]: this function is fully ported and correct, exercised
+    directly by its own tests (see `tests/test_loop_laws.py`), and IS
+    included in `check_wellformed`'s enforced `all_violations` list as of
+    stage B2a -- `CP-library`/`CP-cards` now carry `elastic h` (the
+    horizontal disposition: a browse table's width reflows into whatever
+    it is granted, never scrolls sideways) alongside their pre-existing
+    `scroll v`, so this function returns `[]` against both committed
+    reference encodings (verified directly). See `check_wellformed`'s own
+    M2 PORT DISCLOSURE paragraph for the wiring, and `.claude/
+    dispatch-reports/lyt-m2-b2a-encoding-compliance.md` for the encoding
+    edits and their L16 cascade consequence (`elastic h` + `scroll v` over
+    `unbounded` content newly obliges `floor v`, ALREADY wired since
+    Amendment 8 -- closed in the same edit).
     """
     violations: List[Tuple[str, str, str]] = []
 
@@ -1323,15 +1329,22 @@ def find_l17_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str
     what it changes is what the realization is allowed to do at a boundary
     the solve had already placed.
 
-    M2 PORT DISCLOSURE (ledger rows 2107/2108/2157/2286): this function is
-    fully ported and correct, and is exercised directly by its own tests
-    (see `tests/test_loop_laws.py`), but `check_wellformed` below does NOT
-    include its results in the enforced `all_violations` list -- see that
-    function's own comment for why (mainline's own `CP-library`/
-    `CP-cards`/`settingsPane`/`otherBand`/`boardRail`/`tree` already carry
-    the `content unbounded` + `scroll` shape that trips this law, and this
-    port does not carry the encoding edits (`edge <axis> <disposition>`)
-    the experiment branch made to satisfy it).
+    M2 PORT DISCLOSURE [corrected 2026-08-12, M2 stage B2a, ledger rows
+    2108/2331]: this function is fully ported and correct, exercised
+    directly by its own tests (see `tests/test_loop_laws.py`), and IS
+    included in `check_wellformed`'s enforced `all_violations` list as of
+    stage B2a -- `CP-library`/`CP-cards`/`settingsPane`/`otherBand` (the
+    four leaves that genuinely trip this law's trigger on mainline's own
+    committed encodings; `boardRail`/`tree` never did -- neither leaf
+    declares `content`/`scroll` in either file, a correction to this
+    paragraph's own earlier text, which named them as violating sites
+    without independently re-verifying against mainline's own committed
+    tree) now each carry an `edge v <disposition>` reasoned from that
+    leaf's own content nature (`item` for the two browse tables and the
+    settings placeholder's own registry-shaped sub-tabs; `continuous` for
+    the freeform-JSON/registry editor), so this function returns `[]`
+    against both committed reference encodings (verified directly). See
+    `check_wellformed`'s own M2 PORT DISCLOSURE paragraph for the wiring.
     """
     violations: List[Tuple[str, str, str]] = []
 
@@ -1595,34 +1608,34 @@ def check_wellformed(
     once — a case no fixture reached before this amendment, since only
     L2 had a structural checker.
 
-    M2 PORT DISCLOSURE, read before trusting the "which laws are wired"
-    list below at face value (ledger rows 2107/2108/2157): L12, L14, L15,
-    and L16 join this walk-and-arbitrate family exactly as arc 4 wired
-    them (each is genuinely dormant against mainline's own two reference
-    encodings, verified directly -- see each function's own docstring for
-    why). **L13 and L17 do NOT** -- both fully ported, both fully correct,
-    both exercised directly by their own dedicated tests, but NEITHER is
-    included in `all_violations` below. Both fire against a CONDITION
-    (an `unbounded` leaf at the both-axes position for L13; an
-    `unbounded` + `scroll`ing leaf for L17) that mainline's own
-    `CP-library`/`CP-cards`/`settingsPane`/`otherBand`/`boardRail`/`tree`
-    leaves already satisfy (Amendment 5's own pre-existing declarations),
-    because the experiment branch that minted L13/L17 also edited both
-    `.lyt` encodings in the same round to satisfy them (`elastic h` /
-    `edge <axis> <disposition>`) -- an encoding edit this stage's own
-    brief puts out of scope (`research/lyt/encodings/*.lyt` must stay
-    byte-identical). Wiring L13/L17 into this function without that edit
-    makes `load_layouts` refuse to load EITHER reference encoding at
-    all -- verified directly, not guessed: both raise `LytLoadError` with
-    `law: 'L13'` (two sites) and, separately, `law: 'L17'` (six sites)
-    the moment the two functions are added to `all_violations`. This is
-    disclosed here, in `find_l13_violations`'/`find_l17_violations`' own
-    docstrings, and in this port's own dispatch report
-    (`.claude/dispatch-reports/lyt-m2-substrate-port.md`) -- not silently
-    resolved either way. A future stage may close this by declaring the
-    two keys on the six real sites, or by a `Waiver`; until then, this is
-    the honest, minimal-touch state: the language machinery exists and is
-    tested, the mainline encodings are unaffected by it.
+    M2 PORT DISCLOSURE [corrected 2026-08-12, M2 stage B2a encoding-
+    compliance pass, ledger rows 2108/2331 -- the paragraph below replaces
+    an earlier version that left L13/L17 unwired; that version is
+    superseded, not deleted -- see SPEC-AMENDMENTS.md's own Amendment 8
+    entry for the dated correction and `.claude/dispatch-reports/
+    lyt-m2-b2a-encoding-compliance.md` for the encoding edits that made
+    this wiring possible]: L12, L13, L14, L15, L16, and L17 ALL join this
+    walk-and-arbitrate family. L12/L14/L15/L16 are genuinely dormant
+    against mainline's own two reference encodings (each function's own
+    docstring has the why). **L13 and L17 are not dormant -- they are
+    SATISFIED**: stage B2a edited both `.lyt` encodings (`elastic h` +
+    `floor v` on `CP-library`/`CP-cards` for L13; `edge v <disposition>`
+    on `CP-library`/`CP-cards`/`settingsPane`/`otherBand` for L17,
+    reasoned per leaf from its own content nature) so that both real
+    encodings now load CLEAN under both laws (verified directly:
+    `find_l13_violations`/`find_l17_violations` both return `[]` against
+    both `lengyue_landscape.lyt`/`lengyue_portrait.lyt` as committed).
+    `boardRail`/`tree` were never genuine L13/L17 sites on mainline's own
+    committed encodings -- neither leaf declares `content`/`scroll` in
+    either file, so neither ever tripped either law's trigger; the prior
+    version of this docstring (and of SPEC-AMENDMENTS.md's Amendment 8
+    entry) named them as violating sites, which was FALSE relative to
+    mainline's actual committed content at the time it was written (that
+    prose was inherited from the experiment branch's own differently-
+    shaped encoding, never independently re-verified against mainline's
+    own tree until this stage did so directly) -- corrected here, dated,
+    per this file's own established "supersede honestly, do not delete"
+    posture for a previously-shipped claim found wrong.
     """
     waivers = list(waivers or [])
     l2 = [("L2", v.split(":", 1)[0], v) for v in find_l2_violations(root)]
@@ -1639,8 +1652,13 @@ def check_wellformed(
     # the same walk-and-arbitrate family, dormant by the same construction —
     # it fires only at a slot that genuinely declares an axis-keyed `min`.
     l12 = find_l12_violations(root)
-    # L13 is deliberately NOT wired here -- see this function's own M2 PORT
-    # DISCLOSURE paragraph above and `find_l13_violations`' own docstring.
+    # M2 STAGE B2a (ledger rows 2108/2331): L13 joins the walk-and-arbitrate
+    # family. NOT dormant on either mainline encoding -- both `CP-library`/
+    # `CP-cards` now carry `elastic h` + `floor v`, satisfying the law
+    # (verified directly: `find_l13_violations([]))` against both committed
+    # encodings) -- see this function's own M2 PORT DISCLOSURE paragraph
+    # above and `find_l13_violations`'s own docstring.
+    l13 = find_l13_violations(root)
     # LOOP ITERATION 10 / ARC 4 ROUND 3 (ledger row 2229): L14 joins the same
     # walk-and-arbitrate family. It is NOT dormant on a declaration of its
     # own key -- it fires at any Split-child leaf that scrolls on both axes
@@ -1664,8 +1682,14 @@ def check_wellformed(
     # encodings directly (neither declares `elastic` today, since L13 is
     # not wired either -- see above).
     l16 = find_l16_violations(root)
-    # L17 is deliberately NOT wired here -- see this function's own M2 PORT
-    # DISCLOSURE paragraph above and `find_l17_violations`' own docstring.
+    # M2 STAGE B2a (ledger rows 2108/2331): L17 joins the walk-and-arbitrate
+    # family. NOT dormant on either mainline encoding -- `CP-library`/
+    # `CP-cards`/`settingsPane`/`otherBand` now each carry an `edge v
+    # <disposition>` reasoned from that leaf's own content nature (verified
+    # directly: `find_l17_violations` returns `[]` against both committed
+    # encodings) -- see this function's own M2 PORT DISCLOSURE paragraph
+    # above and `find_l17_violations`'s own docstring.
+    l17 = find_l17_violations(root)
     # AMENDMENT 9 (ledger row 2310): L18 joins the same walk-and-arbitrate
     # family. It fires only where a leaf is BOTH the unique residual-
     # holding child of its Split parent AND authors `orient`. Both real
@@ -1676,7 +1700,7 @@ def check_wellformed(
     # own docstring for the full disclosure).
     l18 = find_l18_violations(root)
     all_violations: List[Tuple[str, str, str]] = (
-        l2 + l5 + l10 + l11 + l12 + l14 + l15 + l16 + l18
+        l2 + l5 + l10 + l11 + l12 + l13 + l14 + l15 + l16 + l17 + l18
     )
     waiver_index: Dict[Tuple[str, str], Waiver] = {(w.law, w.path): w for w in waivers}
     applied: List[Waiver] = []

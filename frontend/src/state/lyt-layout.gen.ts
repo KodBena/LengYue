@@ -78,13 +78,13 @@ export const LYT_LANDSCAPE: LytProgram = {
               path: "2.0",
               presenceDefaultVisible: true,
               track: { kind: "fixed", px: 60 },
-              node: { kind: "leaf", widget: "A_engine", domain: "go", facets: ["action", "info"], aspect: null, scrollAxes: [], content: null },
+              node: { kind: "leaf", widget: "A_engine", domain: "go", facets: ["action", "info"], aspect: null, scrollAxes: [], content: "bounded" },
             },
             {
               path: "2.1",
               presenceDefaultVisible: true,
               track: { kind: "fixed", px: 160 },
-              node: { kind: "leaf", widget: "A_app", domain: "common", facets: ["action"], aspect: null, scrollAxes: [], content: null },
+              node: { kind: "leaf", widget: "A_app", domain: "common", facets: ["action"], aspect: null, scrollAxes: [], content: "bounded" },
             },
             {
               path: "2.2",
@@ -96,13 +96,13 @@ export const LYT_LANDSCAPE: LytProgram = {
                   {
                     path: "2.2.0",
                     presenceDefaultVisible: true,
-                    track: { kind: "fixed", px: 110 },
+                    track: { kind: "elastic", minPx: 110, frWeight: 1 },
                     node: { kind: "leaf", widget: "tree", domain: "board", facets: ["action", "info"], aspect: null, scrollAxes: [], content: null },
                   },
                   {
                     path: "2.2.1",
                     presenceDefaultVisible: true,
-                    track: { kind: "elastic", minPx: 160, frWeight: 1 },
+                    track: { kind: "fixed", px: 664 },
                     node: {
                       kind: "exclusive", widget: "controlPanel", tag: "BLACK BOX", defaultTabId: "library",
                       children: [

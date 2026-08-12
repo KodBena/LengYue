@@ -712,6 +712,118 @@
 --     measurement layered on top of that offline number, the same
 --     two-step shape (compute, then measure-and-margin) this file's own
 --     other REPAIR sections already use.
+--
+--   - M2 STAGE B2a (2026-08-12, ledger rows 2108/2331, fork-1 ruling row
+--     2108, `.claude/dispatch-reports/lyt-m2-b2a-encoding-compliance.md`):
+--     encoding-compliance pass closing the L13/L17 dormancy-at-the-load-
+--     boundary gap Amendment 8 disclosed and activating Amendment 9's
+--     derived orientation for a real leaf.
+--
+--     (1) TREE BECOMES THE RESIDUAL-HOLDING SIBLING (fork-1 ruling, row
+--     2108; standing fact from B1, row 2331). Before this pass, the
+--     tree/panels/preview row's own elastic (`pref: fr`) sibling was the
+--     control-panel `T(...)` group, not `tree` -- `tree` stood fixed
+--     (`min==pref==max`) while `T(...)` absorbed the row's aspect
+--     surplus. The ruling's own illustrative language ("because the tree
+--     is the residual-holding sibling") did not hold against this file
+--     until now (Amendment 9's own STOP-and-report, SPEC-AMENDMENTS.md).
+--     Swapped: `tree` now carries `{min 110px, pref 1fr, max inf}` (its
+--     own established 110px floor, W4 FLOOR SOFTENING's header above,
+--     unchanged -- only `pref`/`max` move) and is the row's unique
+--     `fr`-typed child, so `wellformed.find_residual_child` genuinely
+--     names it the residual holder and `orientation.compute_derived_
+--     orientations` genuinely derives its mount orientation per solved
+--     screen size (Amendment 9, SPEC.md §17). `T(...)` becomes PINNED at
+--     its own already-existing structural floor, `{min 664px, pref
+--     664px, max 664px}` -- not a new number: 664px is the componentwise
+--     max of this T's five children's own declared `min` (160/160/443/
+--     664/204px, dominated by CP-analysis's `min 664px` V-wrapper), the
+--     SAME floor `compiler.py`'s own T-branch already derived and
+--     enforced as a hard constraint before this edit -- pinning `pref`/
+--     `max` to that already-binding floor changes which sibling the
+--     reach-preferred objective stage grows past its own floor when
+--     there is slack (now `tree`, previously `T(...)`), never the hard
+--     feasibility boundary itself, since the T's real minimum was always
+--     664px regardless of what its own `pref` declared. WITNESSED, not
+--     assumed: `runner.py`'s own before/after solved-rectangle output
+--     and `coverage_matrix.py`'s own before/after status column are
+--     identical in OPTIMAL/INFEASIBLE verdict at every axis point this
+--     pass checked (see the dispatch report's own coverage-matrix
+--     delta table) -- the swap is feasibility-neutral by construction,
+--     confirmed by re-solve rather than assumed from the reasoning
+--     above alone.
+--
+--     (2) L13 COMPLIANCE. `CP-library`/`CP-cards` are T-children (the
+--     `along=None` both-axes position) declaring `content unbounded`
+--     with only `scroll v` disposed -- the horizontal axis had no
+--     disposition, L13's own trigger. Per the commissioner's standing
+--     tuneability ruling (Amendment 5's own Q1 quote: "scrolling in the
+--     advanced registry is expected"), these two ARE registry-like
+--     (virtual-scrolled browse tables) -- but a browse table's WIDTH
+--     doesn't sensibly scroll sideways; it reflows/resizes into whatever
+--     column width it is granted. `elastic h` is therefore the honest
+--     horizontal disposition (the occupant claims whatever `h` extent
+--     its reservation is granted), leaving `scroll v` as the vertical
+--     one (rows genuinely overflow, already declared). This satisfies
+--     L13 but, per L16's own clause (a) (a leaf that disposed of BOTH
+--     surplus (`elastic`) and excess (`scroll`) over `unbounded` content
+--     must also dispose of DEFICIT), newly trips L16 -- ALREADY wired
+--     into `check_wellformed` (Amendment 8), so this cascade must be
+--     closed in the SAME edit or the file stops loading. `floor v 160px`
+--     closes it: 160px is not a new/invented number -- it is this leaf's
+--     OWN already-declared `min` (the W4 FLOOR SOFTENING per-child
+--     floor, this file's header above), so L16's clause (b) (the floor
+--     must be RESERVED) is satisfied for free by the existing `min`.
+--
+--     (3) L17 COMPLIANCE. Direct load against this file (not prose)
+--     finds `find_l17_violations` fires at exactly FOUR sites today --
+--     `CP-library`, `CP-cards`, `settingsPane`, `otherBand` (each
+--     `content unbounded` + `scroll v`, no `edge v`) -- NOT six, and NOT
+--     `boardRail`/`tree` as Amendment 8's own dormancy prose states:
+--     neither `boardRail` nor `tree` declares `content`/`scroll` in this
+--     file, so neither trips L17's trigger; that prose is stale relative
+--     to this file's actual committed content and is corrected, dated,
+--     in SPEC-AMENDMENTS.md's own Amendment 8 entry rather than silently
+--     matched. `edge v <disposition>` declared per leaf's own content
+--     nature, reasoning stated rather than a picked default: `CP-library`/
+--     `CP-cards` (virtual-scrolled table ROWS, indivisible, no measured
+--     constant pitch grounded anywhere in this repository to justify
+--     `unit`) get `item` (the boundary is ANNOUNCED, never quantized
+--     against an ungrounded number); `settingsPane` (a placeholder for
+--     six sub-tab bodies, two of them genuine registries -- Advanced
+--     Registry, Keybindings, per this file's own CP-settings header
+--     above -- same registry nature) also gets `item`; `otherBand` (the
+--     "freeform-JSON/registry editor", this file's own CP-other header
+--     above) gets `continuous` instead -- freeform JSON/text has no
+--     indivisible thing standing at a scroll boundary the way a table
+--     row does.
+--
+--     (4) `@demote` FOR `A_app` (L15). Ports the model-loop experiment's
+--     own measured one-row-vocabulary threshold for `A_app` (`.claude/
+--     dispatch-reports/lyt-m2-b2a-encoding-compliance.md` cites the
+--     experiment branch's own header, `lyt-model-loop-experiment`'s
+--     `lengyue_landscape.lyt`: "`A_app`'s own max-content width -- its
+--     whole vocabulary standing in ONE row -- probes at 615.3px,
+--     identical at 1920 and at 420 ... 616px is that number rounded up
+--     to the next whole px"): `@demote(h 616px) {160px, content bounded,
+--     activity occasional} A_app[...]` -- below 616px of the side
+--     column's own width, `A_app` leaves the band for the overlay
+--     stratum (presence-pruned per Amendment 4's own per-valuation
+--     machinery); at or above it, it stands as declared. L15's own
+--     clause (b) (a ranking is BAND-WIDE: if any direct leaf child of a
+--     Split declares `activity`, every direct leaf child must) forces a
+--     cascade: `A_app`'s own Split parent (the side column `V(...)`)
+--     has exactly one other direct LEAF child, `A_engine` (the `H(tree,
+--     T(...), previewBoard)` row is a composite, excluded from the
+--     band-wide check) -- `A_engine` gains `activity sustained`, grounded
+--     directly in `loader.py`'s own `_load_activity` docstring ("the
+--     side column's toolbar stack... the metrics being read" -- the
+--     engine connection/metrics strip is read continuously, never
+--     configured-once-and-forgotten the way `A_app`'s Load/Save/sliders/
+--     locale-picker cluster is). No other leaf in this file's tree gains
+--     `activity`, so no further band-wide cascade fires elsewhere
+--     (verified directly: `find_l15_violations` returns `[]` for every
+--     OTHER Split in this tree).
 layout lengyue-landscape =
   {min 0px, pref 1fr, max inf, gap 12px} H(
     @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
@@ -721,16 +833,16 @@ layout lengyue-landscape =
       {min 28px, pref 28px, max 28px} A_board[board, action]
     ),
     {min 345px, pref 32fr, max 340px+60ch, gap 4px} V(
-      {60px, envelope: {disconnected, connected}} A_engine[go, action+info],
-      {160px} A_app[common, action],
+      {60px, envelope: {disconnected, connected}, content bounded, activity sustained} A_engine[go, action+info],
+      @demote(h 616px) {160px, content bounded, activity occasional} A_app[common, action],
       {pref 1fr, gap 4px} H(
-        {min 110px, pref 110px, max 110px} tree[board, info+action],
-        {min 160px, pref 1fr, max inf} T(
-          {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v} CP-library[common],
-          {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v} CP-cards[common],
+        {min 110px, pref 1fr, max inf} tree[board, info+action],
+        {min 664px, pref 664px, max 664px} T(
+          {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 160px, edge v item} CP-library[common],
+          {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 160px, edge v item} CP-cards[common],
           {min 443px, pref 1fr, max inf, gap 4px} V(
             {77px, boundary, content bounded} settingsSubstrip[common],
-            {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v} settingsPane[common]
+            {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, edge v item} settingsPane[common]
           ),
           {min 664px, pref 1fr, max inf, gap 4px} V(
             {min 80px, pref 80px, max 80px, boundary, content designed} timelineStrip[go],
@@ -753,7 +865,7 @@ layout lengyue-landscape =
           ),
           {min 204px, pref 1fr, max inf, gap 4px} V(
             {min 264px, pref 264px, max 264px, boundary, content designed} otherColorDebug[debug],
-            {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v} otherBand[common]
+            {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v, edge v continuous} otherBand[common]
           )
         )[BLACK BOX],
         @toggle(user, release) {min 160px, pref 160px, max 160px, aspect 1} previewBoard[common, info]

@@ -496,6 +496,11 @@ reason) — this is the spec's own "may legitimately remain INFEASIBLE at
 small sizes" case, kept pinned with the mechanism named
 (`tests/test_lyt.py::test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes`).
 
+**[CORRECTED 2026-08-12, M2 stage B2a, ledger rows 2108/2331 — the table
+immediately below is STALE relative to today's witnessed reality, and is
+preserved verbatim (not deleted) per this file's own append-only
+convention; the corrected, re-derived table follows it.]**
+
 | size | class | all-present | default | changed? |
 |---|---|---|---|---|
 | 1920x1080 | landscape | OPTIMAL | OPTIMAL | no |
@@ -512,6 +517,66 @@ small sizes" case, kept pinned with the mechanism named
 | 540x960 | portrait | OPTIMAL | OPTIMAL | no |
 | 420x880 | portrait | INFEASIBLE | **OPTIMAL** | **yes** |
 | 1920x1080-in-portrait | portrait | OPTIMAL | OPTIMAL | no |
+
+**Corrected table (2026-08-12, M2 stage B2a, ledger rows 2108/2331),
+re-derived by direct solve rather than carried forward from memory.**
+The staleness was found and partially named by the M2 substrate-port
+fix pass (`.claude/dispatch-reports/lyt-m2-substrate-port.md`'s own
+"Gate (c)" section, 2026-08-12 earlier the same day): that pass isolated
+three portrait `default`/`all-present` rows (768x1024, 540x960, 420x880)
+as genuinely `INFEASIBLE` today despite this table's own `OPTIMAL` claim,
+and traced the drift to encoding edits made SOMEWHERE BETWEEN this
+amendment's own original writing and commit `9fbc899b` (the settings-live
+commit immediately preceding M1's own first commit) — outside M1/M2's own
+scope, not something either port caused. Stage B2a's own commission (item
+6) asked for the FULL table to be re-verified, not just those three rows
+— re-solving every row this table names, at both valuations, against
+BOTH the pre-B2a encoding (`git archive HEAD` at B2a's own starting
+commit) and the post-B2a encoding (after this stage's own tree/T(...)
+residual-holder swap, `elastic`/`floor`/`edge` additions, and `@demote`
+addition) finds the two are **byte-identical at every one of these 14
+rows** — stage B2a's own encoding edits (items 1-4 of its commission) are
+feasibility-neutral at this table's full size set, not just the four
+representative sizes `runner.py` checks or the 24-point subset
+`coverage_matrix.py` checks. The staleness below is therefore entirely
+PRE-EXISTING (predates stage B2a, predates M1/M2), re-confirmed rather
+than newly introduced:
+
+| size | class | all-present | default | vs. original table |
+|---|---|---|---|---|
+| 1920x1080 | landscape | INFEASIBLE | OPTIMAL | **all-present now INFEASIBLE** (was OPTIMAL) |
+| 2560x1440 | landscape | INFEASIBLE | OPTIMAL | **all-present now INFEASIBLE** (was OPTIMAL) |
+| 3440x1440 | landscape | INFEASIBLE | OPTIMAL | **all-present now INFEASIBLE** (was OPTIMAL) |
+| 1280x1024 | landscape | INFEASIBLE | INFEASIBLE | unchanged |
+| 1366x768 | landscape | INFEASIBLE | INFEASIBLE | **default now INFEASIBLE** (was OPTIMAL) |
+| 1024x700 | landscape | INFEASIBLE | INFEASIBLE | unchanged |
+| 900x600 | landscape | INFEASIBLE | INFEASIBLE | unchanged |
+| 1080x1920-in-landscape | landscape | INFEASIBLE | INFEASIBLE | unchanged |
+| 1080x1920 | portrait | OPTIMAL | OPTIMAL | unchanged |
+| 1200x1600 | portrait | OPTIMAL | OPTIMAL | unchanged |
+| 768x1024 | portrait | INFEASIBLE | INFEASIBLE | **both now INFEASIBLE** (were OPTIMAL) — the fix pass's own finding |
+| 540x960 | portrait | INFEASIBLE | INFEASIBLE | **both now INFEASIBLE** (were OPTIMAL) — the fix pass's own finding |
+| 420x880 | portrait | INFEASIBLE | INFEASIBLE | **default now INFEASIBLE** (was OPTIMAL) |
+| 1920x1080-in-portrait | portrait | INFEASIBLE | OPTIMAL | **all-present now INFEASIBLE** (was OPTIMAL) |
+
+The drift is broader than the fix pass's own three-row finding — every
+landscape `all-present` row and the `1920x1080-in-portrait` cross-class
+probe's own `all-present` row have ALSO gone from `OPTIMAL` to
+`INFEASIBLE` since this amendment's original writing, alongside
+`1366x768`'s own `default` row. This is a genuine, presence-and-B2a-
+independent geometry drift in the committed encodings' own intervening
+history (the same class of "later, unrelated encoding edits" the fix
+pass already named for its narrower three-row finding) — **REPORTED, not
+retuned**, per this stage's own commission ("Portrait points that remain
+INFEASIBLE even after these edits are REPORTED as named facts... do not
+retune demands to force feasibility"). The `all-present` valuation in
+particular is now INFEASIBLE at every representative size this table
+tracks except the two originally-OPTIMAL portrait mid-sizes — a fact
+worth a commissioner's own attention (whether `all-present`, as a
+valuation, still needs to stay feasible ANYWHERE, given `boardRail`/
+`previewBoard` are both DEFAULT-OFF release toggles that a real page
+essentially never renders in the all-present state) is outside this
+stage's own scope to decide, named here rather than silently absorbed.
 
 **Overlay/mockup behavior.** `emit_mockup.py`'s debug-overlay JSON now
 carries a solve per valuation (`{"valuations": {name: [...]}, ...}`); the
@@ -1250,6 +1315,37 @@ true, since neither claim depended on L13/L17's own violation counts.
 See `.claude/dispatch-reports/lyt-m2-substrate-port.md` for the full
 before/after transcript.
 
+**[CORRECTED 2026-08-12, M2 stage B2a, ledger rows 2108/2331 — the
+paragraph above is preserved verbatim as the historical record of this
+amendment's own original port; it is superseded by stage B2a's own
+encoding-compliance edits, not deleted.]** Stage B2a's own commission
+closed exactly the gap this paragraph names: `lengyue_landscape.lyt`/
+`lengyue_portrait.lyt` were edited (`elastic h` + `floor v` on
+`CP-library`/`CP-cards` for L13; `edge v <disposition>`, reasoned per
+leaf from its own content nature, on `CP-library`/`CP-cards`/
+`settingsPane`/`otherBand` for L17) so that both laws' own structural
+conditions are now SATISFIED rather than merely un-enforced, and both
+are now wired into `check_wellformed`'s `all_violations` — both
+reference encodings load CLEAN under strict enforcement (verified
+directly). See `.claude/dispatch-reports/lyt-m2-b2a-encoding-
+compliance.md` for the full before/after transcript and coverage-matrix
+re-verification.
+
+A further correction, made at the same time: this paragraph's own
+firing-record claim — "`boardRail`/`tree`×2/`CP-library`/`CP-cards`/
+`settingsPane`/`otherBand`, 4 violations per class" — is FALSE relative
+to mainline's own committed encodings as they stood at stage B2a's own
+start. Direct load found `find_l17_violations` returning exactly FOUR
+violations (`CP-library`, `CP-cards`, `settingsPane`, `otherBand`), not
+across the six named sites — neither `boardRail` nor `tree` declares
+`content`/`scroll` in either `.lyt` file, so neither ever tripped L17's
+own trigger. That claim was inherited from the experiment branch's own
+differently-shaped encoding (arc 4's own edited copy, which DID carry
+`content`/`scroll` on `boardRail`/`tree`) and was never independently
+re-verified against mainline's own committed tree before being written
+into this port's own dispatch report and, from there, into this file.
+Corrected here rather than silently matched.
+
 **What needed generalizing vs. what ported clean.** As with Amendment
 7, none of the six keys' `loader.py`/`wellformed.py`/`lyt_ast.py`/
 `parser.py`/`compiler.py` implementations reference any
@@ -1524,6 +1620,32 @@ px edit or silently declaring the ruling's own headline example
 witnessed when it structurally is not. See this amendment's own
 dispatch report for the full account and the open question for the
 commissioner.
+
+**[RESOLVED 2026-08-12, M2 stage B2a, ledger rows 2108/2331 — the
+STOP-and-report above is preserved verbatim as the historical record of
+the open question it named; it is now closed, not deleted.]** The
+fork-1 ruling (row 2108) answered the open question this STOP-and-report
+raised: `tree` becomes the row's residual-holding sibling. Stage B2a
+edited both encodings' own `H(tree, T(...), previewBoard)` row exactly
+the way this paragraph's own "making it hold would mean" sentence
+anticipated — `tree` moved from `{min==pref==max}` (fixed) to `{min <its
+own established floor>, pref 1fr, max inf}` (elastic), and `T(...)` moved
+the other way, PINNED at its own already-existing componentwise-max
+floor (664px, unchanged — driven by `CP-analysis`'s own `min 664px`,
+identical across both classes) instead of staying elastic. The
+feasibility consequence this paragraph flagged as needing witnessing
+("which real screen sizes flip INFEASIBLE/OPTIMAL") was checked directly
+rather than assumed: `runner.py`'s own four representative sizes, the
+24-point `coverage_matrix.py` product, and a direct re-solve of every
+size this file's own Amendment 4 feasibility table names (14 points × 2
+valuations) are ALL byte-identical in OPTIMAL/INFEASIBLE verdict before
+and after the swap — the swap is feasibility-neutral, because `T(...)`'s
+real structural floor was always 664px regardless of what its own `pref`
+declared (the componentwise-max derivation is unconditional, §8's
+`along=None` branch), so pinning `pref`/`max` to that already-binding
+floor only changes which sibling absorbs slack when there is any, never
+the hard feasibility boundary. See `.claude/dispatch-reports/
+lyt-m2-b2a-encoding-compliance.md` for the full witness.
 
 **Diff vs. the original consult document's prose.** `layout-language-
 consult.md` names neither `orient`/orientation (an Amendment 8/
