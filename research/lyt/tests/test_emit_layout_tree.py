@@ -51,24 +51,37 @@ def test_board_rail_and_preview_board_are_default_off():
     # tree/panels/preview row's own path shifts from "2.3" to "2.2"
     # accordingly (every path-keyed consumer across the tree shares this
     # shift; see the dispatch report for the full census).
+    #
+    # M2 STAGE B2b (2026-08-12, ledger rows 2073/2108/2151): the side
+    # column gains a FOURTH direct child, `A_setup` (the palette-adoption
+    # presence slot, item 2) -- the tree/panels/preview row's own path
+    # shifts AGAIN, "2.2" -> "2.3".
     row = _find(root["children"], "2")["node"]["children"]
-    tree_row = _find(row, "2.2")["node"]["children"]
-    preview = _find(tree_row, "2.2.2")
+    tree_row = _find(row, "2.3")["node"]["children"]
+    preview = _find(tree_row, "2.3.2")
     assert preview["node"]["widget"] == "previewBoard"
     assert preview["presenceDefaultVisible"] is False
 
 
 def test_every_other_default_visible_path_is_true():
+    """M2 STAGE B2b (2026-08-12, ledger rows 2073/2108/2151): the side
+    column now has FOUR direct children (`A_engine` composite, `A_app`,
+    the new `A_setup`, the tree/panels row) -- path "2.2" (`A_setup`) is
+    the ONE new default-OFF entry (same footing as `boardRail`/
+    `previewBoard`), checked separately below rather than folded into
+    this test's own "everything else defaults True" sweep; the
+    tree/panels row's own path shifts "2.2" -> "2.3"."""
     program = elt.build_program()
     root = program["root"]
     for path in ("1", "2"):
         assert _find(root["children"], path)["presenceDefaultVisible"] is True
     side = _find(root["children"], "2")["node"]["children"]
-    for path in ("2.0", "2.1", "2.2"):
+    for path in ("2.0", "2.1", "2.3"):
         assert _find(side, path)["presenceDefaultVisible"] is True
-    tree_row = _find(side, "2.2")["node"]["children"]
-    assert _find(tree_row, "2.2.0")["presenceDefaultVisible"] is True  # tree
-    assert _find(tree_row, "2.2.1")["presenceDefaultVisible"] is True  # controlPanel
+    assert _find(side, "2.2")["presenceDefaultVisible"] is False  # A_setup
+    tree_row = _find(side, "2.3")["node"]["children"]
+    assert _find(tree_row, "2.3.0")["presenceDefaultVisible"] is True  # tree
+    assert _find(tree_row, "2.3.1")["presenceDefaultVisible"] is True  # controlPanel
 
 
 def test_board_priority_clamp_applied_to_side_column_only():
@@ -120,8 +133,8 @@ def test_control_panel_blackbox_floor_is_wrapper_min_derived():
     program = elt.build_program()
     root = program["root"]
     side = _find(root["children"], "2")["node"]["children"]
-    tree_row = _find(side, "2.2")["node"]["children"]
-    control_panel = _find(tree_row, "2.2.1")
+    tree_row = _find(side, "2.3")["node"]["children"]
+    control_panel = _find(tree_row, "2.3.1")
     assert control_panel["node"]["kind"] == "blackbox"
     assert control_panel["node"]["widget"] == "controlPanel"
     # OPTION C TAB-SKELETON ENCODING (ledger row 1937) opened CP-analysis
@@ -129,9 +142,16 @@ def test_control_panel_blackbox_floor_is_wrapper_min_derived():
     # report-table parity only, never read by LytNode.vue's rendering) is
     # now a genuine structural fold over the T's composite children
     # (`_collect_leaf_widgets`), not the five bare CP-* names.
+    #
+    # M2 STAGE B2b (2026-08-12, ledger rows 2073/2108/2151): `settingsPane`
+    # (a bare leaf before this stage) is opened ONE level further -- the
+    # fold now descends into its own six named sub-panes instead of
+    # stopping at the single placeholder name.
     assert control_panel["node"]["childWidgets"] == [
         "CP-library", "CP-cards",
-        "settingsSubstrip", "settingsPane",
+        "settingsSubstrip",
+        "SP_session", "SP_analysisEnv", "SP_cardSets",
+        "SP_advancedRegistry", "SP_analysis", "SP_keybindings",
         "timelineStrip",
         "AT_basic_interval", "AT_basic_scoreLead", "AT_basic_mergedDelta",
         "AT_dist_deltaDist", "AT_dist_mistakeGap",
@@ -177,12 +197,27 @@ def test_control_panel_exclusive_opens_library_cards_settings_other_collapses_an
     is updated for the new shape -- `CP-settings`'s own child is a genuine
     `split(settingsSubstrip, settingsPane)` node now (the flow-envelope
     wrap-capable substrip + the single opaque pane leaf), not a collapsed
-    blackbox."""
+    blackbox.
+
+    M2 STAGE B2b (2026-08-12, ledger rows 2073/2108/2151): two structural
+    edits. (a) The tree/panels row's own path shifts "2.2" -> "2.3" (the
+    new `A_setup` sibling, item 2). (b) `settingsPane` -- the "single
+    opaque pane leaf" this docstring's own prior paragraph names -- is now
+    OPENED one further level (item 3, the pane-granularity fix): its own
+    slot holds a `T(SP_session, SP_analysisEnv, SP_cardSets,
+    SP_advancedRegistry, SP_analysis, SP_keybindings)` instead of a bare
+    leaf. This T is NOT itself an `open_control_panel`-flagged Exclusive
+    (only the OUTER control-panel T carries that flag), so it collapses
+    to a `blackbox` node the same way the (still-collapsed) `CP-analysis`
+    tab's own inner T does -- represented by its FIRST leaf's widget id
+    (`SP_session`, `emit_layout_tree.py`'s own fix this stage lands, see
+    that module's own updated comment), not the retired `settingsPane`
+    name."""
     program = elt.build_program_for(elt.REGISTRATIONS["landscape"])
     root = program["root"]
     side = _find(root["children"], "2")["node"]["children"]
-    tree_row = _find(side, "2.2")["node"]["children"]
-    control_panel = _find(tree_row, "2.2.1")
+    tree_row = _find(side, "2.3")["node"]["children"]
+    control_panel = _find(tree_row, "2.3.1")
     assert control_panel["node"]["kind"] == "exclusive"
     assert control_panel["node"]["widget"] == "controlPanel"
     assert control_panel["node"]["tag"] == "BLACK BOX"
@@ -201,24 +236,27 @@ def test_control_panel_exclusive_opens_library_cards_settings_other_collapses_an
         "settings": "split", "analysis": "blackbox",
         "other": "split",
     }
-    library = _find(ex_children, "2.2.1.0")
+    library = _find(ex_children, "2.3.1.0")
     assert library["node"]["widget"] == "CP-library"
     assert library["node"]["scrollAxes"] == ["v"]
     assert library["node"]["content"] == "unbounded"
-    settings = _find(ex_children, "2.2.1.2")
+    settings = _find(ex_children, "2.3.1.2")
     assert settings["node"]["kind"] == "split"
     assert settings["node"]["axis"] == "v"
     settings_children = {c["node"]["widget"]: c for c in settings["node"]["children"]}
-    assert set(settings_children) == {"settingsSubstrip", "settingsPane"}
+    assert set(settings_children) == {"settingsSubstrip", "SP_session"}
     substrip = settings_children["settingsSubstrip"]
     assert substrip["track"] == {"kind": "fixed", "px": 77.0}
     assert substrip["node"]["scrollAxes"] == []
     assert substrip["node"]["content"] == "bounded"
-    pane = settings_children["settingsPane"]
+    pane = settings_children["SP_session"]
     assert pane["track"] == {"kind": "elastic", "minPx": 200.0, "frWeight": 1.0}
-    assert pane["node"]["scrollAxes"] == ["v"]
-    assert pane["node"]["content"] == "unbounded"
-    analysis = _find(ex_children, "2.2.1.3")
+    assert pane["node"]["kind"] == "blackbox"
+    assert pane["node"]["childWidgets"] == [
+        "SP_session", "SP_analysisEnv", "SP_cardSets",
+        "SP_advancedRegistry", "SP_analysis", "SP_keybindings",
+    ]
+    analysis = _find(ex_children, "2.3.1.3")
     assert analysis["node"]["widget"] == "CP-analysis"
     assert analysis["node"]["childWidgets"] == [
         "timelineStrip",
@@ -227,14 +265,14 @@ def test_control_panel_exclusive_opens_library_cards_settings_other_collapses_an
         "AT_stab_stability", "AT_stab_crossCorr",
         "AT_multires",
     ]
-    other = _find(ex_children, "2.2.1.4")
+    other = _find(ex_children, "2.3.1.4")
     assert other["node"]["kind"] == "split"
     other_leaves = {c["path"]: c["node"]["widget"] for c in other["node"]["children"]}
-    assert other_leaves == {"2.2.1.4.0": "otherColorDebug", "2.2.1.4.1": "otherBand"}
-    other_color_debug = _find(other["node"]["children"], "2.2.1.4.0")
+    assert other_leaves == {"2.3.1.4.0": "otherColorDebug", "2.3.1.4.1": "otherBand"}
+    other_color_debug = _find(other["node"]["children"], "2.3.1.4.0")
     assert other_color_debug["node"]["scrollAxes"] == []
     assert other_color_debug["node"]["content"] == "designed"
-    other_band = _find(other["node"]["children"], "2.2.1.4.1")
+    other_band = _find(other["node"]["children"], "2.3.1.4.1")
     assert other_band["node"]["scrollAxes"] == ["v"]
     assert other_band["node"]["content"] == "unbounded"
 
@@ -276,24 +314,34 @@ def _portrait_program():
     return elt.build_program_for(PORTRAIT)
 
 
-def test_portrait_root_is_v_split_with_five_children():
+def test_portrait_root_is_v_split_with_six_children():
+    """M2 STAGE B2b (2026-08-12, ledger rows 2073/2108/2151): the root
+    gains a sixth direct child, `A_setup` (item 2, palette-adoption
+    presence slot -- portrait has no separate side column, so it sits at
+    the root itself). [Renamed from "...five_children" -- the old name
+    asserted a now-stale count.]"""
     program = _portrait_program()
     root = program["root"]
     assert program["classId"] == "portrait"
     assert root["kind"] == "split"
     assert root["axis"] == "v"
     assert root["gapPx"] == 12.0
-    assert len(root["children"]) == 5
+    assert len(root["children"]) == 6
 
 
 def test_portrait_default_visible_by_path_matches_toggle_targets():
     """Mirrors emit_mockup.py's TOGGLE_TARGETS["portrait"] table (that
     module's own docstring is the ledger-cited source): boardRail (path
-    0) and previewBoard (path 4.2) are the only two default-off slots;
-    A_app (1, formerly A_top — LYT toolbar ontology reencode,
-    2026-08-11), the board composite (2), A_engine (3, formerly
-    I_engine), tree (4.0), and the control-panel T-node (4.1) are all
-    default-visible."""
+    0) and previewBoard (path 5.2) are default-off; A_app (1, formerly
+    A_top — LYT toolbar ontology reencode, 2026-08-11), the board
+    composite (3), A_engine (4, formerly I_engine), tree (5.0), and the
+    control-panel T-node (5.1) are all default-visible.
+
+    M2 STAGE B2b (2026-08-12, ledger rows 2073/2108/2151): `A_setup`
+    (path 2, item 2, palette-adoption presence slot) is a THIRD
+    default-off slot, inserted between `A_app` and the board composite —
+    every later path shifts by one (board composite 2->3, A_engine
+    3->4, tree/panels row 4->5)."""
     program = _portrait_program()
     root = program["root"]
 
@@ -302,13 +350,15 @@ def test_portrait_default_visible_by_path_matches_toggle_targets():
     assert board_rail["presenceDefaultVisible"] is False
     assert board_rail["track"] == {"kind": "fixed", "px": 168.0}
 
-    for path in ("1", "2", "3"):
+    for path in ("1", "3", "4"):
         assert _find(root["children"], path)["presenceDefaultVisible"] is True
 
-    row = _find(root["children"], "4")["node"]["children"]
-    tree = _find(row, "4.0")
-    control_panel = _find(row, "4.1")
-    preview = _find(row, "4.2")
+    assert _find(root["children"], "2")["presenceDefaultVisible"] is False  # A_setup
+
+    row = _find(root["children"], "5")["node"]["children"]
+    tree = _find(row, "5.0")
+    control_panel = _find(row, "5.1")
+    preview = _find(row, "5.2")
     assert tree["presenceDefaultVisible"] is True
     assert control_panel["presenceDefaultVisible"] is True
     assert preview["node"]["widget"] == "previewBoard"
@@ -317,23 +367,33 @@ def test_portrait_default_visible_by_path_matches_toggle_targets():
 
 def test_portrait_board_priority_self_clamp_applied_to_composite_only():
     """CASE B (module docstring): the recognized board-composite shape at
-    portrait's root (path 2, V(B[aspect 1], I_board[24px], A_board[28px]))
-    has composite.axis ('v') == root.axis ('v') -- the composite's OWN
-    track is overridden, not a sibling's. Hand-computed expectation from
+    portrait's root (V(B[aspect 1], I_board[24px], A_board[28px])) has
+    composite.axis ('v') == root.axis ('v') -- the composite's OWN track
+    is overridden, not a sibling's. Hand-computed expectation from
     encodings/lengyue_portrait.lyt's own sizing numbers: fixed_sum =
     I_board(24px) + A_board(28px) = 52px; root.axis == 'v' means the
     cross axis is width, so naturalCrossUnit == 'vw' (NOT 'vh' -- root
     partitions HEIGHT, so its cross dimension, and the composite's own
     since composite.axis == root.axis, is WIDTH). No independent minPx/
     maxPx on this shape (see this module's own docstring on the
-    'board-priority-self-clamp' union member)."""
+    'board-priority-self-clamp' union member).
+
+    M2 STAGE B2b (2026-08-12, ledger rows 2073/2108/2151): the board
+    composite's own path shifts 2 -> 3 and `A_engine`'s own path shifts
+    3 -> 4 (the new `A_setup` sibling, item 2, inserts at path 2). The
+    track SHAPE at each path is unaffected: `A_engine`'s own wrapping
+    slot still declares the SAME `{60px, envelope: {...}}` sizing block
+    it always did (item 1 replaces its INTERIOR with a composite `H(...)`
+    of four leaves, not its own track declaration), so `_track_shape_for_
+    child` (which reads a Slot's own `.sizing`, independent of node kind)
+    still resolves it to `fixed`."""
     program = _portrait_program()
     root = program["root"]
 
     board_rail_track = _find(root["children"], "0")["track"]
     a_top_track = _find(root["children"], "1")["track"]
-    composite_track = _find(root["children"], "2")["track"]
-    i_engine_track = _find(root["children"], "3")["track"]
+    composite_track = _find(root["children"], "3")["track"]
+    i_engine_track = _find(root["children"], "4")["track"]
 
     assert board_rail_track["kind"] == "fixed"
     assert a_top_track["kind"] == "fixed"
@@ -364,11 +424,18 @@ def test_portrait_control_panel_blackbox_floor_is_wrapper_min_derived():
     opening`): settings now OPENS too (`control_panel_collapse_indices`
     drops `{2, 3}` -> `{3}`) -- `CP-settings`'s own child is a genuine
     `split(settingsSubstrip, settingsPane)` node, mirroring landscape's
-    own updated test."""
+    own updated test.
+
+    STALE-ASSERTION UPDATE (2026-08-12, M2 stage B2b, ledger rows
+    2073/2108/2151): the tree/panels row's own path shifts "4" -> "5"
+    (the new `A_setup` sibling, item 2); `settingsPane` opens ONE further
+    level (item 3) and collapses to a `blackbox` keyed by its own first
+    leaf, `SP_session` (same shape as `lengyue_landscape.lyt`'s own
+    updated test -- read that one's own note in full)."""
     program = _portrait_program()
     root = program["root"]
-    row = _find(root["children"], "4")["node"]["children"]
-    control_panel = _find(row, "4.1")
+    row = _find(root["children"], "5")["node"]["children"]
+    control_panel = _find(row, "5.1")
     assert control_panel["node"]["kind"] == "exclusive"
     assert control_panel["node"]["widget"] == "controlPanel"
     assert control_panel["node"]["defaultTabId"] == "library"
@@ -380,15 +447,20 @@ def test_portrait_control_panel_blackbox_floor_is_wrapper_min_derived():
         "settings": "split", "analysis": "blackbox",
         "other": "split",
     }
-    settings_child = _find(control_panel["node"]["children"], "4.1.2")
+    settings_child = _find(control_panel["node"]["children"], "5.1.2")
     assert settings_child["tabId"] == "settings"
     assert settings_child["node"]["kind"] == "split"
     settings_children = {
         c["node"]["widget"]: c for c in settings_child["node"]["children"]
     }
-    assert set(settings_children) == {"settingsSubstrip", "settingsPane"}
+    assert set(settings_children) == {"settingsSubstrip", "SP_session"}
     assert settings_children["settingsSubstrip"]["track"] == {"kind": "fixed", "px": 77.0}
-    analysis_child = _find(control_panel["node"]["children"], "4.1.3")
+    assert settings_children["SP_session"]["node"]["kind"] == "blackbox"
+    assert settings_children["SP_session"]["node"]["childWidgets"] == [
+        "SP_session", "SP_analysisEnv", "SP_cardSets",
+        "SP_advancedRegistry", "SP_analysis", "SP_keybindings",
+    ]
+    analysis_child = _find(control_panel["node"]["children"], "5.1.3")
     assert analysis_child["tabId"] == "analysis"
     assert analysis_child["node"]["widget"] == "CP-analysis"
     assert analysis_child["node"]["childWidgets"] == [

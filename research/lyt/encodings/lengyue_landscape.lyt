@@ -824,6 +824,265 @@
 --     `activity`, so no further band-wide cascade fires elsewhere
 --     (verified directly: `find_l15_violations` returns `[]` for every
 --     OTHER Split in this tree).
+--
+--   - M2 STAGE B2b (2026-08-12, ledger rows 2073/2108/2151, the
+--     ruling-basket census): two ruled model corrections, plus a
+--     correction to the "activity" band-wide note immediately above
+--     (which named `A_engine` as a leaf gaining `activity sustained` --
+--     no longer accurate now that `A_engine` is a composite, see item 1
+--     below; preserved above verbatim per this file's own "supersede,
+--     don't delete" convention, corrected here).
+--
+--     (1) THREE-VOCABULARY ENGINE-STATUS DECOMPOSITION (ledger row 2073,
+--     commissioner ADR-0008 ruling): "the engine status line is a
+--     MISCATEGORIZATION as one unit ('metric band'); the compliant
+--     decomposition is three vocabularies: {winrate, lead} | {pps,
+--     latency, watchdog} | {queue}... three distinct leaves/groups with
+--     their own demand bases, activity states, and candidate homes --
+--     not one strip that must fit somewhere." Before this stage,
+--     `A_engine[go, action+info]` was exactly that one strip -- a single
+--     leaf conflating the connect/disconnect + engine-controls ACTION
+--     cluster with all six INFO readouts (winrate, scoreLead, pps,
+--     latency, watchdog, queue) in one `action+info` facet bag, the
+--     "one unit" framing the ruling names as the miscategorization (this
+--     file never used the literal string "metric band", but the
+--     single-leaf shape it corrects IS that framing under a different
+--     name -- corrected here regardless of the exact prior wording).
+--
+--     Re-encoded as `H(A_engine_controls, A_engine_eval, A_engine_health,
+--     A_engine_queue)`, replacing the bare leaf in the SAME tree
+--     position (still one child of the side column's own `V(...)`) --
+--     no `[TAG]` bracket, since that annotation is Exclusive(`T`)-only
+--     per the grammar (SPEC.md §1.1), not available on an `H`/`V` split.
+--     The wrapping `H(...)`'s own sizing block carries
+--     the SAME `{60px, envelope: {disconnected, connected}}` height
+--     reservation the single leaf declared before -- this stage does not
+--     touch the cluster's own overall standing height, only its
+--     INTERIOR structure. Its own NEW `gap 4px` (between the four
+--     vocabulary leaves) matches this file's own established
+--     `--space-tight` tier -- the SAME gap every other tight row in this
+--     file already uses (this row's own siblings, the outer side
+--     column's own `V(...)`, and the tree/panels row all declare the
+--     identical `gap 4px, --space-tight`). Four leaves, one per vocabulary plus the
+--     action cluster the ruling's own three-way split doesn't name but
+--     which the same single-leaf's `action` facet-half still needs a
+--     home for:
+--       - `A_engine_controls[go, action]` -- connect/disconnect +
+--         the engine-controls button cluster (`useEngineControls`,
+--         `ToolbarEngineCluster.vue`). ACTION only, not one of the
+--         ruling's three named INFO vocabularies.
+--       - `A_engine_eval[go, info]` -- {winrate, lead}. Grounded in
+--         `ToolbarEngineMetrics.vue`'s own `winrateDisplay`/
+--         `scoreLeadDisplay` template block (`toolbar.metric.winrate`
+--         "WINRATE (W)"/`toolbar.metric.scoreLead` "LEAD",
+--         `frontend/src/locales/en.json`) -- the SAME pairing the
+--         component's own script groups under one "live engine-
+--         evaluation surface" comment.
+--       - `A_engine_health[go, info]` -- {pps, latency, watchdog}.
+--         Grounded the same file's `metric-pps`/`metric-latency`/
+--         watchdog-dot block (`toolbar.metric.pps` "PPS"/
+--         `toolbar.metric.latency` "LATENCY"/`toolbar.metric.watchdog`
+--         "WATCHDOG") -- three readouts of engine HEALTH/liveness, as
+--         distinct from the eval group's board-position judgment.
+--       - `A_engine_queue[go, info]` -- {queue}. Grounded in
+--         `EngineQueueTooltip.vue`'s own `.queue-metric` badge
+--         (`toolbar.metric.queue` "QUEUE").
+--
+--     WIDTH RESERVATION, DELIBERATELY NOT AUTHORED (disclosed, not
+--     silently absorbed -- per this file's own established "measure
+--     before reserving" posture, REPAIR PASS/W4 FLOOR CORRECTION/
+--     otherColorDebug sections above). Each new leaf's OWN width
+--     (`pref 1fr`, `min` omitted -> the loader's own `0px` default,
+--     `min`-key.2's own completion rule, SPEC.md §1.1) does NOT cite any
+--     per-group pixel floor. A grounded per-group floor IS computable
+--     from `ToolbarEngineMetrics.vue`'s own cited `min-width` `ch`
+--     values plus the real `en.json` label strings plus
+--     `theme.css`'s spacing tokens (the SAME class of derivation
+--     `settingsSubstrip`'s own 838px/443px numbers above use) -- summed
+--     by hand: eval ~236px (11+6+4+6=27ch x 8px/ch + 2 tight-gaps(4px
+--     each) + 1 medium-gap(12px) = 216+8+12), health ~276px
+--     (3+4+7+7+8+1(disclosed ESTIMATE, the watchdog dot has no `ch`
+--     reservation in the live CSS)=30ch x 8px/ch + 3 tight-gaps(12px) +
+--     2 medium-gaps(24px) = 240+12+24), queue ~68px (5+3=8ch x 8px/ch +
+--     1 tight-gap(4px) = 64+4) -- but summing these into `min` floors on
+--     the new `H(...)`'s own children would raise the SIDE COLUMN's own
+--     effective width floor from today's 345px to roughly 580px+gaps
+--     (the four groups' own mins would become a hard constraint on the
+--     wrapping H's own along-extent, which cross-fills to the column's
+--     width), a MAJOR, UNVERIFIED feasibility regression this stage
+--     does not introduce unilaterally without a live re-sweep of how
+--     the real `.engine-metrics-bar` (a CSS flex row, NOT a fixed
+--     four-column grid) actually WRAPS at narrow widths -- the exact
+--     same wrapping-row problem `settingsSubstrip`'s own FLOW-CAPABLE
+--     SETTINGS SUBSTRIP work item solved with `flow.py`, not yet
+--     attempted for this cluster. Filed as a frontier item (this
+--     stage's own dispatch report) rather than either inventing an
+--     unverified floor or silently leaving the decomposition unstated.
+--     Structural decomposition landing now; per-group demand grounding
+--     is the honest remaining gap.
+--
+--     `activity sustained` (which the note above this section states was
+--     declared directly on `A_engine`) is RETIRED from this position --
+--     `activity` is leaf-only (SPEC.md §16.1) and `A_engine` is no
+--     longer a leaf. None of the four new leaves gains `activity`: L15's
+--     band-wide clause (b) applies only to DIRECT LEAF children of a
+--     Split, and these four sit one level DEEPER (inside the new
+--     `H(...)`, not direct children of the side column `V(...)`) -- so
+--     no band-wide obligation reaches them. `find_l15_violations`
+--     re-verified `[]` against this file after the change (see this
+--     stage's own dispatch report).
+--
+--     (2) PALETTE-AS-PRESENCE-SLOT (ledger row 2108, PALETTE ADOPTION
+--     ruling: "the loop's discovery (setup palette as `@toggle(user,
+--     release)` presence slot, trigger relocated out of the slot) is
+--     adopted on MAINLINE, superseding the standing in-flow/
+--     visibility-hidden ruling"). Before this stage, `SetupToolPalette
+--     .vue`'s own 296px-measured `.setup-toolkit` reservation was NOT a
+--     Slot in this tree at all -- it was folded, unconditionally and
+--     invisibly, into the side column's own blanket `min 345px` floor
+--     (this file's own W4 FLOOR CORRECTION section above: "a flex-column
+--     sibling minimum at ALL times... permanently in flow... never
+--     `display: none`"), reserving space for the palette whether or not
+--     it was open. This is defect (b) from SPEC.md's own opening
+--     paragraph -- "a toggle button that exists only to hide another
+--     panel sits in its own permanently-reserved band... whether or not
+--     anything is hidden" -- wearing the palette's own face, the exact
+--     defect class `boardRail`/`previewBoard`'s own `@toggle(user,
+--     release)` adoption (Amendment 4) already corrected for two OTHER
+--     widgets.
+--
+--     `A_setup[common, action]` (new leaf, `@toggle(user, release)`,
+--     sibling of `A_app`/`A_engine` in the side column `V(...)`, placed
+--     directly below `A_app` -- the palette opens in-flow below its own
+--     trigger, per `SetupToolPalette.vue`'s own docking ruling, which
+--     this adoption does NOT touch: "the panel is still in normal flow,
+--     still docked in the chrome column, still never over a board
+--     pixel. Only its RESERVATION changed, from standing to released" --
+--     quoting the model-loop experiment's own `A_setup` discovery,
+--     `lyt-model-loop-experiment:research/lyt/encodings/
+--     lengyue_landscape.lyt`, read via `git show`, the SAME grounding
+--     this stage carries forward). Reservation: `80px` (the experiment
+--     branch's own measured "70px... at every width" + the SAME ~10px
+--     margin posture this file's own REPAIR PASS/W4 FLOOR CORRECTION/
+--     otherColorDebug sections already establish) -- DISCLOSED, NOT
+--     independently re-measured against mainline's own current toolbar
+--     structure specifically: the experiment branch's own toolbar was a
+--     four-leaf split (`I_metrics`/`A_engine`/`A_app`/`A_setup`)
+--     different from mainline's two-leaf `A_engine`/`A_app` split (the
+--     LYT TOOLBAR ONTOLOGY REENCODE, this file's own header above) --
+--     the palette BODY's own height is a property of `SetupToolPalette
+--     .vue` itself, not of the surrounding toolbar split, so this number
+--     is carried forward as the best available grounded basis rather
+--     than re-derived from scratch, same posture `otherColorDebug`'s
+--     own portrait header note already takes for a landscape-derived
+--     number reused across classes.
+--
+--     TRIGGER STAYS WHERE IT WAS. Per the ruling's own "trigger
+--     relocated out of the slot" clause: the trigger button itself
+--     already lives inside `A_app`'s own existing reservation (its own
+--     header comment above: "sliders/setup/PBO popovers"), unaffected
+--     by this change -- only the PALETTE BODY (the thing that used to be
+--     folded into the column's blanket floor) becomes its own
+--     `@toggle(user, release)` slot. No `A_app` sizing change.
+--
+--     THE 345px FLOOR ITSELF IS UNCHANGED, DELIBERATELY (disclosed, not
+--     silently declined). Whether the side column's own `min 345px`
+--     should ALSO shrink now that the palette's width contribution is
+--     presence-conditional is a SEPARATE, harder question this stage
+--     does not resolve: LYT's 1-D-per-slot sizing means `A_setup`'s own
+--     declared axis is HEIGHT (it sits inside the side column's `V`),
+--     never the column's own WIDTH -- the palette's WIDTH-driven
+--     345px-floor mechanism (`.setup-toolkit`'s own 296px content
+--     minimum) has no per-axis presence-conditional expression in this
+--     language today (the same BOTH-AXES TENSION class of limitation
+--     this file already discloses for CP-* T-children above). Filed as
+--     a frontier item (this stage's own dispatch report) rather than
+--     either silently lowering 345px on an unverified assumption or
+--     silently declaring the width question resolved.
+--
+--     `activity occasional` on `A_setup`: L15's band-wide clause (b)
+--     forces it -- `A_setup` is a new direct LEAF child of the side
+--     column `V(...)`, alongside `A_app` (already `activity occasional`)
+--     -- band-wide, all-or-nothing. Grounded in the palette's own
+--     product nature: setup/marker tools are opened when configuring a
+--     position, not read continuously the way `A_engine_health`'s own
+--     telemetry is (the SAME distinction this file's own pre-existing
+--     `A_app`/`A_engine` activity note above already draws). `runner.py`
+--     (`Registration.default_valuation`) gains `"A_setup"` in its own
+--     `absent_widgets` set, matching `boardRail`/`previewBoard`'s own
+--     default-off convention for a user-release toggle (Amendment 4's
+--     own precedent) -- the palette closed is this app's real default
+--     state. `find_l15_violations` re-verified `[]` against this file
+--     after the change.
+--
+--     (3) PANE GRANULARITY (ledger rows 2134/2151, FILED DEFERRAL
+--     "lyt-settingspane-granularity": "settingsPane second-level
+--     opening -- per-pane classification realized (Session UI pane
+--     currently scrolls live at a pinned OPTIMAL size despite no-scroll
+--     classification, a standing ruled violation). Owed by the
+--     model-implementation wave; its acceptance criteria include this
+--     symptom's disappearance"). Before this stage, `settingsPane` was
+--     ONE opaque leaf standing for whichever of the six sub-tab bodies
+--     is showing, classified `content unbounded, scroll v` -- the
+--     "DISCLOSED CONSERVATIVE CHOICE" this file's own CP-settings header
+--     note above already named as the worst-case superset of its six
+--     possible bodies, over-reserving scroll-affordance for the four
+--     bounded ones. The live symptom (Session UI producing a real
+--     scrollbar at a pinned OPTIMAL size despite the ratified §8.4
+--     table's own "Session/Analysis-Env/Card-Sets/Analysis: bounded
+--     editors, no-scroll" classification,
+--     `.claude/dispatch-reports/lyt-tab-region-consult.md` §8.4) is
+--     exactly the granularity gap that table already named but this
+--     tree never realized -- the CP-settings header note above's own
+--     "future wave" residual, now closed.
+--
+--     Opened one level, mirroring `CP-analysis`'s own nested `T(...)`:
+--     `T(SP_session, SP_analysisEnv, SP_cardSets, SP_advancedRegistry,
+--     SP_analysis, SP_keybindings)`, six leaves named directly off
+--     `frontend/src/composables/chrome/useSettingsSubTab.ts`'s own
+--     `SettingsSubTabId` union (`session`/`analysisEnv`/`cardSets`/
+--     `advancedRegistry`/`analysis`/`keybindings`, the same ADR-0012 P1
+--     single-source-of-truth array `SettingsSubstrip.vue`/
+--     `SettingsPane.vue` both already consume) -- prefixed `SP_` to
+--     avoid colliding with `AT_*`'s own "analysis" naming one T-group
+--     over (the control-panel Analysis tab's own tab id, an unrelated
+--     "analysis" from this pane's "Analysis Layout" sub-tab). Each
+--     leaf's own classification follows the ratified §8.4 table
+--     directly, no new judgment call: four bounded (`SP_session`,
+--     `SP_analysisEnv`, `SP_cardSets`, `SP_analysis` -- "bounded
+--     editors... no-scroll at declared demand"), two genuinely
+--     unbounded/scroll-declared (`SP_advancedRegistry`, `SP_keybindings`
+--     -- "unbounded data/unbounded-ish list... scroll declared").
+--
+--     PER-LEAF `min 200px`, NOT a new number -- the SAME floor the
+--     single `settingsPane` leaf already declared before this stage
+--     (both classes), reused per child rather than re-derived, so the
+--     new inner `T(...)`'s own componentwise-max floor stays 200px --
+--     IDENTICAL to what the single opaque leaf already contributed to
+--     the outer `V(settingsSubstrip, T(...))`'s own `min 443px`
+--     declaration (unaffected, unchanged by this edit -- the width term
+--     still dominates, per this file's own FLOW-CAPABLE SETTINGS
+--     SUBSTRIP section above). Feasibility-neutral by construction: no
+--     child's own floor exceeds what the single leaf already reserved.
+--
+--     L13/L16/L17 CASCADE, closed in the same edit, same reasoning this
+--     file's own L13/L16/L17 item 2/3 sections above already establish
+--     for `CP-library`/`CP-cards`: `SP_advancedRegistry`/
+--     `SP_keybindings` are now T-children (the both-axes position) with
+--     `content unbounded` and only `scroll v` disposed -- `elastic h`
+--     closes L13 (a registry's width reflows into whatever column it is
+--     granted), which trips L16 clause (a) in turn -- closed by
+--     `floor v 200px`, citing the SAME already-declared `min` (L16
+--     clause (b)'s own "the floor must be RESERVED" satisfied for free).
+--     L17: both get `edge v item` (indivisible list rows, no grounded
+--     constant pitch to justify `unit` -- same reasoning as
+--     `CP-library`/`CP-cards`/the OLD single `settingsPane` leaf's own
+--     `edge v item`, which this split inherits per-leaf rather than
+--     retiring). The four BOUNDED leaves need no `elastic`/`floor`/
+--     `edge` declaration at all -- L13/L16/L17 all gate on `content
+--     unbounded`, which none of the four bounded leaves declares.
+--     `find_l13_violations`/`find_l16_violations`/`find_l17_violations`
+--     all re-verified `[]` against this file after the change.
 layout lengyue-landscape =
   {min 0px, pref 1fr, max inf, gap 12px} H(
     @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
@@ -833,8 +1092,14 @@ layout lengyue-landscape =
       {min 28px, pref 28px, max 28px} A_board[board, action]
     ),
     {min 345px, pref 32fr, max 340px+60ch, gap 4px} V(
-      {60px, envelope: {disconnected, connected}, content bounded, activity sustained} A_engine[go, action+info],
+      {60px, envelope: {disconnected, connected}, gap 4px} H(
+        {pref 1fr, content bounded} A_engine_controls[go, action],
+        {pref 1fr, content bounded} A_engine_eval[go, info],
+        {pref 1fr, content bounded} A_engine_health[go, info],
+        {pref 1fr, content bounded} A_engine_queue[go, info]
+      ),
       @demote(h 616px) {160px, content bounded, activity occasional} A_app[common, action],
+      @toggle(user, release) {80px, content bounded, activity occasional} A_setup[common, action],
       {pref 1fr, gap 4px} H(
         {min 110px, pref 1fr, max inf} tree[board, info+action],
         {min 664px, pref 664px, max 664px} T(
@@ -842,7 +1107,14 @@ layout lengyue-landscape =
           {min 160px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 160px, edge v item} CP-cards[common],
           {min 443px, pref 1fr, max inf, gap 4px} V(
             {77px, boundary, content bounded} settingsSubstrip[common],
-            {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, edge v item} settingsPane[common]
+            {min 200px, pref 1fr, max inf} T(
+              {min 200px, pref 1fr, max inf, boundary, content bounded} SP_session[common],
+              {min 200px, pref 1fr, max inf, boundary, content bounded} SP_analysisEnv[common],
+              {min 200px, pref 1fr, max inf, boundary, content bounded} SP_cardSets[common],
+              {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v item} SP_advancedRegistry[common],
+              {min 200px, pref 1fr, max inf, boundary, content bounded} SP_analysis[common],
+              {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v item} SP_keybindings[common]
+            )
           ),
           {min 664px, pref 1fr, max inf, gap 4px} V(
             {min 80px, pref 80px, max 80px, boundary, content designed} timelineStrip[go],

@@ -135,8 +135,15 @@ REGISTRATIONS: List[Registration] = [
         # solves as the PRIMARY result, per §6's own line 636-641. Both
         # widget ids are shared verbatim between the landscape and
         # portrait trees, so one PresenceValuation covers both classes.
+        #
+        # M2 STAGE B2b (ledger row 2108, PALETTE ADOPTION): "A_setup"
+        # joins the set — the setup-tool palette is now a genuine
+        # @toggle(user, release) presence slot (both encodings' own M2
+        # STAGE B2b header note) whose real default state is closed,
+        # matching boardRail/previewBoard's own default-off convention.
         default_valuation=PresenceValuation(
-            name="default", absent_widgets=frozenset({"boardRail", "previewBoard"})
+            name="default",
+            absent_widgets=frozenset({"boardRail", "previewBoard", "A_setup"}),
         ),
     ),
 ]

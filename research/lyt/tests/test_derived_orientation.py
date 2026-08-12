@@ -304,43 +304,50 @@ def test_compute_derived_orientations_skips_a_widget_absent_from_the_solve():
 # =============================================================================
 
 
-def test_real_encodings_have_four_residual_holding_leaves_per_class():
-    """[Updated 2026-08-12, M2 stage B2a, ledger rows 2108/2331 -- the
-    fork-1 ruling's own tree/T(...) residual-holder swap: this test used
-    to be named "...three_residual_holding_leaves..." and pinned only
-    `B`/`settingsPane`/`otherBand`. `tree` is now a fourth genuine
-    residual-holding leaf, per the encoding edit both `lengyue_landscape
-    .lyt`/`lengyue_portrait.lyt`'s own headers document (M2 STAGE B2a
-    section): `tree` moved from `{min==pref==max}` (fixed) to `{pref
-    1fr}` (elastic), and its former `T(...)` sibling moved the other way
-    (now pinned at its own already-existing 664px componentwise-max
-    floor), making `tree` the row's unique `fr`-typed child."""
+def test_real_encodings_have_three_residual_holding_leaves_per_class():
+    """[Updated 2026-08-12, M2 stage B2b, ledger rows 2073/2108/2151, the
+    ruling-basket census -- this test used to be named
+    "...four_residual_holding_leaves..." and pinned `B`/`tree`/
+    `settingsPane`/`otherBand`. `settingsPane` DROPS from this dict, not
+    because it stopped being a residual position -- its own wrapping
+    `V(settingsSubstrip, ...)` still leaves its second child the row's
+    `pref: 1fr` residual -- but because item 3 of stage B2b's own
+    commission (the pane-granularity fix, ledger rows 2134/2151) opened
+    it one level: the residual position is now occupied by a `T(...)` of
+    six named sub-panes, not a bare leaf, and per SPEC.md §17.1 "Only a
+    LEAF residual-holder is a derivation subject... a Split/Exclusive
+    residual-holder... contributes nothing" -- the SAME rule that already
+    excludes the control-panel `T(...)` group itself from this dict. Path
+    shifts for `tree`/`otherBand`/`B` (landscape's `V2`->`V3`; portrait's
+    `V2`->`V3`, `V4`->`V5`) are the OTHER stage-B2b structural edit --
+    the new `A_setup` presence-slot leaf (item 2) inserted as a new
+    sibling ahead of the tree/panels row (landscape) / ahead of the board
+    composite and the tree/panels row (portrait, whose root has no
+    separate side column, so `A_setup` sits at the ROOT itself)."""
     for filename, layout_name, expected in [
         (
             "lengyue_landscape",
             "lengyue-landscape",
             {
                 "B": "root/H1/V0",
-                "tree": "root/H2/V2/H0",
-                "settingsPane": "root/H2/V2/H1/T2/V1",
-                "otherBand": "root/H2/V2/H1/T4/V1",
+                "tree": "root/H2/V3/H0",
+                "otherBand": "root/H2/V3/H1/T4/V1",
             },
         ),
         (
             "lengyue_portrait",
             "lengyue-portrait",
             {
-                "B": "root/V2/V0",
-                "tree": "root/V4/H0",
-                "settingsPane": "root/V4/H1/T2/V1",
-                "otherBand": "root/V4/H1/T4/V1",
+                "B": "root/V3/V0",
+                "tree": "root/V5/H0",
+                "otherBand": "root/V5/H1/T4/V1",
             },
         ),
     ]:
         text = (ENCODINGS_DIR / f"{filename}.lyt").read_text()
         slot = loader.load_layouts(text)[layout_name]
         assert find_residual_leaves(slot) == expected
-        # L18 itself is dormant: none of the four (nor any other leaf)
+        # L18 itself is dormant: none of the three (nor any other leaf)
         # authors `orient`, so the REFUSAL never fires even though the
         # residual-holding STRUCTURE is real.
         assert find_l18_violations(slot) == []

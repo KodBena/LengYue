@@ -208,16 +208,68 @@
 --         for every Split in this file's tree after these three
 --         additions, and no other leaf anywhere in this file gains
 --         `activity`.
+--
+--   - M2 STAGE B2b (2026-08-12, ledger rows 2073/2108/2151, the
+--     ruling-basket census) -- identical rationale to
+--     `lengyue_landscape.lyt`'s own M2 STAGE B2b header note (read there
+--     in full for the three-vocabulary decomposition's per-group
+--     grounding citations, the palette-adoption rationale/quotes, and
+--     the settingsPane per-leaf §8.4 classification table); this
+--     class's own differences, where they exist:
+--
+--     (1) ENGINE STATUS DECOMPOSITION -- identical shape
+--     (`H(A_engine_controls, A_engine_eval, A_engine_health,
+--     A_engine_queue)` replacing the bare `A_engine[go, action+info]`
+--     leaf, SAME `{60px, envelope: {disconnected, connected}}` height
+--     reservation on the wrapping `H(...)`, SAME undetermined per-group
+--     width floor, filed the same frontier item). `activity sustained`
+--     is RETIRED from this position the same way -- `A_engine` was the
+--     ONE OTHER direct leaf child of the root `V(...)` this file's own
+--     header note immediately above names as needing the band-wide
+--     cascade; now that it is a composite, excluded, the root `V(...)`'s
+--     own remaining direct leaf children needing `activity` are
+--     `boardRail`/`A_app`/`A_setup` (item 2 below) -- THREE, not two,
+--     the SAME "wider cascade in this class" shape the header note above
+--     already documents, just with `A_setup` as the new third member
+--     replacing `A_engine`'s own prior membership.
+--
+--     (2) PALETTE-AS-PRESENCE-SLOT -- identical `A_setup[common,
+--     action]` leaf (`@toggle(user, release), {80px, content bounded,
+--     activity occasional}`), placed as a direct ROOT `V(...)` child
+--     (portrait has no separate side column -- same structural fact this
+--     file's own header note above already establishes for `A_app`'s own
+--     band-wide reach), positioned directly after `A_app` (the trigger's
+--     own tree position, matching the palette's real in-flow docking
+--     below its trigger). `runner.py`'s own `default_valuation` gains
+--     `"A_setup"` for this class too (the SAME registration entry
+--     already names both classes' widgets, since `default_valuation` is
+--     declared once at the registration layer, not per-class).
+--
+--     (3) PANE GRANULARITY -- identical `T(SP_session, SP_analysisEnv,
+--     SP_cardSets, SP_advancedRegistry, SP_analysis, SP_keybindings)`
+--     shape, using this class's own already-established `200px` per-leaf
+--     floor (this file's own OPTION C header note above: "this file's
+--     own pre-existing WRAPPER_MIN-analog convention" -- 200px was
+--     already this class's number for the analogous CP-library/CP-cards
+--     floor, so no cross-class number choice was needed here the way
+--     landscape's 160px-vs-200px distinction required its own header
+--     note).
 layout lengyue-portrait =
   {min 0px, pref 1fr, max inf, gap 12px} V(
     @toggle(user, release) {min 168px, pref 168px, max 168px, activity occasional} boardRail[common, info+action],
     @demote(h 616px) {160px, content bounded, activity occasional} A_app[common, action],
+    @toggle(user, release) {80px, content bounded, activity occasional} A_setup[common, action],
     {pref 1fr} V(
       {width 100fr, aspect 1} B[board],
       {24px} I_board[board, info],
       {28px} A_board[board, action]
     ),
-    {60px, envelope: {disconnected, connected}, content bounded, activity sustained} A_engine[go, action+info],
+    {60px, envelope: {disconnected, connected}, gap 4px} H(
+      {pref 1fr, content bounded} A_engine_controls[go, action],
+      {pref 1fr, content bounded} A_engine_eval[go, info],
+      {pref 1fr, content bounded} A_engine_health[go, info],
+      {pref 1fr, content bounded} A_engine_queue[go, info]
+    ),
     {pref 1fr, gap 4px} H(
       {min 140px, pref 1fr, max inf} tree[board, info+action],
       {min 664px, pref 664px, max 664px} T(
@@ -225,7 +277,14 @@ layout lengyue-portrait =
         {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v item} CP-cards[common],
         {min 443px, pref 1fr, max inf, gap 4px} V(
           {77px, boundary, content bounded} settingsSubstrip[common],
-          {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, edge v item} settingsPane[common]
+          {min 200px, pref 1fr, max inf} T(
+            {min 200px, pref 1fr, max inf, boundary, content bounded} SP_session[common],
+            {min 200px, pref 1fr, max inf, boundary, content bounded} SP_analysisEnv[common],
+            {min 200px, pref 1fr, max inf, boundary, content bounded} SP_cardSets[common],
+            {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v item} SP_advancedRegistry[common],
+            {min 200px, pref 1fr, max inf, boundary, content bounded} SP_analysis[common],
+            {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v item} SP_keybindings[common]
+          )
         ),
         {min 664px, pref 1fr, max inf, gap 4px} V(
           {min 80px, pref 80px, max 80px, boundary, content designed} timelineStrip[go],
