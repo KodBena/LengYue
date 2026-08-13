@@ -45,7 +45,7 @@ export const LYT_PORTRAIT: LytProgram = {
       {
         path: "1",
         presenceDefaultVisible: true,
-        track: { kind: "fixed", px: 160 },
+        track: { kind: "fixed", px: 66 },
         node: { kind: "leaf", widget: "A_app", domain: "common", facets: ["action"], aspect: null, scrollAxes: [], content: "bounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: "occasional", demote: { axis: "h", belowPx: 616 }, envelopeStates: null },
       },
       {

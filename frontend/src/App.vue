@@ -140,6 +140,7 @@ import {
   resolveWidthConditionalPresence,
   useDeferredLayoutClass,
   clampTreeWidthForSideColumn,
+  resolvePortraitTreeRowWidthPx,
   TREE_CONTROL_WRAPPER_ROW_GAP_PX,
 } from './state/layout-model';
 import type { LytTrackShape } from './state/lyt-layout-types';
@@ -667,16 +668,35 @@ const lytTrackStyleOverrides = computed<Record<string, string>>(() => {
   const controlPanelTrack = requireTrack('controlPanel');
   const previewBoardTrack = requireTrack('previewBoard');
   const treeTrack = requireTrack('tree');
-  const clampedTreePanelWidthPx = clampTreeWidthForSideColumn(
-    effectiveTreePanelWidthPx.value,
-    sideColumnWidthPx.value,
-    [
-      { track: controlPanelTrack, present: controlPanelIsPresent.value },
-      { track: previewBoardTrack, present: previewBoardIsPresent.value },
-    ],
-    treeTrack,
-    TREE_CONTROL_WRAPPER_ROW_GAP_PX,
-  );
+  const fixedRowSiblings = [
+    { track: controlPanelTrack, present: controlPanelIsPresent.value },
+    { track: previewBoardTrack, present: previewBoardIsPresent.value },
+  ];
+  // Finish-pass wave B1, F4 (`.claude/dispatch-reports/
+  // lyt-wB1-portrait-priority.md`): PORTRAIT ONLY, the tree's own
+  // realized width also gets to WIDEN into a row its structurally-absent
+  // siblings freed, when the user has never dragged the INNER bar this
+  // session — see `resolvePortraitTreeRowWidthPx`'s own header for the
+  // full diagnosis and scope. Landscape's call site below is
+  // BYTE-IDENTICAL to before this wave (`clampTreeWidthForSideColumn`,
+  // shrink-only) — "desktop/landscape untouched" was a named goal fact.
+  const clampedTreePanelWidthPx =
+    activeScreenClassId.value === 'portrait'
+      ? resolvePortraitTreeRowWidthPx(
+          effectiveTreePanelWidthPx.value,
+          sideColumnWidthPx.value,
+          fixedRowSiblings,
+          treeTrack,
+          TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+          store.session.ui.treePanelWidthPx === undefined,
+        )
+      : clampTreeWidthForSideColumn(
+          effectiveTreePanelWidthPx.value,
+          sideColumnWidthPx.value,
+          fixedRowSiblings,
+          treeTrack,
+          TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+        );
   const overrides: Record<string, string> = {
     [treePanelPath]: `${clampedTreePanelWidthPx}px`,
   };

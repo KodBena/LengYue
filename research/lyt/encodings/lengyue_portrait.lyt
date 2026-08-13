@@ -394,10 +394,38 @@
 --     portrait representative points were already at or above 140px and
 --     are unaffected) -- see the dispatch report for the full before/
 --     after table.
+--
+--   - FINISH-PASS WAVE B1, F3 -- A_app RE-MEASUREMENT, PORTRAIT ONLY
+--     (2026-08-13, `.claude/dispatch-reports/lyt-wB1-portrait-priority.md`):
+--     this file's own OPTION C / LYT TOOLBAR ONTOLOGY REENCODE header note
+--     above (line ~95-108) claims `160px` was "a REAL Playwright
+--     measurement... taking the WORSE (narrower, 420px) case... plus a
+--     ~10px margin". A fresh measurement on this pass's own isolated rig
+--     (real `ToolbarAppCluster.vue`, boardRail correctly absent per this
+--     file's own P1 default, `railStyle: 'slot'`) finds the CURRENT
+--     component's real wrapped-content height at every one of
+--     `coverage_matrix.PORTRAIT_SIZES`' five widths (1080/1200/768/540
+--     all measure 28px, ONE row; 420 -- the narrowest, and the worst
+--     case among the representative set -- measures 56px, TWO rows) is
+--     56px at its own worst point, not ~150px. `.lyt-toolbar-strip`'s
+--     `align-items: center` was silently absorbing ~100px of pure
+--     centering whitespace inside the declared 160px band at every
+--     representative width. Whether this is a genuine regression since
+--     the 160px figure was recorded, or that figure was never correct,
+--     is not established by this pass (no git-blame/bisection was run) --
+--     named as a discrepancy, not attributed. Corrected to the SAME
+--     "worst representative width + ~10px margin" convention the
+--     original figure claims to follow: `56px + 10px = 66px`. PORTRAIT
+--     ONLY -- `lengyue_landscape.lyt`'s own `A_app` reservation (also
+--     `160px`, same shared component, different — side-column — context)
+--     is UNTOUCHED, per this pass's own "desktop/landscape untouched"
+--     scope (the side column's real per-widget wrap behavior at ITS OWN
+--     widths was not independently re-measured, and re-deriving it is
+--     out of this pass's named scope, F3+F4 portrait-only).
 layout lengyue-portrait =
   {min 0px, pref 1fr, max inf, gap 12px} V(
     @toggle(user, release) {min 168px, pref 168px, max 168px, activity occasional} boardRail[common, info+action],
-    @demote(h 616px) {160px, content bounded, activity occasional} A_app[common, action],
+    @demote(h 616px) {66px, content bounded, activity occasional} A_app[common, action],
     @toggle(user, release) {92px, content bounded, activity occasional} A_setup[common, action],
     {pref 1fr} V(
       {width 100fr, aspect 1} B[board],
