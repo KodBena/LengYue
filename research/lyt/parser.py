@@ -112,6 +112,45 @@ EBNF does not cover):
     prohibition #1), WRAPPER_MIN is resolved by the loader to a disclosed
     concrete constant (300px, matching the control-panel floor the same
     document's own footnote cites at `layout-model.ts:186-191`).
+  - LYT RELATIONS-FIRST AMENDMENT, dispatch B (ledger rows
+    2396/2397/2400/2401; governing spec `.claude/dispatch-reports/
+    lyt-relations-amendment-spec.md` §2/§3): extent position (`min`/
+    `pref`/`max`/the bare `{extent}` shorthand/a new `pinned <extent>`
+    key/`@demote`'s threshold) may now ALSO be a RELATION EXPRESSION
+    instead of a numeric literal — `width-of(widget, state)`,
+    `height-of(widget, state)`, `aspect-of(widget)`, `pitch-of(widget,
+    state)`, `wrap-breakpoint(widget, state)`, `text-width-of(widget,
+    state)`, `max-over(operand, operand, ...)`, `sum-of(operand, operand,
+    ...)`, `pack-rows(items: [...], target-rows: N)`, `read-constant(
+    source, symbol)` — the nine primitives the governing spec's §2
+    ratifies. Grammar shape: `IDENT "(" [relarg ("," relarg)*] ")"`, where
+    a `relarg` is either positional (a nested relation, a literal extent,
+    or a bare dotted/hyphenated reference like `tree.min`, `children.min`,
+    `gap`, or a component/state name) or keyword (`ident ":" relarg`).
+    Parsed FULLY PERMISSIVELY, same architecture as every extension above:
+    ANY identifier followed by `(` parses as a relation call regardless of
+    name (a symbolic sentinel like `WRAPPER_MIN`/`CONTENT`/`inf`/
+    `maximize` is never followed by `(`, so there is no ambiguity to
+    resolve here); the closed relation-name vocabulary, arity, argument
+    shape, and — the real work — RESOLUTION against the generated facts
+    tables are all `loader.py`'s / the new `relations.py` module's job.
+    See those modules' own docstrings for the resolution semantics and
+    the refusal law (no matching/exercised facts entry, malformed
+    expression, forward sibling reference).
+
+    A new bare sizing-bag key, `pinned <extent>`, is minted alongside the
+    relation grammar — the explicit-keyword spelling of the existing bare
+    `{extent}` shorthand (§5.4/§5.5), needed because a bare relation call
+    in shorthand position (`{max-over(...)}`) is syntactically identical
+    to "the sizing block is a single unkeyed extent," which this parser
+    already recognizes by peeking for a NUMUNIT/NUMBER token — a relation
+    call starts with an IDENT instead, so the un-keyed shorthand branch
+    never fires for one. `pinned` names the same "min=pref=max=this value"
+    semantics explicitly instead, composable inside a bag alongside other
+    keys (`gap`, `aspect`) the bare shorthand cannot coexist with (the
+    governing spec's §3(b) worked fragment, `{pinned max-over(children.
+    min)}`, is the motivating case).
+
   - AMENDMENT 7 (ledger rows 2107/2108, M1 of the model-implementation
     arc; SPEC-AMENDMENTS.md's own Amendment 7 entry; ported from the
     model-iteration loop experiment, rounds 3/5/6): four more sizing-bag
@@ -170,6 +209,7 @@ TOKEN_SPEC = [
     ("RBRACE", r"\}"),
     ("COMMA", r","),
     ("COLON", r":"),
+    ("DOT", r"\."),  # LYT relations-first amendment, dispatch B: `tree.min`, `children.min`, `SidebarWidget.vue`
     ("PLUS", r"\+"),
     ("AT", r"@"),
     ("EQUALS", r"="),
@@ -237,7 +277,62 @@ class RawExtentSum:
     parts: List[RawExtent] = field(default_factory=list)
 
 
-RawExtentLike = Union[RawExtent, RawExtentSum]
+# LYT relations-first amendment, dispatch B (ledger rows 2396/2397/2400/
+# 2401; governing spec §2/§3). A relation-expression argument is one of:
+#
+#   - a bare dotted/hyphenated reference (`RawRelationRef`) — a widget id,
+#     a component/state name, or a `widget.field`/`children.field`/`gap`
+#     lateral reference resolved by `relations.py` (never `loader.py`
+#     directly, keeping the "who resolves what" seam clean);
+#   - a nested relation call (`RawRelation` itself, for `sum-of(max-over(
+#     ...), ...)`-shaped composition);
+#   - an ordinary extent literal (`RawExtent`/`RawExtentSum`) — a relation
+#     may combine a literal alongside facts-derived operands (`sum-of(
+#     width-of(a, b), 4px)` is legal, unremarkable arithmetic);
+#   - a bare number with no unit (`RawRelationNumber`) — `target-rows: 2`,
+#     a plain integer/float that is NOT itself a px/ch/fr extent;
+#   - a bracketed list (`RawRelationList`) — `pack-rows`'s own `items:
+#     [...]` argument;
+#   - a keyword argument (`RawRelationKwarg`) — `target-rows: 2`,
+#     `items: [...]`.
+#
+# All parsed PERMISSIVELY (module docstring's own "parser permissive,
+# loader refuses" architecture): no argument count, no name, no keyword
+# is validated here — `relations.py` (imported by loader.py) is where the
+# closed relation-name vocabulary, arity, and keyword set are enforced.
+@dataclass
+class RawRelationRef:
+    text: str  # e.g. "rail-column", "tree.min", "children.min", "gap"
+
+
+@dataclass
+class RawRelationNumber:
+    v: float
+
+
+@dataclass
+class RawRelation:
+    name: str
+    args: "List[RawRelationArg]" = field(default_factory=list)
+
+
+@dataclass
+class RawRelationList:
+    items: "List[RawRelationArg]" = field(default_factory=list)
+
+
+@dataclass
+class RawRelationKwarg:
+    name: str
+    value: "RawRelationArg"
+
+
+RawRelationArg = Union[
+    "RawExtent", "RawExtentSum", RawRelation, RawRelationRef,
+    RawRelationNumber, RawRelationList, RawRelationKwarg,
+]
+
+RawExtentLike = Union[RawExtent, RawExtentSum, RawRelation]
 
 
 @dataclass
@@ -291,6 +386,17 @@ class RawSizing:
     # this module's own "parser permissive, loader refuses" architecture.
     axis_mins: List[Tuple[str, RawExtentLike]] = field(default_factory=list)
     fixed: Optional[RawExtentLike] = None  # `{28px}` shorthand, see §5.4/5.5
+    # LYT relations-first amendment, dispatch B (ledger rows
+    # 2396/2397/2400/2401): `pinned <extent>` -- the explicit-keyword
+    # spelling of the bare `{extent}` shorthand above ("min=pref=max=this
+    # value"), needed because a bare RELATION call in shorthand position
+    # is syntactically indistinguishable from "this whole sizing block is
+    # a relation" only if the shorthand branch is taught to recognize it
+    # -- instead this keyword composes inside a bag alongside `gap`/
+    # `aspect`, which the bare shorthand cannot (governing spec §3(b)).
+    # Parsed permissively (any extent-like value, literal or relation);
+    # loader.py resolves it the same way `fixed` is resolved.
+    pinned: Optional[RawExtentLike] = None
     gap: Optional[RawExtentLike] = None  # AMENDMENT 3 (ledger row 1715), H/V splits only
     # AMENDMENT 5 (ledger row 1937): `scroll <axis>` -- accumulated (not
     # overwritten) across repeated occurrences, see the module docstring's
@@ -550,7 +656,7 @@ class Parser:
             f"unknown presence keyword '@{kw.text}'", {"line": kw.line, "got": kw.text}
         )
 
-    def parse_extent_term(self) -> RawExtent:
+    def parse_extent_term(self) -> "Union[RawExtent, RawRelation]":
         t = self._peek()
         if t.kind == "NUMUNIT":
             self._advance()
@@ -564,17 +670,112 @@ class Parser:
             # encodings).
             return RawExtent(kind="numunit", v=float(t.text), unit="px")
         if t.kind == "IDENT":
+            # LYT relations-first amendment, dispatch B (ledger rows
+            # 2396/2397/2400/2401): `IDENT "("` is a relation call —
+            # parsed permissively regardless of name (module docstring's
+            # own "parser permissive, loader refuses" architecture; no
+            # existing symbolic sentinel — WRAPPER_MIN/CONTENT/inf/
+            # maximize — is ever followed by `(`, so there is no
+            # ambiguity between the two readings at this lookahead).
+            if self.toks[self.i + 1].kind == "LPAREN":
+                return self.parse_relation()
             self._advance()
             return RawExtent(kind="symbol", symbol=t.text)
         raise LytParseError("expected an extent", {"line": t.line, "got": t.text})
 
+    def parse_relation(self) -> RawRelation:
+        """`name "(" [relarg ("," relarg)*] ")"` — see module docstring's
+        LYT RELATIONS-FIRST AMENDMENT note and `RawRelation`'s own
+        docstring above for the argument shapes. Fully permissive: the
+        name and every argument are accepted syntactically without any
+        vocabulary/arity check (`relations.py`'s job)."""
+        name_tok = self._expect("IDENT")
+        self._expect("LPAREN")
+        args: List["RawRelationArg"] = []
+        first = True
+        while self._peek().kind != "RPAREN":
+            if not first:
+                self._expect("COMMA")
+            first = False
+            args.append(self.parse_relation_arg())
+        self._expect("RPAREN")
+        return RawRelation(name=name_tok.text, args=args)
+
+    def parse_relation_arg(self) -> "RawRelationArg":
+        # Keyword form: `IDENT ":" value` — disambiguated by a one-token
+        # lookahead past the IDENT, same lookahead shape `min <axis>
+        # <extent>` already uses elsewhere in this parser. A bare dotted
+        # reference (`tree.min`) also starts with IDENT but is never
+        # immediately followed by COLON at the top level of an argument
+        # (a `:` after a dotted ref would be a malformed program; refused
+        # downstream at resolution, not specially detected here).
+        if self._peek().kind == "IDENT" and self.toks[self.i + 1].kind == "COLON":
+            key_tok = self._expect("IDENT")
+            self._expect("COLON")
+            value = self.parse_relation_arg_value()
+            return RawRelationKwarg(name=key_tok.text, value=value)
+        return self.parse_relation_arg_value()
+
+    def parse_relation_arg_value(self) -> "RawRelationArg":
+        t = self._peek()
+        if t.kind == "LBRACK":
+            self._advance()
+            items: List["RawRelationArg"] = []
+            ifirst = True
+            while self._peek().kind != "RBRACK":
+                if not ifirst:
+                    self._expect("COMMA")
+                ifirst = False
+                items.append(self.parse_relation_arg())
+            self._expect("RBRACK")
+            return RawRelationList(items=items)
+        if t.kind == "NUMUNIT":
+            self._advance()
+            m = re.match(r"(\d+(?:\.\d+)?)(px|ch|fr)", t.text)
+            return RawExtent(kind="numunit", v=float(m.group(1)), unit=m.group(2))
+        if t.kind == "NUMBER":
+            self._advance()
+            # A bare number in relation-argument position (e.g.
+            # `target-rows: 2`) is NOT an extent — it carries no unit and
+            # is never resolved as px/ch/fr. Distinct from
+            # `parse_extent_term`'s own bare-number handling, which is
+            # extent position and DOES default to px.
+            return RawRelationNumber(v=float(t.text))
+        if t.kind == "IDENT":
+            if self.toks[self.i + 1].kind == "LPAREN":
+                return self.parse_relation()
+            first_tok = self._expect("IDENT")
+            segments = [first_tok.text]
+            while self._peek().kind == "DOT":
+                self._advance()
+                segments.append(self._expect("IDENT").text)
+            return RawRelationRef(text=".".join(segments))
+        raise LytParseError(
+            "expected a relation argument (a reference, a nested relation, "
+            "an extent, a number, or a bracketed list)",
+            {"line": t.line, "got": t.text},
+        )
+
     def parse_extent(self) -> RawExtentLike:
         first = self.parse_extent_term()
+        if isinstance(first, RawRelation):
+            # A relation call may not be one term of an extent SUM
+            # (`340px+60ch`-style) — `+` composition over relations is
+            # `sum-of`'s own job, spelled explicitly rather than
+            # overloading the bare `+` token with two meanings.
+            return first
         if self._peek().kind == "PLUS":
             parts = [first]
             while self._peek().kind == "PLUS":
                 self._advance()
-                parts.append(self.parse_extent_term())
+                nxt = self.parse_extent_term()
+                if isinstance(nxt, RawRelation):
+                    raise LytParseError(
+                        "a relation call may not appear inside a '+' extent "
+                        "sum — use sum-of(...) instead",
+                        {"line": self._peek().line},
+                    )
+                parts.append(nxt)
             return RawExtentSum(parts=parts)
         return first
 
@@ -722,6 +923,10 @@ class Parser:
                 # `content`/`orient`/`wrap` above.
                 activity_tok = self._expect("IDENT")
                 rs.activity = activity_tok.text.lower()
+            elif key == "pinned":
+                # LYT relations-first amendment, dispatch B: see
+                # RawSizing.pinned's own docstring.
+                rs.pinned = self.parse_extent()
             elif key == "width":
                 rs.pref = self.parse_extent()  # alias, see module docstring
             elif key == "gap":
