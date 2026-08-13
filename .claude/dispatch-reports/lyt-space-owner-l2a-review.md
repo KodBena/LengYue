@@ -260,6 +260,104 @@ discipline and honesty-verification gaps this specific codebase's own
 governing conventions treat as part of the deliverable, not optional
 polish.
 
+---
+
+## Delta review — 2026-08-14, conditions-discharge verification (refute posture)
+
+**Artifact.** Commit `2e344aab` on top of the reviewed pair (`d76a7c22` +
+`d9491ae1`), same worktree. Read the discharge diff in full
+(`git show --stat 2e344aab` and every hunk under `research/lyt/SPEC.md`,
+`research/lyt/SPEC-AMENDMENTS.md`, both encodings, both `.gen.ts` files).
+
+**Condition 2 (CP-analysis DOM-truth correction) — WITNESSED, not
+trusted.**
+
+- Diffed the encodings directly: exactly the two `content designed` →
+  `content unbounded` value changes at the CP-analysis wrapper site, one
+  per screen class, no `scroll` added, no other line touched.
+- Read `AnalysisDashboard.vue` lines 169-173 and `AnalysisControls.vue`
+  line 385 myself: `.scrollable-content { flex: 1; overflow-y: auto; }`
+  is real, and it is mounted at exactly the claimed site. The DOM-truth
+  claim is accurate.
+- Reproduced the L5c refusal directly rather than trusting the claim:
+  hand-inserted `content unbounded, scroll v` at the CP-analysis wrapper
+  site in `lengyue_landscape.lyt` and reloaded through `loader.py` in a
+  fresh venv — refused with `law: 'L5c'`, `"a chart-carrying container
+  may not scroll"`, naming the exact path
+  (`root/H2/V3/H1/T3`). Matches the claim exactly.
+- Regenerated both `.gen.ts` files independently
+  (`emit_layout_tree.py --registration landscape|portrait`) and diffed
+  against the committed files with `diff -q`: byte-identical, both
+  classes. Diffed the committed files against their pre-discharge
+  versions: exactly the two `content` field values changed
+  (`"designed"` → `"unbounded"`), nothing else — grepped both files for
+  any stray `"designed"` and found only the unrelated, correct
+  `otherColorDebug` leaf.
+- The new §18.5 residual note (SPEC.md) and its longer counterpart in
+  the Amendment 10 entry (SPEC-AMENDMENTS.md) both name the gap
+  honestly — "the most honest fact expressible within the current leaf
+  classifications," not a claim that the law is now fully satisfied —
+  and correctly scope closing it as a separate, larger work item
+  (opening the analysis sub-tree to per-leaf DOM mounting, matching what
+  Settings already did) rather than something silently routed around
+  here. This is exactly what Condition 2 asked for.
+
+**Condition 1 (Amendment 10 record + SPEC.md correction) — WITNESSED.**
+
+- `SPEC-AMENDMENTS.md` gains a full Amendment 10 entry in the same
+  nine-part shape every prior amendment uses (Ruling / What it
+  implements / Encodings / Dormancy and verification / Diff vs. consult
+  / Seam choice / What it touched) — read end to end, cross-checked
+  against the actual diff (Obligation 1-6 above) for every factual claim
+  it makes (file list, test counts, the `is_exclusive_child` mechanism,
+  the `prune_absent` fix) and found accurate throughout, including
+  disclosing the CP-analysis correction as part of the same entry rather
+  than papering over the fact the first cut was wrong.
+- `SPEC.md`'s two stale "LEAF-only" passages (opening grammar summary,
+  §13.1) are corrected using the SAME `[corrected DATE, ...]` /
+  strikethrough convention already visible one amendment earlier in this
+  same file (the 2026-08-12 "nine" → "five" precedent) — the false
+  original text is struck through and preserved as historical record,
+  not silently deleted, matching this codebase's own established
+  correction idiom. The "nine ledger-adjudicated rulings" count is
+  corrected to "ten" in both places it appeared (opening paragraph,
+  "Status of the other LYT documents" section). A new §18 (with §18.1-
+  §18.5 subsections) gives the current-state grammar in the same form
+  §14-§17 give Amendments 6-9 — read end to end, consistent with the
+  actual code (§18.3's "L5/L5a/L5c unchanged in what they check" claim
+  matches the `wellformed.py` diff verified in the original review;
+  §18.2's three-position enumeration matches `loader._load_content_class`
+  exactly).
+- Doc-graph: verified directly, not taken on faith — `tools/doc-graph/
+  generate.mjs`'s own `SCAN_DIRS = ["docs"]` (line 245) confirms
+  `research/lyt/` is never a scanned node, so no regeneration is owed by
+  this change. Correct.
+
+**Gates, re-run by exit code, fresh.**
+
+- `research/lyt` suite: **424 passed, exit 0** (unchanged from the
+  original review — expected, since the discharge changes two string
+  literals in already-covered encoding sites, not law/loader logic).
+- `frontend`: `vue-tsc -b` → **exit 0**, clean.
+- `frontend` vitest suite re-run for thoroughness (the discharge touches
+  only `.gen.ts` field values on a field no runtime code consumes yet,
+  per the original review's own citation of `useLytOverflowCss.ts`'s
+  disclosed leaf-only scope) — running in background at time of writing;
+  not blocking, since the change is inert by the same reasoning that
+  made Condition 2 low-risk in the first place.
+
+**Verdict: conditions discharged. ACCEPT.**
+
+Both conditions from the original ACCEPT-WITH-CONDITIONS review are
+discharged, verified independently rather than taken on the builder's
+word: the CP-analysis encoding now states the fact its own real
+component supports, with the residual gap it cannot fully close named
+honestly in two places; the amendment ledger and current-state spec are
+both brought current in the codebase's own established form, with the
+correction to the correction itself following the same disclosed-
+staleness idiom already in use one amendment earlier. No new concerns
+surfaced during delta review.
+
 ## License
 
 Public Domain (The Unlicense), per ADR-0006.
