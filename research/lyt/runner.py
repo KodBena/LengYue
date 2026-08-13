@@ -44,24 +44,37 @@ ENCODINGS_DIR = Path(__file__).parent / "encodings"
 # resolvable after the move, for every consumer that reads a registration's
 # own `.lyt` source text.
 FIXTURES_REFERENCE_DIR = Path(__file__).parent / "fixtures" / "reference"
+# LYT relations-first amendment, dispatch C2 (ledger rows 2426/2427): a
+# second sibling fixture directory, for the opposite reason ogs/q5go moved --
+# current_row_asis.lyt/current_row_repaired.lyt are FIRST-party transcriptions
+# (today's own SPA row-axis layout, measured, not designed) moved out of
+# encodings/ because they are transcriptions of reality rather than designs
+# under governance, distinct from the third-party fixtures/reference/ pair.
+FIXTURES_TRANSCRIPTION_DIR = Path(__file__).parent / "fixtures" / "transcription"
 
 
 def resolve_encoding_file(filename: str) -> Path:
     """Resolves a `Registration.files` entry to its on-disk path:
-    `encodings/` first (every ordinary encoding, unchanged since before this
-    amendment), `fixtures/reference/` as a fallback (ogs.lyt/q5go.lyt only,
-    post-move). Refused loudly (`FileNotFoundError`, not a silent None) when
-    neither location has the file -- a dangling reference after a fixture
-    move is a failure this dispatch's own audit discipline names, not a
-    footnote."""
+    `encodings/` first (every ordinary encoding, unchanged since before the
+    dispatch A amendment), `fixtures/reference/` next (ogs.lyt/q5go.lyt,
+    third-party transcriptions), `fixtures/transcription/` last
+    (current_row_asis.lyt/current_row_repaired.lyt, first-party
+    transcriptions, post dispatch C2 move). Refused loudly
+    (`FileNotFoundError`, not a silent None) when no location has the file
+    -- a dangling reference after a fixture move is a failure this
+    dispatch's own audit discipline names, not a footnote."""
     p = ENCODINGS_DIR / filename
     if p.exists():
         return p
     p2 = FIXTURES_REFERENCE_DIR / filename
     if p2.exists():
         return p2
+    p3 = FIXTURES_TRANSCRIPTION_DIR / filename
+    if p3.exists():
+        return p3
     raise FileNotFoundError(
-        f"{filename!r} not found in {ENCODINGS_DIR} or {FIXTURES_REFERENCE_DIR}"
+        f"{filename!r} not found in {ENCODINGS_DIR}, {FIXTURES_REFERENCE_DIR}, "
+        f"or {FIXTURES_TRANSCRIPTION_DIR}"
     )
 
 

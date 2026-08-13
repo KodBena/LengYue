@@ -36,23 +36,31 @@ ENCODINGS_DIR = Path(__file__).parent.parent / "encodings"
 # where a comment-bearing Python test file carries the disclosure" —
 # resolved that way here).
 FIXTURES_REFERENCE_DIR = Path(__file__).parent.parent / "fixtures" / "reference"
+# LYT relations-first amendment, dispatch C2 (ledger rows 2426/2427):
+# current_row_asis.lyt/current_row_repaired.lyt moved out of encodings/ --
+# first-party transcriptions of today's SPA (measured, not designed),
+# distinct from the third-party fixtures/reference/ pair above.
+FIXTURES_TRANSCRIPTION_DIR = Path(__file__).parent.parent / "fixtures" / "transcription"
 TESTS_DIR = Path(__file__).parent
 
 
 def _load(name: str):
     """Resolves `name` (a bare .lyt basename, no directory) against every
     location a fixture may now live in: encodings/ (ordinary encodings,
-    unchanged), fixtures/reference/ (ogs/q5go, post-move), this directory
-    (the three current_row_wart_*.lyt negative fixtures, post-move).
-    Refused loudly (FileNotFoundError) rather than silently returning
-    nothing when none of the three has the file — the same "a dangling
-    reference is a failure" discipline the move's own audit used."""
-    for directory in (ENCODINGS_DIR, FIXTURES_REFERENCE_DIR, TESTS_DIR):
+    unchanged), fixtures/reference/ (ogs/q5go, post-move), fixtures/
+    transcription/ (current_row_asis/current_row_repaired, post dispatch-C2
+    move), this directory (the three current_row_wart_*.lyt negative
+    fixtures, post-move). Refused loudly (FileNotFoundError) rather than
+    silently returning nothing when none of the four has the file — the
+    same "a dangling reference is a failure" discipline the move's own
+    audit used."""
+    for directory in (ENCODINGS_DIR, FIXTURES_REFERENCE_DIR, FIXTURES_TRANSCRIPTION_DIR, TESTS_DIR):
         candidate = directory / f"{name}.lyt"
         if candidate.exists():
             return loader.load_layouts(candidate.read_text())
     raise FileNotFoundError(
-        f"{name}.lyt not found in {ENCODINGS_DIR}, {FIXTURES_REFERENCE_DIR}, or {TESTS_DIR}"
+        f"{name}.lyt not found in {ENCODINGS_DIR}, {FIXTURES_REFERENCE_DIR}, "
+        f"{FIXTURES_TRANSCRIPTION_DIR}, or {TESTS_DIR}"
     )
 
 
@@ -1309,7 +1317,7 @@ def test_emit_ts_main_writes_file_matching_render_ts(tmp_path):
 # =============================================================================
 # --baseline waiver mechanism + current-row-asis (lyt-constants-swap
 # commission, ledger row 1687): the AS-IS conformance baseline
-# (`encodings/current_row_asis.lyt`) is honestly L2-non-conformant at two
+# (`fixtures/transcription/current_row_asis.lyt`) is honestly L2-non-conformant at two
 # disclosed sites -- `wellformed.Waiver` + `check_wellformed`'s waiver
 # arbitration is the mechanism that lets it load anyway, loudly, without
 # weakening the checker for every OTHER encoding. `baseline.py`'s
@@ -1325,7 +1333,7 @@ def test_current_row_asis_fails_strict_load_without_waivers():
     """Loading the as-is baseline with NO waivers (strict mode, the
     default every other encoding uses) must still raise L2 -- confirms
     the fixture genuinely IS non-conformant, not accidentally clean."""
-    text = (ENCODINGS_DIR / "current_row_asis.lyt").read_text()
+    text = (FIXTURES_TRANSCRIPTION_DIR / "current_row_asis.lyt").read_text()
     with pytest.raises(LytLoadError) as exc_info:
         loader.load_layouts(text)
     assert exc_info.value.detail.get("law") == "L2"
@@ -1335,7 +1343,7 @@ def test_current_row_asis_fails_strict_load_without_waivers():
 def test_current_row_asis_loads_via_baseline_waivers():
     """The `--baseline` load mode: the SAME text loads clean once the
     two disclosed L2 sites are waived via `baseline.BASELINE_WAIVERS`."""
-    text = (ENCODINGS_DIR / "current_row_asis.lyt").read_text()
+    text = (FIXTURES_TRANSCRIPTION_DIR / "current_row_asis.lyt").read_text()
     layouts = loader.load_layouts(text, waivers=baseline.BASELINE_WAIVERS)
     assert "current-row-asis" in layouts
 
@@ -1391,7 +1399,7 @@ def test_check_wellformed_unwaived_violation_still_raises_with_waivers_present()
     """A waiver for ONE of two real violations does not silence the
     other -- waivers are matched exactly by `(law, path)`, never
     globally weakening the check once any waiver is present."""
-    text = (ENCODINGS_DIR / "current_row_asis.lyt").read_text()
+    text = (FIXTURES_TRANSCRIPTION_DIR / "current_row_asis.lyt").read_text()
     raws = __import__("parser").parse_layouts(text)
     slot = loader.load_slot(raws[0].slot, path=raws[0].name)
     only_one = [baseline.CURRENT_ROW_ASIS_L2_WAIVERS[0]]

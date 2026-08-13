@@ -1,7 +1,7 @@
 /**
  * GENERATED FILE — do not hand-edit.
  * Tool: research/lyt/emit_ts.py
- * Source encoding: research/lyt/encodings/current_row_asis.lyt (layout `current-row-asis`)
+ * Source encoding: research/lyt/fixtures/transcription/current_row_asis.lyt (layout `current-row-asis`)
  * Solve inputs: CP-SAT lexicographic solve (research/lyt/compiler.py solve_lexicographic), board widget 'B', reach-preferred widgets auto-derived (research/lyt/runner.py _gather_reach_preferred_widgets), representative sizes research/lyt/runner.py SCREEN_SIZES.
  * Loaded via the --baseline waiver mechanism (research/lyt/baseline.py BASELINE_WAIVERS) — this encoding is a disclosed, honestly non-conformant AS-IS transcription, not a design proposal; see the source .lyt file's own header.
  * Regenerate: cd research/lyt && nice -n 19 ~/w/vdc/venvs/generic/bin/python emit_ts.py --registration current_row_asis.lyt

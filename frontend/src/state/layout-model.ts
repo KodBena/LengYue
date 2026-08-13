@@ -340,8 +340,8 @@ const TREE_PANEL_DEFAULT_WIDTH_PX = 140;
 
 // lyt-constants-swap (ledger row 1687): sourced from the LYT AS-IS
 // conformance baseline's generated solve
-// (`lyt-solved-layout-asis.gen.ts`, from `research/lyt/encodings/
-// current_row_asis.lyt` via `research/lyt/emit_ts.py`) rather than a
+// (`lyt-solved-layout-asis.gen.ts`, from `research/lyt/fixtures/
+// transcription/current_row_asis.lyt` via `research/lyt/emit_ts.py`) rather than a
 // hand literal — the ONE structurally-shared panel slot the shadow
 // harness's divergence report showed the solve and the live-rendered
 // DOM agreeing on EXACTLY (dw=0px) at every measured representative

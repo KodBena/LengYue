@@ -1,4 +1,4 @@
-"""Codegen: solve `current-row-repaired` (encodings/current_row_repaired.lyt)
+"""Codegen: solve `current-row-repaired` (fixtures/transcription/current_row_repaired.lyt)
 at every representative screen size and emit the solved rectangles as a
 GENERATED TypeScript data module for the frontend
 (`frontend/src/state/lyt-solved-layout.gen.ts`).
@@ -17,7 +17,7 @@ solves this exact encoding at these exact sizes; this script does not
 duplicate the solving logic, just formats its own copy of the result as
 TypeScript instead of ASCII):
 
-  - the encoding: `encodings/current_row_repaired.lyt`, layout id
+  - the encoding: `fixtures/transcription/current_row_repaired.lyt`, layout id
     `current-row-repaired` (registered in `runner.REGISTRATIONS` as a
     single screen class, id `default` — the encoding has no second class,
     per runner.py's own module docstring).
@@ -287,9 +287,18 @@ def render_ts(
     by the emitter's own tests)."""
     reg = _find_registration(registration_name)
     layout_name = next(iter(reg.layout_by_class.values()))
-    source_encoding = (
-        f"research/lyt/encodings/{reg.files[0]} (layout `{layout_name}`)"
-    )
+    # LYT relations-first amendment, dispatch C2 (ledger rows 2426/2427):
+    # this used to hardcode "research/lyt/encodings/" as every source
+    # encoding's directory; that stopped being true once ogs.lyt/q5go.lyt
+    # (dispatch A) and current_row_asis.lyt/current_row_repaired.lyt
+    # (this dispatch) moved to fixtures/reference/ and fixtures/
+    # transcription/ respectively. `resolve_encoding_file` is the one
+    # place every consumer resolves a registration's own .lyt source --
+    # reusing it here keeps this header comment truthful regardless of
+    # which of the three directories the file actually lives in.
+    _REPO_ROOT = Path(__file__).parent.parent.parent
+    source_path = resolve_encoding_file(reg.files[0]).relative_to(_REPO_ROOT)
+    source_encoding = f"{source_path} (layout `{layout_name}`)"
     lines: List[str] = []
     lines.append("/**")
     lines.append(" * GENERATED FILE — do not hand-edit.")

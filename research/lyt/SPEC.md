@@ -604,7 +604,7 @@ buttons plus `locale` in a dedicated inner band (96px of chrome inside
 a 120px total) and labels it an "L2-conformer" — under this dominance
 test that inner band is a genuine, unambiguous majority violation
 (`96·2 = 192 > 120`), which **disagrees with the consult document's own
-casual label for that construction**. `encodings/current_row_repaired
+casual label for that construction**. `fixtures/transcription/current_row_repaired
 .lyt` was restructured — the wrapper unwrapped, its five children
 promoted to direct children of the substantial nav-bar row — per L2's
 own textually-prescribed remedy ("ride the already-reserved nav bar"),
@@ -777,7 +777,7 @@ letting a raw `ValueError` escape.
 tree before returning it — this is "load time" for L2's purposes. A
 declared `waivers` map (`wellformed.Waiver`) lets a caller load an
 honestly, disclosedly L2-non-conformant encoding (the as-is baseline,
-`encodings/current_row_asis.lyt`) without either refusing to load it at
+`fixtures/transcription/current_row_asis.lyt`) without either refusing to load it at
 all or silently weakening the checker for every other encoding: each
 `Waiver` names an exact law, an exact tree path, and a citation, and a
 waiver that matches no violation actually present on this load ("stale

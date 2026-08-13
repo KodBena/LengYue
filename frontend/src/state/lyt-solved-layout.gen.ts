@@ -1,7 +1,7 @@
 /**
  * GENERATED FILE — do not hand-edit.
  * Tool: research/lyt/emit_ts.py
- * Source encoding: research/lyt/encodings/current_row_repaired.lyt (layout `current-row-repaired`)
+ * Source encoding: research/lyt/fixtures/transcription/current_row_repaired.lyt (layout `current-row-repaired`)
  * Solve inputs: CP-SAT lexicographic solve (research/lyt/compiler.py solve_lexicographic), board widget 'B', reach-preferred widgets auto-derived (research/lyt/runner.py _gather_reach_preferred_widgets), representative sizes research/lyt/runner.py SCREEN_SIZES.
  * Regenerate: cd research/lyt && nice -n 19 ~/w/vdc/venvs/generic/bin/python emit_ts.py --registration current_row_repaired.lyt
  * Phase-1 shadow mode (LYT adoption roadmap): plain data only, no behaviour, no runtime import from app code yet — see .claude/dispatch-reports/lyt-shadow-harness-build.md.

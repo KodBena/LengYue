@@ -7,7 +7,7 @@ rather than drifting between `runner.py`, `emit_ts.py`, and
 `tests/test_lyt.py`.
 
 Every entry here corresponds to a `⚠L2` site named and explained in
-`encodings/current_row_asis.lyt`'s own header comment ("L2 SITES"
+`fixtures/transcription/current_row_asis.lyt`'s own header comment ("L2 SITES"
 section) — read that file before extending this registry; the path
 strings below are the exact walk-paths `wellformed.find_l2_violations`
 reports (`root`, `root/H2/V0/H1`, ...), confirmed by loading the file

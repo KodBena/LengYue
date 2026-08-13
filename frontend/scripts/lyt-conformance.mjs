@@ -259,12 +259,16 @@ const SOURCES = {
   repaired: {
     module: '../src/state/lyt-solved-layout.gen.ts',
     encodingLabel: 'current-row-repaired',
-    encodingPath: 'research/lyt/encodings/current_row_repaired.lyt',
+    // LYT relations-first amendment, dispatch C2 (ledger rows 2426/2427):
+    // moved out of research/lyt/encodings/ to fixtures/transcription/ --
+    // a first-party transcription of today's SPA, not a design under
+    // governance.
+    encodingPath: 'research/lyt/fixtures/transcription/current_row_repaired.lyt',
   },
   asis: {
     module: '../src/state/lyt-solved-layout-asis.gen.ts',
     encodingLabel: 'current-row-asis',
-    encodingPath: 'research/lyt/encodings/current_row_asis.lyt',
+    encodingPath: 'research/lyt/fixtures/transcription/current_row_asis.lyt',
   },
   // W1 skeleton rework (roadmap §8 W1 item 6): the clean-room landscape
   // program this build actually realizes. Solved via `emit_ts.py
