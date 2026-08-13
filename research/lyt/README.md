@@ -281,7 +281,7 @@ unaffected.
 
 `research/lyt/baseline.py`'s `BASELINE_WAIVERS` is the one registry this
 mechanism is populated from today, covering
-`encodings/current_row_asis.lyt` — the LYT shadow-harness's (a
+`fixtures/transcription/current_row_asis.lyt` — the LYT shadow-harness's (a
 "shadow" measurement rig, `frontend/scripts/lyt-conformance.mjs`, that
 measures the LIVE SPA's rendered DOM geometry and diffs it against
 LYT's solved layout, without altering the app) AS-IS
@@ -290,7 +290,7 @@ warts-and-all, unlike `current_row_repaired.lyt`, which structurally
 repairs its L1/L2 warts). `runner.py`'s `Registration.waivers` field and
 `emit_ts.py --registration current_row_asis.lyt` both thread this map
 through, so the CLI runner and the codegen agree on what's waived and
-why. See `encodings/current_row_asis.lyt`'s own header for the two
+why. See `fixtures/transcription/current_row_asis.lyt`'s own header for the two
 disclosed L2 sites and [.claude/dispatch-reports/lyt-constants-swap-build.md](../../.claude/dispatch-reports/lyt-constants-swap-build.md)
 for the divergence-report evidence this baseline produced.
 

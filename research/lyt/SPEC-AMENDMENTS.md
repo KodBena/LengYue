@@ -926,8 +926,11 @@ wired into every `load_slot` leaf/split/exclusive branch);
 `emit_layout_tree.py` (`_collect_leaf_widgets`, Exclusive branch
 retirement); `emit_mockup.py` (`_first_leaf_widget`, `render_exclusive`
 retirement, `TAB_LABELS` gains three composite-child entries);
-`encodings/current_row_asis.lyt` / `current_row_repaired.lyt` /
-`lengyue_landscape.lyt` / `lengyue_portrait.lyt` (mechanical re-homing);
+`current_row_asis.lyt` / `current_row_repaired.lyt` /
+`encodings/lengyue_landscape.lyt` / `encodings/lengyue_portrait.lyt`
+(mechanical re-homing; the first two lived in `encodings/` at the time
+this amendment landed and have since moved to `fixtures/transcription/`,
+LYT relations-first amendment dispatch C2, ledger rows 2426/2427);
 `synthesize.py` (same, for constructor-coverage consistency);
 `tests/test_lyt.py` (one pre-existing fixture's own inline `domain=
 'blackbox'` literal updated; regression coverage for the retirement

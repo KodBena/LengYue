@@ -66,7 +66,7 @@
 --     inside a new H(...) row: `H(tree, T(CP-*), previewBoard)`. This
 --     is NOT a new invention — it reproduces, almost exactly, the SHAPE
 --     the as-is encoding already transcribes for the real app
---     (`encodings/current_row_asis.lyt`'s own
+--     (`fixtures/transcription/current_row_asis.lyt`'s own
 --     `H(tree{140px,drag-persisted}, resizerInner, T(CP-*){WRAPPER_MIN})`
 --     — this file omits the resizer leaf, since the census census
 --     doesn't carry a dedicated resizer widget in this consolidated
@@ -92,7 +92,7 @@
 --     USER-TOGGLEABLE presence slot — user-initiated, space-releasing
 --     ... wired into the corner presence-menu... DEFAULT OFF"). Identity
 --     and ~168px reservation grounded in
---     `encodings/current_row_asis.lyt`'s own transcription: that file's
+--     `fixtures/transcription/current_row_asis.lyt`'s own transcription: that file's
 --     `@toggle(user, release) {min 168px, pref 168px, max 168px} V(
 --     loadSave, boardRail, addBoard, jankTest, preview )` is the real
 --     app's sidebar rail. This clean-room file, being function-

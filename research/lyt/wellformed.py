@@ -272,7 +272,7 @@ class Waiver:
     """A single, loud, enumerated exemption from one well-formedness law
     at one tree location — the mechanism named by the lyt-constants-swap
     commission for loading an as-is baseline encoding that is honestly
-    L1/L2-non-conformant (`research/lyt/encodings/current_row_asis.lyt`).
+    L1/L2-non-conformant (`research/lyt/fixtures/transcription/current_row_asis.lyt`).
 
     Per the commission's own instruction ("a waiver must name the law and
     the wiki/consult citation" — a documented per-law waiver annotation,
