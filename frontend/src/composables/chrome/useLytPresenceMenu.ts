@@ -131,6 +131,20 @@
  * way (toggling still writes the real preference — it just doesn't take
  * visible effect until the width evaluator agrees).
  *
+ * ── "Default layout" (commission, ledger row 2379) ──────────────────
+ * A fifth action, `resetLayout`, joins the four target checkboxes and
+ * the rail-style selector this popover already hosts — reasoned from
+ * the same "layout-adjacent menu" placement the commission names: this
+ * popover is the one existing chrome surface that already gathers
+ * layout-shaping controls (which panels show, how the rail renders), so
+ * a "forget my dragged widths, recompute for this window" action lives
+ * here rather than inventing a second menu. The actual clearing logic
+ * (which two `session.ui` cells are layout-override geometry, as
+ * opposed to presence) is NOT reimplemented here — `resetLayoutOverrides`
+ * (`useResizablePanel.ts`) is the one home for that enumeration
+ * (ADR-0012 P1); this composable only re-exports it as a plain callback,
+ * the same forwarding shape `toggle`/`setRailStyle` already use.
+ *
  * ADR-0003 band: 2 (chrome-coupled — reads/writes the LYT presence menu's
  * own session-state shape; no Go/engine vocabulary).
  *
@@ -138,6 +152,7 @@
  */
 import { computed, ref, type ComputedRef, type Ref } from 'vue';
 import { store, touchSession } from '../../store';
+import { resetLayoutOverrides } from './useResizablePanel';
 
 /** The presence menu's checkbox targets, in the order the popover renders
  *  them. See this file's header for why not the mockup's seven, and the
@@ -200,6 +215,11 @@ export interface LytPresenceMenuHandle {
   readonly toggle: (id: LytPresenceTargetId) => void;
   readonly railStyle: ComputedRef<'slot' | 'popover'>;
   readonly setRailStyle: (style: 'slot' | 'popover') => void;
+  /** "Default layout" — see this file's header, "Default layout"
+   *  section. Clears the two persisted layout-override cells
+   *  (`treeControlRegionWidthPx`/`treePanelWidthPx`); leaves every
+   *  presence toggle (`lytPresence`, `railStyle`) untouched. */
+  readonly resetLayout: () => void;
 }
 
 export function useLytPresenceMenu(options?: UseLytPresenceMenuOptions): LytPresenceMenuHandle {
@@ -261,5 +281,5 @@ export function useLytPresenceMenu(options?: UseLytPresenceMenuOptions): LytPres
     touchSession();
   }
 
-  return { open, toggleMenu, closeMenu, targets, toggle, railStyle, setRailStyle };
+  return { open, toggleMenu, closeMenu, targets, toggle, railStyle, setRailStyle, resetLayout: resetLayoutOverrides };
 }

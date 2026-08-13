@@ -27,6 +27,8 @@
   "app.chrome.presence.railPopoverButton":       "Board Rail",
   "app.chrome.presence.boardRailPopoverStyleHint": "Board Rail is shown via the popover button instead — switch style to \"Docked panel\" to toggle it here",
   "app.chrome.presence.previewBoardEmpty":       "No active board",
+  "app.chrome.presence.resetLayoutButton":       "Default layout",
+  "app.chrome.presence.resetLayoutTitle":        "Reset dragged tree/control panel widths back to the computed default for this window size",
 
   "app.workspace.loading":                "Loading workspace…",
   "app.workspace.loadFailed":             "Workspace failed to load. Nothing has been changed or lost.",
