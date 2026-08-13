@@ -17,6 +17,9 @@
     "perf:heap": "node scripts/perf-heap.mjs",
     "sidecar:build": "bash src-tauri/scripts/build-sidecar.sh",
     "proxy-sidecar:build": "bash src-tauri/scripts/build-proxy-sidecar.sh",
+    "layout-audit": "bash scripts/run-layout-audit.sh",
+    "layout-audit:report": "node scripts/layout-audit.mjs --build",
+    "style-tokens-audit": "node scripts/style-tokens-audit.mjs --check",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"
