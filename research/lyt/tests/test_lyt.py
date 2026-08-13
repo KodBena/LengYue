@@ -25,11 +25,35 @@ from errors import LytLoadError, LytParseError
 from compiler import solve_lexicographic
 
 ENCODINGS_DIR = Path(__file__).parent.parent / "encodings"
+# LYT relations-first amendment, dispatch A (ledger rows 2396/2397/2399/2400,
+# rulings 1/2): ogs.lyt/q5go.lyt moved to fixtures/reference/ (third-party
+# UI transcriptions, not LengYue's own frontend -- outside the governed
+# layout-language surface); the three current_row_wart_*.lyt negative-test
+# fixtures moved here, alongside this file, since their entire purpose is a
+# pytest assertion this file itself carries (SPEC.md §6, Open Question 2's
+# own "a wart fixture with its comment stripped is an unmarked syntax
+# error... reclassified as test fixtures living under research/lyt/tests/,
+# where a comment-bearing Python test file carries the disclosure" —
+# resolved that way here).
+FIXTURES_REFERENCE_DIR = Path(__file__).parent.parent / "fixtures" / "reference"
+TESTS_DIR = Path(__file__).parent
 
 
 def _load(name: str):
-    text = (ENCODINGS_DIR / f"{name}.lyt").read_text()
-    return loader.load_layouts(text)
+    """Resolves `name` (a bare .lyt basename, no directory) against every
+    location a fixture may now live in: encodings/ (ordinary encodings,
+    unchanged), fixtures/reference/ (ogs/q5go, post-move), this directory
+    (the three current_row_wart_*.lyt negative fixtures, post-move).
+    Refused loudly (FileNotFoundError) rather than silently returning
+    nothing when none of the three has the file — the same "a dangling
+    reference is a failure" discipline the move's own audit used."""
+    for directory in (ENCODINGS_DIR, FIXTURES_REFERENCE_DIR, TESTS_DIR):
+        candidate = directory / f"{name}.lyt"
+        if candidate.exists():
+            return loader.load_layouts(candidate.read_text())
+    raise FileNotFoundError(
+        f"{name}.lyt not found in {ENCODINGS_DIR}, {FIXTURES_REFERENCE_DIR}, or {TESTS_DIR}"
+    )
 
 
 @pytest.mark.parametrize(

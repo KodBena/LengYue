@@ -33,6 +33,37 @@ from presence import ALL_PRESENT, PresenceValuation, prune_absent, resolve_and_v
 from render import render_ascii
 
 ENCODINGS_DIR = Path(__file__).parent / "encodings"
+# LYT relations-first amendment, dispatch A (ledger rows 2396/2397/2399/2400,
+# ruling 1): ogs.lyt/q5go.lyt moved out of encodings/ into fixtures/reference/
+# -- they transcribe third-party UIs (OGS's web client, q5go's desktop
+# editor), not LengYue's own frontend, so they are reference/comparison
+# fixtures outside the governed layout-language surface (SPEC.md §6), the
+# same way a golden-file test fixture sits outside a "no magic numbers in
+# application code" lint rule's own reach. `resolve_encoding_file` below is
+# what keeps every `Registration.files` entry (still a bare filename)
+# resolvable after the move, for every consumer that reads a registration's
+# own `.lyt` source text.
+FIXTURES_REFERENCE_DIR = Path(__file__).parent / "fixtures" / "reference"
+
+
+def resolve_encoding_file(filename: str) -> Path:
+    """Resolves a `Registration.files` entry to its on-disk path:
+    `encodings/` first (every ordinary encoding, unchanged since before this
+    amendment), `fixtures/reference/` as a fallback (ogs.lyt/q5go.lyt only,
+    post-move). Refused loudly (`FileNotFoundError`, not a silent None) when
+    neither location has the file -- a dangling reference after a fixture
+    move is a failure this dispatch's own audit discipline names, not a
+    footnote."""
+    p = ENCODINGS_DIR / filename
+    if p.exists():
+        return p
+    p2 = FIXTURES_REFERENCE_DIR / filename
+    if p2.exists():
+        return p2
+    raise FileNotFoundError(
+        f"{filename!r} not found in {ENCODINGS_DIR} or {FIXTURES_REFERENCE_DIR}"
+    )
+
 
 SCREEN_SIZES: List[Tuple[str, int, int]] = [
     ("1920x1080", 1920, 1080),
@@ -284,7 +315,7 @@ def run_all(*, cols: int = 100, rows: int = 36, time_limit_s: float = 20.0) -> i
         layout_text: Dict[str, str] = {}
         raw_layouts: Dict[str, ast.Slot] = {}
         for f in reg.files:
-            text = (ENCODINGS_DIR / f).read_text()
+            text = resolve_encoding_file(f).read_text()
             names = loader.load_layouts(text, waivers=reg.waivers)
             raw_layouts.update(names)
             for name in names:

@@ -234,7 +234,7 @@ import loader
 from compiler import solve_lexicographic
 from emit_ts import _find_registration, _slots_from_result
 from presence import PresenceValuation, resolve_and_validate
-from runner import ENCODINGS_DIR, _gather_reach_preferred_widgets
+from runner import _gather_reach_preferred_widgets, resolve_encoding_file
 
 REGISTRATION_NAME = "lengyue_landscape+portrait"
 OUT_DIR = Path(__file__).parent / "mockups"
@@ -1659,7 +1659,7 @@ def load_class_slots() -> Tuple["object", Dict[str, ast.Slot]]:
     reg = _find_registration(REGISTRATION_NAME)
     layouts: Dict[str, ast.Slot] = {}
     for f in reg.files:
-        text = (ENCODINGS_DIR / f).read_text()
+        text = resolve_encoding_file(f).read_text()
         layouts.update(loader.load_layouts(text, waivers=reg.waivers))
     return reg, layouts
 

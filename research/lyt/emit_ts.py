@@ -65,10 +65,10 @@ import loader
 from compiler import solve_lexicographic, SolveResult
 from presence import ALL_PRESENT, resolve_and_validate
 from runner import (
-    ENCODINGS_DIR,
     REGISTRATIONS,
     SCREEN_SIZES,
     _gather_reach_preferred_widgets,
+    resolve_encoding_file,
     valuation_for_class,
 )
 
@@ -185,7 +185,7 @@ def build_solved_registrations(
     reg = _find_registration(registration_name)
     layouts: Dict[str, ast.Slot] = {}
     for f in reg.files:
-        text = (ENCODINGS_DIR / f).read_text()
+        text = resolve_encoding_file(f).read_text()
         layouts.update(loader.load_layouts(text, waivers=reg.waivers))
     # LYT presence arc P1 (row 2333): a registration MAY declare a
     # per-class override of its own default valuation

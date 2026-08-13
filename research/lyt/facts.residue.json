@@ -1,0 +1,158 @@
+{
+  "_comment": "research/lyt/facts.residue.json -- LYT relations-first amendment, dispatch A (ledger rows 2396/2397/2399/2400, ruling 5; governing spec `.claude/dispatch-reports/lyt-relations-amendment-spec.md` §4/§5/§6 open question 5). AUTHORED, not generated -- transcribed by hand from the clean-room encodings' own disclosures, each entry's basis paraphrasing or quoting the encoding's own prose. Every entry here is a RESIDUE-CANDIDATE per the governing spec's census (§1): a number no relation in this language's current primitive inventory can derive, because the component genuinely has no intrinsic size to probe (a readability judgment) or because the underlying floor is an inherited, never re-derived sentinel. License: Public Domain (The Unlicense), matching research/lyt/__init__.py's license line and the umbrella's ADR-0006 per-file convention.",
+  "status": "draft, pending commissioner ratification",
+  "entries": [
+    {
+      "key": "AT_basic_scoreLead",
+      "component": "frontend/src/components/charts/ScoreLeadPanel.vue",
+      "value_px": 200,
+      "axis": "v",
+      "status": "estimated",
+      "basis": "commonly-workable minimum legible chart height, not measured -- BaseChart declares height:100% (elastic, container-driven), no intrinsic CSS floor; every <style> block in this panel family was read and none declares a height."
+    },
+    {
+      "key": "AT_basic_mergedDelta",
+      "component": "frontend/src/components/charts/MergedDeltaPanel.vue",
+      "value_px": 200,
+      "axis": "v",
+      "status": "estimated",
+      "basis": "same class as AT_basic_scoreLead -- BaseChart-driven, height:100%, no intrinsic CSS floor."
+    },
+    {
+      "key": "AT_dist_deltaDist",
+      "component": "frontend/src/components/charts/DeltaDistributionPanel.vue",
+      "value_px": 200,
+      "axis": "v",
+      "status": "estimated",
+      "basis": "same class as AT_basic_scoreLead -- BaseChart-driven, height:100%, no intrinsic CSS floor."
+    },
+    {
+      "key": "AT_dist_mistakeGap",
+      "component": "frontend/src/components/charts/MistakeGapPanel.vue",
+      "value_px": 200,
+      "axis": "v",
+      "status": "estimated",
+      "basis": "same class as AT_basic_scoreLead -- BaseChart-driven, height:100%, no intrinsic CSS floor."
+    },
+    {
+      "key": "AT_stab_stability",
+      "component": "frontend/src/components/charts/StabilityPanel.vue",
+      "value_px": 200,
+      "axis": "v",
+      "status": "estimated",
+      "basis": "same class as AT_basic_scoreLead -- BaseChart-driven, height:100%, no intrinsic CSS floor."
+    },
+    {
+      "key": "AT_stab_crossCorr",
+      "component": "frontend/src/components/charts/StabilityCrossCorrelationPanel.vue",
+      "value_px": 200,
+      "axis": "v",
+      "status": "estimated",
+      "basis": "same class as AT_basic_scoreLead -- BaseChart-driven, height:100%, no intrinsic CSS floor."
+    },
+    {
+      "key": "AT_basic_interval",
+      "component": "frontend/src/components/charts/IntervalSummaryPanel.vue",
+      "value_px": 90,
+      "axis": "v",
+      "status": "estimated",
+      "basis": "disclosed ESTIMATE against a compact bounded table, not a chart -- 'NOT independently re-measured against the live app the way the REPAIR PASS's own numbers were' (both encodings' own CP-analysis header note)."
+    },
+    {
+      "key": "CP-library_min (landscape)",
+      "component": "n/a -- WRAPPER_MIN-analog historical convention, loader.WRAPPER_MIN_PX (300px) narrowed",
+      "value_px": 160,
+      "axis": "h+v",
+      "status": "estimated",
+      "basis": "W4 FLOOR SOFTENING's own narrowing of the historical 300px WRAPPER_MIN sentinel to 160px -- 'functionally safe, just not empirically re-swept' (landscape header). Same number, not re-derived, doing double duty as the T-child's own min and (post M2 stage B2a) as CP-library/CP-cards' own L16 deficit floor."
+    },
+    {
+      "key": "CP-cards_min (landscape)",
+      "component": "n/a -- same WRAPPER_MIN-analog convention as CP-library",
+      "value_px": 160,
+      "axis": "h+v",
+      "status": "estimated",
+      "basis": "identical basis to CP-library_min (landscape) -- reused, not independently re-derived per leaf."
+    },
+    {
+      "key": "CP-library_min (portrait)",
+      "component": "n/a -- WRAPPER_MIN-analog historical convention",
+      "value_px": 200,
+      "axis": "h+v",
+      "status": "estimated",
+      "basis": "portrait's own pre-existing WRAPPER_MIN-analog convention (this file's own OPTION C header: '200px, matching this file's own pre-existing WRAPPER_MIN-analog convention')."
+    },
+    {
+      "key": "CP-cards_min (portrait)",
+      "component": "n/a -- same convention as CP-library_min (portrait)",
+      "value_px": 200,
+      "axis": "h+v",
+      "status": "estimated",
+      "basis": "identical basis to CP-library_min (portrait)."
+    },
+    {
+      "key": "SP_session, SP_analysisEnv, SP_cardSets, SP_advancedRegistry, SP_analysis, SP_keybindings_min (landscape)",
+      "component": "n/a -- six settingsPane sub-tab leaves, per-leaf min",
+      "value_px": 160,
+      "axis": "h+v",
+      "status": "estimated",
+      "basis": "PANE GRANULARITY item (M2 stage B2b): 'the SAME floor the single settingsPane leaf already declared before this stage... not a new number, reused per child rather than re-derived.'"
+    },
+    {
+      "key": "SP_session, SP_analysisEnv, SP_cardSets, SP_advancedRegistry, SP_analysis, SP_keybindings_min (portrait)",
+      "component": "n/a -- six settingsPane sub-tab leaves, per-leaf min",
+      "value_px": 200,
+      "axis": "h+v",
+      "status": "estimated",
+      "basis": "same PANE GRANULARITY item, portrait's own pre-existing 200px convention."
+    },
+    {
+      "key": "otherBand_min (landscape)",
+      "component": "n/a -- same WRAPPER_MIN-analog class as CP-library/CP-cards",
+      "value_px": 160,
+      "axis": "h+v",
+      "status": "estimated",
+      "basis": "'the same WRAPPER_MIN-analog class as CP-library/cards -- not independently re-derived for this leaf' (governing spec §1.5)."
+    },
+    {
+      "key": "otherBand_min (portrait)",
+      "component": "n/a -- same class",
+      "value_px": 200,
+      "axis": "h+v",
+      "status": "estimated",
+      "basis": "portrait's own pre-existing 200px convention, same class."
+    },
+    {
+      "key": "side_column_max_cap_340px_component (landscape)",
+      "component": "n/a -- inherited design ceiling, no component to probe",
+      "value_px": 340,
+      "axis": "h",
+      "status": "estimated",
+      "basis": "no grounding derivation found anywhere in this repository -- 'appears to be an inherited design ceiling from the original consult document's own worked example... not re-derived against any live component' (governing spec §1.4). See SPEC-AMENDMENTS.md's new 'Residual items' section, R1, for the full open-item writeup this dispatch files."
+    },
+    {
+      "key": "loader.PX_PER_CH",
+      "component": "research/lyt/loader.py",
+      "value_px": 8.0,
+      "axis": "n/a (px-per-ch conversion constant, not itself a spatial extent)",
+      "status": "estimated",
+      "basis": "'a single global constant... applied identically to every screen class, is a disclosed simplification' (SPEC.md §4.1) -- not itself a genuine text-width-of(strings, font-token) probe (SPEC.md §2, primitive item 5); every ch-based extent in the census resolves through this one number."
+    },
+    {
+      "key": "previewBoard_portrait_aesthetic_downscale",
+      "component": "n/a -- aesthetic judgment, not a component measurement",
+      "value_px": 96,
+      "axis": "h+v (aspect 1, both axes equal)",
+      "status": "estimated",
+      "basis": "landscape's own 160px figure (itself grounded in LibraryPreviewPane.vue's 160x160 precedent) 'scaled DOWN... modest... scaled sensibly to the region... a judgment call, not a re-derivation' (landscape header, boardRail/previewBoard section)."
+    },
+    {
+      "key": "WRAPPER_MIN_sentinel",
+      "component": "research/lyt/loader.py, loader.WRAPPER_MIN_PX",
+      "value_px": 300,
+      "axis": "h+v",
+      "status": "estimated",
+      "basis": "SPEC.md §1.1: 'the loader resolves it to a disclosed 300px, matching the control-panel floor the same document cites elsewhere' -- a named but ungrounded historical constant, still live in current_row_asis.lyt/current_row_repaired.lyt's CP-* children; every per-encoding narrowed descendant in this file (160px/200px entries above) is a hand-narrowed descendant of this same ungrounded sentinel."
+    }
+  ]
+}
