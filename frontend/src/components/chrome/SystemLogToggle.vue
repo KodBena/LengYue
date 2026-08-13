@@ -15,13 +15,15 @@
 
   Placement rationale (the commission's own "presence/debug region,
   justify the pick"): NOT folded into `LytPresenceMenu.vue`'s popover.
-  That popover's three checkbox targets are specifically LYT grid-
-  presence toggles under a shared "at least one must stay visible"
-  guard (`useLytPresenceMenu.ts`'s own header) — the system log is not
+  That popover's checkbox targets are specifically LYT grid-presence
+  toggles (`useLytPresenceMenu.ts`'s own header) — the system log is not
   a grid leaf at all (it lives in the overlay stratum, contributes no
-  layout, per W4 item 1) and has no such guard; folding it in would
-  either dilute that guard's own accounting or need a carve-out,
-  neither of which the log's semantics call for. NOT folded into
+  layout, per W4 item 1); folding it in would conflate an overlay-
+  stratum affordance with the popover's own grid-presence targets,
+  which the log's semantics don't call for. (This rationale predates,
+  and is independent of, that composable's former last-remaining-panel
+  guard — REMOVED 2026-08-13, see its own header — which never governed
+  the system log either way.) NOT folded into
   `DebugMenu.vue` either: that menu is `import.meta.env.DEV`-gated —
   its entire root never renders in a production build — but the
   system log's manual toggle is an ordinary user-facing affordance

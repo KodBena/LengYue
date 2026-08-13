@@ -4,10 +4,10 @@
  * W2 commission (`.claude/dispatch-reports/lyt-vue-realization-roadmap.md`
  * §8 W2 item 1 + ledger row 1743). Logic for the corner presence menu:
  * which LYT leaves/blackboxes are togglable, each one's current
- * checked state, the last-remaining-panel guard (the mockup's N2 fix,
- * `research/lyt/emit_mockup.py`'s `_SCRIPT` — the semantics ported here,
- * not the JS itself), and the rail-style setting the same popover hosts
- * an inline selector for.
+ * checked state, and the rail-style setting the same popover hosts an
+ * inline selector for. (This module used to also carry a
+ * last-remaining-panel guard, REMOVED — see "The last-remaining-panel
+ * guard, and why it's gone" below.)
  *
  * ── Scope: three targets, not the mockup's seven ────────────────────
  * `research/lyt/emit_mockup.py`'s own `TOGGLE_TARGETS` registers SEVEN
@@ -48,22 +48,50 @@
  * or its own conformance harness asserts. Disclosed here rather than
  * silently presented as if the `.lyt` encoding already declared it.
  *
- * ── The last-remaining-panel guard ───────────────────────────────────
- * Ports the mockup's N2 fix mechanism, not its code: the last CHECKED
- * release-presence target among the CURRENTLY-ACTIVE target set (see
- * `activeTargets` below) is DISABLED (never silently reverted) —
- * `isOnlyVisible(id)` is the disable predicate a consuming template
- * binds to `:disabled` AND uses to pick the explanatory `:title`.
+ * ── The last-remaining-panel guard, and why it's gone ─────────────────
+ * Originally ported the mockup's own N2 fix mechanism (not its code):
+ * the last CHECKED release-presence target among the currently-active
+ * target set was DISABLED, so a user could never toggle every target
+ * off at once. That guard's PREMISE, inherited from the mockup: the
+ * mockup's own `TOGGLE_TARGETS` registers the BOARD itself as one of its
+ * seven toggle targets ("Board & Controls") — in that shape, an
+ * all-off state genuinely means zero surfaces, board included, so
+ * guarding against it is real protection.
  *
- * `activeTargets` excludes `boardRail` when `railStyle === 'popover'`:
- * in that style the boardRail LYT leaf's grid track is unconditionally
- * collapsed regardless of `lytPresence.boardRail` (App.vue's own
- * presence-override computation), so `boardRail`'s checkbox state is not
- * a grid-presence fact in that style at all — excluding it from the
- * guard's own accounting matches that (a hypothetical
- * `controlPanel`+`previewBoard` both-off state must still be guarded
- * even though `boardRail`'s stored `lytPresence.boardRail` value is
- * irrelevant to the grid in popover style).
+ * This module's own header ("Scope: three [now four] targets, not the
+ * mockup's seven", above) already narrowed the target set to exclude
+ * `B`/`I_board`/`A_board` precisely BECAUSE the board is architecturally
+ * always-mounted in the Vue realization (roadmap §5) — no target this
+ * module manages can ever hide it. The guard's protected invariant
+ * ("never strand the user with zero surfaces") therefore never actually
+ * applied to these four targets: the board is unconditionally a
+ * surface, so an all-off state among `boardRail`/`previewBoard`/
+ * `controlPanel`/`A_setup` leaves the user looking at the board, not at
+ * nothing — never the stranding the mockup's guard existed to prevent.
+ *
+ * REMOVED per finish-pass-2 finding N3
+ * (`.claude/dispatch-reports/lyt-finish-pass-2.md` — "the board rail is
+ * locked ON by the last-panel guard and consumes 168px... of which a
+ * 150x150 board-preview box is measurably empty"; commission
+ * `.claude/dispatch-reports/lyt-n2-column-rail.md`). Portrait's own
+ * repetition-first default (P1, ledger row 2333) resolves `boardRail`/
+ * `controlPanel`/`previewBoard`/`A_setup` all ABSENT — the row this
+ * guard was designed to protect never has a genuinely "last" panel to
+ * begin with, on a fresh session. But if the persisted `lytPresence` map
+ * (a legacy migration, or the user's own prior choices) ever DOES land
+ * on exactly one visible target, the guard's stale premise pinned it ON
+ * permanently, rendering an empty-content proxy surface (the finding's
+ * own 150x150 empty `board-preview` box) the user could never dismiss —
+ * exactly backwards from repetition-first's own "board primary" ruling.
+ * The presence menu itself remains reachable at all times (an overlay
+ * trigger, never gated behind any of its own targets — see
+ * `LytPresenceMenu.vue`'s own header), so a user who toggles every
+ * target off can always reopen the menu and toggle one back on; nothing
+ * becomes permanently unreachable by removing this guard.
+ *
+ * `railStyle === 'popover'` still disables `boardRail`'s own checkbox
+ * for an UNRELATED reason (its grid track is unconditionally collapsed
+ * in that style — see `targets` below); that disable path is untouched.
  *
  * ── Presence arc P2b: a 4th target (`A_setup`) + class-aware defaults ──
  * `.claude/dispatch-reports/lyt-p2b-presence-realization.md` item 5. Two
@@ -196,29 +224,18 @@ export function useLytPresenceMenu(options?: UseLytPresenceMenuOptions): LytPres
     return store.session.ui.lytPresence[id] ?? defaultFor(id);
   }
 
-  // See file header: boardRail drops out of the guard's own accounting
-  // in 'popover' rail style, since its checkbox state is not a grid-
-  // presence fact in that style.
-  function activeTargetIds(): readonly LytPresenceTargetId[] {
-    return store.session.ui.railStyle === 'popover'
-      ? LYT_PRESENCE_TARGETS.filter((id) => id !== 'boardRail')
-      : LYT_PRESENCE_TARGETS;
-  }
-
-  function isOnlyVisible(id: LytPresenceTargetId): boolean {
-    const activeVisible = activeTargetIds().filter(isVisible);
-    return activeVisible.length === 1 && activeVisible[0] === id;
-  }
-
   const targets = computed<LytPresenceMenuTarget[]>(() =>
     LYT_PRESENCE_TARGETS.map((id) => ({
       id,
       visible: isVisible(id),
       // boardRail's checkbox is meaningless in 'popover' rail style (see
-      // header) — disabled there too, distinctly from the guard's own
-      // disable (a different reason, same disabled affordance; the
-      // template's :title differentiates the two).
-      disabled: store.session.ui.railStyle === 'popover' && id === 'boardRail' ? true : isOnlyVisible(id),
+      // header, "railStyle === 'popover'... unrelated reason") — its own
+      // grid track is unconditionally collapsed in that style regardless
+      // of this checkbox. The former last-remaining-panel guard's own
+      // disable reason is REMOVED (file header, "The last-remaining-
+      // panel guard, and why it's gone") — every target is otherwise
+      // freely toggleable to fully off.
+      disabled: store.session.ui.railStyle === 'popover' && id === 'boardRail',
       forcedAbsent: options?.forcedAbsent?.value[id] ?? false,
     })),
   );
@@ -226,9 +243,11 @@ export function useLytPresenceMenu(options?: UseLytPresenceMenuOptions): LytPres
   function toggle(id: LytPresenceTargetId): void {
     // Defensive guard (belt-and-suspenders with the template's own
     // :disabled binding, which is what actually stops the click from
-    // ever registering — see file header, "never silently reverted").
+    // ever registering) — boardRail's checkbox is inert in 'popover'
+    // rail style. The former last-remaining-panel refusal is REMOVED
+    // (file header) — toggling every target off is a valid state; the
+    // board is always the surface underneath.
     if (store.session.ui.railStyle === 'popover' && id === 'boardRail') return;
-    if (isVisible(id) && isOnlyVisible(id)) return;
     store.session.ui.lytPresence = {
       ...store.session.ui.lytPresence,
       [id]: !isVisible(id),

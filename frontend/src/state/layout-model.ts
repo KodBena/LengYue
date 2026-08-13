@@ -846,7 +846,7 @@ export function clampTreeWidthForSideColumn(
 // row (280px @420, 628px @768) sitting empty.
 //
 // FIX SHAPE — composes with, does not fork, `clampTreeWidthForSideColumn`:
-// `resolvePortraitTreeRowWidthPx` wraps that function (byte-identical
+// `resolveTreeRowWidthPx` wraps that function (byte-identical
 // shrink behavior preserved for every case it already covers — a
 // present sibling, or ANY user drag on record) and additionally RAISES
 // the result to the row's own measured width when, and only when, BOTH
@@ -860,19 +860,17 @@ export function clampTreeWidthForSideColumn(
 // via the SAME `sumFixedRowSiblingReservationPx` the shrink path
 // already reads — ADR-0012 P1, one home for that sum).
 //
-// SCOPE — PORTRAIT ONLY, App.vue's own call site (this module stays
-// class-agnostic; the class branch lives where every other class branch
-// in this codebase already lives, e.g. `effectiveTreeControlRegionWidthPx`'s
-// landscape-only OUTER-bar override). Landscape's own
-// `clampTreeWidthForSideColumn` call site is BYTE-IDENTICAL, untouched —
-// "desktop/landscape untouched" was a named goal fact of this commission,
-// and W-A's own STOP-and-report (`lyt-wA-width-demotion.md` §7, §9 item 2)
-// left "tree widens when a sibling demotes" as a genuine fork for
-// LANDSCAPE's side-column context specifically (a fixed-664px panel is
-// USUALLY present there, so an un-dragged default widening into freed
-// space is a much rarer, harder-to-reason-about case) — this function
-// does not resolve that fork; it answers a narrower, portrait-specific
-// question the commission itself distinguished: whether the row 414
+// ORIGINAL SCOPE (wave B1) — PORTRAIT ONLY, App.vue's own call site
+// (this module stayed class-agnostic; the class branch lived where every
+// other class branch in this codebase already lives, e.g.
+// `effectiveTreeControlRegionWidthPx`'s landscape-only OUTER-bar
+// override). Landscape's own `clampTreeWidthForSideColumn` call site was
+// BYTE-IDENTICAL, untouched — "desktop/landscape untouched" was a named
+// goal fact of that commission, and W-A's own STOP-and-report
+// (`lyt-wA-width-demotion.md` §7, §9 item 2) left "tree widens when a
+// sibling demotes" as a genuine fork for LANDSCAPE's side-column context
+// specifically, explicitly NOT resolved by wave B1 — that wave answered
+// only the narrower, portrait-specific question of whether the row 414
 // invariant (governing the LANDSCAPE resizer's USER-DRAGGED width, per
 // its own header — "the tree pane's width changes through EXACTLY that
 // one channel") extends to portrait's UN-DRAGGED default at all. It does
@@ -883,11 +881,38 @@ export function clampTreeWidthForSideColumn(
 // also read the row's own sibling-presence fact, never touching the
 // persisted `session.ui.treePanelWidthPx` write channel at all.
 //
+// 2026-08-13 dated addendum (finish-pass-2 finding N2,
+// `.claude/dispatch-reports/lyt-finish-pass-2.md` — "at the flagship
+// desktop resolution the primary panel is absent from the layout while
+// 384px of the column it would occupy is permanently blank"; commission
+// `.claude/dispatch-reports/lyt-n2-column-rail.md`): the fork W-A left
+// open is RESOLVED for the un-dragged default, extending to LANDSCAPE
+// the identical mechanism wave B1 built for portrait — renamed from
+// `resolvePortraitTreeRowWidthPx` to `resolveTreeRowWidthPx` since the
+// function itself was ALREADY class-agnostic (it reads nothing but its
+// own arguments; "portrait" was named only in its own name and its one
+// call site, never encoded in its body). The ratified reading of the
+// ledger-row-414 invariant carries over unchanged from wave B1's own
+// argument (above): the invariant protects the PERSISTED, user-dragged
+// value as the single write channel — it says nothing about the
+// UN-DRAGGED default's own sibling-presence sensitivity, which was
+// already live-reactive to viewport width before either wave touched it.
+// A user who has dragged the inner bar keeps that width verbatim, in
+// EITHER class — the residual beyond it stays blank for that user,
+// precisely as already documented for portrait; whether a FUTURE wave
+// should also widen a user's own drag is a separate, still-open,
+// still-unfiled fork this addendum does not decide. App.vue's own call
+// site (`lytTrackStyleOverrides`) now calls this one function
+// unconditionally for both classes rather than branching on
+// `activeScreenClassId` — see that computed's own header for the
+// composition with the landscape-only OUTER-bar override, which is
+// untouched by this addendum.
+//
 // Never lowers below the tree's own compiled floor (delegates to
 // `clampTreeWidthForSideColumn` first, which already enforces that, and
 // which also supplies this function's `ADR-0002` throw-on-wrong-track-
 // kind guard for free — no second check duplicated here).
-export function resolvePortraitTreeRowWidthPx(
+export function resolveTreeRowWidthPx(
   naturalTreeWidthPx: number,
   sideColumnWidthPx: number,
   fixedSiblings: readonly LytFixedRowSibling[],
@@ -898,7 +923,7 @@ export function resolvePortraitTreeRowWidthPx(
   const shrunk = clampTreeWidthForSideColumn(naturalTreeWidthPx, sideColumnWidthPx, fixedSiblings, treeTrack, gapPx);
   if (!isUnsetDefault) return shrunk;
   if (!Number.isFinite(sideColumnWidthPx) || sideColumnWidthPx <= 0) return shrunk;
-  const reservedPx = sumFixedRowSiblingReservationPx(fixedSiblings, gapPx, 'resolvePortraitTreeRowWidthPx');
+  const reservedPx = sumFixedRowSiblingReservationPx(fixedSiblings, gapPx, 'resolveTreeRowWidthPx');
   if (reservedPx > 0) return shrunk;
   // treeTrack is confirmed 'elastic' by the delegated call above (it
   // would have thrown otherwise), so `.minPx` is sound here too.

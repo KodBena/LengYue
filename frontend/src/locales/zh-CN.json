@@ -18,7 +18,6 @@
   "app.chrome.presence.boardRail":               "棋盘导航栏",
   "app.chrome.presence.previewBoard":            "预览棋盘",
   "app.chrome.presence.controlPanel":            "控制面板",
-  "app.chrome.presence.guardTooltip":            "必须至少保留一个可见面板",
   "app.chrome.presence.widthDemotedHint":        "[TODO] Not enough width right now — reachable via the summon button",
   "app.chrome.presence.railStyleLabel":          "棋盘导航栏样式",
   "app.chrome.presence.railStyleSlot":           "固定面板",

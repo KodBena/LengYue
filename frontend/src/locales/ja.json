@@ -18,7 +18,6 @@
   "app.chrome.presence.boardRail":               "ボードレール",
   "app.chrome.presence.previewBoard":            "プレビューボード",
   "app.chrome.presence.controlPanel":            "コントロールパネル",
-  "app.chrome.presence.guardTooltip":            "少なくとも1つのパネルを表示しておく必要があります",
   "app.chrome.presence.widthDemotedHint":        "[TODO] Not enough width right now — reachable via the summon button",
   "app.chrome.presence.railStyleLabel":          "ボードレールの表示方式",
   "app.chrome.presence.railStyleSlot":           "常設パネル",

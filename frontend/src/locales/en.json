@@ -20,7 +20,6 @@
   "app.chrome.presence.controlPanel":            "Control Panel",
   "app.chrome.presence.A_setup":                 "Setup Tools",
   "app.chrome.presence.controlPanelSummon":      "Open Control Panel",
-  "app.chrome.presence.guardTooltip":            "At least one panel must stay visible",
   "app.chrome.presence.widthDemotedHint":        "Not enough width right now — reachable via the summon button",
   "app.chrome.presence.railStyleLabel":          "Board Rail style",
   "app.chrome.presence.railStyleSlot":           "Docked panel",
