@@ -59,7 +59,7 @@ import {
   resolveWidthConditionalPresence,
   clampTreeWidthForSideColumn,
   sumFixedRowSiblingReservationPx,
-  resolvePortraitTreeRowWidthPx,
+  resolveTreeRowWidthPx,
   type LytFixedRowSibling,
 } from '../../../src/state/layout-model';
 import type { LytDemotion, LytTrackShape } from '../../../src/state/lyt-layout-types';
@@ -818,19 +818,26 @@ describe('clampTreeWidthForSideColumn — LYT finish-pass wave A completion (the
 });
 
 /**
- * resolvePortraitTreeRowWidthPx — LYT finish-pass wave B1, F4
- * (`.claude/dispatch-reports/lyt-wB1-portrait-priority.md`). Fixtures
- * mirror portrait's own compiled facts (`lyt-layout-portrait.gen.ts`):
- * `tree` `{ kind: "elastic", minPx: 140, frWeight: 1 }`, `controlPanel`
- * `{ kind: "fixed", px: 664 }`, `previewBoard` `{ kind: "fixed", px: 96 }`.
+ * resolveTreeRowWidthPx — LYT finish-pass wave B1, F4
+ * (`.claude/dispatch-reports/lyt-wB1-portrait-priority.md`), renamed from
+ * `resolvePortraitTreeRowWidthPx` by the finish-pass-2 N2 fix
+ * (`.claude/dispatch-reports/lyt-n2-column-rail.md`) — the function was
+ * already class-agnostic, so this describe block's own PORTRAIT fixtures
+ * exercise it exactly as wave B1 left it; the sibling describe block
+ * below ("landscape un-dragged widen") exercises the SAME function
+ * against LANDSCAPE's own compiled facts, the N2 fix's own scope.
+ * Fixtures here mirror portrait's own compiled facts
+ * (`lyt-layout-portrait.gen.ts`): `tree` `{ kind: "elastic", minPx: 140,
+ * frWeight: 1 }`, `controlPanel` `{ kind: "fixed", px: 664 }`,
+ * `previewBoard` `{ kind: "fixed", px: 96 }`.
  */
-describe('resolvePortraitTreeRowWidthPx — LYT finish-pass wave B1 (F4, portrait tree-row un-dragged default)', () => {
+describe('resolveTreeRowWidthPx — LYT finish-pass wave B1 (F4, portrait tree-row un-dragged default)', () => {
   const PORTRAIT_TREE_TRACK: LytTrackShape = { kind: 'elastic', minPx: 140, frWeight: 1 };
   const PORTRAIT_CONTROL_PANEL_TRACK: LytTrackShape = { kind: 'fixed', px: 664 };
   const PORTRAIT_PREVIEW_BOARD_TRACK: LytTrackShape = { kind: 'fixed', px: 96 };
 
   it('un-dragged default, both siblings absent (the reported defect): widens PAST the 140px floored default all the way to the measured row width — the row\'s own residual-holding intent, not the landscape-shaped fraction default', () => {
-    const widened = resolvePortraitTreeRowWidthPx(
+    const widened = resolveTreeRowWidthPx(
       140, // computeTreePanelDefaultWidthPx's own floored output at 420/768px widths
       420, // sideColumnWidthPx, F3/F4's own reported 420x880 measurement
       [
@@ -845,13 +852,13 @@ describe('resolvePortraitTreeRowWidthPx — LYT finish-pass wave B1 (F4, portrai
   });
 
   it('un-dragged default, at the 768px representative width, reproduces the same widen-to-full-row behavior', () => {
-    const widened = resolvePortraitTreeRowWidthPx(140, 768, [], PORTRAIT_TREE_TRACK, TREE_CONTROL_WRAPPER_ROW_GAP_PX, true);
+    const widened = resolveTreeRowWidthPx(140, 768, [], PORTRAIT_TREE_TRACK, TREE_CONTROL_WRAPPER_ROW_GAP_PX, true);
     expect(widened).toBe(768);
   });
 
   it('un-dragged default, a sibling PRESENT: falls through to the ordinary shrink-only clamp — reservedPx > 0 disables the widen path entirely, matching clampTreeWidthForSideColumn byte-for-byte', () => {
     const fixedSiblings = [{ track: PORTRAIT_CONTROL_PANEL_TRACK, present: true }];
-    const widened = resolvePortraitTreeRowWidthPx(
+    const widened = resolveTreeRowWidthPx(
       140,
       420,
       fixedSiblings,
@@ -864,7 +871,7 @@ describe('resolvePortraitTreeRowWidthPx — LYT finish-pass wave B1 (F4, portrai
   });
 
   it('a USER DRAG on record (isUnsetDefault: false): never widens, even with every sibling absent — ledger row 414\'s single-writer channel, sovereignty preserved', () => {
-    const dragged = resolvePortraitTreeRowWidthPx(
+    const dragged = resolveTreeRowWidthPx(
       200, // a user's own narrower drag
       420,
       [
@@ -879,7 +886,7 @@ describe('resolvePortraitTreeRowWidthPx — LYT finish-pass wave B1 (F4, portrai
   });
 
   it('never widens PAST the natural value when the natural value already exceeds the measured row (still delegates the shrink half to clampTreeWidthForSideColumn)', () => {
-    const shrunk = resolvePortraitTreeRowWidthPx(
+    const shrunk = resolveTreeRowWidthPx(
       9999,
       420,
       [],
@@ -892,7 +899,7 @@ describe('resolvePortraitTreeRowWidthPx — LYT finish-pass wave B1 (F4, portrai
 
   it('never widens below the tree\'s own compiled floor even in a not-yet-measured row (sideColumnWidthPx <= 0 passes natural through unchanged, same convention as every other clamp in this module)', () => {
     for (const notYetMeasured of [0, -5, NaN]) {
-      const result = resolvePortraitTreeRowWidthPx(
+      const result = resolveTreeRowWidthPx(
         140,
         notYetMeasured,
         [],
@@ -907,8 +914,103 @@ describe('resolvePortraitTreeRowWidthPx — LYT finish-pass wave B1 (F4, portrai
   it('a non-"elastic" tree track throws loudly (ADR-0002) — delegates the guard to clampTreeWidthForSideColumn rather than duplicating it', () => {
     const wrongShape: LytTrackShape = { kind: 'fixed', px: 140 };
     expect(() =>
-      resolvePortraitTreeRowWidthPx(140, 420, [], wrongShape, TREE_CONTROL_WRAPPER_ROW_GAP_PX, true),
+      resolveTreeRowWidthPx(140, 420, [], wrongShape, TREE_CONTROL_WRAPPER_ROW_GAP_PX, true),
     ).toThrow(/tree.*compiled track/);
+  });
+});
+
+/**
+ * `resolveTreeRowWidthPx` — landscape un-dragged widen (finish-pass-2
+ * finding N2, `.claude/dispatch-reports/lyt-n2-column-rail.md`). Extends
+ * wave B1's own portrait-only widen (describe block above) to LANDSCAPE:
+ * when `controlPanel` width-demotes (or is otherwise absent) and
+ * `previewBoard` is also absent, the tree's own UN-DRAGGED default
+ * widens into the freed side column instead of leaving it blank — the
+ * finding's own reported shape at 1920x1080 (`gridTemplateColumns:
+ * "230px 0px 0px"`, a 614px measured side column, 384px permanently
+ * unclaimed). Independent expectations from the portrait describe block
+ * above: these three cases are the commission's own named verification
+ * set — panel demoted widens to the column, a user's drag stays
+ * sovereign, and a present `previewBoard` reservation is respected.
+ * Fixtures mirror landscape's own compiled facts (`lyt-layout.gen.ts`):
+ * `tree` `{ kind: "elastic", minPx: 110, frWeight: 1 }`, `controlPanel`
+ * `{ kind: "fixed", px: 664 }`, `previewBoard` `{ kind: "fixed", px: 160
+ * }` — the same shapes `clampTreeWidthForSideColumn`'s own landscape
+ * describe block (above) already exercises.
+ */
+describe('resolveTreeRowWidthPx — finish-pass-2 N2 (landscape tree-row un-dragged default, extending wave B1 to landscape)', () => {
+  const N2_LANDSCAPE_TREE_TRACK: LytTrackShape = { kind: 'elastic', minPx: 110, frWeight: 1 };
+  const N2_LANDSCAPE_CONTROL_PANEL_TRACK: LytTrackShape = { kind: 'fixed', px: 664 };
+  const N2_PREVIEW_BOARD_TRACK: LytTrackShape = { kind: 'fixed', px: 160 };
+
+  it('panel demoted (both fixed siblings absent), un-dragged default: widens all the way to the measured 614px side column — the finding\'s own reported 1920x1080 measurement, no blank residual', () => {
+    const widened = resolveTreeRowWidthPx(
+      230, // effectiveTreePanelWidthPx's own un-dragged default at 1920x1080 (W-A's own reported figure)
+      614, // sideColumnWidthPx, the finding's own reported measurement (controlPanel demoted there)
+      [
+        { track: N2_LANDSCAPE_CONTROL_PANEL_TRACK, present: false },
+        { track: N2_PREVIEW_BOARD_TRACK, present: false },
+      ],
+      N2_LANDSCAPE_TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+      true, // isUnsetDefault
+    );
+    expect(widened).toBe(614); // was 230 before this fix — 384px of dead grid area reclaimed
+  });
+
+  it('a USER DRAG on record (isUnsetDefault: false): never widens, even with the panel demoted and previewBoard absent — the dragged width stays sovereign, the residual beyond it stays blank for that user (a filed, unresolved commissioner fork per this fix\'s own dispatch report, not decided here)', () => {
+    const dragged = resolveTreeRowWidthPx(
+      180, // a user's own narrower drag
+      614,
+      [
+        { track: N2_LANDSCAPE_CONTROL_PANEL_TRACK, present: false },
+        { track: N2_PREVIEW_BOARD_TRACK, present: false },
+      ],
+      N2_LANDSCAPE_TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+      false, // isUnsetDefault: false — the user dragged
+    );
+    expect(dragged).toBe(180); // untouched, not widened to 614
+  });
+
+  it('previewBoard PRESENT (controlPanel absent), un-dragged default: the widen path is disabled entirely (reservedPx > 0) — falls through to the ordinary shrink-only clamp, reserving previewBoard\'s own 160px+gap rather than claiming the full column', () => {
+    const fixedSiblings = [
+      { track: N2_LANDSCAPE_CONTROL_PANEL_TRACK, present: false },
+      { track: N2_PREVIEW_BOARD_TRACK, present: true },
+    ];
+    // naturalTreeWidthPx deliberately exceeds the reserved-against cap
+    // (614 - 164 = 450) so the shrink half's own clamp is exercised, not
+    // masked by a natural value already under the cap.
+    const widened = resolveTreeRowWidthPx(
+      9999,
+      614,
+      fixedSiblings,
+      N2_LANDSCAPE_TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+      true,
+    );
+    const shrunk = clampTreeWidthForSideColumn(
+      9999,
+      614,
+      fixedSiblings,
+      N2_LANDSCAPE_TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+    );
+    expect(widened).toBe(shrunk);
+    expect(widened).toBe(614 - (160 + TREE_CONTROL_WRAPPER_ROW_GAP_PX)); // 450 — reserved against previewBoard, not widened past it
+  });
+
+  it('controlPanel PRESENT (the ordinary case): un-dragged default falls through to the shrink-only clamp exactly as before this fix — landscape\'s everyday composition is untouched', () => {
+    const fixedSiblings = [{ track: N2_LANDSCAPE_CONTROL_PANEL_TRACK, present: true }];
+    const widened = resolveTreeRowWidthPx(
+      307, // 2560x1440's own reported natural default (W-A's own figure)
+      819, // 2560x1440's own reported measured side column
+      fixedSiblings,
+      N2_LANDSCAPE_TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+      true,
+    );
+    expect(widened).toBe(151); // W-A's own completion-pass figure, byte-identical
   });
 });
 

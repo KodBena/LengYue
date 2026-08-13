@@ -139,8 +139,7 @@ import {
   getPanelContentPolicy,
   resolveWidthConditionalPresence,
   useDeferredLayoutClass,
-  clampTreeWidthForSideColumn,
-  resolvePortraitTreeRowWidthPx,
+  resolveTreeRowWidthPx,
   TREE_CONTROL_WRAPPER_ROW_GAP_PX,
 } from './state/layout-model';
 import type { LytTrackShape } from './state/lyt-layout-types';
@@ -642,17 +641,18 @@ const activeLytDomIdByPath = computed<Record<string, string>>(() => {
 // model-layer estimate (300px) unrelated to THIS row's real content: the
 // compiled `controlPanel` Exclusive's own track is a FIXED 664px
 // (`lyt-layout*.gen.ts`), not derived from the tab registry at all. A
-// second clamp pass, `clampTreeWidthForSideColumn`
-// (`state/layout-model.ts`), reads the REAL compiled facts off
-// `activeLytProgramIndex.trackByWidget` and the row's own REAL rendered
-// width (`sideColumnWidthPx`, `useResizablePanel.ts`'s second
-// ResizeObserver) — see that function's own header for the full
-// derivation and why it composes with, rather than forks, the existing
-// clamp discipline. Gated by `controlPanelIsPresent` (defined below,
-// forward-referenced the same way `lytPresenceOverrides` already
-// forward-references `controlPanelDemote` in this file): when the panel
-// is width-demoted (or otherwise absent), its 664px track renders 0px
-// regardless of its own declaration, so nothing is reserved against it.
+// second clamp pass, `resolveTreeRowWidthPx` (`state/layout-model.ts`,
+// which delegates its shrink half to `clampTreeWidthForSideColumn`),
+// reads the REAL compiled facts off `activeLytProgramIndex.trackByWidget`
+// and the row's own REAL rendered width (`sideColumnWidthPx`,
+// `useResizablePanel.ts`'s second ResizeObserver) — see that function's
+// own header for the full derivation and why it composes with, rather
+// than forks, the existing clamp discipline. Gated by
+// `controlPanelIsPresent` (defined below, forward-referenced the same
+// way `lytPresenceOverrides` already forward-references
+// `controlPanelDemote` in this file): when the panel is width-demoted
+// (or otherwise absent), its 664px track renders 0px regardless of its
+// own declaration, so nothing is reserved against it.
 //
 // 2026-08-13 dated addendum (`.claude/dispatch-reports/
 // lyt-wA-width-demotion-review.md`, "New finding"): the reservation
@@ -663,6 +663,20 @@ const activeLytDomIdByPath = computed<Record<string, string>>(() => {
 // today. `previewBoardIsPresent` (defined below, same forward-reference
 // shape as `controlPanelIsPresent`) supplies its own presence fact; see
 // `clampTreeWidthForSideColumn`'s own header for the summation.
+//
+// 2026-08-13 dated addendum (finish-pass-2 finding N2,
+// `.claude/dispatch-reports/lyt-n2-column-rail.md`): the row's un-dragged
+// tree default now WIDENS into a row its structurally-absent siblings
+// freed, in BOTH classes, not portrait alone — `resolveTreeRowWidthPx`
+// (renamed from `resolvePortraitTreeRowWidthPx`, itself always
+// class-agnostic) is called unconditionally below instead of branching
+// on `activeScreenClassId`. See that function's own header for the full
+// diagnosis, scope history, and the ledger-row-414 reading that makes
+// this a safe extension rather than a relaxation: a user's own drag
+// (`session.ui.treePanelWidthPx !== undefined`) still wins verbatim in
+// EITHER class — this only widens the UN-DRAGGED default, and only when
+// every fixed-demand sibling the row could carry (`controlPanel`,
+// `previewBoard`) is currently absent.
 const lytTrackStyleOverrides = computed<Record<string, string>>(() => {
   const treePanelPath = requireWidgetPath('tree');
   const controlPanelTrack = requireTrack('controlPanel');
@@ -672,31 +686,14 @@ const lytTrackStyleOverrides = computed<Record<string, string>>(() => {
     { track: controlPanelTrack, present: controlPanelIsPresent.value },
     { track: previewBoardTrack, present: previewBoardIsPresent.value },
   ];
-  // Finish-pass wave B1, F4 (`.claude/dispatch-reports/
-  // lyt-wB1-portrait-priority.md`): PORTRAIT ONLY, the tree's own
-  // realized width also gets to WIDEN into a row its structurally-absent
-  // siblings freed, when the user has never dragged the INNER bar this
-  // session — see `resolvePortraitTreeRowWidthPx`'s own header for the
-  // full diagnosis and scope. Landscape's call site below is
-  // BYTE-IDENTICAL to before this wave (`clampTreeWidthForSideColumn`,
-  // shrink-only) — "desktop/landscape untouched" was a named goal fact.
-  const clampedTreePanelWidthPx =
-    activeScreenClassId.value === 'portrait'
-      ? resolvePortraitTreeRowWidthPx(
-          effectiveTreePanelWidthPx.value,
-          sideColumnWidthPx.value,
-          fixedRowSiblings,
-          treeTrack,
-          TREE_CONTROL_WRAPPER_ROW_GAP_PX,
-          store.session.ui.treePanelWidthPx === undefined,
-        )
-      : clampTreeWidthForSideColumn(
-          effectiveTreePanelWidthPx.value,
-          sideColumnWidthPx.value,
-          fixedRowSiblings,
-          treeTrack,
-          TREE_CONTROL_WRAPPER_ROW_GAP_PX,
-        );
+  const clampedTreePanelWidthPx = resolveTreeRowWidthPx(
+    effectiveTreePanelWidthPx.value,
+    sideColumnWidthPx.value,
+    fixedRowSiblings,
+    treeTrack,
+    TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+    store.session.ui.treePanelWidthPx === undefined,
+  );
   const overrides: Record<string, string> = {
     [treePanelPath]: `${clampedTreePanelWidthPx}px`,
   };

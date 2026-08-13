@@ -8,11 +8,13 @@
  * documented preamble.
  *
  * Covers: default target list + defaults, toggle read/write through
- * `touchSession()`, the last-remaining-panel guard (never a silent
- * revert — the disabled flag, not the toggle function itself, is what a
- * consuming template relies on; this suite also proves `toggle()`
- * itself defensively no-ops), and the `railStyle`-conditioned exclusion
- * of `boardRail` from the guard's own accounting.
+ * `touchSession()`, the ALL-OFF reachability the former last-remaining-
+ * panel guard used to forbid (REMOVED — finish-pass-2 finding N3,
+ * `.claude/dispatch-reports/lyt-n2-column-rail.md`; see
+ * `useLytPresenceMenu.ts`'s own header, "The last-remaining-panel guard,
+ * and why it's gone"), and the `railStyle === 'popover'`-conditioned
+ * disable of `boardRail`'s own checkbox, which is UNRELATED to the
+ * removed guard and still live.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -81,34 +83,33 @@ describe('useLytPresenceMenu — toggle + touchSession', () => {
   });
 });
 
-describe('useLytPresenceMenu — last-remaining-panel guard (mockup N2 fix, ported semantics)', () => {
-  it('with only controlPanel visible (defaults), controlPanel is disabled and both hidden targets are not', () => {
+describe('useLytPresenceMenu — no last-remaining-panel guard (removed, finding N3)', () => {
+  it('with only controlPanel visible (defaults), NONE of the four targets is disabled — the former guard reason is gone', () => {
     const menu = useLytPresenceMenu();
     const byId = Object.fromEntries(menu.targets.value.map((t) => [t.id, t.disabled]));
-    expect(byId.controlPanel).toBe(true);
+    expect(byId.controlPanel).toBe(false);
     expect(byId.boardRail).toBe(false);
     expect(byId.previewBoard).toBe(false);
+    expect(byId.A_setup).toBe(false);
   });
 
-  it('toggle() defensively no-ops against the guarded (last-visible) target — not a silent revert, a refusal', () => {
+  it('toggle() freely hides the sole visible target — an all-off state is reachable, the board is always the surface underneath', () => {
     const menu = useLytPresenceMenu();
-    // P2b: a fresh store no longer seeds controlPanel (see defaults.ts's
-    // own doc comment) — the RESOLVED default is still `true` (the sole
-    // visible target, hence guarded below).
-    expect(store.session.ui.lytPresence.controlPanel).toBeUndefined();
-    expect(menu.targets.value.find((t) => t.id === 'controlPanel')!.visible).toBe(true);
-    menu.toggle('controlPanel'); // the only visible target — guarded
-    expect(store.session.ui.lytPresence.controlPanel).toBeUndefined(); // still unwritten — refused, not merely unchanged-at-true
-  });
-
-  it('once a second target is visible, the guard releases and either can be hidden', () => {
-    const menu = useLytPresenceMenu();
-    menu.toggle('boardRail'); // now controlPanel + boardRail both visible
-    expect(menu.targets.value.find((t) => t.id === 'controlPanel')!.disabled).toBe(false);
+    expect(store.session.ui.lytPresence.controlPanel).toBeUndefined(); // no persisted choice yet
+    expect(menu.targets.value.find((t) => t.id === 'controlPanel')!.visible).toBe(true); // the sole visible target (defaults)
     menu.toggle('controlPanel');
-    expect(store.session.ui.lytPresence.controlPanel).toBe(false);
-    // boardRail is now the sole visible target — guard re-engages on it.
-    expect(menu.targets.value.find((t) => t.id === 'boardRail')!.disabled).toBe(true);
+    expect(store.session.ui.lytPresence.controlPanel).toBe(false); // written through, not refused
+    const byId = Object.fromEntries(menu.targets.value.map((t) => [t.id, t.visible]));
+    expect(byId).toEqual({ boardRail: false, previewBoard: false, controlPanel: false, A_setup: false });
+  });
+
+  it('toggling every target off one at a time never re-engages a disable on the last one standing', () => {
+    const menu = useLytPresenceMenu();
+    menu.toggle('controlPanel'); // now 0 visible (controlPanel was the sole default-visible target)
+    menu.toggle('boardRail'); // now 1 visible (boardRail)
+    expect(menu.targets.value.find((t) => t.id === 'boardRail')!.disabled).toBe(false);
+    menu.toggle('boardRail'); // back to 0 visible — not refused
+    expect(store.session.ui.lytPresence.boardRail).toBe(false);
   });
 });
 
@@ -121,17 +122,14 @@ describe('useLytPresenceMenu — railStyle conditioning', () => {
     expect(menu.railStyle.value).toBe('popover');
   });
 
-  it('in \'popover\' rail style, boardRail is excluded from the guard\'s own accounting and permanently disabled', () => {
+  it('in \'popover\' rail style, boardRail is permanently disabled (its own grid track is unconditionally collapsed in that style) — every OTHER target is unaffected, the former guard reason being gone', () => {
     const menu = useLytPresenceMenu();
     menu.setRailStyle('popover');
-    // Defaults: boardRail=false, previewBoard=false, controlPanel=true.
-    // Only controlPanel is "active" (boardRail excluded) and it's the
-    // sole visible active target -> guarded. boardRail itself is
-    // disabled for the OTHER reason (popover style), not the guard.
     const byId = Object.fromEntries(menu.targets.value.map((t) => [t.id, t.disabled]));
     expect(byId.boardRail).toBe(true);
-    expect(byId.controlPanel).toBe(true);
+    expect(byId.controlPanel).toBe(false);
     expect(byId.previewBoard).toBe(false);
+    expect(byId.A_setup).toBe(false);
   });
 
   it('toggle() defensively no-ops on boardRail while rail style is \'popover\'', () => {

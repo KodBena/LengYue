@@ -25,9 +25,17 @@
   viewport's own right edge — a `right: 0`-anchored popover would
   otherwise overflow.
 
-  The last-remaining-panel guard (mockup N2 fix, ported semantics via
-  `useLytPresenceMenu.ts`'s `targets[].disabled`): a disabled checkbox
-  carries an explanatory `title`, never a silent revert.
+  A disabled checkbox (`useLytPresenceMenu.ts`'s `targets[].disabled`)
+  always carries an explanatory `title`, never a silent no-op. The
+  former last-remaining-panel guard (mockup N2 fix) that used to be the
+  main source of `disabled` is REMOVED — see that composable's own
+  header, "The last-remaining-panel guard, and why it's gone" (finish-
+  pass-2 finding N3, `.claude/dispatch-reports/lyt-n2-column-rail.md`):
+  the board is architecturally always-mounted, so none of this menu's
+  four targets can ever strand the user with zero surfaces, and the
+  guard's protective premise never actually applied to them. The only
+  remaining `disabled` source is `boardRail` in `railStyle === 'popover'`
+  (its own grid track is unconditionally collapsed in that style).
 
   Presence arc P2b (`.claude/dispatch-reports/lyt-p2b-presence-
   realization.md`): a 4th target, `A_setup`, joins the three above (see
@@ -104,12 +112,16 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown);
 });
 
-function targetTitle(id: LytPresenceTargetId, disabled: boolean, forcedAbsent: boolean): string {
+function targetTitle(disabled: boolean, forcedAbsent: boolean): string {
+  // The last-remaining-panel guard's own disable reason is REMOVED (this
+  // file's header) — `disabled` can now only be true for `boardRail` in
+  // 'popover' rail style (`useLytPresenceMenu.ts`'s own `targets`
+  // computed has no other source of `true` left), so no per-id branch is
+  // needed here any more (contrast the removed guard's own `id ===
+  // 'boardRail'` check, which used to distinguish the two disable
+  // reasons this function collapsed into one).
   if (disabled) {
-    if (id === 'boardRail' && railStyle.value === 'popover') {
-      return t('app.chrome.presence.boardRailPopoverStyleHint');
-    }
-    return t('app.chrome.presence.guardTooltip');
+    return t('app.chrome.presence.boardRailPopoverStyleHint');
   }
   // Finish-pass wave A: not a disable reason (the checkbox stays
   // enabled — see this file's header, "Finish-pass wave A") but still an
@@ -161,7 +173,7 @@ const popoverId = 'lyt-presence-popover';
         :key="target.id"
         class="lyt-presence-row"
         :class="{ disabled: target.disabled, 'width-demoted': target.forcedAbsent }"
-        :title="targetTitle(target.id, target.disabled, target.forcedAbsent)"
+        :title="targetTitle(target.disabled, target.forcedAbsent)"
         :data-lyt-presence-target="target.id"
       >
         <input
