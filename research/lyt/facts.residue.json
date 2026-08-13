@@ -122,10 +122,10 @@
       "method": "read-constant",
       "variant": "landscape",
       "component": "n/a -- six settingsPane sub-tab leaves, per-leaf min",
-      "value_px": 160,
+      "value_px": 200,
       "axis": "h+v",
       "status": "estimated",
-      "basis": "PANE GRANULARITY item (M2 stage B2b): 'the SAME floor the single settingsPane leaf already declared before this stage... not a new number, reused per child rather than re-derived.'"
+      "basis": "CORRECTED 2026-08-13 (dispatch C3): this entry previously carried a stale 160px, silently copy-pasted from CP-library/CP-cards' own landscape figure. Direct inspection of `encodings/lengyue_landscape.lyt`'s own literal (`min 200px`, all six SP_* leaves, matching `encodings/lengyue_portrait.lyt`'s own identical 200px) shows the SP_* per-leaf floor is class-invariant at 200px -- it never was 160 in the live encoding. Basis for the corrected 200: 'PANE GRANULARITY item (M2 stage B2b): the SAME floor the single settingsPane leaf already declared before this stage... not a new number, reused per child rather than re-derived.'"
     },
     {
       "key": "SP_session, SP_analysisEnv, SP_cardSets, SP_advancedRegistry, SP_analysis, SP_keybindings_min (portrait)",
@@ -201,6 +201,16 @@
       "axis": "h+v",
       "status": "estimated",
       "basis": "SPEC.md §1.1: 'the loader resolves it to a disclosed 300px, matching the control-panel floor the same document cites elsewhere' -- a named but ungrounded historical constant, still live in current_row_asis.lyt/current_row_repaired.lyt's CP-* children; every per-encoding narrowed descendant in this file (160px/200px entries above) is a hand-narrowed descendant of this same ungrounded sentinel. `widget_ids: [\"WRAPPER_MIN\"]` is a disclosed SYNTHETIC handle -- this is a loader-internal constant, not a leaf widget."
+    },
+    {
+      "key": "board_aspect_domain_invariant",
+      "widget_ids": ["board", "previewBoard"],
+      "method": "domain-invariant",
+      "component": "n/a -- a Go board is N x N by the rules of the game, not a measured coincidence of any one component's rendering",
+      "value_px": 1.0,
+      "axis": "n/a (dimensionless ratio, aspect-of's own documented field reuse of value_px)",
+      "status": "declared",
+      "basis": "ADDED 2026-08-13 (dispatch C3), per the governing spec's own §2 primitive-2 disclosure ('no such entries exist in the committed facts.generated.json as of this dispatch... exercised here only against this dispatch's own synthetic test fixtures') and relations.py's own docstring item 2 -- both name this as the gap dispatch C's own encoding rewrite is expected to close so aspect-of(board) resolves against the real, committed facts store rather than only synthetic test fixtures. `previewBoard` shares the SAME entry (not a separate re-derivation): it renders a go board too, so its own square shape is the identical domain law, not a second independent fact."
     }
   ]
 }

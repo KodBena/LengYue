@@ -1755,6 +1755,16 @@ def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_
         ("all-present", "portrait", "540x960"),
         ("all-present", "portrait", "420x880"),
         ("all-present", "portrait", "1920x1080-in-portrait"),
+        # LYT relations-first amendment, dispatch C3 (ledger row 2419's
+        # "I_engine envelope" rewiring): A_engine_eval/A_engine_health each
+        # gain a genuine ~139px width floor for the first time (previously
+        # bare `pref 1fr`, no min at all) -- engine-controls' own 185px
+        # floor plus the eval/health pair's 139px each plus three 4px gaps
+        # now exceeds this narrowest portrait viewport's available row
+        # width even under `default` valuation. Re-solved directly, not
+        # assumed -- a disclosed model-change consequence of wiring the
+        # envelope's real per-state facts, not a regression in this test.
+        ("default", "portrait", "420x880"),
     }
     for class_id, html_text in mockup_pages.items():
         m = re.search(r'<script id="lyt-solved-data" type="application/json">(.*?)</script>', html_text, re.S)
