@@ -389,6 +389,98 @@ def test_pack_rows_items_may_be_relations():
 
 
 # ---------------------------------------------------------------------------
+# Reachability against the REAL committed facts files (review §5 fix)
+# ---------------------------------------------------------------------------
+
+
+def _relation_text_for(entry, primitive: str) -> str:
+    widget = entry.widget_ids[0]
+    args = widget + (f", {entry.variant}" if entry.variant else "")
+    return f"{primitive}({args})"
+
+
+def _primitive_for(entry) -> "str | None":
+    """Picks a primitive whose own `method` mapping matches this entry
+    AND, where the primitive's name implies an axis (`width-of` ->
+    `h`, `height-of` -> `v`), whose axis agrees — `width-of`/`height-of`
+    share ONE method (`playwright-boundingBox`), so picking the first
+    name that merely matches the method (dict iteration order) would
+    silently try to resolve a HEIGHT entry as a WIDTH and fail for a
+    reason that has nothing to do with real reachability."""
+    candidates = [name for name, m in relations._PRIMITIVE_METHOD.items() if m == entry.method]
+    for name in candidates:
+        prim_axis = relations._PRIMITIVE_AXIS.get(name)
+        if prim_axis is None or entry.axis is None or prim_axis == entry.axis:
+            return name
+    return candidates[0] if candidates else None
+
+
+def test_every_real_facts_entry_method_is_mapped_to_some_primitive():
+    """Table-driven regression guard (review §5's own required fix): for
+    EVERY entry in the real, committed `facts.generated.json` +
+    `facts.residue.json`, its `method` field must be a value some
+    primitive's own `relations._PRIMITIVE_METHOD` mapping reaches — a
+    method string no primitive maps to is exactly the defect this review
+    found (facts.residue.json's derived `method` was the empty string,
+    matching nothing, so all 19 entries were silently unreachable via
+    every one of the nine primitives despite `relations.py`'s own
+    docstring claiming residue entries are 'just as authoritative' as
+    measured ones). A future facts entry that mints a method nothing
+    resolves now fails HERE, at build time, not by a future review."""
+    real_table = relations.FactsTable.load()
+    reachable_methods = set(relations._PRIMITIVE_METHOD.values())
+    unreachable = sorted(
+        {e.key for e in real_table.entries if e.method not in reachable_methods}
+    )
+    assert not unreachable, f"facts entries whose method matches no primitive: {unreachable}"
+
+
+def test_every_real_facts_entry_resolves_or_is_disclosed_unusable():
+    """The fuller, live check: actually construct `<primitive>(widget[,
+    variant])` relation text for every real entry (using its own
+    `widget_ids[0]`/`variant` FIELDS, never the raw `key` string — the
+    same discipline this module's own resolution functions follow) and
+    resolve it through the real loader/relations pipeline, installed as
+    the process-wide facts table (not the synthetic fixture this file's
+    `autouse` fixture installs for every other test in this module).
+
+    An entry with a genuine value (`not unexercised and not has_error`)
+    MUST resolve successfully — this is the review's own §5 finding,
+    made permanent as a regression test. An entry that is honestly
+    `unexercised`/carries an `error` is expected to REFUSE
+    (`no-matching-facts-entry`) rather than resolve — a probe that was
+    genuinely run and came back empty is not the same defect as an
+    entry that was never reachable in the first place, and this test
+    tells the two apart rather than conflating them."""
+    real_table = relations.FactsTable.load()
+    loader.reset_facts_table_cache(real_table)
+    try:
+        broken = []
+        for entry in real_table.entries:
+            primitive = _primitive_for(entry)
+            if primitive is None:
+                broken.append((entry.key, "no primitive maps to this method"))
+                continue
+            text = _relation_text_for(entry, primitive)
+            has_usable_value = (
+                not entry.unexercised and not entry.has_error and entry.value_px is not None
+            )
+            try:
+                ext = _resolve(text)
+                if not has_usable_value:
+                    broken.append((entry.key, f"resolved to {ext.v!r} but should have refused"))
+                elif ext.v != float(entry.value_px):
+                    broken.append((entry.key, f"resolved to {ext.v!r}, expected {entry.value_px!r}"))
+            except LytLoadError as exc:
+                if has_usable_value:
+                    broken.append((entry.key, f"refused ({exc.detail.get('prohibition')}) but should have resolved"))
+                # else: correctly refused (unexercised/error entry) — fine.
+        assert not broken, f"facts entries with mismatched reachability: {broken}"
+    finally:
+        loader.reset_facts_table_cache(_synthetic_facts_table())
+
+
+# ---------------------------------------------------------------------------
 # Backward compat / deprecation channel (task 4)
 # ---------------------------------------------------------------------------
 

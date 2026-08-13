@@ -434,6 +434,148 @@ don't have one lying around).
 - `research/lyt/tests/test_relations.py` (new) — 44 tests per §6.
 
 No `.lyt` encoding file, no `wellformed.py`/`compiler.py`/`presence.py`/
-`runner.py`/`emit_layout_tree.py`, and no `facts.generated.json`/
-`facts.residue.json` were touched — matches the brief's own scope line
-("encodings are NOT rewritten here, that is dispatch C").
+`runner.py`/`emit_layout_tree.py` were touched — matches the brief's own
+scope line ("encodings are NOT rewritten here, that is dispatch C").
+`facts.residue.json` WAS touched, additively, in the follow-up fix below
+(§11) — that file is otherwise dispatch A's own deliverable, and this
+dispatch's edit to it is scoped narrowly to adding identity/method
+fields, per the fresh-context review's own explicit authorization.
+
+## 11. Follow-up fix: `facts.residue.json` was unreachable via every primitive (fresh-context review §5)
+
+The fresh-context review (`.claude/dispatch-reports/lyt-relations-b-review.md`,
+verdict ACCEPT-WITH-CONDITIONS) found a genuine, undisclosed defect: zero
+of the 19 committed `facts.residue.json` entries were reachable through
+any of the nine relation primitives, directly contradicting
+`relations.py`'s own docstring claim that residue entries are "just as
+authoritative a source of a px number as a measured one." This dispatch's
+own 44 tests never caught it because every one used a synthetic,
+pipe-delimited `FactsTable` fixture that dodged the real residue file's
+shape entirely — a real gap in test realism, not merely an edge case
+missed.
+
+**Root cause.** `FactsTable._split_key` assumed EVERY facts-file `"key"`
+follows `facts.generated.json`'s own convention
+(`{widget}[+widget...]|{method}[|variant]`) and derived `method`
+(and `widget_ids`/`variant`) by splitting the key STRING, applied
+unconditionally to every entry from every source. `facts.residue.json`'s
+19 entries never followed that convention — bare descriptive keys
+(`"AT_basic_scoreLead"`, `"side_column_max_cap_340px_component
+(landscape)"`, one comma-joined six-widget string), no `"|"`, no
+`"method"` field at all. Splitting those keys produced `method == ""`
+for every one of them, which matches nothing in
+`relations._PRIMITIVE_METHOD`'s value set — every lookup silently found
+zero candidates, refused correctly (`no-matching-facts-entry`, ADR-0002
+honored — the failure mode was loud and safe, never a wrong number), but
+that refusal was indistinguishable from "this fact genuinely doesn't
+exist yet," hiding the real defect (an identity-binding bug, not a data
+gap) until the review's own fresh probe surfaced it.
+
+**Fix, per the review's own required shape** ("bind to fields, never
+parse the key string" — the SAME dispatch A review rider this module was
+already built against, now applied to identity resolution too, not only
+to already-parsed-entry interpretation):
+
+1. `FactsTable.load` now reads `widget_ids`/`method`/`variant` from
+   entry FIELDS first (`raw.get(...)`), falling back to
+   `_split_key`'s key-string derivation only for whichever of the three
+   a given entry does not supply as a field — entry by entry, not
+   source by source, so a facts source is never forced to choose one
+   convention for every entry it carries.
+2. `facts.residue.json` itself gained explicit `widget_ids` (a list,
+   matching `facts.generated.json`'s own `"+"`-joined multi-widget
+   shape for the six `SP_*` leaves), `method` (uniformly
+   `"read-constant"` — a residue value is, by construction, a
+   documented estimate a human read off a note or a component's own
+   disclosure, never a live `playwright-boundingBox` probe, so
+   `read-constant`'s axis-agnostic, source-agnostic lookup shape is the
+   honest fit among the nine primitives, not a repurposing of a
+   mismatched one), and `variant` where landscape/portrait values
+   genuinely differ (`CP-library_min`, `CP-cards_min`, the six `SP_*`
+   leaves, `otherBand_min`). **Additive only** — every pre-existing
+   field (`key`, `component`, `value_px`, `axis`, `status`, `basis`) is
+   unchanged, confirmed by `git diff research/lyt/facts.residue.json`
+   showing only new lines, no removed/altered ones.
+3. **Three entries have no real LYT tree widget to attach to at all**
+   (`side_column_max_cap_340px_component` — the side column is a Split
+   node in both real encodings, which carries no `widget` id of its
+   own; `loader.PX_PER_CH` and `WRAPPER_MIN_sentinel` — loader-internal
+   constants, not leaf widgets). Their `widget_ids` are disclosed
+   SYNTHETIC handles (`sideColumnMaxCap`, `PX_PER_CH`, `WRAPPER_MIN`),
+   named as such in both the residue file's own `_comment` header and
+   each entry's own `basis` field — not a new key-string convention (no
+   change to how any key is SPELLED), and not silently invented without
+   a trace.
+4. `relations.py`'s own docstring (the module-level intro and
+   `FactsTable`'s own class docstring) and `_split_key`'s docstring were
+   corrected to describe the field-first binding accurately, with the
+   original overclaim preserved and marked corrected (per this
+   codebase's own "supersede, don't delete" convention), not silently
+   rewritten.
+
+**New test, table-driven against the REAL files** (`tests/test_relations.py`):
+
+- `test_every_real_facts_entry_method_is_mapped_to_some_primitive` —
+  loads the real `FactsTable` and asserts every entry's `method` field
+  is a value some primitive's `_PRIMITIVE_METHOD` mapping reaches. This
+  is the precise regression guard for the exact defect found: a method
+  string (`""`, or any future typo/omission) that maps to nothing now
+  fails at build time.
+- `test_every_real_facts_entry_resolves_or_is_disclosed_unusable` —
+  installs the real `FactsTable` as the process-wide cache and, for
+  EVERY entry in both real files, constructs `<primitive>(widget[,
+  variant])` relation text from the entry's own `widget_ids`/`variant`
+  FIELDS (never the raw `key` string) and resolves it through the real
+  loader pipeline: an entry with a genuine value must resolve to
+  exactly that value; an entry that is honestly `unexercised` or
+  carries an `error` must refuse — REFUSED-AS-EXPECTED, not conflated
+  with the identity-binding defect this fix closes. WITNESSED for all
+  31 real entries (12 generated + 19 residue) — both new tests pass
+  clean.
+
+**Minor finding 2 (loader.py comment accuracy), also fixed.** The
+review found `loader.py`'s own inline comment (at the `_load_axis_mins`
+call site inside `_load_sizing`) described a relation call in `min
+<axis>` position as reaching a load-time `LytLoadError` about a missing
+resolution context. A probe (`{min h width-of(a,b), pref 1fr, max inf}`)
+shows the parser's own axis-min lookahead (which requires the token
+immediately after the axis name to be `NUMBER`/`NUMUNIT`) never
+recognizes it as an axis-min shape at all — it falls through to the
+ordinary sizing-bag loop and fails with a `LytParseError` ("expected
+COMMA, got IDENT 'width-of'") instead. Same safety outcome (a loud,
+structured refusal), different layer than the comment claimed —
+corrected in place, verified against the same probe.
+
+**Explicit statement to the commissioner, per the review's second
+condition.** The review's other condition (§4 of its own report) asked
+for plain terms, not just an in-code disclosure: the ADR-0013-shaped
+"fabricated single reservation" behavior ruling 2400(4) named is
+**still live in both real, shipped `.lyt` encodings** after this
+dispatch merges. `I_engine`'s own envelope declaration in
+`lengyue_landscape.lyt`/`lengyue_portrait.lyt` still uses the bare-name
+spelling (no per-state extents), and its reservation is still whatever
+literal the author typed — this dispatch delivers the CAPABILITY to fix
+that (a dict-envelope's per-state extent may now be a relation, and the
+pre-existing consistency check makes the reservation genuinely
+facts-derived once it is), tested end to end against a synthetic
+fixture, but does not itself rewire `I_engine`'s declaration, because no
+real facts entries exist yet for its connected/latency states (dispatch
+A's probe harness only reached cold-boot, unauthenticated, backend-less
+DOM). This remains open until dispatch C both measures those states and
+rewires the declaration — named here explicitly, not left for a reader
+to infer from a diff comment.
+
+**Re-run gates after this fix**:
+
+- `nice -n 19 /tmp/lyt_review_venv/bin/python3 -m pytest tests/test_relations.py -q -p no:warnings`
+  — **WITNESSED, exit 0, 46 passed** (44 from the original delivery + 2
+  new reachability tests).
+- `nice -n 19 /tmp/lyt_review_venv/bin/python3 -m pytest tests/ -q -p no:warnings`
+  — **WITNESSED, exit 0, 421 passed** (375 pre-existing + 46 — no
+  regression).
+
+No `.lyt` encoding file, `wellformed.py`, `compiler.py`, `presence.py`,
+`runner.py`, or `emit_layout_tree.py` was touched by this follow-up fix
+either — the change is confined to `relations.py`, `loader.py` (one
+comment), `facts.residue.json` (additive fields), and
+`tests/test_relations.py` (two new tests).

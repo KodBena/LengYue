@@ -710,9 +710,21 @@ def _load_sizing(
     # LYT relations-first amendment, dispatch B (disclosed scope
     # narrowing, see this module's own docstring): `min <axis>` is NOT
     # relation-aware this wave — `_load_axis_mins` resolves its extent
-    # with no `relctx`, so a relation call there is refused the same way
-    # an unresolvable symbol already is (`_resolve_extent_like` raises
-    # "relation expression... but no resolution context").
+    # with no `relctx`. In practice a relation call never even REACHES
+    # that resolution: `parser.parse_sizing`'s own axis-min lookahead
+    # (`RawSizing.axis_mins`'s docstring) recognizes `min <axis>
+    # <extent>` only when the token immediately after the axis name is
+    # NUMBER/NUMUNIT, so `min h width-of(...)` does not parse as an
+    # axis-min at all — it falls through to the ordinary sizing-bag loop,
+    # which then fails on the stray `width-of` token with an ordinary
+    # `LytParseError` ("expected COMMA, got IDENT 'width-of'"), not a
+    # load-time `LytLoadError` about a missing resolution context.
+    # [Corrected 2026-08-13, review row (lyt-relations-b-review.md,
+    # minor finding 2) — this comment previously described a
+    # load-time-refusal shape a probe never actually reaches.] Same
+    # safety outcome either way (a loud, structured refusal, never a
+    # silent extent), just at the PARSE layer rather than the LOAD layer
+    # for this one position.
     axis_mins = _load_axis_mins(rs, where=where, orientation=orientation)
 
     if rs.aspect_coupled:

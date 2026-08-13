@@ -4,15 +4,28 @@ LYT relations-first amendment, dispatch B (ledger rows 2396/2397/2400/2401).
 Governing spec: `.claude/dispatch-reports/lyt-relations-amendment-spec.md`
 §2 (primitive inventory), §3 (grammar sketches), §4 (probe contract).
 Dispatch A's review (`lyt-relations-a-review.md`) finding on the facts-key
-shape is the load-bearing fact this module is built against: a
-`facts.generated.json`/`facts.residue.json` entry's `"key"` is shaped
-`{widget-id}[+widget-id...]|{method}[|variant]`, but `component`/`state`/
-`axis` are carried as SIBLING FIELDS on the same entry — this module parses
-the key string exactly ONCE, centrally, at table-load time (`_split_key`
-below), and every resolution function afterward reads the structured
-`FactsEntry` fields, never the raw key text again (the review's own "bind
-to the fields, never parse the key string" instruction, applied
-structurally).
+shape is the load-bearing fact this module is built against: `component`/
+`state`/`axis` are carried as FIELDS on a facts entry, not folded into its
+`"key"` string, and every resolution function in this module reads those
+FIELDS, never a raw key string.
+
+[Corrected 2026-08-13, fresh-context review (`lyt-relations-b-review.md`
+§5): this docstring originally went one step further and claimed a
+facts-file entry's `"key"` is UNIVERSALLY shaped
+`{widget-id}[+widget-id...]|{method}[|variant]`, parsed once centrally
+by `_split_key`. That shape is `facts.generated.json`'s OWN convention
+(dispatch A's), not a fact about facts files in general — applying it
+unconditionally is exactly what left every one of `facts.residue.json`'s
+19 real entries unreachable (bare descriptive keys, no `"|"`, no
+`method` field) despite this module's own "just as authoritative" claim
+for residue entries. `FactsTable.load` now binds `widget_ids`/`method`/
+`variant` from entry FIELDS FIRST (`raw.get(...)`, per the review's own
+extension of "bind to the fields" to identity resolution, not only to
+interpretation) and falls back to `_split_key`'s key-string convention
+only for an entry that supplies none of the three — `_split_key` is a
+fallback parser for one facts source's own key convention now, not the
+general story. `facts.residue.json` itself was updated in the same
+change to carry those fields explicitly.]
 
 WHAT THIS MODULE OWNS. `parser.py` accepts relation-expression syntax
 permissively (any `IDENT(...)` call, regardless of name) — this module is
@@ -168,14 +181,38 @@ class FactsEntry:
 
 
 def _split_key(key: str) -> Tuple[Tuple[str, ...], str, Optional[str]]:
-    """Splits a facts-file `"key"` into `(widget_ids, method, variant)` —
-    the ONE place in this module (and, transitively, the only place
-    anywhere in this dispatch's code) that parses the raw key string.
-    Every resolution function below reads `FactsEntry.widget_ids`/
-    `.method`/`.variant` afterward, never the key text again (dispatch A
-    review's own "bind to the fields, never parse the key string"
-    instruction, applied structurally rather than merely followed by
-    convention)."""
+    """Splits a facts-file `"key"` into `(widget_ids, method, variant)`,
+    per dispatch A's OWN convention for `facts.generated.json`
+    (`{widget}[+widget...]|{method}[|variant]`) — used ONLY as a
+    fallback, in `FactsTable.load` below, when an entry carries no
+    `widget_ids`/`method`/`variant` FIELDS of its own. This is not the
+    general parsing story any more; it is one facts source's own
+    convention, applied when nothing more direct is available.
+
+    [Corrected 2026-08-13, fresh-context review (`lyt-relations-b-
+    review.md` §5): the first cut of this module called this function
+    UNCONDITIONALLY, for every entry in every facts source, deriving
+    `method` (and `widget_ids`/`variant`) from the key STRING even where
+    `facts.generated.json`'s own entries already carry a `"method"` field
+    directly — a real, if usually harmless, duplication of already-
+    present data (the review's own minor finding 1). Worse,
+    `facts.residue.json`'s 19 real entries do NOT follow this
+    convention at all (bare descriptive names, no `"|"`, no per-entry
+    `"method"` field, several comma-joined multi-widget strings) — every
+    one of them silently failed to resolve via ANY primitive, directly
+    contradicting this module's own "residue entries are just as
+    authoritative" docstring claim, and dispatch B's own 44 tests never
+    caught it because all of them used a synthetic, pipe-keyed table.
+    `FactsTable.load` now reads `widget_ids`/`method`/`variant` from
+    entry FIELDS first (per dispatch A review's own "bind to the fields,
+    never parse the key string" instruction, applied here to identity
+    resolution too, not just to the interpretation of an already-parsed
+    entry); this function is the fallback for a facts source (still, in
+    practice, only `facts.generated.json`) that hasn't been given
+    explicit fields of its own. `facts.residue.json` was updated in the
+    same change to carry explicit `widget_ids`/`method` (and `variant`
+    where landscape/portrait disambiguation is needed) — see that file's
+    own `_comment` header for the added-field disclosure.]"""
     parts = key.split("|")
     widget_ids = tuple(parts[0].split("+"))
     method = parts[1] if len(parts) > 1 else ""
@@ -206,7 +243,23 @@ class FactsTable:
     (concatenated — a residue entry is just as authoritative a source of a
     px number as a measured one, per the governing spec's own RES/REL
     classification; `source` records which so a caller can tell them
-    apart), plus the theme-token table."""
+    apart), plus the theme-token table.
+
+    [Corrected 2026-08-13, fresh-context review (`lyt-relations-b-
+    review.md` §5): the "just as authoritative" claim above did not
+    hold until this fix — `facts.residue.json`'s own 19 entries carried
+    no `method` field and a key shape `_split_key` couldn't parse into a
+    usable identity, so every one of them was silently unreachable via
+    any primitive despite this exact docstring's own claim otherwise.
+    `FactsTable.load` (below) now binds `widget_ids`/`method`/`variant`
+    from entry FIELDS first, falling back to `_split_key`'s
+    key-string convention only where a field is absent — and
+    `facts.residue.json` itself now carries those fields explicitly (see
+    that file's own `_comment` header). The reachability claim above is
+    now backed by a test (`tests/test_relations.py`'s
+    `test_every_real_facts_entry_is_reachable_via_some_primitive`) that
+    loads the REAL committed files and checks every entry, not merely
+    asserted in this docstring.]"""
 
     def __init__(self, entries: List[FactsEntry], theme_tokens: Dict[str, float]):
         self.entries = entries
@@ -244,7 +297,28 @@ class FactsTable:
                 continue
             data = json.loads(p.read_text())
             for raw in data.get("entries", []):
-                widget_ids, method, variant = _split_key(raw["key"])
+                # Field-first (review §5 / `_split_key`'s own corrected
+                # docstring): an entry that carries its own
+                # `widget_ids`/`method`/`variant` FIELDS is bound to
+                # those directly — `_split_key`'s key-string convention
+                # is consulted only for whatever a given entry does NOT
+                # supply as a field, entry by entry (not source by
+                # source), so a facts source could in principle mix
+                # field-carrying and key-only entries without either
+                # losing identity.
+                needs_fallback = (
+                    "widget_ids" not in raw or "method" not in raw or "variant" not in raw
+                )
+                fallback_ids: Tuple[str, ...] = ()
+                fallback_method = ""
+                fallback_variant: Optional[str] = None
+                if needs_fallback:
+                    fallback_ids, fallback_method, fallback_variant = _split_key(raw["key"])
+                widget_ids = (
+                    tuple(raw["widget_ids"]) if "widget_ids" in raw else fallback_ids
+                )
+                method = raw["method"] if "method" in raw else fallback_method
+                variant = raw["variant"] if "variant" in raw else fallback_variant
                 entries.append(
                     FactsEntry(
                         key=raw["key"],
