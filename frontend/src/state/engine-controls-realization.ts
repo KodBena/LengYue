@@ -127,18 +127,26 @@ export function resolveEngineControlsRealization(
  * can render (`Stop Match` widens `Match`; `Disconnect` widens
  * `Connect`; both measured 90.015625px, coincidentally identical since
  * `.toolbar-btn` uses a monospace font and both alt labels are 10
- * characters). NOT the runtime decision mechanism — the runtime
- * composable (`useEngineControlsRealization`) measures the REAL
- * current buttons live instead, so a state's actual rendered content
- * always wins over this table (see that composable's own header for
- * why: 1920x1080's own default/idle state fits the cluster in its
- * live 150.5px column, but WOULD need `menu-path` under this
- * worst-case table's own ~184px threshold — using the worst-case table
- * as the runtime mechanism would force menu-path at 1920/2560
- * unconditionally, contradicting "cluster form, byte-comparable
- * rendering to today" at those two sizes). This table exists so the
- * exact worst-case threshold is documented and unit-testable
- * independent of a live DOM.
+ * characters).
+ *
+ * ── State-invariance correction (W-B2 review MAJOR finding, 2026-08-13) ──
+ * This table used to be documentation-only: the runtime composable
+ * (`useEngineControlsRealization`) measured the REAL, currently-
+ * rendered buttons instead, so Connect→Disconnect and Match→Stop Match
+ * each changed the measured height and could flip the realization form
+ * MID-INTERACTION (witnessed: 1920x1080's 150.5px column fits the
+ * cluster at idle — 3 rows/80px — but needs 4 rows/108px the instant a
+ * match starts while connected, yanking the five-button cluster into a
+ * menu under the user's pointer). The runtime composable now derives
+ * the SAME worst-case-per-slot shape this table documents directly
+ * from its own shadow-clone DOM (both label variants rendered
+ * unconditionally, grouped by slot, max width per slot wins) — see
+ * that composable's own header for the mechanism and its "own honest
+ * consequence" paragraph. This table is no longer cited to justify
+ * bypassing worst-case; it remains a pinned regression fixture so the
+ * exact live-measured numbers and the derived threshold stay
+ * unit-testable independent of a live DOM (jsdom has no real flex
+ * layout).
  */
 export const ENGINE_CONTROLS_WORST_CASE_BUTTON_WIDTHS_PX: readonly number[] = [
   105.625,   // "Mint Card(s)"

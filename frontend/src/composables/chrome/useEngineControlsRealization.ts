@@ -4,9 +4,58 @@
  * Finish-pass wave B2 (F2 + W-B1's adjacent 420px finding — see
  * `state/engine-controls-realization.ts`'s own header for the full
  * citation chain). Vue wiring around that module's pure decision:
- * measures the REAL, currently-rendered engine-controls buttons and the
- * REAL column width live, and exposes the resulting realization form
+ * measures the WORST-CASE engine-controls button widths and the REAL
+ * column width live, and exposes the resulting realization form
  * (`button-cluster` | `menu-path`) as a reactive ref.
+ *
+ * ── State-invariance correction (W-B2 review MAJOR finding, 2026-08-13) ──
+ * The first cut of this composable measured the REAL, currently-
+ * rendered labels (Connect/Disconnect, Match/Stop Match) instead of a
+ * worst-case, which meant the realization form was a function of
+ * ENGINE STATE as well as column width: connecting, or starting a
+ * match while connected, widened the measured content and could flip
+ * `button-cluster` to `menu-path` mid-interaction. Traced by the
+ * review: 1920x1080's 150.5px column fits the cluster at idle (3
+ * rows/80px, exact), but connected+match-running needs 4 rows/108px —
+ * so starting a match yanked the five-button cluster into a menu right
+ * under the user's pointer
+ * (`.claude/dispatch-reports/lyt-wB2-controls-menu-review.md` §1).
+ *
+ * The fix makes the measurement STATE-INVARIANT: the shadow clone
+ * (below) renders BOTH label variants for every button whose label
+ * can change with state (`toolbar.match`/`toolbar.stopMatch`,
+ * `toolbar.connect`/`toolbar.disconnect`) unconditionally, each
+ * tagged with a `data-slot` identifying which visible-cluster button
+ * it stands in for. `measureShadow` groups by `data-slot` and keeps
+ * the WIDER measured width per slot — the worst-case label the
+ * component's OWN label logic can ever produce for that slot, derived
+ * from the live DOM rather than a hand-maintained string table (so it
+ * cannot drift out of sync with `toolbar.*` translations, and stays
+ * honest under i18n: each locale's own longest variant is what gets
+ * measured, because the shadow renders through the same `t()` calls
+ * the visible buttons use). `itemWidthsPx` — and therefore `form` — is
+ * now a pure function of column width and the ACTIVE LOCALE's worst-
+ * case label set; no engine/match state reads flow into the
+ * measurement at all, so a state change can no longer be the cause of
+ * a form flip. Flipping becomes unrepresentable, not merely unlikely.
+ *
+ * **Consequence, stated honestly (not glossed over the way the
+ * review's predecessor disclosure was faulted for):** the worst-case
+ * arithmetic at 1920x1080's own 150.5px column needs 4 rows (108px),
+ * which exceeds the compiled 80px reservation — so this fix selects
+ * `menu-path` at 1920x1080 EVEN AT IDLE, not only once connected/
+ * matching. That is the deliberate stable-form trade this correction
+ * takes: a column width too narrow to hold the cluster's own worst
+ * case can never show a cluster that later vanishes out from under an
+ * active session — it simply never shows a cluster there at all,
+ * until the column widens. A parallel model-side wave is authoring a
+ * 184px controls floor for `A_engine_controls`'s own reservation/
+ * column that would widen 1920x1080's column past the worst-case need
+ * and restore `button-cluster` there; this composable requires no
+ * coordination with that wave to compose correctly — `form` is a pure
+ * function of measured column width vs. worst-case cluster need, so
+ * the moment the column widens past the need, the cluster form
+ * realizes on its own.
  *
  * ── Measurement strategy ──────────────────────────────────────────────
  * Two live facts feed the pure decision:
@@ -20,28 +69,14 @@
  *      at every viewport tested — 150.5px @1920, 201.75px @2560,
  *      107.25px @1280, 102px @420).
  *
- *   2. The REAL button widths — a permanently-mounted, visually hidden
- *      "shadow" clone of the five buttons (`position: fixed; visibility:
- *      hidden`, off-screen, unconstrained width, `flex-wrap: nowrap` so
- *      it never itself wraps), carrying the SAME reactive labels the
- *      visible cluster/menu would show. Measuring the REAL rendered
- *      buttons — rather than the hand-cited worst-case constant table in
- *      `state/engine-controls-realization.ts`
- *      (`ENGINE_CONTROLS_WORST_CASE_BUTTON_WIDTHS_PX`) — keeps the
- *      decision honest under the CURRENT label state specifically:
- *      1920x1080's own idle/disconnected default fits the cluster in its
- *      live 150.5px column (measured 3 rows / 80px, exact fit), but the
- *      worst-case table's own ~184px threshold would force `menu-path`
- *      at 1920x1080 UNCONDITIONALLY — contradicting the commission's own
- *      "1920x1080 and 2560x1440 — cluster form, byte-comparable
- *      rendering to today" requirement. Measuring the real buttons
- *      instead means the decision degrades gracefully if the user later
- *      connects and/or starts a match (wider `Disconnect`/`Stop Match`
- *      labels) at ANY column width, including landscape ones no prior
- *      LYT screenshot witness ever exercised (the engine was dead-pinned
- *      throughout every prior pass) — disclosed as engine-gated/
- *      unjudged in this wave's own report, not screenshot-witnessed,
- *      but structurally covered by this measurement choice.
+ *   2. The WORST-CASE button widths — a permanently-mounted, visually
+ *      hidden "shadow" clone (`position: fixed; visibility: hidden`,
+ *      off-screen, unconstrained width, `flex-wrap: nowrap` so it never
+ *      itself wraps) carrying BOTH label variants for every
+ *      state-varying button, each tagged `data-slot="..."` naming which
+ *      visible-cluster slot it stands in for. `measureShadow` takes the
+ *      max rendered width per slot, in first-appearance (= visible
+ *      cluster DOM) order — see the state-invariance section above.
  *
  * Row height and row gap are ALSO measured live off the shadow clone (a
  * single button's own rendered height; the shadow container's own
@@ -57,8 +92,9 @@
  * file just forwards it to `onUnmounted`, mirroring every other
  * `useElementWidth` consumer. The shadow-clone measurement itself uses
  * no observer (its container is unconstrained-width, so nothing but a
- * label change — driven by this composable's own `labelsKey` watcher —
- * can ever change its size).
+ * locale change — driven by this composable's own `labelsKey` watcher —
+ * can ever change its size; engine/match STATE changes no longer touch
+ * the shadow's measured content at all).
  *
  * License: Public Domain (The Unlicense)
  */
@@ -81,11 +117,13 @@ export interface UseEngineControlsRealizationHandle {
 }
 
 /**
- * @param labelsKey A ref combining every reactive button label the
- *   shadow clone renders (locale-driven statics plus the
- *   connect/disconnect and match/stop-match state-driven labels) —
- *   changing it re-measures the shadow on the next DOM flush. Callers
- *   concatenate with a separator the labels themselves cannot contain.
+ * @param labelsKey A ref identifying the label set the shadow clone
+ *   renders — the ACTIVE LOCALE alone is sufficient now (state-
+ *   invariance correction, see this file's own header): every
+ *   state-varying label pair (match/stop-match, connect/disconnect)
+ *   is rendered unconditionally in the shadow, so no engine/match
+ *   state feeds this key. Changing it re-measures the shadow on the
+ *   next DOM flush.
  */
 export function useEngineControlsRealization(labelsKey: Ref<string>): UseEngineControlsRealizationHandle {
   const { widthPx: containerWidthPx, observe, stop } = useElementWidth();
@@ -98,11 +136,34 @@ export function useEngineControlsRealization(labelsKey: Ref<string>): UseEngineC
     if (el) observe(el as Element); // DOM: bound only to a plain <div> in this component's template
   }
 
+  // Groups the shadow's own buttons by `data-slot` (one slot per
+  // visible-cluster button; state-varying slots carry TWO shadow
+  // buttons, one per label variant) and keeps the WIDER measured width
+  // per slot — the worst case the component's own label logic can ever
+  // produce for that slot, derived from the live DOM rather than a
+  // hand-maintained constant table. Slot order follows first
+  // appearance in the shadow's own DOM order, which matches the
+  // visible cluster's DOM order (mint-card, learn-path, play, match,
+  // engine) by construction (see the template below).
   function measureShadow(): void {
     if (!shadowEl) return;
     const buttons = Array.from(shadowEl.querySelectorAll<HTMLElement>('.toolbar-btn'));
     if (buttons.length === 0) return;
-    itemWidthsPx.value = buttons.map((b) => b.getBoundingClientRect().width);
+    const maxWidthBySlot = new Map<string, number>();
+    const slotOrder: string[] = [];
+    for (const b of buttons) {
+      const slot = b.dataset.slot;
+      if (!slot) continue; // defensive: every shadow button carries data-slot (see template)
+      const w = b.getBoundingClientRect().width;
+      const prevMax = maxWidthBySlot.get(slot);
+      if (prevMax === undefined) slotOrder.push(slot);
+      if (prevMax === undefined || w > prevMax) maxWidthBySlot.set(slot, w);
+    }
+    // `as number`: every entry in `slotOrder` was just pushed into
+    // `maxWidthBySlot` in the loop above (the two are kept in lockstep),
+    // so the lookup can never miss — `Map.get`'s own `| undefined`
+    // return type is a general signature, not evidence of a real gap here.
+    itemWidthsPx.value = slotOrder.map((slot) => maxWidthBySlot.get(slot) as number);
     rowHeightPx.value = buttons[0].getBoundingClientRect().height;
     rowGapPx.value = parseFloat(getComputedStyle(shadowEl).columnGap) || 0;
   }

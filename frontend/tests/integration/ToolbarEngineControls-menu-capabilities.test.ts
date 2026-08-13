@@ -60,7 +60,13 @@ describe('ToolbarEngineControls.vue — menu-path form, all capabilities reachab
     expect(wrapper.find('.engine-controls-trigger').exists()).toBe(true);
     // The cluster's own always-visible buttons (button-cluster form) are
     // absent — only the trigger and the hidden measurement shadow render.
-    expect(wrapper.findAll('.toolbar-btn:not(.engine-controls-trigger)').length).toBe(5); // shadow clone only, not yet open
+    // JUSTIFICATION for the count changing from 5 to 7 (state-invariance
+    // fix, W-B2 review MAJOR finding): the shadow clone now renders BOTH
+    // label variants for the two state-varying slots (match/stop-match,
+    // connect/disconnect) unconditionally, instead of one current-state
+    // label each — 3 static + 2×2 state-varying = 7. See
+    // `useEngineControlsRealization`'s own header.
+    expect(wrapper.findAll('.toolbar-btn:not(.engine-controls-trigger)').length).toBe(7); // shadow clone only, not yet open
     wrapper.unmount();
   });
 
@@ -154,8 +160,10 @@ describe('ToolbarEngineControls.vue — menu-path form, all capabilities reachab
     const wrapper = mount(ToolbarEngineControls, { global: { plugins: [i18n] } });
     expect(wrapper.find('.engine-controls-trigger').exists()).toBe(false);
     expect(wrapper.find('.engine-controls-menu').exists()).toBe(false);
-    // Five visible cluster buttons + five hidden shadow buttons.
-    expect(wrapper.findAll('.toolbar-btn').length).toBe(10);
+    // Five visible cluster buttons + seven hidden shadow buttons (both
+    // label variants for the two state-varying slots — see the count
+    // justification on the first test in this file).
+    expect(wrapper.findAll('.toolbar-btn').length).toBe(12);
     wrapper.unmount();
   });
 });

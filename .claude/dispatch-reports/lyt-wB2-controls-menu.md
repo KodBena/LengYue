@@ -240,6 +240,183 @@ disclosed, structurally-covered-but-unwitnessed adjacent case.
    cross-reference edge) — named so the omission reads as a disclosed
    judgment call, not an oversight.
 
+## 10. 2026-08-13 — state-invariance correction (closes review MAJOR finding)
+
+Commission: close the MAJOR finding in
+`.claude/dispatch-reports/lyt-wB2-controls-menu-review.md` (copied into
+this worktree's own `.claude/dispatch-reports/` alongside this report,
+per the commissioner's own note that the pair should travel together).
+Delivered on `worktree-agent-aba9f1f9ec838c784`, atop fix commit
+`f6b80ef0` / docs commit `93d907c7`.
+
+### 10.1 The defect, restated precisely
+
+`useEngineControlsRealization` measured the CURRENT, state-dependent
+labels (Connect/Disconnect, Match/Stop Match) rather than a worst case.
+The review traced the exact break: at 1920x1080's own 150.5px column,
+idle (Match+Connect) fits 3 rows/80px exactly, but connected+match-
+running (Stop Match+Disconnect) needs 4 rows/108px — so starting a
+match while connected flips `button-cluster` to `menu-path` mid-
+interaction, right under the user's pointer.
+
+### 10.2 The fix
+
+`ToolbarEngineControls.vue`'s hidden shadow clone now renders BOTH
+label variants for every state-varying button
+(`toolbar.match`/`toolbar.stopMatch`, `toolbar.connect`/
+`toolbar.disconnect`) **unconditionally** — not gated on
+`isMatchRunning`/`isConnected` — each tagged `data-slot="match"` /
+`data-slot="engine"` naming which visible-cluster slot it stands in
+for. `useEngineControlsRealization`'s `measureShadow` (rewritten)
+groups the shadow's own buttons by `data-slot` and keeps the WIDER
+measured width per slot. `labelsKey` — the sole trigger for
+re-measurement — is now `locale.value` alone; no engine/match state
+read reaches the measurement path at all. `form` is a pure function of
+measured column width vs. the ACTIVE LOCALE's own worst-case label set
+— unrepresentable-by-construction, not merely hardened, against a
+state-driven flip: there is no longer a state input for the mechanism
+to react to. Full rationale, the worked 1920x1080 arithmetic, and the
+composability argument with the parallel 184px-controls-floor wave are
+in `useEngineControlsRealization.ts`'s own header (the load-bearing
+account) and mirrored in `ToolbarEngineControls.vue`'s header.
+
+The worst-case widths are **derived live from the component's own
+`t()` calls** (the shadow renders through the same i18n catalog the
+visible buttons use), not a hand-maintained string table — so the
+mechanism stays honest under locale changes without a second
+translation surface to keep in sync. `ENGINE_CONTROLS_WORST_CASE_BUTTON_WIDTHS_PX`
+in `state/engine-controls-realization.ts` remains as a pinned unit-test
+fixture (its header comment rewritten to match this correction) but was
+never consulted by the runtime path directly, before or after this fix.
+
+### 10.3 Consequence, stated as the commission required — per size, with witness status
+
+| Size | Column | Worst-case arithmetic | Realized form (this fix alone) | Witness |
+|---|---|---|---|---|
+| 1280x1024 | 107.25px | 5 rows / 136px > 80px | **menu-path** | Computed (pinned pre-existing unit-test fixture, unchanged by this fix — `tests/unit/state/engine-controls-realization.test.ts`); Connect reachable via the menu form, unchanged code path from the original F2 delivery, re-confirmed by `ToolbarEngineControls-menu-capabilities.test.ts`'s Connect hit-test, itself re-run green this pass. **Not re-witnessed via a live browser/Playwright rig this pass** — the original delivery's own screenshot witness (`.claude/dispatch-reports/lyt-wB2-controls-menu.md` §5) already covers this exact column at the pre-fix state, and this fix does not change the pinned arithmetic at 1280 (both pre- and post-fix use the worst-case numbers at this narrow a column — the review never disputed 1280/420, only 1920).
+| 420x880 | 102px | 5 rows / 136px > 80px | **menu-path** | Same as 1280 — computed/pinned, not re-screenshotted this pass. |
+| 1920x1080 | 150.5px | 4 rows / 108px > 80px | **menu-path** — this is the deliberate, disclosed consequence: the fix selects `menu-path` at 1920x1080 EVEN AT IDLE now, not only once connected+matching. This is the honest tradeoff named in the commission: state-invariance is bought by giving up idle-state cluster fidelity at this column, until a wider reservation lands. | Computed (new pinned unit test + a real-component-mount regression test, `tests/integration/ToolbarEngineControls-state-invariance.test.ts`, both green). **Not witnessed via a live browser/Playwright rig** — see §10.4 for the disclosed narrowing. |
+| 2560x1440 | 201.75px | 3 rows / 80px == 80px (equality — not exceeded) | **button-cluster**, unchanged | Computed (worst-case arithmetic re-derived by hand in this pass, matching the existing pinned unit-test fixtures for this table); consistent with the original delivery's own live screenshot witness at this size (§5), which this fix does not disturb (2560's worst-case need sits exactly at the reservation, same as the original delivery's own natural-width measurement — coincidence worth flagging, not double-checked against real layout this pass). |
+
+**State-invariance witness (the review's exact case, and the general
+property):** `tests/integration/ToolbarEngineControls-state-invariance.test.ts`
+mounts the REAL component (not `forceForm`) with `getBoundingClientRect`/
+`getComputedStyle` stubbed to the codebase's own cited live-measured
+widths, at the 1920x1080 column, and asserts the realized form is
+IDENTICAL across: idle, connected-only, match-running-only, and
+connected+match-running (the review's exact traced case) — all four
+resolve to `menu-path`, matching §10.3's arithmetic. A fifth test drives
+a SINGLE mounted instance through idle → connect → start-match in
+place (mirroring the literal user action sequence the review named) and
+asserts `form` never changes. **Mutation-verified, not merely
+green-by-construction**: this agent temporarily reverted the shadow
+template and `labelsKey` to their pre-fix (state-dependent) shape and
+confirmed 3 of the 5 new tests go red with exactly the traced flip
+(`button-cluster` at idle/connected-only vs. `menu-path` once
+match-running), then restored the fix and re-confirmed all 5 pass —
+this pass's own verification step, not something the delivered code
+runs itself.
+
+### 10.4 Disclosed narrowing: no live-rig re-verification this pass
+
+The commission asked to "rig re-verify if feasible" the four witness
+sizes. This pass did **not** stand up a live Playwright/Chromium rig —
+the state-invariance property and all four sizes' realized forms are
+verified via (a) the pure-logic unit-test tier (exact arithmetic,
+matching the codebase's own already-cited live-measured widths) and (b)
+a real Vue-component-mount integration test with DOM-measurement APIs
+stubbed to those same cited numbers, not via fresh screenshots. This is
+a narrower verification tier than the original delivery's own §5 (which
+did run a live rig with Playwright screenshots at all four sizes). The
+judgment call: jsdom's stub-based tests exercise the actual production
+code path (`ToolbarEngineControls.vue` → `useEngineControlsRealization`
+→ `state/engine-controls-realization.ts`) end-to-end and were
+mutation-verified to catch the exact regression class the review named
+(§10.3's witness paragraph); a live rig would additionally confirm real
+Chromium flex-wrap layout matches the hand-derived arithmetic, which
+this pass leans on the ORIGINAL delivery's own live-rig confirmation
+for (its own §3 cross-check: "verified to match real Chromium flex-wrap
+behaviour by cross-checking against live-measured row counts at
+1920/1280/420"). Flagged here as a narrowing rather than silently
+skipped, per the "asking before assuming" / disclosed-narrowing
+discipline; the commissioner should treat 1280/420/2560's forms as
+carried over from the original delivery's own live witness (unchanged
+by this fix) and 1920's new form as computed-and-mutation-tested but
+not freshly screenshot-witnessed.
+
+### 10.5 Composition with the parallel 184px-controls-floor wave
+
+No coordination was added or required. `form` is computed purely from
+measured column width vs. worst-case cluster need
+(`resolveEngineControlsRealization(neededHeightPx, reservedHeightPx)`);
+nothing in this fix reads or assumes the current `80px` reservation
+value beyond the one already-cited constant
+(`A_ENGINE_CONTROLS_RESERVED_HEIGHT_PX`). When the parallel wave widens
+`A_engine_controls`'s own reservation/column (the disclosed 184px
+floor), 1920x1080's column widens past the worst-case need (184.03125px
+threshold, per §3's own derivation) and `button-cluster` realizes there
+again automatically, with no further code change on this side.
+
+### 10.6 Gates (this pass, `frontend/`)
+
+| Gate | Result |
+|---|---|
+| `npx eslint .` | **exit 0** — 0 errors, 0 warnings |
+| `npm run build` (`vue-tsc -b && vite build`) | **exit 0** — 1252 modules |
+| `npm run test:run` | **exit 0** — 3273 passed, 8 skipped (delta from the review's own re-run baseline of 3267: +6 — 5 new state-invariance integration tests, 1 new unit-test block; two existing tests' EXPECTATIONS were adjusted with individual justification inline in the test files, not silently changed — see `tests/unit/state/engine-controls-realization.test.ts` and `tests/integration/ToolbarEngineControls-menu-capabilities.test.ts`) |
+| `npx vitest run tests/integration/App-boot.test.ts` (isolated) | **exit 0** — 5 passed |
+
+### 10.7 Files touched this pass
+
+- `frontend/src/state/engine-controls-realization.ts` — header comment
+  rewrite only (the pure algorithm, the reservation constant, and the
+  worst-case table's own numbers are unchanged; only the table's
+  documented relationship to the runtime mechanism changed).
+- `frontend/src/composables/chrome/useEngineControlsRealization.ts` —
+  `measureShadow` rewritten to group-by-`data-slot`/take-max; header
+  rewritten with the state-invariance rationale, the honest consequence
+  paragraph, and the composability argument.
+- `frontend/src/components/chrome/ToolbarEngineControls.vue` — shadow
+  template now renders 7 buttons (both label variants for the two
+  state-varying slots, `data-slot`-tagged) instead of 5; `labelsKey`
+  simplified to `locale.value`; header addendum.
+- `frontend/tests/unit/state/engine-controls-realization.test.ts` — one
+  pre-existing test's expectation corrected (1920x1080 worst-case now
+  correctly selects `menu-path`, with the retirement of its old framing
+  individually justified inline) plus a new state-invariance describe
+  block.
+- `frontend/tests/integration/ToolbarEngineControls-menu-capabilities.test.ts` —
+  two button-count assertions updated (5→7 shadow buttons, 10→12 total)
+  with inline justification; no other assertion touched.
+- `frontend/tests/integration/ToolbarEngineControls-state-invariance.test.ts`
+  (new) — the regression-test suite described in §10.3.
+- This report and the copied review report
+  (`lyt-wB2-controls-menu-review.md`, now present in this worktree's
+  own `.claude/dispatch-reports/`).
+
+`frontend/FILES.md` was not touched — no new `src/` file was added (the
+new file this pass added is a test file, out of that map's scope per
+`frontend/CLAUDE.md`'s "File map" section, which covers `src/` only).
+No doc-graph-structural change (no doc added/removed/renamed, no new
+cross-reference edge) — content-only, per the umbrella CLAUDE.md's own
+carve-out.
+
+### 10.8 STOP-and-report (carried forward, not re-attempted this pass)
+
+Items 1, 2, and 4 from §9 above are unchanged by this pass (not
+re-investigated). Item 3 (work-status store not updated) — this pass
+DID confirm `psql -h 192.168.122.1 -d todo` connectivity is available
+in this environment (unlike the original delivery's own session), but
+found no existing `todo` DB item referencing this wave (`title ilike
+'%wB2%'`, `'%controls-menu%'`, `'%engine-controls%'`, and `'%lyt%'` all
+return zero rows) — so there is no existing open item for this pass to
+close, and this commission's own deliverable list (fix + tests + gates
++ this report + the copied review report) does not name creating a new
+work-status item. Flagged here rather than silently assumed out of
+scope: if the commissioner tracks this wave's status elsewhere (a
+title/id this search didn't match, or a row predating this DB's current
+schema), the closure should be applied there.
+
 ## License
 
 Public Domain (The Unlicense), matching this repository's ADR-0006

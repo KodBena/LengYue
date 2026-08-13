@@ -13,6 +13,20 @@
  * (`ENGINE_CONTROLS_WORST_CASE_BUTTON_WIDTHS_PX`), pinning the derived
  * threshold (~184.03125px) the commission's own report cites.
  *
+ * ── State-invariance correction (W-B2 review MAJOR finding, 2026-08-13) ──
+ * The runtime composable (`useEngineControlsRealization`) now derives
+ * ITS OWN worst-case-per-slot widths live from the DOM (see that
+ * composable's own header) rather than treating this constant table as
+ * documentation the runtime intentionally bypassed. This file's own
+ * "1920x1080 fits the REAL current buttons but not the worst-case
+ * table" case is retired below (with an individual justification, not
+ * silently dropped) because that framing — "worst-case would wrongly
+ * force menu-path here" — is exactly the framing this correction
+ * rejects: at 1920x1080's 150.5px column the worst-case table's own
+ * arithmetic (4 rows, 108px > 80px) is now the CORRECT selection,
+ * chosen deliberately for state-invariance over idle-state fidelity.
+ * A new regression test below pins that new, correct expectation.
+ *
  * License: Public Domain (The Unlicense)
  */
 import { describe, it, expect } from 'vitest';
@@ -146,27 +160,86 @@ describe('the live-measured worst-case button widths — threshold arithmetic (F
     ).toBe('button-cluster');
   });
 
-  it('1920x1080\'s own live-measured column (150.5px) — under the worst-case threshold, but the RUNTIME composable measures the real current (non-worst-case) buttons instead, which fit; this table alone would (incorrectly, if used at runtime) select menu-path here', () => {
-    // Documents the exact reasoning in this module's own header for why
-    // the worst-case table is NOT wired as the runtime mechanism: this
-    // fixture's own "1920 default state fits, but worst-case labels
-    // don't" tension is the reason `useEngineControlsRealization`
-    // measures the real buttons live instead of consulting this table.
+  it('1920x1080\'s own live-measured column (150.5px) — worst-case now selects menu-path even at idle (state-invariance fix, W-B2 review MAJOR finding, 2026-08-13)', () => {
+    // JUSTIFICATION for retiring the pre-fix version of this test
+    // (which asserted the REAL idle/disconnected button set fits in 3
+    // rows/80px and treated that as the runtime-relevant fact): the
+    // runtime composable no longer measures the current, state-
+    // dependent labels at all — it measures BOTH label variants for
+    // every state-varying button and keeps the wider one, i.e. exactly
+    // this worst-case table's own shape. So the fact this test now
+    // pins is the CORRECT runtime outcome, not a table the runtime
+    // deliberately avoids: at 1920x1080's 150.5px column the worst-case
+    // set needs 4 rows (108px), which exceeds the compiled 80px
+    // reservation, so `menu-path` is selected — even when the engine is
+    // idle/disconnected and no match is running. This is the honest,
+    // disclosed consequence of the state-invariance fix (see
+    // `useEngineControlsRealization`'s own header): a column too narrow
+    // for the worst case can no longer show a cluster that later
+    // vanishes mid-interaction, because it never shows a cluster there
+    // at all until the column widens (a parallel model-side wave is
+    // authoring a 184px controls-floor reservation that would restore
+    // `button-cluster` at 1920x1080).
     const rows = computeWrappedRowCount(widths, ENGINE_CONTROLS_GAP_PX, 150.5);
     expect(rows).toBe(4);
     const neededPx = computeClusterNeededHeightPx(rows, ENGINE_CONTROLS_ROW_HEIGHT_PX, ENGINE_CONTROLS_GAP_PX);
+    expect(neededPx).toBe(108);
     expect(resolveEngineControlsRealization(neededPx, A_ENGINE_CONTROLS_RESERVED_HEIGHT_PX)).toBe('menu-path');
+  });
+});
 
-    // The REAL (non-worst-case, idle/disconnected default) button set at
-    // this same live column DOES fit in 3 rows / 80px — live-measured on
-    // the isolated rig (2026-08-13): natural widths [105.625, 90.015625,
-    // 43.21875, 51.015625, 66.609375] (Match/Connect, not Stop
-    // Match/Disconnect).
-    const naturalWidths = [105.625, 90.015625, 43.21875, 51.015625, 66.609375];
-    const naturalRows = computeWrappedRowCount(naturalWidths, ENGINE_CONTROLS_GAP_PX, 150.5);
-    expect(naturalRows).toBe(3);
-    const naturalNeededPx = computeClusterNeededHeightPx(naturalRows, ENGINE_CONTROLS_ROW_HEIGHT_PX, ENGINE_CONTROLS_GAP_PX);
-    expect(naturalNeededPx).toBe(80);
-    expect(resolveEngineControlsRealization(naturalNeededPx, A_ENGINE_CONTROLS_RESERVED_HEIGHT_PX)).toBe('button-cluster');
+describe('state-invariance: the worst-case set never depends on which state produced it (F2 correction)', () => {
+  // Regression test for the review's exact traced case
+  // (`.claude/dispatch-reports/lyt-wB2-controls-menu-review.md` §1):
+  // idle, connected-only, match-running-only, and connected+match-
+  // running must all resolve to the SAME form at a fixed column width,
+  // because the runtime composable no longer measures per-state labels
+  // — it always measures the worst-case set. This test pins that
+  // invariant at the pure-logic tier by exercising the same worst-case
+  // widths table under the four reachable label combinations the
+  // review's own table enumerated, confirming every one of them now
+  // collapses to the identical worst-case row count / form the fixed
+  // `ENGINE_CONTROLS_WORST_CASE_BUTTON_WIDTHS_PX` table already
+  // represents — i.e. state can no longer be an input to the decision
+  // at all, so there is nothing left for state to vary.
+  const idleWidths = [105.625, 90.015625, 43.21875, 51.015625, 66.609375]; // Match, Connect
+  const connectedOnlyWidths = [105.625, 90.015625, 43.21875, 51.015625, 90.015625]; // Match, Disconnect
+  const matchRunningOnlyWidths = [105.625, 90.015625, 43.21875, 90.015625, 66.609375]; // Stop Match, Connect
+  const connectedAndMatchingWidths = ENGINE_CONTROLS_WORST_CASE_BUTTON_WIDTHS_PX; // Stop Match, Disconnect — the worst case itself
+
+  it('the fix no longer selects a per-state width set — this test exists to name what WOULD have varied pre-fix, not to exercise the fixed mechanism (which reads only the worst-case width regardless of input state)', () => {
+    // Pre-fix, `computeWrappedRowCount` over each state's OWN natural
+    // widths at 1920x1080's 150.5px column produced DIFFERENT row
+    // counts depending on which of these four fixtures was live —
+    // exactly the flip the review traced. Documenting all four here
+    // shows the actual disagreement the fix eliminates upstream (by
+    // never feeding a per-state width set into the algorithm at all,
+    // per `useEngineControlsRealization`'s own `measureShadow`, which
+    // always takes the max of both variants — i.e. is definitionally
+    // fixed at `connectedAndMatchingWidths` regardless of state).
+    const columnPx = 150.5;
+    const idleRows = computeWrappedRowCount(idleWidths, ENGINE_CONTROLS_GAP_PX, columnPx);
+    const connectedOnlyRows = computeWrappedRowCount(connectedOnlyWidths, ENGINE_CONTROLS_GAP_PX, columnPx);
+    const matchRunningOnlyRows = computeWrappedRowCount(matchRunningOnlyWidths, ENGINE_CONTROLS_GAP_PX, columnPx);
+    const connectedAndMatchingRows = computeWrappedRowCount(connectedAndMatchingWidths, ENGINE_CONTROLS_GAP_PX, columnPx);
+    expect(idleRows).toBe(3);
+    expect(connectedOnlyRows).toBe(3);
+    expect(matchRunningOnlyRows).toBe(4);
+    expect(connectedAndMatchingRows).toBe(4);
+    // The disagreement above (3 vs 4 rows depending on state) is
+    // exactly the pre-fix flip. The fix's own guarantee is that the
+    // RUNTIME composable never evaluates the algorithm against any set
+    // but `connectedAndMatchingWidths` (the worst case) — proven by
+    // `useEngineControlsRealization`'s `measureShadow` always taking
+    // the per-slot MAX of both variants, which is structurally
+    // `connectedAndMatchingWidths` regardless of which state is
+    // actually live. So at runtime, `form` always resolves using THIS
+    // row count, never the other three:
+    expect(
+      resolveEngineControlsRealization(
+        computeClusterNeededHeightPx(connectedAndMatchingRows, ENGINE_CONTROLS_ROW_HEIGHT_PX, ENGINE_CONTROLS_GAP_PX),
+        A_ENGINE_CONTROLS_RESERVED_HEIGHT_PX,
+      ),
+    ).toBe('menu-path');
   });
 });

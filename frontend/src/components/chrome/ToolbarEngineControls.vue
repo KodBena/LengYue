@@ -25,16 +25,32 @@
   compiled `80px` reservation, silently clipped by `.lyt-toolbar-strip`'s
   `overflow-y: auto`. `useEngineControlsRealization` (own header: full
   measurement methodology) now decides, PER LIVE MEASUREMENT of this
-  component's own column width and its own currently-rendered button
-  widths, whether the cluster fits; when it doesn't, the five
-  capabilities realize as the ratified SMALL-CLASS `menu-path` form
-  instead — a compact trigger opening a menu carrying all five, via
-  `useClickTogglePopover` (click/outside-click/Escape + fixed-anchor,
-  generalized from `LocalePicker.vue`/`LytPresenceMenu.vue`'s own inline
-  versions — see that composable's header; no new styling idiom, every
-  button reuses `.toolbar-btn`). Every capability stays reachable in
-  EITHER form — the same five `emit(...)` calls this component always
-  had, wired from two alternative templates instead of one.
+  component's own column width and the WORST-CASE label widths its own
+  label logic can ever produce, whether the cluster fits; when it
+  doesn't, the five capabilities realize as the ratified SMALL-CLASS
+  `menu-path` form instead — a compact trigger opening a menu carrying
+  all five, via `useClickTogglePopover` (click/outside-click/Escape +
+  fixed-anchor, generalized from `LocalePicker.vue`/`LytPresenceMenu.vue`'s
+  own inline versions — see that composable's header; no new styling
+  idiom, every button reuses `.toolbar-btn`). Every capability stays
+  reachable in EITHER form — the same five `emit(...)` calls this
+  component always had, wired from two alternative templates instead of
+  one.
+
+  ── State-invariance correction (W-B2 review MAJOR finding, 2026-08-13) ──
+  The shadow clone (template, below) used to render the SAME reactive
+  labels the visible cluster/menu shows, which made the realization
+  form a function of engine/match STATE, not just column width — the
+  review traced a reachable mid-match form flip at 1920x1080
+  (`.claude/dispatch-reports/lyt-wB2-controls-menu-review.md` §1). The
+  shadow now renders BOTH label variants for every state-varying button
+  (`toolbar.match`/`toolbar.stopMatch`, `toolbar.connect`/
+  `toolbar.disconnect`) unconditionally, each tagged `data-slot` so
+  `useEngineControlsRealization` can take the wider of the two per slot
+  — see that composable's own header for the full mechanism and the
+  honestly-stated consequence (1920x1080 now selects `menu-path` even
+  at idle, pending a parallel model-side wave widening the column's own
+  reservation past the worst-case need).
 
   License: Public Domain (The Unlicense)
 -->
@@ -80,18 +96,12 @@ function onMatchClick() {
   else emit('open-match');
 }
 
-// Every reactive label the shadow clone (template, below) renders,
-// concatenated with a separator none of them can contain — see
-// `useEngineControlsRealization`'s own header for why the REAL current
-// labels (not a hand-maintained worst-case table) drive the decision.
-const labelsKey = computed(() => [
-  locale.value,
-  t('toolbar.mintCard'),
-  t('toolbar.learnPath'),
-  t('toolbar.play'),
-  matchBtnLabel.value,
-  engineBtnLabel.value,
-].join('|'));
+// The shadow clone (template, below) renders EVERY label variant its
+// own label logic can ever produce, unconditionally — no engine/match
+// state feeds it — so the ACTIVE LOCALE alone is what can ever change
+// its measured content. See `useEngineControlsRealization`'s own
+// header for the full state-invariance rationale.
+const labelsKey = computed(() => locale.value);
 
 const { form: measuredForm, setRegionEl, setShadowEl } = useEngineControlsRealization(labelsKey);
 const form = computed(() => props.forceForm ?? measuredForm.value);
@@ -195,18 +205,25 @@ const menuId = 'engine-controls-menu';
       </div>
     </template>
 
-    <!-- Hidden measurement shadow (finish-pass wave B2): always mounted,
-         off-screen, unconstrained width, never wraps — see
-         `useEngineControlsRealization`'s header for why the REAL
-         buttons are measured here, not a hardcoded worst-case table.
-         Not interactive; same reactive labels as the visible forms, so
-         a state or locale change re-measures via `labelsKey`. -->
+    <!-- Hidden measurement shadow (finish-pass wave B2, state-invariance
+         corrected 2026-08-13): always mounted, off-screen, unconstrained
+         width, never wraps. Renders BOTH label variants for every
+         state-varying button (match/stop-match, connect/disconnect)
+         UNCONDITIONALLY — not the current state's label — each tagged
+         `data-slot` naming the visible-cluster slot it stands in for;
+         `useEngineControlsRealization` takes the wider measured width
+         per slot. Only a locale change (via `labelsKey`) re-measures;
+         no engine/match state read appears in this block at all, which
+         is what makes the measurement state-invariant by construction.
+         Not interactive. -->
     <div class="engine-controls-shadow" aria-hidden="true" :ref="setShadowEl">
-      <button class="toolbar-btn highlight-btn" tabindex="-1">{{ $t('toolbar.mintCard') }}</button>
-      <button class="toolbar-btn" tabindex="-1">{{ $t('toolbar.learnPath') }}</button>
-      <button class="toolbar-btn" tabindex="-1">{{ $t('toolbar.play') }}</button>
-      <button class="toolbar-btn" tabindex="-1">{{ matchBtnLabel }}</button>
-      <button class="toolbar-btn" tabindex="-1">{{ engineBtnLabel }}</button>
+      <button class="toolbar-btn highlight-btn" tabindex="-1" data-slot="mint-card">{{ $t('toolbar.mintCard') }}</button>
+      <button class="toolbar-btn" tabindex="-1" data-slot="learn-path">{{ $t('toolbar.learnPath') }}</button>
+      <button class="toolbar-btn" tabindex="-1" data-slot="play">{{ $t('toolbar.play') }}</button>
+      <button class="toolbar-btn" tabindex="-1" data-slot="match">{{ $t('toolbar.match') }}</button>
+      <button class="toolbar-btn" tabindex="-1" data-slot="match">{{ $t('toolbar.stopMatch') }}</button>
+      <button class="toolbar-btn" tabindex="-1" data-slot="engine">{{ $t('toolbar.connect') }}</button>
+      <button class="toolbar-btn" tabindex="-1" data-slot="engine">{{ $t('toolbar.disconnect') }}</button>
     </div>
   </div>
 </template>
