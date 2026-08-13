@@ -57,7 +57,13 @@ import lyt_ast as ast
 import loader
 from compiler import solve_lexicographic
 from presence import ALL_PRESENT, PresenceValuation, resolve_and_validate
-from runner import REGISTRATIONS, _gather_reach_preferred_widgets, nearest_class, valuation_for_class
+from runner import (
+    REGISTRATIONS,
+    _gather_reach_preferred_widgets,
+    nearest_class,
+    resolve_encoding_file,
+    valuation_for_class,
+)
 
 ENCODINGS_DIR = Path(__file__).parent / "encodings"
 
@@ -151,7 +157,7 @@ def run_matrix() -> Tuple[List[dict], bool]:
     reg = next(r for r in REGISTRATIONS if r.name == "lengyue_landscape+portrait")
     layouts_raw: Dict[str, ast.Slot] = {}
     for f in reg.files:
-        text = (ENCODINGS_DIR / f).read_text()
+        text = resolve_encoding_file(f).read_text()
         layouts_raw.update(loader.load_layouts(text, waivers=reg.waivers))
 
     rows: List[dict] = []

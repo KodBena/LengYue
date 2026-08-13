@@ -448,7 +448,7 @@ import runner
 from compiler import solve_lexicographic
 from coverage_matrix import LANDSCAPE_SIZES, PORTRAIT_SIZES
 from presence import is_named_absent, resolve_and_validate
-from runner import ENCODINGS_DIR, _gather_reach_preferred_widgets
+from runner import ENCODINGS_DIR, _gather_reach_preferred_widgets, resolve_encoding_file
 
 STATE_DIR = Path(__file__).parent.parent.parent / "frontend" / "src" / "state"
 
@@ -618,7 +618,7 @@ def _derive_tree_orientation(class_id: str) -> str:
         )
     raw_layouts: Dict[str, ast.Slot] = {}
     for f in reg.files:
-        text = (ENCODINGS_DIR / f).read_text()
+        text = resolve_encoding_file(f).read_text()
         raw_layouts.update(loader.load_layouts(text, waivers=reg.waivers))
     valuation = runner.valuation_for_class(reg, class_id)
     slot = resolve_and_validate(raw_layouts, [layout_name], valuation)[layout_name]
