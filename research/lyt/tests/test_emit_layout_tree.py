@@ -666,18 +666,30 @@ def test_f1_port_cp_library_elastic_floor_edge():
     assert library["orientation"] == "v"
 
 
-def test_f1_port_envelope_states_null_for_every_leaf_this_wave():
-    """Mainline's ONE `envelope: {disconnected, connected}` declaration
-    wraps the `A_engine` composite's own containing Split slot, not a bare
-    leaf -- so this leaf-only field is `null` everywhere in the compiled
-    landscape program this wave (see the module docstring / LytLeafNode's
-    own doc-comment on `envelopeStates` for the full disclosure). A_engine
-    itself is not a leaf (kind 'split'), so it is not iterated here."""
+def test_f1_port_envelope_states_null_for_every_leaf_except_the_i_engine_pair():
+    """Mainline's row-level `envelope: {disconnected, connected}`
+    declaration wraps the `A_engine` composite's own containing Split slot,
+    not a bare leaf -- so this leaf-only field stays `null` for every leaf
+    EXCEPT two (see the module docstring / LytLeafNode's own doc-comment on
+    `envelopeStates` for the full disclosure). A_engine itself is not a
+    leaf (kind 'split'), so it is not iterated here.
+
+    UPDATED (LYT relations-first amendment, dispatch C3, ledger row 2419's
+    "I_engine envelope" rewiring): `A_engine_eval`/`A_engine_health` are now
+    the two leaves genuinely carrying a dict-relation `envelope` (five
+    connected-latency states, each resolving via `width-of` against C1's
+    engine-connected facts) -- the pre-C3 assumption that EVERY leaf's
+    envelopeStates is null no longer holds for these two, by design, not
+    by regression."""
     program = elt.build_program_for(elt.REGISTRATIONS["landscape"])
+    widgets_with_envelope = {"A_engine_eval", "A_engine_health"}
 
     def _walk(node):
         if node["kind"] == "leaf":
-            assert node["envelopeStates"] is None, node["widget"]
+            if node["widget"] in widgets_with_envelope:
+                assert node["envelopeStates"] is not None, node["widget"]
+            else:
+                assert node["envelopeStates"] is None, node["widget"]
         elif node["kind"] == "split":
             for c in node["children"]:
                 _walk(c["node"])
@@ -860,16 +872,30 @@ def test_p2d_landscape_tree_orientation_matches_independent_derivation():
 
 
 def test_p2d_portrait_tree_orientation_matches_independent_derivation():
-    """Portrait's `tree` derives `'h'` unanimously across all five of its
+    """Portrait's `tree` derives `'h'` unanimously across its solvable
     representative sizes -- DIFFERENT from the pre-P2d load-time placeholder
     (`'v'`), the one observable diff this stage produces (P2c's own
     portrait-row-floor fix is what makes every representative size solvable
     here; see `.claude/dispatch-reports/lyt-p2c-portrait-row-floor.md`).
     Independently re-derived (own solve, own walk), then compared against
-    what `build_program` actually emits."""
+    what `build_program` actually emits.
+
+    UPDATED (LYT relations-first amendment, dispatch C3): 420x880 under
+    `default` valuation flips OPTIMAL -> INFEASIBLE now that the I_engine
+    envelope rewiring (ledger row 2419) gives the eval/health engine-metrics
+    leaves each a genuine ~139px width floor for the first time (previously
+    both were bare `pref 1fr` with NO min at all). Engine controls' own
+    185px floor plus the eval/health pair's 139px each plus three 4px gaps
+    sums past 420x880's own available row width -- a real, disclosed
+    model-change consequence (see `test_generated_pages_embed_valid_
+    overlay_json_matching_overlay_sizes`'s own updated
+    `known_infeasible_by_valuation` entry for the twin of this finding),
+    not a bug in this test or in orientation derivation. Four solvable
+    sizes still agree unanimously, so `_derive_tree_orientation`'s own
+    consensus requirement is unaffected."""
     votes = _independent_tree_orientation_votes("portrait", PORTRAIT_SIZES)
     assert votes == {
-        "h": ["1080x1920", "1200x1600", "768x1024", "540x960", "420x880"],
+        "h": ["1080x1920", "1200x1600", "768x1024", "540x960"],
     }
 
     program = elt.build_program_for(elt.REGISTRATIONS["portrait"])

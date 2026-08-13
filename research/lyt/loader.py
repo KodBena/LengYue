@@ -787,6 +787,7 @@ def _load_sizing(
             min=fixed_extent,
             pref=fixed_extent,
             max=fixed_extent,
+            aspect=rs.aspect,
             basis=basis,
             envelope_states=envelope_states,
             envelope_state_extents=envelope_state_extents,
