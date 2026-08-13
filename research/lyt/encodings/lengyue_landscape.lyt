@@ -31,7 +31,7 @@ layout lengyue-landscape =
               {min read-constant(SP_keybindings, landscape), pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v item} SP_keybindings[common]
             )
           ),
-          {min sum-of(80px, 4px, read-constant(AT_multires)), pref 1fr, max inf, gap 4px, content designed} V(
+          {min sum-of(80px, 4px, read-constant(AT_multires)), pref 1fr, max inf, gap 4px, content unbounded} V(
             {min 80px, pref 80px, max 80px, boundary, content designed} timelineStrip[go],
             {min 160px, pref 1fr, max inf} T(
               {min 160px, pref 1fr, max inf, gap 4px} V(

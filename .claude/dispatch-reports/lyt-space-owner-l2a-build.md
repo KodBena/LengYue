@@ -178,7 +178,7 @@ this report).
   every numeric and behavioral claim above was checked against running
   code in this session, not inferred from documentation alone.
 
-## Files touched
+## Files touched (original build)
 
 ```
 frontend/src/state/lyt-layout-portrait.gen.ts
@@ -194,6 +194,166 @@ research/lyt/tests/test_loop_laws.py
 research/lyt/tests/test_lyt.py
 research/lyt/wellformed.py
 ```
+
+## Conditions-discharge (2026-08-14)
+
+The review (`.claude/dispatch-reports/lyt-space-owner-l2a-review.md`,
+copied into this worktree from the coordinator's own artifact) verdict
+was **ACCEPT-WITH-CONDITIONS**. Both conditions are discharged in this
+same worktree, on top of the original build's own commit.
+
+### Condition 1 — Amendment 10 record
+
+`research/lyt/SPEC-AMENDMENTS.md` gains a proper Amendment 10 entry
+(ledger rows 2447/2450), matching Amendments 1–9's own established
+form: Ruling, What this amendment implements (five items — the `Slot`
+relocation, the three legal positions, the L5/L5a/L5c dormancy
+preservation, emitter preservation, the `presence.py` forwarding fix),
+Encodings (including the CP-analysis DOM-truth correction, see
+Condition 2), Dormancy and verification, Diff vs. the consult document,
+Seam choice, and What it touched.
+
+`research/lyt/SPEC.md` gets three corrections plus one new section,
+following the file's own established "correct with a bracketed note,
+never silently rewrite" convention:
+
+- The opening paragraph's amendment count: nine → ten (line ~24), with
+  a dated correction note in the same style as the pre-existing
+  2026-08-12 correction immediately below it (both preserved).
+- The grammar summary's `content <class>` bullet (was line ~172–176,
+  "a LEAF-only content-class declaration"): corrected inline, pointing
+  at the new §18.
+- §13.1's `content <class>` grammar entry and §13.2's "a leaf's
+  content" framing (was lines ~1145–1148, ~1167–1173): the
+  Amendment-5-era text is struck through / annotated in place (kept
+  verbatim per the file's own "supersede, do not delete" convention)
+  rather than deleted, with a correction note pointing at §18.
+- **New §18** ("Amendment 10 — `content` relocates to `Slot`, legal
+  beyond leaves"), matching the scale and form of §14 (the shortest of
+  the four prior Amendment sections, 6/7/8/9): the relocation, the
+  three legal positions, the L5/L5a/L5c dormancy statement, emitter
+  preservation, and a dedicated §18.5 naming the CP-analysis
+  law-expressiveness limit (Condition 2) as a residual, not routed
+  around.
+- The "Status of the other LYT documents" close's own "nine
+  ledger-adjudicated rulings" phrase (line ~1917): corrected to "ten,"
+  same dated-note convention.
+
+**Doc-graph.** `tools/doc-graph/generate.mjs`'s own `SCAN_DIRS =
+["docs"]` (read directly, not assumed) — `research/lyt/SPEC.md` and
+`SPEC-AMENDMENTS.md` are outside the doc-graph's scanned tree entirely,
+confirmed by `grep -c "research/lyt" docs/doc-graph.json` returning 0.
+The gate does not apply to this edit; `git status --short` on the three
+doc-graph artifact files shows no diff, confirming no regeneration was
+triggered or needed. Graphviz (`dot`) was available in this environment
+regardless, so this is a genuine "out of scope" finding, not a
+STOP-for-missing-tooling.
+
+### Condition 2 — CP-analysis DOM-truth re-verification
+
+Traced the real mount site directly: `frontend/src/App.vue`'s
+control-panel Analysis tab slot mounts `AnalysisControls.vue`, which at
+`frontend/src/components/editors/AnalysisControls.vue:385` embeds
+`<AnalysisDashboard :key="boardId" :boardId="boardId" />`.
+`frontend/src/components/charts/AnalysisDashboard.vue`'s own `<style
+scoped>` block declares, at lines 169–173:
+
+```css
+.scrollable-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-medium);
+}
+```
+
+— applied to the div wrapping each tab's rendered chart panels (lines
+117 and 127 of the same file). The real mounted DOM for this control-
+panel tab genuinely scrolls its content vertically. The pre-condition
+declaration (`content designed` on the CP-analysis composite wrapper,
+`encodings/lengyue_landscape.lyt`/`lengyue_portrait.lyt`) asserted the
+opposite (L5c: "chart-carrying containers may never scroll... never a
+scrollbar") — WRONG, confirmed against the component source, not
+merely re-asserted.
+
+**Reconciling with the L5b/L5c refusal behavior cited in the original
+build.** Two candidate honest corrections were checked directly against
+the loader, not assumed:
+
+1. `content unbounded` + `scroll v` on the wrapper — reproduces an
+   `L5c` chart-exclusion refusal (verified: hand-inserting this exact
+   pair at the wrapper and reloading raises `LytLoadError` naming this
+   precise path, `law: "L5c"`), because the wrapper's own subtree still
+   contains individually-`designed` chart leaves
+   (`AT_basic_interval`/etc., pre-existing, individually accurate,
+   deliberately not re-classified — re-deriving eight leaves' own
+   content nature to make a wrapper-level `scroll v` legal is a
+   materially larger re-modeling of the whole analysis sub-tree, out of
+   this condition's own scope).
+2. `content unbounded`, no scroll — loads cleanly (verified), withdraws
+   the false "never scrolls" claim, and does not assert a scroll
+   ownership the law cannot admit given the still-`designed` siblings.
+
+This is the genuine law-expressiveness limit the coordinator's own
+framing anticipated: the law CAN express "not a hard, never-scrolling
+reservation" (option 2) but CANNOT ALSO express "and it owns a scroll"
+without first re-deriving the leaf classifications underneath it. Per
+the coordinator's own instruction ("if the honest fact is that this
+interior scrolls vertically, the declaration must say so in whatever
+shape the law admits"), option 2 was applied — not a STOP, since the
+law DOES admit a strictly more honest value than the wrongly-asserted
+one, even though it cannot admit the fully complete one. The residual
+gap (no encoding-level fact captures "and this collapsed group's own
+realization scrolls") is named as a residual in SPEC-AMENDMENTS.md's
+Amendment 10 entry and SPEC.md's new §18.5, not silently absorbed.
+
+**Encoding correction applied.** Both `encodings/lengyue_landscape.lyt`
+and `encodings/lengyue_portrait.lyt`'s CP-analysis composite wrapper:
+`content designed` → `content unbounded` (no scroll added). Verified:
+both encodings load cleanly after the change (no waivers); both
+`.gen.ts` files regenerated (`python emit_layout_tree.py --registration
+{landscape,portrait}`) and diffed against the pre-correction committed
+files — the diff is EXACTLY the two corrected `content` values (one
+field, two occurrences — the `LytExclusiveChild`-level field and the
+`LytBlackboxNode`-level field for the same node — per file), confirmed
+by `git diff`, no other hunk.
+
+### Gates re-run after both conditions
+
+- `research/lyt` suite: `pytest tests/ -q` → **424 passed, exit 0**
+  (unchanged from the original build — neither condition altered test
+  count, only two encoding values and two documentation files).
+- `frontend`: `NODE_OPTIONS=--max-old-space-size=4096 nice -19 npx
+  vue-tsc -b` → **clean, exit 0.** (`lyt-layout-types.ts` was already
+  unchanged by this discharge — only the two `.gen.ts` files'
+  `content` values changed, which are data, not types — so this result
+  was expected, not merely hoped for, and was still run directly per
+  the coordinator's instruction rather than assumed from the original
+  build's own green typecheck.)
+
+### Files touched (conditions-discharge, additional to the original build)
+
+```
+research/lyt/SPEC-AMENDMENTS.md
+research/lyt/SPEC.md
+research/lyt/encodings/lengyue_landscape.lyt   (CP-analysis wrapper correction)
+research/lyt/encodings/lengyue_portrait.lyt    (CP-analysis wrapper correction)
+frontend/src/state/lyt-layout.gen.ts           (regenerated, corrected value)
+frontend/src/state/lyt-layout-portrait.gen.ts  (regenerated, corrected value)
+```
+
+### Claims summary (conditions-discharge)
+
+- WITNESSED: `AnalysisDashboard.vue:169-173`'s `overflow-y: auto`
+  (read directly); `AnalysisControls.vue:385`'s mount site (read
+  directly); the L5c refusal on the rejected `scroll v` candidate
+  (reproduced directly); the L5c acceptance of the corrected `content
+  unbounded`-no-scroll value (both encodings load clean, verified);
+  both `.gen.ts` diffs are exactly the two corrected values (`git
+  diff`); doc-graph out-of-scope finding (`SCAN_DIRS` read directly,
+  `grep` count and `git status` both confirm no diff); 424/424 tests,
+  exit 0; `vue-tsc -b` clean, exit 0.
+- UNEXERCISED: none — every claim in this section was checked against
+  running code or read source in this session.
 
 ## License
 

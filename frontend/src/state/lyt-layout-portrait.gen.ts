@@ -180,9 +180,9 @@ export const LYT_PORTRAIT: LytProgram = {
                     path: "5.1.3",
                     tabId: "analysis",
                     tabLabelKey: "app.tabs.analysis",
-                    content: "designed",
+                    content: "unbounded",
                     scrollAxes: [],
-                    node: { kind: "blackbox", widget: "CP-analysis", tag: null, childWidgets: ["timelineStrip", "AT_basic_interval", "AT_basic_scoreLead", "AT_basic_mergedDelta", "AT_dist_deltaDist", "AT_dist_mistakeGap", "AT_stab_stability", "AT_stab_crossCorr", "AT_multires"], demote: null, content: "designed", scrollAxes: [] },
+                    node: { kind: "blackbox", widget: "CP-analysis", tag: null, childWidgets: ["timelineStrip", "AT_basic_interval", "AT_basic_scoreLead", "AT_basic_mergedDelta", "AT_dist_deltaDist", "AT_dist_mistakeGap", "AT_stab_stability", "AT_stab_crossCorr", "AT_multires"], demote: null, content: "unbounded", scrollAxes: [] },
                   },
                   {
                     path: "5.1.4",

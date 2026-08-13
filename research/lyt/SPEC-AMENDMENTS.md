@@ -1717,6 +1717,211 @@ not made in this change); `frontend/` (untouched, out of scope, same
 posture Amendment 8 already took for its own realization-layer
 exclusions).
 
+## Amendment 10 (ledger rows 2447/2450, L2a of the space-owner cure) — `content` relocates to `Slot`, legal on an Exclusive's own wrapping slot and on a direct Exclusive-child of any node kind
+
+**Ruling.** Adopted per
+[.claude/dispatch-reports/lyt-space-owner-spec.md](../../.claude/dispatch-reports/lyt-space-owner-spec.md)
+§0's third bullet and §3 step 2 — the frontend-side "Layout authority"
+spec's own diagnosis that `LytBlackboxNode`/`LytExclusiveChild` (the
+compiled program's collapsed/opened Exclusive representations) carry
+neither a content class nor a scroll disposition of their own, because
+`content` (Amendment 5) was `Leaf`-only, structurally unable to answer
+"what kind of content does a T(...) blackbox's own collapsed interior
+hold" at all. §0's own words: "Every 'collapsed' composite… is
+therefore structurally outside the overflow contract… This is the
+exact mechanism of the review's Settings amputation."
+
+**What this amendment implements.**
+
+1. **`content` relocates from `Leaf.content` to `Slot.content`**
+   (`lyt_ast.py`), the same generalization `scroll_axes` already made
+   under Amendment 5, and for the identical reason stated there
+   verbatim: "since it applies uniformly regardless of node kind." A
+   leaf's own content class is unaffected in meaning or closed
+   vocabulary (`bounded`/`designed`/`unbounded`) — only its storage
+   location moves, from a `Leaf`-only field to a `Slot`-level one every
+   node kind carries.
+2. **Two new legal positions for `content`**, widened in
+   `loader._load_content_class` — a leaf (unchanged), an Exclusive (T)
+   node's own wrapping slot (a genuinely new position: the collapsed
+   group's own declared content class), and a slot that is a DIRECT
+   CHILD of an Exclusive regardless of its own underlying node kind
+   (also new — a Split or nested Exclusive standing as a T-child may
+   now declare its own content class, where before only a bare leaf
+   T-child could). An ordinary Split standing in the tree for its own
+   sake — not itself a T-child — stays refused exactly as before;
+   `content` still describes what the DECLARING SLOT's own content is,
+   never a container's own structure. `load_slot` gains one new
+   parameter, `is_exclusive_child`, threaded `True` at exactly the
+   Exclusive branch's own children-loading call site and never
+   inherited past that immediate child (a grandchild reached through an
+   intervening Split is an ordinary Split-child, not itself an
+   Exclusive-child).
+3. **`wellformed.py`'s L5/L5a/L5c are unchanged in what they check** —
+   all three remain gated on `isinstance(node, ast.Leaf)` exactly as
+   before; only WHERE they read the content value from changes
+   (`slot.content`, since `Leaf` no longer has the field). A `content`
+   declaration at either of the two new positions is therefore
+   dormant to these three laws exactly the way an unclassified leaf
+   always was — not a new kind of silence, the same kind.
+4. **Emitter preservation** (`emit_layout_tree.py`) — `LytBlackboxNode`
+   and `LytExclusiveChild` (`lyt-layout-types.ts`) each gain `content`/
+   `scrollAxes` fields, populated at every blackbox construction site
+   in `_build_node`'s Exclusive branch (all four: the top-level
+   collapse, the nested-within-an-opened-tab collapse, and the
+   per-tab `control_panel_collapse_indices` collapse) and at the
+   genuinely-opened `exclusive` shape's own `ex_children` loop — every
+   site reads `slot.content`/`sorted(slot.scroll_axes)` (or
+   `child.content`/`sorted(child.scroll_axes)` for a T-child) off the
+   ALREADY-LOADED slot, no new derivation or folding over the
+   collapsed interior. This is what makes the fields PRESERVED rather
+   than invented: the Exclusive-collapse boundary previously read
+   `slot.presence`/`slot.sizing`/`childWidgets` and stopped there;
+   it now reads `slot.content`/`slot.scroll_axes` too.
+5. **`presence.py`'s `prune_absent` forwarding fix** — the SAME
+   defect class Amendment 5's own "AMENDMENT 5 fix" (§ this file,
+   Amendment 5's docstring cross-reference) already closed once for
+   `scroll_axes`: `prune_absent`'s Split/Exclusive reconstruction
+   branches forward only an explicit field list from the original
+   slot, and the instant `content` becomes Slot-level (item 1 above),
+   those same two branches inherit the identical forwarding gap
+   `scroll_axes` had before its own fix — a T-child's own declared
+   content class would silently vanish the moment its own subtree was
+   reconstructed by a presence prune. Fixed by forwarding
+   `content=slot.content` at both sites, alongside `scroll_axes`. A
+   third, PRE-EXISTING instance of the same defect class
+   (`wrap_policy`, Amendment 7) was found and disclosed in the same
+   pass but left unfixed — out of this amendment's own scope, named in
+   `presence.py`'s own module docstring so it is not silently
+   rediscovered.
+
+**Encodings — three new declarations, one of them corrected against
+DOM truth after adversarial review.** `lengyue_landscape.lyt`/
+`lengyue_portrait.lyt` each gain three `content` declarations on
+previously-undeclared blackbox interiors: settingsPane's own inner
+six-tab `T(...)` (`content unbounded` — a mix of scroll-owning and
+non-scroll-owning panes, the SAME worst-case-superset conservative
+posture the pre-existing per-leaf declarations in that same group
+already use), and CP-other's own composite wrapper (`content
+unbounded` — wraps `otherBand`, already `content unbounded, scroll v`
+on itself). No new `scroll` declaration was added at either site —
+every leaf that needs scroll ownership already owns it on itself, and
+L5b (single scroll owner per axis per root-to-leaf path) refuses a
+second declaration anywhere upstream of an already-owned one, verified
+directly by hand-inserting `scroll v` at each site and reloading.
+
+CP-analysis's own composite wrapper was FIRST declared `content
+designed` (matching its own pre-existing leaf children, all
+individually `content designed` chart leaves) and then CORRECTED to
+`content unbounded`, no scroll, after independent review
+([.claude/dispatch-reports/lyt-space-owner-l2a-review.md](../../.claude/dispatch-reports/lyt-space-owner-l2a-review.md))
+traced the REAL mount site and found the model's own claim false: the
+control panel's Analysis tab mounts `AnalysisControls.vue`
+(`frontend/src/components/editors/AnalysisControls.vue:385`), which
+embeds `AnalysisDashboard.vue` (`frontend/src/components/charts/
+AnalysisDashboard.vue`) directly; that component's own
+`.scrollable-content` class (`AnalysisDashboard.vue:169-173`) is
+`flex: 1; overflow-y: auto` — the real mounted DOM for this tab
+genuinely scrolls its panel content vertically, the opposite of what
+`content: 'designed'` (L5c: "chart-carrying containers may never
+scroll") claims.
+
+**The law genuinely cannot express the fully honest fact here, and
+this amendment does not pretend otherwise.** The individual leaves
+inside this composite (`AT_basic_interval`, `AT_dist_deltaDist`, etc.)
+are each still, individually, honestly `content designed` — each one,
+mounted on its own, genuinely IS a fixed-size chart with no scroll of
+its own; nothing about this amendment re-litigates those pre-existing,
+individually-accurate classifications, and doing so (re-deriving eight
+leaves' own content nature to make a wrapper-level `scroll v` legal)
+is a materially larger, riskier re-modeling of the whole analysis
+sub-tree this amendment does not attempt unilaterally. Given that, the
+wrapper cannot ALSO honestly declare `scroll v` — L5c refuses it,
+correctly: a slot whose own subtree still contains a `designed`-class
+leaf may not declare scroll, verified directly (hand-inserting
+`content unbounded, scroll v` at this exact site reproduces an L5c
+chart-exclusion refusal naming this precise path). The corrected
+declaration — `content unbounded`, no scroll — is therefore the most
+honest fact expressible within the current leaf classifications: it
+withdraws the false "never scrolls" claim without asserting a scroll
+ownership the law cannot admit given siblings still individually
+`designed`. This is an INHERITED representational gap, not one this
+amendment invented — the analysis tab's fine-grained per-chart `T`
+stays "solver-visible but unopened in the DOM" (a disclosed narrowing
+predating this amendment, `App.vue`'s own comment at the control-panel
+tab-slot template), meaning the model's own leaf-level granularity has
+never matched the DOM's actual one-component mount for this tab. A
+future stage that wants a fully honest, law-satisfying declaration
+here needs to either open the analysis sub-tree's own components to
+per-leaf DOM mounting (matching what Settings' own live-opening
+already did) or re-derive the leaves' own content nature against
+whatever THAT DOM shape turns out to be — not something to improvise
+as a side effect of adding wrapper-level fields.
+
+**Dormancy and verification.** Both encodings load cleanly, no
+waivers, before and after every declaration named above (verified
+directly, not solely through the test suite). `content` remains
+solver-inert (`compiler.py` never reads it, unchanged by this
+amendment) — re-solving both encodings at every representative size
+this file's own Amendment 4 feasibility table and `coverage_matrix.py`
+name is unaffected, since no declaration this amendment adds is
+solver-visible. `research/lyt`'s own suite: 421 tests before this
+amendment, 424 after (net +3 — two existing tests updated for the
+relocation, five new tests replacing two removed ones), `pytest
+tests/ -q` exit 0. Both `frontend/src/state/lyt-layout.gen.ts` /
+`lyt-layout-portrait.gen.ts` were regenerated and diffed against their
+pre-amendment committed versions: every hunk is a pure field addition
+or corrected value, confirmed by direct `git diff`, no other line
+touched.
+
+**Diff vs. the original consult document's prose.** `layout-language-
+consult.md` says nothing about a content-class axis on anything other
+than a leaf — same footing as every prior amendment: a genuine
+language extension, not a reading recovered from existing text.
+
+**Seam choice.** `content`'s new home (`Slot`, not `Leaf`/`Split`/
+`Exclusive`) mirrors `scroll_axes`'s own Amendment 5 placement exactly,
+for the same reason: a fact that must apply uniformly regardless of
+node kind belongs on the type every node kind shares. The two new
+legal-position refusals (Exclusive's own slot; a direct Exclusive-child
+of any kind) are enforced in the SAME single choke point
+(`loader._load_content_class`) the leaf-only refusal always was,
+widened rather than duplicated into a second checking function.
+
+**What it touched.** `lyt_ast.py` (`Leaf.content` removed;
+`Slot.content` added, with its own `__post_init__` closed-vocabulary
+guard, the F3-fix precedent every prior amendment's typed field
+uses); `loader.py` (`_load_content_class` widened with
+`is_exclusive_child`; `load_slot` gains the same parameter, threaded
+at the Exclusive branch's own children loop; the Leaf/Split/Exclusive
+branches' own `ast.Slot(...)` constructions now carry `content=`);
+`wellformed.py` (five read sites — `_subtree_has_designed_leaf`,
+`find_l5_violations`, `find_l13_violations`, `find_l16_violations`,
+`find_l17_violations` — read `slot.content` instead of the
+now-nonexistent `leaf.content`; no check's own firing condition
+changed); `presence.py` (`prune_absent`'s Split/Exclusive
+reconstruction branches forward `content=slot.content`, the
+AMENDMENT 10 fix disclosed in item 5 above, plus a matching module
+docstring section); `emit_layout_tree.py` (`_build_node`'s Exclusive
+branch, all four blackbox construction sites plus the `ex_children`
+loop; `_ts_node`'s "blackbox"/"exclusive" rendering; a new shared
+`_ts_content` helper mirroring the existing `_ts_demote` precedent; a
+new "L2a" module docstring section); `frontend/src/state/
+lyt-layout-types.ts` (`LytBlackboxNode`/`LytExclusiveChild` gain
+`content`/`scrollAxes` fields); `frontend/src/state/lyt-layout.gen.ts`
+/ `lyt-layout-portrait.gen.ts` (regenerated); `encodings/
+lengyue_landscape.lyt` / `lengyue_portrait.lyt` (three `content`
+declarations each, one corrected post-review as described above);
+`tests/test_lyt.py` (relocation regression tests: legality on an
+Exclusive's own slot, legality on a direct Exclusive-child of any
+kind, non-inheritance past the immediate child, `prune_absent`
+forwarding on reconstructed composites); `tests/test_loop_laws.py`
+(one existing test updated for the relocation); this amendment's own
+build/review record,
+[.claude/dispatch-reports/lyt-space-owner-l2a-build.md](../../.claude/dispatch-reports/lyt-space-owner-l2a-build.md)
+and
+[.claude/dispatch-reports/lyt-space-owner-l2a-review.md](../../.claude/dispatch-reports/lyt-space-owner-l2a-review.md).
+
 ## Residual items
 
 Filed 2026-08-13, dispatch A of the LYT relations-first amendment
