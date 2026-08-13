@@ -59,6 +59,7 @@ import {
   resolveWidthConditionalPresence,
   clampTreeWidthForSideColumn,
   sumFixedRowSiblingReservationPx,
+  resolvePortraitTreeRowWidthPx,
   type LytFixedRowSibling,
 } from '../../../src/state/layout-model';
 import type { LytDemotion, LytTrackShape } from '../../../src/state/lyt-layout-types';
@@ -813,6 +814,101 @@ describe('clampTreeWidthForSideColumn — LYT finish-pass wave A completion (the
       // 2000 - (664+4 + 160+4 + 40+4) = 2000 - 876 = 1124.
       expect(clamped).toBe(1124);
     });
+  });
+});
+
+/**
+ * resolvePortraitTreeRowWidthPx — LYT finish-pass wave B1, F4
+ * (`.claude/dispatch-reports/lyt-wB1-portrait-priority.md`). Fixtures
+ * mirror portrait's own compiled facts (`lyt-layout-portrait.gen.ts`):
+ * `tree` `{ kind: "elastic", minPx: 140, frWeight: 1 }`, `controlPanel`
+ * `{ kind: "fixed", px: 664 }`, `previewBoard` `{ kind: "fixed", px: 96 }`.
+ */
+describe('resolvePortraitTreeRowWidthPx — LYT finish-pass wave B1 (F4, portrait tree-row un-dragged default)', () => {
+  const PORTRAIT_TREE_TRACK: LytTrackShape = { kind: 'elastic', minPx: 140, frWeight: 1 };
+  const PORTRAIT_CONTROL_PANEL_TRACK: LytTrackShape = { kind: 'fixed', px: 664 };
+  const PORTRAIT_PREVIEW_BOARD_TRACK: LytTrackShape = { kind: 'fixed', px: 96 };
+
+  it('un-dragged default, both siblings absent (the reported defect): widens PAST the 140px floored default all the way to the measured row width — the row\'s own residual-holding intent, not the landscape-shaped fraction default', () => {
+    const widened = resolvePortraitTreeRowWidthPx(
+      140, // computeTreePanelDefaultWidthPx's own floored output at 420/768px widths
+      420, // sideColumnWidthPx, F3/F4's own reported 420x880 measurement
+      [
+        { track: PORTRAIT_CONTROL_PANEL_TRACK, present: false },
+        { track: PORTRAIT_PREVIEW_BOARD_TRACK, present: false },
+      ],
+      PORTRAIT_TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+      true, // isUnsetDefault
+    );
+    expect(widened).toBe(420);
+  });
+
+  it('un-dragged default, at the 768px representative width, reproduces the same widen-to-full-row behavior', () => {
+    const widened = resolvePortraitTreeRowWidthPx(140, 768, [], PORTRAIT_TREE_TRACK, TREE_CONTROL_WRAPPER_ROW_GAP_PX, true);
+    expect(widened).toBe(768);
+  });
+
+  it('un-dragged default, a sibling PRESENT: falls through to the ordinary shrink-only clamp — reservedPx > 0 disables the widen path entirely, matching clampTreeWidthForSideColumn byte-for-byte', () => {
+    const fixedSiblings = [{ track: PORTRAIT_CONTROL_PANEL_TRACK, present: true }];
+    const widened = resolvePortraitTreeRowWidthPx(
+      140,
+      420,
+      fixedSiblings,
+      PORTRAIT_TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+      true,
+    );
+    const shrunk = clampTreeWidthForSideColumn(140, 420, fixedSiblings, PORTRAIT_TREE_TRACK, TREE_CONTROL_WRAPPER_ROW_GAP_PX);
+    expect(widened).toBe(shrunk);
+  });
+
+  it('a USER DRAG on record (isUnsetDefault: false): never widens, even with every sibling absent — ledger row 414\'s single-writer channel, sovereignty preserved', () => {
+    const dragged = resolvePortraitTreeRowWidthPx(
+      200, // a user's own narrower drag
+      420,
+      [
+        { track: PORTRAIT_CONTROL_PANEL_TRACK, present: false },
+        { track: PORTRAIT_PREVIEW_BOARD_TRACK, present: false },
+      ],
+      PORTRAIT_TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+      false, // isUnsetDefault: false — the user dragged
+    );
+    expect(dragged).toBe(200); // untouched, not widened to 420
+  });
+
+  it('never widens PAST the natural value when the natural value already exceeds the measured row (still delegates the shrink half to clampTreeWidthForSideColumn)', () => {
+    const shrunk = resolvePortraitTreeRowWidthPx(
+      9999,
+      420,
+      [],
+      PORTRAIT_TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+      true,
+    );
+    expect(shrunk).toBe(420); // clamped down to the row's own width, not left at 9999
+  });
+
+  it('never widens below the tree\'s own compiled floor even in a not-yet-measured row (sideColumnWidthPx <= 0 passes natural through unchanged, same convention as every other clamp in this module)', () => {
+    for (const notYetMeasured of [0, -5, NaN]) {
+      const result = resolvePortraitTreeRowWidthPx(
+        140,
+        notYetMeasured,
+        [],
+        PORTRAIT_TREE_TRACK,
+        TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+        true,
+      );
+      expect(result).toBe(140);
+    }
+  });
+
+  it('a non-"elastic" tree track throws loudly (ADR-0002) — delegates the guard to clampTreeWidthForSideColumn rather than duplicating it', () => {
+    const wrongShape: LytTrackShape = { kind: 'fixed', px: 140 };
+    expect(() =>
+      resolvePortraitTreeRowWidthPx(140, 420, [], wrongShape, TREE_CONTROL_WRAPPER_ROW_GAP_PX, true),
+    ).toThrow(/tree.*compiled track/);
   });
 });
 

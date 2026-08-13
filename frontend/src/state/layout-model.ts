@@ -817,6 +817,95 @@ export function clampTreeWidthForSideColumn(
   return Math.min(naturalTreeWidthPx, maxTreeWidthPx);
 }
 
+// ── Finish-pass wave B1, F4 — portrait tree-row un-dragged default
+//    (`.claude/dispatch-reports/lyt-wB1-portrait-priority.md`) ──────────
+//
+// DIAGNOSIS (measured, not guessed): at 768x1024 and 420x880, portrait's
+// tree/panels/preview row (`H(tree, controlPanel, previewBoard)`, a
+// direct ROOT `V(...)` child — no side-column-sharing context the way
+// landscape has) resolves both `controlPanel`/`previewBoard` ABSENT by
+// default (P1's repetition-first disposition, ledger row 2333) — `tree`
+// is therefore the row's SOLE, residual-holding child, its compiled
+// `pref 1fr` track declaring "claim whatever the row doesn't otherwise
+// need" (Amendment 9). But the REALIZED width was pinned at exactly
+// `TREE_PANEL_MIN_WIDTH_PX` (140px) regardless — NOT a persisted drag
+// (a fresh, never-dragged session reproduces it) and NOT
+// `clampTreeWidthForSideColumn`'s own reservation (that reserves 0px
+// when both siblings are absent, so it never shrinks past the natural
+// value). The actual cause: `computeTreePanelDefaultWidthPx`'s own
+// un-dragged DEFAULT formula (`TREE_PANEL_DEFAULT_WIDTH_FRACTION`, 12%
+// of the FULL workspace width, floored at the 140px drag-floor) was
+// authored for LANDSCAPE's side-column-sharing shape, where a
+// fixed-664px control panel is USUALLY standing beside the tree and a
+// modest fraction default is the right conservative starting point
+// before a user ever drags. That formula floors to 140px at every
+// portrait representative width (12% of 420 = 50, of 768 = 92, both
+// under the 140px floor) with NO regard for whether the row's other
+// children are even present — screenshot-witnessed: `tree` renders a
+// 140x140 square pinned to the row's left edge, with the rest of the
+// row (280px @420, 628px @768) sitting empty.
+//
+// FIX SHAPE — composes with, does not fork, `clampTreeWidthForSideColumn`:
+// `resolvePortraitTreeRowWidthPx` wraps that function (byte-identical
+// shrink behavior preserved for every case it already covers — a
+// present sibling, or ANY user drag on record) and additionally RAISES
+// the result to the row's own measured width when, and only when, BOTH
+// (a) the user has never dragged the INNER bar this session
+// (`isUnsetDefault` — `session.ui.treePanelWidthPx === undefined`,
+// ledger row 414's own single-writer channel: a user's drag, however
+// narrow, still wins verbatim even with every sibling absent —
+// sovereignty preserved the same way `controlPanelForcedAbsent`
+// preserves it for presence, F1's own precedent) AND (b) every fixed
+// sibling this row could carry is currently absent (`reservedPx === 0`,
+// via the SAME `sumFixedRowSiblingReservationPx` the shrink path
+// already reads — ADR-0012 P1, one home for that sum).
+//
+// SCOPE — PORTRAIT ONLY, App.vue's own call site (this module stays
+// class-agnostic; the class branch lives where every other class branch
+// in this codebase already lives, e.g. `effectiveTreeControlRegionWidthPx`'s
+// landscape-only OUTER-bar override). Landscape's own
+// `clampTreeWidthForSideColumn` call site is BYTE-IDENTICAL, untouched —
+// "desktop/landscape untouched" was a named goal fact of this commission,
+// and W-A's own STOP-and-report (`lyt-wA-width-demotion.md` §7, §9 item 2)
+// left "tree widens when a sibling demotes" as a genuine fork for
+// LANDSCAPE's side-column context specifically (a fixed-664px panel is
+// USUALLY present there, so an un-dragged default widening into freed
+// space is a much rarer, harder-to-reason-about case) — this function
+// does not resolve that fork; it answers a narrower, portrait-specific
+// question the commission itself distinguished: whether the row 414
+// invariant (governing the LANDSCAPE resizer's USER-DRAGGED width, per
+// its own header — "the tree pane's width changes through EXACTLY that
+// one channel") extends to portrait's UN-DRAGGED default at all. It does
+// not: the un-dragged default already recomputes live off `rowWidthPx`
+// on every render (`computeTreePanelDefaultWidthPx`'s own doc, "varies
+// with the WINDOW, once, at render time, not with content") — this
+// function only widens that SAME already-reactive default branch to
+// also read the row's own sibling-presence fact, never touching the
+// persisted `session.ui.treePanelWidthPx` write channel at all.
+//
+// Never lowers below the tree's own compiled floor (delegates to
+// `clampTreeWidthForSideColumn` first, which already enforces that, and
+// which also supplies this function's `ADR-0002` throw-on-wrong-track-
+// kind guard for free — no second check duplicated here).
+export function resolvePortraitTreeRowWidthPx(
+  naturalTreeWidthPx: number,
+  sideColumnWidthPx: number,
+  fixedSiblings: readonly LytFixedRowSibling[],
+  treeTrack: LytTrackShape,
+  gapPx: number,
+  isUnsetDefault: boolean,
+): number {
+  const shrunk = clampTreeWidthForSideColumn(naturalTreeWidthPx, sideColumnWidthPx, fixedSiblings, treeTrack, gapPx);
+  if (!isUnsetDefault) return shrunk;
+  if (!Number.isFinite(sideColumnWidthPx) || sideColumnWidthPx <= 0) return shrunk;
+  const reservedPx = sumFixedRowSiblingReservationPx(fixedSiblings, gapPx, 'resolvePortraitTreeRowWidthPx');
+  if (reservedPx > 0) return shrunk;
+  // treeTrack is confirmed 'elastic' by the delegated call above (it
+  // would have thrown otherwise), so `.minPx` is sound here too.
+  const elasticTreeTrack = treeTrack as Extract<LytTrackShape, { kind: 'elastic' }>;
+  return Math.max(elasticTreeTrack.minPx, Math.round(sideColumnWidthPx));
+}
+
 /** `computeTreePanelBoundWidth`'s result — a discriminated union rather
  *  than an `undefined`-width sentinel, so a caller can't forget to
  *  branch on `mode` (ADR-0000: type-driven design). `'full'` is the
