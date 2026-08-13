@@ -6,7 +6,7 @@
     "viewport": "1920x1080 (live-probe entries only; read-constant entries are viewport-independent)",
     "date": "2026-08-13",
     "engine_states_harness": "research/lyt/tools/probe_harness/measure_engine_states.mjs",
-    "engine_states_harness_version": "v1",
+    "engine_states_harness_version": "v2",
     "engine_states_date": "2026-08-13",
     "engine_states_run_notes": {
       "wizardDismissed": true,
@@ -22,8 +22,7 @@
         ],
         "requested": "14",
         "matched": true
-      },
-      "a_setup_toggle_mechanism": "window.store.session.ui.lytPresence.A_setup = true (same field useLytPresenceMenu.ts writes)"
+      }
     }
   },
   "entries": [
@@ -145,7 +144,7 @@
     {
       "key": "CP-library+CP-cards+CP-settings+CP-analysis+CP-other|playwright-boundingBox",
       "component": "#control-panel",
-      "state": "Exclusive(T) group -- every child shares one rectangle (SPEC.md \u00a72); #control-panel is the one DOM container legitimately measured for all five",
+      "state": "Exclusive(T) group -- every child shares one rectangle (SPEC.md §2); #control-panel is the one DOM container legitimately measured for all five",
       "axis": "v",
       "method": "playwright-boundingBox",
       "value_px": 828,
@@ -186,12 +185,12 @@
       "method": "playwright-boundingBox",
       "variant": "connected-real",
       "component": ".engine-metrics-bar (eval group)",
-      "state": "connected, real engine, real latency (0ms (idle watchdog probe against ws://192.168.122.68:1235 model 14))",
+      "state": "connected, real engine, real latency (3ms)",
       "axis": "h",
-      "value_px": 139.0,
+      "value_px": 139,
       "unexercised": false,
-      "value_w_px": 139.0,
-      "value_h_px": 15.0
+      "value_w_px": 139,
+      "value_h_px": 15
     },
     {
       "key": "A_engine_eval|playwright-boundingBox|connected-1digit",
@@ -203,10 +202,10 @@
       "component": ".engine-metrics-bar (eval group)",
       "state": "connected, synthesized latencyMs=9 (1digit), injected via window.store.engine.metrics spread-assignment -- see harness header for the mechanism disclosure",
       "axis": "h",
-      "value_px": 139.0,
+      "value_px": 139,
       "unexercised": false,
-      "value_w_px": 139.0,
-      "value_h_px": 15.0
+      "value_w_px": 139,
+      "value_h_px": 15
     },
     {
       "key": "A_engine_eval|playwright-boundingBox|connected-2digit",
@@ -218,10 +217,10 @@
       "component": ".engine-metrics-bar (eval group)",
       "state": "connected, synthesized latencyMs=99 (2digit), injected via window.store.engine.metrics spread-assignment -- see harness header for the mechanism disclosure",
       "axis": "h",
-      "value_px": 139.0,
+      "value_px": 139,
       "unexercised": false,
-      "value_w_px": 139.0,
-      "value_h_px": 15.0
+      "value_w_px": 139,
+      "value_h_px": 15
     },
     {
       "key": "A_engine_eval|playwright-boundingBox|connected-3digit",
@@ -233,10 +232,10 @@
       "component": ".engine-metrics-bar (eval group)",
       "state": "connected, synthesized latencyMs=999 (3digit), injected via window.store.engine.metrics spread-assignment -- see harness header for the mechanism disclosure",
       "axis": "h",
-      "value_px": 139.0,
+      "value_px": 139,
       "unexercised": false,
-      "value_w_px": 139.0,
-      "value_h_px": 15.0
+      "value_w_px": 139,
+      "value_h_px": 15
     },
     {
       "key": "A_engine_eval|playwright-boundingBox|connected-4digit",
@@ -248,10 +247,10 @@
       "component": ".engine-metrics-bar (eval group)",
       "state": "connected, synthesized latencyMs=9999 (4digit), injected via window.store.engine.metrics spread-assignment -- see harness header for the mechanism disclosure",
       "axis": "h",
-      "value_px": 139.0,
+      "value_px": 139,
       "unexercised": false,
-      "value_w_px": 139.0,
-      "value_h_px": 15.0
+      "value_w_px": 139,
+      "value_h_px": 15
     },
     {
       "key": "A_engine_eval|playwright-boundingBox|connected-5digit",
@@ -263,10 +262,10 @@
       "component": ".engine-metrics-bar (eval group)",
       "state": "connected, synthesized latencyMs=99999 (5digit), injected via window.store.engine.metrics spread-assignment -- see harness header for the mechanism disclosure",
       "axis": "h",
-      "value_px": 139.0,
+      "value_px": 139,
       "unexercised": false,
-      "value_w_px": 139.0,
-      "value_h_px": 15.0
+      "value_w_px": 139,
+      "value_h_px": 15
     },
     {
       "key": "A_engine_health|playwright-boundingBox|connected-real",
@@ -276,12 +275,12 @@
       "method": "playwright-boundingBox",
       "variant": "connected-real",
       "component": ".engine-metrics-bar (health group)",
-      "state": "connected, real engine, real latency (0ms (idle watchdog probe against ws://192.168.122.68:1235 model 14))",
+      "state": "connected, real engine, real latency (3ms)",
       "axis": "h",
-      "value_px": 139.0,
+      "value_px": 139,
       "unexercised": false,
-      "value_w_px": 139.0,
-      "value_h_px": 15.0
+      "value_w_px": 139,
+      "value_h_px": 15
     },
     {
       "key": "A_engine_health|playwright-boundingBox|connected-1digit",
@@ -293,10 +292,10 @@
       "component": ".engine-metrics-bar (health group)",
       "state": "connected, synthesized latencyMs=9 (1digit), injected via window.store.engine.metrics spread-assignment -- see harness header for the mechanism disclosure",
       "axis": "h",
-      "value_px": 139.0,
+      "value_px": 139,
       "unexercised": false,
-      "value_w_px": 139.0,
-      "value_h_px": 15.0
+      "value_w_px": 139,
+      "value_h_px": 15
     },
     {
       "key": "A_engine_health|playwright-boundingBox|connected-2digit",
@@ -308,10 +307,10 @@
       "component": ".engine-metrics-bar (health group)",
       "state": "connected, synthesized latencyMs=99 (2digit), injected via window.store.engine.metrics spread-assignment -- see harness header for the mechanism disclosure",
       "axis": "h",
-      "value_px": 139.0,
+      "value_px": 139,
       "unexercised": false,
-      "value_w_px": 139.0,
-      "value_h_px": 15.0
+      "value_w_px": 139,
+      "value_h_px": 15
     },
     {
       "key": "A_engine_health|playwright-boundingBox|connected-3digit",
@@ -323,10 +322,10 @@
       "component": ".engine-metrics-bar (health group)",
       "state": "connected, synthesized latencyMs=999 (3digit), injected via window.store.engine.metrics spread-assignment -- see harness header for the mechanism disclosure",
       "axis": "h",
-      "value_px": 139.0,
+      "value_px": 139,
       "unexercised": false,
-      "value_w_px": 139.0,
-      "value_h_px": 15.0
+      "value_w_px": 139,
+      "value_h_px": 15
     },
     {
       "key": "A_engine_health|playwright-boundingBox|connected-4digit",
@@ -338,10 +337,10 @@
       "component": ".engine-metrics-bar (health group)",
       "state": "connected, synthesized latencyMs=9999 (4digit), injected via window.store.engine.metrics spread-assignment -- see harness header for the mechanism disclosure",
       "axis": "h",
-      "value_px": 139.0,
+      "value_px": 139,
       "unexercised": false,
-      "value_w_px": 139.0,
-      "value_h_px": 15.0
+      "value_w_px": 139,
+      "value_h_px": 15
     },
     {
       "key": "A_engine_health|playwright-boundingBox|connected-5digit",
@@ -353,10 +352,10 @@
       "component": ".engine-metrics-bar (health group)",
       "state": "connected, synthesized latencyMs=99999 (5digit), injected via window.store.engine.metrics spread-assignment -- see harness header for the mechanism disclosure",
       "axis": "h",
-      "value_px": 139.0,
+      "value_px": 139,
       "unexercised": false,
-      "value_w_px": 139.0,
-      "value_h_px": 15.0
+      "value_w_px": 139,
+      "value_h_px": 15
     },
     {
       "key": "A_engine_controls|playwright-boundingBox|engine-on",
@@ -368,7 +367,7 @@
       "component": ".engine-controls",
       "state": "engine live, button label reads Disconnect -- width matches the pre-existing entry exactly (185px). Variant deliberately named engine-on rather than the more natural word for the opposite state, to avoid a facts-table narrowing substring collision against the sibling entry's own prose.",
       "axis": "h",
-      "value_px": 185.0,
+      "value_px": 185,
       "unexercised": false
     },
     {
@@ -381,9 +380,9 @@
       "component": ".app-cluster",
       "state": "portrait class, coverage_matrix.PORTRAIT_SIZES point 1080x1920 -- census worst-case-state re-measurement (authenticated rig)",
       "axis": "v",
-      "value_px": 28.0,
+      "value_px": 28,
       "unexercised": false,
-      "value_w_px": 1080.0
+      "value_w_px": 614
     },
     {
       "key": "A_app|playwright-boundingBox|portrait-1200x1600",
@@ -395,9 +394,9 @@
       "component": ".app-cluster",
       "state": "portrait class, coverage_matrix.PORTRAIT_SIZES point 1200x1600 -- census worst-case-state re-measurement (authenticated rig)",
       "axis": "v",
-      "value_px": 28.0,
+      "value_px": 28,
       "unexercised": false,
-      "value_w_px": 1200.0
+      "value_w_px": 1200
     },
     {
       "key": "A_app|playwright-boundingBox|portrait-768x1024",
@@ -409,9 +408,9 @@
       "component": ".app-cluster",
       "state": "portrait class, coverage_matrix.PORTRAIT_SIZES point 768x1024 -- census worst-case-state re-measurement (authenticated rig)",
       "axis": "v",
-      "value_px": 28.0,
+      "value_px": 28,
       "unexercised": false,
-      "value_w_px": 768.0
+      "value_w_px": 768
     },
     {
       "key": "A_app|playwright-boundingBox|portrait-540x960",
@@ -423,9 +422,9 @@
       "component": ".app-cluster",
       "state": "portrait class, coverage_matrix.PORTRAIT_SIZES point 540x960 -- census worst-case-state re-measurement (authenticated rig)",
       "axis": "v",
-      "value_px": 50.0,
+      "value_px": 50,
       "unexercised": false,
-      "value_w_px": 540.0
+      "value_w_px": 540
     },
     {
       "key": "A_app|playwright-boundingBox|portrait-420x880",
@@ -437,9 +436,9 @@
       "component": ".app-cluster",
       "state": "portrait class, coverage_matrix.PORTRAIT_SIZES point 420x880 -- census worst-case-state re-measurement (authenticated rig)",
       "axis": "v",
-      "value_px": 56.0,
+      "value_px": 56,
       "unexercised": false,
-      "value_w_px": 420.0
+      "value_w_px": 420
     },
     {
       "key": "A_app|playwright-boundingBox|landscape-1920x1080-authenticated",
@@ -449,11 +448,11 @@
       "method": "playwright-boundingBox",
       "variant": "landscape-1920x1080-authenticated",
       "component": ".app-cluster",
-      "state": "landscape class, 1920x1080, authenticated rig -- comparison point against the pre-existing baseline entry (28px there too: agrees)",
+      "state": "landscape class, 1920x1080, authenticated rig -- comparison point against the pre-existing baseline entry (agrees with the pre-existing cold-boot entry (28px there too))",
       "axis": "v",
-      "value_px": 28.0,
+      "value_px": 28,
       "unexercised": false,
-      "value_w_px": 614.0
+      "value_w_px": 1920
     },
     {
       "key": "A_app|playwright-boundingBox|landscape-420w-attempted",
@@ -491,11 +490,25 @@
       "method": "playwright-boundingBox",
       "variant": "authenticated-toggled",
       "component": ".setup-toolkit",
-      "state": "authenticated rig, 1920x1080, session.ui.lytPresence.A_setup explicitly toggled true (via window.store, the same field useLytPresenceMenu.ts's own presence-menu UI writes) -- FLIPPED to measured (dispatch A's own entry was unexercised: unauthenticated cold boot could not reach this leaf under any state). Matches the census's own cited grounding figure exactly (Measurement 4: \"296.34x92px, byte-identical at three widths\") -- SetupToolPalette.vue's own natural size is unchanged; only the mounting condition changed.",
+      "state": "authenticated rig, 1920x1080, session.ui.lytPresence.A_setup explicitly toggled true (via window.store, the same field useLytPresenceMenu.ts's own presence-menu UI writes) -- FLIPPED to measured (dispatch A's own entry was unexercised: unauthenticated cold boot could not reach this leaf under any state).",
       "axis": "v",
-      "value_px": 92.0,
+      "value_px": 92,
       "unexercised": false,
       "value_w_px": 296.34375
+    },
+    {
+      "key": "A_engine_eval|playwright-boundingBox|disconnected",
+      "widget_ids": [
+        "A_engine_eval"
+      ],
+      "method": "playwright-boundingBox",
+      "variant": "disconnected",
+      "component": ".engine-metrics-bar (eval group)",
+      "state": "authenticated rig, engine disconnected (default post-login, pre-connect) -- .engine-metrics-bar (eval group) not yet mounted",
+      "axis": "h",
+      "value_px": null,
+      "unexercised": true,
+      "reason": "selector not present -- v-if=\"isConnected\" gate; matches dispatch A's own disconnected finding for the eval group"
     }
   ]
 }
