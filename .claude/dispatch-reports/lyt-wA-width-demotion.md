@@ -563,6 +563,150 @@ unchanged in disposition — this pass's own scope (the 2560x1440 clip,
 the two test suites, the three locale entries) is fully closed with no
 new forks discovered.
 
+## 2026-08-13 dated section — closing the review's new finding (`previewBoard` reservation)
+
+`.claude/dispatch-reports/lyt-wA-width-demotion-review.md`'s "New
+finding": `clampTreeWidthForSideColumn` reserved only `controlPanel`'s
+own fixed track — the row it clamps (`lyt-layout.gen.ts` path "2.3")
+has a third child, `previewBoard` (`{ kind: 'fixed', px: 160 }`,
+`demote: null`, toggled independent of `controlPanel`'s own width
+gate), unaccounted for. A user enabling `previewBoard` while
+`controlPanel` is present at 2560x1440 reproduced the exact overflow
+class F1 exists to close: 151+4+664+4+160=983px against the 819px
+measured wrapper.
+
+### Fix shape (ADR-0000 — foreclose the class, not the instance)
+
+`clampTreeWidthForSideColumn`'s reservation generalizes from the one
+named widget to the SUM of every currently-PRESENT fixed-demand
+sibling in the row (`fixedSiblings: readonly LytFixedRowSibling[]`,
+`tree` itself excluded — it's the elastic leaf being solved for).
+`resolveWidthConditionalPresence`'s own REALIZED fit test generalizes
+the same way: the compiled `demote.belowPx` (the panel's own MODEL
+threshold, untouched) is raised by every OTHER present fixed
+sibling's own reservation before the `>=` comparison, so a widget only
+resolves present when the measured width can hold both the model
+threshold AND every sibling actually standing beside it. Both
+generalizations reduce to one new shared pure function,
+`sumFixedRowSiblingReservationPx` (`state/layout-model.ts`) — one home
+for "sum the present fixed siblings, one gap each, absent contributes
+nothing" (ADR-0012 P1), not two independently-authored copies of the
+same loop. No new authored pixel literals; the only new number in
+either function's own logic is `gapPx`, already an existing constant
+(`TREE_CONTROL_WRAPPER_ROW_GAP_PX`).
+
+`App.vue` threads `previewBoard`'s own compiled track (`requireTrack`,
+a new helper mirroring `requireWidgetPath`'s fail-loud contract) and
+its own presence-resolved fact (`previewBoardIsPresent`, same formula
+shape as the pre-existing `controlPanelIsPresent`) into both call
+sites — `lytTrackStyleOverrides` (the clamp) and `lytPresenceOverrides`
+(the demotion resolver, where `previewBoardPresent` is computed
+inline from `base.previewBoard` to avoid a circular read against the
+same computed's own output).
+
+### Realized composition at 2560x1440 (verified on the rig, §below)
+
+With `controlPanel` present by default and a user toggling
+`previewBoard` on: `controlPanel` is the sibling that YIELDS — it is
+the one with a width gate (`@demote`); `previewBoard` has none. The
+resolver demotes `controlPanel` to absent (its own checkbox stays
+checked — user sovereignty preserved, the presence-menu row shows the
+`width-demoted` hint), the tree panel reclaims its natural width (no
+longer contending with `controlPanel`'s 664px), and the clamp now
+reserves only `previewBoard`'s own 160px+gap. The row's rendered total
+never exceeds the measured 819px wrapper — the same "no overflow"
+outcome F1 established for the `controlPanel`-alone case, now holding
+under the combination the review's new finding named.
+
+### Tests
+
+`tests/unit/state/layout-model.test.ts` extended:
+- `resolveWidthConditionalPresence`'s own describe block: two new
+  cases (a present `previewBoard` sibling raising the effective
+  threshold past a measurement that would otherwise fit; a
+  `present: false` sibling entry contributing nothing, identical to
+  `[]`). All pre-existing cases updated to the new 5-arg signature
+  with `[]`/`TREE_CONTROL_WRAPPER_ROW_GAP_PX` — same expectations,
+  same numbers, the regression half.
+- `clampTreeWidthForSideColumn`'s own describe block: all pre-existing
+  cases converted to the `fixedSiblings` array shape (several now
+  carrying an explicit `previewBoard present: false` entry as a second
+  regression fixture); a new nested describe covers `previewBoard`
+  alone (controlPanel absent), both present (the clamp's own half —
+  floors at the tree's compiled minPx when the combined demand doesn't
+  fit), and three present siblings (the generalization isn't
+  hand-capped at two).
+- New describe block for `sumFixedRowSiblingReservationPx` directly —
+  empty/one-present/one-absent/two-present/mixed/throws, independent
+  of either caller's own numeric expectations.
+- New describe block, "generalized reservation — end-to-end
+  composition at 2560x1440": drives `resolveWidthConditionalPresence`
+  then `clampTreeWidthForSideColumn` together, exactly the sequence
+  App.vue's two computeds run, against three cases — the reviewer's
+  own combination (`controlPanel` yields, `previewBoard` stays, zero
+  overflow), `previewBoard` alone, and both-effectively-single-sibling
+  (the pre-existing 151px number, byte-identical — the regression
+  check the commission named).
+
+`+14` tests over the completion pass's own 3220 baseline (3234
+passed, 8 skipped).
+
+### Rig re-verification
+
+Own ports (19310 backend / 19311 frontend / 19312 unused
+katago-ws-stub), each probed dead via `/dev/tcp` before use and
+confirmed dead again after teardown. Backend: `backend/venv`,
+`DATABASE_URI` pointed at a **copy** of `backend/samples/cards.sample.db`
+in scratchpad (never touching `cards.db`), `QEUBO_ENABLED=false`;
+verified live via `GET /docs` → 200. Frontend: `vite --strictPort`,
+`VITE_API_BASE_URL`/`VITE_KATAGO_WS_URL` pointed at the rig's own
+ports (the katago one never contacted — dead before AND after). None
+of 4173/5173/5174/8764/1235/1242/195xx touched.
+
+Theme driven via the real Settings UI (`#session-theme-select`) to
+`'cluster'`, through the summon popover (panel starts present at
+2560x1440, so no summon needed for Settings itself — confirmed
+`data-theme="cluster"` before measuring). Playwright via
+`playwright-core` (no `@playwright/test`), `systemd-run --user --scope
+-p MemoryMax=4G -- node --max-old-space-size=1024`, one browser,
+closed in a `finally`. No wall-clock waits — every wait is
+`waitForSelector`/`waitForFunction` on a real DOM condition, including
+a poll on `#tree-control-wrapper`'s own measured width settling across
+two consecutive reads.
+
+At 2560x1440, before toggling `previewBoard`: `gridTemplateColumns:
+"151px 664px 0px"`, `controlPanelIsPresent: true`, `#main-area`
+`scrollWidth === clientWidth === 2560` (no overflow) — matches the
+completion pass's own reported baseline exactly. After checking
+`previewBoard` via the real presence-menu checkbox:
+`gridTemplateColumns: "307px 0px 160px"` — `controlPanel`'s own track
+collapsed to `0px` (`controlPanelIsPresent: false`, its presence-menu
+row class `"lyt-presence-row width-demoted"`, its own checkbox still
+`checked: true` — sovereignty preserved), the tree panel back at its
+natural `307px` (no longer contending with `controlPanel`), and
+`previewBoard` at its own compiled `160px`. `#main-area` still reports
+`scrollWidth === clientWidth === 2560` — **no overflow**, the resolved
+composition being exactly what the module-header derivation above
+predicted: `controlPanel` yields, `previewBoard` stays.
+
+### Gate exit codes (literal, this pass)
+
+- `npx eslint .` → `0` (0 errors, 0 warnings)
+- `npm run build` (`vue-tsc -b && vite build`) → `0`
+- `npx vitest run` → `0` (**3234** passed, 8 skipped — the completion
+  pass's own 3220 baseline + 14 new)
+- `npx vitest run tests/integration/App-boot.test.ts` (isolated) → `0`
+  (5 passed)
+
+### STOP-and-report (this pass)
+
+Nothing new. This pass's own scope (the `previewBoard` reservation gap
+named by the review, its two test suites) is fully closed. The items
+already carried in the STOP-and-report ledger (tree-auto-widen fork
+row 414, `A_engine` `Connect` unreachable at 1280×1024, portrait not
+independently rig-verified) are unchanged in disposition — none of
+this pass's own touches bear on any of the three.
+
 ## License
 
 Public Domain (The Unlicense), matching this repository's ADR-0006

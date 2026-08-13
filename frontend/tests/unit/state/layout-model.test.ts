@@ -58,6 +58,8 @@ import {
   computeTreePanelClampedWidthPx,
   resolveWidthConditionalPresence,
   clampTreeWidthForSideColumn,
+  sumFixedRowSiblingReservationPx,
+  type LytFixedRowSibling,
 } from '../../../src/state/layout-model';
 import type { LytDemotion, LytTrackShape } from '../../../src/state/lyt-layout-types';
 
@@ -475,40 +477,73 @@ describe('computeTreePanelClampedWidthPx — W3-fix corrective, the 900x600 clip
  * directions (an explicit 'visible' choice the width can't grant is
  * demoted anyway — the `forcedAbsent` disclosure case — but width never
  * promotes a 'hidden' choice to visible).
+ *
+ * 2026-08-13 dated addendum (review's own "New finding",
+ * `.claude/dispatch-reports/lyt-wA-width-demotion-review.md`): the
+ * `otherFixedSiblings`/`gapPx` generalization is exercised directly —
+ * `[]` reproduces every pre-addendum expectation byte-identically (the
+ * regression half), and a present `previewBoard` sibling raises the
+ * EFFECTIVE threshold by its own reservation (its own describe block
+ * below).
  */
 describe('resolveWidthConditionalPresence — LYT finish-pass wave A (width-conditional demotion)', () => {
   const LANDSCAPE_CONTROL_PANEL_DEMOTE: LytDemotion = { axis: 'h', belowPx: 778 };
+  // lyt-layout.gen.ts: previewBoard `{ kind: 'fixed', px: 160 }` — the
+  // review's own worked fixture (path "2.3.2").
+  const PREVIEW_BOARD_TRACK: LytTrackShape = { kind: 'fixed', px: 160 };
 
   it('demote === null: desiredVisible passes through unchanged, both directions', () => {
-    expect(resolveWidthConditionalPresence(300, null, true)).toBe(true);
-    expect(resolveWidthConditionalPresence(300, null, false)).toBe(false);
-    expect(resolveWidthConditionalPresence(9999, null, true)).toBe(true);
+    expect(resolveWidthConditionalPresence(300, null, true, [], TREE_CONTROL_WRAPPER_ROW_GAP_PX)).toBe(true);
+    expect(resolveWidthConditionalPresence(300, null, false, [], TREE_CONTROL_WRAPPER_ROW_GAP_PX)).toBe(false);
+    expect(resolveWidthConditionalPresence(9999, null, true, [], TREE_CONTROL_WRAPPER_ROW_GAP_PX)).toBe(true);
   });
 
   it('measuredWidthPx <= 0 (not yet measured): desiredVisible passes through unchanged, even with a real demote declared', () => {
-    expect(resolveWidthConditionalPresence(0, LANDSCAPE_CONTROL_PANEL_DEMOTE, true)).toBe(true);
-    expect(resolveWidthConditionalPresence(-1, LANDSCAPE_CONTROL_PANEL_DEMOTE, true)).toBe(true);
-    expect(resolveWidthConditionalPresence(0, LANDSCAPE_CONTROL_PANEL_DEMOTE, false)).toBe(false);
+    expect(
+      resolveWidthConditionalPresence(0, LANDSCAPE_CONTROL_PANEL_DEMOTE, true, [], TREE_CONTROL_WRAPPER_ROW_GAP_PX),
+    ).toBe(true);
+    expect(
+      resolveWidthConditionalPresence(-1, LANDSCAPE_CONTROL_PANEL_DEMOTE, true, [], TREE_CONTROL_WRAPPER_ROW_GAP_PX),
+    ).toBe(true);
+    expect(
+      resolveWidthConditionalPresence(0, LANDSCAPE_CONTROL_PANEL_DEMOTE, false, [], TREE_CONTROL_WRAPPER_ROW_GAP_PX),
+    ).toBe(false);
   });
 
   it('above the threshold: fits, desiredVisible wins verbatim (both true and false)', () => {
-    expect(resolveWidthConditionalPresence(900, LANDSCAPE_CONTROL_PANEL_DEMOTE, true)).toBe(true);
-    expect(resolveWidthConditionalPresence(900, LANDSCAPE_CONTROL_PANEL_DEMOTE, false)).toBe(false);
+    expect(
+      resolveWidthConditionalPresence(900, LANDSCAPE_CONTROL_PANEL_DEMOTE, true, [], TREE_CONTROL_WRAPPER_ROW_GAP_PX),
+    ).toBe(true);
+    expect(
+      resolveWidthConditionalPresence(900, LANDSCAPE_CONTROL_PANEL_DEMOTE, false, [], TREE_CONTROL_WRAPPER_ROW_GAP_PX),
+    ).toBe(false);
   });
 
   it('exactly AT the threshold: >= is inclusive — fits, same as above-threshold', () => {
-    expect(resolveWidthConditionalPresence(778, LANDSCAPE_CONTROL_PANEL_DEMOTE, true)).toBe(true);
+    expect(
+      resolveWidthConditionalPresence(778, LANDSCAPE_CONTROL_PANEL_DEMOTE, true, [], TREE_CONTROL_WRAPPER_ROW_GAP_PX),
+    ).toBe(true);
   });
 
   it('one px below the threshold: does not fit — demoted regardless of desiredVisible', () => {
-    expect(resolveWidthConditionalPresence(777, LANDSCAPE_CONTROL_PANEL_DEMOTE, true)).toBe(false);
-    expect(resolveWidthConditionalPresence(777, LANDSCAPE_CONTROL_PANEL_DEMOTE, false)).toBe(false);
+    expect(
+      resolveWidthConditionalPresence(777, LANDSCAPE_CONTROL_PANEL_DEMOTE, true, [], TREE_CONTROL_WRAPPER_ROW_GAP_PX),
+    ).toBe(false);
+    expect(
+      resolveWidthConditionalPresence(777, LANDSCAPE_CONTROL_PANEL_DEMOTE, false, [], TREE_CONTROL_WRAPPER_ROW_GAP_PX),
+    ).toBe(false);
   });
 
   it('user-sovereignty / forcedAbsent case: an explicit \'visible\' choice the width genuinely cannot grant is demoted, not silently honored', () => {
     // This is the exact case App.vue's own `controlPanelForcedAbsent`
     // (desired && !resolved) is built to disclose in the presence menu.
-    const resolved = resolveWidthConditionalPresence(500, LANDSCAPE_CONTROL_PANEL_DEMOTE, true);
+    const resolved = resolveWidthConditionalPresence(
+      500,
+      LANDSCAPE_CONTROL_PANEL_DEMOTE,
+      true,
+      [],
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+    );
     expect(resolved).toBe(false);
   });
 
@@ -516,12 +551,58 @@ describe('resolveWidthConditionalPresence — LYT finish-pass wave A (width-cond
     // A user who explicitly hid the panel (desiredVisible false) stays
     // hidden even at a generously wide measurement; width is a ceiling
     // on presence, never a floor that overrides an explicit hide.
-    expect(resolveWidthConditionalPresence(5000, LANDSCAPE_CONTROL_PANEL_DEMOTE, false)).toBe(false);
+    expect(
+      resolveWidthConditionalPresence(
+        5000,
+        LANDSCAPE_CONTROL_PANEL_DEMOTE,
+        false,
+        [],
+        TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+      ),
+    ).toBe(false);
   });
 
   it('demote.axis !== "h" throws loudly (ADR-0002) rather than silently measuring the wrong axis', () => {
     const verticalDemote: LytDemotion = { axis: 'v', belowPx: 500 };
-    expect(() => resolveWidthConditionalPresence(900, verticalDemote, true)).toThrow(/unsupported demote axis/);
+    expect(() =>
+      resolveWidthConditionalPresence(900, verticalDemote, true, [], TREE_CONTROL_WRAPPER_ROW_GAP_PX),
+    ).toThrow(/unsupported demote axis/);
+  });
+
+  it('a present previewBoard sibling raises the EFFECTIVE threshold by its own reservation (160+4=164px): 900px clears the bare 778px threshold but not 778+164=942px — controlPanel demotes even though it would have fit alone', () => {
+    const withPreviewBoardPresent: LytFixedRowSibling[] = [{ track: PREVIEW_BOARD_TRACK, present: true }];
+    expect(
+      resolveWidthConditionalPresence(
+        900,
+        LANDSCAPE_CONTROL_PANEL_DEMOTE,
+        true,
+        withPreviewBoardPresent,
+        TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+      ),
+    ).toBe(false);
+    // ...but at the raised threshold itself (778+164=942), it fits again.
+    expect(
+      resolveWidthConditionalPresence(
+        942,
+        LANDSCAPE_CONTROL_PANEL_DEMOTE,
+        true,
+        withPreviewBoardPresent,
+        TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+      ),
+    ).toBe(true);
+  });
+
+  it('previewBoard present but present: false in the sibling entry contributes nothing — identical to the [] case', () => {
+    const previewBoardEntered: LytFixedRowSibling[] = [{ track: PREVIEW_BOARD_TRACK, present: false }];
+    expect(
+      resolveWidthConditionalPresence(
+        900,
+        LANDSCAPE_CONTROL_PANEL_DEMOTE,
+        true,
+        previewBoardEntered,
+        TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -532,13 +613,22 @@ describe('resolveWidthConditionalPresence — LYT finish-pass wave A (width-cond
  * and `lyt-layout-portrait.gen.ts` (portrait) at authoring time, not
  * re-derived from this module's own implementation — a tautology-proof
  * expectation source, per the commission's own instruction.
+ *
+ * 2026-08-13 dated addendum (review's own "New finding"): the
+ * `controlPanelPresent`/`controlPanelTrack` pair generalizes to
+ * `fixedSiblings: readonly LytFixedRowSibling[]` — every pre-addendum
+ * case is reproduced with a single-entry array (regression: existing
+ * numbers unchanged), and a new sub-block covers `previewBoard` as a
+ * second, independently-present sibling.
  */
 describe('clampTreeWidthForSideColumn — LYT finish-pass wave A completion (the 2560x1440 clip)', () => {
   // lyt-layout.gen.ts: controlPanel `{ kind: "fixed", px: 664 }`, tree
-  // `{ kind: "elastic", minPx: 110, frWeight: 1 }` — landscape's own
-  // compiled facts, read at path "2.3.1"/"2.3.0" respectively.
+  // `{ kind: "elastic", minPx: 110, frWeight: 1 }`, previewBoard
+  // `{ kind: "fixed", px: 160 }` — landscape's own compiled facts, read
+  // at path "2.3.1"/"2.3.0"/"2.3.2" respectively.
   const LANDSCAPE_CONTROL_PANEL_TRACK: LytTrackShape = { kind: 'fixed', px: 664 };
   const LANDSCAPE_TREE_TRACK: LytTrackShape = { kind: 'elastic', minPx: 110, frWeight: 1 };
+  const PREVIEW_BOARD_TRACK: LytTrackShape = { kind: 'fixed', px: 160 };
   // lyt-layout-portrait.gen.ts: controlPanel `{ kind: "fixed", px: 664 }`,
   // tree `{ kind: "elastic", minPx: 140, frWeight: 1 }` — path "5.1"/"5.0".
   const PORTRAIT_TREE_TRACK: LytTrackShape = { kind: 'elastic', minPx: 140, frWeight: 1 };
@@ -548,22 +638,23 @@ describe('clampTreeWidthForSideColumn — LYT finish-pass wave A completion (the
     const clamped = clampTreeWidthForSideColumn(
       200,
       2000,
-      true,
-      LANDSCAPE_CONTROL_PANEL_TRACK,
+      [{ track: LANDSCAPE_CONTROL_PANEL_TRACK, present: true }],
       LANDSCAPE_TREE_TRACK,
       TREE_CONTROL_WRAPPER_ROW_GAP_PX,
     );
     expect(clamped).toBe(200);
   });
 
-  it('reproduces the exact reported 2560x1440 clip: 307px natural, 819px measured side column, clamps to exactly 151px (which, plus the panel + one gap, sums to precisely the measured track — no overflow, no slack)', () => {
+  it('reproduces the exact reported 2560x1440 clip: 307px natural, 819px measured side column, clamps to exactly 151px (which, plus the panel + one gap, sums to precisely the measured track — no overflow, no slack). previewBoard ABSENT here — the pre-addendum regression case, numbers unchanged', () => {
     const naturalTreeWidthPx = 307;
     const sideColumnWidthPx = 819;
     const clamped = clampTreeWidthForSideColumn(
       naturalTreeWidthPx,
       sideColumnWidthPx,
-      true,
-      LANDSCAPE_CONTROL_PANEL_TRACK,
+      [
+        { track: LANDSCAPE_CONTROL_PANEL_TRACK, present: true },
+        { track: PREVIEW_BOARD_TRACK, present: false },
+      ],
       LANDSCAPE_TREE_TRACK,
       TREE_CONTROL_WRAPPER_ROW_GAP_PX,
     );
@@ -576,8 +667,7 @@ describe('clampTreeWidthForSideColumn — LYT finish-pass wave A completion (the
     const clamped = clampTreeWidthForSideColumn(
       9999, // any generous natural/stored width
       778,
-      true,
-      LANDSCAPE_CONTROL_PANEL_TRACK,
+      [{ track: LANDSCAPE_CONTROL_PANEL_TRACK, present: true }],
       LANDSCAPE_TREE_TRACK,
       TREE_CONTROL_WRAPPER_ROW_GAP_PX,
     );
@@ -587,9 +677,8 @@ describe('clampTreeWidthForSideColumn — LYT finish-pass wave A completion (the
   it('never shrinks below the tree\'s own compiled floor, even in a track narrower than the floor composition itself allows (the demotion resolver is what actually handles this case in App.vue — this clamp still refuses to go below the floor on its own)', () => {
     const clamped = clampTreeWidthForSideColumn(
       500,
-      500, // narrower than 778 -- would never reach this call with controlPanelPresent true in practice
-      true,
-      LANDSCAPE_CONTROL_PANEL_TRACK,
+      500, // narrower than 778 -- would never reach this call with controlPanel present true in practice
+      [{ track: LANDSCAPE_CONTROL_PANEL_TRACK, present: true }],
       LANDSCAPE_TREE_TRACK,
       TREE_CONTROL_WRAPPER_ROW_GAP_PX,
     );
@@ -600,24 +689,25 @@ describe('clampTreeWidthForSideColumn — LYT finish-pass wave A completion (the
     const clamped = clampTreeWidthForSideColumn(
       110,
       3000, // far more room than needed
-      true,
-      LANDSCAPE_CONTROL_PANEL_TRACK,
+      [{ track: LANDSCAPE_CONTROL_PANEL_TRACK, present: true }],
       LANDSCAPE_TREE_TRACK,
       TREE_CONTROL_WRAPPER_ROW_GAP_PX,
     );
     expect(clamped).toBe(110);
   });
 
-  it('controlPanelPresent === false: no reservation at all — the natural width is only bounded by the raw side-column width itself (the panel\'s absent 664px track renders 0px, so nothing is reserved against it)', () => {
+  it('controlPanel present: false: no reservation for it at all — the natural width is only bounded by the raw side-column width itself (the panel\'s absent 664px track renders 0px, so nothing is reserved against it). Both siblings absent here — a second regression fixture, numbers unchanged from the pre-addendum single-sibling shape', () => {
     const clamped = clampTreeWidthForSideColumn(
       600,
       614, // 1920x1080's own reported measured width, panel demoted there
-      false,
-      LANDSCAPE_CONTROL_PANEL_TRACK,
+      [
+        { track: LANDSCAPE_CONTROL_PANEL_TRACK, present: false },
+        { track: PREVIEW_BOARD_TRACK, present: false },
+      ],
       LANDSCAPE_TREE_TRACK,
       TREE_CONTROL_WRAPPER_ROW_GAP_PX,
     );
-    expect(clamped).toBe(600); // 600 <= 614, fits with no panel reservation
+    expect(clamped).toBe(600); // 600 <= 614, fits with no reservation at all
   });
 
   it('sideColumnWidthPx <= 0 or non-finite (not yet measured) passes naturalTreeWidthPx through unchanged', () => {
@@ -626,8 +716,7 @@ describe('clampTreeWidthForSideColumn — LYT finish-pass wave A completion (the
         clampTreeWidthForSideColumn(
           307,
           notYetMeasured,
-          true,
-          LANDSCAPE_CONTROL_PANEL_TRACK,
+          [{ track: LANDSCAPE_CONTROL_PANEL_TRACK, present: true }],
           LANDSCAPE_TREE_TRACK,
           TREE_CONTROL_WRAPPER_ROW_GAP_PX,
         ),
@@ -639,19 +728,24 @@ describe('clampTreeWidthForSideColumn — LYT finish-pass wave A completion (the
     const clamped = clampTreeWidthForSideColumn(
       9999,
       808,
-      true,
-      LANDSCAPE_CONTROL_PANEL_TRACK, // portrait's controlPanel track is also { fixed, 664 }
+      [{ track: LANDSCAPE_CONTROL_PANEL_TRACK, present: true }], // portrait's controlPanel track is also { fixed, 664 }
       PORTRAIT_TREE_TRACK,
       TREE_CONTROL_WRAPPER_ROW_GAP_PX,
     );
     expect(clamped).toBe(PORTRAIT_TREE_TRACK.minPx);
   });
 
-  it('a non-"fixed" controlPanel track throws loudly (ADR-0002) rather than silently reserving the wrong shape\'s own field', () => {
+  it('a non-"fixed" sibling track throws loudly (ADR-0002) rather than silently reserving the wrong shape\'s own field', () => {
     const wrongShape: LytTrackShape = { kind: 'elastic', minPx: 0, frWeight: 1 };
     expect(() =>
-      clampTreeWidthForSideColumn(307, 819, true, wrongShape, LANDSCAPE_TREE_TRACK, TREE_CONTROL_WRAPPER_ROW_GAP_PX),
-    ).toThrow(/controlPanel.*compiled track/);
+      clampTreeWidthForSideColumn(
+        307,
+        819,
+        [{ track: wrongShape, present: true }],
+        LANDSCAPE_TREE_TRACK,
+        TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+      ),
+    ).toThrow(/row sibling.*compiled track/);
   });
 
   it('a non-"elastic" tree track throws loudly (ADR-0002)', () => {
@@ -660,11 +754,229 @@ describe('clampTreeWidthForSideColumn — LYT finish-pass wave A completion (the
       clampTreeWidthForSideColumn(
         307,
         819,
-        true,
-        LANDSCAPE_CONTROL_PANEL_TRACK,
+        [{ track: LANDSCAPE_CONTROL_PANEL_TRACK, present: true }],
         wrongShape,
         TREE_CONTROL_WRAPPER_ROW_GAP_PX,
       ),
     ).toThrow(/tree.*compiled track/);
+  });
+
+  // 2026-08-13 dated addendum (review's own "New finding") — previewBoard
+  // as a SECOND, independently-present fixed-demand sibling.
+  describe('previewBoard as a second fixed-demand sibling (the review\'s own new finding)', () => {
+    it('previewBoard present ALONE (controlPanel absent): reserves only its own 160px+gap, matching the single-sibling formula previously exercised only for controlPanel', () => {
+      const clamped = clampTreeWidthForSideColumn(
+        600,
+        614, // 1920x1080's own reported measured width
+        [
+          { track: LANDSCAPE_CONTROL_PANEL_TRACK, present: false },
+          { track: PREVIEW_BOARD_TRACK, present: true },
+        ],
+        LANDSCAPE_TREE_TRACK,
+        TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+      );
+      // 614 - (160 + 4) = 450, well under the 600px asked for.
+      expect(clamped).toBeLessThan(600);
+      expect(clamped + PREVIEW_BOARD_TRACK.px + TREE_CONTROL_WRAPPER_ROW_GAP_PX).toBe(614);
+      expect(clamped).toBe(450);
+    });
+
+    it('controlPanel AND previewBoard both present at the 2560x1440 measured side column (819px): sums BOTH reservations (664+4 + 160+4=832px) — the natural width clamps to exactly the tree\'s own compiled floor, and the combined demand still exceeds the available track by exactly the gap this scenario\'s own §"end-to-end composition" block shows the width-demotion resolver is the one that actually closes (this test isolates the CLAMP\'s own half: it never grows past what floors + reservations dictate, even when the sum does not fit)', () => {
+      const clamped = clampTreeWidthForSideColumn(
+        9999,
+        819,
+        [
+          { track: LANDSCAPE_CONTROL_PANEL_TRACK, present: true },
+          { track: PREVIEW_BOARD_TRACK, present: true },
+        ],
+        LANDSCAPE_TREE_TRACK,
+        TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+      );
+      // 819 - 832 = -13, floored at the tree's own compiled minPx.
+      expect(clamped).toBe(LANDSCAPE_TREE_TRACK.minPx);
+      expect(clamped).toBe(110);
+    });
+
+    it('sums THREE present fixed siblings identically to two — the generalization is not hand-capped at exactly two entries', () => {
+      const thirdSibling: LytTrackShape = { kind: 'fixed', px: 40 };
+      const clamped = clampTreeWidthForSideColumn(
+        9999,
+        2000,
+        [
+          { track: LANDSCAPE_CONTROL_PANEL_TRACK, present: true },
+          { track: PREVIEW_BOARD_TRACK, present: true },
+          { track: thirdSibling, present: true },
+        ],
+        LANDSCAPE_TREE_TRACK,
+        TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+      );
+      // 2000 - (664+4 + 160+4 + 40+4) = 2000 - 876 = 1124.
+      expect(clamped).toBe(1124);
+    });
+  });
+});
+
+/**
+ * `sumFixedRowSiblingReservationPx` — the shared helper both
+ * `clampTreeWidthForSideColumn` and `resolveWidthConditionalPresence`
+ * reduce to (module header, 2026-08-13 addendum). Exercised directly so
+ * the "sum the present fixed siblings, one gap each, absent contributes
+ * nothing" contract has its own tautology-proof pin independent of
+ * either caller's own numeric expectations above.
+ */
+describe('sumFixedRowSiblingReservationPx — the shared row-reservation helper', () => {
+  const FIXED_A: LytTrackShape = { kind: 'fixed', px: 100 };
+  const FIXED_B: LytTrackShape = { kind: 'fixed', px: 50 };
+
+  it('empty siblings list: zero reservation', () => {
+    expect(sumFixedRowSiblingReservationPx([], 4, 'test')).toBe(0);
+  });
+
+  it('one present sibling: its own px + one gap', () => {
+    expect(sumFixedRowSiblingReservationPx([{ track: FIXED_A, present: true }], 4, 'test')).toBe(104);
+  });
+
+  it('one absent sibling: zero, regardless of its own px', () => {
+    expect(sumFixedRowSiblingReservationPx([{ track: FIXED_A, present: false }], 4, 'test')).toBe(0);
+  });
+
+  it('two present siblings: both reservations summed, one gap each', () => {
+    expect(
+      sumFixedRowSiblingReservationPx(
+        [
+          { track: FIXED_A, present: true },
+          { track: FIXED_B, present: true },
+        ],
+        4,
+        'test',
+      ),
+    ).toBe(104 + 54);
+  });
+
+  it('a mix of present and absent: only the present one contributes', () => {
+    expect(
+      sumFixedRowSiblingReservationPx(
+        [
+          { track: FIXED_A, present: true },
+          { track: FIXED_B, present: false },
+        ],
+        4,
+        'test',
+      ),
+    ).toBe(104);
+  });
+
+  it('a non-"fixed" sibling track throws loudly (ADR-0002), regardless of its own present flag', () => {
+    const wrongShape: LytTrackShape = { kind: 'elastic', minPx: 0, frWeight: 1 };
+    expect(() => sumFixedRowSiblingReservationPx([{ track: wrongShape, present: false }], 4, 'test')).toThrow(
+      /a row sibling.*compiled track/,
+    );
+  });
+});
+
+/**
+ * End-to-end composition — App.vue's own two-stage resolution
+ * (`resolveWidthConditionalPresence` then `clampTreeWidthForSideColumn`,
+ * exactly the sequence `lytPresenceOverrides` then `lytTrackStyleOverrides`
+ * run) driven together against the review's own worked reproduction
+ * case: `previewBoard` toggled on while `controlPanel` is also desired,
+ * at the exact 2560x1440 measured side-column width (819px) the
+ * completion pass's own report used. This is the reviewer's exact
+ * combination — not exercised, live or in the unit suite, before this
+ * addendum. Independent expectation (not re-derived from either
+ * function's own implementation): the two reservations plus the tree's
+ * own compiled floor (664+4 + 160+4 + 110 = 942) exceed 819px, so BOTH
+ * cannot stand — `controlPanel` yields (it is the one with a width
+ * gate; `previewBoard` has none, per `demote: null`), and the resulting
+ * row (`tree` clamped + `previewBoard`'s own reservation) sums to
+ * EXACTLY the measured side column, zero overflow.
+ */
+describe('generalized reservation — end-to-end composition at 2560x1440 (review\'s own new-finding scenario)', () => {
+  const CONTROL_PANEL_DEMOTE: LytDemotion = { axis: 'h', belowPx: 778 };
+  const CONTROL_PANEL_TRACK: LytTrackShape = { kind: 'fixed', px: 664 };
+  const PREVIEW_BOARD_TRACK: LytTrackShape = { kind: 'fixed', px: 160 };
+  const TREE_TRACK: LytTrackShape = { kind: 'elastic', minPx: 110, frWeight: 1 };
+  const SIDE_COLUMN_WIDTH_PX = 819; // the completion pass's own reported 2560x1440 measurement
+
+  it('controlPanel present + previewBoard present: controlPanel is the sibling that yields (demoted absent), previewBoard stays, and the clamp reserves ONLY previewBoard — the row sums to exactly the measured side column, no overflow', () => {
+    // Stage 1 (mirrors App.vue's lytPresenceOverrides): does controlPanel
+    // resolve present, now that previewBoard's own reservation raises the
+    // effective threshold past what 819px can hold?
+    const controlPanelResolved = resolveWidthConditionalPresence(
+      SIDE_COLUMN_WIDTH_PX,
+      CONTROL_PANEL_DEMOTE,
+      /* desiredControlPanel */ true,
+      [{ track: PREVIEW_BOARD_TRACK, present: true }],
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+    );
+    expect(controlPanelResolved).toBe(false); // controlPanel is the one that yields
+
+    // Stage 2 (mirrors App.vue's lytTrackStyleOverrides): clamp the tree
+    // against BOTH siblings' own presence-resolved facts.
+    const clampedTreeWidthPx = clampTreeWidthForSideColumn(
+      9999, // any generous stored/natural width — irrelevant, this scenario is reservation-bound
+      SIDE_COLUMN_WIDTH_PX,
+      [
+        { track: CONTROL_PANEL_TRACK, present: controlPanelResolved },
+        { track: PREVIEW_BOARD_TRACK, present: true },
+      ],
+      TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+    );
+
+    // The rendered row: tree + (previewBoard's own reservation; controlPanel
+    // renders 0px, absent) sums to EXACTLY the measured side column.
+    const renderedRowWidthPx = clampedTreeWidthPx + PREVIEW_BOARD_TRACK.px + TREE_CONTROL_WRAPPER_ROW_GAP_PX;
+    expect(renderedRowWidthPx).toBe(SIDE_COLUMN_WIDTH_PX);
+    expect(renderedRowWidthPx).toBeLessThanOrEqual(SIDE_COLUMN_WIDTH_PX); // no overflow, the defect class this closes
+  });
+
+  it('previewBoard alone (controlPanel not desired): no demotion question to resolve (desiredControlPanel false stays false, width is not a floor), clamp reserves only previewBoard, no overflow', () => {
+    const controlPanelResolved = resolveWidthConditionalPresence(
+      SIDE_COLUMN_WIDTH_PX,
+      CONTROL_PANEL_DEMOTE,
+      /* desiredControlPanel */ false,
+      [{ track: PREVIEW_BOARD_TRACK, present: true }],
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+    );
+    expect(controlPanelResolved).toBe(false);
+
+    const clampedTreeWidthPx = clampTreeWidthForSideColumn(
+      9999,
+      SIDE_COLUMN_WIDTH_PX,
+      [
+        { track: CONTROL_PANEL_TRACK, present: controlPanelResolved },
+        { track: PREVIEW_BOARD_TRACK, present: true },
+      ],
+      TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+    );
+    const renderedRowWidthPx = clampedTreeWidthPx + PREVIEW_BOARD_TRACK.px + TREE_CONTROL_WRAPPER_ROW_GAP_PX;
+    expect(renderedRowWidthPx).toBe(SIDE_COLUMN_WIDTH_PX);
+  });
+
+  it('both absent (regression): existing 2560x1440 numbers unchanged — controlPanel alone resolves present (819 >= 778), clamps to the same 151px the completion pass originally reported', () => {
+    const controlPanelResolved = resolveWidthConditionalPresence(
+      SIDE_COLUMN_WIDTH_PX,
+      CONTROL_PANEL_DEMOTE,
+      /* desiredControlPanel */ true,
+      [{ track: PREVIEW_BOARD_TRACK, present: false }],
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+    );
+    expect(controlPanelResolved).toBe(true);
+
+    const clampedTreeWidthPx = clampTreeWidthForSideColumn(
+      307,
+      SIDE_COLUMN_WIDTH_PX,
+      [
+        { track: CONTROL_PANEL_TRACK, present: controlPanelResolved },
+        { track: PREVIEW_BOARD_TRACK, present: false },
+      ],
+      TREE_TRACK,
+      TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+    );
+    expect(clampedTreeWidthPx).toBe(151); // byte-identical to the completion pass's own reported number
+    const renderedRowWidthPx = clampedTreeWidthPx + CONTROL_PANEL_TRACK.px + TREE_CONTROL_WRAPPER_ROW_GAP_PX;
+    expect(renderedRowWidthPx).toBe(SIDE_COLUMN_WIDTH_PX);
   });
 });

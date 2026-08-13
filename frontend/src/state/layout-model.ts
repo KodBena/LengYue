@@ -693,18 +693,13 @@ export function computeTreePanelClampedWidthPx(naturalWidthPx: number, regionWid
 // tree's own realized width, so the two facts stay internally
 // consistent: right at the demote boundary (`sideColumnWidthPx ===
 // belowPx`), the available track for the tree resolves to EXACTLY its
-// own compiled floor, never less. A fully literal reading of the row's
-// 3-track grid (tree, controlPanel, previewBoard — 2 inter-track gaps)
-// would reserve a SECOND gap here; deliberately not reintroduced, since
-// it would make this clamp's own floor composition inconsistent with the
-// ALREADY-COMPILED threshold by exactly one gap-width right at the
-// boundary — a discrepancy this clamp exists to avoid, not reproduce.
+// own compiled floor, never less.
 //
 // Never auto-widens (ledger row 414's standing invariant, untouched by
 // this wave — see `useResizablePanel.ts`'s own header): this only ever
 // shrinks `naturalTreeWidthPx` down, when the side column's own REAL
-// rendered width can't hold both the tree and the panel's real demand —
-// mirroring the "resizer-restore-clamp" shape
+// rendered width can't hold both the tree and the OTHER row siblings'
+// real demand — mirroring the "resizer-restore-clamp" shape
 // (`computeTreePanelClampedWidthPx` / `sanitizeTreeControlRegionWidthPx`)
 // with the compiled program's own real facts substituted for that
 // existing function's model-layer estimates: composing with the
@@ -717,30 +712,98 @@ export function computeTreePanelClampedWidthPx(naturalWidthPx: number, regionWid
 // widening its signature to also carry compiled-track data would graft a
 // second, unrelated concern onto an already-shipped, already-tested
 // contract (ADR-0004 minimal-touch) rather than simplify anything.
+//
+// 2026-08-13 dated addendum (`.claude/dispatch-reports/
+// lyt-wA-width-demotion-review.md`, "New finding"): the completion pass
+// above reserved exactly `controlPanel`'s own fixed track — but the row
+// this clamps (`lyt-layout.gen.ts` path "2.3") has a THIRD child,
+// `previewBoard` (`{ kind: 'fixed', px: 160 }`, `demote: null`), whose
+// presence toggle is UNCONDITIONAL (no width gate of its own) and
+// independent of `controlPanel`'s. A user who enables `previewBoard`
+// while `controlPanel` is also present reproduces the exact overflow
+// class this whole clamp exists to close — the reviewer's own worked
+// number: 151(tree)+4+664(panel)+4+160(preview)=983px against an 819px
+// measured wrapper at 2560x1440. The fix generalizes the reservation
+// from the one named widget to the SUM of every currently-PRESENT
+// fixed-demand sibling in the row (`fixedSiblings` below) — `tree`
+// itself is excluded (it is the elastic leaf being solved for, not a
+// reservation target). `sumFixedRowSiblingReservationPx` (below) is the
+// one home this summation lives in; `resolveWidthConditionalPresence`'s
+// own REALIZED fit test reuses the identical helper for the same reason
+// (see that function's own dated addendum) rather than each function
+// growing its own copy of the "sum the present fixed siblings" loop
+// (ADR-0012 P1). This mirrors `useLytTrackCss.ts`'s own
+// `leadingReservedPx` precedent — and the `board-priority-clamp` track
+// shape's own `fixedSiblingSumPx` field (`lyt-layout-types.ts`) — for "a
+// clamp needs to account for ANOTHER live sibling's presence-resolved
+// width, not just the one it was originally written against."
+/**
+ * A row's fixed-track sibling, as an input to
+ * `sumFixedRowSiblingReservationPx` — one entry per non-elastic child in
+ * the tree/panels/preview row (`controlPanel`, `previewBoard`), each
+ * carrying its own compiled track shape and its own presence-resolved
+ * "is it currently standing" fact. The elastic `tree` leaf itself is
+ * never a member of this list — it's the track being solved for, not a
+ * reservation target.
+ */
+export interface LytFixedRowSibling {
+  readonly track: LytTrackShape;
+  readonly present: boolean;
+}
+
+/**
+ * Sums a row's currently-PRESENT fixed-track siblings' own compiled px,
+ * one `gapPx` per present sibling — the same "fixed px + one row gap per
+ * standing sibling" composition the original wave's own `controlPanel`-
+ * only reservation used, now applied uniformly to every sibling in
+ * `siblings` rather than hand-repeated per call site. An ABSENT sibling
+ * (its own compiled track renders 0px regardless of declaration)
+ * contributes nothing — matching the pre-generalization "no reservation
+ * when the panel isn't standing" behavior for the `controlPanel`-only
+ * case. Every sibling's track kind is validated as `'fixed'`
+ * unconditionally (ADR-0002) — a non-fixed sibling declared here is a
+ * caller error (the row's own elastic `tree` leaf must never be passed
+ * in this list) regardless of whether that sibling happens to be
+ * present right now.
+ */
+export function sumFixedRowSiblingReservationPx(
+  siblings: readonly LytFixedRowSibling[],
+  gapPx: number,
+  callerLabel: string,
+): number {
+  let totalPx = 0;
+  for (const sibling of siblings) {
+    if (sibling.track.kind !== 'fixed') {
+      throw new Error(
+        `${callerLabel}: a row sibling's own compiled track is ${JSON.stringify(sibling.track.kind)}, ` +
+          'not "fixed" — this reservation only knows how to reserve a fixed-px sibling demand ' +
+          '(ADR-0002); the compiled program declared something else.',
+      );
+    }
+    if (!sibling.present) continue;
+    totalPx += sibling.track.px + gapPx;
+  }
+  return totalPx;
+}
+
 /**
  * `sideColumnWidthPx <= 0` (not yet measured) passes `naturalTreeWidthPx`
  * through unchanged, mirroring `resolveWidthConditionalPresence`'s own
- * "not yet measured" convention. `controlPanelPresent` gates the
- * reservation entirely: when the panel is width-demoted (or otherwise
- * absent), its compiled 664px track renders 0px regardless of its own
- * declaration, so reserving against it here would starve the tree for no
- * reason — no reservation, no clamp, in that case.
+ * "not yet measured" convention. `fixedSiblings` (module header,
+ * 2026-08-13 addendum) generalizes the reservation to every currently-
+ * PRESENT fixed-demand sibling in the row — an ABSENT sibling's own
+ * compiled track renders 0px regardless of declaration, so reserving
+ * against it here would starve the tree for no reason; that per-sibling
+ * gating is `sumFixedRowSiblingReservationPx`'s own job, not
+ * re-implemented here.
  */
 export function clampTreeWidthForSideColumn(
   naturalTreeWidthPx: number,
   sideColumnWidthPx: number,
-  controlPanelPresent: boolean,
-  controlPanelTrack: LytTrackShape,
+  fixedSiblings: readonly LytFixedRowSibling[],
   treeTrack: LytTrackShape,
   gapPx: number,
 ): number {
-  if (controlPanelTrack.kind !== 'fixed') {
-    throw new Error(
-      `clampTreeWidthForSideColumn: controlPanel's own compiled track is ` +
-        `${JSON.stringify(controlPanelTrack.kind)}, not "fixed" — this clamp only knows how to ` +
-        'reserve a fixed-px panel demand (ADR-0002); the compiled program declared something else.',
-    );
-  }
   if (treeTrack.kind !== 'elastic') {
     throw new Error(
       `clampTreeWidthForSideColumn: tree's own compiled track is ${JSON.stringify(treeTrack.kind)}, ` +
@@ -748,8 +811,8 @@ export function clampTreeWidthForSideColumn(
         '(ADR-0002); the compiled program declared something else.',
     );
   }
+  const reservedPx = sumFixedRowSiblingReservationPx(fixedSiblings, gapPx, 'clampTreeWidthForSideColumn');
   if (!Number.isFinite(sideColumnWidthPx) || sideColumnWidthPx <= 0) return naturalTreeWidthPx;
-  const reservedPx = controlPanelPresent ? controlPanelTrack.px + gapPx : 0;
   const maxTreeWidthPx = Math.max(treeTrack.minPx, Math.round(sideColumnWidthPx - reservedPx));
   return Math.min(naturalTreeWidthPx, maxTreeWidthPx);
 }
@@ -933,6 +996,23 @@ export function useDeferredLayoutClass(
 // it demotes anyway; the caller discloses that in the presence menu
 // (App.vue's own `controlPanelForcedAbsent`), it is not silently dropped
 // here.
+//
+// 2026-08-13 dated addendum (`.claude/dispatch-reports/
+// lyt-wA-width-demotion-review.md`, "New finding"): `demote.belowPx` is
+// the MODEL threshold — a fact baked into the compiled program at
+// generation time (`panel's own fixed track + tree leaf's own floor +
+// one row gap`, verified in `clampTreeWidthForSideColumn`'s own header),
+// unchanged by this addendum. But the REALIZED fit test this function
+// runs must ALSO account for any OTHER currently-present fixed-demand
+// row sibling (`previewBoard`, presence toggled independent of
+// `controlPanel`'s own width gate) — a sibling the model threshold
+// itself has no way to know is live right now. `otherFixedSiblings`
+// (reservation-summed via the SAME `sumFixedRowSiblingReservationPx`
+// helper `clampTreeWidthForSideColumn` uses — one home for the "sum the
+// present fixed siblings" fact, ADR-0012 P1) raises the EFFECTIVE
+// threshold by exactly that reservation, so a widget resolves present
+// only when the measured width can hold the model threshold AND every
+// other sibling actually standing beside it right now.
 /**
  * Pure width-vs-threshold resolution — no Vue reactivity, no DOM read,
  * unit-testable directly. `measuredWidthPx <= 0` means "not yet measured"
@@ -940,12 +1020,18 @@ export function useDeferredLayoutClass(
  * frame between mount and attach) — `desiredVisible` passes through
  * unchanged rather than demoting against a fantasy zero width, mirroring
  * `useResizablePanel.ts`'s own `rowWidthPx.value <= 0` precedent for the
- * identical "not yet measured" case.
+ * identical "not yet measured" case. `otherFixedSiblings` (module header,
+ * 2026-08-13 addendum) is every OTHER fixed-demand row sibling — never
+ * the widget this call is resolving presence for — with its own
+ * presence-resolved "is it currently standing" fact; pass `[]` when the
+ * row has no other fixed-demand sibling relevant to this resolution.
  */
 export function resolveWidthConditionalPresence(
   measuredWidthPx: number,
   demote: LytDemotion | null,
   desiredVisible: boolean,
+  otherFixedSiblings: readonly LytFixedRowSibling[],
+  gapPx: number,
 ): boolean {
   if (demote === null) return desiredVisible;
   if (measuredWidthPx <= 0) return desiredVisible;
@@ -963,6 +1049,11 @@ export function resolveWidthConditionalPresence(
         'only "h" (measured against the side column\'s own live width) is wired.',
     );
   }
-  const fits = measuredWidthPx >= demote.belowPx;
+  const otherReservedPx = sumFixedRowSiblingReservationPx(
+    otherFixedSiblings,
+    gapPx,
+    'resolveWidthConditionalPresence',
+  );
+  const fits = measuredWidthPx >= demote.belowPx + otherReservedPx;
   return fits ? desiredVisible : false;
 }
