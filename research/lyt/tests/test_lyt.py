@@ -2308,7 +2308,7 @@ def test_content_class_parses_and_round_trips_on_a_leaf():
             f"layout g = {{min 0px, pref 0px, max 0px, content {cls}"
             f"{extra}}} A[chrome]"
         )
-        assert layouts["g"].node.content == cls
+        assert layouts["g"].content == cls  # AMENDMENT 10, ledger rows 2447/2450
 
 
 def test_content_class_refuses_unknown_value_loudly():
@@ -2319,28 +2319,77 @@ def test_content_class_refuses_unknown_value_loudly():
     assert exc_info.value.detail.get("got") == "chart"
 
 
-@pytest.mark.parametrize("node_shape", ["split", "exclusive"])
-def test_content_class_refuses_on_non_leaf_nodes(node_shape):
-    """`content` is a LEAF-only axis (consult report §9.2: orthogonal to,
-    never conscripted into, domain/facets) -- declaring it on a Split or
-    an Exclusive is refused, not silently dropped."""
-    if node_shape == "split":
-        text = (
-            "layout g = {min 0px, pref 1fr, max inf, content unbounded} H("
-            "{min 0px, pref 1fr, max inf} A[chrome],"
-            "{min 0px, pref 1fr, max inf} B[chrome])"
-        )
-    else:
-        text = (
-            "layout g = {min 0px, pref 1fr, max inf, content unbounded} T("
-            "{min 0px, pref 1fr, max inf} A[chrome],"
-            "{min 0px, pref 1fr, max inf} B[chrome])"
-        )
+def test_content_class_refuses_on_an_ordinary_split():
+    """`content` is legal only on a leaf, an Exclusive's own wrapping
+    slot, or a slot that is a direct child of an Exclusive (AMENDMENT 10,
+    ledger rows 2447/2450) -- an ORDINARY Split declaring it (not itself
+    standing as an Exclusive-child) is refused, not silently dropped."""
+    text = (
+        "layout g = {min 0px, pref 1fr, max inf, content unbounded} H("
+        "{min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome])"
+    )
     with pytest.raises(LytLoadError) as exc_info:
         _l5_load(text)
     assert exc_info.value.detail.get("law") == "content-class-declaration"
     assert exc_info.value.detail.get("prohibition") == "content-class-on-non-leaf"
-    assert exc_info.value.detail.get("node_kind") == node_shape
+    assert exc_info.value.detail.get("node_kind") == "split"
+
+
+def test_content_class_refuses_on_a_split_two_levels_inside_an_exclusive():
+    """`is_exclusive_child` is never inherited past the Exclusive's own
+    IMMEDIATE children (`load_slot`'s own docstring) -- a Split reached
+    through an intervening Split inside a T-child is an ORDINARY
+    Split-child, not itself an Exclusive-child, and stays refused."""
+    text = (
+        "layout g = {min 0px, pref 1fr, max inf} T("
+        "{min 0px, pref 1fr, max inf} H("
+        "{min 0px, pref 1fr, max inf, content unbounded} H("
+        "{min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome]),"
+        "{min 0px, pref 1fr, max inf} C[chrome]),"
+        "{min 0px, pref 1fr, max inf} D[chrome])"
+    )
+    with pytest.raises(LytLoadError) as exc_info:
+        _l5_load(text)
+    assert exc_info.value.detail.get("law") == "content-class-declaration"
+    assert exc_info.value.detail.get("prohibition") == "content-class-on-non-leaf"
+    assert exc_info.value.detail.get("node_kind") == "split"
+
+
+def test_content_class_legal_on_an_exclusives_own_wrapping_slot():
+    """AMENDMENT 10 (ledger rows 2447/2450, L2a of the space-owner cure):
+    an Exclusive (T) node's own wrapping slot may now declare `content`
+    -- the collapsed group's own declared content class, the fact a
+    blackbox-emitting T's own wrapping slot needs so the Exclusive-
+    collapse boundary has something honest to preserve
+    (`.claude/dispatch-reports/lyt-space-owner-spec.md` §0's third
+    bullet)."""
+    layouts = _l5_load(
+        "layout g = {min 0px, pref 1fr, max inf, content unbounded} T("
+        "{min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome])"
+    )
+    assert layouts["g"].content == "unbounded"
+
+
+def test_content_class_legal_on_a_direct_exclusive_child_of_any_kind():
+    """AMENDMENT 10: a slot that is a DIRECT CHILD of an Exclusive may
+    declare `content` regardless of its own underlying node kind -- here
+    a Split standing as a T-child (the CP-analysis/CP-other shape in the
+    real encoding), previously refused outright since `content` was
+    Leaf-only."""
+    layouts = _l5_load(
+        "layout g = {min 0px, pref 1fr, max inf} T("
+        "{min 0px, pref 1fr, max inf, content designed} H("
+        "{min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome]),"
+        "{min 0px, pref 1fr, max inf} C[chrome])"
+    )
+    root = layouts["g"]
+    assert root.node.children[0].content == "designed"
+    # The Split's OWN children stay ordinary Split-children, unaffected.
+    assert root.node.children[0].node.children[0].content is None
 
 
 # --- L5 (overflow honesty): unbounded content may not claim an envelope ----
@@ -2717,13 +2766,18 @@ def test_prune_absent_identity_case_never_drops_scroll_axes():
 
 
 def test_prune_absent_preserves_a_surviving_leafs_content_class():
-    """`content` lives on `Leaf`, and `prune_absent`'s Leaf branch returns
-    a leaf UNCHANGED (`return slot`, no reconstruction) rather than
-    rebuilding it -- so a surviving leaf's `content` classification is
-    dormant-by-construction safe from this bug class. Pinned anyway, per
-    the review's own request to check "content classes, if any
-    reconstruction path touches leaves" -- this test is the evidence that
-    none does."""
+    """`content` lives on `Slot` (AMENDMENT 10, ledger rows 2447/2450 --
+    relocated from `Leaf.content`), and `prune_absent`'s Leaf branch
+    returns a leaf's SLOT UNCHANGED (`return slot`, no reconstruction)
+    rather than rebuilding it -- so a surviving leaf's `content`
+    classification is dormant-by-construction safe from this bug class.
+    Pinned anyway, per the review's own request to check "content
+    classes, if any reconstruction path touches leaves" -- this test is
+    the evidence that none does. The Split/Exclusive reconstruction
+    paths are NOT dormant-safe this way -- see the AMENDMENT 10 fix in
+    `presence.py`'s own module docstring and
+    `test_prune_absent_preserves_content_on_reconstructed_composites`
+    below for the sibling-surface case this test does not cover."""
     layouts = loader.load_layouts(
         "layout g = {min 0px, pref 1fr, max inf, scroll v} H("
         # B's coverage comes from the root H's ancestor scroll declaration
@@ -2736,11 +2790,36 @@ def test_prune_absent_preserves_a_surviving_leafs_content_class():
     pruned = presence_mod.prune_absent(root, frozenset({"A"}))
     surviving = pruned.node.children[0]
     assert surviving.node.widget == "B"
-    assert surviving.node.content == "unbounded"
+    assert surviving.content == "unbounded"
     # B carries no scroll of its OWN (coverage comes from root); this
     # assertion pins that `content` -- the field under test here -- is
     # what survives, not a scroll_axes value B never declared.
     assert surviving.scroll_axes == frozenset()
+
+
+def test_prune_absent_preserves_content_on_reconstructed_composites():
+    """AMENDMENT 10 fix (L2a, ledger rows 2447/2450, presence.py's own
+    module docstring): unlike a Leaf, a Split/Exclusive slot IS
+    reconstructed by `prune_absent` (its own children list changes), so
+    its own `content` declaration must be explicitly forwarded or it
+    silently vanishes -- the same defect class the AMENDMENT 5 fix above
+    already closed for `scroll_axes`. Exercises both reconstruction
+    sites: a Split standing as a T-child (the CP-analysis/CP-other
+    shape), and the T (an Exclusive) itself, each declaring its own
+    `content` -- both must survive a prune that removes an unrelated
+    toggleable leaf elsewhere in the tree."""
+    layouts = loader.load_layouts(
+        "layout g = {min 0px, pref 1fr, max inf, content designed} T("
+        "{min 0px, pref 1fr, max inf, content unbounded} H("
+        "@toggle(user, release) {min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome]),"
+        "{min 0px, pref 1fr, max inf} C[chrome])"
+    )
+    root = layouts["g"]
+    pruned = presence_mod.prune_absent(root, frozenset({"A"}))
+    assert pruned.content == "designed"
+    surviving_split = pruned.node.children[0]
+    assert surviving_split.content == "unbounded"
 
 
 # --- Per-T-group shortfall advisory (advisory.py) ---------------------------

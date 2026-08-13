@@ -429,6 +429,52 @@ load-time `node.orientation` default exactly as every leaf did before
 this stage, byte-identical -- this stage touches only the `tree` widget's
 own emitted value, in both classes.
 
+L2a -- blackbox/Exclusive-child overflow fields (2026-08-14, ledger rows
+2447/2450, `.claude/dispatch-reports/lyt-space-owner-spec.md` §0's third
+bullet and §3 step 2). Closes the exact gap that spec names: a collapsed
+Exclusive's own `blackbox` node, and a genuinely-opened Exclusive's own
+per-tab `LytExclusiveChild` wrapper, carried neither `content` nor
+`scrollAxes` -- structurally outside the overflow contract every LEAF
+already had, because `content` was `Leaf`-only (AMENDMENT 10,
+`lyt_ast.py`, widens it to an Exclusive's own wrapping slot and to a
+direct Exclusive-child of any node kind) and the Exclusive-collapse
+boundary (`_build_node`'s Exclusive branch, ALL FOUR blackbox
+construction sites plus the genuinely-opened `exclusive` shape's own
+`ex_children` loop) never read either field off the collapsing/child
+slot at all.
+
+Both fields are PRESERVED, not derived: every one of `content`/
+`scrollAxes` on a `blackbox` node reads the COLLAPSING Exclusive's (or
+collapsing tab's) own wrapping slot's declared facts, unchanged from
+what `loader.py` already resolved -- this stage adds no folding, no
+aggregation over the collapsed interior, matching the "expose, don't
+re-derive" posture the M2 STAGE F1 PORT section above already
+established for the leaf branch's own eight fields. `LytExclusiveChild.
+content`/`.scrollAxes` are a SIBLING fact to `node` (not nested inside
+it) for the same reason `path`/`tabId`/`tabLabelKey` already are: an
+OPENED tab's own `node` shape (`LytSplitNode`/`LytLeafNode`/
+`LytExclusiveNode`) has no `content`/`scrollAxes` fields of its own at
+that level, so the T-CHILD's own wrapping-slot fact needs a home outside
+`node` regardless of which shape `node` turns out to be.
+
+Encodings (`lengyue_landscape.lyt`/`lengyue_portrait.lyt`): three T-child
+wrapping slots gain a `content` declaration this stage -- settingsPane's
+own inner six-tab `T(...)` (`content unbounded`, the Settings interior
+the Opus review's Class-2 witnesses name), CP-analysis's own composite
+wrapper (`content designed`, a chart-bearing hard reservation, never a
+scroll candidate), and CP-other's own composite wrapper (`content
+unbounded`). `scroll` is deliberately NOT added at any of these three
+sites: every leaf that genuinely needs scroll ownership already declares
+it on ITSELF (`CP-library`/`CP-cards`/`SP_advancedRegistry`/
+`SP_keybindings`/`otherBand`, all pre-existing), and L5b (single scroll
+owner per axis per root-to-leaf path) REFUSES a second declaration on
+the same axis anywhere upstream of an already-owned one -- confirmed
+directly (not assumed): declaring `scroll v` at any of the three new
+`content` sites reproduces exactly this refusal against the committed
+encodings. The three `content` declarations are therefore the honest,
+checkable fact available at each site; `scroll` ownership stays exactly
+where it already was.
+
 License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
 license line and the umbrella's ADR-0006 per-file convention.
 """
@@ -864,12 +910,14 @@ def _build_node(
             "facets": facets,
             "aspect": slot.sizing.aspect,
             # REALIZATION WAVE (item 3, overflow derivation): the Slot's own
-            # `scroll_axes` (Amendment 5) and the Leaf's own `content` class
-            # -- carried through so a live-rendered leaf's overflow CSS can
-            # be DERIVED from the program instead of hand-authored per
+            # `scroll_axes` (Amendment 5) and `content` class (AMENDMENT 10,
+            # ledger rows 2447/2450 -- relocated from `Leaf.content` to
+            # `Slot.content`, read here as `slot.content` accordingly) --
+            # carried through so a live-rendered leaf's overflow CSS can be
+            # DERIVED from the program instead of hand-authored per
             # component. Sorted for deterministic emitted output.
             "scrollAxes": sorted(slot.scroll_axes),
-            "content": node.content,
+            "content": slot.content,
             # M2 STAGE F1 PORT (module docstring, same name): the eight
             # realization-layer leaf metadata fields, read off already-
             # loaded ast.Leaf/ast.Slot/ast.Sizing attributes (AMENDMENT 7's
@@ -947,6 +995,13 @@ def _build_node(
                     "tag": node.tag,
                     "childWidgets": child_widgets,
                     "demote": _demote_field(slot),
+                    # L2a (ledger rows 2447/2450, AMENDMENT 10): `slot`
+                    # here is the COLLAPSING Exclusive's own wrapping
+                    # slot -- its own declared `content`/`scroll` are
+                    # exactly the fields the Exclusive-collapse boundary
+                    # used to drop (spec §0's third bullet).
+                    "content": slot.content,
+                    "scrollAxes": sorted(slot.scroll_axes),
                 }
             child_widgets = [w for c in node.children for w in _collect_leaf_widgets(c)]
             return {
@@ -955,6 +1010,10 @@ def _build_node(
                 "tag": node.tag,
                 "childWidgets": child_widgets,
                 "demote": _demote_field(slot),
+                # L2a: same fields, same source (`slot`, this Exclusive's
+                # own wrapping slot), the top-level-control-panel case.
+                "content": slot.content,
+                "scrollAxes": sorted(slot.scroll_axes),
             }
         if len(node.children) != len(control_panel_tab_ids):
             raise ValueError(
@@ -978,6 +1037,12 @@ def _build_node(
                     # collapsed placeholder for that tab's interior, not for
                     # the control panel itself.
                     "demote": _demote_field(child),
+                    # L2a (ledger rows 2447/2450, AMENDMENT 10): same
+                    # `child`-sourced reasoning `demote` above already
+                    # uses -- the TAB's own declared `content`/`scroll`,
+                    # not the outer T's.
+                    "content": child.content,
+                    "scrollAxes": sorted(child.scroll_axes),
                 }
             else:
                 child_node = _build_node(
@@ -1001,6 +1066,15 @@ def _build_node(
                     "tabId": tab_id,
                     "tabLabelKey": f"app.tabs.{tab_id}",
                     "node": child_node,
+                    # L2a (ledger rows 2447/2450, AMENDMENT 10): the TAB's
+                    # own wrapping slot's declared `content`/`scroll` --
+                    # `child`, not `child_node` (which for an OPENED tab is
+                    # a split/leaf/exclusive shape with no `content`/
+                    # `scrollAxes` fields of its own at this level; for a
+                    # COLLAPSED tab it duplicates the same values already
+                    # carried on `child_node` above, one fact, two readers).
+                    "content": child.content,
+                    "scrollAxes": sorted(child.scroll_axes),
                 }
             )
         return {
@@ -1161,13 +1235,22 @@ def _ts_demote(demote: Optional[dict]) -> str:
     return f'{{ axis: {json.dumps(demote["axis"])}, belowPx: {demote["belowPx"]:g} }}'
 
 
+def _ts_content(content: Optional[str]) -> str:
+    """Shared TS-literal rendering for a `content` field's value -- L2a
+    (ledger rows 2447/2450, AMENDMENT 10): the leaf branch and the (newly
+    content-carrying) blackbox/exclusive-child shapes of `_ts_node` below
+    all call this, the same "one shared null-vs-value ternary" precedent
+    `_ts_demote` above already set."""
+    return "null" if content is None else json.dumps(content)
+
+
 def _ts_node(node: dict, indent: str) -> str:
     kind = node["kind"]
     if kind == "leaf":
         aspect = "null" if node["aspect"] is None else f'{node["aspect"]:g}'
         facets = ", ".join(json.dumps(f) for f in node["facets"])
         scroll_axes = ", ".join(json.dumps(a) for a in node["scrollAxes"])
-        content = "null" if node["content"] is None else json.dumps(node["content"])
+        content = _ts_content(node["content"])
         # M2 STAGE F1 PORT (module docstring, same name): serialization for
         # the eight ported realization-layer leaf metadata fields.
         elastic_axes = ", ".join(json.dumps(a) for a in node["elasticAxes"])
@@ -1203,9 +1286,16 @@ def _ts_node(node: dict, indent: str) -> str:
         # LYT presence arc P2a, item (a): `demote` now carried here too --
         # see the module docstring's own section by that name.
         demote = _ts_demote(node["demote"])
+        # L2a (ledger rows 2447/2450, AMENDMENT 10): `content`/`scrollAxes`
+        # now carried here too -- the Exclusive-collapse boundary's own
+        # wrapping slot's declared facts, preserved rather than dropped
+        # (spec §0's third bullet).
+        content = _ts_content(node["content"])
+        scroll_axes = ", ".join(json.dumps(a) for a in node["scrollAxes"])
         return (
             f'{{ kind: "blackbox", widget: {json.dumps(node["widget"])}, tag: {tag}, '
-            f"childWidgets: [{child_widgets}], demote: {demote} }}"
+            f"childWidgets: [{child_widgets}], demote: {demote}, "
+            f"content: {content}, scrollAxes: [{scroll_axes}] }}"
         )
     if kind == "exclusive":
         inner = indent + "  "
@@ -1216,10 +1306,19 @@ def _ts_node(node: dict, indent: str) -> str:
         demote = _ts_demote(node["demote"])
         children_lines = []
         for child in node["children"]:
+            # L2a (ledger rows 2447/2450, AMENDMENT 10): each tab's own
+            # `content`/`scrollAxes` -- the T-CHILD's own wrapping slot's
+            # declared facts, sibling fields to `node`, not nested inside
+            # it (an opened tab's own `node` shape has no `content`/
+            # `scrollAxes` fields of its own at this level).
+            child_content = _ts_content(child["content"])
+            child_scroll_axes = ", ".join(json.dumps(a) for a in child["scrollAxes"])
             children_lines.append(f"{inner}  {{")
             children_lines.append(f'{inner}    path: {json.dumps(child["path"])},')
             children_lines.append(f'{inner}    tabId: {json.dumps(child["tabId"])},')
             children_lines.append(f'{inner}    tabLabelKey: {json.dumps(child["tabLabelKey"])},')
+            children_lines.append(f'{inner}    content: {child_content},')
+            children_lines.append(f'{inner}    scrollAxes: [{child_scroll_axes}],')
             children_lines.append(f'{inner}    node: {_ts_node(child["node"], inner + "    ")},')
             children_lines.append(f"{inner}  }},")
         children_block = "\n".join(children_lines)

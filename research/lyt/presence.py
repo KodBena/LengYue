@@ -114,6 +114,20 @@ of the Option C follow-on wave, which is expected to combine the two --
 see the review's own Finding 1 for the full analysis. Regression:
 `tests/test_lyt.py::test_prune_absent_preserves_scroll_axes_on_reconstructed_composites`.
 
+## AMENDMENT 10 fix (L2a, ledger rows 2447/2450)
+
+Same forwarding gap, same two call sites, found while widening `content`
+from `Leaf`-only to `Slot`-level (`lyt_ast.py`'s own AMENDMENT 10 entry):
+`content` is a FOURTH field `prune_absent`'s Split/Exclusive
+reconstruction must forward, or a T-child's own declared content class
+(newly representable — a Split or nested Exclusive standing as an
+Exclusive-child) silently vanishes the moment its own subtree is
+reconstructed, exactly the "sibling-surface gap" class the AMENDMENT 5
+fix above already named. Fixed by forwarding `content=slot.content` at
+both sites alongside `scroll_axes`. (`wrap_policy`, AMENDMENT 7, is a
+PRE-EXISTING instance of this same gap, discovered but not fixed here —
+out of this port's own scope; named so it is not silently rediscovered.)
+
 License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
 license line and the umbrella's ADR-0006 per-file convention.
 """
@@ -210,9 +224,16 @@ def prune_absent(slot: ast.Slot, absent_widgets: FrozenSet[str]) -> ast.Slot:
         # own closure statement should have enumerated -- see this module's
         # docstring "AMENDMENT 5 fix" note for the swept quantification
         # universe.
+        #
+        # AMENDMENT 10 fix (L2a, ledger rows 2447/2450): same gap, same
+        # class -- `content` (relocated to `Slot` by AMENDMENT 10) is a
+        # THIRD field this reconstruction must forward alongside
+        # `scroll_axes`, or a Split standing as an Exclusive-child's own
+        # declared content class silently vanishes the same way.
         return ast.Slot(
             node=new_node, presence=slot.presence, sizing=slot.sizing,
             violates=slot.violates, scroll_axes=slot.scroll_axes,
+            content=slot.content,
         )
     if isinstance(node, ast.Exclusive):
         if is_named_absent(slot, absent_widgets):
@@ -231,10 +252,12 @@ def prune_absent(slot: ast.Slot, absent_widgets: FrozenSet[str]) -> ast.Slot:
         ]
         new_node = ast.Exclusive(children=new_children, selector=node.selector, tag=node.tag)
         # AMENDMENT 5 fix -- same forwarding, same rationale as the Split
-        # branch above.
+        # branch above. AMENDMENT 10 fix (L2a, ledger rows 2447/2450) --
+        # same `content` forwarding, same rationale, added alongside it.
         return ast.Slot(
             node=new_node, presence=slot.presence, sizing=slot.sizing,
             violates=slot.violates, scroll_axes=slot.scroll_axes,
+            content=slot.content,
         )
     raise TypeError(f"unknown LayoutNode kind: {node!r}")  # pragma: no cover — exhaustive over lyt_ast.LayoutNode
 
