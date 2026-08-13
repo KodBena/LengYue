@@ -82,6 +82,36 @@ import { komiDomainStep } from '../../engine/katago/komi-calibration';
 // reorganization must not flip superimposed on that gesture either.
 const STATUS_BAR_NARROW_THRESHOLD_PX = 700;
 
+// N1/N4 (LYT finish-pass-2, `.claude/dispatch-reports/lyt-finish-pass-2.md`):
+// narrow mode's own G12 collapse (above) still wasn't enough — a live
+// rig re-measurement (`.claude/dispatch-reports/lyt-n1-statusbar.md`)
+// found TWO compounding causes, both fixed below, both still inside
+// this single `narrow` tier (no second breakpoint added — see that
+// report for why a two-tier design was tried and reverted):
+//
+// 1. `.player-names`' old `max-width: 40%` doesn't resolve against a
+//    small "just enough" basis the way the mental model of "cap the
+//    low-priority segment" suggests. `.status-left` is an auto-width
+//    (shrink-to-fit) flex item, and a percentage `max-width` on ITS
+//    descendant resolved (witnessed, Chromium) against the BAR's own
+//    width — at a witnessed 647px bar width, "capped" `.player-names`
+//    still rendered ~250px wide, alone consuming a third of the
+//    natural width the bar needed. Fixed now at a flat 90px — bounded
+//    regardless of how wide the bar itself is.
+// 2. Even with (1) fixed, spacing/padding sized for the wide (non-
+//    narrow) bar was still too loose for the tightest supported width
+//    (420px). The rules below tighten `.status-left`/`.status-right`
+//    gaps, the move-nav button cluster's own gap/padding (reached via
+//    `:deep()`, the same cross-component idiom
+//    `:deep(.user-badge)` above already uses), and the bar's own
+//    horizontal padding — all reductions of an EXISTING declaration's
+//    value, never a new rule category.
+//
+// `.pass-btn`, `.move-badge` and `.caps` are STILL never hidden, and
+// their own padding is only lightly trimmed (never below a legible
+// floor) — "Pass and the game-state facts are never unreachable"
+// stays a structural property of this stylesheet, not a threshold
+// someone has to keep tuned per viewport.
 const statusBarRef = ref<HTMLElement | null>(null);
 const { committed: statusBarNarrow, observe: observeStatusBarWidth, stop: stopObservingStatusBarWidth } =
   useDeferredContainerBreakpoint(STATUS_BAR_NARROW_THRESHOLD_PX);
@@ -503,11 +533,65 @@ const gameStatus = computed(() =>
 .status-bar--narrow :deep(.user-badge) {
   display: none;
 }
+/* N1/N4 fix (rig witness, `.claude/dispatch-reports/lyt-n1-statusbar.md`):
+   `max-width` changed from `40%` to a fixed 90px, and several
+   already-present spacing/padding declarations tightened alongside it
+   — see below. Two compounding causes, both witnessed live:
+   1. A percentage `max-width` on a flex-item descendant of an
+      auto-width (shrink-to-fit) `.status-left` does not resolve
+      against a small "just enough" basis the way a mental model of
+      "cap the low-priority segment" suggests — Chromium resolved it
+      against the BAR's own width, so at a witnessed 647px bar width
+      the "capped" element still rendered ~250px wide, alone
+      accounting for a third of a 759px natural need against a 647px
+      track. A fixed px ceiling is deterministic regardless of the
+      bar's own width, which is the property this rule needs.
+   2. Even with (1) fixed, the remaining segments' spacing/padding —
+      sized comfortably for the wide (non-narrow) bar — still didn't
+      leave room at the tightest supported width (420px, with a
+      realistic long-game move badge + capture count). The gap/
+      padding reductions below (all of an EXISTING declaration's
+      value, never a new rule) close that remainder.
+   90px still shows a stone chip and several characters of the
+   higher-priority (to-play) name before eliding; the full pairing
+   remains one hover/selection away, same as any other ellipsized
+   chrome label in this codebase — `.pass-btn`, `.move-badge` and
+   `.caps` are the segments this bar's own header ranks above
+   `.player-names`, and none of the three is touched below beyond a
+   light padding trim that stays well over the G30 pointer-target
+   floor. */
 .status-bar--narrow .player-names {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 40%;
+  max-width: 90px;
+}
+.status-bar--narrow.status-bar {
+  padding: 0 var(--space-tight);
+}
+.status-bar--narrow .status-left,
+.status-bar--narrow .status-right {
+  gap: var(--space-tight);
+}
+/* `:deep()` reaches `ToolbarMoveNav`'s own root/children the same way
+   `.status-bar--narrow :deep(.user-badge)` above already crosses into
+   `UserBadge` — this bar owns the overflow policy, the move-nav
+   component has no narrow-mode concept of its own. Padding/gap only:
+   the |</>| glyphs' own font-size and the 24px pointer-target floor
+   (G30, `ToolbarMoveNav.vue`'s own `min-height`/`min-width`) are
+   untouched — only the horizontal padding around the already-legible
+   glyph, and the gap between the four buttons, shrink. */
+.status-bar--narrow :deep(.toolbar-move-nav) {
+  gap: 2px;
+}
+.status-bar--narrow :deep(.toolbar-move-nav .toolbar-btn) {
+  padding: 1px 3px;
+}
+.status-bar--narrow .move-badge {
+  padding: 1px 4px;
+}
+.status-bar--narrow .pass-btn {
+  padding: 1px 6px;
 }
 
 /* Pass affordance — always-visible board-chrome control per genre
