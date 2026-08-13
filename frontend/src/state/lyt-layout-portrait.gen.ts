@@ -92,7 +92,7 @@ export const LYT_PORTRAIT: LytProgram = {
             {
               path: "4.0",
               presenceDefaultVisible: true,
-              track: { kind: "elastic", minPx: 0, frWeight: 1 },
+              track: { kind: "elastic", minPx: 185, frWeight: 1 },
               node: { kind: "leaf", widget: "A_engine_controls", domain: "go", facets: ["action"], aspect: null, scrollAxes: [], content: "bounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: null, demote: null, envelopeStates: null },
             },
             {
