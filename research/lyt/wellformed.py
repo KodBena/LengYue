@@ -229,7 +229,8 @@ a structural checker" — this is that future law):
 **Dormancy, by construction (the HARD CONSTRAINT this implementation
 wave is bound by).** Every one of the four checks above is gated on an
 explicit `content`/`scroll` declaration existing somewhere in the tree:
-L5/L5a only look at a leaf whose `Leaf.content` is genuinely non-`None`;
+L5/L5a only look at a leaf whose `Slot.content` (AMENDMENT 10, ledger
+rows 2447/2450 — relocated from `Leaf.content`) is genuinely non-`None`;
 L5b/L5c only fire at a slot whose `Slot.scroll_axes` is genuinely
 non-empty. A tree with NO Amendment-5 declarations anywhere — every
 existing encoding as of this amendment — triggers none of the four
@@ -409,10 +410,20 @@ def _subtree_has_designed_leaf(slot: ast.Slot) -> bool:
     """L5c's subtree fold: True iff `slot` or ANY descendant is a leaf
     whose `content == 'designed'`. Computed structurally — a container is
     chart-bearing because a descendant genuinely is one, never because a
-    tag was hand-applied to the container (report §9.2)."""
+    tag was hand-applied to the container (report §9.2).
+
+    AMENDMENT 10 (ledger rows 2447/2450): `content` relocated from
+    `Leaf.content` to `Slot.content` (`lyt_ast.py`'s own Amendment 10
+    entry) — read here as `slot.content`, not `node.content` (`Leaf` no
+    longer has that field). The check itself is UNCHANGED: still gated on
+    `isinstance(node, ast.Leaf)`, so a `content` declaration at either of
+    Amendment 10's two new non-leaf positions (an Exclusive's own
+    wrapping slot, an Exclusive-child's own wrapping slot) is invisible
+    to this fold exactly as an unclassified leaf always was — only a
+    LEAF's own declared class ever makes a subtree chart-bearing."""
     node = slot.node
     if isinstance(node, ast.Leaf):
-        return node.content == "designed"
+        return slot.content == "designed"
     if isinstance(node, (ast.Split, ast.Exclusive)):
         return any(_subtree_has_designed_leaf(c) for c in node.children)
     return False
@@ -474,7 +485,10 @@ def find_l5_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str,
             existing.append(path)
 
         if isinstance(node, ast.Leaf):
-            if node.content == "unbounded":
+            # AMENDMENT 10 (ledger rows 2447/2450): `slot.content`, not
+            # `node.content` — see `_subtree_has_designed_leaf`'s own
+            # Amendment 10 note above for the full relocation disclosure.
+            if slot.content == "unbounded":
                 has_owner = any(new_owners.get(axis) for axis in ("h", "v"))
                 if not has_owner:
                     violations.append((
@@ -812,7 +826,10 @@ def find_l13_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str
 
     def walk(slot: ast.Slot, spath: str, both_axes: bool) -> None:
         node = slot.node
-        if isinstance(node, ast.Leaf) and both_axes and node.content == "unbounded":
+        # AMENDMENT 10 (ledger rows 2447/2450): `slot.content`, not
+        # `node.content` — see `_subtree_has_designed_leaf`'s own
+        # Amendment 10 note for the full relocation disclosure.
+        if isinstance(node, ast.Leaf) and both_axes and slot.content == "unbounded":
             for axis in ("h", "v"):
                 if axis in slot.scroll_axes:
                     continue
@@ -1163,9 +1180,12 @@ def find_l16_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str
         node = slot.node
         if isinstance(node, ast.Leaf):
             floors = dict(node.floor_axes)
-            # (a) the trigger.
+            # (a) the trigger. AMENDMENT 10 (ledger rows 2447/2450):
+            # `slot.content`, not `node.content` — see
+            # `_subtree_has_designed_leaf`'s own Amendment 10 note for the
+            # full relocation disclosure.
             if (
-                node.content == "unbounded"
+                slot.content == "unbounded"
                 and node.elastic_axes
                 and slot.scroll_axes
             ):
@@ -1352,8 +1372,11 @@ def find_l17_violations(root: ast.Slot, *, path: str = "root") -> List[Tuple[str
         node = slot.node
         if isinstance(node, ast.Leaf):
             edges = dict(node.edge_axes)
-            # (a) the trigger.
-            if node.content == "unbounded":
+            # (a) the trigger. AMENDMENT 10 (ledger rows 2447/2450):
+            # `slot.content`, not `node.content` — see
+            # `_subtree_has_designed_leaf`'s own Amendment 10 note for the
+            # full relocation disclosure.
+            if slot.content == "unbounded":
                 for axis in sorted(slot.scroll_axes):
                     if axis in edges:
                         continue

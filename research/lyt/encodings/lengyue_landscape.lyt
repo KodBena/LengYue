@@ -22,7 +22,7 @@ layout lengyue-landscape =
           {min read-constant(CP-cards, landscape), pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 160px, edge v unit, unit v 39px} CP-cards[common],
           {min pack-rows(items: [113px, 177px, 153px, 153px, 137px, 105px], target-rows: 2, search-ceiling: 838px), pref 1fr, max inf, gap 4px} V(
             {77px, boundary, content bounded} settingsSubstrip[common],
-            {min 200px, pref 1fr, max inf} T(
+            {min 200px, pref 1fr, max inf, content unbounded} T(
               {min read-constant(SP_session, landscape), pref 1fr, max inf, boundary, content bounded} SP_session[common],
               {min read-constant(SP_analysisEnv, landscape), pref 1fr, max inf, boundary, content bounded} SP_analysisEnv[common],
               {min read-constant(SP_cardSets, landscape), pref 1fr, max inf, boundary, content bounded} SP_cardSets[common],
@@ -31,7 +31,7 @@ layout lengyue-landscape =
               {min read-constant(SP_keybindings, landscape), pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v item} SP_keybindings[common]
             )
           ),
-          {min sum-of(80px, 4px, read-constant(AT_multires)), pref 1fr, max inf, gap 4px} V(
+          {min sum-of(80px, 4px, read-constant(AT_multires)), pref 1fr, max inf, gap 4px, content designed} V(
             {min 80px, pref 80px, max 80px, boundary, content designed} timelineStrip[go],
             {min 160px, pref 1fr, max inf} T(
               {min 160px, pref 1fr, max inf, gap 4px} V(
@@ -50,7 +50,7 @@ layout lengyue-landscape =
               {min read-constant(AT_multires), pref read-constant(AT_multires), max inf, boundary, content designed} AT_multires[go]
             )[ANALYSIS TABS]
           ),
-          {min 204px, pref 1fr, max inf, gap 4px} V(
+          {min 204px, pref 1fr, max inf, gap 4px, content unbounded} V(
             {264px, boundary, content designed} otherColorDebug[debug],
             {min read-constant(otherBand, landscape), pref 1fr, max inf, boundary, content unbounded, scroll v, edge v continuous} otherBand[common]
           )

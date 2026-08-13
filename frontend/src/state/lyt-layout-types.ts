@@ -175,6 +175,21 @@ export interface LytBlackboxNode {
    *  the emitter (a reviewer-confirmed gap); `null` for a blackbox whose
    *  own slot declares no demotion. */
   readonly demote: LytDemotion | null;
+  /** L2a (`.claude/dispatch-reports/lyt-space-owner-spec.md` §0's third
+   *  bullet, §3 step 2; ledger rows 2447/2450): the collapsed Exclusive's
+   *  OWN wrapping slot's declared content class (`research/lyt/lyt_ast.py`'s
+   *  AMENDMENT 10 — `content` relocated from `Leaf`-only to `Slot`-level,
+   *  legal on an Exclusive's own wrapping slot precisely so this field has
+   *  a fact to carry). Previously unrepresentable — every collapsed
+   *  composite (the six-tab Settings interior, the Analysis dashboard) was
+   *  structurally outside the overflow contract; `null` for a blackbox
+   *  whose own slot declares no content class. */
+  readonly content: LytContentClass;
+  /** L2a, same disposition: the collapsed Exclusive's OWN wrapping slot's
+   *  declared `scroll <axis>` disposition(s) — see `LytLeafNode.
+   *  scrollAxes`'s own doc for the identical carry-through shape. Empty
+   *  means "no scroll declared on this collapsed group's own slot". */
+  readonly scrollAxes: readonly LytAxis[];
 }
 
 export type LytTrackShape =
@@ -266,6 +281,20 @@ export interface LytExclusiveChild {
    *  (rather than derived client-side from `tabId`) so a future Exclusive
    *  with a different label-key convention needs no LytNode.vue change. */
   readonly tabLabelKey: string;
+  /** L2a (`.claude/dispatch-reports/lyt-space-owner-spec.md` §3 step 2;
+   *  ledger rows 2447/2450): this TAB's own wrapping slot's declared
+   *  content class — a sibling fact to `node`, not derivable from it: an
+   *  OPENED tab's `node` is a `LytSplitNode`/`LytLeafNode`/
+   *  `LytExclusiveNode` shape with no `content` field of its own at this
+   *  level, and a COLLAPSED tab's `node` is a `LytBlackboxNode` whose own
+   *  `content` carries the identical value (one fact declared once on the
+   *  T-child's own wrapping slot, read by two consumers). `null` when the
+   *  tab's own slot declares no content class. */
+  readonly content: LytContentClass;
+  /** L2a, same disposition: this TAB's own wrapping slot's declared
+   *  `scroll <axis>` disposition(s). Empty means "no scroll declared on
+   *  this tab's own slot". */
+  readonly scrollAxes: readonly LytAxis[];
   readonly node: LytNodeData;
 }
 

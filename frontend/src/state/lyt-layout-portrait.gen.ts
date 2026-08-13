@@ -140,18 +140,24 @@ export const LYT_PORTRAIT: LytProgram = {
                     path: "5.1.0",
                     tabId: "library",
                     tabLabelKey: "app.tabs.library",
+                    content: "unbounded",
+                    scrollAxes: ["v"],
                     node: { kind: "leaf", widget: "CP-library", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded", elasticAxes: ["h"], ceilingAxes: [], floorAxes: [{ axis: "v", px: 200 }], edgeAxes: [{ axis: "v", disposition: "unit" }], orientation: "v", activity: null, demote: null, envelopeStates: null },
                   },
                   {
                     path: "5.1.1",
                     tabId: "cards",
                     tabLabelKey: "app.tabs.cards",
+                    content: "unbounded",
+                    scrollAxes: ["v"],
                     node: { kind: "leaf", widget: "CP-cards", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded", elasticAxes: ["h"], ceilingAxes: [], floorAxes: [{ axis: "v", px: 200 }], edgeAxes: [{ axis: "v", disposition: "unit" }], orientation: "v", activity: null, demote: null, envelopeStates: null },
                   },
                   {
                     path: "5.1.2",
                     tabId: "settings",
                     tabLabelKey: "app.tabs.settings",
+                    content: null,
+                    scrollAxes: [],
                     node: {
                       kind: "split", axis: "v", gapPx: 4,
                       children: [
@@ -165,7 +171,7 @@ export const LYT_PORTRAIT: LytProgram = {
                           path: "5.1.2.1",
                           presenceDefaultVisible: true,
                           track: { kind: "elastic", minPx: 200, frWeight: 1 },
-                          node: { kind: "blackbox", widget: "SP_session", tag: null, childWidgets: ["SP_session", "SP_analysisEnv", "SP_cardSets", "SP_advancedRegistry", "SP_analysis", "SP_keybindings"], demote: null },
+                          node: { kind: "blackbox", widget: "SP_session", tag: null, childWidgets: ["SP_session", "SP_analysisEnv", "SP_cardSets", "SP_advancedRegistry", "SP_analysis", "SP_keybindings"], demote: null, content: "unbounded", scrollAxes: [] },
                         },
                       ],
                     },
@@ -174,12 +180,16 @@ export const LYT_PORTRAIT: LytProgram = {
                     path: "5.1.3",
                     tabId: "analysis",
                     tabLabelKey: "app.tabs.analysis",
-                    node: { kind: "blackbox", widget: "CP-analysis", tag: null, childWidgets: ["timelineStrip", "AT_basic_interval", "AT_basic_scoreLead", "AT_basic_mergedDelta", "AT_dist_deltaDist", "AT_dist_mistakeGap", "AT_stab_stability", "AT_stab_crossCorr", "AT_multires"], demote: null },
+                    content: "designed",
+                    scrollAxes: [],
+                    node: { kind: "blackbox", widget: "CP-analysis", tag: null, childWidgets: ["timelineStrip", "AT_basic_interval", "AT_basic_scoreLead", "AT_basic_mergedDelta", "AT_dist_deltaDist", "AT_dist_mistakeGap", "AT_stab_stability", "AT_stab_crossCorr", "AT_multires"], demote: null, content: "designed", scrollAxes: [] },
                   },
                   {
                     path: "5.1.4",
                     tabId: "other",
                     tabLabelKey: "app.tabs.other",
+                    content: "unbounded",
+                    scrollAxes: [],
                     node: {
                       kind: "split", axis: "v", gapPx: 4,
                       children: [

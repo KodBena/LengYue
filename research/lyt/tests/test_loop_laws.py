@@ -603,7 +603,7 @@ def test_unit_content_unbounded_and_scroll_compose_on_one_leaf():
     )
     slot = layouts["g"]
     assert slot.sizing.ceiling is False
-    assert slot.node.content == "unbounded"
+    assert slot.content == "unbounded"  # AMENDMENT 10, ledger rows 2447/2450
     assert slot.node.unit_axes == frozenset({("h", 86.0), ("v", 56.0)})
 
 

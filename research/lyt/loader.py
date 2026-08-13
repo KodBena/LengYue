@@ -86,10 +86,11 @@ formedness laws (`wellformed.py`):
     (unlike `_load_gap_px`) this function performs no node-kind refusal
     of its own; it only refuses an axis token that isn't `h`/`v`.
   - `_load_content_class` resolves the `content <class>` sizing-bag key
-    into `Leaf.content` — legal ONLY on a leaf (refused loudly on a
-    Split or Exclusive node, since "content" describes what a LEAF
-    renders, not a container's own structure), and refuses any value
-    outside `{bounded, designed, unbounded}`.
+    into `Slot.content` — legal on a leaf, and refuses any value outside
+    `{bounded, designed, unbounded}`. **Widened by AMENDMENT 10 below**
+    to two further positions; this bullet's original "legal ONLY on a
+    leaf" text is superseded, kept as the historical record of what
+    Amendment 5 itself shipped.
 
 Both keep the same "parser permissive, loader refuses" division of
 labor as `_load_gap_px` and the bare-`envelope` refusal — the parser
@@ -171,6 +172,26 @@ those positions is refused the same way a `WRAPPER_MIN`/`CONTENT` sentinel
 already is there (an unresolvable symbolic extent), not silently accepted
 and mishandled. Widening relation support to those positions is a genuine
 follow-on, not attempted here without a fresh ruling.
+
+AMENDMENT 10 (ledger rows 2447/2450, L2a of the space-owner cure —
+`.claude/dispatch-reports/lyt-space-owner-spec.md` §0's third bullet and
+§3 step 2): `content` widens from "leaf only" to three legal positions —
+a leaf (unchanged), an Exclusive (T) node's own wrapping slot, and a slot
+that is a direct child of an Exclusive regardless of its own underlying
+node kind. `_load_content_class` (below) carries both refusals in one
+place, gated by a new `is_exclusive_child` parameter `load_slot`'s own
+Exclusive branch threads to its immediate children only (never inherited
+further down — see `load_slot`'s own docstring). The field itself
+RELOCATES from `Leaf.content` to `Slot.content` (`lyt_ast.py`'s own
+Amendment 10 entry), the same generalization `scroll_axes` made under
+Amendment 5 — a Split or Exclusive standing as a T-child now has
+somewhere to put its own content-class declaration, which `Leaf`-only
+storage could never carry regardless of the loader's own node-kind gate.
+`wellformed.py`'s L5/L5a/L5c are UNTOUCHED in what they check (still
+`isinstance(node, ast.Leaf)`-gated) — only WHERE they read the value from
+changes (`slot.content` instead of the now-nonexistent `leaf.content`), so
+a declaration at either of the two new positions is exactly as dormant to
+those three laws as an unclassified leaf always was.
 
 License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
 license line and the umbrella's ADR-0006 per-file convention.
@@ -1408,29 +1429,48 @@ def _load_scroll_axes(
 
 
 def _load_content_class(
-    rs: Optional[lytparser.RawSizing], *, where: str, node_kind: str
+    rs: Optional[lytparser.RawSizing],
+    *,
+    where: str,
+    node_kind: str,
+    is_exclusive_child: bool = False,
 ) -> Optional[str]:
     """AMENDMENT 5 (ledger row 1937): resolves the `content <class>`
-    sizing-bag key into `Leaf.content`, or `None` when undeclared (the
+    sizing-bag key into `Slot.content`, or `None` when undeclared (the
     pre-Amendment-5 default, dormant for every existing leaf — see
     `wellformed.py`'s L5/L5a/L5c, which only fire when `content` is
-    genuinely declared). Legal ONLY on a leaf: `content` describes what
-    a LEAF renders (the axis the consult report's §9.2 deliberately
-    keeps orthogonal to `domain`/`facets`), so a declaration surviving to
-    this call on a Split or Exclusive node is refused loudly rather than
-    silently ignored — the same "refuse, never drop the author's
-    declared intent" discipline `_load_gap_px`'s node-kind check already
-    applies to `gap` on a leaf/T node.
+    genuinely declared).
+
+    AMENDMENT 10 (ledger rows 2447/2450, L2a of the space-owner cure):
+    widens the legal positions from "leaf only" to three — a leaf
+    (unchanged), an Exclusive (T) node's own wrapping slot (`node_kind ==
+    "exclusive"`, a genuine new position: the collapsed group's own
+    declared content class), and a slot that is a DIRECT CHILD of an
+    Exclusive regardless of its own underlying node kind
+    (`is_exclusive_child=True`, threaded by `load_slot`'s Exclusive
+    branch only for its own immediate children — see that function's own
+    docstring). A declaration surviving to this call at neither position
+    is refused loudly rather than silently ignored — the same "refuse,
+    never drop the author's declared intent" discipline `_load_gap_px`'s
+    node-kind check already applies to `gap` on a leaf/T node. `content`
+    still describes what the declaring slot's own content IS (the axis
+    the consult report's §9.2 deliberately keeps orthogonal to
+    `domain`/`facets`) — an ordinary Split standing in the tree for its
+    own sake (not as a T-child) still has no content of its own, only its
+    children's partition, and stays refused.
     """
     if rs is None or rs.content is None:
         return None
-    if node_kind != "leaf":
+    if node_kind != "leaf" and node_kind != "exclusive" and not is_exclusive_child:
         raise LytLoadError(
-            f"content declared at {where} but 'content' is a LEAF-only "
-            "axis (it names what a leaf renders, orthogonal to "
-            "domain/facets — .claude/dispatch-reports/lyt-tab-region-"
-            f"consult.md §9.2) — a {node_kind} node may not declare it "
-            "(AMENDMENT 5, ledger row 1937)",
+            f"content declared at {where} but 'content' is legal only on "
+            "a leaf, an Exclusive's own wrapping slot, or a slot that is "
+            "a direct child of an Exclusive (it names what the declaring "
+            "slot's own content IS, orthogonal to domain/facets — "
+            ".claude/dispatch-reports/lyt-tab-region-consult.md §9.2) — "
+            f"a {node_kind} node standing elsewhere in the tree may not "
+            "declare it (AMENDMENT 5, ledger row 1937; AMENDMENT 10, "
+            "ledger rows 2447/2450)",
             {
                 "where": where,
                 "law": "content-class-declaration",
@@ -2393,7 +2433,6 @@ def _load_leaf(
     rl: lytparser.RawLeaf,
     *,
     where: str,
-    content: Optional[str] = None,
     boundary: bool = False,
     unit_axes: FrozenSet[Tuple[str, float]] = frozenset(),
     elastic_axes: FrozenSet[str] = frozenset(),
@@ -2438,7 +2477,6 @@ def _load_leaf(
         facets=frozenset(facets),
         domain=domain,
         flagged=rl.flagged,
-        content=content,  # AMENDMENT 5, ledger row 1937
         boundary=boundary,  # AMENDMENT 6, ledger row 1937
         unit_axes=unit_axes,  # AMENDMENT 7 (L10), ledger rows 2107/2108
         floor_axes=floor_axes,  # LOOP ITERATION 12 (L16), ledger rows 2268-2270
@@ -2457,8 +2495,21 @@ def load_slot(
     path: str = "root",
     orientation_overrides: Optional[Dict[str, str]] = None,
     relctx: Optional["relations.RelationContext"] = None,
+    is_exclusive_child: bool = False,
 ) -> ast.Slot:
-    """`relctx` (LYT relations-first amendment, dispatch B, ledger rows
+    """`is_exclusive_child` (AMENDMENT 10, ledger rows 2447/2450, L2a of the
+    space-owner cure): `True` only for the exact call this function's own
+    Exclusive branch makes for EACH of its immediate children — never
+    inherited any further down. This is the fact `_load_content_class`
+    needs to permit `content` on a T-child whose own underlying node kind
+    is a Split or a nested Exclusive (previously refused regardless,
+    since `content` was leaf-only) — a grandchild reached through an
+    intervening Split (e.g. a T-child's own children) is an ORDINARY
+    Split-child, not itself an Exclusive-child, so every other recursive
+    call in this function passes `False` (the default), including the
+    Split branch's own children loop.
+
+    `relctx` (LYT relations-first amendment, dispatch B, ledger rows
     2396/2397/2400/2401): the relation-resolution context for THIS slot's
     OWN sizing/presence — i.e. the facts table, the already-loaded
     siblings in the ENCLOSING split (accumulated left to right by the
@@ -2633,7 +2684,6 @@ def load_slot(
         leaf = _load_leaf(
             node,
             where=f"{path}:{node.widget}",
-            content=content,
             boundary=boundary,
             unit_axes=unit_axes,
             elastic_axes=elastic_axes,
@@ -2685,7 +2735,7 @@ def load_slot(
         return ast.Slot(
             node=leaf, presence=presence, sizing=sizing,
             violates=frozenset(rs.warns), scroll_axes=scroll_axes,
-            wrap_policy=wrap_policy,
+            wrap_policy=wrap_policy, content=content,  # AMENDMENT 10, ledger rows 2447/2450
         )
     if isinstance(node, lytparser.RawSplit):
         # AMENDMENT 3 (ledger row 1715): `gap_px` is now resolved from an
@@ -2727,9 +2777,15 @@ def load_slot(
             children.append(child_slot)
             if isinstance(child_slot.node, ast.Leaf):
                 sibling_sizings[child_slot.node.widget] = child_slot.sizing
-        # AMENDMENT 5: `content` is leaf-only -- a Split declaring it is
-        # refused loudly here, same call shape as the leaf branch above.
-        _load_content_class(rs.sizing, where=path, node_kind="split")
+        # AMENDMENT 5 / AMENDMENT 10 (ledger rows 2447/2450): `content` is
+        # legal on a Split ONLY when this Split is itself a direct child
+        # of an Exclusive (`is_exclusive_child`, received above) -- an
+        # ordinary Split standing in the tree for its own sake still has
+        # no content of its own, only its children's partition, and stays
+        # refused here exactly as before.
+        content = _load_content_class(
+            rs.sizing, where=path, node_kind="split", is_exclusive_child=is_exclusive_child
+        )
         # AMENDMENT 6: `boundary` is leaf-only too, same reason.
         _load_boundary_marker(rs.sizing, where=path, node_kind="split")
         # METAMODEL WAVE item 1: `orient` is leaf-only too, same reason.
@@ -2783,6 +2839,7 @@ def load_slot(
         return ast.Slot(
             node=split, presence=presence, sizing=sizing,
             violates=frozenset(rs.warns), scroll_axes=scroll_axes,
+            content=content,  # AMENDMENT 10, ledger rows 2447/2450
         )
     if isinstance(node, lytparser.RawExclusive):
         # LYT relations-first amendment, dispatch B: each T-child gets its
@@ -2808,14 +2865,24 @@ def load_slot(
                     path=f"{path}/T{i}",
                     orientation_overrides=orientation_overrides,
                     relctx=child_relctx,
+                    # AMENDMENT 10 (ledger rows 2447/2450): each of THIS
+                    # Exclusive's own immediate children may declare
+                    # `content` on itself regardless of its own underlying
+                    # node kind — see `load_slot`'s own docstring for why
+                    # this is never inherited any further down.
+                    is_exclusive_child=True,
                 )
             )
         # AMENDMENT 3: a T node takes no gap — refused loudly (not
         # silently ignored) if the author declared one, same as any other
         # law this loader enforces.
         _load_gap_px(rs.sizing, where=path, node_kind="exclusive")
-        # AMENDMENT 5: `content` is leaf-only -- refused here too.
-        _load_content_class(rs.sizing, where=path, node_kind="exclusive")
+        # AMENDMENT 5 / AMENDMENT 10 (ledger rows 2447/2450): `content` is
+        # now legal on an Exclusive's own wrapping slot — the collapsed
+        # group's own declared content class (`node_kind == "exclusive"`
+        # already permits this in `_load_content_class`, regardless of
+        # whether this T is itself an Exclusive-child of an outer T).
+        content = _load_content_class(rs.sizing, where=path, node_kind="exclusive")
         # AMENDMENT 6: `boundary` is leaf-only too, same reason.
         _load_boundary_marker(rs.sizing, where=path, node_kind="exclusive")
         # METAMODEL WAVE item 1: `orient` is leaf-only too, same reason.
@@ -2877,7 +2944,7 @@ def load_slot(
         return ast.Slot(
             node=excl, presence=presence, sizing=sizing,
             violates=frozenset(rs.warns), scroll_axes=scroll_axes,
-            wrap_policy=wrap_policy,
+            wrap_policy=wrap_policy, content=content,  # AMENDMENT 10, ledger rows 2447/2450
         )
     raise LytLoadError("unknown raw node kind", {"path": path, "node": repr(node)})
 
