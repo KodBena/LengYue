@@ -1076,6 +1076,41 @@ legibility discipline this specification is written to —
   adjacent track both clean-room encodings share; any other encoding's
   elastic-and-capped track would carry the same unresolved
   solve-vs-live-CSS disagreement.
+- **A `T`-child's declared `min` applies identically to both its width
+  and height** (§8's `along=None` bound-application branch) — there is
+  no way, in this 1-D-per-slot language, for a composite `T`-child to
+  declare "wide but not correspondingly tall" (or the reverse). Every
+  wrapping composite whose interior demand differs sharply between axes
+  (a wide settings-substrip label row, say, whose own interior height
+  need is far smaller than the width its label vocabulary forces)
+  therefore over-reserves on the axis its interior does not actually
+  need — an honest, disclosed consequence of the same 1-D sizing model
+  named in §4.2's own narrowing paragraph, not a defect discovered per
+  encoding. The consult's own §2 excludes 2-D per-axis `T`-child sizing
+  from this option space as unnecessary surgery for the witnessed
+  defect; this bullet is the general form of a tension every deep
+  composite `T`-child inherits, not a fact specific to any one leaf.
+- **A flex-wrapping leaf's own minimum column width is a genuine
+  breakpoint-search problem, not a single measured constant** — a
+  cluster of fixed-width items (buttons, chips) that wraps onto more
+  rows as its column narrows has an exact width at which its row count
+  changes, found by summing worst-case item widths plus inter-item gaps
+  against the wrapping container's own row-height reservation (greedy
+  sequential flex-wrap, CSS Flexbox's own line-assignment rule) rather
+  than read off any single component measurement. Because this
+  language's compiler declares integer `(w, h)` CP-SAT decision
+  variables (§8), the `min` an encoding should declare is the CEILING
+  of that exact threshold, never its floor or its truncation — a `min`
+  equal to the raw (possibly fractional) breakpoint would let the
+  solver legally choose a width fractionally short of the point where
+  the cluster's own row count would actually grow, silently clipping
+  content the reservation was supposed to cover. This is a property of
+  the language's realization contract (worst-case items, a fixed
+  row-height and inter-item gap, greedy line assignment, integer-px
+  ceiling), not a number any one component's own encoding literal
+  carries — the per-component worst-case label set and the resulting
+  pixel figure are properly the probe harness's own facts (§4's own
+  probe contract), not spec prose.
 
 ## 13. Amendment 5 — overflow as a typed language concept: `scroll`, content-class, and L5/L5a/L5b/L5c
 

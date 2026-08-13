@@ -1714,6 +1714,91 @@ not made in this change); `frontend/` (untouched, out of scope, same
 posture Amendment 8 already took for its own realization-layer
 exclusions).
 
+## Residual items
+
+Filed 2026-08-13, dispatch A of the LYT relations-first amendment
+(ledger rows 2396/2397/2399/2400,
+`.claude/dispatch-reports/lyt-relations-amendment-spec.md` §5). Before
+this dispatch these two STOP-and-report items lived only inside the
+clean-room encodings' own comment blocks — they are not resolved
+anywhere else in the doc graph (neither this file nor SPEC.md named
+them prior to this section), so relocating the comment prose that
+carries them (dispatch A's own purge-accounting duty, per the spec
+above) requires giving them a durable home first. This section is that
+home — an open items list, not a ruling; each item names what's
+missing, why it wasn't authored, and who would need to close it.
+
+### R1 — the side column's `340px` max-cap component has no derivation anywhere
+
+**What's missing.** Both clean-room encodings' landscape side column
+declares a `max 340px+60ch` cap (`encodings/lengyue_landscape.lyt`'s
+own root `H(...)`'s third child). The `60ch` component is a real,
+grounded text-measure term (§4.1's `PX_PER_CH` resolution). The
+`340px` component has no derivation anywhere in this repository, the
+dispatch reports, or the consult document — the landscape encoding's
+own §1.4 census entry (per the governing spec's own audit) calls it an
+"inherited design ceiling from the original consult document's own
+worked example," not a re-derived number. It reads as a genuine
+aesthetic/product ceiling ("how wide may the side column grow on a
+very wide viewport"), not a content-driven floor any live component
+could be probed for.
+
+**Why it wasn't authored.** No relation in this language's current
+primitive inventory (§2 of the governing spec above) expresses "an
+upper bound on how much of a wide viewport one region may claim" —
+every existing primitive resolves a floor from a component's own
+content, never a ceiling from aesthetic judgment about proportion.
+Inventing one for this single site, unmotivated by any second use
+case, would repeat the exact "primitive used once is a smell"
+pattern flagged elsewhere in this dispatch's own primitive inventory.
+
+**Who'd need to close it.** Either (a) a commissioner ratifies `340px`
+as a residue entry (a design ceiling, not a measurement — the honest
+label `facts.residue.json` already uses for this class of number), or
+(b) a future design pass re-derives a principled cap (e.g. "the side
+column may never exceed N% of the viewport width," a relation this
+language could add if a second site ever wants the same shape). Not
+resolved here — this section only gives the open question a durable
+home.
+
+### R2 — three engine-metrics groups' own width floors remain un-authored
+
+**What's missing.** `A_engine_eval`/`A_engine_health`/`A_engine_queue`
+(both encodings' `H(A_engine_controls, A_engine_eval, A_engine_health,
+A_engine_queue)` row) each carry `pref 1fr` with no declared `min` —
+the loader's own `0px` default. `A_engine_controls`, the fourth
+sibling in the same row, HAD this same gap until wave W-B2 (2026-08-13,
+`.claude/dispatch-reports/lyt-wB2-controls-menu.md`) closed it with a
+live-measured `min 185px` (the wrap-breakpoint mechanism SPEC.md §12
+now names in general terms). The other three groups' own share of that
+same frontier item remains open.
+
+**Why it wasn't authored.** A grounded per-group floor IS computable
+by hand from `ToolbarEngineMetrics.vue`'s own cited `min-width` `ch`
+values, the real `en.json` label strings, and `theme.css`'s spacing
+tokens — landscape's own header comment sketches the arithmetic (eval
+≈236px, health ≈276px, queue ≈68px) without asserting it as a
+declared `min`, because summing all three into hard floors on the
+wrapping `H(...)`'s own children would raise the side column's
+effective width floor from ~345px to roughly 580px+gaps, a major,
+unverified feasibility regression this dispatch does not introduce
+unilaterally without a live re-sweep of how the real
+`.engine-metrics-bar` (a CSS flex row, not a fixed four-column grid)
+actually wraps at narrow widths — the same wrapping-row problem
+`settingsSubstrip`'s own `flow.py`-based FLOW-CAPABLE SETTINGS
+SUBSTRIP work item solved, not yet attempted for this cluster.
+
+**Who'd need to close it.** Whoever runs the live measurement pass
+this item names — either a `flow.py`-style packed-row derivation (the
+same mechanism `settingsSubstrip` already uses, if this cluster's own
+content turns out to need row-packing rather than a fixed floor) or a
+straightforward Playwright width-sweep of `.engine-metrics-bar`'s real
+wrap behavior at narrow widths, followed by a feasibility re-solve
+across every representative screen size before landing any of the
+three floors. This dispatch's own probe harness (§4 of the governing
+spec) can supply the live-measured input for whichever mechanism is
+chosen, once a design point is picked — it does not pick one itself.
+
 ## License
 
 Public Domain (The Unlicense), matching [layout-language-consult.md](../../.claude/dispatch-reports/layout-language-consult.md)'s

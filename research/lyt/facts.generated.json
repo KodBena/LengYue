@@ -1,0 +1,136 @@
+{
+  "provenance": {
+    "harness": "research/lyt/tools/probe_harness/measure.mjs",
+    "harness_version": "v1",
+    "frontend_git_sha": "bde3652394be0e5eeb2df374fb3b75e4f25c4378",
+    "viewport": "1920x1080 (live-probe entries only; read-constant entries are viewport-independent)",
+    "date": "2026-08-13"
+  },
+  "entries": [
+    {
+      "key": "tree|read-constant|portrait-floor",
+      "component": "frontend/src/state/layout-model.ts",
+      "state": "TREE_PANEL_MIN_WIDTH_PX constant (portrait class; landscape's own 110px is a DISCLOSED solver-only relaxation of this same constant, not itself a live read)",
+      "axis": "h",
+      "method": "read-constant",
+      "value_px": 140,
+      "error": null,
+      "source_file": "frontend/src/state/layout-model.ts"
+    },
+    {
+      "key": "AT_multires|read-constant",
+      "component": "frontend/src/components/charts/MultiresolutionIntervalPanel.vue",
+      "state": "own declared CSS height rule (MultiresolutionIntervalPanel.vue:153)",
+      "axis": "v",
+      "method": "read-constant",
+      "value_px": 580,
+      "error": null,
+      "source_file": "frontend/src/components/charts/MultiresolutionIntervalPanel.vue"
+    },
+    {
+      "key": "resizerOuter+resizerInner|read-constant",
+      "component": "frontend/src/App.vue",
+      "state": "'.panel-resizer { width: Npx }' CSS rule (App.vue), which layout-model.ts's RESIZER_WIDTH_PX resolves at runtime from the committed current_row_asis.lyt solve -- this entry reads the CSS rule directly as the more durable static anchor",
+      "axis": "h",
+      "method": "read-constant",
+      "value_px": null,
+      "error": "pattern not found in App.vue",
+      "source_file": "frontend/src/App.vue"
+    },
+    {
+      "key": "A_engine_controls|playwright-boundingBox",
+      "component": ".engine-controls",
+      "state": "default locale, disconnected (cold boot, no backend/engine reachable)",
+      "axis": "h",
+      "method": "playwright-boundingBox",
+      "value_px": 185,
+      "value_w_px": 185,
+      "value_h_px": 80,
+      "unexercised": false
+    },
+    {
+      "key": "A_engine_eval|playwright-boundingBox",
+      "component": ".engine-metrics-bar",
+      "state": "disconnected -- EXPECT ABSENT (v-if=\"isConnected\" gate; matches this component family's own disclosed isolation limit for a backend-less rig)",
+      "axis": "h",
+      "method": "playwright-boundingBox",
+      "value_px": null,
+      "unexercised": true,
+      "reason": "selector not present in the DOM at this state (see the state field for the expected-absent condition, when one is named)"
+    },
+    {
+      "key": "A_app|playwright-boundingBox",
+      "component": ".app-cluster",
+      "state": "default locale, cold boot",
+      "axis": "v",
+      "method": "playwright-boundingBox",
+      "value_px": 28,
+      "value_w_px": 614,
+      "value_h_px": 28,
+      "unexercised": false
+    },
+    {
+      "key": "A_setup|playwright-boundingBox",
+      "component": ".setup-toolkit",
+      "state": "force-visible per lyt-widget-registry.ts's own disclosed App.vue lytPresenceOverrides (A_setup: true, unconditional) -- reachable even though the compiled program itself declares this leaf presenceDefaultVisible:false",
+      "axis": "v",
+      "method": "playwright-boundingBox",
+      "value_px": null,
+      "unexercised": true,
+      "reason": "selector not present in the DOM at this state (see the state field for the expected-absent condition, when one is named)"
+    },
+    {
+      "key": "tree|playwright-boundingBox",
+      "component": "#vue-tree-panel",
+      "state": "default (no boards open -- cold, unauthenticated boot)",
+      "axis": "h",
+      "method": "playwright-boundingBox",
+      "value_px": 614,
+      "value_w_px": 614,
+      "value_h_px": 828,
+      "unexercised": false
+    },
+    {
+      "key": "boardRail|playwright-boundingBox",
+      "component": ".thumb-list, .sidebar-collapse-rail",
+      "state": "default-off release toggle -- EXPECT ABSENT at cold boot (matches the compiled program's own presenceDefaultVisible:false)",
+      "axis": "h",
+      "method": "playwright-boundingBox",
+      "value_px": null,
+      "unexercised": true,
+      "reason": "selector not present in the DOM at this state (see the state field for the expected-absent condition, when one is named)"
+    },
+    {
+      "key": "previewBoard|playwright-boundingBox",
+      "component": ".board-preview",
+      "state": "default-off release toggle -- EXPECT ABSENT at cold boot",
+      "axis": "h",
+      "method": "playwright-boundingBox",
+      "value_px": null,
+      "unexercised": true,
+      "reason": "selector not present in the DOM at this state (see the state field for the expected-absent condition, when one is named)"
+    },
+    {
+      "key": "CP-library+CP-cards+CP-settings+CP-analysis+CP-other|playwright-boundingBox",
+      "component": "#control-panel",
+      "state": "Exclusive(T) group -- every child shares one rectangle (SPEC.md §2); #control-panel is the one DOM container legitimately measured for all five",
+      "axis": "v",
+      "method": "playwright-boundingBox",
+      "value_px": 828,
+      "value_w_px": 1,
+      "value_h_px": 828,
+      "unexercised": false
+    },
+    {
+      "key": "resizerOuter|playwright-boundingBox",
+      "component": "#resizer-outer",
+      "state": "default (as-is realization)",
+      "axis": "h",
+      "method": "playwright-boundingBox",
+      "value_px": 1,
+      "value_w_px": 1,
+      "value_h_px": 828,
+      "unexercised": false
+    }
+  ]
+}
