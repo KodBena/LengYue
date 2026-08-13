@@ -36,6 +36,17 @@
  * increments, so a dead/mis-wired counter cannot pass the zero-count
  * assertion silently (same discipline as BoardTab.render-count.test.ts).
  *
+ * Overlap fix update (ledger row 2372,
+ * `.claude/dispatch-reports/lyt-metrics-overlap-fix.md`): `EngineModelSelect`
+ * no longer mounts unconditionally inside the `eval` group — it moved
+ * into the group's hover popover (only rendered while `evalOpen` is
+ * true) as part of closing the eval/health metrics-bar overlap defect.
+ * Both tests below now open the popover first (`mouseenter` on
+ * `.eval-summary`, the new compact-badge trigger) before exercising the
+ * tick-coupling assertion, so the guard still exercises a REAL mounted
+ * `EngineModelSelect` instance rather than trivially passing because the
+ * child never mounted at all.
+ *
  * License: Public Domain (The Unlicense)
  */
 
@@ -130,6 +141,11 @@ describe('ToolbarEngineMetrics / EngineModelSelect — render-count regression g
   it('does not re-render EngineModelSelect across N metrics ticks', async () => {
     wrapper = mount(ToolbarEngineMetrics, { global: { plugins: [i18n] } });
     await nextTick();
+    // Overlap fix (ledger row 2372): EngineModelSelect now mounts only
+    // inside the eval-group hover popover — open it so this guard
+    // exercises a real mounted instance.
+    await wrapper.find('.eval-summary').trigger('mouseenter');
+    await nextTick();
     // Mount itself counts as a render — reset after mount so the assertion
     // below measures update-only renders, the same convention
     // `mountWithRenderCount`'s `resetRenderCount()` establishes.
@@ -155,6 +171,10 @@ describe('ToolbarEngineMetrics / EngineModelSelect — render-count regression g
 
   it('does re-render EngineModelSelect when model-selection state changes (proving the counter is live)', async () => {
     wrapper = mount(ToolbarEngineMetrics, { global: { plugins: [i18n] } });
+    await nextTick();
+    // Overlap fix (ledger row 2372): open the popover so EngineModelSelect
+    // is actually mounted — see the sibling test's identical comment.
+    await wrapper.find('.eval-summary').trigger('mouseenter');
     await nextTick();
     modelSelectRenders.count = 0;
 

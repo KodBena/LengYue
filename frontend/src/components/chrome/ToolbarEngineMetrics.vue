@@ -45,10 +45,46 @@
   now, since it was already a fully self-contained sibling (no shared
   state with this component beyond living in the same flex row).
 
+  Overlap fix (ledger row 2372, `.claude/dispatch-reports/lyt-metrics-
+  overlap-fix.md`): the live-engine measurement pass
+  (`.claude/dispatch-reports/lyt-engine-measurement.md`, Measurement 2)
+  found this leaf's real natural content (identity + winrate + lead for
+  `eval`; pps + latency + watchdog for `health`) genuinely overflowing
+  its 139px column allotment — 534px / 236px of natural need against
+  139px, confirmed both by DOM geometry and screenshot as CHARACTER-
+  LEVEL text overlap with the neighbouring group, not merely a solver-
+  model divergence. Per that commission's own framing, the model-level
+  question of whether `A_engine_eval`/`_health` should carry an
+  authored width FLOOR (raising the side column's own effective
+  minimum) is a separate, filed open design item interacting with the
+  three-vocabulary ruling above — NOT touched here. This fix is
+  realization-only: it re-shapes what each group RENDERS so it never
+  lies about the width it was actually given, following the exact
+  compact-badge-plus-hover-popover idiom `EngineQueueTooltip.vue`
+  already established (a small always-visible summary; the popover
+  carries full fidelity, including — for `eval` — the interactive
+  SELECTOR-mode `<EngineModelSelect>` itself, since a functional
+  `<select>` cannot be represented by ellipsis or a static compact
+  form the way a number can). Both groups' compact forms were measured
+  at their real worst-case content width via an isolated static-HTML
+  Playwright probe (`Courier New`/monospace, the theme's real
+  font-size/spacing tokens) BEFORE being wired into this file, not
+  guessed: `eval`'s "100.0%/-999.9" worst case measures 119.94px
+  (19px/14% slack under 139px); `health`'s "9999pps ●" worst case
+  (with the `HEALTH` label, not the shorter `SYS` candidate also
+  probed — `HEALTH` reads clearer and still leaves 32px/23% slack)
+  measures 107.09px. Neither the identity/version/model block nor the
+  full-precision winrate/scoreLead/pps/latency/watchdog readouts are
+  lost — they render inside the hover popover verbatim (same strings,
+  same `EngineModelSelect` component instance, same tooltips), per the
+  capability-IR realization philosophy the queue idiom already
+  establishes: the compact form is honest about what fits inline: the
+  popover is where full fidelity lives.
+
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useThrottledSnapshot } from '../../composables/useThrottledSnapshot';
 import { useI18n } from 'vue-i18n';
 import EngineModelSelect from './EngineModelSelect.vue';
@@ -56,6 +92,8 @@ import { store, activeBoard } from '../../store';
 import { activeAnalysisKeys } from '../../state/analysis-config';
 import { ledger } from '../../state/analysis-ledger';
 import { useEngineControls } from '../../composables/useEngineControls';
+import { useHoverPopover } from '../../composables/chrome/useHoverPopover';
+import { useFixedAnchoredPopover } from '../../composables/chrome/useFixedAnchoredPopover';
 import { TOOLBAR_METRICS_REDRAW_THROTTLE_MS } from '../../lib/timing';
 
 const { t } = useI18n();
@@ -246,63 +284,132 @@ const liveMetrics = computed<MetricsDisplay>(() => ({
   pingPendingSince: metrics.value.pingPendingSince,
 }));
 const displayed = useThrottledSnapshot(liveMetrics, TOOLBAR_METRICS_REDRAW_THROTTLE_MS);
+
+// ── Overlap fix: compact-badge-plus-hover-popover (queue idiom) ────────
+// Two independent hover/popover pairs — only one is ever live per mounted
+// instance (this component renders exactly one of the two `v-if` branches
+// below), but `<script setup>` can't conditionally declare composable
+// calls, so both are wired unconditionally; the unused pair's trigger
+// element never mounts, so its `open` ref never flips and its listeners
+// never attach (see `useFixedAnchoredPopover`'s own `watch(open, ...)`
+// gate). Distinct `devId`s so the DEV popover-perf harness can target
+// either independently. See the file header's "Overlap fix" section for
+// why: `eval`'s natural content (identity + winrate + lead) measured
+// 534px against a 139px column, `health`'s (pps + latency + watchdog)
+// 236px — both genuinely overflow, confirmed live
+// (`.claude/dispatch-reports/lyt-engine-measurement.md`, Measurement 2).
+const { open: evalOpen, onMouseEnter: onEvalEnter, onMouseLeave: onEvalLeave } = useHoverPopover({ devId: 'engine-eval' });
+const evalTriggerEl = ref<HTMLElement | null>(null);
+const evalPopoverEl = ref<HTMLElement | null>(null);
+const { style: evalPopoverStyle } = useFixedAnchoredPopover(evalOpen, evalTriggerEl, evalPopoverEl, { align: 'left' });
+
+const { open: healthOpen, onMouseEnter: onHealthEnter, onMouseLeave: onHealthLeave } = useHoverPopover({ devId: 'engine-health' });
+const healthTriggerEl = ref<HTMLElement | null>(null);
+const healthPopoverEl = ref<HTMLElement | null>(null);
+const { style: healthPopoverStyle } = useFixedAnchoredPopover(healthOpen, healthTriggerEl, healthPopoverEl, { align: 'left' });
 </script>
 
 <template>
   <div class="engine-metrics-bar">
     <template v-if="props.group === 'eval'">
-      <!-- Engine identity, split into two adjacent slots so VERSION
-           and MODEL are independently legible and each carries the
-           full corresponding probe payload in its hover tooltip.
-           Placed leftmost so they read as "what am I talking to"
-           context for the eval readouts that follow (see the file
-           header's boot-restoration note for why identity rides in
-           this group rather than a fifth leaf). Both slots render
-           unconditionally while connected, with a `—` placeholder
-           during the brief connect-and-probe window so the layout
-           doesn't shift when the responses arrive. -->
-      <div class="metric engine-identity" :title="versionTooltip">
-        <span class="m-lbl">{{ $t('toolbar.metric.version') }}</span>
-        <span class="m-val engine-version-val">{{ engineVersion !== null ? `v${engineVersion}` : '—' }}</span>
+      <!-- Overlap fix (ledger row 2372): ONE compact always-visible
+           badge — identity (version/model) never had a compact numeric
+           form to fall back to (a functional SELECTOR `<select>` isn't
+           ellipsis-able), so it moves into the hover popover entirely
+           rather than getting its own inline slot; winrate/lead render
+           as a single paired compact value alongside it, per the
+           commission's own "a compact paired form probably fits"
+           framing (measured 119.94px worst-case vs. the 139px
+           allotment — see the file header). No native `title` on the
+           trigger itself: the popover IS the "hover for more" surface,
+           so a second native tooltip on the same hover would double up. -->
+      <div
+        ref="evalTriggerEl"
+        class="metric eval-summary"
+        @mouseenter="onEvalEnter"
+        @mouseleave="onEvalLeave"
+      >
+        <span class="m-lbl">{{ $t('toolbar.metric.evalSummary') }}</span>
+        <span class="m-val eval-summary-val">{{ displayed.winrate }}/{{ displayed.scoreLead }}</span>
       </div>
-      <!-- MODEL slot: self-sourcing leaf (see EngineModelSelect.vue's
-           header comment). Reads no metrics-derived state, so it never
-           re-renders on the metrics tick regardless of how often THIS
-           component's own render runs. -->
-      <EngineModelSelect />
-      <!-- Live engine evaluation — slim preview of the user-
-           captured rootInfo display arc (see the corresponding
-           computeds in <script>). Two hardcoded W-framed
-           scalars; tooltips name the framing so the value is
-           unambiguous without reading the source. Renders
-           unconditionally inside the connected-only metrics bar;
-           '—' placeholder when no packet exists for the active
-           node (pre-analysis, fresh navigation, or post-purge). -->
-      <div class="metric" :title="$t('toolbar.metric.winrateTooltip')">
-        <span class="m-lbl">{{ $t('toolbar.metric.winrate') }}</span>
-        <span class="m-val eval-val winrate-val">{{ displayed.winrate }}</span>
-      </div>
-      <div class="metric" :title="$t('toolbar.metric.scoreLeadTooltip')">
-        <span class="m-lbl">{{ $t('toolbar.metric.scoreLead') }}</span>
-        <span class="m-val eval-val score-lead-val">{{ displayed.scoreLead }}</span>
+      <div
+        v-if="evalOpen"
+        ref="evalPopoverEl"
+        class="metrics-popover"
+        role="tooltip"
+        :style="{ top: evalPopoverStyle.top, left: evalPopoverStyle.left }"
+      >
+        <!-- Full fidelity lives here, verbatim — same strings, same
+             `EngineModelSelect` component instance (still interactive:
+             SELECTOR-mode model-picking is not lost, only relocated),
+             same per-metric tooltip text as the pre-fix inline markup. -->
+        <div class="popover-row" :title="versionTooltip">
+          <span class="popover-lbl">{{ $t('toolbar.metric.version') }}</span>
+          <span class="popover-val">{{ engineVersion !== null ? `v${engineVersion}` : '—' }}</span>
+        </div>
+        <!-- No extra popover-lbl here: EngineModelSelect.vue's own
+             template already renders a "MODEL" `.m-lbl` internally
+             (it's the same markup that used to sit inline in this
+             component pre-fix) — labelling it again here would
+             duplicate the word. -->
+        <div class="popover-row popover-row-model">
+          <EngineModelSelect />
+        </div>
+        <div class="popover-row" :title="$t('toolbar.metric.winrateTooltip')">
+          <span class="popover-lbl">{{ $t('toolbar.metric.winrate') }}</span>
+          <span class="popover-val">{{ displayed.winrate }}</span>
+        </div>
+        <div class="popover-row" :title="$t('toolbar.metric.scoreLeadTooltip')">
+          <span class="popover-lbl">{{ $t('toolbar.metric.scoreLead') }}</span>
+          <span class="popover-val">{{ displayed.scoreLead }}</span>
+        </div>
       </div>
     </template>
     <template v-else>
-      <div class="metric metric-pps">
-        <span class="m-lbl">{{ $t('toolbar.metric.pps') }}</span>
-        <span class="m-val">{{ displayed.pps }}</span>
-      </div>
-      <div class="metric metric-latency">
-        <span class="m-lbl">{{ $t('toolbar.metric.latency') }}</span>
-        <span class="m-val">{{ $t('toolbar.metric.latencyValue', { ms: displayed.latency }) }}</span>
-      </div>
-      <div class="metric">
-        <span class="m-lbl">{{ $t('toolbar.metric.watchdog') }}</span>
+      <!-- Overlap fix (ledger row 2372): PPS stays visible as the
+           headline number (already the shortest, least alarming of the
+           three) with the watchdog dot alongside it (cheap in width, a
+           glanceable status indicator not worth hiding); LATENCY's full
+           reading moves into the popover, same reasoning as identity
+           above — measured 107.09px worst-case with the `HEALTH` label
+           vs. the 139px allotment (see the file header). -->
+      <div
+        ref="healthTriggerEl"
+        class="metric health-summary"
+        @mouseenter="onHealthEnter"
+        @mouseleave="onHealthLeave"
+      >
+        <span class="m-lbl">{{ $t('toolbar.metric.healthSummary') }}</span>
+        <span class="m-val health-summary-val">{{ $t('toolbar.metric.ppsValue', { n: displayed.pps }) }}</span>
         <span
           class="m-val watchdog-dot"
           :class="watchdogClasses"
           :style="watchdogStyle"
         >●</span>
+      </div>
+      <div
+        v-if="healthOpen"
+        ref="healthPopoverEl"
+        class="metrics-popover"
+        role="tooltip"
+        :style="{ top: healthPopoverStyle.top, left: healthPopoverStyle.left }"
+      >
+        <div class="popover-row">
+          <span class="popover-lbl">{{ $t('toolbar.metric.pps') }}</span>
+          <span class="popover-val">{{ displayed.pps }}</span>
+        </div>
+        <div class="popover-row">
+          <span class="popover-lbl">{{ $t('toolbar.metric.latency') }}</span>
+          <span class="popover-val">{{ $t('toolbar.metric.latencyValue', { ms: displayed.latency }) }}</span>
+        </div>
+        <div class="popover-row">
+          <span class="popover-lbl">{{ $t('toolbar.metric.watchdog') }}</span>
+          <span
+            class="popover-val watchdog-dot"
+            :class="watchdogClasses"
+            :style="watchdogStyle"
+          >●</span>
+        </div>
       </div>
     </template>
   </div>
@@ -312,39 +419,57 @@ const displayed = useThrottledSnapshot(liveMetrics, TOOLBAR_METRICS_REDRAW_THROT
 .engine-metrics-bar { display: flex; gap: var(--space-medium); font-family: monospace; font-size: var(--text-emphasis); align-items: center; min-width: 0; }
 .metric { display: flex; align-items: center; gap: var(--space-tight); min-width: 0; }
 .m-lbl  { color: var(--border-3); font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-default); }
-/* W4 item 2 ("envelope-reserved cells so latency growth never
-   reflows"): each numeric `.m-val` reserves its own worst-case-digit
-   width via `min-width` in `ch` (a monospace-safe unit — this bar is
-   `font-family: monospace`, so `1ch` is a stable per-glyph width) —
-   the LYT encoding's own A_engine leaf (formerly I_engine — see the
-   2026-08-11 toolbar ontology reencode) names exactly this class of
-   defect (`{envelope: {disconnected, connected}}`,
-   `research/lyt/encodings/lengyue_landscape.lyt`), which this Vue
-   realization never actually implemented until now — the toolbar's
-   winrate/scoreLead/pps/latency values previously had NO reserved
-   width at all, so a value growing by a digit shoved every metric to
-   its right sideways, the exact "content measuring itself and
-   re-partitioning its neighbors" defect class LYT exists to forbid
-   (see `research/lyt/README.md`'s own "Why LYT exists" section).
-   `display: inline-block` + `text-align: right` keeps growth
-   RIGHTWARD-stable (new digits fill the reserved cell) rather than
-   letting the value's own left edge drift. Widths, worst realistic
-   case per metric: winrate "100.0%" (6ch), scoreLead "-999.9" (6ch),
-   pps a 4-digit packet rate (4ch), latency the SAME "5-digit latency"
-   state the .lyt encoding's own envelope names, i.e. "99999ms" (7ch,
-   the label text itself contributes the "ms" suffix via
-   `metric.latencyValue`'s own `{ms}ms` interpolation, counted here). */
 /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
 .m-val  { color: var(--text-0); font-weight: bold; display: inline-block; text-align: right; }
-.eval-val.winrate-val, .m-val.winrate-val { min-width: 6ch; }
-.eval-val.score-lead-val, .m-val.score-lead-val { min-width: 6ch; }
-.metric-pps .m-val { min-width: 4ch; }
-.metric-latency .m-val { min-width: 7ch; }
-/* Engine-identity slot (VERSION; MODEL's twin rule lives in
-   EngineModelSelect.vue's own scoped style — `<style scoped>` doesn't
-   cascade across component boundaries). `cursor: help` on the value
-   cues the hover tooltip (full probe response). */
-.engine-identity { flex-shrink: 0; }
+/* Overlap fix (ledger row 2372): the compact-badge trigger elements.
+   Both were measured at their real worst-case content width via an
+   isolated static-HTML Playwright probe (`Courier New`/monospace, the
+   theme's real font-size/spacing tokens) BEFORE landing here — see the
+   file header's "Overlap fix" section for the exact numbers and the
+   probe methodology. `min-width`/`max-width` are NOT set here
+   (deliberately): unlike the old inline winrate/pps/latency cells,
+   these compact values are already short and bounded by their own
+   source format (a percentage plus one decimal, a signed one-decimal
+   score, a small integer packet rate) — the worst-case figures in the
+   header comment are the ceiling this format can produce, not an
+   unbounded string that needs an explicit reservation to stay
+   rightward-stable. `cursor: help` cues "hover for the full readout,"
+   replacing the native `title` the pre-fix identity/winrate/scoreLead
+   cells carried individually — one popover now stands in for all of
+   them. */
+.eval-summary, .health-summary { cursor: help; white-space: nowrap; }
+.eval-summary-val, .health-summary-val { white-space: nowrap; }
+/* Health's watchdog dot stays inline (see the template comment) — no
+   width rule needed beyond the shared `.watchdog-dot` one below; it's
+   a single glyph. */
+
+/* ── Popover (queue idiom — EngineQueueTooltip.vue's own `.queue-popover`,
+   duplicated rather than shared: `<style scoped>` doesn't cross
+   component boundaries, and this popover's content shape — labelled
+   rows, not a table — differs enough that sharing would mean threading
+   a slot through a dedicated composable for two call sites, more
+   machinery than the two rows of near-identical CSS it would save). ── */
+.metrics-popover {
+  position: fixed;
+  background: var(--surface-0);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-default);
+  padding: var(--space-tight);
+  z-index: var(--z-popover-chrome);
+  white-space: nowrap;
+  min-width: 200px;
+  font-family: monospace;
+  font-size: var(--text-body);
+  color: var(--text-0);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-tight);
+}
+.popover-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-medium); }
+.popover-row-model { justify-content: flex-start; }
+.popover-lbl { color: var(--border-3); font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-default); }
+.popover-val { color: var(--text-0); font-weight: bold; }
+
 /* Watchdog dot. magic-literal: #00ff88 (green) is the in-codebase
    liveness-OK convention; var(--state-attention) is the
    substrate's red attention anchor. */
@@ -379,5 +504,4 @@ const displayed = useThrottledSnapshot(liveMetrics, TOOLBAR_METRICS_REDRAW_THROT
   from { color: #00ff88; }
   to   { color: var(--state-attention); }
 }
-.engine-version-val, .eval-val { white-space: nowrap; cursor: help; }
 </style>
