@@ -399,6 +399,8 @@
   "toolbar.match":                        "Match",
   "toolbar.stopMatch":                    "Stop Match",
   "toolbar.play":                         "Play",
+  "toolbar.engineControlsMenu":           "Engine",
+  "toolbar.engineControlsMenuTooltip":    "Mint Card(s) / Learn Path / Play / Match / Connect — collapsed into a menu because the toolbar column is too narrow to show all five as buttons.",
   "toolbar.moveNav.first":                "First move",
   "toolbar.moveNav.prev":                 "Previous move",
   "toolbar.moveNav.next":                 "Next move",
