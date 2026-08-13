@@ -135,7 +135,14 @@ import { useEngineControls } from './composables/useEngineControls';
 import { useUserIORegistry } from './composables/useUserIORegistry';
 import { useAuth }           from './composables/auth-app/useAuth';
 import { workspaceIdentityKey } from './composables/auth-app/workspace-identity-key';
-import { getPanelContentPolicy, useDeferredLayoutClass } from './state/layout-model';
+import {
+  getPanelContentPolicy,
+  resolveWidthConditionalPresence,
+  useDeferredLayoutClass,
+  clampTreeWidthForSideColumn,
+  TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+} from './state/layout-model';
+import type { LytTrackShape } from './state/lyt-layout-types';
 import { useDirtyBoardGuard } from './composables/board/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
 import { useWorkspaceRecovery } from './composables/auth-app/useWorkspaceRecovery';
@@ -468,6 +475,7 @@ const {
   effectiveTreePanelWidthPx,
   rowWidthPx,
   rowHeightPx,
+  sideColumnWidthPx,
 } = useResizablePanel();
 
 const layoutClass = useDeferredLayoutClass(rowWidthPx, rowHeightPx);
@@ -521,6 +529,25 @@ function requireWidgetPath(widgetId: string): string {
     );
   }
   return path;
+}
+
+/** Finish-pass wave A completion pass review addendum (2026-08-13,
+ *  `.claude/dispatch-reports/lyt-wA-width-demotion-review.md`, "New
+ *  finding"): fails loudly (ADR-0002) when a widget id the side-column
+ *  tree clamp / width-demotion reservation depends on has no wrapping
+ *  `LytChild.track` in the active compiled program — mirrors
+ *  `requireWidgetPath`'s own contract for the track fact instead of a
+ *  second, per-call-site undefined check. */
+function requireTrack(widgetId: string): LytTrackShape {
+  const track = activeLytProgramIndex.value.trackByWidget[widgetId];
+  if (track === undefined) {
+    throw new Error(
+      `App.vue: no compiled track resolves for widget id "${widgetId}" in the active LYT program ` +
+        `(classId=${JSON.stringify(activeScreenClassId.value)}) — the side-column tree clamp / ` +
+        'width-demotion reservation has nothing to read.',
+    );
+  }
+  return track;
 }
 
 // LYT R1 PART 1 (`.claude/dispatch-reports/lyt-r1-orientation-pathmap.md`,
@@ -604,10 +631,54 @@ const activeLytDomIdByPath = computed<Record<string, string>>(() => {
 // below); `treeControlRegionWidthPx` itself is untouched by a portrait
 // session (never written there), so returning to landscape restores
 // the user's own prior drag exactly.
+// Finish-pass wave A completion pass (2026-08-13 dated section,
+// `.claude/dispatch-reports/lyt-wA-width-demotion.md`): STOP-and-report
+// item 1, the 2560x1440 clip. `effectiveTreePanelWidthPx` (above, from
+// `useResizablePanel.ts`) is the stored-or-viewport-scaled-default tree
+// width, already clamped once against the OUTER bar's own DESIRED region
+// width — but that clamp (`computeTreePanelClampedWidthPx`'s existing
+// small-viewport corrective) reserves `CONTROL_PANEL_MIN_WIDTH_PX`, a
+// model-layer estimate (300px) unrelated to THIS row's real content: the
+// compiled `controlPanel` Exclusive's own track is a FIXED 664px
+// (`lyt-layout*.gen.ts`), not derived from the tab registry at all. A
+// second clamp pass, `clampTreeWidthForSideColumn`
+// (`state/layout-model.ts`), reads the REAL compiled facts off
+// `activeLytProgramIndex.trackByWidget` and the row's own REAL rendered
+// width (`sideColumnWidthPx`, `useResizablePanel.ts`'s second
+// ResizeObserver) — see that function's own header for the full
+// derivation and why it composes with, rather than forks, the existing
+// clamp discipline. Gated by `controlPanelIsPresent` (defined below,
+// forward-referenced the same way `lytPresenceOverrides` already
+// forward-references `controlPanelDemote` in this file): when the panel
+// is width-demoted (or otherwise absent), its 664px track renders 0px
+// regardless of its own declaration, so nothing is reserved against it.
+//
+// 2026-08-13 dated addendum (`.claude/dispatch-reports/
+// lyt-wA-width-demotion-review.md`, "New finding"): the reservation
+// generalizes from `controlPanel` alone to every currently-present
+// fixed-demand row sibling — `previewBoard` (`{ kind: 'fixed', px: 160
+// }`, `demote: null`, toggled independent of `controlPanel`'s own width
+// gate) is the second and, per the compiled program, only other member
+// today. `previewBoardIsPresent` (defined below, same forward-reference
+// shape as `controlPanelIsPresent`) supplies its own presence fact; see
+// `clampTreeWidthForSideColumn`'s own header for the summation.
 const lytTrackStyleOverrides = computed<Record<string, string>>(() => {
   const treePanelPath = requireWidgetPath('tree');
+  const controlPanelTrack = requireTrack('controlPanel');
+  const previewBoardTrack = requireTrack('previewBoard');
+  const treeTrack = requireTrack('tree');
+  const clampedTreePanelWidthPx = clampTreeWidthForSideColumn(
+    effectiveTreePanelWidthPx.value,
+    sideColumnWidthPx.value,
+    [
+      { track: controlPanelTrack, present: controlPanelIsPresent.value },
+      { track: previewBoardTrack, present: previewBoardIsPresent.value },
+    ],
+    treeTrack,
+    TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+  );
   const overrides: Record<string, string> = {
-    [treePanelPath]: `${effectiveTreePanelWidthPx.value}px`,
+    [treePanelPath]: `${clampedTreePanelWidthPx}px`,
   };
   if (activeScreenClassId.value === 'landscape' && effectiveTreeControlRegionWidthPx.value !== undefined) {
     const sideColumnPath = lytParentPath(lytParentPath(treePanelPath));
@@ -677,12 +748,54 @@ function handleLytExclusiveActiveChange(path: string, tabId: string): void {
 // `A_setup` LEAF (trigger included) is mounted at all — ruling row 2108's
 // own "PALETTE ADOPTION" `@toggle(user, release)` intent, finally wired
 // rather than left permanently forced on.
+//
+// Finish-pass wave A (`.claude/dispatch-reports/lyt-wA-width-demotion.md`,
+// F1/F2-partial): `controlPanel`'s own resolved presence is now ALSO
+// width-conditional — the compiled Exclusive's `@demote(h ...)`
+// threshold (`controlPanelDemote` below, read off `activeLytProgramIndex.
+// demoteByWidget`), evaluated against `sideColumnWidthPx`'s own live
+// measurement (`useResizablePanel.ts`'s ResizeObserver on
+// `#tree-control-wrapper`), via the pure `resolveWidthConditionalPresence`
+// (`state/layout-model.ts`). USER SOVEREIGNTY: the "desired" value fed in
+// is still the ordinary persisted-choice-then-class-default chain — width
+// only ever narrows `true` down to `false` when the granted band
+// genuinely cannot hold the panel (F1's own defect: the track was
+// narrower than the panel's own structural floor at every landscape size
+// the finish pass exercised); it never turns a `false` into a `true`. An
+// explicit user 'visible' choice that width cannot currently grant is NOT
+// silently dropped — LytNode.vue's own P2b summon-popover machinery keeps
+// the panel reachable (Teleport into the corner trigger's popover), and
+// `controlPanelForcedAbsent` below (consumed by `<LytPresenceMenu>`)
+// discloses the "wants visible, currently can't" state in the presence
+// menu rather than presenting the checkbox as a silent no-op.
+//
+// 2026-08-13 dated addendum (`.claude/dispatch-reports/
+// lyt-wA-width-demotion-review.md`, "New finding"): the REALIZED fit
+// test must also account for `previewBoard` when it's independently
+// toggled on — `previewBoardPresent` below is computed inline (from
+// `base.previewBoard`, untouched by this function — `previewBoard` has
+// no `@demote` of its own, so nothing in this computed ever reassigns
+// it) rather than reading the `previewBoardIsPresent` computed defined
+// further down, which reads `lytPresenceOverrides.value.previewBoard`
+// itself — a forward read INTO this computed's own output would be
+// circular. Both derivations compute the identical formula
+// (`base.previewBoard ?? lytPresenceClassDefaults.value.previewBoard ??
+// false`) against the same untouched `base.previewBoard`, so the two
+// stay byte-identical without one depending on the other.
 const lytPresenceOverrides = computed<Record<string, boolean>>(() => {
   const presence = store.session.ui.lytPresence;
-  if (store.session.ui.railStyle === 'popover') {
-    return { ...presence, boardRail: false };
-  }
-  return presence;
+  const base: Record<string, boolean> =
+    store.session.ui.railStyle === 'popover' ? { ...presence, boardRail: false } : { ...presence };
+  const desiredControlPanel = base.controlPanel ?? lytPresenceClassDefaults.value.controlPanel ?? true;
+  const previewBoardPresent = base.previewBoard ?? lytPresenceClassDefaults.value.previewBoard ?? false;
+  base.controlPanel = resolveWidthConditionalPresence(
+    sideColumnWidthPx.value,
+    controlPanelDemote.value,
+    desiredControlPanel,
+    [{ track: requireTrack('previewBoard'), present: previewBoardPresent }],
+    TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+  );
+  return base;
 });
 
 // Presence arc P2b item 1: the active screen class's own compiled
@@ -704,6 +817,13 @@ const lytPresenceClassDefaults = computed<Partial<Record<LytPresenceTargetId, bo
   };
 });
 
+// Finish-pass wave A: the `controlPanel` Exclusive's own compiled
+// `@demote` declaration (778px landscape / 808px portrait — P1's derived
+// thresholds), read off the SAME `activeLytProgramIndex` walk every other
+// per-class fact above already reads (ADR-0012 P1) rather than a second,
+// hand-typed literal per class.
+const controlPanelDemote = computed(() => activeLytProgramIndex.value.demoteByWidget.controlPanel ?? null);
+
 // Presence arc P2b item 3 (control-panel popover summon). Whether the
 // control-panel Exclusive resolves PRESENT right now — the SAME formula
 // `LytNode.vue`'s own internal `isPresent` applies
@@ -713,9 +833,43 @@ const lytPresenceClassDefaults = computed<Partial<Record<LytPresenceTargetId, bo
 // expose. Not a second, independently-driftable source of truth — both
 // read the identical `lytPresenceOverrides`/`lytPresenceClassDefaults`
 // facts this file already resolves in one place each (ADR-0012 P1).
+// `lytPresenceOverrides.value.controlPanel` is now ALWAYS width-resolved
+// (never `undefined` — see that computed above), so the `??` fallbacks
+// below are defensive continuity with the pre-wave formula, not a live
+// path.
 const controlPanelIsPresent = computed<boolean>(
   () => lytPresenceOverrides.value.controlPanel ?? lytPresenceClassDefaults.value.controlPanel ?? true,
 );
+
+// 2026-08-13 dated addendum (`.claude/dispatch-reports/
+// lyt-wA-width-demotion-review.md`, "New finding"): `previewBoard`'s own
+// resolved presence, same formula/shape as `controlPanelIsPresent` above
+// (LytNode.vue's own `presenceOverrides[id] ?? child.presenceDefaultVisible`)
+// — consumed by `lytTrackStyleOverrides`'s generalized reservation
+// (`clampTreeWidthForSideColumn`) so the tree clamp knows whether
+// `previewBoard`'s own 160px fixed track is currently standing beside
+// it. `previewBoard` has no `@demote` of its own (module header,
+// `lytPresenceOverrides`'s own dated addendum), so
+// `lytPresenceOverrides.value.previewBoard` is always the raw
+// persisted-or-default choice, never width-narrowed.
+const previewBoardIsPresent = computed<boolean>(
+  () => lytPresenceOverrides.value.previewBoard ?? lytPresenceClassDefaults.value.previewBoard ?? false,
+);
+
+// Finish-pass wave A: disclosed in `<LytPresenceMenu>` (F1's "USER
+// SOVEREIGNTY" clause) — true exactly when the user's own persisted-or-
+// class-default choice for `controlPanel` is "visible" but the width
+// evaluator above demoted it anyway. Read by the presence menu to show a
+// hint instead of presenting the checkbox as a silent no-op; the
+// checkbox itself stays enabled (toggling the underlying preference is
+// still meaningful — it takes effect the instant width allows).
+const controlPanelForcedAbsent = computed<boolean>(() => {
+  const desired = store.session.ui.lytPresence.controlPanel ?? lytPresenceClassDefaults.value.controlPanel ?? true;
+  return desired && !controlPanelIsPresent.value;
+});
+const lytPresenceForcedAbsent = computed<Partial<Record<LytPresenceTargetId, boolean>>>(() => ({
+  controlPanel: controlPanelForcedAbsent.value,
+}));
 
 // ── Control-panel popover summon (P2b item 3) ───────────────────────────
 // Session-local (never persisted — "Dismissal restores the demoted
@@ -1416,7 +1570,7 @@ const activeTab = computed<string>({
               :style="{ transform: `translateX(${controlPanelPopoverXShift}px)` }"
             ></div>
           </div>
-          <LytPresenceMenu :class-defaults="lytPresenceClassDefaults" />
+          <LytPresenceMenu :class-defaults="lytPresenceClassDefaults" :forced-absent="lytPresenceForcedAbsent" />
           <SystemLogToggle />
         </div>
       </template>

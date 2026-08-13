@@ -582,17 +582,62 @@ export function useResizablePanel() {
     return true;
   }
 
+  // Finish-pass wave A (`.claude/dispatch-reports/lyt-wA-width-
+  // demotion.md`, F1/F2-partial): `#tree-control-wrapper`'s own live
+  // width — the tree/panels/preview row, i.e. the SAME rectangle the
+  // side column's `board-priority-clamp` grid track resolves to (the
+  // row's V-parent stacks its children full-width, so this element's
+  // width IS the side column's rendered width, whether that came from
+  // the compiled CSS calc or a resizer-drag override — a genuine DOM
+  // measurement is the only way to know the TRUE rendered figure either
+  // way). Consumed by `state/layout-model.ts`'s
+  // `resolveWidthConditionalPresence` to evaluate the `controlPanel`
+  // Exclusive's own compiled `@demote(h ...)` threshold against reality,
+  // rather than trusting an un-measured CSS formula to already agree
+  // with the model's own structural floor (the finish-pass F1 gap: it
+  // didn't, at every landscape size the pass exercised). A SECOND
+  // observer, deliberately (ADR-0010's "one observer per measured
+  // element" — this is a DIFFERENT element than `#split-workspace`),
+  // co-located here (not a separate composable) because it needs the
+  // exact same two-phase cold-load-gate attach `rowObserver` above
+  // already implements, and duplicating that watch/onMounted machinery
+  // in a second file would be the ADR-0012 P1 violation this composable
+  // exists to avoid for the sibling case.
+  const sideColumnWidthPx = ref(0);
+  let wrapperObserver: ResizeObserver | null = null;
+
+  function measureWrapperWidth() {
+    const wrapper = document.getElementById('tree-control-wrapper');
+    if (!wrapper) return;
+    sideColumnWidthPx.value = Math.round(wrapper.getBoundingClientRect().width);
+  }
+
+  function attachWrapperObserver(): boolean {
+    const wrapper = document.getElementById('tree-control-wrapper');
+    if (!wrapper) return false;
+    measureWrapperWidth();
+    if (typeof ResizeObserver !== 'undefined' && wrapperObserver === null) {
+      wrapperObserver = new ResizeObserver(measureWrapperWidth);
+      wrapperObserver.observe(wrapper);
+    }
+    return true;
+  }
+
   onMounted(() => {
-    if (attachRowObserver()) return;
-    // Element not in the DOM yet (cold-load gate): attach one tick
-    // after the workspace actually renders. The watcher stops itself
-    // once attached; onUnmounted's disconnect handles the observer.
+    const rowAttached = attachRowObserver();
+    const wrapperAttached = attachWrapperObserver();
+    if (rowAttached && wrapperAttached) return;
+    // Either element not in the DOM yet (cold-load gate): attach one
+    // tick after the workspace actually renders, same as the row
+    // observer's own precedent above. The watcher stops itself once
+    // BOTH are attached; onUnmounted's disconnect handles both
+    // observers.
     const stopWatch = watch(
       () => store.workspaceLoadState.kind,
       (kind) => {
         if (kind !== 'loaded') return;
         void nextTick(() => {
-          if (attachRowObserver()) stopWatch();
+          if (attachRowObserver() && attachWrapperObserver()) stopWatch();
         });
       },
       { immediate: true },
@@ -602,6 +647,8 @@ export function useResizablePanel() {
   onUnmounted(() => {
     rowObserver?.disconnect();
     rowObserver = null;
+    wrapperObserver?.disconnect();
+    wrapperObserver = null;
   });
 
   const effectiveTreeControlRegionWidthPx = computed(() => {
@@ -758,5 +805,9 @@ export function useResizablePanel() {
     // element).
     rowWidthPx,
     rowHeightPx,
+    // Finish-pass wave A: `#tree-control-wrapper`'s own live width — see
+    // this file's header comment at its own ResizeObserver above for the
+    // full derivation.
+    sideColumnWidthPx,
   };
 }

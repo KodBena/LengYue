@@ -19,6 +19,7 @@
   "app.chrome.presence.previewBoard":            "미리보기 보드",
   "app.chrome.presence.controlPanel":            "컨트롤 패널",
   "app.chrome.presence.guardTooltip":            "최소 하나의 패널은 항상 표시되어야 합니다",
+  "app.chrome.presence.widthDemotedHint":        "[TODO] Not enough width right now — reachable via the summon button",
   "app.chrome.presence.railStyleLabel":          "보드 레일 표시 방식",
   "app.chrome.presence.railStyleSlot":           "고정 패널",
   "app.chrome.presence.railStylePopover":        "팝오버",
