@@ -25,6 +25,8 @@
   "app.chrome.presence.railPopoverButton":       "ボードレール",
   "app.chrome.presence.boardRailPopoverStyleHint": "ボードレールはポップオーバーボタンから表示されます — ここで切り替えるには表示方式を「常設パネル」に変更してください",
   "app.chrome.presence.previewBoardEmpty":       "アクティブなボードがありません",
+  "app.chrome.presence.resetLayoutButton":       "[TODO] Default layout",
+  "app.chrome.presence.resetLayoutTitle":        "[TODO] Reset dragged tree/control panel widths back to the computed default for this window size",
 
   "app.workspace.loading":                "ワークスペースを読み込み中…",
   "app.workspace.loadFailed":             "ワークスペースの読み込みに失敗しました。変更や損失はありません。",

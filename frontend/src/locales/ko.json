@@ -25,6 +25,8 @@
   "app.chrome.presence.railPopoverButton":       "보드 레일",
   "app.chrome.presence.boardRailPopoverStyleHint": "보드 레일은 팝오버 버튼을 통해 표시됩니다 — 여기서 전환하려면 표시 방식을 \"고정 패널\"로 변경하세요",
   "app.chrome.presence.previewBoardEmpty":       "활성 보드 없음",
+  "app.chrome.presence.resetLayoutButton":       "[TODO] Default layout",
+  "app.chrome.presence.resetLayoutTitle":        "[TODO] Reset dragged tree/control panel widths back to the computed default for this window size",
 
   "app.workspace.loading":                "작업 공간 불러오는 중…",
   "app.workspace.loadFailed":             "작업 공간을 불러오지 못했습니다. 변경되거나 손실된 내용은 없습니다.",

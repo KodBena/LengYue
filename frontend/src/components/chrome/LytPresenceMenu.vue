@@ -59,6 +59,20 @@
   toggling still writes the real preference, it just doesn't render until
   width allows.
 
+  "Default layout" (commission, ledger row 2379): a third divider +
+  button below the rail-style selector — `useLytPresenceMenu.ts`'s own
+  `resetLayout()`, a plain re-export of `resetLayoutOverrides`
+  (`useResizablePanel.ts`, the one home for which `session.ui` cells are
+  draggable-geometry overrides vs. presence). Placed LAST (below the
+  toggles and the rail-style selector, its own divider) — this is a
+  broader-scoped action than either of those two option groups, so it
+  reads as "the popover's own closing action" rather than being
+  interleaved with per-target controls. No confirmation dialog: the
+  action is symmetric with a drag (a single, immediately-visible geometry
+  change, not a destructive data loss — nothing is deleted, only two
+  numeric overrides revert to their live-computed default), matching the
+  presence checkboxes' own no-confirmation precedent one row up.
+
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
@@ -82,7 +96,7 @@ const props = defineProps<{
 const { t } = useI18n();
 const classDefaultsRef = computed(() => props.classDefaults ?? {});
 const forcedAbsentRef = computed(() => props.forcedAbsent ?? {});
-const { open, toggleMenu, closeMenu, targets, toggle, railStyle, setRailStyle } = useLytPresenceMenu({
+const { open, toggleMenu, closeMenu, targets, toggle, railStyle, setRailStyle, resetLayout } = useLytPresenceMenu({
   classDefaults: classDefaultsRef,
   forcedAbsent: forcedAbsentRef,
 });
@@ -204,6 +218,17 @@ const popoverId = 'lyt-presence-popover';
           <option value="popover">{{ $t('app.chrome.presence.railStylePopover') }}</option>
         </select>
       </div>
+
+      <div class="lyt-presence-divider" role="separator"></div>
+
+      <button
+        type="button"
+        class="lyt-presence-reset-layout"
+        :title="$t('app.chrome.presence.resetLayoutTitle')"
+        @click="resetLayout"
+      >
+        {{ $t('app.chrome.presence.resetLayoutButton') }}
+      </button>
     </div>
   </div>
 </template>
@@ -308,4 +333,21 @@ const popoverId = 'lyt-presence-popover';
   height: 24px;
   padding: 0 var(--space-tight);
 }
+
+/* "Default layout" (commission, ledger row 2379) — a plain full-width
+   button matching the popover's own opaque/flat chrome idiom (no
+   box-shadow/transition/blur, per the standing style bans; --surface-0/
+   --text-0 per the max-contrast rule). */
+.lyt-presence-reset-layout {
+  background: var(--surface-0);
+  border: 1px solid var(--border-2);
+  color: var(--text-0);
+  border-radius: var(--radius-default);
+  height: 24px;
+  padding: 0 var(--space-default);
+  font-size: var(--text-body);
+  cursor: pointer;
+  width: 100%;
+}
+.lyt-presence-reset-layout:hover { border-color: var(--border-3); }
 </style>

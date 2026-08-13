@@ -643,7 +643,15 @@ the shape.
   own), and one between the game-tree panel and the control panel
   (both screen classes). Drags persist across sessions. The Cards
   tab's own tree-forest resizer (inside Browse mode) is a separate,
-  unrelated control.
+  unrelated control. A **"Default layout"** button at the bottom of
+  the corner presence menu (below) clears both drags in one click,
+  returning each resized region to the size the app would compute
+  fresh for the current window — not a remembered factory pixel
+  value, so the result can differ before and after a window resize.
+  It only touches these two drag facts; which panels are shown or
+  hidden is untouched. At a narrow/short window where a panel would
+  already be hidden for lack of room, it stays hidden after the
+  reset — that's the correct outcome, not a partial reset.
 
 - **Toolbar organisation.** Two purposed clusters sit in the side
   column (landscape) or the top strip (portrait): an **engine
@@ -673,7 +681,12 @@ the shape.
   a wide window and unchecked on a narrow/tall one (repetition-
   first: a narrow window prioritises the board and game tree), and
   a user's own choice, once made, always wins over that starting
-  point and is remembered across sessions.
+  point and is remembered across sessions. The same popover's
+  "Default layout" button (see "Resizers" above) lives at the
+  bottom, below the panel checkboxes and the rail-style selector —
+  this menu is the one existing chrome surface that already gathers
+  layout-shaping controls, so the reset action joins it rather than
+  opening a second menu.
 
 - **Tabs.** The control panel hosts five named tabs: Library (the
   SGF repository above), Cards (the primary study surface above),

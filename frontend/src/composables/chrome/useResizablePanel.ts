@@ -391,6 +391,51 @@ export function sanitizeTreeControlRegionWidthPx(
 }
 
 /**
+ * "Default layout" (commission, ledger row 2379): clears BOTH persisted
+ * layout-override cells this file owns — `treeControlRegionWidthPx`
+ * (OUTER bar) and `treePanelWidthPx` (INNER bar) — back to `undefined`.
+ * `undefined` is not a magic sentinel invented here; it is the exact
+ * "never dragged" state `effectiveTreeControlRegionWidthPx` /
+ * `effectiveTreePanelWidthPx` (below, inside `useResizablePanel()`)
+ * already know how to resolve — the SAME stored-or-default precedence a
+ * drag start/stop already exercises, just landing on the DEFAULT branch
+ * instead of a stored value. Because that precedence is reactive and
+ * reads the row's CURRENT live width (`rowWidthPx`), the very next
+ * render recomputes `computeTreeControlRegionDefaultWidthPx(rowWidthPx)`
+ * / `computeTreePanelDefaultWidthPx(rowWidthPx)` for whatever the
+ * viewport is RIGHT NOW — not a remembered "factory" pixel value. If the
+ * current width demotes a sibling (e.g. `controlPanel` width-demoted
+ * per `resolveWidthConditionalPresence`), the recomputed default
+ * reflects that too (`resolveTreeRowWidthPx` already accounts for which
+ * fixed-demand siblings are actually present) — the panel staying
+ * demoted after a reset at a narrow width is therefore CORRECT, not a
+ * partial reset.
+ *
+ * Not a THIRD writer in the ADR-0012 one-home-per-fact sense: the two
+ * `effective*` computeds remain the single home for what's actually
+ * RENDERED; this function only clears the STORED override half of that
+ * precedence — exactly what an explicit "forget my drags" user action
+ * means. It composes with the existing single-channel discipline (this
+ * file's own header, "the tree pane's width changes through EXACTLY
+ * that one channel") the same way a drag's own write does: a
+ * deliberate, user-initiated write, never an automatic derivation.
+ *
+ * These two fields are the FULL enumeration of persisted layout-override
+ * cells in `session.ui` — verified against `store/schema.ts` (the only
+ * two `Px`-suffixed optional fields on that interface; `pvAnimation`,
+ * `overlayLayers`, etc. are content settings, not draggable geometry).
+ * Presence toggles (`lytPresence`, `railStyle`) are a DIFFERENT axis —
+ * which panels are SHOWN, not how wide a shown panel is — and are
+ * deliberately untouched here; the commission's own ruling draws
+ * exactly this line ("geometry, not presence").
+ */
+export function resetLayoutOverrides(): void {
+  store.session.ui.treeControlRegionWidthPx = undefined;
+  store.session.ui.treePanelWidthPx = undefined;
+  touchSession();
+}
+
+/**
  * Board-area width cap (see this file's header, "Board-area width
  * cap"). `#board-square`'s width is derived from its own HEIGHT
  * (`aspect-ratio: 1/1`); that height is `#board-area`'s own height
