@@ -222,7 +222,9 @@
 --     A_engine_queue)` replacing the bare `A_engine[go, action+info]`
 --     leaf, SAME `{60px, envelope: {disconnected, connected}}` height
 --     reservation on the wrapping `H(...)`, SAME undetermined per-group
---     width floor, filed the same frontier item). `activity sustained`
+--     width floor, filed the same frontier item -- `A_engine_controls`'
+--     own share of that frontier item is now closed, see the ENGINE-
+--     CONTROLS WIDTH FLOOR item near the end of this header). `activity sustained`
 --     is RETIRED from this position the same way -- `A_engine` was the
 --     ONE OTHER direct leaf child of the root `V(...)` this file's own
 --     header note immediately above names as needing the band-wide
@@ -422,6 +424,31 @@
 --     scope (the side column's real per-widget wrap behavior at ITS OWN
 --     widths was not independently re-measured, and re-deriving it is
 --     out of this pass's named scope, F3+F4 portrait-only).
+--
+--   - ENGINE-CONTROLS WIDTH FLOOR (2026-08-13, frontier item B2b closed,
+--     `.claude/dispatch-reports/lyt-wB2-controls-menu.md`). SAME `min
+--     185px` this class's own item (1) above flags as now-closed --
+--     `ToolbarEngineControls.vue` is the SAME component in both classes,
+--     so wave W-B2's live measurement (Playwright, real component,
+--     worst-case label variants: Mint Card(s) 105.625px / Learn Path
+--     90.015625px / Play 43.21875px / Stop Match 90.015625px /
+--     Disconnect 90.015625px, `--space-tight` 4px between, 24px
+--     `.toolbar-btn` row height) and its own arithmetic (last-two-items
+--     row `90.015625 + 4 + 90.015625 = 184.03125px`, ceiled to the
+--     integer-CP-SAT-safe `185px`) are NOT re-derived here -- see
+--     `lengyue_landscape.lyt`'s own ENGINE-CONTROLS WIDTH FLOOR item for
+--     the full derivation, the L12/L16 legality discussion (both
+--     inapplicable at this SAME split-child position; plain `min` is the
+--     legal, solver-visible construct), and the feasibility re-solve.
+--     FEASIBILITY HERE IS EVEN LESS CONSTRAINED than landscape's own side
+--     column: this row's parent is the PORTRAIT ROOT's own `V(...)`,
+--     cross-filled to the FULL device width (§2) -- `185px + 3*4px gap =
+--     197px` against a narrowest representative width of `420px`
+--     (`coverage_matrix.PORTRAIT_SIZES`), comfortable headroom re-solved
+--     directly, not merely reasoned about (every point OPTIMAL before
+--     this edit stays OPTIMAL after). The other three groups (eval/
+--     health/queue) are unaffected, same disclosed stage-3
+--     reach-preferred gap named in the landscape item.
 layout lengyue-portrait =
   {min 0px, pref 1fr, max inf, gap 12px} V(
     @toggle(user, release) {min 168px, pref 168px, max 168px, activity occasional} boardRail[common, info+action],
@@ -433,7 +460,7 @@ layout lengyue-portrait =
       {28px} A_board[board, action]
     ),
     {80px, envelope: {disconnected, connected}, gap 4px} H(
-      {pref 1fr, content bounded} A_engine_controls[go, action],
+      {min 185px, pref 1fr, content bounded} A_engine_controls[go, action],
       {pref 1fr, content bounded} A_engine_eval[go, info],
       {pref 1fr, content bounded} A_engine_health[go, info],
       {pref 1fr, content bounded} A_engine_queue[go, info]

@@ -1305,6 +1305,117 @@
 --     control panel stands by default at every landscape size this
 --     repository's own representative-size tables check (all comfortably
 --     above 778px).
+--
+--   - ENGINE-CONTROLS WIDTH FLOOR (2026-08-13, frontier item B2b closed,
+--     `.claude/dispatch-reports/lyt-wB2-controls-menu.md`, wave W-B2's own
+--     live measurement). The ENGINE-ROW HEIGHT RE-GROUNDING item above
+--     (item (4)) fixed this row's shared HEIGHT (60px -> 80px) against
+--     `A_engine_controls`' own measured 3-row need; it left every one of
+--     the four groups' own WIDTH at the loader's `0px` default,
+--     "DELIBERATELY NOT AUTHORED" per item (1)'s own disclosure above,
+--     pending a live per-group measurement pass. That pass has now run
+--     for `A_engine_controls` specifically (the other three -- eval/
+--     health/queue -- remain UNEXERCISED, unchanged by this item, per
+--     that same disclosure's own "per-group demand grounding is the
+--     honest remaining gap").
+--
+--     THE THRESHOLD, ARITHMETIC, NOT A GUESS (row 2047's own "a decision
+--     posed in pixels is a defect" discipline still applies to how this
+--     number is REACHED, not to whether the sizing bag itself is
+--     numeric -- LYT's own `min`/`pref`/`max` triple is inherently px;
+--     what row 2047 forbids is presenting or picking among CANDIDATES in
+--     px terms, not authoring a derived px fact once a single arithmetic
+--     path leads to it). Wave W-B2 live-measured `.engine-controls`' own
+--     five buttons at their WORST-CASE label variants (Playwright, real
+--     `ToolbarEngineControls.vue`, isolated rig): Mint Card(s) 105.625px,
+--     Learn Path 90.015625px, Play 43.21875px, Match/**Stop Match**
+--     90.015625px (the wider of the two), Connect/**Disconnect**
+--     90.015625px (the wider of the two) -- with `--space-tight` (4px)
+--     between buttons and the SAME 24px `.toolbar-btn` row height this
+--     file's own item (4) above already measured and reserves. Greedy
+--     sequential flex-wrap (CSS Flexbox 9.3's own line-assignment,
+--     cross-checked against live-measured row counts at three widths)
+--     over those worst-case widths finds the EXACT column width where 4
+--     rows (108px+, clipping this row's own 80px reservation) collapses
+--     to 3 (80px, exact fit): the last two items' own row,
+--     `90.015625 + 4 + 90.015625 = 184.03125px` -- below that column
+--     width the cluster needs a 4th row; at or above it, 3 rows suffice.
+--     `184.03125px` is therefore the exact width this leaf must never be
+--     granted less than for its already-reserved 80px row height to stay
+--     honest. `compiler.py` declares INTEGER `(w,h)` CP-SAT variables
+--     (SPEC.md 8's own "Decision variables" line) -- a `min 184px`
+--     floor would let the solver legally choose exactly 184px, 0.03125px
+--     short of the real breakpoint, so the floor is the CEILING of the
+--     exact threshold, `185px`, not the truncation the measurement
+--     report's own prose citation uses.
+--
+--     NO MARGIN ADDED ON TOP -- the SAME "exact multi-point-agreeing
+--     constant needs no interpolation margin" posture the MEASUREMENT-
+--     GROUNDED ENCODING PASS item's own `A_setup` correction above
+--     established ("not a single-pinned-size sweep-maximum needing this
+--     file's own separate `+~10px margin` posture... there is no such
+--     gap here"). `184.03125px` is a closed-form geometric fact (a sum
+--     of independently-measured constants), not a sample between which
+--     an unmeasured gap could hide -- the file's own margin posture
+--     exists for THAT gap specifically, which does not exist here. Only
+--     the integer-px rounding above applies.
+--
+--     WHY PLAIN `min`, NOT `min <axis>`/L12 OR `floor <axis>`/L16 (SPEC.md
+--     16, read in full before this edit). `A_engine_controls` is a direct
+--     child of the `H(...)` this comment's own row wraps -- an ordinary
+--     SPLIT-CHILD position, not the root and not a direct child of an
+--     Exclusive/T node. `min <axis>` (L12) is legal ONLY at that
+--     both-axes position (`wellformed.find_l12_violations`'s own
+--     structural refusal fires everywhere else, `loader._load_axis_mins`'
+--     docstring states the same restriction from the load-time side) --
+--     illegal here by construction, not merely inadvisable. `floor
+--     <axis>` (L16) is LEAF-legal anywhere, but its own trigger (clause
+--     (a), `wellformed.find_l16_violations`) is scoped to a leaf that has
+--     ALREADY claimed `content unbounded` plus `elastic <axis>` plus
+--     `scroll <axis>` -- i.e. a leaf that reasoned about having too MUCH
+--     room and needs to also reason about too LITTLE. `A_engine_controls`
+--     declares `content bounded` (a fixed five-button vocabulary, never
+--     `elastic`, never `scroll`) -- L16's own narrative does not describe
+--     this leaf, and (per `find_l16_violations`' own docstring) `floor`
+--     is SOLVER-INERT regardless ("compiler.py never reads floor_axes...
+--     what is NOT inert is the reservation clause (b) obliges... an
+--     ordinary `min`") -- declaring it here would add words the
+--     CP-SAT model never reads, not a real floor. The BASE grammar's
+--     plain `min <extent>` key, which every Split child already carries
+--     for its own along-axis (SPEC.md 4, the un-amended base sizing
+--     production) IS the legal, solver-visible construct at this
+--     position -- no STOP-and-report needed, since a legal construct
+--     genuinely exists; it simply predates Amendment 8 rather than
+--     belonging to it.
+--
+--     FEASIBILITY, RE-SOLVED, NOT ASSUMED. `min 185px` raises this row's
+--     own hard floor sum (185 + 0 + 0 + 0 + 3*4px gap = 197px) against
+--     the side column's own `min 345px` -- comfortably inside it at every
+--     representative point this file's own `coverage_matrix.py` checks
+--     (landscape: 1920x1080, 2560x1440, 1280x1024; portrait: all five
+--     `PORTRAIT_SIZES`, where this row's own parent is the PORTRAIT
+--     ROOT's `V(...)`, cross-filled to the FULL device width -- 420px at
+--     the narrowest representative point, 197px well inside it). Re-
+--     solved directly (not merely reasoned about): every point OPTIMAL
+--     before this edit stays OPTIMAL after; landscape 1280x1024 was
+--     ALREADY `INFEASIBLE` before this edit, for the presence-independent
+--     board/tree-row collision SPEC.md 11/12 already document (unrelated
+--     to the engine row entirely) -- unchanged, not newly caused. The
+--     OTHER three groups (eval/health/queue) are UNAFFECTED in either
+--     direction: both before and after this edit they solve to `0px` at
+--     every representative point, a PRE-EXISTING, disclosed gap in this
+--     model's own stage-3 objective (`runner._gather_reach_preferred_
+--     widgets` only auto-enrolls plain-`px`-`pref` leaves into the
+--     reach-preferred stage -- an `fr`-`pref` leaf like these three has
+--     no stage rewarding it for reaching any particular share, so the
+--     solver is free to leave it at its own `0px` floor whenever ANY
+--     feasible partition exists, which the real CSS Grid realization's
+--     OWN `1fr`-track semantics (SPEC.md 10) does NOT reproduce -- CSS
+--     Grid genuinely splits `1fr` tracks evenly). This solver/realization
+--     divergence PRE-DATES this edit (verified: the three groups already
+--     solved to `0px` before `A_engine_controls` gained a floor) and is
+--     out of THIS item's own scope to close -- named, not silently
+--     inherited.
 layout lengyue-landscape =
   {min 0px, pref 1fr, max inf, gap 12px} H(
     @toggle(user, release) {min 168px, pref 168px, max 168px} boardRail[common, info+action],
@@ -1315,7 +1426,7 @@ layout lengyue-landscape =
     ),
     {min 345px, pref 32fr, max 340px+60ch, gap 4px} V(
       {80px, envelope: {disconnected, connected}, gap 4px} H(
-        {pref 1fr, content bounded} A_engine_controls[go, action],
+        {min 185px, pref 1fr, content bounded} A_engine_controls[go, action],
         {pref 1fr, content bounded} A_engine_eval[go, info],
         {pref 1fr, content bounded} A_engine_health[go, info],
         {pref 1fr, content bounded} A_engine_queue[go, info]
