@@ -1,9 +1,11 @@
 {
-  "_comment": "research/lyt/facts.residue.json -- LYT relations-first amendment, dispatch A (ledger rows 2396/2397/2399/2400, ruling 5; governing spec `.claude/dispatch-reports/lyt-relations-amendment-spec.md` §4/§5/§6 open question 5). AUTHORED, not generated -- transcribed by hand from the clean-room encodings' own disclosures, each entry's basis paraphrasing or quoting the encoding's own prose. Every entry here is a RESIDUE-CANDIDATE per the governing spec's census (§1): a number no relation in this language's current primitive inventory can derive, because the component genuinely has no intrinsic size to probe (a readability judgment) or because the underlying floor is an inherited, never re-derived sentinel. License: Public Domain (The Unlicense), matching research/lyt/__init__.py's license line and the umbrella's ADR-0006 per-file convention.",
+  "_comment": "research/lyt/facts.residue.json -- LYT relations-first amendment, dispatch A (ledger rows 2396/2397/2399/2400, ruling 5; governing spec `.claude/dispatch-reports/lyt-relations-amendment-spec.md` §4/§5/§6 open question 5). AUTHORED, not generated -- transcribed by hand from the clean-room encodings' own disclosures, each entry's basis paraphrasing or quoting the encoding's own prose. Every entry here is a RESIDUE-CANDIDATE per the governing spec's census (§1): a number no relation in this language's current primitive inventory can derive, because the component genuinely has no intrinsic size to probe (a readability judgment) or because the underlying floor is an inherited, never re-derived sentinel. License: Public Domain (The Unlicense), matching research/lyt/__init__.py's license line and the umbrella's ADR-0006 per-file convention. [Fields added 2026-08-13, dispatch B follow-up fix (fresh-context review `lyt-relations-b-review.md` §5): every entry below now carries explicit `widget_ids` (a list, matching facts.generated.json's own '+'-joined multi-widget shape for the six SP_* leaves), `method` (uniformly `read-constant` -- a residue value is, by construction, a documented estimate/constant a human read off a note or a component's own disclosure, never a live playwright probe, so `read-constant`'s own axis-agnostic, source-agnostic lookup shape is the honest fit among the nine primitives, not a repurposing of a mismatched one), and, where landscape/portrait values genuinely differ, `variant`. These are ADDITIVE -- every pre-existing field (`key`, `component`, `value_px`, `axis`, `status`, `basis`) is unchanged; `key` stays the original human-readable descriptive string, now purely documentation, since `widget_ids`/`method`/`variant` are what relations.py's FactsTable.load actually binds to (dispatch A review's own 'bind to the fields, never parse the key string' instruction, now honored for THIS file too, not only facts.generated.json's). Three entries (`side_column_max_cap_340px_component`, `loader.PX_PER_CH`, `WRAPPER_MIN_sentinel`) have no real LYT tree widget to attach to at all (a Split node's own max cap, and two loader-internal constants) -- their `widget_ids` are disclosed SYNTHETIC handles (`sideColumnMaxCap`, `PX_PER_CH`, `WRAPPER_MIN`), not names drawn from any encoding's own census, named as such here rather than left to be discovered as a surprise.]",
   "status": "draft, pending commissioner ratification",
   "entries": [
     {
       "key": "AT_basic_scoreLead",
+      "widget_ids": ["AT_basic_scoreLead"],
+      "method": "read-constant",
       "component": "frontend/src/components/charts/ScoreLeadPanel.vue",
       "value_px": 200,
       "axis": "v",
@@ -12,6 +14,8 @@
     },
     {
       "key": "AT_basic_mergedDelta",
+      "widget_ids": ["AT_basic_mergedDelta"],
+      "method": "read-constant",
       "component": "frontend/src/components/charts/MergedDeltaPanel.vue",
       "value_px": 200,
       "axis": "v",
@@ -20,6 +24,8 @@
     },
     {
       "key": "AT_dist_deltaDist",
+      "widget_ids": ["AT_dist_deltaDist"],
+      "method": "read-constant",
       "component": "frontend/src/components/charts/DeltaDistributionPanel.vue",
       "value_px": 200,
       "axis": "v",
@@ -28,6 +34,8 @@
     },
     {
       "key": "AT_dist_mistakeGap",
+      "widget_ids": ["AT_dist_mistakeGap"],
+      "method": "read-constant",
       "component": "frontend/src/components/charts/MistakeGapPanel.vue",
       "value_px": 200,
       "axis": "v",
@@ -36,6 +44,8 @@
     },
     {
       "key": "AT_stab_stability",
+      "widget_ids": ["AT_stab_stability"],
+      "method": "read-constant",
       "component": "frontend/src/components/charts/StabilityPanel.vue",
       "value_px": 200,
       "axis": "v",
@@ -44,6 +54,8 @@
     },
     {
       "key": "AT_stab_crossCorr",
+      "widget_ids": ["AT_stab_crossCorr"],
+      "method": "read-constant",
       "component": "frontend/src/components/charts/StabilityCrossCorrelationPanel.vue",
       "value_px": 200,
       "axis": "v",
@@ -52,6 +64,8 @@
     },
     {
       "key": "AT_basic_interval",
+      "widget_ids": ["AT_basic_interval"],
+      "method": "read-constant",
       "component": "frontend/src/components/charts/IntervalSummaryPanel.vue",
       "value_px": 90,
       "axis": "v",
@@ -60,6 +74,9 @@
     },
     {
       "key": "CP-library_min (landscape)",
+      "widget_ids": ["CP-library"],
+      "method": "read-constant",
+      "variant": "landscape",
       "component": "n/a -- WRAPPER_MIN-analog historical convention, loader.WRAPPER_MIN_PX (300px) narrowed",
       "value_px": 160,
       "axis": "h+v",
@@ -68,6 +85,9 @@
     },
     {
       "key": "CP-cards_min (landscape)",
+      "widget_ids": ["CP-cards"],
+      "method": "read-constant",
+      "variant": "landscape",
       "component": "n/a -- same WRAPPER_MIN-analog convention as CP-library",
       "value_px": 160,
       "axis": "h+v",
@@ -76,6 +96,9 @@
     },
     {
       "key": "CP-library_min (portrait)",
+      "widget_ids": ["CP-library"],
+      "method": "read-constant",
+      "variant": "portrait",
       "component": "n/a -- WRAPPER_MIN-analog historical convention",
       "value_px": 200,
       "axis": "h+v",
@@ -84,6 +107,9 @@
     },
     {
       "key": "CP-cards_min (portrait)",
+      "widget_ids": ["CP-cards"],
+      "method": "read-constant",
+      "variant": "portrait",
       "component": "n/a -- same convention as CP-library_min (portrait)",
       "value_px": 200,
       "axis": "h+v",
@@ -92,6 +118,9 @@
     },
     {
       "key": "SP_session, SP_analysisEnv, SP_cardSets, SP_advancedRegistry, SP_analysis, SP_keybindings_min (landscape)",
+      "widget_ids": ["SP_session", "SP_analysisEnv", "SP_cardSets", "SP_advancedRegistry", "SP_analysis", "SP_keybindings"],
+      "method": "read-constant",
+      "variant": "landscape",
       "component": "n/a -- six settingsPane sub-tab leaves, per-leaf min",
       "value_px": 160,
       "axis": "h+v",
@@ -100,6 +129,9 @@
     },
     {
       "key": "SP_session, SP_analysisEnv, SP_cardSets, SP_advancedRegistry, SP_analysis, SP_keybindings_min (portrait)",
+      "widget_ids": ["SP_session", "SP_analysisEnv", "SP_cardSets", "SP_advancedRegistry", "SP_analysis", "SP_keybindings"],
+      "method": "read-constant",
+      "variant": "portrait",
       "component": "n/a -- six settingsPane sub-tab leaves, per-leaf min",
       "value_px": 200,
       "axis": "h+v",
@@ -108,6 +140,9 @@
     },
     {
       "key": "otherBand_min (landscape)",
+      "widget_ids": ["otherBand"],
+      "method": "read-constant",
+      "variant": "landscape",
       "component": "n/a -- same WRAPPER_MIN-analog class as CP-library/CP-cards",
       "value_px": 160,
       "axis": "h+v",
@@ -116,6 +151,9 @@
     },
     {
       "key": "otherBand_min (portrait)",
+      "widget_ids": ["otherBand"],
+      "method": "read-constant",
+      "variant": "portrait",
       "component": "n/a -- same class",
       "value_px": 200,
       "axis": "h+v",
@@ -124,22 +162,30 @@
     },
     {
       "key": "side_column_max_cap_340px_component (landscape)",
+      "widget_ids": ["sideColumnMaxCap"],
+      "method": "read-constant",
+      "variant": "landscape",
       "component": "n/a -- inherited design ceiling, no component to probe",
       "value_px": 340,
       "axis": "h",
       "status": "estimated",
-      "basis": "no grounding derivation found anywhere in this repository -- 'appears to be an inherited design ceiling from the original consult document's own worked example... not re-derived against any live component' (governing spec §1.4). See SPEC-AMENDMENTS.md's new 'Residual items' section, R1, for the full open-item writeup this dispatch files."
+      "basis": "no grounding derivation found anywhere in this repository -- 'appears to be an inherited design ceiling from the original consult document's own worked example... not re-derived against any live component' (governing spec §1.4). See SPEC-AMENDMENTS.md's new 'Residual items' section, R1, for the full open-item writeup this dispatch files. `widget_ids: [\"sideColumnMaxCap\"]` is a disclosed SYNTHETIC handle -- the side column is a Split node in both real encodings, which has no `widget` id of its own for this cap to attach to."
     },
     {
       "key": "loader.PX_PER_CH",
+      "widget_ids": ["PX_PER_CH"],
+      "method": "read-constant",
       "component": "research/lyt/loader.py",
       "value_px": 8.0,
       "axis": "n/a (px-per-ch conversion constant, not itself a spatial extent)",
       "status": "estimated",
-      "basis": "'a single global constant... applied identically to every screen class, is a disclosed simplification' (SPEC.md §4.1) -- not itself a genuine text-width-of(strings, font-token) probe (SPEC.md §2, primitive item 5); every ch-based extent in the census resolves through this one number."
+      "basis": "'a single global constant... applied identically to every screen class, is a disclosed simplification' (SPEC.md §4.1) -- not itself a genuine text-width-of(strings, font-token) probe (SPEC.md §2, primitive item 5); every ch-based extent in the census resolves through this one number. `widget_ids: [\"PX_PER_CH\"]` is a disclosed SYNTHETIC handle -- this is a loader-internal constant, not a leaf widget."
     },
     {
       "key": "previewBoard_portrait_aesthetic_downscale",
+      "widget_ids": ["previewBoard"],
+      "method": "read-constant",
+      "variant": "portrait",
       "component": "n/a -- aesthetic judgment, not a component measurement",
       "value_px": 96,
       "axis": "h+v (aspect 1, both axes equal)",
@@ -148,11 +194,13 @@
     },
     {
       "key": "WRAPPER_MIN_sentinel",
+      "widget_ids": ["WRAPPER_MIN"],
+      "method": "read-constant",
       "component": "research/lyt/loader.py, loader.WRAPPER_MIN_PX",
       "value_px": 300,
       "axis": "h+v",
       "status": "estimated",
-      "basis": "SPEC.md §1.1: 'the loader resolves it to a disclosed 300px, matching the control-panel floor the same document cites elsewhere' -- a named but ungrounded historical constant, still live in current_row_asis.lyt/current_row_repaired.lyt's CP-* children; every per-encoding narrowed descendant in this file (160px/200px entries above) is a hand-narrowed descendant of this same ungrounded sentinel."
+      "basis": "SPEC.md §1.1: 'the loader resolves it to a disclosed 300px, matching the control-panel floor the same document cites elsewhere' -- a named but ungrounded historical constant, still live in current_row_asis.lyt/current_row_repaired.lyt's CP-* children; every per-encoding narrowed descendant in this file (160px/200px entries above) is a hand-narrowed descendant of this same ungrounded sentinel. `widget_ids: [\"WRAPPER_MIN\"]` is a disclosed SYNTHETIC handle -- this is a loader-internal constant, not a leaf widget."
     }
   ]
 }

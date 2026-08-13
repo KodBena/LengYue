@@ -132,17 +132,59 @@ existing `.lyt` file declares any of them, so no verdict this program
 already proves changes; see the dispatch report above for the
 before/after dormancy proof.
 
+LYT RELATIONS-FIRST AMENDMENT, dispatch B (ledger rows 2396/2397/2400/2401;
+governing spec `.claude/dispatch-reports/lyt-relations-amendment-spec.md`
+§2/§3/§4): a bound (`min`/`pref`/`max`/the bare `{extent}` shorthand/the
+new `pinned <extent>` key/an envelope state's own extent/`@demote`'s
+threshold) may now ALSO be a RELATION EXPRESSION — see `relations.py`'s
+own module docstring for the nine primitives and their resolution
+semantics. This module's job, per its established "parser permissive,
+loader refuses" architecture, is threading a `relations.RelationContext`
+through `load_slot`'s recursive descent so a relation can resolve against
+the right facts (a widget's own probed extent), the right siblings (a
+`widget.min` reference into the SAME enclosing split, accumulated LEFT TO
+RIGHT as `load_slot`'s Split branch walks its children in order — a
+disclosed scoping choice: a relation may reference an earlier sibling,
+never a later one), and the right children (`max-over(children.min)`,
+legal only while resolving a T node's OWN sizing, after its children are
+already loaded).
+
+Backward compat (task 4): a px/ch LITERAL bound still parses and loads —
+the two clean-room encodings still carry them until dispatch C's own
+encoding rewrite — but now emits a non-fatal
+`errors.RelationsFirstDeprecationWarning` each time `_resolve_extent_like`
+resolves one under a live `RelationContext` (i.e. every ordinary
+`load_layouts` call; a caller that constructs `ast.Sizing` directly, or
+calls `_resolve_extent_like` with no `ctx`, sees no warning — the
+diagnostic is scoped to the concrete-syntax loading path this amendment
+actually governs). `pytest -W error::errors.RelationsFirstDeprecationWarning`
+flips this from "recorded" to "refused" with no code change here — the
+channel dispatch C's own encoding rewrite is expected to flip.
+
+Disclosed scope narrowing: relation expressions are wired into `min`/
+`pref`/`max`/the bare shorthand/`pinned`/envelope per-state extents/
+`@demote`'s threshold this wave — the positions the governing spec's own
+§3 worked fragments actually exercise. The Amendment-7/8 axis-taking keys
+(`min <axis>`, `floor <axis>`, `unit <axis>`, `ceiling <axis>`, `gap`
+itself) are NOT relation-aware this wave — a relation expression in one of
+those positions is refused the same way a `WRAPPER_MIN`/`CONTENT` sentinel
+already is there (an unresolvable symbolic extent), not silently accepted
+and mishandled. Widening relation support to those positions is a genuine
+follow-on, not attempted here without a fresh ruling.
+
 License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
 license line and the umbrella's ADR-0006 per-file convention.
 """
 from __future__ import annotations
 
 import dataclasses
+import warnings
 from typing import Dict, FrozenSet, List, Optional, Tuple
 
 import lyt_ast as ast
 import parser as lytparser
-from errors import LytLoadError
+import relations
+from errors import LytLoadError, RelationsFirstDeprecationWarning
 
 PX_PER_CH = 8.0
 WRAPPER_MIN_PX = 300.0
@@ -188,6 +230,34 @@ VALID_ACTIVITY_LEVELS = {"sustained", "occasional"}
 VALID_EDGE_DISPOSITIONS = {"unit", "item", "continuous"}
 
 
+_FACTS_TABLE_CACHE: Optional["relations.FactsTable"] = None
+
+
+def _get_facts_table() -> "relations.FactsTable":
+    """LYT relations-first amendment, dispatch B: the facts/theme-token
+    table is loaded from disk once per process (small, cheap files — a
+    handful of KB of JSON plus a CSS regex scan) and cached, rather than
+    re-read on every `load_layouts` call — dozens of loads happen in a
+    single `pytest` run. `reset_facts_table_cache` (below) exists for
+    tests that need to load a synthetic facts table instead of the real
+    committed one."""
+    global _FACTS_TABLE_CACHE
+    if _FACTS_TABLE_CACHE is None:
+        _FACTS_TABLE_CACHE = relations.FactsTable.load()
+    return _FACTS_TABLE_CACHE
+
+
+def reset_facts_table_cache(table: Optional["relations.FactsTable"] = None) -> None:
+    """Test seam: install `table` as the process-wide facts table (or
+    clear the cache back to lazy-reload-from-disk when `table is None`).
+    Never called by ordinary load paths — only by tests that need a
+    synthetic `FactsTable` (a facts entry that doesn't exist in the real
+    committed `facts.generated.json`, to test a primitive the real
+    encodings don't exercise yet)."""
+    global _FACTS_TABLE_CACHE
+    _FACTS_TABLE_CACHE = table
+
+
 def _resolve_axis_token(
     token: str, *, orientation: Optional[str], where: str, key: str, law: str
 ) -> str:
@@ -229,17 +299,29 @@ def _resolve_axis_token(
 
 
 def _resolve_extent_like(
-    e: Optional[lytparser.RawExtentLike], *, where: str
+    e: Optional[lytparser.RawExtentLike],
+    *,
+    where: str,
+    ctx: Optional["relations.RelationContext"] = None,
 ) -> ast.Extent:
     if e is None:
         raise LytLoadError(
             f"sizing at {where} is missing a required min/pref/max term",
             {"where": where},
         )
+    # LYT relations-first amendment, dispatch B: a relation call resolves
+    # against `ctx` (the facts table + sibling/children scope threaded in
+    # by `load_slot`) — see `relations.py`'s own module docstring for the
+    # nine primitives. Checked before the RawExtentSum/RawExtent branches
+    # below, since a relation is neither.
+    if isinstance(e, lytparser.RawRelation):
+        return relations.resolve_relation(
+            e, where=where, ctx=ctx, resolve_extent_like=_resolve_extent_like
+        )
     if isinstance(e, lytparser.RawExtentSum):
         total_px = 0.0
         for part in e.parts:
-            resolved = _resolve_extent_like(part, where=where)
+            resolved = _resolve_extent_like(part, where=where, ctx=ctx)
             if resolved.unit == "fr":
                 raise LytLoadError(
                     "an extent sum may not include an 'fr' component "
@@ -251,6 +333,28 @@ def _resolve_extent_like(
         return ast.Extent(unit="px", v=total_px)
     assert isinstance(e, lytparser.RawExtent)
     if e.kind == "numunit":
+        # LYT relations-first amendment, dispatch B, task 4 (backward
+        # compat): a literal px/ch bound is still perfectly legal this
+        # wave, but is now DEPRECATED once a relation-aware `ctx` is in
+        # play (i.e. every ordinary `load_layouts` call) — see
+        # `errors.RelationsFirstDeprecationWarning`'s own docstring for
+        # the flip-to-refusal channel this diagnostic is for. Silent when
+        # `ctx is None` (a caller resolving an extent outside the
+        # relations-aware loading path, e.g. a direct unit test of this
+        # function) — the diagnostic is scoped to the concrete-syntax
+        # loading path this amendment actually governs, not every call
+        # site in this module.
+        if ctx is not None:
+            ctx.deprecated_literals.append({"where": where, "unit": e.unit, "v": e.v})
+            warnings.warn(
+                f"px/ch literal bound at {where} ({e.v:g}{e.unit}) — "
+                "RELATIONS-FIRST (ledger rows 2396/2397): a literal extent "
+                "here is deprecated, not yet refused, pending the dispatch C "
+                "encoding rewrite that replaces it with a relation "
+                "expression (governing spec, dispatch B)",
+                category=RelationsFirstDeprecationWarning,
+                stacklevel=3,
+            )
         if e.unit == "ch":
             return ast.Extent(unit="px", v=e.v * PX_PER_CH)
         return ast.Extent(unit=e.unit, v=e.v)
@@ -292,13 +396,16 @@ def _resolve_extent_like(
 
 
 def _resolve_max(
-    e: Optional[lytparser.RawExtentLike], *, where: str
+    e: Optional[lytparser.RawExtentLike],
+    *,
+    where: str,
+    ctx: Optional["relations.RelationContext"] = None,
 ) -> "ast.Extent | str":
     if e is None:
         raise LytLoadError(f"sizing at {where} is missing 'max'", {"where": where})
     if isinstance(e, lytparser.RawExtent) and e.kind == "symbol" and e.symbol == "inf":
         return "inf"
-    return _resolve_extent_like(e, where=where)
+    return _resolve_extent_like(e, where=where, ctx=ctx)
 
 
 def _refuse_bare_envelope(*, where: str) -> None:
@@ -353,7 +460,11 @@ def _refuse_empty_envelope_states(*, where: str) -> None:
 
 
 def _resolve_envelope_state_extents(
-    rs: lytparser.RawSizing, *, where: str, pref_extent: ast.Extent
+    rs: lytparser.RawSizing,
+    *,
+    where: str,
+    pref_extent: ast.Extent,
+    ctx: Optional["relations.RelationContext"] = None,
 ) -> Optional[Dict[str, ast.Extent]]:
     """METAMODEL WAVE, item 2 (ledger row 2157/2173-2176). `rs.
     envelope_entries` is the per-state `(name, extent_or_None)` list the
@@ -381,6 +492,39 @@ def _resolve_envelope_state_extents(
           COMPUTE something (SPEC.md §4.2's own disclosed gap: "the code
           does not compute a max over anything"): the reservation the
           author wrote must equal what their own declared states justify.
+
+    LYT RELATIONS-FIRST AMENDMENT, dispatch B, task 3 (L3 envelope repair,
+    ruling 2400(4)): each `(state, extent)` entry's extent may now ALSO be
+    a RELATION — `envelope: {disconnected: width-of(I_engine,
+    disconnected), connected_5digit_latency: width-of(I_engine,
+    connected_5digit_latency)}` — resolved via `_resolve_extent_like`
+    exactly like every other extent position, `ctx` threaded through. This
+    is the genuine fix for SPEC.md §4.2's own disclosed gap ("the code
+    does not compute a max over anything; it stores a fixed extent and a
+    state list side by side"): once an entry's extent is a `width-of(...)`
+    relation, its value is a FACTS-DERIVED number, not an author-typed
+    literal, and the existing consistency check two paragraphs below
+    (clause (c)) is what makes the slot's own `pref` a genuine `max-over`
+    the declared states' own facts — refused loudly (via the relation's
+    own "no matching facts entry" refusal, `relations.py`) if any declared
+    state lacks a facts entry, exactly the task's own wording. The LEGACY
+    bare-name spelling (an envelope declared with no per-state extents at
+    all, e.g. `{28px, envelope: {disconnected, connected}}` — what both
+    committed clean-room encodings still carry) is UNCHANGED and remains
+    fully legal this wave (task 4, backward compat): it returns `None`
+    below exactly as it always has, and the slot's `pref` stays whatever
+    literal the author typed (now flagged via the ordinary literal-bound
+    deprecation channel, since it resolves through `_resolve_extent_like`
+    like any other literal). This dispatch does NOT retrofit every
+    existing bare-name envelope into a forced facts-derivation — no facts
+    entries exist yet for `I_engine`'s own states, and doing so
+    automatically would make both mainline encodings start refusing to
+    load, which task 4 explicitly forbids ("the roundtrip tests must stay
+    green"). The repair is the CAPABILITY (relations now flow through
+    envelope per-state extents, checked exactly as `max-over` would check
+    them), exercised end-to-end by this dispatch's own synthetic test
+    fixture, not a retroactive rewrite of the two real encodings (that is
+    dispatch C's job).
     """
     entries = rs.envelope_entries
     if not entries:
@@ -405,7 +549,9 @@ def _resolve_envelope_state_extents(
         )
     resolved: Dict[str, ast.Extent] = {}
     for name, raw_ext in named:
-        resolved[name] = _resolve_extent_like(raw_ext, where=f"{where} (envelope state {name!r})")
+        resolved[name] = _resolve_extent_like(
+            raw_ext, where=f"{where} (envelope state {name!r})", ctx=ctx
+        )
     units = {e.unit for e in resolved.values()}
     if len(units) > 1:
         raise LytLoadError(
@@ -548,6 +694,7 @@ def _load_sizing(
     where: str,
     node_kind: str,
     orientation: Optional[str] = None,
+    relctx: Optional["relations.RelationContext"] = None,
 ) -> ast.Sizing:
     if rs is None:
         raise LytLoadError(f"slot at {where} has no sizing block", {"where": where})
@@ -559,6 +706,25 @@ def _load_sizing(
     # LEAF's axis-keyed `min` may name its floor in the leaf's own frame
     # (`min across 60px`). It is `None` for every non-leaf call site, which
     # is precisely how `_resolve_axis_token` refuses a role name there.
+    #
+    # LYT relations-first amendment, dispatch B (disclosed scope
+    # narrowing, see this module's own docstring): `min <axis>` is NOT
+    # relation-aware this wave — `_load_axis_mins` resolves its extent
+    # with no `relctx`. In practice a relation call never even REACHES
+    # that resolution: `parser.parse_sizing`'s own axis-min lookahead
+    # (`RawSizing.axis_mins`'s docstring) recognizes `min <axis>
+    # <extent>` only when the token immediately after the axis name is
+    # NUMBER/NUMUNIT, so `min h width-of(...)` does not parse as an
+    # axis-min at all — it falls through to the ordinary sizing-bag loop,
+    # which then fails on the stray `width-of` token with an ordinary
+    # `LytParseError` ("expected COMMA, got IDENT 'width-of'"), not a
+    # load-time `LytLoadError` about a missing resolution context.
+    # [Corrected 2026-08-13, review row (lyt-relations-b-review.md,
+    # minor finding 2) — this comment previously described a
+    # load-time-refusal shape a probe never actually reaches.] Same
+    # safety outcome either way (a loud, structured refusal, never a
+    # silent extent), just at the PARSE layer rather than the LOAD layer
+    # for this one position.
     axis_mins = _load_axis_mins(rs, where=where, orientation=orientation)
 
     if rs.aspect_coupled:
@@ -571,15 +737,33 @@ def _load_sizing(
             max="inf",
         )
 
-    if rs.fixed is not None:
-        # `{28px}` shorthand (§5.4/§5.5): min=pref=max=that extent. May be
-        # combined with an `envelope: {...}` clause in the same braces
-        # (§5.4 line 569's I_engine) — the reserved extent along the
-        # parent's partition axis stays fixed regardless of which
-        # declared content state is active; envelope_states is then purely
-        # documentation for this slot, since Sizing has no second axis to
-        # reserve variably (see build report).
-        fixed_extent = _resolve_extent_like(rs.fixed, where=where)
+    # LYT relations-first amendment, dispatch B: `pinned <extent>` is the
+    # explicit-keyword spelling of the bare `{extent}` shorthand below —
+    # see `parser.RawSizing.pinned`'s own docstring for why a second
+    # spelling was needed (a bare relation call cannot trigger the
+    # NUMUNIT/NUMBER-peeking shorthand detection `parse_sizing` uses).
+    # The two are mutually exclusive: a block declaring BOTH is refused
+    # loudly rather than one silently winning.
+    if rs.fixed is not None and rs.pinned is not None:
+        raise LytLoadError(
+            f"sizing at {where} declares BOTH the bare '{{extent}}' "
+            "shorthand and 'pinned <extent>' — both mean 'min=pref=max=this "
+            "value'; declaring two conflicting spellings of the same fact "
+            "is refused rather than one silently winning (LYT "
+            "relations-first amendment, dispatch B)",
+            {"where": where, "law": "relation", "prohibition": "fixed-and-pinned"},
+        )
+    fixed_like = rs.fixed if rs.fixed is not None else rs.pinned
+    if fixed_like is not None:
+        # `{28px}` shorthand (§5.4/§5.5), or its `pinned <extent>` keyword
+        # spelling: min=pref=max=that extent. May be combined with an
+        # `envelope: {...}` clause in the same braces (§5.4 line 569's
+        # I_engine) — the reserved extent along the parent's partition
+        # axis stays fixed regardless of which declared content state is
+        # active; envelope_states is then purely documentation for this
+        # slot, since Sizing has no second axis to reserve variably (see
+        # build report).
+        fixed_extent = _resolve_extent_like(fixed_like, where=where, ctx=relctx)
         basis = "reserved"
         envelope_states = None
         if rs.envelope_states is not None:
@@ -597,7 +781,7 @@ def _load_sizing(
         envelope_state_extents = None
         if basis == "envelope":
             envelope_state_extents = _resolve_envelope_state_extents(
-                rs, where=where, pref_extent=fixed_extent
+                rs, where=where, pref_extent=fixed_extent, ctx=relctx
             )
         return ast.Sizing(
             min=fixed_extent,
@@ -620,17 +804,17 @@ def _load_sizing(
         # constraining choice, never a silently-invented larger floor.
         min_extent = zero
     else:
-        min_extent = _resolve_extent_like(rs.min, where=where)
+        min_extent = _resolve_extent_like(rs.min, where=where, ctx=relctx)
 
     if rs.pref is None:
         raise LytLoadError(f"sizing at {where} is missing 'pref'", {"where": where})
-    pref_extent = _resolve_extent_like(rs.pref, where=where)
+    pref_extent = _resolve_extent_like(rs.pref, where=where, ctx=relctx)
     if rs.max is None:
         # Same disclosed completion rule, mirrored for 'max': omitted ->
         # 'inf' (the least constraining choice).
         max_val: "ast.Extent | str" = "inf"
     else:
-        max_val = _resolve_max(rs.max, where=where)
+        max_val = _resolve_max(rs.max, where=where, ctx=relctx)
 
     basis = "reserved"
     envelope_states = None
@@ -647,7 +831,7 @@ def _load_sizing(
     envelope_state_extents = None
     if basis == "envelope":
         envelope_state_extents = _resolve_envelope_state_extents(
-            rs, where=where, pref_extent=pref_extent
+            rs, where=where, pref_extent=pref_extent, ctx=relctx
         )
 
     return ast.Sizing(
@@ -670,6 +854,7 @@ def _load_demote_presence(
     activity: Optional[str],
     content: Optional[str],
     tag: Optional[str] = None,
+    relctx: Optional["relations.RelationContext"] = None,
 ) -> ast.Presence:
     """LOOP ITERATION 11 / arc 4 round 4 (model-iteration loop EXPERIMENT,
     ledger rows 2037/2066/2107/2157/2241; branch lyt-model-loop-experiment,
@@ -807,7 +992,7 @@ def _load_demote_presence(
                     "prohibition": "demote-exclusive-without-tag",
                 },
             )
-        return _load_demote_axis_and_threshold(axis, ext, where=where)
+        return _load_demote_axis_and_threshold(axis, ext, where=where, relctx=relctx)
     if activity != "occasional":
         raise LytLoadError(
             f"@demote declared at {where} but this leaf's declared activity "
@@ -843,14 +1028,56 @@ def _load_demote_presence(
 
 
 def _load_demote_axis_and_threshold(
-    axis: Optional[str], ext: object, *, where: str
+    axis: Optional[str],
+    ext: object,
+    *,
+    where: str,
+    relctx: Optional["relations.RelationContext"] = None,
 ) -> ast.Presence:
     """Clauses (d)/(e) of `_load_demote_presence`'s own docstring — the
     axis-vocabulary and threshold-unit refusals, shared verbatim by both
     the leaf and the Exclusive branches (LYT presence arc P1, row 2333:
     factored out of `_load_demote_presence` so the Exclusive branch can
     reach it without duplicating the leaf branch's own clauses (b)/(c),
-    which do not apply to a composite)."""
+    which do not apply to a composite).
+
+    LYT RELATIONS-FIRST AMENDMENT, dispatch B (governing spec §3(b)'s own
+    worked fragment, `@demote(h sum-of(max-over(children.min), tree.min,
+    gap))`): a RELATION call in threshold position is resolved via
+    `_resolve_extent_like` (threading `relctx`) BEFORE the literal-shape
+    check below runs — the constant-px-only rule still applies to the
+    RESOLVED result (a relation that resolves to anything but a plain px
+    extent is refused the same way a literal 'fr'/'ch' threshold already
+    is), it is just applied one step later than for a bare literal.
+    """
+    if isinstance(ext, lytparser.RawRelation):
+        resolved = _resolve_extent_like(ext, where=where, ctx=relctx)
+        if resolved.unit != "px":
+            raise LytLoadError(
+                f"@demote threshold at {where} resolved (via relation) to a "
+                f"non-px extent ({resolved.unit}) — a demotion threshold "
+                "must be a constant px measurement (L15 — LOOP ITERATION 11, "
+                "ledger row 2241; LYT relations-first amendment, dispatch B)",
+                {
+                    "where": where, "law": "L15",
+                    "prohibition": "non-px-demote-threshold", "unit": resolved.unit,
+                },
+            )
+        if axis not in VALID_SCROLL_AXES:
+            raise LytLoadError(
+                f"@demote axis {axis!r} at {where} is not one of "
+                f"{sorted(VALID_SCROLL_AXES)} — and note the `along`/`across` "
+                "ROLE names L14 introduced are deliberately NOT accepted here: "
+                "a role resolves against the LEAF's own orientation, but the "
+                "axis a demotion measures is the one its BAND is under pressure "
+                "on, which is a different fact (L15 — LOOP ITERATION 11, ledger "
+                "row 2241)",
+                {
+                    "where": where, "law": "L15", "prohibition": "invalid-demote-axis",
+                    "got": axis, "valid": sorted(VALID_SCROLL_AXES),
+                },
+            )
+        return ast.demote(axis=axis, below_px=float(resolved.v))
     if axis not in VALID_SCROLL_AXES:
         raise LytLoadError(
             f"@demote axis {axis!r} at {where} is not one of "
@@ -968,6 +1195,7 @@ def _load_presence(
     activity: Optional[str] = None,
     content: Optional[str] = None,
     tag: Optional[str] = None,
+    relctx: Optional["relations.RelationContext"] = None,
 ) -> ast.Presence:
     if rp is None:
         return ast.FIXED
@@ -977,7 +1205,8 @@ def _load_presence(
         return ast.DEV
     if rp.kind == "demote":
         return _load_demote_presence(
-            rp, where=where, node_kind=node_kind, activity=activity, content=content, tag=tag
+            rp, where=where, node_kind=node_kind, activity=activity, content=content,
+            tag=tag, relctx=relctx,
         )
     assert rp.kind == "toggle"
     by = rp.by
@@ -2226,8 +2455,27 @@ def load_slot(
     *,
     path: str = "root",
     orientation_overrides: Optional[Dict[str, str]] = None,
+    relctx: Optional["relations.RelationContext"] = None,
 ) -> ast.Slot:
-    """`orientation_overrides` (AMENDMENT 9, ledger row 2310; re-scoped
+    """`relctx` (LYT relations-first amendment, dispatch B, ledger rows
+    2396/2397/2400/2401): the relation-resolution context for THIS slot's
+    OWN sizing/presence — i.e. the facts table, the already-loaded
+    siblings in the ENCLOSING split (accumulated left to right by the
+    Split branch below before it recurses into each child), and the
+    enclosing split's own `gap_px`. `None` (the default, every call site
+    outside this module's own recursion) means "build a fresh context
+    seeded from the process-wide facts table and no siblings/gap" — the
+    correct context for the ROOT slot, and the only sane default for a
+    caller that invokes `load_slot` directly rather than through
+    `load_layouts`. Each branch below builds a DIFFERENT context for its
+    own CHILDREN than the one it received for itself — see the Split and
+    Exclusive branches' own comments for exactly how (a T node's own
+    sizing additionally needs its just-loaded children's Sizing, for
+    `max-over(children.min)`; a Split's children each need the SIBLINGS
+    loaded so far in the SAME split, for `widget.min`-style lateral
+    references, per the governing spec's own §3(b) worked example).
+
+    `orientation_overrides` (AMENDMENT 9, ledger row 2310; re-scoped
     2026-08-12, see the dated note below): an optional `widget id ->
     physical axis` map, empty/`None` (the default) for every
     pre-Amendment-9 call site and byte-identical to this function's prior
@@ -2266,6 +2514,8 @@ def load_slot(
     NAME = ...` fragments in one text silently received an override
     computed for the OTHER fragment's solve."""
     orientation_overrides = orientation_overrides or {}
+    if relctx is None:
+        relctx = relations.RelationContext(facts=_get_facts_table())
     node = rs.node
     if isinstance(node, lytparser.RawLeaf):
         # AMENDMENT 5 (ledger row 1937): resolved before `_load_leaf` so
@@ -2398,6 +2648,7 @@ def load_slot(
             where=f"{path}:{node.widget}",
             node_kind="leaf",
             orientation=orientation,
+            relctx=relctx,
         )
         # AMENDMENT 7 (L9, see `_load_ceiling_flag`): resolved AFTER
         # `_load_sizing` and folded in with `dataclasses.replace` rather
@@ -2427,6 +2678,7 @@ def load_slot(
             node_kind="leaf",
             activity=activity,
             content=content,
+            relctx=relctx,
         )
         sizing = _apply_preserve_reservation(sizing, presence, where=f"{path}:{node.widget}")
         return ast.Slot(
@@ -2435,17 +2687,45 @@ def load_slot(
             wrap_policy=wrap_policy,
         )
     if isinstance(node, lytparser.RawSplit):
-        children = [
-            load_slot(c, path=f"{path}/{node.axis.upper()}{i}", orientation_overrides=orientation_overrides)
-            for i, c in enumerate(node.children)
-        ]
         # AMENDMENT 3 (ledger row 1715): `gap_px` is now resolved from an
         # optional `gap <extent>` sizing term instead of being hardcoded
         # to 0.0 (the F10-era disclosure this replaces — see the module
         # docstring's AMENDMENT 3 paragraph and `_load_gap_px`'s own
         # docstring for the full law). No `gap` term still resolves to
         # 0.0, so an un-amended `.lyt` file's geometry is unchanged.
+        #
+        # LYT relations-first amendment, dispatch B: resolved BEFORE the
+        # children are loaded (moved up from its prior position after the
+        # children list comprehension) — every child's own relation
+        # context needs this split's `gap_px` for a bare `gap` reference
+        # inside `sum-of` (governing spec §3(b)'s worked example).
         gap_px = _load_gap_px(rs.sizing, where=path, node_kind="split")
+        # LYT relations-first amendment, dispatch B: children are loaded
+        # in an explicit LEFT-TO-RIGHT loop (not the prior list
+        # comprehension) so each child's own relation context can see the
+        # PRIOR siblings' already-resolved Sizing — `sibling_sizings` is
+        # a fresh snapshot per child, not shared mutable state, so a
+        # child's own recursion can never observe a LATER sibling (the
+        # disclosed "left to right only" scoping `relations._resolve_ref`
+        # documents and refuses against otherwise).
+        children: List[ast.Slot] = []
+        sibling_sizings: Dict[str, ast.Sizing] = {}
+        for i, c in enumerate(node.children):
+            child_relctx = relations.RelationContext(
+                facts=relctx.facts,
+                sibling_sizings=dict(sibling_sizings),
+                children_sizings=None,
+                enclosing_gap_px=gap_px,
+            )
+            child_slot = load_slot(
+                c,
+                path=f"{path}/{node.axis.upper()}{i}",
+                orientation_overrides=orientation_overrides,
+                relctx=child_relctx,
+            )
+            children.append(child_slot)
+            if isinstance(child_slot.node, ast.Leaf):
+                sibling_sizings[child_slot.node.widget] = child_slot.sizing
         # AMENDMENT 5: `content` is leaf-only -- a Split declaring it is
         # refused loudly here, same call shape as the leaf branch above.
         _load_content_class(rs.sizing, where=path, node_kind="split")
@@ -2483,7 +2763,12 @@ def load_slot(
         _load_edge_axes(rs.sizing, where=path, node_kind="split")
         scroll_axes = _load_scroll_axes(rs.sizing, where=path)
         split = ast.Split(axis=node.axis, gap_px=gap_px, children=children)
-        sizing = _load_sizing(rs.sizing, where=path, node_kind="split")
+        # LYT relations-first amendment, dispatch B: a Split's OWN sizing
+        # resolves against `relctx` as RECEIVED (this split's position
+        # among ITS OWN siblings, in ITS OWN enclosing split) — never the
+        # `child_relctx` built above, which is scoped to this split's
+        # children, not to the split itself.
+        sizing = _load_sizing(rs.sizing, where=path, node_kind="split", relctx=relctx)
         # AMENDMENT 7 (L11): a Split IS the shape a board composite may
         # declare `measure-bound` on, so this branch resolves it rather
         # than refusing it.
@@ -2492,17 +2777,38 @@ def load_slot(
         # LOOP ITERATION 11 (L15): `node_kind` threaded so `@demote`'s own
         # leaf-only refusal can fire here rather than silently loading a
         # subtree-wide demotion no descendant declared.
-        presence = _load_presence(rs.presence, where=path, node_kind="split")
+        presence = _load_presence(rs.presence, where=path, node_kind="split", relctx=relctx)
         sizing = _apply_preserve_reservation(sizing, presence, where=path)
         return ast.Slot(
             node=split, presence=presence, sizing=sizing,
             violates=frozenset(rs.warns), scroll_axes=scroll_axes,
         )
     if isinstance(node, lytparser.RawExclusive):
-        children = [
-            load_slot(c, path=f"{path}/T{i}", orientation_overrides=orientation_overrides)
-            for i, c in enumerate(node.children)
-        ]
+        # LYT relations-first amendment, dispatch B: each T-child gets its
+        # OWN fresh, empty sibling scope (a T's children are alternatives,
+        # not siblings partitioning a shared axis — `widget.min`-style
+        # lateral references between two tabs of the SAME T are not a
+        # shape the governing spec's census exercises, so this dispatch
+        # does not wire it; each child sees no gap either, since a T
+        # declares none, §9.4). `children_sizings` stays `None` while
+        # loading a T's OWN children — `max-over(children.*)` is only
+        # meaningful once resolving the T's OWN sizing, below.
+        children: List[ast.Slot] = []
+        for i, c in enumerate(node.children):
+            child_relctx = relations.RelationContext(
+                facts=relctx.facts,
+                sibling_sizings={},
+                children_sizings=None,
+                enclosing_gap_px=None,
+            )
+            children.append(
+                load_slot(
+                    c,
+                    path=f"{path}/T{i}",
+                    orientation_overrides=orientation_overrides,
+                    relctx=child_relctx,
+                )
+            )
         # AMENDMENT 3: a T node takes no gap — refused loudly (not
         # silently ignored) if the author declared one, same as any other
         # law this loader enforces.
@@ -2546,12 +2852,26 @@ def load_slot(
         )
         scroll_axes = _load_scroll_axes(rs.sizing, where=path)
         excl = ast.Exclusive(children=children, tag=node.tag)
-        sizing = _load_sizing(rs.sizing, where=path, node_kind="exclusive")
+        # LYT relations-first amendment, dispatch B: the T node's OWN
+        # sizing/presence resolve against a context that combines its
+        # RECEIVED siblings/gap (from ITS OWN enclosing split — needed for
+        # `tree.min`/`gap` in the governing spec §3(b) worked example's
+        # `@demote` threshold) with its own just-loaded CHILDREN's Sizing
+        # (needed for `max-over(children.min)`, the T-floor derivation).
+        own_relctx = relations.RelationContext(
+            facts=relctx.facts,
+            sibling_sizings=relctx.sibling_sizings,
+            children_sizings=[c.sizing for c in children],
+            enclosing_gap_px=relctx.enclosing_gap_px,
+        )
+        sizing = _load_sizing(rs.sizing, where=path, node_kind="exclusive", relctx=own_relctx)
         # LOOP ITERATION 11 (L15): same threading as the Split branch.
         # LYT presence arc P1 (row 2333): `tag` is threaded through too --
         # an Exclusive declaring `@demote` needs its own [TAG] as its
         # presence-pruning identity (`_load_demote_presence` clause (f)).
-        presence = _load_presence(rs.presence, where=path, node_kind="exclusive", tag=node.tag)
+        presence = _load_presence(
+            rs.presence, where=path, node_kind="exclusive", tag=node.tag, relctx=own_relctx
+        )
         sizing = _apply_preserve_reservation(sizing, presence, where=path)
         return ast.Slot(
             node=excl, presence=presence, sizing=sizing,
