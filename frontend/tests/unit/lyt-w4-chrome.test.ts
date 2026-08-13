@@ -57,21 +57,48 @@ describe('App.vue — banners + system log overlay stratum (W4 item 1)', () => {
 });
 
 // ── Item 2: toolbar structure ────────────────────────────────────────
-describe('ToolbarEngineMetrics.vue — envelope-reserved metric cells (W4 item 2)', () => {
+// Overlap fix (ledger row 2372, `.claude/dispatch-reports/lyt-metrics-
+// overlap-fix.md`) superseded this block's original per-field ch-envelope
+// assertions: winrate/scoreLead/pps/latency no longer render as separate
+// `.metric` cells with individual `min-width: Nch` reservations — they
+// were folded into ONE compact badge per group (`.eval-summary`/
+// `.health-summary`), whose worst-case width is bounded by its own fixed
+// numeric FORMAT (a percentage plus one decimal, a signed one-decimal
+// score, a small integer packet rate) rather than by an explicit `ch`
+// reservation, and is verified empirically (not just source-text-pinned)
+// by `tests/integration/ToolbarEngineMetrics-overlap-fix.test.ts`'s own
+// `getBoundingClientRect` assertions against the real measured worst-case
+// pixel widths. What THIS file still pins at the source-text tier: the
+// compact classes exist and declare `white-space: nowrap` (so the
+// worst-case string this codebase measured cannot silently start
+// wrapping), and the shared `.m-val` rule keeps its `text-align: right`
+// growth-stability property (still load-bearing for the popover's own
+// `.popover-val` cells and any future compact value).
+describe('ToolbarEngineMetrics.vue — compact-badge overlap fix (W4 item 2, re-pinned ledger row 2372)', () => {
   const sfc = src('src/components/chrome/ToolbarEngineMetrics.vue');
 
   it.each([
-    ['winrate', /\.eval-val\.winrate-val,\s*\.m-val\.winrate-val\s*\{[^}]*min-width:\s*\d+ch/],
-    ['scoreLead', /\.eval-val\.score-lead-val,\s*\.m-val\.score-lead-val\s*\{[^}]*min-width:\s*\d+ch/],
-    ['pps', /\.metric-pps \.m-val\s*\{[^}]*min-width:\s*\d+ch/],
-    ['latency', /\.metric-latency \.m-val\s*\{[^}]*min-width:\s*\d+ch/],
-  ])('%s declares a ch-based min-width reservation', (_name, pattern) => {
+    ['eval-summary-val', /\.eval-summary-val,\s*\.health-summary-val\s*\{[^}]*white-space:\s*nowrap/],
+  ])('%s declares white-space: nowrap (worst-case string never silently wraps)', (_name, pattern) => {
     expect(sfc).toMatch(pattern);
   });
 
   it('the growth-stable text-align is right (new digits fill the cell rather than shifting its left edge)', () => {
     const rule = /\.m-val\s*\{[^}]*\}/.exec(sfc)![0];
     expect(rule).toMatch(/text-align:\s*right/);
+  });
+
+  it('no per-field ch min-width envelope remains on the retired inline winrate/scoreLead/pps/latency cells (superseded, not merely unused)', () => {
+    expect(sfc).not.toMatch(/\.winrate-val[^{]*\{[^}]*min-width:\s*\d+ch/);
+    expect(sfc).not.toMatch(/\.score-lead-val[^{]*\{[^}]*min-width:\s*\d+ch/);
+    expect(sfc).not.toMatch(/\.metric-pps[^{]*\{[^}]*min-width:\s*\d+ch/);
+    expect(sfc).not.toMatch(/\.metric-latency[^{]*\{[^}]*min-width:\s*\d+ch/);
+  });
+
+  it('the compact badges are the queue-idiom shape: a hover trigger plus a `.metrics-popover` carrying full fidelity', () => {
+    expect(sfc).toMatch(/class="metric eval-summary"/);
+    expect(sfc).toMatch(/class="metric health-summary"/);
+    expect(sfc).toMatch(/class="metrics-popover"/);
   });
 });
 
