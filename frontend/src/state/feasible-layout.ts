@@ -64,6 +64,54 @@
  * step's `useContentDemand` seam (spec §2's runtime-content-dependent
  * row) is the eventual home for their own demand.
  *
+ * **Dispatch L2b addendum (§3 step 2, ledger rows 2447/2450/2460): the
+ * runtime overlay, and a disclosed narrower gate than the spec's own
+ * words.** `measuredFromLytProgram` gains an optional second parameter,
+ * `overlay` — a `region -> live maxUseful` map fed by
+ * `useContentDemand.ts` (spec §2's runtime-content-dependent-demand
+ * seam). Per the spec's own §3 step 2 text ("runtime demands supersede
+ * build-time nulls for regions classified content-dependent per the
+ * compiled content field"), the LITERAL gate would be `node.content ===
+ * 'unbounded'`. Checked directly against both compiled programs
+ * (`lyt-layout.gen.ts`/`lyt-layout-portrait.gen.ts`): the `tree` leaf —
+ * the spec's own named flagship hoarder — carries `content: null` in
+ * BOTH, not `'unbounded'`; classifying it as `'unbounded'` is a `.lyt`
+ * ENCODING edit (`research/lyt/encodings/lengyue_{landscape,portrait}.lyt`
+ * + a regeneration), a cross-boundary `research/lyt/` touch per the
+ * umbrella `CLAUDE.md`'s scope discipline and EXACTLY the risk the spec's
+ * own §4 risk register names for step 2 ("The `.lyt`/`emit_layout_tree.py`
+ * cross-boundary change ... is out of frontend scope and needs a
+ * dispatch, not a silent frontend-side workaround"). This build's own
+ * scope (per the dispatch brief) is the FRONTEND half only — no
+ * `research/lyt/` file is touched here. The gate actually implemented
+ * below is therefore narrower and purely frontend-computable: an overlay
+ * entry supersedes a synthesized entry's `maxUseful` ONLY when that
+ * entry's `maxUseful` is ALREADY `null` (i.e. the region is currently
+ * unbounded per the TYPE, regardless of whether its `content` field has
+ * been classified yet) — which is a strict SUBSET of what the literal
+ * `content === 'unbounded'` gate would allow (every `content: 'unbounded'`
+ * leaf's track is ALSO plain `elastic` today, so its adapter-synthesized
+ * `maxUseful` is ALWAYS `null` too — the two gates agree on every leaf
+ * that already carries the classification; they diverge only for `tree`,
+ * where this narrower gate still fires and the literal one would not).
+ * Flagged here, not silently substituted, per ADR-0004: reclassifying
+ * `tree`'s own `content` field (closing the divergence, and unblocking a
+ * FUTURE `OverflowDiscipline`-driven leaf-cell contract for it) is a
+ * residual item for a follow-up dispatch to `research/lyt/`, matching the
+ * spec's own risk-register framing.
+ *
+ * A superseded `maxUseful` is never allowed to violate `measured()`'s own
+ * `preferred <= maxUseful` invariant: the effective value is
+ * `max(entry.min, overlayPx)`, not the raw overlay reading. This is
+ * deliberate engineering, not a silent clamp of a DIFFERENT quantity —
+ * `maxUseful`'s own doc (§1.1) defines it as "the largest extent whose
+ * ADDITIONAL px past this point renders no more of the region's own
+ * content," so a live content reading BELOW the region's own compiled
+ * floor does not mean less than the floor is ever useful (the floor is
+ * itself a declared readability guarantee no measurement can shrink) —
+ * it means the region already renders everything it has AT its own floor,
+ * i.e. `maxUseful` bottoms out at `min`, never below it.
+ *
  * License: Public Domain (The Unlicense)
  */
 import type { LytAxis, LytChild, LytNodeData, LytProgram, LytTrackShape } from './lyt-layout-types';
@@ -407,9 +455,39 @@ function measuredFromTrack(region: string, axis: LytAxis, track: LytTrackShape):
  *  `previewBoard` in both compiled programs) and any track of kind
  *  `board-priority-clamp`/`board-priority-self-clamp` (the board
  *  composite's own coupled-axis wrapper). Both are documented, not
- *  silently dropped — see this module's header. */
-export function measuredFromLytProgram(program: LytProgram): readonly Measured<string>[] {
+ *  silently dropped — see this module's header.
+ *
+ *  `overlay` (dispatch L2b, this module's header addendum): a
+ *  `region -> live maxUseful` map. An overlay entry supersedes a
+ *  synthesized entry's `maxUseful` ONLY when that entry's own `maxUseful`
+ *  is already `null` (never a compiled `fixed`/`elastic-capped` ceiling —
+ *  "runtime demands supersede build-time NULLS", never a real compiled
+ *  fact) and only when `overlay` itself supplies a non-null `Px` for that
+ *  region (an overlay entry of `null`, or a region simply absent from
+ *  `overlay`, leaves the synthesized `maxUseful: null` exactly as step 1
+ *  produced it — the default parameter value, an empty map, therefore
+ *  reproduces step 1's output BYTE-IDENTICALLY). The superseding value is
+ *  `max(entry.min, overlayPx)`, never the raw overlay reading — see this
+ *  module's header for why a live reading below the region's own compiled
+ *  floor does not lower `maxUseful` below that floor. */
+export function measuredFromLytProgram(
+  program: LytProgram,
+  overlay: ReadonlyMap<string, Px | null> = new Map(),
+): readonly Measured<string>[] {
   const out: Measured<string>[] = [];
+
+  function applyOverlay(entry: Measured<string>): Measured<string> {
+    if (entry.maxUseful !== null) return entry; // a real compiled ceiling — never superseded
+    const overlayPx = overlay.get(entry.region);
+    if (overlayPx === undefined || overlayPx === null) return entry; // no live reading yet
+    return measured({
+      region: entry.region,
+      axis: entry.axis,
+      min: entry.min,
+      preferred: entry.preferred,
+      maxUseful: px(Math.max(entry.min, overlayPx)),
+    });
+  }
 
   function visitChild(child: LytChild, parentAxis: LytAxis): void {
     visitNode(child.node, parentAxis, child.track);
@@ -421,14 +499,14 @@ export function measuredFromLytProgram(program: LytProgram): readonly Measured<s
         if (node.aspect !== null) return; // board aspect-coupled leaf — out of scope, row 2447
         if (ownTrack !== null) {
           const m = measuredFromTrack(node.widget, axis, ownTrack);
-          if (m !== null) out.push(m);
+          if (m !== null) out.push(applyOverlay(m));
         }
         return;
       }
       case 'blackbox': {
         if (ownTrack !== null) {
           const m = measuredFromTrack(node.widget, axis, ownTrack);
-          if (m !== null) out.push(m);
+          if (m !== null) out.push(applyOverlay(m));
         }
         return;
       }
@@ -439,7 +517,7 @@ export function measuredFromLytProgram(program: LytProgram): readonly Measured<s
       case 'exclusive': {
         if (ownTrack !== null) {
           const m = measuredFromTrack(node.widget, axis, ownTrack);
-          if (m !== null) out.push(m);
+          if (m !== null) out.push(applyOverlay(m));
         }
         for (const tabChild of node.children) {
           // Exclusive-tab children carry no LytChild.track of their own

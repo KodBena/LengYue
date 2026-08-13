@@ -21,6 +21,7 @@ import { warmSnapshotAccessor } from '../../composables/cards/usePreviewSnapshot
 import { useNodePositionHashes } from '../../composables/cards/useNodePositionHashes';
 import { toggleNodeSelection } from '../../composables/cards/mint-selection';
 import { isReviewStartNode } from '../../composables/forest/tree-review-marker';
+import { useContentDemand }  from '../../composables/chrome/useContentDemand';
 import { themeColor }        from '../../utils/theme-color';
 import FloatingThumbnail    from '../chrome/FloatingThumbnail.vue';
 import { boardsById }        from '../../store';
@@ -136,6 +137,24 @@ useScopedScroll(outerRef, deltaY => {
 // a passive scroll listener + ResizeObserver). See the composable header
 // for why a synchronous read — or a rAF-deferred one — forces a reflow.
 const viewportFollow = useViewportFollow(outerRef);
+
+// Space-owner cure, dispatch L2b (`.claude/dispatch-reports/
+// lyt-space-owner-spec.md` §3 step 2, ledger rows 2447/2450/2460): the
+// tree's own live content demand along the LYT program's own `tree` leaf
+// axis. Both compiled programs (`lyt-layout.gen.ts`/
+// `lyt-layout-portrait.gen.ts`) place `tree` in an `h`-axis split
+// (`state/feasible-layout.ts`'s own header confirms this against both) —
+// this is the LYT program's OWN axis, independent of this component's own
+// `orientation` prop (which governs which direction VARIATIONS branch,
+// not which axis the leaf's grid track occupies), so `'h'` is fixed here,
+// not derived from `props.orientation`. Exposed (not consumed locally —
+// this widget has no opinion about its own allotment) for a caller to
+// feed into `measuredFromLytProgram`'s runtime overlay; see that
+// function's own header for the full "why an overlay, not a direct
+// clamp" account. `outerRef` is unconditionally rendered (never behind a
+// `v-if`) in the template below, so it is never null once this component
+// mounts — satisfying `useContentDemand`'s own mount-time refusal.
+const contentDemandPx = useContentDemand(outerRef, 'h');
 
 const expansion = useTreeExpansion();
 const { variationMarkerLabels } = useThumbnailCache();
@@ -433,6 +452,19 @@ const edges = computed(() => {
   });
   return result;
 });
+
+// Dispatch L2b: exposes the tree's own live content demand (see
+// `contentDemandPx`'s own declaration above) — the established
+// `defineExpose` pattern this codebase already uses for a parent to read
+// a child's own imperatively-tracked state (`FloatingThumbnail.vue`'s
+// `show`/`hide`, read via `thumbRef` above). No current caller consumes
+// this yet (threading it into a real `FeasibleLayout.validate()` call is
+// step 3's own scope, spec §3) — a disclosed, deliberate narrowing: this
+// build's own scope is the measurement CAPABILITY, exercised directly by
+// this file's own test suite and by `feasible-layout-geometry-sweep.
+// test.ts`'s overlay-mechanism tests, not live runtime wiring into the
+// renderer (see this dispatch's own build report).
+defineExpose({ contentDemandPx });
 </script>
 
 <template>

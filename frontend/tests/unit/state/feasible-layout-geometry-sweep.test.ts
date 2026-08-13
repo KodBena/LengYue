@@ -122,6 +122,52 @@
  * Verified below (`describe('honest limits of the step-1 census')`)
  * rather than left as an unexplained gap.
  *
+ * ── Dispatch L2b addendum (§3 step 2, ledger rows 2447/2450/2460) ──────
+ *
+ * The section above is L1's own account, preserved verbatim — it is now
+ * PARTIALLY superseded: `landscapeDemands`/`portraitDemands` below are
+ * built with `TREE_LIVE_CONTENT_OVERLAY` wired in (see that constant's
+ * own doc), so `tree`'s own `maxUseful` is no longer `null` and the
+ * "never produces a hoarding diagnostic for tree" test in the "honest
+ * limits" describe below has been RETIRED (its own claim is no longer
+ * true — see that describe block's own updated header) — the flagship
+ * hoarding-tree diagnostic that section predicted as invisible to a
+ * `min`-only pass now appears in the STANDARD census below, at every
+ * landscape width wide enough for the numeric solver's own leftover
+ * distribution to hand `tree` more than 60px (empirically: every landscape
+ * sweep width ≥ 1600, where `controlPanel` no longer competes for the
+ * same row's leftover — see the census output for the exact figures).
+ *
+ * A SEPARATE, additional describe block below
+ * (`'dispatch L2b: the flagship starved+hoarding PAIR, review-witnessed
+ * candidate at 1920x1080'`) delivers the ONE specific acceptance-evidence
+ * row the dispatch brief names: the starved-controlPanel +
+ * hoarding-tree PAIR together at 1920x1080. This does NOT reuse
+ * `computeLandscapeCandidate`'s own numeric solver for `tree`/
+ * `controlPanel` at that one geometry — disclosed, not silently
+ * substituted: `computeLandscapeCandidate`'s own `board-priority-clamp`
+ * formula SATURATES at its compiled `maxPx: 820` for every height up to
+ * ~1140px at width 1920 (checked directly: `availableForTrackPx =
+ * 1960 - heightPx`, which stays above 820 for any `heightPx < 1140`), so
+ * the numeric solver's own `sideColumnPx` is IDENTICALLY 820px at BOTH
+ * 1920x1000 (the s12 sweep's own height) and 1920x1080 — above the
+ * compiled 778px demote threshold either way, meaning `controlPanel`
+ * NEVER starves at width 1920 in this derivation, at ANY height a real
+ * screen plausibly uses. This is the SAME disclosed gap L1's own report
+ * already named ("narrower than the review's own live-DOM witness of
+ * demotion persisting through 1920 and even 2560") — not a NEW
+ * divergence this build introduces. Rather than silently forcing the
+ * solver to agree (which would misrepresent what the numeric derivation
+ * actually computes), that ONE test uses the review's OWN witnessed
+ * live-DOM numbers for `tree`/`controlPanel` specifically (613px /
+ * absent — `lyt-final-opus-review.md` §Class 1's own `02-workspace-
+ * 1920.png` witness) layered onto `computeLandscapeCandidate`'s own
+ * solver output for every OTHER region at that geometry — the REAL
+ * adapter (with the REAL overlay) supplies `demands`; only the
+ * candidate's two flagship entries are the review's own attested
+ * numbers, not solver output. Grounded in real, cited evidence either
+ * way; never a fabricated number.
+ *
  * License: Public Domain (The Unlicense)
  */
 import { describe, it, expect } from 'vitest';
@@ -134,6 +180,30 @@ import {
   type StarvationDiagnostic,
   type RegionAllotment,
 } from '../../../src/state/feasible-layout';
+
+// Dispatch L2b's own runtime overlay (spec §2's "runtime content-
+// dependent demand" seam, `useContentDemand.ts`). `tree` is the review's
+// own named flagship hoarder; `60` is the review's OWN witnessed content
+// width (`lyt-final-opus-review.md` §Class 1: "The tree's own content
+// across all of these is a single column of nodes measuring 60 px
+// (`treeSvg` width 60 in the same probe)") — a real `useContentDemand`
+// reading in the live app, stood in here by this Vitest suite (no DOM
+// render of a real `TreeWidget` happens in this Tier-1 file) with the
+// SAME witnessed figure a live reading would produce for the review's
+// own sparse-tree scenario, cited rather than invented.
+//
+// The RAW overlay value is 60 — but `measuredFromLytProgram`'s own
+// overlay mechanism clamps the EFFECTIVE `maxUseful` up to the region's
+// own compiled `min` (`feasible-layout.ts`'s own header: "a live reading
+// below the region's own compiled floor does not lower maxUseful below
+// that floor"), and `tree`'s own compiled `min` differs by screen class
+// (`elastic{minPx:110}` landscape, `elastic{minPx:140}` portrait) — so
+// the EFFECTIVE `maxUseful` this overlay produces is 110 in landscape and
+// 140 in portrait, never the raw 60, in EITHER class. Asserted directly
+// below, not left implicit.
+const TREE_LIVE_CONTENT_OVERLAY: ReadonlyMap<string, Px | null> = new Map([['tree', px(60)]]);
+const TREE_EFFECTIVE_MAX_USEFUL_LANDSCAPE_PX = 110;
+const TREE_EFFECTIVE_MAX_USEFUL_PORTRAIT_PX = 140;
 import { LYT_LANDSCAPE } from '../../../src/state/lyt-layout.gen';
 import { LYT_PORTRAIT } from '../../../src/state/lyt-layout-portrait.gen';
 import type { LytAxis, LytNodeData, LytTrackShape } from '../../../src/state/lyt-layout-types';
@@ -412,9 +482,13 @@ function toAllotmentMap(candidate: CandidateMap): ReadonlyMap<string, RegionAllo
   return out;
 }
 
-describe('step-1 CI gate (report-only): every mounted geometry produces a FeasibleLayout or a non-empty refused, never undefined/throw', () => {
-  const landscapeDemands = measuredFromLytProgram(LYT_LANDSCAPE);
-  const portraitDemands = measuredFromLytProgram(LYT_PORTRAIT);
+describe('step-1/L2b CI gate (report-only): every mounted geometry produces a FeasibleLayout or a non-empty refused, never undefined/throw', () => {
+  // Dispatch L2b: the runtime overlay is wired into the STANDARD sweep's
+  // own demands (this file's header, "Dispatch L2b addendum") — every
+  // row below now reflects `tree`'s own live content demand, not step 1's
+  // synthesized `null`.
+  const landscapeDemands = measuredFromLytProgram(LYT_LANDSCAPE, TREE_LIVE_CONTENT_OVERLAY);
+  const portraitDemands = measuredFromLytProgram(LYT_PORTRAIT, TREE_LIVE_CONTENT_OVERLAY);
 
   for (const widthPx of LANDSCAPE_SWEEP_WIDTHS_PX) {
     const heightPx = LANDSCAPE_SWEEP_HEIGHT_PX;
@@ -471,21 +545,56 @@ describe('step-1 CI gate (report-only): every mounted geometry produces a Feasib
   });
 });
 
-describe('honest limits of the step-1 census (disclosed, not silently absent)', () => {
-  it('never produces a hoarding diagnostic for `tree` — maxUseful is null by step 1\'s own design, not an adapter gap', () => {
-    const landscapeDemands = measuredFromLytProgram(LYT_LANDSCAPE);
-    const treeDemand = landscapeDemands.find((d) => d.region === 'tree');
+describe('honest limits of the step-1 census (disclosed, not silently absent) — RETIRED claim, dispatch L2b', () => {
+  it('WITHOUT the overlay, still produces no hoarding diagnostic for `tree` — step 1\'s own byte-identical baseline preserved', () => {
+    // The claim this describe used to make ("tree can never hoard") is no
+    // longer true of the STANDARD sweep above (which now wires
+    // `TREE_LIVE_CONTENT_OVERLAY`) — this test instead pins the byte-
+    // identical PRESERVATION half of `measuredFromLytProgram`'s own
+    // contract (this file's header, "adapter-overlay tests ... absent
+    // overlay preserves L1 behavior byte-identically"): called with NO
+    // overlay argument (the default empty map), the adapter's output is
+    // unchanged from step 1's own design.
+    const landscapeDemandsNoOverlay = measuredFromLytProgram(LYT_LANDSCAPE);
+    const treeDemand = landscapeDemandsNoOverlay.find((d) => d.region === 'tree');
     expect(treeDemand?.maxUseful).toBeNull();
 
     for (const widthPx of LANDSCAPE_SWEEP_WIDTHS_PX) {
       const candidate = computeLandscapeCandidate({ widthPx, heightPx: LANDSCAPE_SWEEP_HEIGHT_PX });
-      const result = FeasibleLayout.validate(landscapeDemands, toAllotmentMap(candidate), 'landscape', {
+      const result = FeasibleLayout.validate(landscapeDemandsNoOverlay, toAllotmentMap(candidate), 'landscape', {
         widthPx: px(widthPx),
         heightPx: px(LANDSCAPE_SWEEP_HEIGHT_PX),
       });
       const diagnostics = 'refused' in result ? result.refused : [];
       expect(diagnostics.some((d) => d.region === 'tree' && d.kind === 'hoarding')).toBe(false);
     }
+  });
+
+  it('dispatch L2b: WITH the overlay wired, `tree` DOES now produce a hoarding diagnostic at wide landscape widths', () => {
+    // The direct counterpart of the retired claim above — proves the
+    // overlay mechanism is genuinely load-bearing in the STANDARD sweep's
+    // own demands (`landscapeDemands`, built with the overlay at this
+    // file's top-level `describe` above), not merely constructible in
+    // isolation. `tree`'s numeric candidate under `computeLandscapeCandidate`
+    // grows well past 60px once `controlPanel` stops competing for the
+    // same row's leftover (>= 1600px landscape, this file's own census) —
+    // every one of those widths must show `tree` hoarding against its own
+    // live 60px content demand.
+    const landscapeDemandsWithOverlay = measuredFromLytProgram(LYT_LANDSCAPE, TREE_LIVE_CONTENT_OVERLAY);
+    const treeDemand = landscapeDemandsWithOverlay.find((d) => d.region === 'tree');
+    expect(treeDemand?.maxUseful).toBe(TREE_EFFECTIVE_MAX_USEFUL_LANDSCAPE_PX);
+
+    let hoardingCount = 0;
+    for (const widthPx of LANDSCAPE_SWEEP_WIDTHS_PX) {
+      const candidate = computeLandscapeCandidate({ widthPx, heightPx: LANDSCAPE_SWEEP_HEIGHT_PX });
+      const result = FeasibleLayout.validate(landscapeDemandsWithOverlay, toAllotmentMap(candidate), 'landscape', {
+        widthPx: px(widthPx),
+        heightPx: px(LANDSCAPE_SWEEP_HEIGHT_PX),
+      });
+      const diagnostics = 'refused' in result ? result.refused : [];
+      if (diagnostics.some((d) => d.region === 'tree' && d.kind === 'hoarding')) hoardingCount += 1;
+    }
+    expect(hoardingCount).toBeGreaterThan(0);
   });
 
   it('produces a starved-controlPanel diagnostic at a narrow landscape width, honoring the compiled demote threshold', () => {
@@ -517,6 +626,55 @@ describe('honest limits of the step-1 census (disclosed, not silently absent)', 
       });
       expect('refused' in result).toBe(true);
     }
+  });
+});
+
+describe('dispatch L2b: the flagship starved+hoarding PAIR, review-witnessed candidate at 1920x1080', () => {
+  it('the review\'s own canonical instance, reproduced via the REAL adapter + overlay at the review\'s own witnessed geometry', () => {
+    // This file's own header ("Dispatch L2b addendum") discloses WHY this
+    // one test does not reuse `computeLandscapeCandidate`'s own numeric
+    // solver for `tree`/`controlPanel`: that solver's own `board-priority-
+    // clamp` formula saturates at its compiled `maxPx` (820) for every
+    // height up to ~1140px at width 1920, so `controlPanel` never demotes
+    // in THIS derivation at width 1920 — a disclosed gap L1's own report
+    // already named. `demands` below IS the real adapter's own output
+    // (`measuredFromLytProgram` + the real overlay mechanism, §3 step 2's
+    // own deliverable); only `tree`'s and `controlPanel`'s own CANDIDATE
+    // entries are the review's own witnessed live-DOM numbers
+    // (`lyt-final-opus-review.md` §Class 1: "at 1920 [the tree panel is]
+    // 613 px and [the control panel is] absent") — every OTHER region's
+    // candidate still comes from the numeric solver, unmodified.
+    const demands = measuredFromLytProgram(LYT_LANDSCAPE, TREE_LIVE_CONTENT_OVERLAY);
+    const solverCandidate = computeLandscapeCandidate({ widthPx: 1920, heightPx: 1080 });
+    const candidate = new Map(solverCandidate);
+    candidate.set('tree', { axis: 'h', px: 613 }); // review-witnessed
+    candidate.set('controlPanel', { axis: 'h', px: 0 }); // review-witnessed (absent)
+
+    const result = FeasibleLayout.validate(demands, toAllotmentMap(candidate), 'landscape', {
+      widthPx: px(1920),
+      heightPx: px(1080),
+    });
+    expect('refused' in result).toBe(true);
+    if (!('refused' in result)) return;
+    const byRegion = new Map(result.refused.map((d) => [d.region, d]));
+    expect(byRegion.get('tree')).toMatchObject({ kind: 'hoarding', demandPx: TREE_EFFECTIVE_MAX_USEFUL_LANDSCAPE_PX, grantedPx: 613 });
+    expect(byRegion.get('controlPanel')).toMatchObject({ kind: 'starved', demandPx: 664, grantedPx: 0 });
+
+    // Acceptance-evidence census line, printed alongside the standard
+    // sweep's own census (this file's "emits the full diagnostic census"
+    // test, above) — not folded into that SAME array (a hand-fed
+    // candidate for two of its regions is a materially different
+    // methodology, disclosed by keeping it a visibly separate block
+    // rather than silently merged into the solver-derived rows).
+    // eslint-disable-next-line no-console -- deliberate: acceptance-evidence output, dispatch L2b.
+    console.info(
+      '\n=== dispatch L2b flagship pair (review-witnessed candidate) ===\n' +
+        'landscape 1920x1080 (review-witnessed tree/controlPanel candidate):\n' +
+        result.refused
+          .map((d) => `    ${d.kind.toUpperCase().padEnd(8)} ${d.region} (${d.axis}): demand=${d.demandPx}px granted=${d.grantedPx}px`)
+          .join('\n') +
+        '\n',
+    );
   });
 });
 
@@ -568,6 +726,83 @@ describe('measuredFromLytProgram — adapter-level assertions the census depends
   it('every Measured entry is internally well-formed (constructible via measured(), by construction)', () => {
     for (const program of [LYT_LANDSCAPE, LYT_PORTRAIT]) {
       for (const d of measuredFromLytProgram(program)) {
+        expect(() => measured(d)).not.toThrow();
+      }
+    }
+  });
+});
+
+describe('measuredFromLytProgram — dispatch L2b, the runtime overlay', () => {
+  it('an absent overlay argument preserves L1\'s own output byte-identically (the default parameter value)', () => {
+    for (const program of [LYT_LANDSCAPE, LYT_PORTRAIT]) {
+      expect(measuredFromLytProgram(program)).toEqual(measuredFromLytProgram(program, new Map()));
+    }
+  });
+
+  it('an overlay entry for a region NOT present in the program is simply never consulted (no crash, no phantom entry)', () => {
+    const overlay = new Map<string, Px | null>([['not-a-real-widget-id', px(999)]]);
+    expect(() => measuredFromLytProgram(LYT_LANDSCAPE, overlay)).not.toThrow();
+    const demands = measuredFromLytProgram(LYT_LANDSCAPE, overlay);
+    expect(demands.some((d) => d.region === 'not-a-real-widget-id')).toBe(false);
+  });
+
+  it('supersedes a synthesized-null maxUseful with the overlay\'s own live reading', () => {
+    // A reading ABOVE tree's own compiled min (110), so this test isolates
+    // plain supersession from the separate "clamped up to min" behavior
+    // (its own dedicated test below).
+    const overlay = new Map<string, Px | null>([['tree', px(300)]]);
+    const demands = measuredFromLytProgram(LYT_LANDSCAPE, overlay);
+    const tree = demands.find((d) => d.region === 'tree');
+    expect(tree?.maxUseful).toBe(300);
+  });
+
+  it('never supersedes a REAL compiled ceiling — a fixed-track region\'s maxUseful is untouched even when overlaid', () => {
+    // controlPanel is `{ kind: 'fixed', px: 664 }` — its adapter-synthesized
+    // maxUseful is ALREADY 664 (non-null), so "runtime demands supersede
+    // build-time NULLS" (this module's own header) must not apply here.
+    const overlay = new Map<string, Px | null>([['controlPanel', px(50)]]);
+    const demands = measuredFromLytProgram(LYT_LANDSCAPE, overlay);
+    const controlPanel = demands.find((d) => d.region === 'controlPanel');
+    expect(controlPanel?.maxUseful).toBe(664); // untouched — the overlay's 50 is discarded
+  });
+
+  it('a null overlay entry for a region also leaves the synthesized null exactly as step 1 produced it', () => {
+    const overlay = new Map<string, Px | null>([['tree', null]]); // "not yet measured" — a legitimate overlay state
+    const demands = measuredFromLytProgram(LYT_LANDSCAPE, overlay);
+    const tree = demands.find((d) => d.region === 'tree');
+    expect(tree?.maxUseful).toBeNull();
+  });
+
+  it('clamps a live reading BELOW the region\'s own compiled floor up to that floor — maxUseful never drops below min', () => {
+    // tree's own compiled floor is minPx: 110 (elastic{minPx:110}) — a live
+    // content reading of 40px must not produce maxUseful=40 (which would
+    // violate measured()'s own min<=maxUseful invariant); this module's
+    // own header explains why max(min, overlayPx) is the correct
+    // engineering choice, not an arbitrary clamp.
+    const overlay = new Map<string, Px | null>([['tree', px(40)]]);
+    const demands = measuredFromLytProgram(LYT_LANDSCAPE, overlay);
+    const tree = demands.find((d) => d.region === 'tree');
+    expect(tree?.min).toBe(110);
+    expect(tree?.maxUseful).toBe(110); // clamped up to min, not the raw 40
+    expect(() => measured(tree!)).not.toThrow(); // the invariant holds
+  });
+
+  it('applies identically in the portrait program (both classes, per the dispatch\'s own "both classes" scope)', () => {
+    const demands = measuredFromLytProgram(LYT_PORTRAIT, TREE_LIVE_CONTENT_OVERLAY);
+    const tree = demands.find((d) => d.region === 'tree');
+    // Portrait's own compiled tree min is 140 (vs landscape's 110) — the
+    // raw 60px overlay reading clamps up to THAT floor here, per the
+    // TREE_LIVE_CONTENT_OVERLAY constant's own doc above.
+    expect(tree?.maxUseful).toBe(TREE_EFFECTIVE_MAX_USEFUL_PORTRAIT_PX);
+  });
+
+  it('every overlaid entry remains internally well-formed (constructible via measured())', () => {
+    const overlay = new Map<string, Px | null>([
+      ['tree', px(60)],
+      ['A_engine_queue', px(9999)], // an elastic, currently-null-maxUseful region — also eligible
+    ]);
+    for (const program of [LYT_LANDSCAPE, LYT_PORTRAIT]) {
+      for (const d of measuredFromLytProgram(program, overlay)) {
         expect(() => measured(d)).not.toThrow();
       }
     }
