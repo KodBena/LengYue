@@ -21,7 +21,7 @@ layout lengyue-portrait =
         {min read-constant(CP-cards, portrait), pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v unit, unit v 39px} CP-cards[common],
         {min pack-rows(items: [113px, 177px, 153px, 153px, 137px, 105px], target-rows: 2, search-ceiling: 838px), pref 1fr, max inf, gap 4px} V(
           {77px, boundary, content bounded} settingsSubstrip[common],
-          {min 200px, pref 1fr, max inf, content unbounded} T(
+          {min max-over(children.min), pref 1fr, max inf, content unbounded} T(
             {min read-constant(SP_session, portrait), pref 1fr, max inf, boundary, content bounded} SP_session[common],
             {min read-constant(SP_analysisEnv, portrait), pref 1fr, max inf, boundary, content bounded} SP_analysisEnv[common],
             {min read-constant(SP_cardSets, portrait), pref 1fr, max inf, boundary, content bounded} SP_cardSets[common],
