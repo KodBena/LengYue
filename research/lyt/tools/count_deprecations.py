@@ -29,21 +29,26 @@ count can never leak into another's.
 Two counts per file:
   - WARNING-MODE: the ordinary `loader.load_layouts(text)` call (no
     `refuse_literal_bounds`) — every `RelationsFirstDeprecationWarning`
-    the full load emits, counted honestly to completion.
+    the full load emits, counted honestly to completion. This count is
+    NOT zero for the real encodings (see the printed table) — most of
+    it is `fr`/`inf` structural sizing keywords, which warn regardless
+    of strict mode (no relations-first analog exists), plus every px/ch
+    site the RATCHET FORM (below) now ratifies, which still counts here
+    since this column measures the WARNING channel specifically, not
+    whether the site would be refused under strict mode.
   - STRICT-MODE (encodings/ files only): `loader.load_layouts(text,
-    refuse_literal_bounds=True, source_file=...)` — the C4 flip. A
-    px/ch literal now RAISES instead of warning, so this mode's own
-    warning count is, by construction, always 0 (the load either
-    completes with zero px/ch literals resolved under strict context,
-    or aborts at the first one via `LytLoadError` before any further
-    warning could accumulate) — this is the literal sense in which
-    "encodings should be ZERO post-flip" (this dispatch's own brief):
-    not that the real committed encodings have zero residual literals
-    (they do not — see the WARNING-MODE column, and this dispatch's own
-    report for the disclosed 77.5%-not-100% reduction C3 left behind),
-    but that STRICT MODE's own warning channel never accumulates a
-    nonzero count, because a px/ch literal is refused before it would
-    have been recorded as a warning.
+    refuse_literal_bounds=True, source_file=...)` — the C4 flip's own
+    RATCHET FORM (ledger rows 2396/2445, reconciling "px literals...
+    banned" with "a qualified zero is ratified"). A px/ch literal
+    RAISES only if its own (file, site_id, construct, unit) key is
+    absent from `ratified-literals.json`; a listed one loads silently.
+    This mode's own WARNING count is, by construction, always 0 for the
+    px/ch channel specifically (a ratified site never warns either — it
+    is sanctioned, not merely tolerated — and an unratified one raises
+    before it would be recorded); the two real encodings both COMPLETE
+    under strict mode today (`outcome == "completed"`), because every
+    one of their own residual px/ch sites is now a ratified manifest
+    entry, not because the literals themselves are gone.
 
 Usage: `nice -n 19 <python> tools/count_deprecations.py` from
 `research/lyt/`.
@@ -95,7 +100,15 @@ text = open({path!r}).read()
 with warnings.catch_warnings(record=True) as w:
     warnings.simplefilter("always")
     try:
-        loader.load_layouts(text, refuse_literal_bounds=True, source_file={path!r})
+        # RATCHET FORM, dispatch C4 (ledger rows 2396/2445): `source_file`
+        # here MUST be the same relative label
+        # `ratified-literals.json`'s own "file" field uses
+        # ({rel_path!r}, NOT the absolute path) -- the manifest lookup is
+        # an exact-string match, so an absolute path here would silently
+        # match nothing and refuse every site, which is exactly the bug
+        # this fix corrects (found by this script's own first run against
+        # the real manifest).
+        loader.load_layouts(text, refuse_literal_bounds=True, source_file={rel_path!r})
         outcome = "completed"
     except LytLoadError as exc:
         outcome = f"refused:{{exc.detail.get('prohibition')}}@{{exc.detail.get('where')}}"
@@ -124,11 +137,8 @@ def count_warning_mode(path: Path) -> int:
 
 def count_strict_mode(path: Path) -> str:
     rel = str(path.relative_to(HERE))
-    snippet = _STRICT_MODE_SNIPPET.format(here=str(HERE), path=str(path))
-    # source_file is passed as the raw path above for simplicity; report
-    # the relative form here for readability.
-    out = _run_snippet(snippet)
-    return out
+    snippet = _STRICT_MODE_SNIPPET.format(here=str(HERE), path=str(path), rel_path=rel)
+    return _run_snippet(snippet)
 
 
 def main() -> int:

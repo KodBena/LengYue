@@ -115,6 +115,7 @@ license line and the umbrella's ADR-0006 per-file convention.
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
 from dataclasses import dataclass, field
@@ -131,6 +132,10 @@ DEFAULT_FACTS_RESIDUE_PATH = _HERE / "facts.residue.json"
 DEFAULT_THEME_CSS_PATH = (
     _HERE.parent.parent / "frontend" / "src" / "assets" / "css" / "theme.css"
 )
+# LYT relations-first amendment, dispatch C4's ratchet form (ledger rows
+# 2396/2445): the commissioner-owned manifest `RatifiedManifest.load`
+# reads by default -- see that class's own docstring.
+DEFAULT_RATIFIED_LITERALS_PATH = _HERE / "ratified-literals.json"
 
 # The nine ratified primitives (governing spec §2). Closed vocabulary —
 # an unrecognized relation name is refused loudly, never silently ignored
@@ -339,6 +344,105 @@ class FactsTable:
 
 
 @dataclass
+class RatifiedLiteral:
+    """One entry in `RatifiedManifest` — a single (file, site, construct,
+    unit) key the commissioner has ratified as legal to carry a px/ch
+    LITERAL bound, plus the SET of values ratified at that key (a set,
+    not a single value, because a compound construct — `sum-of`'s own
+    operands, `pack-rows`' own `items` list — resolves more than one
+    literal under the same key, and because a set-membership check is
+    naturally order-independent, unlike a positional list)."""
+
+    file: str
+    site_id: str
+    construct: str
+    unit: str
+    ratified_values: Tuple[float, ...]
+    # Present only for a site_id minted by `loader._site_id_for_node`'s
+    # own content-signature fallback (an untagged Split/Exclusive with no
+    # author-declared name) — the human-readable signature the hash was
+    # computed from, stored purely for a commissioner's own audit, never
+    # read by the matching logic itself (`site_id` alone is the key).
+    content_signature: Optional[str] = None
+
+
+class RatifiedManifest:
+    """LYT relations-first amendment, dispatch C4's RATCHET form (ledger
+    rows 2396/2445): reconciles ruling 2396 ("px literals... banned from
+    encodings") with ruling 2445 (a QUALIFIED zero — the residue C3's own
+    rewrite disclosedly left behind is ratified, not silently tolerated).
+
+    This is a COMMISSIONER-OWNED, AUTHORED artifact, the same posture
+    `facts.residue.json` already takes (see that file's own `_comment`
+    header) — NOT auto-generated from a fresh scan of the encodings, so
+    that a NEW literal appearing in a governed encoding (an author's typo,
+    or a genuine new site nobody has reviewed) is refused by DEFAULT
+    (absent from this file) rather than silently admitted because it
+    happens to resemble something already there. `research/lyt/tools/
+    count_deprecations.py` and `research/lyt/tools/dump_ratifiable_sites.py`
+    (dispatch C4's own tooling) are how a human derives the CANDIDATE list
+    to review before hand-editing this file — this class only ever READS
+    it, never writes it.
+
+    KEYING (the ratchet's own load-bearing discipline, per the
+    commissioner's own instruction): `(file, site_id, construct, unit)`.
+    `site_id` is `node.widget` for a leaf, `f"tag:{tag}"` for a tagged
+    Exclusive, or a content-derived hash for anything else (see
+    `loader._site_id_for_node`'s own docstring for the full scheme and
+    why NEITHER file:line NOR ordinal tree position is ever part of any
+    of these three forms). `construct` names WHICH sizing-bag position
+    the literal occupies (`"min"`/`"pref"`/`"max"`/`"fixed"` for the
+    ordinary triple and its fixed/pinned-shorthand collapse,
+    `"envelope-state:<name>"`, `"sum-of-operand"`/`"max-over-operand"`/
+    `"pack-rows-item"` for a compound relation's own operands). NEITHER
+    component is ever a line number or a sibling/child INDEX — inserting
+    an unrelated line anywhere in the file, or reordering unrelated
+    siblings, changes NEITHER a widget's own id, NOR a tag, NOR a
+    content-signature hash (which depends only on the SUBTREE's own
+    content, sorted, never its position among siblings).
+    """
+
+    def __init__(self, entries: List[RatifiedLiteral], *, status: str = ""):
+        self.entries = entries
+        self.status = status
+        self._index: Dict[Tuple[str, str, str, str], Tuple[float, ...]] = {}
+        for e in entries:
+            self._index[(e.file, e.site_id, e.construct, e.unit)] = e.ratified_values
+
+    def is_ratified(
+        self, *, file: str, site_id: str, construct: str, unit: str, value: float
+    ) -> bool:
+        values = self._index.get((file, site_id, construct, unit))
+        if values is None:
+            return False
+        return any(abs(v - value) < 1e-9 for v in values)
+
+    @classmethod
+    def load(cls, path: Optional[Path] = None) -> "RatifiedManifest":
+        p = Path(path or DEFAULT_RATIFIED_LITERALS_PATH)
+        if not p.exists():
+            # Absent manifest is EMPTY, not an error -- a caller running
+            # strict mode with no manifest on disk gets "refuse
+            # everything," the same safe default `_resolve_extent_like`'s
+            # own refusal already documents, not a crash that would make
+            # a missing file indistinguishable from a real bug.
+            return cls([], status="absent")
+        data = json.loads(p.read_text())
+        entries = [
+            RatifiedLiteral(
+                file=raw["file"],
+                site_id=raw["site_id"],
+                construct=raw["construct"],
+                unit=raw["unit"],
+                ratified_values=tuple(float(v) for v in raw["ratified_values"]),
+                content_signature=raw.get("content_signature"),
+            )
+            for raw in data.get("entries", [])
+        ]
+        return cls(entries, status=data.get("status", ""))
+
+
+@dataclass
 class RelationContext:
     """Everything a relation expression at one load-time position may
     resolve against. Built fresh, incrementally, by `loader.py`'s
@@ -399,6 +503,40 @@ class RelationContext:
     # refusal still fires correctly on `refuse_literal_bounds` alone, it
     # just omits the file name from its own detail dict.
     source_file: Optional[str] = None
+    # RATCHET FORM, dispatch C4's own amendment to the flip above (ledger
+    # rows 2396/2445, reconciling "px literals... banned" with "a
+    # qualified zero is ratified, not silently tolerated"). When
+    # `refuse_literal_bounds` is True, `_resolve_extent_like` no longer
+    # refuses EVERY px/ch literal unconditionally — it checks `ratified`
+    # (a `RatifiedManifest`, `None` meaning "empty," i.e. refuse
+    # everything, the same safe default an absent manifest FILE already
+    # gives `RatifiedManifest.load`) against the CURRENT site: `source_
+    # file` above (the key's `file` component) plus the two fields below
+    # (`current_site_id`/`current_construct`, the key's other two
+    # components) plus the literal's own `unit`/value. A match loads
+    # SILENTLY (no warning either — it is ratified, not merely
+    # deprecated); no match refuses, naming all four key components plus
+    # the manifest's own path so a reader knows exactly what to add and
+    # where, per the commissioner's own ratification discipline.
+    ratified: Optional["RatifiedManifest"] = None
+    # The site identity for whichever node's OWN sizing/envelope/operand
+    # resolution is CURRENTLY in progress — set fresh by `loader.py`'s
+    # `load_slot` (once per node, via `loader._site_id_for_node`) right
+    # before that node's own `_load_sizing` call, so every literal
+    # resolved during that one call (min/pref/max/fixed/envelope-states/
+    # any nested relation operand) sees the SAME site_id, matching the
+    # ratchet's own "site identity is a property of the NODE, not of
+    # which sizing-bag key fired" design.
+    current_site_id: Optional[str] = None
+    # Which sizing-bag position the literal about to resolve occupies —
+    # set immediately before EACH individual `_resolve_extent_like` call
+    # this module's own `_load_sizing`/`_resolve_envelope_state_extents`/
+    # the three operand-resolving functions below make, via
+    # `dataclasses.replace(ctx, current_construct=...)` (a cheap, local,
+    # non-mutating copy — every other field, including `current_site_id`,
+    # carries over unchanged). See `RatifiedManifest`'s own docstring for
+    # the closed vocabulary this takes.
+    current_construct: Optional[str] = None
 
 
 ResolveExtentLike = Callable[..., object]  # (raw, *, where, ctx=None) -> ast.Extent
@@ -714,8 +852,14 @@ def _resolve_max_over(rel, *, where: str, ctx: RelationContext, resolve_extent_l
                 )
             values.append(ext.v)
         return ast.Extent(unit="px", v=max(values))
+    # RATCHET FORM (dispatch C4, ledger rows 2396/2445): every operand of
+    # the GENERAL (non-`children.*`) form is tagged `current_construct=
+    # "max-over-operand"` — a literal here is a max-over's own operand,
+    # never confused with the enclosing node's own `min`/`pref`/`max`
+    # even though both may appear in the same sizing block.
+    operand_ctx = dataclasses.replace(ctx, current_construct="max-over-operand")
     values = [
-        resolve_operand_to_px(a, where=where, ctx=ctx, resolve_extent_like=resolve_extent_like)
+        resolve_operand_to_px(a, where=where, ctx=operand_ctx, resolve_extent_like=resolve_extent_like)
         for a in args
     ]
     return ast.Extent(unit="px", v=max(values))
@@ -730,9 +874,11 @@ def _resolve_sum_of(rel, *, where: str, ctx: RelationContext, resolve_extent_lik
             f"sum-of at {where} needs at least one operand",
             {"where": where, "law": "relation", "prohibition": "empty-sum-of"},
         )
+    # RATCHET FORM (dispatch C4): see `_resolve_max_over`'s own comment.
+    operand_ctx = dataclasses.replace(ctx, current_construct="sum-of-operand")
     total = 0.0
     for a in args:
-        total += resolve_operand_to_px(a, where=where, ctx=ctx, resolve_extent_like=resolve_extent_like)
+        total += resolve_operand_to_px(a, where=where, ctx=operand_ctx, resolve_extent_like=resolve_extent_like)
     return ast.Extent(unit="px", v=total)
 
 
@@ -772,14 +918,20 @@ def _resolve_pack_rows(rel, *, where: str, ctx: RelationContext, resolve_extent_
         )
     target_rows = int(target_rows_arg.v)
 
+    # RATCHET FORM (dispatch C4): `search-ceiling` and each `items` entry
+    # are DIFFERENT constructs — a kwarg is a single scalar, the items
+    # list is a compound (per-value) construct, matching `RatifiedManifest`'s
+    # own closed vocabulary.
     search_ceiling = None
     if "search-ceiling" in kwargs:
+        ceiling_ctx = dataclasses.replace(ctx, current_construct="pack-rows-search-ceiling")
         search_ceiling = resolve_operand_to_px(
-            kwargs["search-ceiling"], where=where, ctx=ctx, resolve_extent_like=resolve_extent_like
+            kwargs["search-ceiling"], where=where, ctx=ceiling_ctx, resolve_extent_like=resolve_extent_like
         )
 
+    items_ctx = dataclasses.replace(ctx, current_construct="pack-rows-item")
     widths = [
-        resolve_operand_to_px(it, where=where, ctx=ctx, resolve_extent_like=resolve_extent_like)
+        resolve_operand_to_px(it, where=where, ctx=items_ctx, resolve_extent_like=resolve_extent_like)
         for it in items_arg.items
     ]
     if not widths:

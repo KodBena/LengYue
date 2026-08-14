@@ -1,8 +1,28 @@
 # LYT relations-first amendment — dispatch C4: the closing step (refusal flip, C3 review conditions, lyt-side riders)
 
 Ledger rows governing this dispatch: 2396/2397/2400/2419/2425/2436/2445.
-New rows written by this dispatch: 2462–2474 (ledger-policy source-file
+New rows written by this dispatch: 2462–2493 (ledger-policy source-file
 change entries, per-file, plus this report's own entry).
+
+**AMENDMENT, same dispatch, coordinator-directed mid-flight correction.**
+Everything below through "## Claims summary" is this report's ORIGINAL
+text, describing the FIRST pass: a flip mechanism built and tested but
+deliberately left unwired from every production loading path, because
+wiring it unconditionally would have refused the ~59 genuinely-
+unreachable px/ch literals C3's own rewrite disclosedly left behind
+(ledger row 2445's own qualified-zero ratification). The coordinator
+correctly named this "the unconditional form was never the coherent
+reading" and supplied the two review documents this report's own
+original text says it could not locate. **"## Amendment — the RATCHET
+form" (near the end, before the Claims summary) is the live account of
+what actually shipped** — a commissioner-owned ratified-literals
+manifest, WIRED into every production loading path, reconciling ruling
+2396 ("px literals... banned") with ruling 2445 (a QUALIFIED zero is
+ratified, not silently tolerated). The original text below is preserved
+as the record of the first pass's own reasoning (including the now-
+superseded "NOT wired in" decision and the now-resolved missing-
+documents gap), not deleted or silently rewritten — read the amendment
+section for the CURRENT state of every claim it touches.
 
 **Base freshness.** Worktree HEAD at dispatch start was `3378806f` (a
 stale dependabot merge). Reset (hard, safe — HEAD was a strict
@@ -376,6 +396,221 @@ point is unrelated to this dispatch, present before any edit here) —
 `content`/`scroll`/`edge` stay solver-inert (`compiler.py` never reads
 them), confirmed directly rather than merely asserted, since the
 `tree` reclassification touched exactly those three fields.
+
+---
+
+## Amendment — the RATCHET form (coordinator-directed, same dispatch)
+
+**The correction.** The original flip above refused EVERY px/ch literal
+under strict mode, unconditionally — coherent only if the two real
+encodings had reached genuine zero. They have not (119 residual
+literal-bound warnings, ~59 genuine px/ch sites with no facts coverage
+this wave, per C3's own disclosed 77.5%-not-100% reduction). Wiring the
+unconditional flip into any production loading path would therefore
+refuse content ruling 2445 already ratified as an acceptable qualified
+zero. The coordinator named this precisely and supplied the two review
+documents (`lyt-relations-b-review.md`, `lyt-relations-c3-review.md`)
+this report's own original text above could not locate — both now read
+end to end; neither surfaces any finding beyond what §2/§3/§8 of C3's
+own review already told this dispatch to fold into SPEC-AMENDMENTS.md's
+Residual items (done, unaffected by this amendment) and independently
+re-verify (done, unaffected).
+
+### The manifest
+
+`research/lyt/ratified-literals.json` (new file) — a commissioner-owned,
+authored artifact, the SAME posture `facts.residue.json` already takes
+(disclosed via its own `_comment` header: "AUTHORED, NOT auto-generated
+... ADDING A SITE HERE REQUIRES FRESH COMMISSIONER RATIFICATION"). 47
+entries, one per `(file, site_id, construct, unit)` key, covering every
+px/ch site `research/lyt/tools/dump_ratifiable_sites.py` (new file) —
+this dispatch's own enumeration tool, reading the SAME warning-mode
+load every WITNESSED count in this report already used — found across
+both real encodings. Each entry's own `"basis"` field cites C3's own
+report §7 (or, for a new R5-class site, the SPEC-AMENDMENTS.md Residual
+item this dispatch's own earlier section already filed) — no entry was
+invented; every one traces to an already-disclosed absence.
+
+**Keying — the commissioner's own explicit instruction, implemented
+without a file:line or an ordinal position anywhere:**
+
+- **A leaf**: its own `widget` id (`boardRail`, `tree`, `timelineStrip`,
+  …) — the same stable identity every other part of this substrate
+  already keys on.
+- **A tagged Exclusive** (`T(...)[TAG]`): `f"tag:{TAG}"` — reuses the
+  author-declared annotation the encodings already carry
+  (`tag:ANALYSIS TABS`), rather than inventing a parallel identity
+  scheme for the one node kind that already has one.
+- **Anything else** (an untagged Split or untagged Exclusive — most of
+  the genuinely anonymous groups: the side column, the engine-controls
+  row, the settings/analysis/other wrapper groups, the three ANALYSIS
+  TABS columns, the root split itself): a CONTENT-DERIVED signature
+  (`loader._raw_content_signature` — `"{H|V|T}[" + sorted child
+  signatures + "]"`, recursive, a leaf's own signature being just its
+  widget id) hashed to a short handle (`anon-<10 hex chars>`), with the
+  full human-readable signature stored alongside in the manifest entry
+  (`content_signature`) for a commissioner's own audit. SORTED is the
+  load-bearing choice: reordering siblings — an ordinal, positional fact
+  — never changes the signature, since the string encodes WHICH children
+  exist and what they themselves contain, never WHERE. Two genuinely
+  identical subtrees legitimately collide (the same ratification
+  correctly applies to both, not a bug); any real difference in
+  composition changes the hash, correctly demanding fresh ratification.
+  Pinned by five dedicated tests (`test_site_id_for_*` in
+  `tests/test_relations.py`), including one that inserts twenty blank
+  lines before an identical fragment and confirms the derived id is
+  byte-identical, and one that reorders two siblings and confirms the
+  same.
+
+`construct` distinguishes WHICH sizing-bag position a literal occupies
+at the SAME site — `min`/`pref`/`max` (three different keys even at one
+widget — ratifying `min` never silently ratifies `pref`), `fixed`
+(covers BOTH the bare `{Npx}` shorthand and the `pinned <extent>`
+keyword spelling, since they mean the same thing), `envelope-state:
+<name>`, and — for a compound relation's own operands, which have no
+per-item name in the grammar to key on — `sum-of-operand`/`max-over-
+operand`/`pack-rows-item`/`pack-rows-search-ceiling`, each carrying a
+VALUE SET rather than a single value (`ratified_values: [...]`), so six
+`pack-rows` items (two sharing the same 153px width) collapse into one
+manifest entry whose membership check is inherently order-independent —
+never an item INDEX, which would be exactly the ordinal anti-pattern
+being avoided.
+
+### The mechanism
+
+`RelationContext` gains `ratified` (a `relations.RatifiedManifest`,
+lazily loaded once per process via `loader._get_ratified_manifest`,
+mirroring `_get_facts_table`'s own posture), `current_site_id`, and
+`current_construct`. `load_slot` computes each node's own site id ONCE
+(`_site_id_for_node`) and threads it (via `dataclasses.replace`, no
+signature changes needed on `_resolve_extent_like`/`resolve_operand_to_
+px` themselves) into every construct-specific resolve call — `_load_
+sizing`'s min/pref/max/fixed branches, `_resolve_envelope_state_
+extents`, and `relations.py`'s three operand-resolving functions (each
+tagging its own construct via a local `dataclasses.replace` before
+calling `resolve_operand_to_px`). `_resolve_extent_like`'s own strict-
+mode branch now checks `ctx.ratified.is_ratified(file=ctx.source_file,
+site_id=ctx.current_site_id, construct=ctx.current_construct,
+unit=e.unit, value=e.v)` before refusing — a match loads silently (no
+warning either, since a ratified literal is sanctioned, not merely
+deprecated); no match refuses with `detail["prohibition"] ==
+"unratified-literal-in-governed-encoding"`, naming `site_id`/
+`construct`/`unit`/`v`/`source_file`/the manifest's own path, and the
+raised message spells out the exact JSON object a commissioner would
+add to ratify it.
+
+### Wired into every production loading path
+
+`runner.load_governed_layouts` (built in the original flip pass,
+UNUSED there) is now the entry point `run_all`, `emit_ts.py`,
+`emit_mockup.py`, `coverage_matrix.py`, and `emit_layout_tree.py` (both
+its per-registration loop and its direct `ENCODINGS_DIR`-reading
+`build_program`) all route through — each computes `is_governed_
+encoding(path)`/`runner.source_file_label(path)` from its own already-
+resolved path (never hand-picked) and threads them into `loader.
+load_layouts`. `orientation.rebind` (which re-loads the SAME source
+text a second time, for the L14 role-frame re-binding — see its own
+docstring) gained matching `refuse_literal_bounds`/`source_file`
+parameters so its second load stays exactly as strict as the first;
+`runner.run_all` now tracks `layout_governed`/`layout_source_label`
+alongside its pre-existing `layout_text`, for exactly this purpose.
+
+**Verified, not merely wired.** `runner.load_governed_layouts` against
+both real files now returns cleanly (`WITNESSED`, direct call, both
+classes). `tools/count_deprecations.py` (fixed in the same amendment —
+its own strict-mode probe originally passed an ABSOLUTE path as `source_
+file`, which never matches the manifest's own relative-label keys and
+so refused everything; corrected to the same relative label `runner.
+source_file_label` computes) now reports, for both real encodings,
+`outcome == "completed"` under strict mode, with exactly 30 residual
+WARNINGS each — the `fr`/`inf` structural count, unchanged from before
+the ratchet, never manifest-checked, exactly as designed. `runner.
+run_all()`'s own full five-registration, four-screen-size sweep: exit
+code and OPTIMAL/INFEASIBLE pattern byte-for-byte unchanged from the
+pre-ratchet baseline (the pre-existing 1280×1024 landscape / 420×880
+portrait INFEASIBLE points are untouched, unrelated). `emit_ts.py`/
+`coverage_matrix.py`/`emit_layout_tree.py` (both registrations) all
+exit 0; regenerating both `.gen.ts` files under the new wiring produces
+a BYTE-IDENTICAL diff to the already-committed files (`git status
+--short frontend/src/state/` empty after regeneration) — the ratchet is
+purely a load-time gating change, provably zero effect on emitted
+geometry/output. (`emit_mockup.py`'s own HTML output was ALSO
+regenerated during this verification and discarded, not committed — one
+solved coordinate differed by a tie-break-sized amount from the
+currently-committed mockup, present already on a completely clean
+re-run with no ratchet code involved at all — i.e. pre-existing CP-SAT
+tie-breaking sensitivity in that one generator, unrelated to this
+dispatch, out of scope to chase down here, and not shipped as a
+surprise diff.)
+
+### Tests
+
+`tests/test_relations.py` gains: the refusal shape against an empty
+synthetic manifest (naming site/construct/unit/manifest path); the
+positive ratified-load-succeeds-silently case; a same-widget-different-
+construct-still-refuses / same-construct-different-value-still-refuses
+pair (proving the key is genuinely 4-tuple + value-membership, not a
+per-widget blanket allowance); fr/inf-still-unaffected (unchanged
+claim, re-verified against an empty manifest so it cannot be
+accidentally passing via manifest coverage); the child/descendant
+propagation guard (now also asserting `site_id`/`construct` on the
+refusal, not just that it fires); `load_slot`'s own direct-call
+support; five site-id-derivation tests (leaf, tagged Exclusive, sibling-
+reorder stability, genuine-membership-change reactivity, unrelated-
+line-insertion stability); and the two production-facing cases
+(`load_governed_layouts` succeeds on the real landscape encoding using
+the REAL facts table — this module's own `autouse` fixture installs a
+synthetic one that lacks the real encoding's own relation targets, load
+-bearing once literal refusals stop masking that gap — and refuses a
+synthetic unratified site addressed at the real encodings/ namespace).
+`test_load_governed_layouts_refuses_on_a_real_encodings_file` (the
+original flip's own pinned expectation that the real files refuse) was
+RENAMED and its assertion INVERTED to `..._succeeds_...`, since that is
+now the correct, ratchet-covered behavior — not silently deleted, the
+git history carries the before/after.
+
+**Gates, re-run after the amendment:**
+
+```
+$ cd research/lyt && nice -n 19 ~/w/vdc/venvs/generic/bin/python -m pytest tests/ -q
+443 passed, 8799 warnings in 6.57s
+$ echo $?
+0
+```
+
+443 (up from the original flip's own 435: +11 new C4-ratchet tests, +1
+for the renamed real-encodings test counted as a rename not an add — 10
+new `_prohibition`/`_site_id`/`_construct` tests plus the 2 real-file
+tests replacing the original flip's own 2, net +11 matches the delta
+directly). Warning count dropped from the original flip's own 12060 to
+8799 — consistent with strict mode now eliminating every ratified
+px/ch site's own warning across every production caller this amendment
+wired in, leaving only the fr/inf structural residue.
+
+**Roundtrip**: both `.gen.ts` tests still pass (part of the 443 above);
+both files confirmed byte-identical to committed after a fresh
+regeneration under the new wiring (`git status --short` empty).
+
+**Scope discipline check.** Touched, this amendment only: `relations.py`
+(manifest classes + `RelationContext` fields), `loader.py` (site-id/
+signature helpers, construct tagging, the manifest-checked refusal
+branch), `runner.py` (`source_file_label`, `load_governed_layouts`'s own
+docstring + the production wiring in `run_all`), `orientation.py`
+(`rebind`'s two new parameters), `emit_ts.py`/`emit_mockup.py`/
+`coverage_matrix.py`/`emit_layout_tree.py`/`bench_solve.py` (the same
+three-line wiring pattern at each existing load call site — no other
+line touched in any of the five), `tests/test_relations.py`, and two
+new files under `research/lyt/`: `ratified-literals.json` (the
+manifest) and `tools/dump_ratifiable_sites.py` (the enumeration tool);
+`tools/count_deprecations.py`'s own pre-existing absolute-path bug,
+fixed in the same pass since this amendment's own verification pass is
+what surfaced it. No `.lyt` encoding text changed in this amendment (the
+tree/A_engine_controls riders from the original flip pass are
+untouched); no `.gen.ts` file changed (confirmed byte-identical, above).
+`research/lyt/mockups/*.html` were regenerated during verification,
+found to differ by a pre-existing, unrelated CP-SAT tie-break, and
+reverted rather than committed — named here rather than silently
+discarded.
 
 ---
 

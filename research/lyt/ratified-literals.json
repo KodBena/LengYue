@@ -1,0 +1,406 @@
+{
+  "_comment": "research/lyt/ratified-literals.json -- LYT relations-first amendment, dispatch C4's RATCHET form (ledger rows 2396/2445). AUTHORED, commissioner-owned, the SAME posture facts.residue.json already takes -- NOT auto-generated from a fresh scan of the encodings. Reconciles ruling 2396 ('px literals... banned from encodings') with ruling 2445 (a QUALIFIED zero is ratified, not silently tolerated): every entry below is one of the ~59 px/ch literal sites dispatch C3's own encoding rewrite disclosedly left behind (its own report, .claude/dispatch-reports/lyt-relations-c3-rewrite.md §7, enumerates the SAME sites by category -- boardRail/I_board/A_board's own cold-boot-absent or never-probed facts, the settings pack-rows six item widths and search-ceiling (text-width-of has zero facts coverage), timelineStrip/settingsSubstrip/otherColorDebug (no facts entry), the three un-pitched ANALYSIS TABS columns plus the T wrapper and CP-analysis's own sum-of operands (the R5 residual item -- no descendant-reference primitive exists yet), the side column's own 345px width floor and 60ch cap component, the root split's own trivial 0px floor, previewBoard's landscape figure, and portrait's own mainContentRow/tree floors). Values were independently re-verified against the real committed encodings via research/lyt/tools/dump_ratifiable_sites.py (not hand-copied from the report) before this file was written. ADDING A SITE HERE REQUIRES FRESH COMMISSIONER RATIFICATION -- this is not a file a build script may append to; a new candidate surfaces via dump_ratifiable_sites.py, is reviewed against the SAME standard C3's own report applied (a genuine facts-substrate or grammar absence, not an oversight), and is added by hand, one entry at a time, with its own basis stated. KEYING: (file, site_id, construct, unit) -- see relations.RatifiedManifest's own docstring for the full scheme (widget id for a leaf; tag:<TAG> for a tagged Exclusive; a content-signature hash, stored alongside as content_signature, for an untagged Split/Exclusive) and why none of the three is ever a file:line or a sibling/child ordinal position. License: Public Domain (The Unlicense), matching research/lyt/__init__.py's license line and the umbrella's ADR-0006 per-file convention.",
+  "status": "ratified, ledger row 2445",
+  "entries": [
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "A_board",
+      "construct": "fixed",
+      "unit": "px",
+      "ratified_values": [28],
+      "basis": "no facts.generated.json entry (UNEXERCISED, census's own disclosed flag) -- C3 report §7."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "I_board",
+      "construct": "fixed",
+      "unit": "px",
+      "ratified_values": [24],
+      "basis": "no facts.generated.json entry (UNEXERCISED) -- C3 report §7."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "boardRail",
+      "construct": "fixed",
+      "unit": "px",
+      "ratified_values": [168],
+      "basis": "only facts entry is unexercised:true (cold-boot, release toggle absent) -- C3 report §7."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "settingsSubstrip",
+      "construct": "fixed",
+      "unit": "px",
+      "ratified_values": [77],
+      "basis": "no facts entry -- C3 report §7."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "otherColorDebug",
+      "construct": "fixed",
+      "unit": "px",
+      "ratified_values": [264],
+      "basis": "no facts entry -- C3 report §7."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "timelineStrip",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [80],
+      "basis": "no v-axis facts entry for timelineStrip -- C3 report §7."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "timelineStrip",
+      "construct": "pref",
+      "unit": "px",
+      "ratified_values": [80],
+      "basis": "same as timelineStrip's own min -- the leaf is fully fixed (min=pref=max), spelled as three explicit terms rather than the bare shorthand."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "timelineStrip",
+      "construct": "max",
+      "unit": "px",
+      "ratified_values": [80],
+      "basis": "same as timelineStrip's own min."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "tree",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [110],
+      "basis": "disclosed solver-only relaxation of TREE_PANEL_MIN_WIDTH_PX -- no facts entry exists for landscape's own relaxed value (portrait's own tree floor IS a relation, read-constant(tree)) -- C3 report §7 / SPEC-AMENDMENTS.md."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "previewBoard",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [160],
+      "basis": "no facts entry for previewBoard's landscape figure (portrait's own previewBoard IS a relation, read-constant(previewBoard, portrait)) -- C3 report §7."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "previewBoard",
+      "construct": "pref",
+      "unit": "px",
+      "ratified_values": [160],
+      "basis": "same as previewBoard's own min."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "previewBoard",
+      "construct": "max",
+      "unit": "px",
+      "ratified_values": [160],
+      "basis": "same as previewBoard's own min."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "tag:ANALYSIS TABS",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [160],
+      "basis": "no primitive reaches a plain Split's own descendants two levels down (R5, SPEC-AMENDMENTS.md Residual items) -- the wrapping T[ANALYSIS TABS]'s own floor is a flat, hand-derived number, not yet a genuine max-over its own three columns."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "anon-026f781ba7",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [0],
+      "content_signature": "H[V[A_app,A_setup,H[A_engine_controls,A_engine_eval,A_engine_health,A_engine_queue],H[T:BLACK BOX,previewBoard,tree]],V[A_board,B,I_board],boardRail]",
+      "basis": "the root split's own trivial 0px floor -- never enumerated by the census as a design decision, the least-constraining value the language's own omitted-min default would give anyway (spelled explicitly here rather than omitted)."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "anon-1882398a15",
+      "construct": "pack-rows-item",
+      "unit": "px",
+      "ratified_values": [105, 113, 137, 153, 177],
+      "content_signature": "V[T[SP_advancedRegistry,SP_analysis,SP_analysisEnv,SP_cardSets,SP_keybindings,SP_session],settingsSubstrip]",
+      "basis": "the settings group's own pack-rows items -- text-width-of has zero facts-table coverage (C3 report §3.3/§7); six button widths, 153 appearing twice (two buttons of the same width)."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "anon-1882398a15",
+      "construct": "pack-rows-search-ceiling",
+      "unit": "px",
+      "ratified_values": [838],
+      "content_signature": "V[T[SP_advancedRegistry,SP_analysis,SP_analysisEnv,SP_cardSets,SP_keybindings,SP_session],settingsSubstrip]",
+      "basis": "pack-rows' own search-ceiling kwarg at the same site -- a bound on the search, not a measured content fact; no relation reaches this position."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "anon-4cf2e764cd",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [160],
+      "content_signature": "V[AT_dist_deltaDist,AT_dist_mistakeGap]",
+      "basis": "the ANALYSIS TABS dist column's own floor -- same R5 gap as the wrapping T's own tag:ANALYSIS TABS entry above (no descendant-reference primitive yet)."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "anon-500460e23d",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [204],
+      "content_signature": "V[otherBand,otherColorDebug]",
+      "basis": "the CP-other group's own wrapping floor -- deliberately untouched per C3's own narrow-scope discipline (§6 purge-accounting table)."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "anon-538f4ef81f",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [160],
+      "content_signature": "V[AT_stab_crossCorr,AT_stab_stability]",
+      "basis": "the ANALYSIS TABS stability column's own floor -- same R5 gap as the dist column above."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "anon-601f0bf2e3",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [345],
+      "content_signature": "V[A_app,A_setup,H[A_engine_controls,A_engine_eval,A_engine_health,A_engine_queue],H[T:BLACK BOX,previewBoard,tree]]",
+      "basis": "the side column's own width floor -- no facts entry, C3 report §7."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "anon-601f0bf2e3",
+      "construct": "sum-of-operand",
+      "unit": "ch",
+      "ratified_values": [60],
+      "content_signature": "V[A_app,A_setup,H[A_engine_controls,A_engine_eval,A_engine_health,A_engine_queue],H[T:BLACK BOX,previewBoard,tree]]",
+      "basis": "the side column's own max cap's ch-text-measure component -- PX_PER_CH stays compiler-internal per ruling 2400(3), so ch literals are out of scope for retirement this wave (R1, SPEC-AMENDMENTS.md Residual items)."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "anon-7b3c665082",
+      "construct": "fixed",
+      "unit": "px",
+      "ratified_values": [80],
+      "content_signature": "H[A_engine_controls,A_engine_eval,A_engine_health,A_engine_queue]",
+      "basis": "the engine-controls row's own height -- no v-axis facts entry exists for this cluster (C3 report §3.4's own language-substrate-gap disclosure)."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "anon-b79b7d25d9",
+      "construct": "sum-of-operand",
+      "unit": "px",
+      "ratified_values": [4, 80],
+      "content_signature": "V[T:ANALYSIS TABS,timelineStrip]",
+      "basis": "CP-analysis's own V-wrapper floor, sum-of(80px, 4px, read-constant(AT_multires)) -- the 80px timelineStrip-height and 4px gap operands (R5, SPEC-AMENDMENTS.md Residual items: no primitive reaches a non-sibling descendant, and gap resolves against the ENCLOSING split, not this node's own declared gap)."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "anon-b8a05bfafa",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [200],
+      "content_signature": "T[SP_advancedRegistry,SP_analysis,SP_analysisEnv,SP_cardSets,SP_keybindings,SP_session]",
+      "basis": "the settings tabs' own untagged T-wrapper floor -- same R5 gap as ANALYSIS TABS' own wrapper."
+    },
+    {
+      "file": "encodings/lengyue_landscape.lyt",
+      "site_id": "anon-e2062597ac",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [160],
+      "content_signature": "V[AT_basic_interval,AT_basic_mergedDelta,AT_basic_scoreLead]",
+      "basis": "the ANALYSIS TABS basic column's own floor -- same R5 gap as the dist/stab columns."
+    },
+
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "A_board",
+      "construct": "fixed",
+      "unit": "px",
+      "ratified_values": [28],
+      "basis": "no facts.generated.json entry (UNEXERCISED) -- C3 report §7."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "I_board",
+      "construct": "fixed",
+      "unit": "px",
+      "ratified_values": [24],
+      "basis": "no facts.generated.json entry (UNEXERCISED) -- C3 report §7."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "boardRail",
+      "construct": "fixed",
+      "unit": "px",
+      "ratified_values": [168],
+      "basis": "only facts entry is unexercised:true -- C3 report §7."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "settingsSubstrip",
+      "construct": "fixed",
+      "unit": "px",
+      "ratified_values": [77],
+      "basis": "no facts entry -- C3 report §7."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "otherColorDebug",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [264],
+      "basis": "no facts entry -- C3 report §7. Spelled as three explicit terms (min/pref/max) in portrait, unlike landscape's bare-shorthand spelling of the same fact."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "otherColorDebug",
+      "construct": "pref",
+      "unit": "px",
+      "ratified_values": [264],
+      "basis": "same as otherColorDebug's own min."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "otherColorDebug",
+      "construct": "max",
+      "unit": "px",
+      "ratified_values": [264],
+      "basis": "same as otherColorDebug's own min."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "timelineStrip",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [80],
+      "basis": "no v-axis facts entry for timelineStrip -- C3 report §7."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "timelineStrip",
+      "construct": "pref",
+      "unit": "px",
+      "ratified_values": [80],
+      "basis": "same as timelineStrip's own min."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "timelineStrip",
+      "construct": "max",
+      "unit": "px",
+      "ratified_values": [80],
+      "basis": "same as timelineStrip's own min."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "tag:ANALYSIS TABS",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [200],
+      "basis": "R5 gap (no descendant-reference primitive) -- portrait's own value for the same wrapper."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "anon-e56b6b450d",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [0],
+      "content_signature": "V[A_app,A_setup,H[A_engine_controls,A_engine_eval,A_engine_health,A_engine_queue],H[T:BLACK BOX,previewBoard,tree],V[A_board,B,I_board],boardRail]",
+      "basis": "the root split's own trivial 0px floor -- same as landscape's own root entry."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "anon-fa6427539b",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [140],
+      "content_signature": "H[T:BLACK BOX,previewBoard,tree]",
+      "basis": "the main content row's own width floor (H(tree, T[BLACK BOX], previewBoard)) -- distinct from tree's own read-constant(tree) floor at the SAME row; no facts entry for the row's own wrapping floor itself."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "anon-1882398a15",
+      "construct": "pack-rows-item",
+      "unit": "px",
+      "ratified_values": [105, 113, 137, 153, 177],
+      "content_signature": "V[T[SP_advancedRegistry,SP_analysis,SP_analysisEnv,SP_cardSets,SP_keybindings,SP_session],settingsSubstrip]",
+      "basis": "same as landscape's own entry -- identical settings-group substructure, text-width-of has zero facts coverage."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "anon-1882398a15",
+      "construct": "pack-rows-search-ceiling",
+      "unit": "px",
+      "ratified_values": [838],
+      "content_signature": "V[T[SP_advancedRegistry,SP_analysis,SP_analysisEnv,SP_cardSets,SP_keybindings,SP_session],settingsSubstrip]",
+      "basis": "same as landscape's own entry."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "anon-4cf2e764cd",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [200],
+      "content_signature": "V[AT_dist_deltaDist,AT_dist_mistakeGap]",
+      "basis": "the ANALYSIS TABS dist column's own floor -- same R5 gap, portrait's own value."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "anon-500460e23d",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [204],
+      "content_signature": "V[otherBand,otherColorDebug]",
+      "basis": "the CP-other group's own wrapping floor -- deliberately untouched, same as landscape's own entry."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "anon-538f4ef81f",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [200],
+      "content_signature": "V[AT_stab_crossCorr,AT_stab_stability]",
+      "basis": "the ANALYSIS TABS stability column's own floor -- same R5 gap, portrait's own value."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "anon-7b3c665082",
+      "construct": "fixed",
+      "unit": "px",
+      "ratified_values": [80],
+      "content_signature": "H[A_engine_controls,A_engine_eval,A_engine_health,A_engine_queue]",
+      "basis": "the engine-controls row's own height -- no v-axis facts entry, same as landscape's own entry."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "anon-b79b7d25d9",
+      "construct": "sum-of-operand",
+      "unit": "px",
+      "ratified_values": [4, 80],
+      "content_signature": "V[T:ANALYSIS TABS,timelineStrip]",
+      "basis": "CP-analysis's own V-wrapper floor operands -- same R5 gap, portrait's own value."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "anon-b8a05bfafa",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [200],
+      "content_signature": "T[SP_advancedRegistry,SP_analysis,SP_analysisEnv,SP_cardSets,SP_keybindings,SP_session]",
+      "basis": "the settings tabs' own untagged T-wrapper floor -- same R5 gap, portrait's own value."
+    },
+    {
+      "file": "encodings/lengyue_portrait.lyt",
+      "site_id": "anon-e2062597ac",
+      "construct": "min",
+      "unit": "px",
+      "ratified_values": [200],
+      "content_signature": "V[AT_basic_interval,AT_basic_mergedDelta,AT_basic_scoreLead]",
+      "basis": "the ANALYSIS TABS basic column's own floor -- same R5 gap, portrait's own value."
+    }
+  ]
+}

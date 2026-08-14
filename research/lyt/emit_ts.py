@@ -68,7 +68,9 @@ from runner import (
     REGISTRATIONS,
     SCREEN_SIZES,
     _gather_reach_preferred_widgets,
+    is_governed_encoding,
     resolve_encoding_file,
+    source_file_label,
     valuation_for_class,
 )
 
@@ -185,8 +187,19 @@ def build_solved_registrations(
     reg = _find_registration(registration_name)
     layouts: Dict[str, ast.Slot] = {}
     for f in reg.files:
-        text = resolve_encoding_file(f).read_text()
-        layouts.update(loader.load_layouts(text, waivers=reg.waivers))
+        p = resolve_encoding_file(f)
+        text = p.read_text()
+        # RATCHET FORM, dispatch C4 (ledger rows 2396/2445): strict mode,
+        # directory-scoped, checked against `ratified-literals.json` —
+        # see `runner.load_governed_layouts`'s own docstring.
+        layouts.update(
+            loader.load_layouts(
+                text,
+                waivers=reg.waivers,
+                refuse_literal_bounds=is_governed_encoding(p),
+                source_file=source_file_label(p),
+            )
+        )
     # LYT presence arc P1 (row 2333): a registration MAY declare a
     # per-class override of its own default valuation
     # (`Registration.default_valuation_by_class`, `runner.
