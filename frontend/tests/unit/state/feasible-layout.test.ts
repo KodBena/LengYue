@@ -25,10 +25,14 @@ import {
   measured,
   FeasibleLayout,
   resolveSovereignOverrides,
+  resolveSideColumnLiveLayout,
   type Measured,
   type RegionAllotment,
   type SovereignOverride,
+  type SideColumnFixedRegion,
+  type SideColumnLiveLayoutInput,
 } from '../../../src/state/feasible-layout';
+import type { LytTrackShape } from '../../../src/state/lyt-layout-types';
 
 describe('px()', () => {
   it('mints a Px for a finite, non-negative number', () => {

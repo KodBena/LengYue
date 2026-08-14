@@ -62,16 +62,21 @@
  *     scenario, matching the review's own `s12` "fresh boot at each
  *     width" methodology).
  *   - Presence for `controlPanel`/`A_app` (the two leaves/nodes carrying
- *     a compiled `demote`) reuses `resolveWidthConditionalPresence` and
- *     `sumFixedRowSiblingReservationPx` DIRECTLY from
- *     `src/state/layout-model.ts` — the SAME pure functions the running
- *     app calls — rather than re-deriving the demotion rule a second
- *     time (ADR-0012 P1). `otherFixedSiblings` is passed `[]`
- *     throughout: `previewBoard` defaults absent in both compiled
- *     programs, so the dated addendum `layout-model.ts` carries for a
- *     VISIBLE `previewBoard` (`lyt-wA-width-demotion-review.md`, "New
- *     finding") does not apply to this default-layout sweep — disclosed,
- *     not silently narrowed.
+ *     a compiled `demote`) — UPDATED by dispatch L3: this sweep used to
+ *     reuse `resolveWidthConditionalPresence`/`sumFixedRowSiblingReservationPx`
+ *     DIRECTLY from `src/state/layout-model.ts`; both are DELETED by L3
+ *     (subsumed by `resolveSideColumnLiveLayout`'s own presence
+ *     resolution). `resolveDemotedPresenceForSweep` (this file, below) is
+ *     the SAME width-vs-threshold check with the reservation parameter
+ *     dropped — every call site here always passed `otherFixedSiblings:
+ *     []` (this sweep never modeled a live `previewBoard` reservation),
+ *     so the reservation half was always a no-op in THIS derivation;
+ *     dropping it changes nothing this suite's own candidates compute.
+ *     `previewBoard` defaults absent in both compiled programs, so the
+ *     dated addendum the deleted function used to carry for a VISIBLE
+ *     `previewBoard` (`lyt-wA-width-demotion-review.md`, "New finding")
+ *     did not apply to this default-layout sweep either, before or after
+ *     L3 — disclosed, not silently narrowed.
  *   - A resolved-ABSENT region (`RegionPresence.absent`, §1.3) is fed to
  *     `validate()` with its `Measured` entry INCLUDED and its
  *     `candidate` allotment at the literal `0px` a collapsed compiled
@@ -176,9 +181,11 @@ import {
   measured,
   measuredFromLytProgram,
   FeasibleLayout,
+  resolveSideColumnLiveLayout,
   type Px,
   type StarvationDiagnostic,
   type RegionAllotment,
+  type SideColumnFixedRegion,
 } from '../../../src/state/feasible-layout';
 
 // Dispatch L2b's own runtime overlay (spec §2's "runtime content-
@@ -206,8 +213,28 @@ const TREE_EFFECTIVE_MAX_USEFUL_LANDSCAPE_PX = 110;
 const TREE_EFFECTIVE_MAX_USEFUL_PORTRAIT_PX = 140;
 import { LYT_LANDSCAPE } from '../../../src/state/lyt-layout.gen';
 import { LYT_PORTRAIT } from '../../../src/state/lyt-layout-portrait.gen';
-import type { LytAxis, LytNodeData, LytTrackShape } from '../../../src/state/lyt-layout-types';
-import { resolveWidthConditionalPresence, sumFixedRowSiblingReservationPx } from '../../../src/state/layout-model';
+import type { LytAxis, LytDemotion, LytNodeData, LytTrackShape } from '../../../src/state/lyt-layout-types';
+
+// HISTORICAL, deleted by dispatch L3 (`.claude/dispatch-reports/
+// lyt-space-owner-spec.md` §3 step 3): this suite used to call
+// `resolveWidthConditionalPresence`/`sumFixedRowSiblingReservationPx`
+// directly from `state/layout-model.ts` — both DELETED, subsumed by
+// `resolveSideColumnLiveLayout`'s own presence resolution. Every call
+// site here passed `otherFixedSiblings: []` (this file's own numeric
+// solver never modeled a live `previewBoard` reservation), so the
+// reservation half of the deleted function was always a no-op in this
+// derivation — `resolveDemotedPresenceForSweep` below is the exact
+// width-vs-threshold check that leaves unchanged, without the unused
+// reservation parameter.
+function resolveDemotedPresenceForSweep(
+  measuredWidthPx: number,
+  demote: LytDemotion | null,
+  desiredVisible: boolean,
+): boolean {
+  if (demote === null) return desiredVisible;
+  if (measuredWidthPx <= 0) return desiredVisible;
+  return measuredWidthPx >= demote.belowPx ? desiredVisible : false;
+}
 
 // ── Geometry sweep, per the review's own s12 / mandated-classes census ─
 
@@ -355,7 +382,7 @@ function computeLandscapeCandidate(viewport: Viewport): CandidateMap {
   const sideColumnSplit = sideColumnChild.node as Extract<LytNodeData, { kind: 'split' }>;
   const [engineRowChild, appChild, setupChild, treeRowChild] = sideColumnSplit.children;
 
-  const appVisible = resolveWidthConditionalPresence(sideColumnPx, appChild.node.kind === 'leaf' ? appChild.node.demote : null, appChild.presenceDefaultVisible, [], sideColumnSplit.gapPx);
+  const appVisible = resolveDemotedPresenceForSweep(sideColumnPx, appChild.node.kind === 'leaf' ? appChild.node.demote : null, appChild.presenceDefaultVisible);
   // A_app/A_setup are children of sideColumnSplit (axis 'v') — their own
   // Measured axis (measuredFromLytProgram) is the PARENT split's axis, so
   // the candidate axis here must match 'v', not the 'h' the tree/
@@ -389,7 +416,7 @@ function computeLandscapeCandidate(viewport: Viewport): CandidateMap {
   const treeRowSplit = treeRowChild.node as Extract<LytNodeData, { kind: 'split' }>;
   const [treeChild, controlPanelChild, previewBoardChild] = treeRowSplit.children;
   const controlPanelDemote = controlPanelChild.node.kind === 'exclusive' ? controlPanelChild.node.demote : null;
-  const controlPanelVisible = resolveWidthConditionalPresence(sideColumnPx, controlPanelDemote, controlPanelChild.presenceDefaultVisible, [], treeRowSplit.gapPx);
+  const controlPanelVisible = resolveDemotedPresenceForSweep(sideColumnPx, controlPanelDemote, controlPanelChild.presenceDefaultVisible);
   const treeRow: RowEntry[] = [
     { widget: 'tree', track: treeChild.track, visible: true },
     { widget: 'controlPanel', track: controlPanelChild.track, visible: controlPanelVisible },
@@ -415,7 +442,7 @@ function computePortraitCandidate(viewport: Viewport): CandidateMap {
   const [boardRailChild, appChild, setupChild, boardChild, engineRowChild, treeRowChild] = root.children;
 
   const appDemote = appChild.node.kind === 'leaf' ? appChild.node.demote : null;
-  const appVisible = resolveWidthConditionalPresence(viewport.widthPx, appDemote, appChild.presenceDefaultVisible, [], root.gapPx);
+  const appVisible = resolveDemotedPresenceForSweep(viewport.widthPx, appDemote, appChild.presenceDefaultVisible);
 
   const rootColumn: RowEntry[] = [
     { widget: 'boardRail', track: boardRailChild.track, visible: boardRailChild.presenceDefaultVisible },
@@ -451,7 +478,7 @@ function computePortraitCandidate(viewport: Viewport): CandidateMap {
   // desiredVisible=false means resolveWidthConditionalPresence returns
   // false regardless of width, matching the spec's own open question 4
   // witness ("demotes it by DEFAULT, not only under width pressure").
-  const controlPanelVisible = resolveWidthConditionalPresence(viewport.widthPx, controlPanelDemote, controlPanelChild.presenceDefaultVisible, [], treeRowSplit.gapPx);
+  const controlPanelVisible = resolveDemotedPresenceForSweep(viewport.widthPx, controlPanelDemote, controlPanelChild.presenceDefaultVisible);
   const treeRow: RowEntry[] = [
     { widget: 'tree', track: treeChild.track, visible: true },
     { widget: 'controlPanel', track: controlPanelChild.track, visible: controlPanelVisible },
@@ -806,5 +833,255 @@ describe('measuredFromLytProgram — dispatch L2b, the runtime overlay', () => {
         expect(() => measured(d)).not.toThrow();
       }
     }
+  });
+});
+
+// ── Dispatch L3 addendum (§3 step 3, ledger rows 2447/2450/2460/2461):
+//    resolveSideColumnLiveLayout — the live-solve regression oracle ─────
+//
+// The dispatch's own gate 4: "for the review's own witnessed geometries,
+// the new trackList-derived allotments must (a) never starve a region
+// the old path didn't, and (b) fix the flagship: at 1920x1080 fresh, the
+// control panel must be PRESENT (not demoted) with the tree capped at
+// its content demand." This describe block runs `resolveSideColumnLiveLayout`
+// (`state/feasible-layout.ts`, dispatch L3) at every geometry the
+// standard sweep above already exercises, side by side with THIS file's
+// own pre-existing `computeLandscapeCandidate` numeric solver (the "old
+// path" — the same numeric evaluation of `useLytTrackCss.ts`'s own
+// formulas the standard census above already uses as its oracle), and
+// prints the per-geometry allotment table the build report's own
+// centerpiece reproduces.
+//
+// `sideColumnWidthPx` is re-derived via the SAME root-row solve
+// `computeLandscapeCandidate` already performs internally (that function
+// does not expose it) — a disclosed, minimal duplication of three lines
+// of already-proven math, not a second derivation of a DIFFERENT fact.
+// Scoped to LANDSCAPE only: portrait has no side-column concept (this
+// file's own header, "no side column concept in portrait") — its tree/
+// controlPanel/previewBoard row's own container is `viewport.widthPx`
+// directly, and portrait's `controlPanel` resolves absent by DEFAULT
+// (`presenceDefaultVisible: false`, not merely width-gated — the "honest
+// limits" describe block above already pins this), so the sovereignty
+// completion this dispatch ships has no live scenario to exercise there.
+function computeLandscapeSideColumnWidthPx(viewport: Viewport): number {
+  const root = LYT_LANDSCAPE.root;
+  const [boardRailChild, boardAreaChild, sideColumnChild] = root.children;
+  const rootRow: RowEntry[] = [
+    { widget: 'boardRail', track: boardRailChild.track, visible: boardRailChild.presenceDefaultVisible },
+    { widget: 'boardArea', track: boardAreaChild.track, visible: true },
+    { widget: 'sideColumn', track: sideColumnChild.track, visible: true },
+  ];
+  const [, , sideColumnPx] = solveRowTracks(rootRow, viewport.widthPx, root.gapPx, viewport);
+  return sideColumnPx;
+}
+
+interface SideColumnRowFacts {
+  readonly treeTrack: LytTrackShape;
+  readonly controlPanelTrack: LytTrackShape;
+  readonly controlPanelDemote: LytDemotion | null;
+  readonly previewBoardTrack: LytTrackShape;
+  readonly gapPx: number;
+}
+
+/** Navigates to the SAME `treeRow` h-split `computeLandscapeCandidate`
+ *  already navigates to internally (its own doc comment names the shape:
+ *  `[tree(elastic), controlPanel(fixed664, demote), previewBoard(fixed160,
+ *  off)]`) — extracted here so the L3 live-solve tests below don't
+ *  re-derive a candidate at all, only the STATIC track/demote facts
+ *  `resolveSideColumnLiveLayout` itself needs. */
+function extractLandscapeSideColumnRowFacts(): SideColumnRowFacts {
+  const root = LYT_LANDSCAPE.root;
+  const sideColumnChild = root.children[2];
+  if (sideColumnChild.node.kind !== 'split') throw new Error('extractLandscapeSideColumnRowFacts: sideColumn is not a split.');
+  const sideColumnSplit = sideColumnChild.node as Extract<LytNodeData, { kind: 'split' }>;
+  const treeRowChild = sideColumnSplit.children[3];
+  if (treeRowChild.node.kind !== 'split') throw new Error('extractLandscapeSideColumnRowFacts: treeRow is not a split.');
+  const treeRowSplit = treeRowChild.node as Extract<LytNodeData, { kind: 'split' }>;
+  const [treeChild, controlPanelChild, previewBoardChild] = treeRowSplit.children;
+  const controlPanelDemote = controlPanelChild.node.kind === 'exclusive' ? controlPanelChild.node.demote : null;
+  return {
+    treeTrack: treeChild.track,
+    controlPanelTrack: controlPanelChild.track,
+    controlPanelDemote,
+    previewBoardTrack: previewBoardChild.track,
+    gapPx: treeRowSplit.gapPx,
+  };
+}
+
+interface LiveAllotmentRow {
+  readonly label: string;
+  readonly wrapperWidthPx: number;
+  readonly treePx: number;
+  readonly controlPanelPresent: boolean;
+  readonly controlPanelPx: number;
+  readonly oldTreePx: number;
+  readonly oldControlPanelPx: number;
+}
+
+const LIVE_ALLOTMENT_TABLE: LiveAllotmentRow[] = [];
+
+describe('dispatch L3: resolveSideColumnLiveLayout — live-solve regression oracle', () => {
+  const facts = extractLandscapeSideColumnRowFacts();
+  const others: readonly SideColumnFixedRegion[] = [
+    { widgetId: 'controlPanel', track: facts.controlPanelTrack, desiredVisible: true, demote: facts.controlPanelDemote },
+    { widgetId: 'previewBoard', track: facts.previewBoardTrack, desiredVisible: false, demote: null },
+  ];
+  // The review's own witnessed content-demand reading (this file's own
+  // `TREE_LIVE_CONTENT_OVERLAY`, `px(60)`), floored at tree's own
+  // compiled min — the SAME clamp `measuredFromLytProgram`'s overlay
+  // mechanism applies (this file's header, "Dispatch L2b addendum").
+  const treeMaxUsefulPx = px(Math.max(facts.treeTrack.kind === 'elastic' ? facts.treeTrack.minPx : 0, 60));
+
+  for (const widthPx of LANDSCAPE_SWEEP_WIDTHS_PX) {
+    const heightPx = LANDSCAPE_SWEEP_HEIGHT_PX;
+    const label = `landscape ${widthPx}x${heightPx}`;
+    it(`${label}: never starves a region the old (numeric-solver) path granted`, () => {
+      const wrapperWidthPx = computeLandscapeSideColumnWidthPx({ widthPx, heightPx });
+      const oldCandidate = computeLandscapeCandidate({ widthPx, heightPx });
+      const oldTreePx = oldCandidate.get('tree')?.px ?? 0;
+      const oldControlPanelPx = oldCandidate.get('controlPanel')?.px ?? 0;
+
+      const live = resolveSideColumnLiveLayout({
+        wrapperWidthPx,
+        gapPx: facts.gapPx,
+        tree: { track: facts.treeTrack, maxUsefulPx: treeMaxUsefulPx },
+        treeSovereignPx: undefined, // fresh-boot, un-dragged — matches this file's own s12 methodology
+        treeDefaultPx: 0, // unused: wrapperWidthPx > 0 at every real sweep geometry
+        others,
+        screenClassId: 'landscape',
+      });
+      const controlPanelOutcome = live.others.find((o) => o.widgetId === 'controlPanel')!;
+
+      LIVE_ALLOTMENT_TABLE.push({
+        label,
+        wrapperWidthPx,
+        treePx: live.treePx,
+        controlPanelPresent: controlPanelOutcome.present,
+        controlPanelPx: controlPanelOutcome.candidatePx,
+        oldTreePx,
+        oldControlPanelPx,
+      });
+
+      // Gate (a): never starve a region the old path didn't. The old
+      // path's own `controlPanel` candidate is either its full 664px
+      // (present) or 0 (demoted-absent) — the live solve's own
+      // `controlPanel` never grants LESS than the old path did, in this
+      // UN-DRAGGED (non-sovereign) scenario (sovereignty's "shrink below
+      // floor" behavior applies ONLY to a sovereign drag — see the
+      // dedicated sovereignty describe block below).
+      expect(controlPanelOutcome.candidatePx).toBeGreaterThanOrEqual(oldControlPanelPx);
+      // The old path never granted `tree` less than its own compiled
+      // floor either — same non-regression bound.
+      expect(live.treePx).toBeGreaterThanOrEqual(facts.treeTrack.kind === 'elastic' ? facts.treeTrack.minPx : 0);
+    });
+  }
+
+  it('flagship (b): at 1920x1080 fresh, controlPanel is PRESENT and tree is capped at its own content demand', () => {
+    const wrapperWidthPx = computeLandscapeSideColumnWidthPx({ widthPx: 1920, heightPx: 1080 });
+    const live = resolveSideColumnLiveLayout({
+      wrapperWidthPx,
+      gapPx: facts.gapPx,
+      tree: { track: facts.treeTrack, maxUsefulPx: treeMaxUsefulPx },
+      treeSovereignPx: undefined,
+      treeDefaultPx: 0,
+      others,
+      screenClassId: 'landscape',
+    });
+    const controlPanelOutcome = live.others.find((o) => o.widgetId === 'controlPanel')!;
+    expect(controlPanelOutcome.present).toBe(true);
+    expect(controlPanelOutcome.candidatePx).toBe(664);
+    // Capped at content demand (110, tree's own compiled floor — the
+    // 60px raw reading floors up to it, per treeMaxUsefulPx's own
+    // derivation above), never the "claim the whole freed row" hoarding
+    // the review's own 613px witness recorded.
+    expect(live.treePx).toBe(treeMaxUsefulPx);
+    expect(live.treePx).toBeLessThan(613);
+  });
+
+  it('prints the per-geometry allotment table (build-report centerpiece)', () => {
+    expect(LIVE_ALLOTMENT_TABLE.length).toBe(LANDSCAPE_SWEEP_WIDTHS_PX.length);
+    // eslint-disable-next-line no-console -- deliberate: this IS the build report's own allotment-table evidence.
+    console.info(
+      '\n=== dispatch L3 per-geometry allotment table (landscape, un-dragged) ===\n' +
+        'geometry            wrapperPx  tree(new/old)      controlPanel(new/old)\n' +
+        LIVE_ALLOTMENT_TABLE.map(
+          (r) =>
+            `${r.label.padEnd(20)} ${String(r.wrapperWidthPx).padStart(9)}  ` +
+            `${String(r.treePx).padStart(4)}/${String(r.oldTreePx).padStart(4)}          ` +
+            `${(r.controlPanelPresent ? 'present' : 'absent').padEnd(7)} ${String(r.controlPanelPx).padStart(4)}/${String(r.oldControlPanelPx).padStart(4)}`,
+        ).join('\n') +
+        '\n',
+    );
+  });
+});
+
+describe('dispatch L3: sovereignty — WITNESSED trace (drag override -> unclamped track -> diagnostic)', () => {
+  const facts = extractLandscapeSideColumnRowFacts();
+  const others: readonly SideColumnFixedRegion[] = [
+    { widgetId: 'controlPanel', track: facts.controlPanelTrack, desiredVisible: true, demote: facts.controlPanelDemote },
+    { widgetId: 'previewBoard', track: facts.previewBoardTrack, desiredVisible: false, demote: null },
+  ];
+
+  it('the commissioner\'s ~640px control-panel drag floor is GONE: a sovereign drag shrinks controlPanel below its 664px floor, diagnosed not resisted', () => {
+    const wrapperWidthPx = computeLandscapeSideColumnWidthPx({ widthPx: 1920, heightPx: 1080 });
+    // WITNESSED trace, step 1: the drag event. `startResizeInner`'s own
+    // sovereignty fix (`useResizablePanel.ts`) removes the
+    // CONTROL_PANEL_MIN_WIDTH_PX reservation from the drag's own ceiling
+    // — the user CAN drag the tree panel to claim (nearly) the whole
+    // wrapper. Simulated here as the resulting stored fact,
+    // `session.ui.treePanelWidthPx`, a drag would produce.
+    const draggedTreePx = wrapperWidthPx - facts.gapPx - 40; // leaves controlPanel only 40px — starved
+
+    // WITNESSED trace, step 2: the override. `treeSovereignPx` below is
+    // exactly `store.session.ui.treePanelWidthPx` post-drag.
+    const live = resolveSideColumnLiveLayout({
+      wrapperWidthPx,
+      gapPx: facts.gapPx,
+      tree: { track: facts.treeTrack, maxUsefulPx: px(110) },
+      treeSovereignPx: draggedTreePx,
+      treeDefaultPx: 0,
+      others,
+      screenClassId: 'landscape',
+    });
+
+    // WITNESSED trace, step 3: the unclamped track. `tree` renders the
+    // dragged value VERBATIM — no resistance, even though it is far past
+    // `tree`'s own compiled floor/ceiling (sovereignty, §1.6).
+    expect(live.treePx).toBe(draggedTreePx);
+    const controlPanelOutcome = live.others.find((o) => o.widgetId === 'controlPanel')!;
+    expect(controlPanelOutcome.present).toBe(true); // never demoted to absent by a drag
+    expect(controlPanelOutcome.candidatePx).toBe(40); // genuinely shrunk BELOW its 664px floor
+    expect(controlPanelOutcome.candidatePx).toBeLessThan(664);
+
+    // WITNESSED trace, step 4: the diagnostic. Never a silent clamp,
+    // never a silent starvation — `useSideColumnLiveLayout.ts`'s own
+    // watcher pushes this THROUGH `pushSystemMessage` in the live app;
+    // this test pins the diagnostic's own shape, the fact the push watch
+    // reads.
+    expect(live.diagnostics).toHaveLength(1);
+    const [diagnostic] = live.diagnostics;
+    expect(diagnostic.location).toBe('tree');
+    expect(diagnostic.starved).toHaveLength(1);
+    expect(diagnostic.starved[0]).toMatchObject({ kind: 'starved', region: 'controlPanel', demandPx: 664, grantedPx: 40 });
+    expect(diagnostic.message).toBe('Your geometry modification no longer permits controlPanel to render.');
+  });
+
+  it('a sovereign drag that leaves every sibling satisfied produces NO diagnostic (the common case)', () => {
+    const wrapperWidthPx = computeLandscapeSideColumnWidthPx({ widthPx: 1920, heightPx: 1080 });
+    // wrapperWidthPx at 1920x1080 is 820 (this file's own header note,
+    // "Dispatch L2b addendum") — a modest drag leaves controlPanel its
+    // full 664px + gap comfortably (820 - 100 - 4 = 716 >= 664).
+    const draggedTreePx = 100;
+    const live = resolveSideColumnLiveLayout({
+      wrapperWidthPx,
+      gapPx: facts.gapPx,
+      tree: { track: facts.treeTrack, maxUsefulPx: px(110) },
+      treeSovereignPx: draggedTreePx,
+      treeDefaultPx: 0,
+      others,
+      screenClassId: 'landscape',
+    });
+    expect(live.treePx).toBe(draggedTreePx);
+    expect(live.diagnostics).toEqual([]);
   });
 });
