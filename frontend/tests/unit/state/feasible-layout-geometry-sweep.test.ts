@@ -182,59 +182,32 @@ import {
   measuredFromLytProgram,
   FeasibleLayout,
   resolveSideColumnLiveLayout,
-  type Px,
   type StarvationDiagnostic,
-  type RegionAllotment,
   type SideColumnFixedRegion,
 } from '../../../src/state/feasible-layout';
-
-// Dispatch L2b's own runtime overlay (spec §2's "runtime content-
-// dependent demand" seam, `useContentDemand.ts`). `tree` is the review's
-// own named flagship hoarder; `60` is the review's OWN witnessed content
-// width (`lyt-final-opus-review.md` §Class 1: "The tree's own content
-// across all of these is a single column of nodes measuring 60 px
-// (`treeSvg` width 60 in the same probe)") — a real `useContentDemand`
-// reading in the live app, stood in here by this Vitest suite (no DOM
-// render of a real `TreeWidget` happens in this Tier-1 file) with the
-// SAME witnessed figure a live reading would produce for the review's
-// own sparse-tree scenario, cited rather than invented.
-//
-// The RAW overlay value is 60 — but `measuredFromLytProgram`'s own
-// overlay mechanism clamps the EFFECTIVE `maxUseful` up to the region's
-// own compiled `min` (`feasible-layout.ts`'s own header: "a live reading
-// below the region's own compiled floor does not lower maxUseful below
-// that floor"), and `tree`'s own compiled `min` differs by screen class
-// (`elastic{minPx:110}` landscape, `elastic{minPx:140}` portrait) — so
-// the EFFECTIVE `maxUseful` this overlay produces is 110 in landscape and
-// 140 in portrait, never the raw 60, in EITHER class. Asserted directly
-// below, not left implicit.
-const TREE_LIVE_CONTENT_OVERLAY: ReadonlyMap<string, Px | null> = new Map([['tree', px(60)]]);
-const TREE_EFFECTIVE_MAX_USEFUL_LANDSCAPE_PX = 110;
-const TREE_EFFECTIVE_MAX_USEFUL_PORTRAIT_PX = 140;
 import { LYT_LANDSCAPE } from '../../../src/state/lyt-layout.gen';
 import { LYT_PORTRAIT } from '../../../src/state/lyt-layout-portrait.gen';
-import type { LytAxis, LytDemotion, LytNodeData, LytTrackShape } from '../../../src/state/lyt-layout-types';
+import type { Px } from '../../../src/state/feasible-layout';
 
-// HISTORICAL, deleted by dispatch L3 (`.claude/dispatch-reports/
-// lyt-space-owner-spec.md` §3 step 3): this suite used to call
-// `resolveWidthConditionalPresence`/`sumFixedRowSiblingReservationPx`
-// directly from `state/layout-model.ts` — both DELETED, subsumed by
-// `resolveSideColumnLiveLayout`'s own presence resolution. Every call
-// site here passed `otherFixedSiblings: []` (this file's own numeric
-// solver never modeled a live `previewBoard` reservation), so the
-// reservation half of the deleted function was always a no-op in this
-// derivation — `resolveDemotedPresenceForSweep` below is the exact
-// width-vs-threshold check that leaves unchanged, without the unused
-// reservation parameter.
-function resolveDemotedPresenceForSweep(
-  measuredWidthPx: number,
-  demote: LytDemotion | null,
-  desiredVisible: boolean,
-): boolean {
-  if (demote === null) return desiredVisible;
-  if (measuredWidthPx <= 0) return desiredVisible;
-  return measuredWidthPx >= demote.belowPx ? desiredVisible : false;
-}
+// Dispatch L4 (`.claude/dispatch-reports/lyt-space-owner-spec.md` §3 step
+// 4, ledger rows 2447/2484): the numeric track-list solver, the
+// `TREE_LIVE_CONTENT_OVERLAY` fixture, and the L3 side-column row-fact
+// helpers below moved to `feasible-layout-fixtures.ts` (a plain module,
+// not a `.test.ts` file — importing a test file as a module would
+// re-register its `describe`/`it` blocks a second time) so
+// `feasible-layout-purity.test.ts` can drive the SAME candidate-generation
+// logic this suite already trusts. See that file's own header for the
+// full disclosure this move carries forward verbatim.
+import {
+  TREE_LIVE_CONTENT_OVERLAY,
+  TREE_EFFECTIVE_MAX_USEFUL_LANDSCAPE_PX,
+  TREE_EFFECTIVE_MAX_USEFUL_PORTRAIT_PX,
+  computeLandscapeCandidate,
+  computePortraitCandidate,
+  toAllotmentMap,
+  computeLandscapeSideColumnWidthPx,
+  extractLandscapeSideColumnRowFacts,
+} from './feasible-layout-fixtures';
 
 // ── Geometry sweep, per the review's own s12 / mandated-classes census ─
 
@@ -249,248 +222,6 @@ const PORTRAIT_SWEEP_SIZES_PX: readonly { readonly wPx: number; readonly hPx: nu
   { wPx: 1200, hPx: 1600 },
 ];
 
-// ── Numeric track-list solver (test-only — see file header) ────────────
-
-interface RowEntry {
-  readonly widget: string;
-  readonly track: LytTrackShape;
-  readonly visible: boolean;
-}
-
-interface Viewport {
-  readonly widthPx: number;
-  readonly heightPx: number;
-}
-
-/** Numeric evaluation of `useLytTrackCss.ts`'s own per-kind CSS formulas
- *  — see file header. Returns one resolved px per entry, in the SAME
- *  order as `entries`; invisible entries always resolve to 0 and never
- *  consume a gap (mirrors `sumFixedRowSiblingReservationPx`'s own
- *  "an ABSENT sibling contributes nothing" convention). */
-function solveRowTracks(entries: readonly RowEntry[], containerSizePx: number, gapPx: number, viewport: Viewport): number[] {
-  const resolved: number[] = new Array(entries.length).fill(0);
-  const visibleIdx = entries.map((_, i) => i).filter((i) => entries[i].visible);
-  const totalGapPx = gapPx * Math.max(0, visibleIdx.length - 1);
-  const availablePx = Math.max(0, containerSizePx - totalGapPx);
-
-  const cappedIdx: number[] = [];
-  const elasticIdx: number[] = [];
-  for (const i of visibleIdx) {
-    const t = entries[i].track;
-    switch (t.kind) {
-      case 'fixed':
-        resolved[i] = t.px;
-        break;
-      case 'board-priority-clamp': {
-        const naturalCrossPx = (t.naturalBoardCrossUnit === 'vh' ? viewport.heightPx : viewport.widthPx) - t.fixedSiblingSumPx;
-        const availableForTrackPx = containerSizePx - naturalCrossPx - t.parentGapPx;
-        resolved[i] = Math.min(t.maxPx, Math.max(t.minPx, availableForTrackPx));
-        break;
-      }
-      case 'board-priority-self-clamp': {
-        const naturalCrossPx = (t.naturalCrossUnit === 'vh' ? viewport.heightPx : viewport.widthPx) + t.fixedSiblingSumPx;
-        resolved[i] = Math.max(0, naturalCrossPx);
-        break;
-      }
-      case 'elastic-capped':
-        resolved[i] = t.minPx;
-        cappedIdx.push(i);
-        break;
-      case 'elastic':
-        resolved[i] = t.minPx;
-        elasticIdx.push(i);
-        break;
-      /* istanbul ignore next -- exhaustiveness guard, ADR-0002 */
-      default: {
-        const _exhaustive: never = t;
-        throw new Error(`solveRowTracks: unhandled LytTrackShape kind: ${JSON.stringify(_exhaustive)}`);
-      }
-    }
-  }
-
-  const consumedPx = visibleIdx.reduce((sum, i) => sum + resolved[i], 0);
-  let leftoverPx = Math.max(0, availablePx - consumedPx);
-
-  // "Maximize Tracks" before "Expand Flexible Tracks" (CSS Grid Level 1's
-  // own step ordering) — elastic-capped tracks grow toward their own max
-  // FIRST, proportional to remaining capacity, one pass (disclosed
-  // simplification, file header).
-  if (leftoverPx > 0 && cappedIdx.length > 0) {
-    const capacities = cappedIdx.map((i) => {
-      const t = entries[i].track as Extract<LytTrackShape, { kind: 'elastic-capped' }>;
-      return t.maxPx - t.minPx;
-    });
-    const totalCapacity = capacities.reduce((a, b) => a + b, 0);
-    if (totalCapacity > 0) {
-      const grantablePx = Math.min(leftoverPx, totalCapacity);
-      cappedIdx.forEach((i, k) => {
-        resolved[i] += grantablePx * (capacities[k] / totalCapacity);
-      });
-      leftoverPx -= grantablePx;
-    }
-  }
-
-  if (leftoverPx > 0 && elasticIdx.length > 0) {
-    const totalWeight = elasticIdx.reduce(
-      (sum, i) => sum + (entries[i].track as Extract<LytTrackShape, { kind: 'elastic' }>).frWeight,
-      0,
-    );
-    if (totalWeight > 0) {
-      for (const i of elasticIdx) {
-        const w = (entries[i].track as Extract<LytTrackShape, { kind: 'elastic' }>).frWeight;
-        resolved[i] += leftoverPx * (w / totalWeight);
-      }
-    }
-  }
-
-  return resolved;
-}
-
-type CandidateMap = Map<string, { readonly axis: LytAxis; readonly px: number }>;
-
-function setCandidate(map: CandidateMap, widget: string, axis: LytAxis, valuePx: number): void {
-  map.set(widget, { axis, px: Math.max(0, valuePx) });
-}
-
-/** `LYT_LANDSCAPE`'s own tree shape, per this file's header: root (h) ->
- *  [boardRail(fixed168,off), board-v-split(elastic — aspect-excluded from
- *  `demands` but still a real space consumer), path2(board-priority-clamp
- *  side column)] -> path2's own v-split [engine-row(fixed80,h-split),
- *  A_app(fixed28,demote h616), A_setup(fixed92,off),
- *  tree-row(elastic,h-split: tree/controlPanel(fixed664,demote
- *  h778)/previewBoard(fixed160,off,aspect-excluded))]. Specific to
- *  today's known landscape encoding shape, not a generic LytProgram
- *  interpreter — disclosed per this file's header. */
-function computeLandscapeCandidate(viewport: Viewport): CandidateMap {
-  const candidate: CandidateMap = new Map();
-  const root = LYT_LANDSCAPE.root; // axis 'h', gapPx 12
-  const [boardRailChild, boardAreaChild, sideColumnChild] = root.children;
-
-  const rootRow: RowEntry[] = [
-    { widget: 'boardRail', track: boardRailChild.track, visible: boardRailChild.presenceDefaultVisible },
-    { widget: 'boardArea', track: boardAreaChild.track, visible: true }, // aspect-excluded from demands, still consumes space
-    { widget: 'sideColumn', track: sideColumnChild.track, visible: true },
-  ];
-  const [, , sideColumnPx] = solveRowTracks(rootRow, viewport.widthPx, root.gapPx, viewport);
-
-  if (boardRailChild.presenceDefaultVisible) setCandidate(candidate, 'boardRail', 'h', boardRailChild.track.kind === 'fixed' ? boardRailChild.track.px : 0);
-  else setCandidate(candidate, 'boardRail', 'h', 0);
-
-  // sideColumn's own nested v-split: [engineRow(80), A_app(28, demote h616),
-  // A_setup(92, off), treeRow(elastic)]
-  if (sideColumnChild.node.kind !== 'split') throw new Error('computeLandscapeCandidate: sideColumn node is not a split — encoding shape changed, this derivation needs updating.');
-  const sideColumnSplit = sideColumnChild.node as Extract<LytNodeData, { kind: 'split' }>;
-  const [engineRowChild, appChild, setupChild, treeRowChild] = sideColumnSplit.children;
-
-  const appVisible = resolveDemotedPresenceForSweep(sideColumnPx, appChild.node.kind === 'leaf' ? appChild.node.demote : null, appChild.presenceDefaultVisible);
-  // A_app/A_setup are children of sideColumnSplit (axis 'v') — their own
-  // Measured axis (measuredFromLytProgram) is the PARENT split's axis, so
-  // the candidate axis here must match 'v', not the 'h' the tree/
-  // controlPanel row below uses (a mismatched axis makes validate() skip
-  // the region as "not modeled this axis" instead of checking it — this
-  // was caught by an unexpectedly-thin first census and fixed).
-  setCandidate(candidate, 'A_app', 'v', appVisible && appChild.track.kind === 'fixed' ? appChild.track.px : 0);
-  setCandidate(candidate, 'A_setup', 'v', 0); // presenceDefaultVisible: false, unconditional in this sweep
-
-  const sideColumnRow: RowEntry[] = [
-    { widget: 'engineRow', track: engineRowChild.track, visible: true },
-    { widget: 'A_app', track: appChild.track, visible: appVisible },
-    { widget: 'A_setup', track: setupChild.track, visible: false },
-    { widget: 'treeRow', track: treeRowChild.track, visible: true },
-  ];
-  solveRowTracks(sideColumnRow, sideColumnPx, sideColumnSplit.gapPx, viewport); // heights, unused further
-
-  // engineRow's own h-split: [A_engine_controls(elastic185), A_engine_eval(fixed139), A_engine_health(fixed139), A_engine_queue(elastic0)]
-  if (engineRowChild.node.kind !== 'split') throw new Error('computeLandscapeCandidate: engineRow node is not a split — encoding shape changed.');
-  const engineRowSplit = engineRowChild.node as Extract<LytNodeData, { kind: 'split' }>;
-  const engineRow: RowEntry[] = engineRowSplit.children.map((c) => ({
-    widget: c.node.kind === 'leaf' ? c.node.widget : c.path,
-    track: c.track,
-    visible: c.presenceDefaultVisible,
-  }));
-  const engineResolved = solveRowTracks(engineRow, sideColumnPx, engineRowSplit.gapPx, viewport);
-  engineRow.forEach((e, i) => setCandidate(candidate, e.widget, 'h', engineResolved[i]));
-
-  // treeRow's own h-split: [tree(elastic110), controlPanel(fixed664, demote h778), previewBoard(fixed160, off, aspect-excluded)]
-  if (treeRowChild.node.kind !== 'split') throw new Error('computeLandscapeCandidate: treeRow node is not a split — encoding shape changed.');
-  const treeRowSplit = treeRowChild.node as Extract<LytNodeData, { kind: 'split' }>;
-  const [treeChild, controlPanelChild, previewBoardChild] = treeRowSplit.children;
-  const controlPanelDemote = controlPanelChild.node.kind === 'exclusive' ? controlPanelChild.node.demote : null;
-  const controlPanelVisible = resolveDemotedPresenceForSweep(sideColumnPx, controlPanelDemote, controlPanelChild.presenceDefaultVisible);
-  const treeRow: RowEntry[] = [
-    { widget: 'tree', track: treeChild.track, visible: true },
-    { widget: 'controlPanel', track: controlPanelChild.track, visible: controlPanelVisible },
-    { widget: 'previewBoard', track: previewBoardChild.track, visible: false }, // presenceDefaultVisible: false, unconditional
-  ];
-  const treeResolved = solveRowTracks(treeRow, sideColumnPx, treeRowSplit.gapPx, viewport);
-  setCandidate(candidate, 'tree', 'h', treeResolved[0]);
-  setCandidate(candidate, 'controlPanel', 'h', treeResolved[1]);
-  // previewBoard aspect-excluded from `demands` — no candidate entry needed.
-
-  return candidate;
-}
-
-/** `LYT_PORTRAIT`'s own tree shape: root (v) -> [boardRail(off),
- *  A_app(fixed56,demote h616 vs the FULL viewport width — no side-column
- *  concept in portrait), A_setup(off), board-composite(self-clamp,
- *  aspect-excluded), engineRow(fixed80,h-split), treeRow(elastic,
- *  h-split: tree/controlPanel(fixed664, off by DEFAULT + demote
- *  h808)/previewBoard(fixed96,off,aspect-excluded))]. */
-function computePortraitCandidate(viewport: Viewport): CandidateMap {
-  const candidate: CandidateMap = new Map();
-  const root = LYT_PORTRAIT.root; // axis 'v', gapPx 12
-  const [boardRailChild, appChild, setupChild, boardChild, engineRowChild, treeRowChild] = root.children;
-
-  const appDemote = appChild.node.kind === 'leaf' ? appChild.node.demote : null;
-  const appVisible = resolveDemotedPresenceForSweep(viewport.widthPx, appDemote, appChild.presenceDefaultVisible);
-
-  const rootColumn: RowEntry[] = [
-    { widget: 'boardRail', track: boardRailChild.track, visible: boardRailChild.presenceDefaultVisible },
-    { widget: 'A_app', track: appChild.track, visible: appVisible },
-    { widget: 'A_setup', track: setupChild.track, visible: false },
-    { widget: 'boardComposite', track: boardChild.track, visible: true }, // aspect-excluded from demands, still consumes space
-    { widget: 'engineRow', track: engineRowChild.track, visible: true },
-    { widget: 'treeRow', track: treeRowChild.track, visible: true },
-  ];
-  solveRowTracks(rootColumn, viewport.heightPx, root.gapPx, viewport); // heights, unused further beyond presence booleans above
-
-  setCandidate(candidate, 'boardRail', 'v', 0); // presenceDefaultVisible: false, unconditional
-  // A_app/A_setup are children of root (axis 'v') — same axis-matching
-  // requirement as the landscape function's own note above.
-  setCandidate(candidate, 'A_app', 'v', appVisible && appChild.track.kind === 'fixed' ? appChild.track.px : 0);
-  setCandidate(candidate, 'A_setup', 'v', 0);
-
-  if (engineRowChild.node.kind !== 'split') throw new Error('computePortraitCandidate: engineRow node is not a split — encoding shape changed.');
-  const engineRowSplit = engineRowChild.node as Extract<LytNodeData, { kind: 'split' }>;
-  const engineRow: RowEntry[] = engineRowSplit.children.map((c) => ({
-    widget: c.node.kind === 'leaf' ? c.node.widget : c.path,
-    track: c.track,
-    visible: c.presenceDefaultVisible,
-  }));
-  const engineResolved = solveRowTracks(engineRow, viewport.widthPx, engineRowSplit.gapPx, viewport);
-  engineRow.forEach((e, i) => setCandidate(candidate, e.widget, 'h', engineResolved[i]));
-
-  if (treeRowChild.node.kind !== 'split') throw new Error('computePortraitCandidate: treeRow node is not a split — encoding shape changed.');
-  const treeRowSplit = treeRowChild.node as Extract<LytNodeData, { kind: 'split' }>;
-  const [treeChild, controlPanelChild, previewBoardChild] = treeRowSplit.children;
-  const controlPanelDemote = controlPanelChild.node.kind === 'exclusive' ? controlPanelChild.node.demote : null;
-  // presenceDefaultVisible is FALSE for portrait's controlPanel (path 5.1) —
-  // desiredVisible=false means resolveWidthConditionalPresence returns
-  // false regardless of width, matching the spec's own open question 4
-  // witness ("demotes it by DEFAULT, not only under width pressure").
-  const controlPanelVisible = resolveDemotedPresenceForSweep(viewport.widthPx, controlPanelDemote, controlPanelChild.presenceDefaultVisible);
-  const treeRow: RowEntry[] = [
-    { widget: 'tree', track: treeChild.track, visible: true },
-    { widget: 'controlPanel', track: controlPanelChild.track, visible: controlPanelVisible },
-    { widget: 'previewBoard', track: previewBoardChild.track, visible: false },
-  ];
-  const treeResolved = solveRowTracks(treeRow, viewport.widthPx, treeRowSplit.gapPx, viewport);
-  setCandidate(candidate, 'tree', 'h', treeResolved[0]);
-  setCandidate(candidate, 'controlPanel', 'h', treeResolved[1]);
-
-  return candidate;
-}
-
 // ── The gate itself ─────────────────────────────────────────────────
 
 interface CensusEntry {
@@ -502,12 +233,6 @@ interface CensusEntry {
 }
 
 const CENSUS: CensusEntry[] = [];
-
-function toAllotmentMap(candidate: CandidateMap): ReadonlyMap<string, RegionAllotment<string>> {
-  const out = new Map<string, RegionAllotment<string>>();
-  for (const [region, v] of candidate) out.set(region, { region, axis: v.axis, px: px(v.px) });
-  return out;
-}
 
 describe('step-1/L2b CI gate (report-only): every mounted geometry produces a FeasibleLayout or a non-empty refused, never undefined/throw', () => {
   // Dispatch L2b: the runtime overlay is wired into the STANDARD sweep's
@@ -852,61 +577,10 @@ describe('measuredFromLytProgram — dispatch L2b, the runtime overlay', () => {
 // prints the per-geometry allotment table the build report's own
 // centerpiece reproduces.
 //
-// `sideColumnWidthPx` is re-derived via the SAME root-row solve
-// `computeLandscapeCandidate` already performs internally (that function
-// does not expose it) — a disclosed, minimal duplication of three lines
-// of already-proven math, not a second derivation of a DIFFERENT fact.
-// Scoped to LANDSCAPE only: portrait has no side-column concept (this
-// file's own header, "no side column concept in portrait") — its tree/
-// controlPanel/previewBoard row's own container is `viewport.widthPx`
-// directly, and portrait's `controlPanel` resolves absent by DEFAULT
-// (`presenceDefaultVisible: false`, not merely width-gated — the "honest
-// limits" describe block above already pins this), so the sovereignty
-// completion this dispatch ships has no live scenario to exercise there.
-function computeLandscapeSideColumnWidthPx(viewport: Viewport): number {
-  const root = LYT_LANDSCAPE.root;
-  const [boardRailChild, boardAreaChild, sideColumnChild] = root.children;
-  const rootRow: RowEntry[] = [
-    { widget: 'boardRail', track: boardRailChild.track, visible: boardRailChild.presenceDefaultVisible },
-    { widget: 'boardArea', track: boardAreaChild.track, visible: true },
-    { widget: 'sideColumn', track: sideColumnChild.track, visible: true },
-  ];
-  const [, , sideColumnPx] = solveRowTracks(rootRow, viewport.widthPx, root.gapPx, viewport);
-  return sideColumnPx;
-}
-
-interface SideColumnRowFacts {
-  readonly treeTrack: LytTrackShape;
-  readonly controlPanelTrack: LytTrackShape;
-  readonly controlPanelDemote: LytDemotion | null;
-  readonly previewBoardTrack: LytTrackShape;
-  readonly gapPx: number;
-}
-
-/** Navigates to the SAME `treeRow` h-split `computeLandscapeCandidate`
- *  already navigates to internally (its own doc comment names the shape:
- *  `[tree(elastic), controlPanel(fixed664, demote), previewBoard(fixed160,
- *  off)]`) — extracted here so the L3 live-solve tests below don't
- *  re-derive a candidate at all, only the STATIC track/demote facts
- *  `resolveSideColumnLiveLayout` itself needs. */
-function extractLandscapeSideColumnRowFacts(): SideColumnRowFacts {
-  const root = LYT_LANDSCAPE.root;
-  const sideColumnChild = root.children[2];
-  if (sideColumnChild.node.kind !== 'split') throw new Error('extractLandscapeSideColumnRowFacts: sideColumn is not a split.');
-  const sideColumnSplit = sideColumnChild.node as Extract<LytNodeData, { kind: 'split' }>;
-  const treeRowChild = sideColumnSplit.children[3];
-  if (treeRowChild.node.kind !== 'split') throw new Error('extractLandscapeSideColumnRowFacts: treeRow is not a split.');
-  const treeRowSplit = treeRowChild.node as Extract<LytNodeData, { kind: 'split' }>;
-  const [treeChild, controlPanelChild, previewBoardChild] = treeRowSplit.children;
-  const controlPanelDemote = controlPanelChild.node.kind === 'exclusive' ? controlPanelChild.node.demote : null;
-  return {
-    treeTrack: treeChild.track,
-    controlPanelTrack: controlPanelChild.track,
-    controlPanelDemote,
-    previewBoardTrack: previewBoardChild.track,
-    gapPx: treeRowSplit.gapPx,
-  };
-}
+// `computeLandscapeSideColumnWidthPx`/`extractLandscapeSideColumnRowFacts`
+// moved to `feasible-layout-fixtures.ts` (dispatch L4, this file's own
+// header note above) — imported at this file's top alongside the other
+// relocated fixtures.
 
 interface LiveAllotmentRow {
   readonly label: string;

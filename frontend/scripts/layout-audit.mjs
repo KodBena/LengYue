@@ -73,6 +73,40 @@
  * rig (per the final-opus-review's own rig recipe) would extend this
  * script's `--backend-url`/`--engine-url` surface; neither exists yet.
  *
+ * ── Deterministic cold boot (dispatch L4 condition 3, ledger row 2498;
+ *    `.claude/dispatch-reports/lyt-space-owner-l4-review.md` §3) ───────
+ *
+ * "No backend required" describes what this script itself stands up,
+ * not what the audited page CAN reach: `src/config/env.ts`'s own
+ * `API_BASE_URL` falls back to `http://localhost:8764` whenever no
+ * `VITE_API_BASE_URL` is set at BUILD time, and `npm run build`
+ * (this script's own `--build` step) inherits the invoking shell's
+ * environment — so on a host where something ELSE happens to be
+ * listening on 8764 (a leftover dev backend, e.g.), the built SPA
+ * genuinely reaches it, and the audited page's own state (persisted
+ * session facts, message-log content) stops being a pure function of
+ * the committed source. This is exactly the root cause the L4 build
+ * report and review both independently traced 3 audit findings to
+ * (`lyt-space-owner-l4-build.md` §7, `lyt-space-owner-l4-review.md`
+ * §3) — a real, environment-dependent nondeterminism in what "cold
+ * boot" means, not a code defect in the audited SPA itself.
+ *
+ * Fixed at the root: when this script BUILDS (`--build`), it first
+ * probes for a genuinely dead TCP port at or above 19000 (`pickDead
+ * BackendPort`, below — refuses the scratch-preview port and the
+ * project's own forbidden live ports, and re-probes on the rare
+ * chance a candidate unexpectedly answers) and builds with
+ * `VITE_API_BASE_URL` pointed at it. `API_BASE_URL` is baked in at
+ * BUILD time (`import.meta.env`, not read at request time), so the
+ * resulting `dist/` genuinely cannot reach any live service on this
+ * or any other host — cold boot becomes a pure function of the
+ * committed source, independent of what else happens to be running
+ * locally. Without `--build` (an existing `dist/` is audited as-is),
+ * this override does not apply — a stale `dist/` built earlier, by
+ * hand, with its own `VITE_API_BASE_URL`, is audited as whatever it
+ * already is; this is disclosed via a printed warning, not silently
+ * masked.
+ *
  * ── Playwright discipline (project convention, see lyt-conformance.mjs
  *    and lyt-w2-usability.mjs's own headers) ─────────────────────────
  *   - This script does not self-wrap in `systemd-run`; the invoking
@@ -91,25 +125,46 @@
  *
  * Usage:
  *   node scripts/layout-audit.mjs [--port N] [--build] [--dist-dir DIR]
- *        [--headed] [--check] [--out FILE]
+ *        [--headed] [--check] [--out FILE] [--emit-baseline]
  *
- *   --build   run `npm run build` first (otherwise assumes `dist/` is
- *             current).
- *   --check   compare findings against the committed baseline
- *             (`layout-audit-baseline.json`) and exit nonzero on any
- *             NEW key (a finding whose key is not in the baseline).
- *             Without --check the script only reports (exit 0 unless a
- *             hard error occurs) — the mode `npm run layout-audit`
- *             uses in CI passes --check.
- *   --out     path to write the JSON report (default:
- *             layout-audit-report.json at the frontend root).
+ *   --build          run `npm run build` first (otherwise assumes
+ *                    `dist/` is current).
+ *   --check          compare findings against the committed baseline
+ *                    (`layout-audit-baseline.json`) and exit nonzero on
+ *                    any NEW key (a finding whose key is not in the
+ *                    baseline). Without --check the script only reports
+ *                    (exit 0 unless a hard error occurs) — the mode
+ *                    `npm run layout-audit` uses in CI passes --check.
+ *   --out            path to write the JSON report (default:
+ *                    layout-audit-report.json at the frontend root).
+ *   --emit-baseline  WRITE `layout-audit-baseline.json` directly from
+ *                    this run's own findings (every key across every
+ *                    reached geometry), with a real provenance header
+ *                    (the exact command, the env contract, the geometry
+ *                    set, a timestamp, and the branch SHA at generation
+ *                    time via `git rev-parse HEAD`) — the single
+ *                    reproducible command the baseline's own `_comment`
+ *                    field describes, closing the gap the L4 review
+ *                    named (`.claude/dispatch-reports/
+ *                    lyt-adr0019-gates-review.md` §9: the baseline was
+ *                    historically hand-assembled from a report's own
+ *                    `keys`, not produced by any single command the old
+ *                    comment's own text implied existed). Mutually
+ *                    exclusive with `--check` in practice (emitting
+ *                    OVERWRITES the file `--check` would otherwise read
+ *                    against) — this script does not refuse combining
+ *                    them, but `--check`'s own comparison against a
+ *                    freshly-overwritten baseline is trivially "0 new"
+ *                    and provides no signal; run them as separate
+ *                    invocations.
  *
  * License: Public Domain (The Unlicense)
  */
 import { chromium } from 'playwright-core';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { readFile, writeFile, access } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { createConnection } from 'node:net';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -352,6 +407,7 @@ if (FORBIDDEN_PORTS.has(port)) {
 const headed = Boolean(flag('headed', false));
 const doBuild = Boolean(flag('build', false));
 const doCheck = Boolean(flag('check', false));
+const doEmitBaseline = Boolean(flag('emit-baseline', false));
 const distDir = join(FRONTEND_ROOT, 'dist');
 const outPath = flag('out', join(FRONTEND_ROOT, 'layout-audit-report.json'));
 
@@ -361,6 +417,53 @@ function run(cmd, args, opts = {}) {
     child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} ${args.join(' ')} exited ${code}`))));
     child.on('error', reject);
   });
+}
+
+/** Probes whether nothing is listening on `port` at `host` — resolves
+ *  `true` (dead: safe to bake into the build) on a connection error
+ *  (`ECONNREFUSED` and friends) or a timeout, `false` (alive: something
+ *  DID answer) only on an actual successful connect. Errs toward "dead"
+ *  on ambiguous failures deliberately: this probe exists to catch the
+ *  ONE failure mode that matters here (a real service answering, which
+ *  would make the built SPA reach a stray backend), not to diagnose
+ *  arbitrary network conditions. */
+function probePortDead(port, host = '127.0.0.1', timeoutMs = 300) {
+  return new Promise((resolve) => {
+    const socket = createConnection({ port, host });
+    let settled = false;
+    const finish = (dead) => {
+      if (settled) return;
+      settled = true;
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(dead);
+    };
+    socket.setTimeout(timeoutMs);
+    socket.once('connect', () => finish(false));
+    socket.once('timeout', () => finish(true));
+    socket.once('error', () => finish(true));
+  });
+}
+
+/** Finds a genuinely dead port at/above 19000 to bake into
+ *  `VITE_API_BASE_URL` for a deterministic cold-boot build (this
+ *  module's own header, "Deterministic cold boot"). Refuses the
+ *  scratch preview port (`port`, above — the two must never collide)
+ *  and the project's own forbidden live ports; re-probes forward on
+ *  the rare chance a candidate unexpectedly answers, and refuses
+ *  loudly (ADR-0002) rather than silently proceeding on an ambiguous
+ *  port if the whole search range is exhausted. */
+async function pickDeadBackendPort(startPort = 19400, maxTries = 50) {
+  for (let i = 0; i < maxTries; i += 1) {
+    const candidate = startPort + i;
+    if (candidate === port || FORBIDDEN_PORTS.has(candidate)) continue;
+    const dead = await probePortDead(candidate);
+    if (dead) return candidate;
+    console.error(`[layout-audit] port ${candidate} unexpectedly answered a connection -- skipping, trying next`);
+  }
+  throw new Error(
+    `[layout-audit] could not find a dead port in [${startPort}, ${startPort + maxTries}) for the deterministic cold-boot backend URL -- refusing to build with an ambiguous VITE_API_BASE_URL (ADR-0002)`,
+  );
 }
 
 async function waitForPreviewReady(url, timeoutMs = 30_000) {
@@ -405,6 +508,88 @@ function loadBaselineSync(text) {
   return new Set(parsed.keys || []);
 }
 
+/** `git rev-parse HEAD` at the frontend root — `null` (not thrown) on
+ *  any failure (detached tooling, no git binary, not a repo checkout at
+ *  all) since a missing SHA should degrade the provenance record, never
+ *  block emitting the baseline itself. */
+function currentGitShaOrNull() {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: FRONTEND_ROOT, encoding: 'utf8' }).trim();
+  } catch {
+    return null;
+  }
+}
+
+/** Writes `layout-audit-baseline.json` directly from this run's own
+ *  `results` — the `--emit-baseline` mode named in this module's own
+ *  header. Every finding key across every REACHED geometry (an
+ *  unreached geometry contributes nothing — it is its own separate
+ *  failure mode, surfaced by `main()`'s own `!r.reached` check, not
+ *  silently folded into "zero findings here"). The provenance fields
+ *  make the file's own `_comment` describe a genuinely reproducible
+ *  command for the FIRST time (`.claude/dispatch-reports/
+ *  lyt-adr0019-gates-review.md` §9's own named gap: the predecessor
+ *  baseline's `_comment` claimed a single command generated it, but no
+ *  such command existed in the script at that time). `regenerationNote`
+ *  is this specific regeneration's own editorial record — a future
+ *  regeneration replaces it with its own reason, the same way a
+ *  changelog entry is superseded, not accumulated. */
+async function emitBaseline(results) {
+  const keys = new Set();
+  for (const r of results) {
+    if (!r.reached) continue;
+    for (const f of r.findings) keys.add(f.key);
+  }
+  const sortedKeys = [...keys].sort();
+  const generatedAt = new Date().toISOString();
+  const sha = currentGitShaOrNull();
+  const baseline = {
+    _comment:
+      'frontend/layout-audit-baseline.json -- ADR-0019 layout-audit gate baseline. ' +
+      'Keys are `${geometry}::${ruleId}::${stableSelector}` -- NEVER file:line, NEVER pixel ' +
+      'coordinates (see scripts/layout-audit.mjs\'s own header for why). `--check` fails only on a ' +
+      'key NOT present here (a NEW finding); a key that stops appearing is a silent improvement, not ' +
+      'a failure -- ratchet the baseline DOWN by regenerating in the same change that fixes the ' +
+      'underlying defect. See .claude/dispatch-reports/lyt-adr0019-gates-build.md for the census the ' +
+      'PREDECESSOR of this snapshot corresponded to.',
+    _provenance: {
+      generatedByCommand: 'node scripts/layout-audit.mjs --build --emit-baseline',
+      note:
+        'This exact command, run from frontend/, reproduces this file (modulo genuinely new/fixed ' +
+        'UI defects) -- the FIRST baseline generation this project can make that claim honestly (see ' +
+        'regenerationNote below).',
+      environment: {
+        contract:
+          'Cold-boot SPA, no backend/proxy. `--build` bakes VITE_API_BASE_URL to a TCP port this ' +
+          'script itself probed dead (>=19000, refusing the scratch preview port and the project\'s ' +
+          'own forbidden live ports) immediately before building, via `pickDeadBackendPort`/' +
+          '`probePortDead` (this script, "Deterministic cold boot" in the module header) -- the built ' +
+          'dist/ genuinely cannot reach any live service on this or any other host. Served via ' +
+          '`vite preview`.',
+        deadBackendPortRange: '>= 19000, excluding the scratch preview port and 8764/4173/5173/5174',
+      },
+      geometries: GEOMETRIES.map((g) => g.label),
+      generatedAt,
+      branchSha: sha,
+      regenerationNote:
+        'Replaces a CONTAMINATED predecessor baseline: the prior snapshot was captured while a live ' +
+        'backend on the generating host happened to answer at the SPA\'s default ' +
+        'http://localhost:8764, so "cold boot" silently meant "cold boot, plus whatever a reachable ' +
+        'backend supplies" -- the SPA\'s real no-backend state (an auth-error indicator, a first-run ' +
+        'wizard modal, and the pointer-occlusion cascade that modal produces) was never exercised at ' +
+        'all, at any geometry, in any prior snapshot. This regeneration is the space-owner L4 arc\'s ' +
+        'own conclusion (ledger row 2498) -- see .claude/dispatch-reports/lyt-space-owner-l4-build.md ' +
+        'for the isolation proof that the resulting finding-count jump is 100% attributable to this ' +
+        'environment fix, 0% to the space-owner layout mechanism itself.',
+    },
+    generatedAt,
+    generatedAgainst: 'cold-boot SPA, no backend/proxy, npm run build (dist/) served via vite preview -- VITE_API_BASE_URL baked to a probed-dead port',
+    keys: sortedKeys,
+  };
+  await writeFile(BASELINE_PATH, `${JSON.stringify(baseline, null, 2)}\n`);
+  return { path: BASELINE_PATH, keyCount: sortedKeys.length };
+}
+
 function renderSummary(results, baselineKeys, checkMode) {
   const lines = [];
   lines.push('[layout-audit] per-geometry findings (deduped by stable key):');
@@ -436,9 +621,18 @@ function renderSummary(results, baselineKeys, checkMode) {
 
 async function main() {
   if (doBuild) {
+    const deadBackendPort = await pickDeadBackendPort();
+    const deadBackendUrl = `http://127.0.0.1:${deadBackendPort}`;
+    console.log(`[layout-audit] deterministic cold boot: probed port ${deadBackendPort} dead, building with VITE_API_BASE_URL=${deadBackendUrl}…`);
     console.log('[layout-audit] building SPA (npm run build)…');
-    await run('npm', ['run', 'build']);
+    await run('npm', ['run', 'build'], { env: { ...process.env, VITE_API_BASE_URL: deadBackendUrl } });
   } else {
+    console.error(
+      '[layout-audit] WARNING: auditing an EXISTING dist/ without --build -- this build\'s own baked-in ' +
+        'VITE_API_BASE_URL (whatever it was built with) is unknown to this run, NOT overridden to a dead ' +
+        'port; cold-boot determinism is only guaranteed via the --build path (this module\'s own header, ' +
+        '"Deterministic cold boot").',
+    );
     try {
       await access(join(distDir, 'index.html'));
     } catch {
@@ -508,6 +702,11 @@ async function main() {
     };
     await writeFile(outPath, JSON.stringify(report, null, 2));
     console.log(`[layout-audit] wrote ${outPath}`);
+
+    if (doEmitBaseline) {
+      const { path, keyCount } = await emitBaseline(results);
+      console.log(`[layout-audit] emitted baseline: ${path} (${keyCount} keys)`);
+    }
 
     if (doCheck && totalNew > 0) {
       console.error(`[layout-audit] FAILED: ${totalNew} finding(s) not present in the committed baseline (${BASELINE_PATH}).`);
