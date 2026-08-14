@@ -737,6 +737,7 @@
   "systemLog.clearAll":                   "Clear All",
   "systemLog.noMessages":                 "No messages — system idle.",
   "systemLog.toggleButton":               "Toggle system log",
+  "systemLog.nextAction":                 "Next",
 
   "analysisChart.emptyState":             "No {label} data yet.",
 

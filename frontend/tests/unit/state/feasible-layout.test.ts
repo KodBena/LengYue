@@ -32,7 +32,7 @@ import {
   type SideColumnFixedRegion,
   type SideColumnLiveLayoutInput,
 } from '../../../src/state/feasible-layout';
-import type { LytTrackShape } from '../../../src/state/lyt-layout-types';
+import type { LytDemotion, LytTrackShape } from '../../../src/state/lyt-layout-types';
 
 describe('px()', () => {
   it('mints a Px for a finite, non-negative number', () => {
@@ -261,5 +261,181 @@ describe('resolveSovereignOverrides()', () => {
       heightPx: px(1080),
     });
     expect(diagnostics).toEqual([]);
+  });
+});
+
+/**
+ * resolveSideColumnLiveLayout() — direct unit coverage, dispatch L3
+ * REPAIR (`.claude/dispatch-reports/lyt-space-owner-l3-review.md`
+ * §1/§Verdict, conditions 1/2). The review's own six named uncovered
+ * branches: both ADR-0002 throw guards, the wrapperWidthPx-not-yet-
+ * measured pass-through, the unbounded (`maxUsefulPx: null`) widen path,
+ * the demote-boundary's exact `>=` inclusivity, and the previewBoard-
+ * present reservation arithmetic. Every worked number below is either
+ * recovered VERBATIM from the deleted `layout-model.test.ts` suite (git
+ * history at `c9a9f1aa`, the L3 commit's own parent) where the old
+ * mechanism's arithmetic still applies to the new one, or derived fresh
+ * from `resolveSideColumnLiveLayout`'s own documented contract where the
+ * mechanism genuinely changed (each such adaptation is named inline,
+ * per the review's own "adapt honestly where semantics legitimately
+ * changed, naming each adaptation" instruction) — never re-derived from
+ * this function's own implementation as a tautology.
+ *
+ * `GAP_PX = 4` throughout, matching `layout-model.ts`'s own
+ * `TREE_CONTROL_WRAPPER_ROW_GAP_PX` the deleted suite's fixtures used.
+ */
+describe('resolveSideColumnLiveLayout()', () => {
+  const GAP_PX = 4;
+  const LANDSCAPE_TREE_TRACK: LytTrackShape = { kind: 'elastic', minPx: 110, frWeight: 1 };
+  const PORTRAIT_TREE_TRACK: LytTrackShape = { kind: 'elastic', minPx: 140, frWeight: 1 };
+  const CONTROL_PANEL_TRACK: LytTrackShape = { kind: 'fixed', px: 664 };
+  const PREVIEW_BOARD_TRACK: LytTrackShape = { kind: 'fixed', px: 160 };
+  const CONTROL_PANEL_DEMOTE: LytDemotion = { axis: 'h', belowPx: 778 };
+
+  function baseInput(overrides: Partial<SideColumnLiveLayoutInput> = {}): SideColumnLiveLayoutInput {
+    return {
+      wrapperWidthPx: 1000,
+      gapPx: GAP_PX,
+      tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: null },
+      treeSovereignPx: undefined,
+      treeDefaultPx: 0,
+      others: [],
+      screenClassId: 'landscape',
+      ...overrides,
+    };
+  }
+
+  // ── Branch 1/2: the two ADR-0002 throw guards ─────────────────────
+  describe('ADR-0002 throw guards', () => {
+    it('a non-"elastic" tree track throws loudly, naming the offending kind — mirrors the deleted clampTreeWidthForSideColumn\'s own guard, adapted to this function\'s own message shape', () => {
+      const wrongShape: LytTrackShape = { kind: 'fixed', px: 140 };
+      expect(() =>
+        resolveSideColumnLiveLayout(baseInput({ tree: { track: wrongShape, maxUsefulPx: null } })),
+      ).toThrow(/tree's own compiled track is "fixed"/);
+    });
+
+    it('a demote axis other than "h" on an `others` entry throws loudly — the SAME guard the deleted resolveWidthConditionalPresence carried, now folded into this function\'s own presence loop', () => {
+      const verticalDemote: LytDemotion = { axis: 'v', belowPx: 500 };
+      const others: readonly SideColumnFixedRegion[] = [
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: verticalDemote },
+      ];
+      expect(() =>
+        resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 900, others })),
+      ).toThrow(/unsupported demote axis/);
+    });
+  });
+
+  // ── Branch 3: the "not yet measured" pass-through ──────────────────
+  describe('wrapperWidthPx not-yet-measured pass-through (<=0 or non-finite)', () => {
+    it('tree passes through treeDefaultPx verbatim when un-sovereign, at each of 0/-10/NaN — the SAME "not yet measured" convention every deleted clamp function shared', () => {
+      for (const notYetMeasured of [0, -10, NaN]) {
+        const result = resolveSideColumnLiveLayout(
+          baseInput({ wrapperWidthPx: notYetMeasured, treeDefaultPx: 230, treeSovereignPx: undefined }),
+        );
+        expect(result.treePx).toBe(230);
+        expect(result.diagnostics).toEqual([]);
+      }
+    });
+
+    it('a sovereign treeSovereignPx wins over treeDefaultPx even before the wrapper is measured — a genuinely NEW branch this function carries (sovereignty did not exist in the deleted mechanism, so this precedence is not a recovered old assertion, disclosed as such)', () => {
+      const result = resolveSideColumnLiveLayout(
+        baseInput({ wrapperWidthPx: 0, treeDefaultPx: 230, treeSovereignPx: 1200 }),
+      );
+      expect(result.treePx).toBe(1200);
+    });
+
+    it('every `others` entry passes through per its own desiredVisible — present grants its full compiled px, absent grants 0, no demote/reservation math runs at all', () => {
+      const others: readonly SideColumnFixedRegion[] = [
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
+        { widgetId: 'previewBoard', track: PREVIEW_BOARD_TRACK, desiredVisible: false, demote: null },
+      ];
+      const result = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: -1, others }));
+      const byId = new Map(result.others.map((o) => [o.widgetId, o]));
+      expect(byId.get('controlPanel')).toMatchObject({ present: true, candidatePx: 664 });
+      expect(byId.get('previewBoard')).toMatchObject({ present: false, candidatePx: 0 });
+    });
+  });
+
+  // ── Branch 4: exact demote-boundary inclusivity ─────────────────────
+  describe('demote-boundary inclusivity — >= wins, matching the compiled program\'s own >= semantics', () => {
+    it('exactly AT the compiled 778px threshold: controlPanel resolves present, and tree\'s own candidate lands at exactly its compiled floor (110) — the SAME 778/110 pair the deleted clampTreeWidthForSideColumn pinned at its own "right at the compiled demote boundary" case', () => {
+      const others: readonly SideColumnFixedRegion[] = [
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
+      ];
+      const result = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 778, others }));
+      const controlPanel = result.others.find((o) => o.widgetId === 'controlPanel')!;
+      expect(controlPanel.present).toBe(true);
+      expect(controlPanel.candidatePx).toBe(664);
+      expect(result.treePx).toBe(110); // 778 - (664 + 4) = 110, exactly the tree's own compiled minPx
+    });
+
+    it('one px below (777): controlPanel demotes to absent, and tree\'s own un-reserved candidate claims the whole (unmeasured-against) row — 777, not 778', () => {
+      const others: readonly SideColumnFixedRegion[] = [
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
+      ];
+      const result = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 777, others }));
+      const controlPanel = result.others.find((o) => o.widgetId === 'controlPanel')!;
+      expect(controlPanel.present).toBe(false);
+      expect(controlPanel.candidatePx).toBe(0);
+      expect(result.treePx).toBe(777); // no reservation at all once controlPanel demotes
+    });
+  });
+
+  // ── Branch 5: the unbounded (maxUsefulPx: null) widen path ──────────
+  describe('unbounded widen path (maxUsefulPx: null) — the deleted wave-B1/N2 "widen into freed space" behavior, now driven by ceilingPx ?? Infinity', () => {
+    it('portrait, both siblings absent, 420px wrapper: tree widens all the way to 420 — byte-identical to the deleted resolveTreeRowWidthPx\'s own "F4, un-dragged default" 420px figure', () => {
+      const result = resolveSideColumnLiveLayout(
+        baseInput({ wrapperWidthPx: 420, tree: { track: PORTRAIT_TREE_TRACK, maxUsefulPx: null }, others: [] }),
+      );
+      expect(result.treePx).toBe(420);
+    });
+
+    it('portrait, 768px wrapper: widens to 768 — the same suite\'s own "representative width" figure', () => {
+      const result = resolveSideColumnLiveLayout(
+        baseInput({ wrapperWidthPx: 768, tree: { track: PORTRAIT_TREE_TRACK, maxUsefulPx: null }, others: [] }),
+      );
+      expect(result.treePx).toBe(768);
+    });
+
+    it('landscape, both fixed siblings absent, 614px wrapper: widens to 614 — byte-identical to the deleted N2 landscape "widens all the way to the measured 614px side column" figure (the finding\'s own reported 1920x1080 measurement)', () => {
+      const others: readonly SideColumnFixedRegion[] = [
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: false, demote: CONTROL_PANEL_DEMOTE },
+        { widgetId: 'previewBoard', track: PREVIEW_BOARD_TRACK, desiredVisible: false, demote: null },
+      ];
+      const result = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 614, others }));
+      expect(result.treePx).toBe(614);
+    });
+  });
+
+  // ── Branch 6: previewBoard-present reservation arithmetic ───────────
+  describe('previewBoard-present reservation arithmetic', () => {
+    it('previewBoard present alone (controlPanel not desired), 614px wrapper: tree clamps to exactly 450 (614 - (160+4)) — byte-identical to the deleted N2 "previewBoard PRESENT" figure, and the row sums to exactly the wrapper width', () => {
+      const others: readonly SideColumnFixedRegion[] = [
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: false, demote: CONTROL_PANEL_DEMOTE },
+        { widgetId: 'previewBoard', track: PREVIEW_BOARD_TRACK, desiredVisible: true, demote: null },
+      ];
+      const result = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 614, others }));
+      expect(result.treePx).toBe(450);
+      const previewBoard = result.others.find((o) => o.widgetId === 'previewBoard')!;
+      expect(previewBoard).toMatchObject({ present: true, candidatePx: 160 });
+      expect(result.treePx + GAP_PX + previewBoard.candidatePx).toBe(614); // no overflow, no slack
+    });
+
+    it('previewBoard present RAISES the effective demote threshold past what a full 819px column can hold (778+164=942 > 819): controlPanel is forced absent even though it is DESIRED, and its own former 664px reservation is freed to the tree — 819/164/942/655, recovered from the deleted "generalized reservation... end-to-end composition at 2560x1440" scenario, whose own clampedTreeWidthPx (never asserted as a literal number there, only via the row-sum identity) is the same 655 derived here directly', () => {
+      const others: readonly SideColumnFixedRegion[] = [
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
+        { widgetId: 'previewBoard', track: PREVIEW_BOARD_TRACK, desiredVisible: true, demote: null },
+      ];
+      const result = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 819, others }));
+      const controlPanel = result.others.find((o) => o.widgetId === 'controlPanel')!;
+      const previewBoard = result.others.find((o) => o.widgetId === 'previewBoard')!;
+      // controlPanel: 778 + previewBoard's own 164px reservation = 942,
+      // which 819 does not clear — demoted absent despite desiredVisible: true.
+      expect(controlPanel).toMatchObject({ present: false, candidatePx: 0 });
+      expect(previewBoard).toMatchObject({ present: true, candidatePx: 160 });
+      // tree absorbs everything but previewBoard's own reservation: 819 - 164 = 655.
+      expect(result.treePx).toBe(655);
+      expect(result.treePx + GAP_PX + previewBoard.candidatePx).toBe(819); // exact, no overflow
+    });
   });
 });

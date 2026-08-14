@@ -78,7 +78,14 @@ export function useSideColumnLiveLayout(input: UseSideColumnLiveLayoutInput): Re
         .join('|');
       if (key === lastPushedKey) return;
       lastPushedKey = key;
-      for (const d of diagnostics) pushSystemMessage('warning', d.message);
+      // Dispatch L3 repair (`.claude/dispatch-reports/
+      // lyt-space-owner-l3-review.md` §3 condition 3): thread the
+      // diagnostic's own `remediation`/`nextAction` (ADR-0019 C8) through
+      // to the sink's own structured `details` parameter, rather than
+      // dropping them at this call site the way the pre-repair build did.
+      for (const d of diagnostics) {
+        pushSystemMessage('warning', d.message, { remediation: d.remediation, nextAction: d.nextAction });
+      }
     },
   );
 

@@ -421,16 +421,38 @@ describe('computeTreeControlRegionDefaultWidthPx — init-vs-drag divergence fix
 // section, per ADR-0002 Rule 6 -- nothing disclosed dies with the
 // deleted function.
 //
-// Equivalent-or-better coverage for the NEW mechanism lives in
-// tests/unit/state/feasible-layout.test.ts (resolveSideColumnLiveLayout's
-// own pure-function contract: presence/demote resolution, the
-// non-sovereign shrink/widen/content-demand-cap candidate, the sovereign
-// verbatim-override + starvation-diagnostic path) and
-// tests/unit/state/feasible-layout-geometry-sweep.test.ts (the
-// per-geometry allotment table against the review's own witnessed
-// geometries, plus the flagship 1920x1080 fix and a WITNESSED sovereignty
-// jsdom trace) -- per SCOPE item 5's "update with justification": each
-// deleted test's own assertion embodied a hand-rolled clamp the new
-// mechanism now derives from Measured/FeasibleLayout/
-// resolveSovereignOverrides directly, so the gate moved to the new
-// mechanism's own boundary rather than being transliterated 1:1.
+// CORRECTED 2026-08-14 (dispatch L3 repair,
+// `.claude/dispatch-reports/lyt-space-owner-l3-review.md` §1/§Verdict
+// condition 1): the paragraph this replaces named
+// `tests/unit/state/feasible-layout.test.ts` as carrying
+// `resolveSideColumnLiveLayout`'s own pure-function contract. That claim
+// was FALSE at the time it was written -- that file's `describe`
+// blocks never called `resolveSideColumnLiveLayout` at all (only
+// imported it, unused). The REAL replacement coverage lives here:
+//
+//   - tests/unit/state/feasible-layout-geometry-sweep.test.ts's own
+//     "dispatch L3: resolveSideColumnLiveLayout -- live-solve regression
+//     oracle" and "dispatch L3: sovereignty -- WITNESSED trace" describe
+//     blocks: the per-geometry allotment table against the review's own
+//     witnessed 1920x1080 geometry (gate (a): never starve a region the
+//     old numeric-solver path granted; gate (b): the flagship fix,
+//     controlPanel present + tree capped at its own content demand), and
+//     the WITNESSED sovereignty trace (a drag past controlPanel's own
+//     664px floor, diagnosed not resisted).
+//   - tests/unit/state/feasible-layout.test.ts's own
+//     "resolveSideColumnLiveLayout()" describe block (added in this
+//     repair): DIRECT unit coverage of the six branches the sweep file's
+//     own fixed-geometry census does not reach on its own -- both
+//     ADR-0002 throw guards (non-"elastic" tree track, non-"h" demote
+//     axis), the wrapperWidthPx-not-yet-measured pass-through, the
+//     unbounded (`maxUsefulPx: null`) widen path, the demote-boundary's
+//     exact `>=` inclusivity, and the previewBoard-present reservation
+//     arithmetic. Per SCOPE item 5's "update with justification": each
+//     deleted test's own assertion embodied a hand-rolled clamp the new
+//     mechanism now derives from Measured/FeasibleLayout/
+//     resolveSovereignOverrides directly, so the gate moved to the new
+//     mechanism's own boundary rather than being transliterated 1:1 --
+//     and several of the deleted suite's own worked numbers (110/778,
+//     420/768/614, 450, 819/164/942/655) are recovered verbatim in the
+//     new describe block above, adapted honestly where sovereignty
+//     introduced a genuinely new branch the old mechanism never had.
