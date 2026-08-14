@@ -12,6 +12,18 @@
   the toolbar's "Mint card(s)" — this modal never calls the backend
   itself. See src/composables/cards/useLearnPath.ts for the full
   design.
+
+  Space-owner cure, dispatch L5 (`.claude/dispatch-reports/
+  lyt-space-owner-spec.md` §1.5/§3 step 5, ledger rows 2447/2484/2499):
+  this modal was the review's own named gap — the one of eleven modals
+  with no `role="dialog"`, no `useModalKeyboard` registration, and
+  (consequently) no Escape-to-close. Wired to `useModalKeyboard`
+  (`composables/useModalKeyboard.ts`) below, matching every OTHER modal
+  in `src/components/modals/`; `close()` already guards the
+  `phase === 'exploring'` in-flight case (this file's own `close()` doc),
+  so Escape during an active explore is correctly a no-op, the same as
+  the footer Close button's own `:disabled`.
+
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
@@ -24,6 +36,7 @@ import {
   type LearnPathExploration,
 } from '../../composables/cards/useLearnPath';
 import { getAnalyzingNodeId } from '../../composables/cards/learn-path-progress';
+import { useModalKeyboard } from '../../composables/useModalKeyboard';
 import type { BoardId } from '../../types';
 
 const { t } = useI18n();
@@ -34,6 +47,7 @@ type Phase = 'form' | 'exploring' | 'explored';
 const isOpen = ref(false);
 const phase = ref<Phase>('form');
 const boardId = ref<BoardId | null>(null);
+const modalContentRef = ref<HTMLElement | null>(null);
 
 const depth = ref(4);
 const topK = ref(3);
@@ -125,13 +139,18 @@ function runDiscard() {
   exploration.value = null;
   phase.value = 'form';
 }
+
+// Space-owner cure, dispatch L5: Escape → the SAME `close()` above
+// (which already no-ops mid-explore) + a real Tab focus trap + initial
+// focus + focus restoration — see this file's own header.
+useModalKeyboard(modalContentRef, isOpen, close);
 </script>
 
 <template>
   <div v-if="isOpen" class="modal-backdrop" @mousedown.self="close">
-    <div class="modal-content">
+    <div ref="modalContentRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="learn-path-title" tabindex="-1">
       <div class="modal-header">
-        <h2>{{ $t('learnPath.title') }}</h2>
+        <h2 id="learn-path-title">{{ $t('learnPath.title') }}</h2>
         <button class="close-btn" @click="close">×</button>
       </div>
 

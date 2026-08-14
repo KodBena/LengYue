@@ -10,6 +10,18 @@
  * by pattern match. Logout is a separate synchronous action surfaced
  * only when the current state is 'authenticated'.
  *
+ * Space-owner cure, dispatch L5 (`.claude/dispatch-reports/
+ * lyt-space-owner-spec.md` §1.5/§3 step 5): the review's own named
+ * markup-contract divergence — this modal's content wrapper was
+ * `.modal-card` where every other one of the eleven modals in
+ * `src/components/modals/` names it `.modal-content` — is retired below
+ * (class renamed, CSS selector renamed to match; no visual change, the
+ * rule's own declarations are unchanged). The backdrop dismiss handler
+ * (`@click` + an `e.target === e.currentTarget` check) is likewise
+ * unified to the other ten modals' own `@mousedown.self` idiom —
+ * functionally equivalent (both fire only for a click landing on the
+ * backdrop itself, never a bubbled click from the card).
+ *
  * License: Public Domain (The Unlicense)
  */
 
@@ -87,12 +99,6 @@ function handleCancel(): void {
   emit('close');
 }
 
-function handleBackdropClick(e: MouseEvent): void {
-  // Close only when the click was on the backdrop itself, not bubbled
-  // up from the modal card.
-  if (e.target === e.currentTarget) emit('close');
-}
-
 // Escape → same close path as Cancel (ADR-0019 S5); Tab focus trap +
 // initial focus + focus restoration — all one shared mechanism, see
 // useModalKeyboard.ts. This component is mounted only while open
@@ -104,8 +110,8 @@ useModalKeyboard(modalContentRef, computed(() => true), handleCancel);
 </script>
 
 <template>
-  <div class="modal-backdrop" @click="handleBackdropClick">
-    <div ref="modalContentRef" class="modal-card" role="dialog" aria-modal="true" aria-labelledby="login-modal-title" tabindex="-1">
+  <div class="modal-backdrop" @mousedown.self="handleCancel">
+    <div ref="modalContentRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="login-modal-title" tabindex="-1">
       <h3 id="login-modal-title" class="modal-title">{{ $t('auth.title') }}</h3>
 
       <p class="current-identity" v-if="currentIdentity">{{ currentIdentity }}</p>
@@ -169,8 +175,10 @@ useModalKeyboard(modalContentRef, computed(() => true), handleCancel);
 /* magic-literal: 360px LoginModal width — narrower than the 420px
    ConfirmLoadModal/MintCardModal pattern because the auth form has
    fewer / shorter fields. 3 modal sites total at 2 widths; modal-
-   width substrate not pursued (thin cluster). */
-.modal-card {
+   width substrate not pursued (thin cluster). Renamed from `.modal-card`
+   to `.modal-content` (dispatch L5) to match every other modal's own
+   content-wrapper class name — no declaration changed. */
+.modal-content {
   background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   padding: var(--space-loose); width: 360px; max-width: 90vw;
   display: flex; flex-direction: column; gap: var(--space-medium);

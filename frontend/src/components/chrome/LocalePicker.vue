@@ -8,25 +8,32 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 import { useLocale } from '../../composables/chrome/useLocale';
 import { useFixedAnchoredPopover } from '../../composables/chrome/useFixedAnchoredPopover';
+import { useDismissiblePopover } from '../../composables/chrome/useDismissiblePopover';
 import type { SupportedLocale } from '../../i18n/locales';
 
 const { locale, supportedLocales, displayName, flag, isMachineTranslated, setLocale } = useLocale();
 
-const open = ref(false);
+// Space-owner cure, dispatch L5 (`.claude/dispatch-reports/
+// lyt-space-owner-spec.md` §1.5/§3 step 5): the click/outside-click/
+// Escape dismissal this file's own former comments described in detail
+// (a document-level `pointerdown` capture-phase listener, installed only
+// while open, torn down on close/unmount) is now `useDismissiblePopover`
+// — the ONE shared construction of that exact idiom.
+const { open, rootRef, toggle, close } = useDismissiblePopover();
+// `rootRef` is bound to this file's own template root (`ref="rootRef"`,
+// below) — see `LytPresenceMenu.vue`'s own identical comment for why
+// `noUnusedLocals` needs this explicit acknowledgment.
+void rootRef;
 
 const currentFlag = computed(() => flag(locale.value));
 const currentName = computed(() => displayName(locale.value));
 
-function toggle(): void {
-  open.value = !open.value;
-}
-
 function pick(loc: SupportedLocale): void {
   setLocale(loc);
-  open.value = false;
+  close();
 }
 
 // Clip-ancestor fix (row 1984, the popover-clip class's 4th member —
@@ -39,51 +46,13 @@ function pick(loc: SupportedLocale): void {
 // D1 fix escaped. `useFixedAnchoredPopover` reads `open` as a plain
 // `Ref<boolean>` (see that composable's own header — "the SAME `open` ref
 // `useHoverPopover` (or an equivalent open/close boolean source)
-// returned") and never inspects HOW it flips; this component's `toggle()`
-// click-handler writes the same ref `useHoverPopover`'s mouseenter/leave
+// returned") and never inspects HOW it flips; `useDismissiblePopover`'s
+// own `toggle` writes the same ref `useHoverPopover`'s mouseenter/leave
 // pair would, so the composable composes with click-toggle open state
 // with no fork required — its contract is genuinely interaction-agnostic.
 const triggerEl = ref<HTMLElement | null>(null);
 const popoverEl = ref<HTMLElement | null>(null);
 const { style: popoverStyle } = useFixedAnchoredPopover(open, triggerEl, popoverEl, { align: 'left' });
-
-// Document-level dismiss: clicking anywhere outside the root closes
-// the menu. Using `pointerdown` (capture phase) so the closer fires
-// before any in-menu click handler that mutates state, preventing the
-// open=true flicker if the user clicks the trigger again to dismiss.
-// Listener is installed only while the menu is open and torn down on
-// close — keeps the global-listener footprint zero in the steady
-// state and follows the resource-ownership convention codified in
-// docs/archive/notes/resource-ownership-audit-plan.md.
-const rootRef = ref<HTMLElement | null>(null);
-
-function onDocumentPointerDown(e: PointerEvent): void {
-  if (!rootRef.value) return;
-  if (rootRef.value.contains(e.target as Node)) return; // DOM: event.target is an EventTarget; Node is contains()'s arg type
-  open.value = false;
-}
-
-function onKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') open.value = false;
-}
-
-watch(open, (isOpen) => {
-  if (isOpen) {
-    document.addEventListener('pointerdown', onDocumentPointerDown, true);
-    document.addEventListener('keydown', onKeydown);
-  } else {
-    document.removeEventListener('pointerdown', onDocumentPointerDown, true);
-    document.removeEventListener('keydown', onKeydown);
-  }
-});
-
-// Defensive cleanup: if the component unmounts while the menu is
-// open (rare — only on a parent re-key or full app teardown), the
-// document listeners would otherwise outlive the component.
-onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', onDocumentPointerDown, true);
-  document.removeEventListener('keydown', onKeydown);
-});
 </script>
 
 <template>

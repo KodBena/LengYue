@@ -143,8 +143,12 @@ describe('ToolbarEngineMetrics / EngineModelSelect — render-count regression g
     await nextTick();
     // Overlap fix (ledger row 2372): EngineModelSelect now mounts only
     // inside the eval-group hover popover — open it so this guard
-    // exercises a real mounted instance.
-    await wrapper.find('.eval-summary').trigger('mouseenter');
+    // exercises a real mounted instance. Space-owner cure, dispatch L5
+    // (HOVER-GRACE): the `mouseenter` listener moved from `.eval-summary`
+    // itself onto the shared `.metric-hover-root` wrapper (trigger +
+    // popover now share one hover root — see `ToolbarEngineMetrics.vue`'s
+    // own template comment) — trigger the event there.
+    await wrapper.find('.metric-hover-root').trigger('mouseenter');
     await nextTick();
     // Mount itself counts as a render — reset after mount so the assertion
     // below measures update-only renders, the same convention
@@ -174,7 +178,7 @@ describe('ToolbarEngineMetrics / EngineModelSelect — render-count regression g
     await nextTick();
     // Overlap fix (ledger row 2372): open the popover so EngineModelSelect
     // is actually mounted — see the sibling test's identical comment.
-    await wrapper.find('.eval-summary').trigger('mouseenter');
+    await wrapper.find('.metric-hover-root').trigger('mouseenter');
     await nextTick();
     modelSelectRenders.count = 0;
 

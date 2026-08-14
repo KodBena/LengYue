@@ -311,104 +311,113 @@ const { style: healthPopoverStyle } = useFixedAnchoredPopover(healthOpen, health
 
 <template>
   <div class="engine-metrics-bar">
+    <!-- Space-owner cure, dispatch L5 (HOVER-GRACE, the commissioner's
+         own named acceptance scenario, item 3): trigger + popover now
+         share ONE hover-root (`@mouseenter`/`@mouseleave` on this
+         wrapper, not the trigger alone) — the actual defect
+         `useHoverPopover.ts`'s own header names: pre-dispatch, the
+         popover was a DOM SIBLING of the trigger with no hover handlers
+         of its own, so a pointer that successfully crossed the gap and
+         landed on the popover (e.g. to reach `EngineModelSelect`) never
+         renewed the grace timer — it kept counting down from the
+         trigger's own `mouseleave` and closed the popover out from
+         under an actively-hovering pointer once it elapsed. Wrapping
+         both in one root, mirroring `ToolbarSliderPopover.vue`/
+         `PboPopover.vue`/`EngineQueueTooltip.vue`'s own established
+         shape, is the fix: entering EITHER element now cancels the
+         pending close. -->
     <template v-if="props.group === 'eval'">
-      <!-- Overlap fix (ledger row 2372): ONE compact always-visible
-           badge — identity (version/model) never had a compact numeric
-           form to fall back to (a functional SELECTOR `<select>` isn't
-           ellipsis-able), so it moves into the hover popover entirely
-           rather than getting its own inline slot; winrate/lead render
-           as a single paired compact value alongside it, per the
-           commission's own "a compact paired form probably fits"
-           framing (measured 119.94px worst-case vs. the 139px
-           allotment — see the file header). No native `title` on the
-           trigger itself: the popover IS the "hover for more" surface,
-           so a second native tooltip on the same hover would double up. -->
-      <div
-        ref="evalTriggerEl"
-        class="metric eval-summary"
-        @mouseenter="onEvalEnter"
-        @mouseleave="onEvalLeave"
-      >
-        <span class="m-lbl">{{ $t('toolbar.metric.evalSummary') }}</span>
-        <span class="m-val eval-summary-val">{{ displayed.winrate }}/{{ displayed.scoreLead }}</span>
-      </div>
-      <div
-        v-if="evalOpen"
-        ref="evalPopoverEl"
-        class="metrics-popover"
-        role="tooltip"
-        :style="{ top: evalPopoverStyle.top, left: evalPopoverStyle.left }"
-      >
-        <!-- Full fidelity lives here, verbatim — same strings, same
-             `EngineModelSelect` component instance (still interactive:
-             SELECTOR-mode model-picking is not lost, only relocated),
-             same per-metric tooltip text as the pre-fix inline markup. -->
-        <div class="popover-row" :title="versionTooltip">
-          <span class="popover-lbl">{{ $t('toolbar.metric.version') }}</span>
-          <span class="popover-val">{{ engineVersion !== null ? `v${engineVersion}` : '—' }}</span>
+      <div class="metric-hover-root" @mouseenter="onEvalEnter" @mouseleave="onEvalLeave">
+        <!-- Overlap fix (ledger row 2372): ONE compact always-visible
+             badge — identity (version/model) never had a compact numeric
+             form to fall back to (a functional SELECTOR `<select>` isn't
+             ellipsis-able), so it moves into the hover popover entirely
+             rather than getting its own inline slot; winrate/lead render
+             as a single paired compact value alongside it, per the
+             commission's own "a compact paired form probably fits"
+             framing (measured 119.94px worst-case vs. the 139px
+             allotment — see the file header). No native `title` on the
+             trigger itself: the popover IS the "hover for more" surface,
+             so a second native tooltip on the same hover would double up. -->
+        <div ref="evalTriggerEl" class="metric eval-summary">
+          <span class="m-lbl">{{ $t('toolbar.metric.evalSummary') }}</span>
+          <span class="m-val eval-summary-val">{{ displayed.winrate }}/{{ displayed.scoreLead }}</span>
         </div>
-        <!-- No extra popover-lbl here: EngineModelSelect.vue's own
-             template already renders a "MODEL" `.m-lbl` internally
-             (it's the same markup that used to sit inline in this
-             component pre-fix) — labelling it again here would
-             duplicate the word. -->
-        <div class="popover-row popover-row-model">
-          <EngineModelSelect />
-        </div>
-        <div class="popover-row" :title="$t('toolbar.metric.winrateTooltip')">
-          <span class="popover-lbl">{{ $t('toolbar.metric.winrate') }}</span>
-          <span class="popover-val">{{ displayed.winrate }}</span>
-        </div>
-        <div class="popover-row" :title="$t('toolbar.metric.scoreLeadTooltip')">
-          <span class="popover-lbl">{{ $t('toolbar.metric.scoreLead') }}</span>
-          <span class="popover-val">{{ displayed.scoreLead }}</span>
+        <div
+          v-if="evalOpen"
+          ref="evalPopoverEl"
+          class="metrics-popover"
+          role="tooltip"
+          :style="{ top: evalPopoverStyle.top, left: evalPopoverStyle.left }"
+        >
+          <!-- Full fidelity lives here, verbatim — same strings, same
+               `EngineModelSelect` component instance (still interactive:
+               SELECTOR-mode model-picking is not lost, only relocated),
+               same per-metric tooltip text as the pre-fix inline markup. -->
+          <div class="popover-row" :title="versionTooltip">
+            <span class="popover-lbl">{{ $t('toolbar.metric.version') }}</span>
+            <span class="popover-val">{{ engineVersion !== null ? `v${engineVersion}` : '—' }}</span>
+          </div>
+          <!-- No extra popover-lbl here: EngineModelSelect.vue's own
+               template already renders a "MODEL" `.m-lbl` internally
+               (it's the same markup that used to sit inline in this
+               component pre-fix) — labelling it again here would
+               duplicate the word. -->
+          <div class="popover-row popover-row-model">
+            <EngineModelSelect />
+          </div>
+          <div class="popover-row" :title="$t('toolbar.metric.winrateTooltip')">
+            <span class="popover-lbl">{{ $t('toolbar.metric.winrate') }}</span>
+            <span class="popover-val">{{ displayed.winrate }}</span>
+          </div>
+          <div class="popover-row" :title="$t('toolbar.metric.scoreLeadTooltip')">
+            <span class="popover-lbl">{{ $t('toolbar.metric.scoreLead') }}</span>
+            <span class="popover-val">{{ displayed.scoreLead }}</span>
+          </div>
         </div>
       </div>
     </template>
     <template v-else>
-      <!-- Overlap fix (ledger row 2372): PPS stays visible as the
-           headline number (already the shortest, least alarming of the
-           three) with the watchdog dot alongside it (cheap in width, a
-           glanceable status indicator not worth hiding); LATENCY's full
-           reading moves into the popover, same reasoning as identity
-           above — measured 107.09px worst-case with the `HEALTH` label
-           vs. the 139px allotment (see the file header). -->
-      <div
-        ref="healthTriggerEl"
-        class="metric health-summary"
-        @mouseenter="onHealthEnter"
-        @mouseleave="onHealthLeave"
-      >
-        <span class="m-lbl">{{ $t('toolbar.metric.healthSummary') }}</span>
-        <span class="m-val health-summary-val">{{ $t('toolbar.metric.ppsValue', { n: displayed.pps }) }}</span>
-        <span
-          class="m-val watchdog-dot"
-          :class="watchdogClasses"
-          :style="watchdogStyle"
-        >●</span>
-      </div>
-      <div
-        v-if="healthOpen"
-        ref="healthPopoverEl"
-        class="metrics-popover"
-        role="tooltip"
-        :style="{ top: healthPopoverStyle.top, left: healthPopoverStyle.left }"
-      >
-        <div class="popover-row">
-          <span class="popover-lbl">{{ $t('toolbar.metric.pps') }}</span>
-          <span class="popover-val">{{ displayed.pps }}</span>
-        </div>
-        <div class="popover-row">
-          <span class="popover-lbl">{{ $t('toolbar.metric.latency') }}</span>
-          <span class="popover-val">{{ $t('toolbar.metric.latencyValue', { ms: displayed.latency }) }}</span>
-        </div>
-        <div class="popover-row">
-          <span class="popover-lbl">{{ $t('toolbar.metric.watchdog') }}</span>
+      <div class="metric-hover-root" @mouseenter="onHealthEnter" @mouseleave="onHealthLeave">
+        <!-- Overlap fix (ledger row 2372): PPS stays visible as the
+             headline number (already the shortest, least alarming of the
+             three) with the watchdog dot alongside it (cheap in width, a
+             glanceable status indicator not worth hiding); LATENCY's full
+             reading moves into the popover, same reasoning as identity
+             above — measured 107.09px worst-case with the `HEALTH` label
+             vs. the 139px allotment (see the file header). -->
+        <div ref="healthTriggerEl" class="metric health-summary">
+          <span class="m-lbl">{{ $t('toolbar.metric.healthSummary') }}</span>
+          <span class="m-val health-summary-val">{{ $t('toolbar.metric.ppsValue', { n: displayed.pps }) }}</span>
           <span
-            class="popover-val watchdog-dot"
+            class="m-val watchdog-dot"
             :class="watchdogClasses"
             :style="watchdogStyle"
           >●</span>
+        </div>
+        <div
+          v-if="healthOpen"
+          ref="healthPopoverEl"
+          class="metrics-popover"
+          role="tooltip"
+          :style="{ top: healthPopoverStyle.top, left: healthPopoverStyle.left }"
+        >
+          <div class="popover-row">
+            <span class="popover-lbl">{{ $t('toolbar.metric.pps') }}</span>
+            <span class="popover-val">{{ displayed.pps }}</span>
+          </div>
+          <div class="popover-row">
+            <span class="popover-lbl">{{ $t('toolbar.metric.latency') }}</span>
+            <span class="popover-val">{{ $t('toolbar.metric.latencyValue', { ms: displayed.latency }) }}</span>
+          </div>
+          <div class="popover-row">
+            <span class="popover-lbl">{{ $t('toolbar.metric.watchdog') }}</span>
+            <span
+              class="popover-val watchdog-dot"
+              :class="watchdogClasses"
+              :style="watchdogStyle"
+            >●</span>
+          </div>
         </div>
       </div>
     </template>
@@ -417,6 +426,11 @@ const { style: healthPopoverStyle } = useFixedAnchoredPopover(healthOpen, health
 
 <style scoped>
 .engine-metrics-bar { display: flex; gap: var(--space-medium); font-family: monospace; font-size: var(--text-emphasis); align-items: center; min-width: 0; }
+/* Space-owner cure, dispatch L5 (HOVER-GRACE): the shared hover-root
+   wrapping trigger + popover (this file's own template comment) — a
+   plain flex passthrough so wrapping `.metric` in this extra element
+   doesn't change `.engine-metrics-bar`'s own row layout. */
+.metric-hover-root { display: flex; align-items: center; min-width: 0; }
 .metric { display: flex; align-items: center; gap: var(--space-tight); min-width: 0; }
 .m-lbl  { color: var(--border-3); font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-default); }
 /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */

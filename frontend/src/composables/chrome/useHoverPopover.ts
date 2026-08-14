@@ -46,11 +46,43 @@
  * vocabulary, no SGF awareness. A chess or shogi port reuses it
  * unchanged.
  *
+ * ── Space-owner cure, dispatch L5 (HOVER-GRACE, the commissioner's
+ * own named acceptance scenario) ──────────────────────────────────
+ *
+ * `.claude/dispatch-reports/lyt-space-owner-spec.md` §1.5/§3 step 5,
+ * ledger rows 2447/2484/2499. Every hover-triggered popover this
+ * composable drives (`EngineQueueTooltip.vue`, `ToolbarSliderPopover.vue`,
+ * `PboPopover.vue`, `ToolbarEngineMetrics.vue`'s `engine-eval`/
+ * `engine-health` pair) had ZERO of the overlay primitive's three named
+ * dismissal channels (`escape`/`outsideClick`/`explicitCloseControl`) —
+ * dismissal happened SOLELY via losing hover, a fourth channel the type
+ * (`overlay-contract.ts`) does not model. Rather than silently fork the
+ * type to add one, this composable now ALSO closes on Escape (added
+ * below) — a genuine, disclosed choice: it gives every consumer at
+ * least one of the three named channels (satisfying `overlayContract()`'s
+ * own "at least one channel" refusal without widening the type) AND
+ * closes a real accessibility gap (a keyboard-only user previously had
+ * no way to dismiss any of these four popovers at all). `outsideClick`
+ * and `explicitCloseControl` stay explicit, disclosed `false` — the
+ * hover-loss corridor remains each consumer's own PRACTICAL dismissal
+ * mechanism, outside the three the type names.
+ *
+ * The corridor itself — the grace window below — is the "short grace
+ * timer... if geometry alone cannot express it" the spec's own item 3
+ * anticipates. Geometry alone (a CSS `:hover`-chain with no JS) cannot
+ * express it here because at least one consumer
+ * (`ToolbarEngineMetrics.vue`'s `engine-eval`/`engine-health` popovers)
+ * positions its OWN panel via `position: fixed` + JS-computed
+ * `top`/`left` (`useFixedAnchoredPopover`), never a CSS-only anchor a
+ * `:hover` selector chain could span — the timer is the documented
+ * choice, not an oversight.
+ *
  * License: Public Domain (The Unlicense)
  */
 
 import { onUnmounted, ref, watch, type Ref } from 'vue';
 import { INTERACTION_DISMISS_DELAY_MS } from '../../lib/timing';
+import { overlayContract } from '../../state/overlay-contract';
 
 // DEV-only: lets the popover perf harness (useAutoPopoverPerf) force a
 // specific popover open by id, programmatically, in place of physical hover.
@@ -95,6 +127,18 @@ export interface UseHoverPopoverOptions {
 export function useHoverPopover(
   options: UseHoverPopoverOptions = {},
 ): HoverPopoverHandle {
+  // Construction-time refusal only (`overlay-contract.ts`'s own header) —
+  // see this file's own "Space-owner cure, dispatch L5" section above
+  // for why `escape: true` is the one channel this composable adds, and
+  // why `outsideClick`/`explicitCloseControl` stay disclosed `false`.
+  overlayContract({
+    kind: 'popover',
+    open: false,
+    dismissal: { escape: true, outsideClick: false, explicitCloseControl: false },
+    focusTrap: false,
+    restoreFocusTo: () => null,
+  });
+
   const closeDelayMs = options.closeDelayMs ?? INTERACTION_DISMISS_DELAY_MS;
   const open = ref<boolean>(false);
 
@@ -102,6 +146,18 @@ export function useHoverPopover(
   // render. Cleared on mouseenter (cancelling a pending close)
   // and on unmount (per the resource-ownership discipline).
   let closeTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function onKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Escape') open.value = false;
+  }
+  // Escape dismissal (dispatch L5, HOVER-GRACE): a single shared
+  // `window` listener, installed only while THIS popover is open —
+  // mirrors every click-popover's own "listener lifetime matches open
+  // state" convention (`useDismissiblePopover.ts`).
+  watch(open, (isOpen) => {
+    if (isOpen) window.addEventListener('keydown', onKeydown);
+    else window.removeEventListener('keydown', onKeydown);
+  });
 
   function onMouseEnter(): void {
     if (closeTimer !== null) {
@@ -131,6 +187,7 @@ export function useHoverPopover(
 
   onUnmounted(() => {
     if (closeTimer !== null) clearTimeout(closeTimer);
+    window.removeEventListener('keydown', onKeydown);
   });
 
   return { open, onMouseEnter, onMouseLeave };
