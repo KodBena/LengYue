@@ -553,6 +553,22 @@ describe('measuredFromLytProgram — dispatch L2b, the runtime overlay', () => {
     expect(tree?.maxUseful).toBe(110);
   });
 
+  it('review obligation 2 (`.claude/dispatch-reports/lyt-cure-repair-review.md`): a live reading of exactly 0 (a genuinely empty tree) pins BOTH min and maxUseful to the compiled floor, never to 0', () => {
+    // Per spec §1.3's own RegionPresence doctrine: a region resolved
+    // PRESENT (which this adapter's own output always represents — an
+    // ABSENT region's Measured entry is simply omitted by the CALLER,
+    // never constructed with a 0 floor here) is always checked against a
+    // genuine, usable `min`. A live demand of 0 is therefore NOT treated
+    // as "live truth" the way a small positive reading is — see
+    // `resolveEffectiveDemand`'s own header in `feasible-layout.ts`.
+    const overlay = new Map<string, Px | null>([['tree', px(0)]]);
+    const demands = measuredFromLytProgram(LYT_LANDSCAPE, overlay);
+    const tree = demands.find((d) => d.region === 'tree');
+    expect(tree?.min).toBe(110); // the compiled floor — NOT 0
+    expect(tree?.maxUseful).toBe(110); // the ceiling pins to the SAME floor, not 0
+    expect(() => measured(tree!)).not.toThrow();
+  });
+
   it('applies identically in the portrait program (both classes, per the dispatch\'s own "both classes" scope)', () => {
     const demands = measuredFromLytProgram(LYT_PORTRAIT, TREE_LIVE_CONTENT_OVERLAY);
     const tree = demands.find((d) => d.region === 'tree');

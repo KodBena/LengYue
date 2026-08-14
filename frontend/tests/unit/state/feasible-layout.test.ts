@@ -557,83 +557,143 @@ describe('resolveSideColumnLiveLayout()', () => {
       );
       expect(result.treePx).toBe(110);
     });
+
+    // ── Review obligation 2 (`.claude/dispatch-reports/
+    //    lyt-cure-repair-review.md`): a live demand of exactly 0 (a
+    //    genuinely empty tree) is deliberately NOT treated as "live
+    //    truth" the ordinary below-the-floor rule above is — per spec
+    //    §1.3's own RegionPresence doctrine, a PRESENT region is always
+    //    checked against a genuine, usable `min`; only an ABSENT region
+    //    is entitled to 0px. `resolveEffectiveDemand` (`feasible-
+    //    layout.ts`) pins BOTH the floor and the ceiling to the compiled
+    //    minimum when the live demand is `<= 0`, so an empty-but-present
+    //    tree renders at its compiled floor, never at literal 0px. ─────
+    describe('demand of 0 (review obligation 2): a present-but-genuinely-empty tree renders at its compiled floor, never at 0px', () => {
+      it('non-sovereign: tree renders at the compiled floor (110), not 0 — controlPanel stays PRESENT with its full 664px', () => {
+        const others: readonly SideColumnFixedRegion[] = [
+          { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
+        ];
+        const result = resolveSideColumnLiveLayout(
+          baseInput({ wrapperWidthPx: 1000, others, tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: px(0) } }),
+        );
+        expect(result.treePx).toBe(110); // the compiled floor — NOT 0
+        const controlPanel = result.others.find((o) => o.widgetId === 'controlPanel')!;
+        expect(controlPanel).toMatchObject({ present: true, candidatePx: 664 });
+        expect(result.diagnostics).toEqual([]);
+      });
+
+      it('sovereign: an in-progress drag still renders verbatim (sovereignty is unaffected by this rule — it exempts tree from its own floor/ceiling entirely)', () => {
+        const others: readonly SideColumnFixedRegion[] = [
+          { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
+        ];
+        const result = resolveSideColumnLiveLayout(
+          baseInput({
+            wrapperWidthPx: 1000,
+            others,
+            treeSovereignPx: 5, // the user's own drag choice, far below the compiled floor
+            tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: px(0) },
+          }),
+        );
+        expect(result.treePx).toBe(5); // the drag itself, verbatim — sovereignty is untouched by this rule
+        // No diagnostic: the tree demand used for the OTHER-region check is
+        // pinned at the compiled floor (110/110), which controlPanel's own
+        // 664px reservation comfortably fits alongside (1000 - 5 - 4 = 991
+        // >= 664) — the demand-of-0 rule changes what `tree`'s own demand
+        // triple IS, not whether sovereignty itself still holds.
+        expect(result.diagnostics).toEqual([]);
+      });
+    });
   });
 
-  // ── Row 2501 defense in depth: a thrown measurement refusal degrades
-  //    to compiled defaults rather than propagating out of this function
-  //    (this repair's own item 1b — see `resolveSideColumnLiveLayout`'s
-  //    own doc comment, "Defense in depth"). ─────────────────────────
-  describe('row 2501 defense in depth: an artificially-thrown construction refusal degrades to compiled defaults, never propagates', () => {
-    // Trigger: an `others` entry whose OWN compiled track is not `'fixed'`
-    // — no real caller can produce this today (every real `others` entry
-    // in the live app carries a genuinely fixed compiled track,
-    // `controlPanel`/`previewBoard`), but `fixedTrackPx`'s own ADR-0002
-    // guard throws loudly on it regardless of which branch reaches it
-    // (both the non-sovereign reservation sum and the sovereign "others'
-    // own candidates" loop call it unconditionally) — this simulates a
-    // hypothetical FUTURE bug reaching this seam (a mis-declared track
-    // kind), exactly the class of thing this defense-in-depth catch
-    // exists for.
-    const brokenTrack: LytTrackShape = { kind: 'elastic', minPx: 50, frWeight: 1 };
-    const brokenOthers: readonly SideColumnFixedRegion[] = [
-      { widgetId: 'controlPanel', track: brokenTrack, desiredVisible: true, demote: null },
-    ];
+  // ── Row 2501 defense in depth, NARROWED per the review's own obligation
+  //    1 (`.claude/dispatch-reports/lyt-cure-repair-review.md`): the
+  //    resolver's catch degrades ONLY a genuine `MeasurementRefusalError`
+  //    (a `px()`/`measured()` construction-time self-contradiction) — any
+  //    OTHER thrown error (a caller-contract/wiring bug, e.g. a broken
+  //    `others` track) must PROPAGATE, never degrade silently into a
+  //    "layout could not be computed for the current content" message
+  //    that would misdescribe what actually went wrong. ────────────────
+  describe('row 2501 defense in depth (narrowed, review obligation 1): only a genuine MeasurementRefusalError degrades; everything else propagates', () => {
+    describe('an UNRELATED error (not a measurement refusal) PROPAGATES — the review\'s own adversarial probe, kept as a permanent regression test', () => {
+      // The review's own EXACT probe: an `others` entry whose `track` is
+      // `undefined` — a wiring/shape bug entirely unrelated to the
+      // min/preferred/maxUseful invariant this repair is about. Pre-
+      // narrowing, the blanket `catch (err)` absorbed this (surfacing
+      // only by accident, via a SECOND uncaught error in the fallback's
+      // own construction — see this module's own `resolveSideColumnLive
+      // Layout` doc, "Defense in depth"). Post-narrowing, `fixedTrackPx`'s
+      // own thrown `Error` (not a `MeasurementRefusalError`) must reach
+      // the caller directly.
+      const undefinedTrackOthers: readonly SideColumnFixedRegion[] = [
+        { widgetId: 'controlPanel', track: undefined as unknown as LytTrackShape, desiredVisible: true, demote: null },
+      ];
 
-    it('sovereign: falls back to the drag value verbatim plus a diagnostic naming the refusal', () => {
-      const result = resolveSideColumnLiveLayout(
-        baseInput({ wrapperWidthPx: 1000, others: brokenOthers, treeSovereignPx: 300, treeDefaultPx: 250 }),
-      );
-      // Fallback shape: sovereignty still wins verbatim for treePx (this
-      // function's own "not yet measured" convention, reused for the
-      // catch's own fallback) — never a crash, never a silent zero.
-      expect(result.treePx).toBe(300);
-      // The BROKEN entry itself degrades to 0/absent-shaped (the fallback
-      // cannot honor a track it cannot read either — see this function's
-      // own doc, "this fallback must never itself throw"); a well-formed
-      // sibling would instead fall back to its own real compiled px (the
-      // 109-vs-110 tests above cover that shape with a VALID `others` set).
-      const controlPanel = result.others.find((o) => o.widgetId === 'controlPanel')!;
-      expect(controlPanel).toMatchObject({ present: true, candidatePx: 0 });
-      expect(result.diagnostics).toHaveLength(1);
-      const [diagnostic] = result.diagnostics;
-      expect(diagnostic.location).toBe('tree');
-      expect(diagnostic.starved).toEqual([]);
-      expect(diagnostic.message).toMatch(/Layout could not be computed for the current content/);
-      expect(diagnostic.remediation).toBe('reduce this region\'s width, or use Default Layout to reset');
-      expect(diagnostic.nextAction).toBe('open-default-layout-control');
+      it('sovereign', () => {
+        expect(() =>
+          resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 1000, others: undefinedTrackOthers, treeSovereignPx: 300 })),
+        ).toThrow(TypeError);
+      });
+
+      it('non-sovereign', () => {
+        expect(() =>
+          resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 1000, others: undefinedTrackOthers })),
+        ).toThrow(TypeError);
+      });
     });
 
-    it('non-sovereign: falls back to treeDefaultPx (the compiled-defaults convention) plus the same diagnostic shape, never propagates', () => {
-      const result = resolveSideColumnLiveLayout(
-        baseInput({ wrapperWidthPx: 1000, others: brokenOthers, treeDefaultPx: 250, treeSovereignPx: undefined }),
-      );
-      expect(result.treePx).toBe(250);
-      expect(result.diagnostics).toHaveLength(1);
-      expect(result.diagnostics[0].location).toBe('tree');
+    it('a DIFFERENT unrelated error (a well-formed object of the wrong track kind) ALSO propagates — not merely the undefined-shaped probe', () => {
+      // A second, distinct unrelated-bug shape: `fixedTrackPx`'s own
+      // ADR-0002 guard throws a plain `Error` (never a
+      // `MeasurementRefusalError`) for ANY non-'fixed' track, not only
+      // `undefined` — this is the exact trigger the pre-narrowing build
+      // used and mistakenly treated as "genuinely triggers the catch
+      // honestly"; it does not, by design, after this repair.
+      const brokenTrack: LytTrackShape = { kind: 'elastic', minPx: 50, frWeight: 1 };
+      const brokenOthers: readonly SideColumnFixedRegion[] = [
+        { widgetId: 'controlPanel', track: brokenTrack, desiredVisible: true, demote: null },
+      ];
+      expect(() =>
+        resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 1000, others: brokenOthers, treeSovereignPx: 300 })),
+      ).toThrow(/not "fixed"/);
     });
 
-    it('a well-formed `others` set (only the tree-side construction is broken) falls back with its OWN real compiled px, not degraded to 0', () => {
-      // A DIFFERENT trigger from the shared `brokenOthers` above: `others`
-      // is entirely valid here; the throw is forced via a `Px` value that
-      // bypasses `px()`'s own non-negative guard (no real caller can
-      // produce this — every real `Px` is minted through `px()`), reaching
-      // the sovereign branch's own `measured()` construction instead.
-      const brokenMaxUsefulPx = -5 as unknown as Px;
+    describe('a GENUINE MeasurementRefusalError degrades gracefully to compiled defaults, with a diagnostic pushed', () => {
+      // Trigger: `treeSovereignPx: Infinity` — a corrupted/overflowed
+      // persisted drag value no real UI drag can produce (every real
+      // drag's own px comes from a finite mouse-position delta,
+      // `useResizablePanel.ts`'s own `computePaneWidthPx`), but a
+      // plausible shape for "a future bug reaches this seam with a
+      // non-finite pixel value." `Math.round(Infinity)` stays `Infinity`
+      // (not `NaN`, unlike a `-Infinity`/`NaN` input would risk), so the
+      // eventual `px(treePx)` call inside the guarded region throws
+      // `MeasurementRefusalError` (`px()`'s own non-finite guard) — a
+      // genuine measurement-shaped refusal, deterministically.
       const others: readonly SideColumnFixedRegion[] = [
         { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
       ];
-      const result = resolveSideColumnLiveLayout(
-        baseInput({
-          wrapperWidthPx: 1000,
-          others,
-          treeSovereignPx: 300,
-          tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: brokenMaxUsefulPx },
-        }),
-      );
-      expect(result.treePx).toBe(300);
-      const controlPanel = result.others.find((o) => o.widgetId === 'controlPanel')!;
-      expect(controlPanel).toMatchObject({ present: true, candidatePx: 664 });
-      expect(result.diagnostics).toHaveLength(1);
+
+      it('sovereign: falls back to the SAME (still-Infinity) drag value, plus a diagnostic naming the refusal', () => {
+        const result = resolveSideColumnLiveLayout(
+          baseInput({ wrapperWidthPx: 1000, others, treeSovereignPx: Infinity, treeDefaultPx: 250 }),
+        );
+        // Fallback shape: sovereignty still wins verbatim for treePx (this
+        // function's own "not yet measured" convention, reused for the
+        // catch's own fallback) — never a crash.
+        expect(result.treePx).toBe(Infinity);
+        // `others` is entirely well-formed here — the fallback recovers
+        // its OWN real compiled px, not degraded to 0 (proving the
+        // hardened `o.track?.kind === 'fixed'` fallback still does its
+        // job for a well-formed entry, not only for a broken one).
+        const controlPanel = result.others.find((o) => o.widgetId === 'controlPanel')!;
+        expect(controlPanel).toMatchObject({ present: true, candidatePx: 664 });
+        expect(result.diagnostics).toHaveLength(1);
+        const [diagnostic] = result.diagnostics;
+        expect(diagnostic.location).toBe('tree');
+        expect(diagnostic.starved).toEqual([]);
+        expect(diagnostic.message).toMatch(/Layout could not be computed for the current content/);
+        expect(diagnostic.remediation).toBe('reduce this region\'s width, or use Default Layout to reset');
+        expect(diagnostic.nextAction).toBe('open-default-layout-control');
+      });
     });
   });
 });
