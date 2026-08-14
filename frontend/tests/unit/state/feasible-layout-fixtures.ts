@@ -38,8 +38,16 @@ import type { LytAxis, LytDemotion, LytNodeData, LytTrackShape } from '../../../
 //    `feasible-layout-geometry-sweep.test.ts`'s own top-level constants —
 //    see that file's header for the review-witnessed provenance of `60`). ──
 export const TREE_LIVE_CONTENT_OVERLAY: ReadonlyMap<string, Px | null> = new Map([['tree', px(60)]]);
-export const TREE_EFFECTIVE_MAX_USEFUL_LANDSCAPE_PX = 110;
-export const TREE_EFFECTIVE_MAX_USEFUL_PORTRAIT_PX = 140;
+// Row 2501 repair (`.claude/dispatch-reports/lyt-cure-repair-build.md`):
+// the overlay's own 60px reading sits BELOW both compiled floors (110
+// landscape, 140 portrait) — under the pre-repair "clamp up to the
+// floor" rule these constants were 110/140; under the repair's own "live
+// truth wins, the whole triple lowers to the demand" rule (see
+// `effectiveDemandFloorPx` in `src/state/feasible-layout.ts`), BOTH
+// classes now produce the SAME effective ceiling: the raw 60px reading
+// itself, in both compiled programs, since 60 undercuts both floors.
+export const TREE_EFFECTIVE_MAX_USEFUL_LANDSCAPE_PX = 60;
+export const TREE_EFFECTIVE_MAX_USEFUL_PORTRAIT_PX = 60;
 
 /** Verbatim relocation of `resolveWidthConditionalPresence`'s own
  *  width-vs-threshold check, with the (always-empty, in this sweep) sibling

@@ -525,27 +525,44 @@ describe('measuredFromLytProgram — dispatch L2b, the runtime overlay', () => {
     expect(tree?.maxUseful).toBeNull();
   });
 
-  it('clamps a live reading BELOW the region\'s own compiled floor up to that floor — maxUseful never drops below min', () => {
+  it('row 2501 repair: a live reading BELOW the region\'s own compiled floor LOWERS the whole triple to the live reading — the floor itself is a disclosed, solver-only relaxation for a content-dependent region', () => {
     // tree's own compiled floor is minPx: 110 (elastic{minPx:110}) — a live
-    // content reading of 40px must not produce maxUseful=40 (which would
-    // violate measured()'s own min<=maxUseful invariant); this module's
-    // own header explains why max(min, overlayPx) is the correct
-    // engineering choice, not an arbitrary clamp.
+    // content reading of 40px now produces min=maxUseful=40 (both LOWERED
+    // to the live reading), per `effectiveDemandFloorPx`
+    // (`src/state/feasible-layout.ts`) — this SUPERSEDES the pre-repair
+    // "clamp up to the floor" rule (min stayed 110, maxUseful clamped up
+    // to 110), which this module's own header explains was found to be
+    // inconsistently applied across call sites (the live-witness rig's
+    // own FAILs 1/2: a DIFFERENT construction site, `resolveSideColumn
+    // LiveLayout`, built a self-contradictory triple from the SAME class
+    // of unclamped reading because the clamp-up rule lived only in this
+    // adapter's own `applyOverlay`, not in one shared place).
     const overlay = new Map<string, Px | null>([['tree', px(40)]]);
     const demands = measuredFromLytProgram(LYT_LANDSCAPE, overlay);
     const tree = demands.find((d) => d.region === 'tree');
-    expect(tree?.min).toBe(110);
-    expect(tree?.maxUseful).toBe(110); // clamped up to min, not the raw 40
+    expect(tree?.min).toBe(40);
+    expect(tree?.maxUseful).toBe(40);
     expect(() => measured(tree!)).not.toThrow(); // the invariant holds
+  });
+
+  it('row 2501 repair: a live reading AT OR ABOVE the compiled floor leaves the floor unchanged — the lowering rule only fires when the live demand genuinely undercuts it', () => {
+    const overlay = new Map<string, Px | null>([['tree', px(110)]]); // exactly at the floor
+    const demands = measuredFromLytProgram(LYT_LANDSCAPE, overlay);
+    const tree = demands.find((d) => d.region === 'tree');
+    expect(tree?.min).toBe(110);
+    expect(tree?.maxUseful).toBe(110);
   });
 
   it('applies identically in the portrait program (both classes, per the dispatch\'s own "both classes" scope)', () => {
     const demands = measuredFromLytProgram(LYT_PORTRAIT, TREE_LIVE_CONTENT_OVERLAY);
     const tree = demands.find((d) => d.region === 'tree');
-    // Portrait's own compiled tree min is 140 (vs landscape's 110) — the
-    // raw 60px overlay reading clamps up to THAT floor here, per the
-    // TREE_LIVE_CONTENT_OVERLAY constant's own doc above.
+    // Portrait's own compiled tree min is 140 (vs landscape's 110) — under
+    // the row 2501 repair the raw 60px overlay reading LOWERS both floors
+    // to itself (60 undercuts both 110 and 140), so both classes' own
+    // `maxUseful` end up equal — see `TREE_EFFECTIVE_MAX_USEFUL_PORTRAIT_PX`'s
+    // own doc (`feasible-layout-fixtures.ts`).
     expect(tree?.maxUseful).toBe(TREE_EFFECTIVE_MAX_USEFUL_PORTRAIT_PX);
+    expect(tree?.min).toBe(60); // the floor lowered too, not merely the ceiling
   });
 
   it('every overlaid entry remains internally well-formed (constructible via measured())', () => {
@@ -601,10 +618,13 @@ describe('dispatch L3: resolveSideColumnLiveLayout — live-solve regression ora
     { widgetId: 'previewBoard', track: facts.previewBoardTrack, desiredVisible: false, demote: null },
   ];
   // The review's own witnessed content-demand reading (this file's own
-  // `TREE_LIVE_CONTENT_OVERLAY`, `px(60)`), floored at tree's own
-  // compiled min — the SAME clamp `measuredFromLytProgram`'s overlay
-  // mechanism applies (this file's header, "Dispatch L2b addendum").
-  const treeMaxUsefulPx = px(Math.max(facts.treeTrack.kind === 'elastic' ? facts.treeTrack.minPx : 0, 60));
+  // `TREE_LIVE_CONTENT_OVERLAY`, `px(60)`), passed RAW/unclamped — row
+  // 2501 repair (`.claude/dispatch-reports/lyt-cure-repair-build.md`):
+  // `resolveSideColumnLiveLayout` now computes the effective floor/
+  // ceiling relationship itself (`effectiveDemandFloorPx`), matching how
+  // the real composable (`useSideColumnLiveLayout.ts`) actually supplies
+  // an unclamped `TreeWidget.vue` content-demand reading in the live app.
+  const treeMaxUsefulPx = px(60);
 
   for (const widthPx of LANDSCAPE_SWEEP_WIDTHS_PX) {
     const heightPx = LANDSCAPE_SWEEP_HEIGHT_PX;
@@ -644,9 +664,14 @@ describe('dispatch L3: resolveSideColumnLiveLayout — live-solve regression ora
       // floor" behavior applies ONLY to a sovereign drag — see the
       // dedicated sovereignty describe block below).
       expect(controlPanelOutcome.candidatePx).toBeGreaterThanOrEqual(oldControlPanelPx);
-      // The old path never granted `tree` less than its own compiled
-      // floor either — same non-regression bound.
-      expect(live.treePx).toBeGreaterThanOrEqual(facts.treeTrack.kind === 'elastic' ? facts.treeTrack.minPx : 0);
+      // The old path never granted `tree` less than its own EFFECTIVE
+      // floor — row 2501 repair: the compiled floor itself lowers to the
+      // live content demand when that demand undercuts it (`60`, this
+      // describe block's own `treeMaxUsefulPx`), so the non-regression
+      // bound is `min(compiledFloor, liveDemand)`, not the raw compiled
+      // floor unconditionally.
+      const effectiveTreeFloor = Math.min(facts.treeTrack.kind === 'elastic' ? facts.treeTrack.minPx : 0, treeMaxUsefulPx);
+      expect(live.treePx).toBeGreaterThanOrEqual(effectiveTreeFloor);
     });
   }
 
@@ -664,10 +689,12 @@ describe('dispatch L3: resolveSideColumnLiveLayout — live-solve regression ora
     const controlPanelOutcome = live.others.find((o) => o.widgetId === 'controlPanel')!;
     expect(controlPanelOutcome.present).toBe(true);
     expect(controlPanelOutcome.candidatePx).toBe(664);
-    // Capped at content demand (110, tree's own compiled floor — the
-    // 60px raw reading floors up to it, per treeMaxUsefulPx's own
-    // derivation above), never the "claim the whole freed row" hoarding
-    // the review's own 613px witness recorded.
+    // Capped at content demand (60px, tree's own RAW live reading — row
+    // 2501 repair: the compiled floor of 110 LOWERS to match it, rather
+    // than the reading clamping up to 110), never the "claim the whole
+    // freed row" hoarding the review's own 613px witness recorded. This
+    // is a tighter, more honest fix than the pre-repair 110px cap: the
+    // panel now renders at the tree's own ACTUAL content demand.
     expect(live.treePx).toBe(treeMaxUsefulPx);
     expect(live.treePx).toBeLessThan(613);
   });

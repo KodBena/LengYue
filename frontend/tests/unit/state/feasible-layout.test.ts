@@ -31,6 +31,7 @@ import {
   type SovereignOverride,
   type SideColumnFixedRegion,
   type SideColumnLiveLayoutInput,
+  type Px,
 } from '../../../src/state/feasible-layout';
 import type { LytDemotion, LytTrackShape } from '../../../src/state/lyt-layout-types';
 
@@ -505,6 +506,134 @@ describe('resolveSideColumnLiveLayout()', () => {
       );
       expect(result.treePx).toBe(100);
       expect(result.diagnostics).toEqual([]);
+    });
+  });
+
+  // ── Row 2501 repair (`.claude/dispatch-reports/lyt-cure-repair-
+  //    build.md`, `.claude/dispatch-reports/lyt-cure-live-witness.md`
+  //    FAILs 1/2): the live-witness rig's own repro — a live content
+  //    demand 1px BELOW the compiled floor (109 vs. tree's own compiled
+  //    110 minPx) self-contradicted at `measured()`'s own construction
+  //    (`preferred (110) exceeds maxUseful (109)`), uncaught, crashing
+  //    the reactive `computed` that reads this function in the real app —
+  //    a silently-1px control panel at fresh boot (FAIL 1) and an inert
+  //    interactive drag (FAIL 2). Both repro shapes below now resolve
+  //    cleanly. ──────────────────────────────────────────────────────
+  describe('row 2501: a live content demand below the compiled floor (the live-witness 109-vs-110 repro)', () => {
+    it('non-sovereign (fresh boot, FAIL 1\'s own shape): tree caps at the live 109px demand itself — not artificially floored to 110 — and controlPanel is PRESENT, not demoted', () => {
+      const others: readonly SideColumnFixedRegion[] = [
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
+      ];
+      const result = resolveSideColumnLiveLayout(
+        baseInput({ wrapperWidthPx: 1000, others, tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: px(109) } }),
+      );
+      expect(result.treePx).toBe(109);
+      const controlPanel = result.others.find((o) => o.widgetId === 'controlPanel')!;
+      expect(controlPanel).toMatchObject({ present: true, candidatePx: 664 });
+      expect(result.diagnostics).toEqual([]);
+    });
+
+    it('sovereign (an interactive drag in progress, FAIL 2\'s own shape): the SAME 109-vs-110 gap no longer throws — the drag renders verbatim, controlPanel stays comfortably satisfied', () => {
+      const others: readonly SideColumnFixedRegion[] = [
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
+      ];
+      const result = resolveSideColumnLiveLayout(
+        baseInput({
+          wrapperWidthPx: 1000,
+          others,
+          treeSovereignPx: 300,
+          tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: px(109) },
+        }),
+      );
+      expect(result.treePx).toBe(300); // the drag itself, verbatim — never resisted
+      const controlPanel = result.others.find((o) => o.widgetId === 'controlPanel')!;
+      expect(controlPanel).toMatchObject({ present: true, candidatePx: 664 });
+      expect(result.diagnostics).toEqual([]);
+    });
+
+    it('exactly AT the floor (maxUsefulPx === minPx) still behaves exactly as before — the floor only lowers when the live demand genuinely undercuts it', () => {
+      const result = resolveSideColumnLiveLayout(
+        baseInput({ wrapperWidthPx: 1000, tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: px(110) } }),
+      );
+      expect(result.treePx).toBe(110);
+    });
+  });
+
+  // ── Row 2501 defense in depth: a thrown measurement refusal degrades
+  //    to compiled defaults rather than propagating out of this function
+  //    (this repair's own item 1b — see `resolveSideColumnLiveLayout`'s
+  //    own doc comment, "Defense in depth"). ─────────────────────────
+  describe('row 2501 defense in depth: an artificially-thrown construction refusal degrades to compiled defaults, never propagates', () => {
+    // Trigger: an `others` entry whose OWN compiled track is not `'fixed'`
+    // — no real caller can produce this today (every real `others` entry
+    // in the live app carries a genuinely fixed compiled track,
+    // `controlPanel`/`previewBoard`), but `fixedTrackPx`'s own ADR-0002
+    // guard throws loudly on it regardless of which branch reaches it
+    // (both the non-sovereign reservation sum and the sovereign "others'
+    // own candidates" loop call it unconditionally) — this simulates a
+    // hypothetical FUTURE bug reaching this seam (a mis-declared track
+    // kind), exactly the class of thing this defense-in-depth catch
+    // exists for.
+    const brokenTrack: LytTrackShape = { kind: 'elastic', minPx: 50, frWeight: 1 };
+    const brokenOthers: readonly SideColumnFixedRegion[] = [
+      { widgetId: 'controlPanel', track: brokenTrack, desiredVisible: true, demote: null },
+    ];
+
+    it('sovereign: falls back to the drag value verbatim plus a diagnostic naming the refusal', () => {
+      const result = resolveSideColumnLiveLayout(
+        baseInput({ wrapperWidthPx: 1000, others: brokenOthers, treeSovereignPx: 300, treeDefaultPx: 250 }),
+      );
+      // Fallback shape: sovereignty still wins verbatim for treePx (this
+      // function's own "not yet measured" convention, reused for the
+      // catch's own fallback) — never a crash, never a silent zero.
+      expect(result.treePx).toBe(300);
+      // The BROKEN entry itself degrades to 0/absent-shaped (the fallback
+      // cannot honor a track it cannot read either — see this function's
+      // own doc, "this fallback must never itself throw"); a well-formed
+      // sibling would instead fall back to its own real compiled px (the
+      // 109-vs-110 tests above cover that shape with a VALID `others` set).
+      const controlPanel = result.others.find((o) => o.widgetId === 'controlPanel')!;
+      expect(controlPanel).toMatchObject({ present: true, candidatePx: 0 });
+      expect(result.diagnostics).toHaveLength(1);
+      const [diagnostic] = result.diagnostics;
+      expect(diagnostic.location).toBe('tree');
+      expect(diagnostic.starved).toEqual([]);
+      expect(diagnostic.message).toMatch(/Layout could not be computed for the current content/);
+      expect(diagnostic.remediation).toBe('reduce this region\'s width, or use Default Layout to reset');
+      expect(diagnostic.nextAction).toBe('open-default-layout-control');
+    });
+
+    it('non-sovereign: falls back to treeDefaultPx (the compiled-defaults convention) plus the same diagnostic shape, never propagates', () => {
+      const result = resolveSideColumnLiveLayout(
+        baseInput({ wrapperWidthPx: 1000, others: brokenOthers, treeDefaultPx: 250, treeSovereignPx: undefined }),
+      );
+      expect(result.treePx).toBe(250);
+      expect(result.diagnostics).toHaveLength(1);
+      expect(result.diagnostics[0].location).toBe('tree');
+    });
+
+    it('a well-formed `others` set (only the tree-side construction is broken) falls back with its OWN real compiled px, not degraded to 0', () => {
+      // A DIFFERENT trigger from the shared `brokenOthers` above: `others`
+      // is entirely valid here; the throw is forced via a `Px` value that
+      // bypasses `px()`'s own non-negative guard (no real caller can
+      // produce this — every real `Px` is minted through `px()`), reaching
+      // the sovereign branch's own `measured()` construction instead.
+      const brokenMaxUsefulPx = -5 as unknown as Px;
+      const others: readonly SideColumnFixedRegion[] = [
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
+      ];
+      const result = resolveSideColumnLiveLayout(
+        baseInput({
+          wrapperWidthPx: 1000,
+          others,
+          treeSovereignPx: 300,
+          tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: brokenMaxUsefulPx },
+        }),
+      );
+      expect(result.treePx).toBe(300);
+      const controlPanel = result.others.find((o) => o.widgetId === 'controlPanel')!;
+      expect(controlPanel).toMatchObject({ present: true, candidatePx: 664 });
+      expect(result.diagnostics).toHaveLength(1);
     });
   });
 });
