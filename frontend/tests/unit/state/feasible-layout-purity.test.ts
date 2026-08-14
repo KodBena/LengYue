@@ -529,3 +529,89 @@ describe('purity §E: resolveRootSplitLiveLayout() — SOVEREIGN override presen
     });
   }
 });
+
+// ── §F: resolveRootSplitLiveLayout() purity, EXPLICITLY across a
+//    screen-class swap — row 2502/2503 review repair, finding 2
+//    ("SCREEN-CLASS FREEZE"). §D/§E's own mixed-class traversals already
+//    exercise this property implicitly (the GEOMETRIES array interleaves
+//    landscape- and portrait-shaped points); this block names it
+//    explicitly and narrowly, matching the coordinator's own instruction
+//    that the purity suite cover the class-swap path directly rather
+//    than only by inference from a broader traversal. This is the PURE
+//    LAYER'S half of finding 2 — proving `resolveRootSplitLiveLayout`
+//    itself carries no hidden state across a landscape/portrait swap;
+//    the STATEFUL half (a live `ResizeObserver` orphaned by the DOM
+//    element a screen-class swap replaces) is a `useResizablePanel.ts`
+//    concern with its own dedicated integration coverage
+//    (`tests/integration/lyt-root-split-live.test.ts`'s own
+//    `reattachObservers()` describe block), not a purity-suite property
+//    — a live DOM/observer lifecycle isn't a pure function of its
+//    explicit arguments the way this suite's other properties are. ────
+
+describe('purity §F: resolveRootSplitLiveLayout() — explicit screen-class-swap sequence (landscape -> portrait-shaped -> landscape), no cross-contamination', () => {
+  const facts = rootSplitFactsFromLandscape();
+
+  function computeAt(g: NamedGeometry): unknown {
+    return normalize(
+      serializeRootSplit(
+        resolveRootSplitLiveLayout({
+          rowWidthPx: g.widthPx,
+          rowHeightPx: g.heightPx,
+          gapPx: facts.gapPx,
+          boardRailReservedPx: 0,
+          board: { fixedSiblingSumPx: facts.fixedSiblingSumPx, naturalBoardCrossUnit: facts.naturalBoardCrossUnit },
+          sideColumn: { minPx: facts.minPx, maxPx: facts.maxPx },
+          boardFloorPx: ROOT_SPLIT_BOARD_FLOOR_PX,
+          sovereignWrapperPx: undefined,
+        }),
+      ),
+    );
+  }
+
+  const LANDSCAPE_1920 = GEOMETRIES[0]; // 1920x1080
+  const PORTRAIT_480 = GEOMETRIES[1]; // 480x900
+  const LANDSCAPE_1366 = GEOMETRIES[5]; // 1366x768
+
+  it('a landscape result revisited after an intervening portrait-shaped call is byte-identical to the same landscape geometry\'s own isolated (canonical) result', () => {
+    const canonicalLandscape1920 = computeAt(LANDSCAPE_1920);
+    const canonicalLandscape1366 = computeAt(LANDSCAPE_1366);
+
+    // The explicit swap sequence: landscape, portrait-shaped, landscape
+    // again, portrait-shaped again, a DIFFERENT landscape geometry — no
+    // memoization, no module-scope cache, nothing carried between calls.
+    const seq1 = computeAt(LANDSCAPE_1920);
+    const seq2 = computeAt(PORTRAIT_480);
+    const seq3 = computeAt(LANDSCAPE_1920);
+    const seq4 = computeAt(PORTRAIT_480);
+    const seq5 = computeAt(LANDSCAPE_1366);
+
+    expect(seq1).toEqual(canonicalLandscape1920);
+    expect(seq3).toEqual(canonicalLandscape1920); // revisit after a portrait-shaped call: unchanged
+    expect(seq2).toEqual(seq4); // the portrait-shaped call itself is ALSO path-independent, revisited
+    expect(seq5).toEqual(canonicalLandscape1366); // a DIFFERENT landscape geometry, immediately after: no leakage from either prior call
+  });
+
+  it('the SOVEREIGN path is equally immune to an intervening screen-class-shaped call', () => {
+    const sovereignAt = (g: NamedGeometry): unknown =>
+      normalize(
+        serializeRootSplit(
+          resolveRootSplitLiveLayout({
+            rowWidthPx: g.widthPx,
+            rowHeightPx: g.heightPx,
+            gapPx: facts.gapPx,
+            boardRailReservedPx: 0,
+            board: { fixedSiblingSumPx: facts.fixedSiblingSumPx, naturalBoardCrossUnit: facts.naturalBoardCrossUnit },
+            sideColumn: { minPx: facts.minPx, maxPx: facts.maxPx },
+            boardFloorPx: ROOT_SPLIT_BOARD_FLOOR_PX,
+            sovereignWrapperPx: 500,
+          }),
+        ),
+      );
+    const canonical = sovereignAt(LANDSCAPE_1920);
+    const afterPortraitShapedCall = (() => {
+      sovereignAt(PORTRAIT_480);
+      return sovereignAt(LANDSCAPE_1920);
+    })();
+    expect(afterPortraitShapedCall).toEqual(canonical);
+  });
+});
