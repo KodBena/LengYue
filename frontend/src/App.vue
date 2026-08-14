@@ -143,7 +143,9 @@ import {
 } from './state/layout-model';
 import type { LytTrackShape } from './state/lyt-layout-types';
 import { useSideColumnLiveLayout } from './composables/chrome/useSideColumnLiveLayout';
+import { resolveRootSplitLiveLayout } from './state/feasible-layout';
 import type { Px, SideColumnFixedRegion } from './state/feasible-layout';
+import { MIN_BOARD_PX } from './state/layout-model';
 import { useDirtyBoardGuard } from './composables/board/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
 import { useWorkspaceRecovery } from './composables/auth-app/useWorkspaceRecovery';
@@ -471,10 +473,17 @@ const {
 // reused here directly (`rowWidthPx`/`rowHeightPx` below are its own
 // return values) rather than duplicated (ADR-0010 imperative-escape
 // discipline: one observer per measured element).
+// GAP A (`.claude/dispatch-reports/lyt-cure-final-repair.md`): the
+// composable's own `effectiveTreeControlRegionWidthPx` is no longer
+// destructured here — App.vue's own `rootSplitLayout` (below) now owns
+// the side column's track override, including its own byte-identical
+// reproduction of the sovereign (dragged) branch. The composable's
+// export itself is UNCHANGED (`useResizablePanel.test.ts`/
+// `resizer-restore-clamp.test.ts`/`lyt-default-layout.test.ts` all drive
+// it directly, unaffected by this file's own consumption change).
 const {
   startResizeInner,
   startResizeOuter,
-  effectiveTreeControlRegionWidthPx,
   outerRowSovereignDiagnostic,
   rowWidthPx,
   rowHeightPx,
@@ -771,6 +780,57 @@ watch(
   },
 );
 
+// GAP A (`.claude/dispatch-reports/lyt-cure-final-repair.md`, ledger
+// rows 2502/2503): `boardRail`'s own live reserved width — mirrors
+// `LytNode.vue`'s own internal `boardRailReservedPx` computed (that
+// file's own header, "boardRail reservation generalization") at the
+// App.vue level, since `resolveRootSplitLiveLayout` (below) needs the
+// SAME number LytNode.vue's `trackList` already derives for the ROOT
+// split's own `board-priority-clamp` CSS branch, and App.vue is the one
+// place that already resolves boardRail's own final presence
+// (`lytPresenceOverrides`, above — the `railStyle === 'popover'` override
+// included). Not a second, independently-driftable derivation of
+// presence: only the RESERVATION ARITHMETIC (fixed px + one root gap) is
+// new here, reusing `lytPresenceOverrides.value.boardRail` verbatim.
+const boardRailReservedPx = computed<number>(() => {
+  const present = lytPresenceOverrides.value.boardRail ?? lytPresenceClassDefaults.value.boardRail ?? false;
+  if (!present) return 0;
+  const track = requireTrack('boardRail');
+  return track.kind === 'fixed' ? track.px + activeLytProgram.value.root.gapPx : 0;
+});
+
+// GAP A: the root split (board composite vs. side column, root children
+// "1"/"2") brought under `FeasibleLayout`'s live-measurement authority —
+// see `resolveRootSplitLiveLayout`'s own header (`state/feasible-
+// layout.ts`) for the full derivation. LANDSCAPE-ONLY, mirroring the
+// OUTER bar's own existing disclosed narrowing (this file's own header,
+// "W3 resizer drag overrides" / "DISCLOSED NARROWING") — portrait's
+// board composite is a separate ROW, not a width-contested sibling of
+// any side column, so this solve has nothing to replace there.
+const rootSplitLayout = computed(() => {
+  if (activeScreenClassId.value !== 'landscape') return null;
+  const treePanelPath = requireWidgetPath('tree');
+  const sideColumnPath = lytParentPath(lytParentPath(treePanelPath));
+  const sideColumnTrack = activeLytProgram.value.root.children.find((c) => c.path === sideColumnPath)?.track;
+  if (sideColumnTrack === undefined || sideColumnTrack.kind !== 'board-priority-clamp') {
+    throw new Error(
+      `App.vue: side column's own compiled root-split track at path ${JSON.stringify(sideColumnPath)} is ` +
+        `${JSON.stringify(sideColumnTrack?.kind ?? null)}, not "board-priority-clamp" (ADR-0002) — ` +
+        'resolveRootSplitLiveLayout has nothing to read.',
+    );
+  }
+  return resolveRootSplitLiveLayout({
+    rowWidthPx: rowWidthPx.value,
+    rowHeightPx: rowHeightPx.value,
+    gapPx: activeLytProgram.value.root.gapPx,
+    boardRailReservedPx: boardRailReservedPx.value,
+    board: { fixedSiblingSumPx: sideColumnTrack.fixedSiblingSumPx },
+    sideColumn: { minPx: sideColumnTrack.minPx, maxPx: sideColumnTrack.maxPx },
+    boardFloorPx: MIN_BOARD_PX,
+    sovereignWrapperPx: store.session.ui.treeControlRegionWidthPx,
+  });
+});
+
 const lytTrackStyleOverrides = computed<Record<string, string>>(() => {
   const treePanelPath = requireWidgetPath('tree');
   const overrides: Record<string, string> = {
@@ -785,9 +845,16 @@ const lytTrackStyleOverrides = computed<Record<string, string>>(() => {
   if (controlPanelOutcome?.present) {
     overrides[requireWidgetPath('controlPanel')] = `${controlPanelOutcome.candidatePx}px`;
   }
-  if (activeScreenClassId.value === 'landscape' && effectiveTreeControlRegionWidthPx.value !== undefined) {
+  // GAP A: the root split's own live solve REPLACES
+  // `effectiveTreeControlRegionWidthPx` as the side column's track
+  // override — that computed's own sovereign branch and this one's
+  // agree byte-for-byte (both read `store.session.ui.
+  // treeControlRegionWidthPx` verbatim when dragged); only the
+  // UN-DRAGGED default's derivation differs (see `rootSplitLayout`'s own
+  // header above).
+  if (rootSplitLayout.value !== null) {
     const sideColumnPath = lytParentPath(lytParentPath(treePanelPath));
-    overrides[sideColumnPath] = `${effectiveTreeControlRegionWidthPx.value}px`;
+    overrides[sideColumnPath] = `${rootSplitLayout.value.sideColumnPx}px`;
   }
   return overrides;
 });
