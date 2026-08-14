@@ -657,3 +657,138 @@ discarded.
   emitter output this dispatch's own scope item 4 explicitly calls
   for regenerating) — confirmed via `git status --short` before
   writing this report.
+
+---
+
+## Discharge — review `lyt-relations-c4-review.md` (verdict: ACCEPT-WITH-CONDITIONS)
+
+The review (copied into this worktree at
+`.claude/dispatch-reports/lyt-relations-c4-review.md`, read end to end)
+independently re-verified every mechanism claim in this report (§§1–2,
+§§4–6: fail-noisy sweep across every production path, manifest key
+stability under sibling-reorder and unrelated-line-insertion, the tree/
+`A_engine_controls` reclassification, R3/R4/R5, the count tool's
+contamination-avoidance, the full gate suite) — no divergence found.
+Two conditions required discharge before merge; both are done, in this
+same worktree, on top of the reviewed commit.
+
+### Condition 1 — the `anon-b8a05bfafa` basis-accuracy defect
+
+The reviewer proved, empirically (not merely by grammar reading): the
+settings-tabs T-wrapper's own `min 200px` (both encodings) was ratified
+under the basis "R5 gap (no descendant-reference primitive)" — false
+for this specific site, since the T-wrapper's six `SP_*` children are
+its own IMMEDIATE children, exactly what `max-over(children.min)` is
+built to reach (the same mechanism the outer `BLACK BOX` T's own pin
+already uses). The reviewer's own edit-reload-regenerate-diff-revert
+cycle showed the conversion is byte-identical.
+
+**Applied, independently re-verified, not merely trusted from the
+review:**
+
+1. Both encodings' settings-tabs `T(...)` own sizing changed from
+   `{min 200px, ...}` to `{min max-over(children.min), ...}` — a
+   two-line edit (`encodings/lengyue_landscape.lyt`,
+   `encodings/lengyue_portrait.lyt`).
+2. `runner.load_governed_layouts` on both files: loads cleanly (the
+   site is no longer even a literal, so the manifest is never
+   consulted for it) — WITNESSED, direct call.
+3. Both `.gen.ts` files regenerated (`emit_layout_tree.py --registration
+   landscape`/`portrait`) and diffed against the pre-edit committed
+   copies: `git status --short frontend/src/state/` — EMPTY, both
+   directions — WITNESSED, byte-identical, independently reproducing
+   the reviewer's own finding rather than accepting it on their word.
+4. Both `anon-b8a05bfafa` manifest entries (landscape, portrait) —
+   REMOVED from `ratified-literals.json`, not merely re-labeled: a
+   manifest entry whose own basis is false is an unratified mint (row
+   843), and the site is no longer a literal for the manifest to cover
+   at all.
+5. The milder, related finding (§3's second paragraph: the
+   `tag:ANALYSIS TABS` entries' own basis text conflates "we chose not
+   to change the value" with "no primitive reaches this") — corrected
+   IN PLACE (both files' own `"basis"` field now states the real
+   reason: `max-over(children.min)` is reachable but would move the
+   resolved value 160/200 → 580 (`AT_multires`' own height cascading
+   up, the same both-664s mechanism R3 documents), a disclosed
+   model-VALUE deferral, not a primitive-availability gap. The literal
+   stays; only the manifest's own PROSE was inaccurate, and only the
+   prose changed.
+6. Manifest count: 47 → 45 entries. `tools/dump_ratifiable_sites.py`
+   re-run fresh: 45 sites live in the two real encodings today, an
+   EXACT match (not merely "close") against the 45 manifest entries —
+   WITNESSED, programmatic, not spot-checked.
+7. `tools/count_deprecations.py` re-run: warning-mode count 61→60
+   (landscape), 58→57 (portrait) — exactly one fewer literal per file,
+   matching the one site retired; strict-mode still reports `30
+   completed` for both (the residual `fr`/`inf` count, untouched by
+   this change, exactly as designed).
+
+**Not addressed in this discharge** (the review's own conditions 2 and
+3, not named in the coordinator's own two-item discharge request):
+a systematic sweep of the other ~10 "R5-class" anonymous-group entries
+for the same over-conservative pattern (the reviewer explicitly did not
+exhaustively re-derive convertibility for all 47 — now 45 — entries,
+and neither did this discharge pass); and filing `TreeWidget.vue`'s own
+`CELL = 24` constant (line 119, a genuine constant row pitch the
+component's rendering math already uses) as a residual item. Both
+remain open, named here rather than silently dropped, for a future
+pass — the coordinator's own message asked specifically for conditions
+1 and the rebase (below), not the full condition list.
+
+### Condition 4 (coordinator's "2.") — rebase onto `lyt-phase2`'s current tip
+
+The reviewer's own base-freshness finding: this worktree's merge-base
+against LOCAL `lyt-phase2` was `c9a9f1aa`, five commits behind
+`lyt-phase2`'s actual current tip (`e9dcc998`, the L3 space-owner cure)
+— confirmed independently before rebasing
+(`git log --oneline HEAD..lyt-phase2` listed exactly those five
+commits, matching the review's own enumeration). The reviewer's own
+`git diff --stat` check (the five commits touch `frontend/`'s
+`layout-model.ts`/`feasible-layout.ts`/`useResizablePanel.ts`/
+`useSideColumnLiveLayout.ts`/`App.vue`, none of it overlapping either
+`.gen.ts` file this dispatch regenerates or anything under
+`research/lyt/`) predicted a clean rebase.
+
+**Performed:** working tree confirmed clean (only `__pycache__`/
+`.claude/logs` untracked) before rebasing; `git rebase lyt-phase2` —
+**zero conflicts**, matching the reviewer's own prediction exactly.
+`git merge-base --is-ancestor lyt-phase2 HEAD` now returns true. New
+tip: see the summary below.
+
+**Re-verified post-rebase, not assumed clean because the rebase itself
+was clean:**
+
+```
+$ cd research/lyt && nice -n 19 ~/w/vdc/venvs/generic/bin/python -m pytest tests/ -q
+443 passed, 8771 warnings in 6.53s
+$ echo $?
+0
+```
+
+Both `.gen.ts` roundtrip tests pass (part of the 443 above); both files
+regenerated fresh post-rebase and diffed against the committed
+copies — `git status --short frontend/src/state/` empty, both
+directions. `runner.run_all()`'s own full sweep: exit code and
+OPTIMAL/INFEASIBLE pattern unchanged from every prior run in this
+dispatch's own history (the pre-existing INFEASIBLE points are
+untouched, unrelated to anything this dispatch or its discharge
+touched).
+
+### Claims summary (discharge pass)
+
+- Condition 1 (manifest basis-accuracy defect): WITNESSED — conversion
+  applied, byte-identity independently re-verified (not trusted from
+  the review), manifest entries removed, count and report updated.
+- The related `tag:ANALYSIS TABS` basis-prose imprecision: corrected
+  in place, disclosed as a discretionary addition beyond the literal
+  two-item ask.
+- Review conditions 2/3 (the broader sweep; the `CELL=24` residual
+  item): NOT addressed — explicitly out of the coordinator's own
+  two-item discharge request, named here as still open rather than
+  silently dropped.
+- Rebase onto `lyt-phase2`'s current tip: WITNESSED, zero conflicts,
+  matching the reviewer's own clean-rebase prediction.
+- Suite post-rebase: WITNESSED, 443 passed, exit 0.
+- Roundtrip post-rebase: WITNESSED, both `.gen.ts` files byte-identical
+  after fresh regeneration.
+- Solver sanity post-rebase: WITNESSED, pattern unchanged.
