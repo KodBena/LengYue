@@ -102,10 +102,22 @@ carrying the fields — it could be extended additively, so the brief's
 - The store's sink implementation (`src/store/index.ts`) folds `details` into
   the constructed `SystemMessage`, conditionally spreading each field so a
   push with no `details` produces a byte-identical message to before.
-- `useSideColumnLiveLayout.ts`'s own watcher — the ONE real producer of a
-  `SovereignOverrideDiagnostic` — now passes
+- `useSideColumnLiveLayout.ts`'s own watcher — the INNER bar's own producer
+  of a `SovereignOverrideDiagnostic` — now passes
   `{ remediation: d.remediation, nextAction: d.nextAction }` as the third
   argument, so the user's push actually carries both fields end to end.
+  **CORRECTED 2026-08-14** (delta review of this repair): the sentence here
+  originally read "the ONE real producer of a `SovereignOverrideDiagnostic`."
+  That was false — `App.vue`'s own `outerRowSovereignPushGate` watcher
+  (`resolveSovereignOverrides` called from `useResizablePanel.ts`'s
+  `outerRowSovereignDiagnostic`, for the OUTER bar / `#board-area` vs
+  `#tree-control-wrapper`) is the SYMMETRIC second producer, documented in
+  the original L3 review's own §3, and it received ZERO changes in this
+  repair's first pass — it kept pushing a bare
+  `pushSystemMessage('warning', d.message)`. Fixed below, in the same
+  commit as this correction (not a silent reword — see
+  `git log -- .claude/dispatch-reports/lyt-space-owner-l3-repair.md` for
+  the pre-correction wording this sentence replaces).
 - `SystemLogPanel.vue` renders `remediation`/`nextAction` as their own
   subordinate lines (`v-if`, so every other message type is visually
   unchanged) rather than flattening them into `msg.text`.
@@ -130,6 +142,59 @@ Two new tests added to `tests/unit/services/system-message-sink.test.ts`
 covering the additive third argument (present → lands on the message;
 absent → both fields stay `undefined`, matching every pre-repair caller).
 
+### Residual: the outer bar (App.vue) — RESOLVED
+
+The delta review of this repair caught the false extent claim named above.
+`App.vue`'s own `outerRowSovereignPushGate` watcher (script-setup body,
+around the `outerRowSovereignDiagnostic` import from `useResizablePanel.ts`)
+is the symmetric second bar's own diagnostic producer — same
+`SovereignOverrideDiagnostic[]` shape (`resolveSovereignOverrides`'s own
+return type, `state/feasible-layout.ts`), same push-dedup convention
+(`lastPushedOuterRowDiagnosticKey`), same `pushSystemMessage` sink — and it
+was left untouched by this repair's first pass. Fixed now, mirroring the
+inner bar's own wiring exactly:
+
+```
+for (const d of diagnostics) {
+  pushSystemMessage('warning', d.message, { remediation: d.remediation, nextAction: d.nextAction });
+}
+```
+
+No divergence between the two bars' diagnostic shapes remains — both now
+thread `remediation`/`nextAction` through the same `SystemMessagePushDetails`
+parameter.
+
+**Symmetric test added.** `tests/integration/App-boot.test.ts` gains a new
+describe block, `'App.vue — outer-bar sovereignty diagnostic pushes
+remediation/nextAction (dispatch L3 repair residual)'`: mounts the full
+`App.vue` (the outer bar's push watcher lives inline in its own
+`<script setup>`, not in a separately-testable composable, so a genuine
+integration mount is the only way to exercise it end to end), stubs
+`#split-workspace` at 1024×700 (landscape), then sets
+`store.session.ui.treeControlRegionWidthPx = 900` post-mount — the same
+900px-on-1024px-row starvation `resizer-restore-clamp.test.ts`'s own ui-5-3
+suite already uses at the composable level — and asserts the resulting
+pushed `SystemMessage` carries `remediation: 'reduce this region\'s width,
+or use Default Layout to reset'` and `nextAction:
+'open-default-layout-control'`, the SAME values the inner bar's own
+sink-level tests pin. WITNESSED: this test passes in isolation
+(`npx vitest run tests/integration/App-boot.test.ts`, 6/6 passed) and in the
+full suite (§Gates below).
+
+This residual also surfaces a gap the original report's own "what was NOT
+done" section named honestly but did not close: no dedicated
+composable-level integration test existed for EITHER bar's watcher wiring
+before this correction. The new App-boot.test.ts block closes it for the
+outer bar; the inner bar (`useSideColumnLiveLayout.ts`) still has no
+dedicated integration test of its own watcher — its `pushSystemMessage`
+call is exercised only indirectly, through the sink-level unit tests
+verifying the mechanism `pushSystemMessage` itself exposes, and through
+`feasible-layout-geometry-sweep.test.ts`'s own pure-function sovereignty
+trace (which pins the diagnostic's own shape but does not mount a component
+or observe a push). Disclosed, not silently left for a future reader to
+rediscover; out of THIS residual's own scope (which named the outer bar
+specifically), but named here for completeness.
+
 ---
 
 ## Per-directive coverage
@@ -140,20 +205,24 @@ absent → both fields stay `undefined`, matching every pre-repair caller).
    assertion.
 2. **Deletion-comment correction.** WITNESSED — the false claim is gone; the
    comment now names real locations, `grep`-verifiable.
-3. **remediation/nextAction wiring.** WITNESSED — threaded end to end
-   (diagnostic → composable → sink → store → rendered panel), additive at
-   every existing call site, the presentation gap (no clickable
-   `open-default-layout-control`) named rather than hidden.
-4. **Gates.** WITNESSED, all four:
+3. **remediation/nextAction wiring.** WITNESSED — threaded end to end for
+   BOTH bars (diagnostic → composable/App.vue watcher → sink → store →
+   rendered panel), additive at every existing call site, the presentation
+   gap (no clickable `open-default-layout-control`) named rather than
+   hidden. The outer bar was missed in this repair's first pass (the false
+   extent claim the coordinator's delta review caught) and is fixed as of
+   this correction — see "Residual: the outer bar" above.
+4. **Gates.** WITNESSED, all four, RE-RUN after the outer-bar fix:
    - `npx eslint .`: exit 0, no output.
    - `npx vue-tsc -b --noEmit`: exit 0, no output.
    - `npm run build`: exit 0, 1256 modules transformed, same pre-existing
      chunk-size notice as the L3 build, no new warnings.
    - Full suite (`nice -19 env NODE_OPTIONS=--max-old-space-size=2048 npx
      vitest run --maxWorkers=2`): exit 0, **270 files passed | 3 skipped
-     (273)**, **3347 passed | 8 skipped (3355)** — up from the L3 build's own
-     3333, **+14 new tests** (12 in `feasible-layout.test.ts`, 2 in
-     `system-message-sink.test.ts`).
+     (273)**, **3348 passed | 8 skipped (3356)** — up from the L3 build's own
+     3333, **+15 new tests** (12 in `feasible-layout.test.ts`, 2 in
+     `system-message-sink.test.ts`, 1 in `App-boot.test.ts` for the outer-bar
+     residual).
 
 ## What was NOT done, disclosed
 

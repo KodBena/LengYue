@@ -756,7 +756,16 @@ watch(
     const key = diagnostics.map((d) => `${d.location}:${d.starved.map((s) => s.region).join(',')}`).join('|');
     if (key === lastPushedOuterRowDiagnosticKey) return;
     lastPushedOuterRowDiagnosticKey = key;
-    for (const d of diagnostics) pushSystemMessage('warning', d.message);
+    // Dispatch L3 repair (`.claude/dispatch-reports/
+    // lyt-space-owner-l3-review.md` §3 condition 3, residual): mirrors
+    // `useSideColumnLiveLayout.ts`'s own inner-bar wiring exactly — the
+    // outer bar's own `SovereignOverrideDiagnostic` carries the SAME
+    // `remediation`/`nextAction` fields, so it threads them through the
+    // same sink `details` parameter rather than diverging between the
+    // two symmetric bars.
+    for (const d of diagnostics) {
+      pushSystemMessage('warning', d.message, { remediation: d.remediation, nextAction: d.nextAction });
+    }
   },
 );
 
