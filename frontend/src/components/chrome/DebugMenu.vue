@@ -39,20 +39,33 @@
   `LocalePicker.vue`'s own precedent for a chrome popover whose content
   is a small set of discrete actions rather than a live readout.
 
-  Mounted in App.vue's `#lyt-corner-chrome` cluster (an overlay, not a
-  LYT tree node — SPEC.md §2's "overlays... occupy no standing space"),
-  so this menu costs zero grid-track reservation in either screen class
-  — exactly the "off the main surface" instruction.
+  Mounted in App.vue's corner trigger row (`<CornerStackHost>`'s own
+  `triggers` slot — an overlay, not a LYT tree node, SPEC.md §2's
+  "overlays... occupy no standing space"), so this menu costs zero
+  grid-track reservation in either screen class — exactly the "off the
+  main surface" instruction.
+
+  Space-owner cure, dispatch L5 (`.claude/dispatch-reports/
+  lyt-space-owner-spec.md` §1.5/§3 step 5): dismissal migrated onto
+  `useDismissiblePopover` (`composables/chrome/useDismissiblePopover.ts`)
+  with `outsideClick: false` — a DISCLOSED, explicit exception (this
+  file's own header already named the reason: "a plain click-toggle
+  popover, not a modal," and this component never wired outside-click
+  dismiss pre-dispatch either). Escape and the trigger's own re-click
+  (`explicitCloseControl`) remain this popover's two live dismissal
+  channels, satisfying `overlayContract()`'s own "at least one channel"
+  refusal without silently ADDING behavior this dev-only surface never
+  had.
 
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useEngineControls } from '../../composables/useEngineControls';
 import { useAutoNavigatePerf } from '../../composables/useAutoNavigatePerf';
 import { useAutoPopoverPerf } from '../../composables/useAutoPopoverPerf';
 import { useJankTest } from '../../composables/perf/useJankTest';
+import { useDismissiblePopover } from '../../composables/chrome/useDismissiblePopover';
 
 const { t } = useI18n();
 
@@ -66,25 +79,9 @@ const { isRunning: autoNavRunning, toggle: toggleAutoNav } = useAutoNavigatePerf
 const { isRunning: popoverStressRunning, toggle: togglePopoverStress } = useAutoPopoverPerf();
 const jankTest = useJankTest();
 
-const open = ref(false);
-function toggleMenu(): void {
-  open.value = !open.value;
-}
-function closeMenu(): void {
-  open.value = false;
-}
-
-// ESC dismiss — same local-listener shape as SetupToolPalette.vue /
-// LocalePicker.vue (a plain click-toggle popover, not a modal; no
-// `useModalKeyboard` registration).
-function onKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') closeMenu();
-}
-watch(open, (isOpen) => {
-  if (isOpen) document.addEventListener('keydown', onKeydown);
-  else document.removeEventListener('keydown', onKeydown);
-});
-onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown));
+// `outsideClick: false` — see this file's own header, "Space-owner cure,
+// dispatch L5".
+const { open, toggle: toggleMenu } = useDismissiblePopover({ outsideClick: false });
 </script>
 
 <template>

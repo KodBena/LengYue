@@ -126,7 +126,7 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { computed, watch, onBeforeUnmount } from 'vue';
+import { computed, watch } from 'vue';
 import { ref as vueRef, type ComponentPublicInstance } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -179,6 +179,7 @@ import { LYT_PORTRAIT }   from './state/lyt-layout-portrait.gen';
 import { useResizablePanel } from './composables/chrome/useResizablePanel';
 import { buildLytProgramIndex, lytParentPath, lytOrientationToProp } from './composables/chrome/useLytProgramIndex';
 import { usePopoverEdgeClamp } from './composables/chrome/usePopoverEdgeClamp';
+import { useDismissiblePopover } from './composables/chrome/useDismissiblePopover';
 import type { LytPresenceTargetId } from './composables/chrome/useLytPresenceMenu';
 import BoardWidget      from './components/board/BoardWidget.vue';
 import TreeWidget       from './components/tree/TreeWidget.vue';
@@ -210,6 +211,7 @@ import LytPresenceMenu   from './components/chrome/LytPresenceMenu.vue';
 import BoardRailPopoverTrigger from './components/chrome/BoardRailPopoverTrigger.vue';
 import DebugMenu from './components/chrome/DebugMenu.vue';
 import SystemLogToggle from './components/chrome/SystemLogToggle.vue';
+import CornerStackHost from './components/chrome/CornerStackHost.vue';
 import PreviewBoardPanel from './components/board/PreviewBoardPanel.vue';
 import WorkspaceRecoveryGate from './components/chrome/WorkspaceRecoveryGate.vue';
 
@@ -956,9 +958,35 @@ const lytPresenceForcedAbsent = computed<Partial<Record<LytPresenceTargetId, boo
 // (`EngineQueueTooltip.vue`'s own header has the full diagnosis) — a
 // precondition that doesn't hold here either: `#lyt-corner-chrome` is
 // already outside any such ancestor, exactly like its two siblings.
-const controlPanelPopoverOpen = vueRef(false);
+// Space-owner cure, dispatch L5 (`.claude/dispatch-reports/
+// lyt-space-owner-spec.md` §1.5/§3 step 5): dismissal migrated onto
+// `useDismissiblePopover` (`composables/chrome/useDismissiblePopover.ts`)
+// — the ONE click/outside-click/Escape mechanism this file's own former
+// comment (below the composable call) named as "verbatim the same
+// shape" three other components independently re-implemented. The
+// below-extraction-threshold reasoning that comment gave is superseded:
+// this dispatch's own scope is exactly "collapse the repeated idiom
+// into the overlay primitive," so the threshold no longer applies.
+const { open: controlPanelPopoverOpen, rootRef: controlPanelPopoverRootEl, toggle: toggleControlPanelPopoverDismissible } =
+  useDismissiblePopover();
+// `controlPanelPopoverRootEl` is bound to the summon wrapper's own
+// template root (`ref="controlPanelPopoverRootEl"`, below) — see
+// `LytPresenceMenu.vue`'s own identical comment for why `noUnusedLocals`
+// needs this explicit acknowledgment.
+void controlPanelPopoverRootEl;
 const { setPopoverEl: setEdgeClampPopoverEl, xShift: controlPanelPopoverXShift } =
   usePopoverEdgeClamp(controlPanelPopoverOpen);
+// Corner-stack clearance (dispatch L5): the live px every trigger-row
+// popover's own `bottom: 100%` anchor must ALSO clear — whatever
+// `CornerStackHost.vue` currently has stacked above the trigger row
+// (the system log panel, the banner cluster). Read via a template ref +
+// `defineExpose` (see `CornerStackHost.vue`'s own header for why
+// provide/inject does not fit this slot-content shape) and threaded
+// down as an ordinary prop to `LytPresenceMenu`/`BoardRailPopoverTrigger`;
+// the control-panel-summon popover below (this file's own content, not
+// a child component) reads the computed directly.
+const cornerStackHostRef = vueRef<InstanceType<typeof CornerStackHost> | null>(null);
+const cornerStackClearancePx = computed<number>(() => cornerStackHostRef.value?.clearancePx ?? 0);
 // Presence arc P2b: the Teleport target `LytNode.vue`'s own Exclusive
 // branch relocates the control panel's live content into when absent —
 // see that file's header, "Popover summon for an absent Exclusive", and
@@ -982,51 +1010,17 @@ const exclusivePopoverOpenMap = computed<Record<string, boolean>>(() => ({
   controlPanel: controlPanelPopoverOpen.value,
 }));
 
-function toggleControlPanelPopover(): void {
-  controlPanelPopoverOpen.value = !controlPanelPopoverOpen.value;
-}
-function closeControlPanelPopover(): void {
-  controlPanelPopoverOpen.value = false;
-}
-
-// Dismiss idiom (click-outside + Escape) — verbatim the same shape
-// `BoardRailPopoverTrigger.vue`/`LocalePicker.vue`/`LytPresenceMenu.vue`
-// each already use (this codebase's established click-popover pattern;
-// not re-abstracted into a shared composable here for the same
-// below-extraction-threshold reason `SetupToolPalette.vue`'s own header
-// names for its own click-toggle shape — two existing instances plus
-// this one is still below the THIRD-instance threshold
-// `useHoverPopover.ts`'s header documents for ITS OWN, differently-
-// triggered (hover, not click) extraction).
-// The popover panel is a DOM DESCENDANT of `controlPanelPopoverRootEl`
-// (nested inside the trigger's own wrapper — see the template), so its
-// own `.contains()` check alone already covers a click landing in the
-// popover's own content (a tab button, a text field inside Library/
-// Settings/…). The second, explicit `controlPanelPopoverEl` check is
-// belt-and-suspenders (harmless if ever restructured to a sibling again).
-const controlPanelPopoverRootEl = vueRef<HTMLElement | null>(null);
-function onControlPanelPopoverDocumentPointerDown(e: PointerEvent): void {
-  const target = e.target as Node; // DOM: event.target is an EventTarget; Node is contains()'s arg type
-  if (controlPanelPopoverRootEl.value?.contains(target)) return;
-  if (controlPanelPopoverEl.value?.contains(target)) return;
-  closeControlPanelPopover();
-}
-function onControlPanelPopoverKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') closeControlPanelPopover();
-}
-watch(controlPanelPopoverOpen, (isOpen) => {
-  if (isOpen) {
-    document.addEventListener('pointerdown', onControlPanelPopoverDocumentPointerDown, true);
-    document.addEventListener('keydown', onControlPanelPopoverKeydown);
-  } else {
-    document.removeEventListener('pointerdown', onControlPanelPopoverDocumentPointerDown, true);
-    document.removeEventListener('keydown', onControlPanelPopoverKeydown);
-  }
-});
-onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', onControlPanelPopoverDocumentPointerDown, true);
-  document.removeEventListener('keydown', onControlPanelPopoverKeydown);
-});
+// `useDismissiblePopover`'s own `rootRef` (bound to `controlPanelPopoverRootEl`
+// in the template below) already scopes the outside-click check to the
+// wrapper's full subtree — the popover panel (`controlPanelPopoverEl`,
+// the Teleport target) is a DOM DESCENDANT of that same wrapper (see the
+// template), so no second, separately-tracked containment check is
+// needed here any more (the pre-dispatch "belt-and-suspenders" comment
+// this replaced named that redundancy explicitly). `toggleControlPanelPopover`
+// keeps its own pre-dispatch name at this call site (the template's own
+// `@click`) rather than renaming every reference to the composable's
+// generic `toggle`.
+const toggleControlPanelPopover = toggleControlPanelPopoverDismissible;
 
 const { sync } = useAppBootstrap(auth);
 
@@ -1178,57 +1172,14 @@ const activeTab = computed<string>({
              judgment call: `systemLogExpanded` still means exactly
              "does the user want the log panel visible" — only WHERE
              it renders changed). -->
-        <div id="lyt-overlay-stack">
-          <div
-            v-if="capturingActionLabel !== null"
-            id="keybinding-capture-banner"
-            role="alert"
-          >
-            {{ $t('app.keybindingCapture.banner', { action: capturingActionLabel }) }}
-          </div>
-
-          <div
-            v-if="store.workspaceSaveState.kind === 'error'"
-            id="workspace-save-banner"
-            role="alert"
-          >
-            <span class="save-banner-text">{{ $t('app.workspace.saveFailed') }}</span>
-            <button class="action-btn-large" style="width: auto; padding-left: var(--space-medium); padding-right: var(--space-medium);" @click="sync.retrySave()">
-              {{ $t('app.workspace.retry') }}
-            </button>
-          </div>
-
-          <!-- Persist-suppression banner (work item
-               `next-futureblob-recovery`, rows 1942/1982; merged into the
-               W4 overlay stack — same zero-standing-space stratum as its
-               sibling banners, same v-if gate as on `next`): the ONGOING
-               reminder after "continue on defaults" from the
-               future-version recovery gate. No Retry affordance — a
-               'suppressed' write is refused structurally by
-               SyncService.sendSync every time (`persistSuppression`),
-               it isn't a failed attempt; the destructive escape hatch
-               rides along in case the user reconsiders. -->
-          <div
-            v-if="suppressedSaveState"
-            id="workspace-suppressed-banner"
-            role="alert"
-          >
-            <span class="save-banner-text">{{ $t('sync.recovery.suppressedBanner', {
-              blobVersion: suppressedSaveState.blobVersion,
-              appVersion: suppressedSaveState.appVersion,
-            }) }}</span>
-            <button
-              class="recovery-banner-reset-btn"
-              @click="recovery.resetServerWorkspace(suppressedSaveState.blobVersion, suppressedSaveState.appVersion)"
-            >
-              {{ $t('sync.recovery.resetButton') }}
-            </button>
-          </div>
-
-          <SystemLogPanel
-            v-if="store.session.ui.systemLogExpanded || transientLogReveal"
-          />
-        </div>
+        <!-- Space-owner cure, dispatch L5: the banner cluster and
+             `SystemLogPanel` moved into `<CornerStackHost>`'s own
+             `banners`/`log` slots below (adjacent to the former
+             `#lyt-corner-chrome` site) — DOM position no longer matters
+             for a `position: fixed` overlay stack whose own offsets
+             `CornerStack.layout()` now computes explicitly per region,
+             so this relocation carries no visual change. See
+             `CornerStackHost.vue`'s own header for the full derivation. -->
 
         <!-- The LYT skeleton (roadmap §3, "layout as data"), now SCREEN-
              CLASS-SWAPPED (W3): `activeLytProgram` is the landscape or
@@ -1545,94 +1496,151 @@ const activeTab = computed<string>({
 
         </LytNode>
 
-        <!-- Corner presence menu + (style-B-only) board-rail popover
-             trigger — W2, roadmap §8 W2 items 1/2. Overlays, NOT LYT
-             tree nodes (SPEC.md §2: "Overlays... contribute no
-             constraints and occupy no standing space"), positioned
-             fixed at the extreme lower-right of the chrome, riding on
-             top of the existing workspace with zero grid-track cost.
-             The button cluster itself never covers #board-square (a
-             small fixed-size corner cluster, not a spreading overlay);
-             each popover opens ABOVE its own trigger (see each
-             component's own `<style>` — `bottom: 100%` anchors), so
-             opening either one still never occludes the board.
-
-             D2 fix (`.claude/dispatch-reports/lyt-w5-parity-build.md`
-             Defect D2): `SystemLogToggle` restores the system log's
-             manual open/close affordance the W1 skeleton replacement
-             lost — see its own header for the placement rationale
-             (why here rather than folded into `DebugMenu`, which is
-             dev-build-only, or `LytPresenceMenu`, whose guard is
-             specific to LYT grid-presence targets the log isn't). -->
-        <div id="lyt-corner-chrome">
-          <DebugMenu />
-          <BoardRailPopoverTrigger v-if="store.session.ui.railStyle === 'popover'" />
-          <!-- Control-panel popover summon (P2b item 3): reachable ONLY
-               while the control panel is absent from the grid (class
-               default demoted it, or the user toggled it off via
-               LytPresenceMenu below) — when present, the grid already
-               shows it, so no summon affordance is needed.
-
-               Positioning: `usePopoverEdgeClamp` + a CSS `bottom: 100%`
-               anchor (opens UPWARD from the trigger), the SAME idiom this
-               element's own `#lyt-corner-chrome` siblings
-               (`BoardRailPopoverTrigger.vue`/`LytPresenceMenu.vue`) use —
-               NOT `useFixedAnchoredPopover` (script header's original
-               plan, per the commission's own naming). Witnessed
-               empirically wrong for THIS trigger's position: that
-               composable's `top: triggerRect.bottom` anchor opens
-               DOWNWARD, and this trigger already sits at the fixed
-               viewport BOTTOM-right corner — the viewport-bottom clamp
-               then pulls the popover back UP over the trigger itself,
-               blocking the very re-click needed to dismiss it (screenshot
-               rig transcript: `page.click('#control-panel-summon-btn')`
-               timed out, `<button>` occluded by its own now-open
-               popover). `useFixedAnchoredPopover`'s own precondition
-               (escaping an `overflow:auto` clipping ancestor) doesn't
-               even apply here either — `#lyt-corner-chrome` is already
-               `position: fixed`, outside every such ancestor, exactly
-               like its two siblings that already use
-               `usePopoverEdgeClamp` for this reason. -->
-          <div v-if="!controlPanelIsPresent" ref="controlPanelPopoverRootEl" class="control-panel-summon-wrap">
-            <button
-              id="control-panel-summon-btn"
-              type="button"
-              class="control-panel-summon-trigger"
-              :title="$t('app.chrome.presence.controlPanelSummon')"
-              :aria-label="$t('app.chrome.presence.controlPanelSummon')"
-              aria-haspopup="true"
-              :aria-expanded="controlPanelPopoverOpen"
-              aria-controls="control-panel-popover-mount"
-              @click="toggleControlPanelPopover"
-            >
-              <span aria-hidden="true">&#9776;</span>
-            </button>
-
-            <!-- The control panel's own Teleport target when absent-but-
-                 summoned — see LytNode.vue's header ("Popover summon for
-                 an absent Exclusive") for what gets relocated in here.
-                 ALWAYS mounted (`v-show`, never `v-if`) WHILE this wrapper
-                 itself is mounted — LytNode's own Teleport only ever
-                 targets this element while `controlPanelIsPresent` is
-                 false, the SAME condition gating this wrapper's own
-                 `v-if`, so the target is guaranteed to exist by the time
-                 a summon can occur (the trigger button that starts a
-                 summon lives inside this same wrapper). Opaque
-                 (--surface-0, the same standing occlusion law
-                 `LytPresenceMenu.vue`'s own header names). -->
+        <!-- Space-owner cure, dispatch L5 (`.claude/dispatch-reports/
+             lyt-space-owner-spec.md` §1.4/§3 step 5): ONE
+             `<CornerStackHost>` replaces the former two independent
+             `position: fixed` containers (`#lyt-corner-chrome` +
+             `#lyt-overlay-stack`) — see that component's own header for
+             the full derivation (the `CornerStack` registration order,
+             the live-measured offsets replacing the hand-guessed
+             `+40px`). The banner cluster and `SystemLogPanel` (formerly
+             `#lyt-overlay-stack`, above the LYT skeleton in this file's
+             own DOM order pre-dispatch) now live in this element's own
+             `banners`/`log` slots; every corner trigger (formerly
+             `#lyt-corner-chrome`) lives in its `triggers` slot. Content
+             and `v-if` gates are UNCHANGED from pre-dispatch — only the
+             stacking/offset MECHANISM moved. -->
+        <CornerStackHost ref="cornerStackHostRef">
+          <template #banners>
             <div
-              id="control-panel-popover-mount"
-              :ref="setControlPanelPopoverEl"
-              v-show="controlPanelPopoverOpen"
-              class="control-panel-popover"
-              role="dialog"
-              :aria-label="$t('app.chrome.presence.controlPanel')"
-              :style="{ transform: `translateX(${controlPanelPopoverXShift}px)` }"
-            ></div>
-          </div>
-          <LytPresenceMenu :class-defaults="lytPresenceClassDefaults" :forced-absent="lytPresenceForcedAbsent" />
-          <SystemLogToggle />
-        </div>
+              v-if="capturingActionLabel !== null"
+              id="keybinding-capture-banner"
+              role="alert"
+            >
+              {{ $t('app.keybindingCapture.banner', { action: capturingActionLabel }) }}
+            </div>
+
+            <div
+              v-if="store.workspaceSaveState.kind === 'error'"
+              id="workspace-save-banner"
+              role="alert"
+            >
+              <span class="save-banner-text">{{ $t('app.workspace.saveFailed') }}</span>
+              <button class="action-btn-large" style="width: auto; padding-left: var(--space-medium); padding-right: var(--space-medium);" @click="sync.retrySave()">
+                {{ $t('app.workspace.retry') }}
+              </button>
+            </div>
+
+            <!-- Persist-suppression banner (work item
+                 `next-futureblob-recovery`, rows 1942/1982): the ONGOING
+                 reminder after "continue on defaults" from the
+                 future-version recovery gate. No Retry affordance — a
+                 'suppressed' write is refused structurally by
+                 SyncService.sendSync every time (`persistSuppression`),
+                 it isn't a failed attempt; the destructive escape hatch
+                 rides along in case the user reconsiders. -->
+            <div
+              v-if="suppressedSaveState"
+              id="workspace-suppressed-banner"
+              role="alert"
+            >
+              <span class="save-banner-text">{{ $t('sync.recovery.suppressedBanner', {
+                blobVersion: suppressedSaveState.blobVersion,
+                appVersion: suppressedSaveState.appVersion,
+              }) }}</span>
+              <button
+                class="recovery-banner-reset-btn"
+                @click="recovery.resetServerWorkspace(suppressedSaveState.blobVersion, suppressedSaveState.appVersion)"
+              >
+                {{ $t('sync.recovery.resetButton') }}
+              </button>
+            </div>
+          </template>
+
+          <template #log>
+            <SystemLogPanel
+              v-if="store.session.ui.systemLogExpanded || transientLogReveal"
+            />
+          </template>
+
+          <template #triggers>
+            <DebugMenu />
+            <BoardRailPopoverTrigger v-if="store.session.ui.railStyle === 'popover'" :clearance-px="cornerStackClearancePx" />
+            <!-- Control-panel popover summon (P2b item 3): reachable ONLY
+                 while the control panel is absent from the grid (class
+                 default demoted it, or the user toggled it off via
+                 LytPresenceMenu below) — when present, the grid already
+                 shows it, so no summon affordance is needed.
+
+                 Positioning: `usePopoverEdgeClamp` + a CSS `bottom: 100%`
+                 anchor (opens UPWARD from the trigger), the SAME idiom
+                 this element's own trigger-row siblings
+                 (`BoardRailPopoverTrigger.vue`/`LytPresenceMenu.vue`)
+                 use — NOT `useFixedAnchoredPopover` (script header's
+                 original plan, per the commission's own naming).
+                 Witnessed empirically wrong for THIS trigger's position:
+                 that composable's `top: triggerRect.bottom` anchor opens
+                 DOWNWARD, and this trigger already sits at the fixed
+                 viewport BOTTOM-right corner — the viewport-bottom clamp
+                 then pulls the popover back UP over the trigger itself,
+                 blocking the very re-click needed to dismiss it
+                 (screenshot rig transcript:
+                 `page.click('#control-panel-summon-btn')` timed out,
+                 `<button>` occluded by its own now-open popover).
+                 Dispatch L5 addendum: `margin-bottom` now ALSO adds
+                 `cornerStackClearancePx` (this file's own computed) so
+                 the popover clears whatever `CornerStackHost` currently
+                 has stacked above the trigger row (the system log panel,
+                 the banner cluster) — the review's own witnessed
+                 collision this dispatch closes. -->
+            <div v-if="!controlPanelIsPresent" ref="controlPanelPopoverRootEl" class="control-panel-summon-wrap">
+              <button
+                id="control-panel-summon-btn"
+                type="button"
+                class="control-panel-summon-trigger"
+                :title="$t('app.chrome.presence.controlPanelSummon')"
+                :aria-label="$t('app.chrome.presence.controlPanelSummon')"
+                aria-haspopup="true"
+                :aria-expanded="controlPanelPopoverOpen"
+                aria-controls="control-panel-popover-mount"
+                @click="toggleControlPanelPopover"
+              >
+                <span aria-hidden="true">&#9776;</span>
+              </button>
+
+              <!-- The control panel's own Teleport target when absent-but-
+                   summoned — see LytNode.vue's header ("Popover summon for
+                   an absent Exclusive") for what gets relocated in here.
+                   ALWAYS mounted (`v-show`, never `v-if`) WHILE this wrapper
+                   itself is mounted — LytNode's own Teleport only ever
+                   targets this element while `controlPanelIsPresent` is
+                   false, the SAME condition gating this wrapper's own
+                   `v-if`, so the target is guaranteed to exist by the time
+                   a summon can occur (the trigger button that starts a
+                   summon lives inside this same wrapper). Opaque
+                   (--surface-0, the same standing occlusion law
+                   `LytPresenceMenu.vue`'s own header names). -->
+              <div
+                id="control-panel-popover-mount"
+                :ref="setControlPanelPopoverEl"
+                v-show="controlPanelPopoverOpen"
+                class="control-panel-popover"
+                role="dialog"
+                :aria-label="$t('app.chrome.presence.controlPanel')"
+                :style="{
+                  transform: `translateX(${controlPanelPopoverXShift}px)`,
+                  marginBottom: `${cornerStackClearancePx}px`,
+                }"
+              ></div>
+            </div>
+            <LytPresenceMenu
+              :class-defaults="lytPresenceClassDefaults"
+              :forced-absent="lytPresenceForcedAbsent"
+              :clearance-px="cornerStackClearancePx"
+            />
+            <SystemLogToggle />
+          </template>
+        </CornerStackHost>
       </template>
 
       <div
@@ -1725,56 +1733,22 @@ const activeTab = computed<string>({
   color: var(--text-0); font-size: var(--text-emphasis);
 }
 
-/* W4 item 1 — OVERLAY STRATUM (roadmap §7 ruling). `position: fixed`
-   takes this stack out of `#main-workspace`'s flex column entirely —
-   the SAME mechanism `#lyt-corner-chrome` already uses (that rule's
-   own comment, below, has the fuller SPEC.md §2 citation) — so its
-   appearance/disappearance can NEVER push `#split-workspace` or any
-   toolbar child (the categorical "no layout push" requirement; a
-   mount/unmount test — `tests/integration/overlay-stack-no-push.test.ts`
-   — pins zero `#board-square`/`#split-workspace` rect movement across
-   every v-if toggle this stack carries).
-
-   Non-occlusion argument: anchored bottom-right, STACKED ABOVE
-   `#lyt-corner-chrome` (the `bottom` offset below clears that
-   cluster's own typical height + gap) — the SAME corner
-   `#lyt-corner-chrome`'s own comment already argues is provably
-   outside `#board-square` in BOTH screen classes (the side column /
-   tree-panels row is the page's rightmost-and-bottommost region in
-   landscape; the tree-panels row is the LAST, bottom-most row in
-   portrait too — see `encodings/lengyue_landscape.lyt`'s own
-   previewBoard placement note for the landscape half of this
-   argument). `max-width` is capped well inside the side column's own
-   reserved floor (280px post-W4-floor-softening) so the stack never
-   reaches into the board's own territory even at the narrowest tested
-   viewports. DISCLOSED, not independently re-derived per screen class
-   with a live-measured corner-chrome height the way the W1 REPAIR
-   toolbar reservation was (see that section's own methodology in
-   `research/lyt/encodings/lengyue_landscape.lyt`) — the `bottom`
-   offset below is a conservative estimate (one pill/button row's
-   height plus its own gap) rather than a swept number; a follow-up
-   wave re-measuring it live is the more rigorous confirmation, same
-   disclosure posture the codebase already models elsewhere. */
-#lyt-overlay-stack {
-  position: fixed;
-  right: var(--space-medium);
-  bottom: calc(var(--space-medium) + 40px);
-  z-index: var(--z-chrome-overlay);
-  display: flex;
-  flex-direction: column-reverse;
-  gap: var(--space-tight);
-  max-width: min(320px, 90vw);
-  max-height: 60vh;
-  pointer-events: none;
-}
-/* Each overlay piece opts back INTO pointer events individually — the
-   stack's own container stays click-through where no piece is
-   rendered, so an empty stack (the common case: no banner, log
-   collapsed) never silently steals clicks from whatever chrome sits
-   underneath it. */
-#lyt-overlay-stack > * {
-  pointer-events: auto;
-}
+/* W4 item 1 — OVERLAY STRATUM (roadmap §7 ruling), superseded by
+   dispatch L5 (`.claude/dispatch-reports/lyt-space-owner-spec.md`
+   §1.4/§3 step 5): the banner cluster below (still `#keybinding-
+   capture-banner`/`#workspace-save-banner`/`#workspace-suppressed-
+   banner`, unchanged markup) now mounts inside `<CornerStackHost>`'s
+   own `banners` slot, `App.vue`'s template — that component's own
+   `<style>` block owns the `position: fixed`/stacking-offset mechanics
+   this comment used to describe, including the mount/unmount
+   no-layout-push guarantee `tests/integration/overlay-stack-no-push.
+   test.ts` pins. The hand-guessed `bottom: calc(var(--space-medium) +
+   40px)` this rule used to carry — the review's own witnessed "a
+   conservative estimate... rather than a swept number" — is RETIRED:
+   `CornerStack.layout()` computes every region's own offset from its
+   neighbors' live measured height instead (see `CornerStackHost.vue`'s
+   own header for the full derivation). Individual banner rules below
+   (background/border/padding) are otherwise unchanged from pre-dispatch. */
 #keybinding-capture-banner {
   /* Opaque (--surface-0-backed via --state-attention's own solid
      fill — no scrim/translucency, the standing banner ruling this
@@ -1851,29 +1825,15 @@ const activeTab = computed<string>({
   height: 100%;
 }
 
-/* Corner presence-menu / board-rail-popover cluster (W2). `position:
-   fixed` takes it out of #main-workspace's flex column flow entirely —
-   it does not add a row, does not participate in any LYT grid track,
-   and rides ABOVE whatever chrome happens to be underneath it (SPEC.md
-   §2's "overlays contribute no constraints and occupy no standing
-   space", realized literally). Anchored to the viewport's own
-   lower-right corner, matching the encoding's own placement rationale
-   for previewBoard (`encodings/lengyue_landscape.lyt`'s own comment:
-   "the rightmost slot of the new tree/panels row... IS the page's
-   lower-right corner (already home to the corner presence-menu
-   button..."). */
-#lyt-corner-chrome {
-  position: fixed;
-  bottom: var(--space-medium);
-  right: var(--space-medium);
-  z-index: 900;
-  display: flex;
-  align-items: center;
-  gap: var(--space-tight);
-}
+/* Corner trigger row (W2), superseded by dispatch L5: this cluster
+   (DebugMenu / board-rail-popover trigger / control-panel summon /
+   LytPresenceMenu / SystemLogToggle) now mounts inside
+   `<CornerStackHost>`'s own `triggers` slot — `#corner-stack-triggers`
+   in that component's own `<style>` block carries the `position: fixed`
+   mechanics this rule used to own. See `CornerStackHost.vue`'s header. */
 
 /* Presence arc P2b item 3: control-panel popover summon trigger. Same
-   28px pointer-target floor + look as its `#lyt-corner-chrome` siblings
+   28px pointer-target floor + look as its trigger-row siblings
    (`BoardRailPopoverTrigger.vue`'s `.board-rail-trigger`,
    `LytPresenceMenu.vue`'s `.lyt-presence-trigger`) — App.vue's own
    `<style>` block is NOT scoped (see this file's own header), so this

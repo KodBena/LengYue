@@ -36,6 +36,15 @@
  * badge does not show inline (VERSION, the interactive MODEL `<select>`,
  * full LATENCY) is present, verbatim, in the hover popover once opened.
  *
+ * Space-owner cure, dispatch L5 (HOVER-GRACE, `.claude/dispatch-reports/
+ * lyt-space-owner-spec.md` §1.5/§3 step 5): the `mouseenter`/`mouseleave`
+ * pair moved from `.eval-summary`/`.health-summary` themselves onto the
+ * new shared `.metric-hover-root` wrapper (trigger + popover now share
+ * one hover root — see `ToolbarEngineMetrics.vue`'s own template
+ * comment and `tests/integration/ToolbarEngineMetrics-hover-grace.test.ts`
+ * for the defect this closes) — the second tier's own hover triggers
+ * below are updated to match; no other assertion in this file changes.
+ *
  * License: Public Domain (The Unlicense)
  */
 
@@ -217,7 +226,7 @@ describe('ToolbarEngineMetrics.vue — eval/health overlap fix (ledger row 2372)
       // the always-visible badge narrow).
       expect(wrapper.find('.metrics-popover').exists()).toBe(false);
 
-      await wrapper.find('.eval-summary').trigger('mouseenter');
+      await wrapper.find('.metric-hover-root').trigger('mouseenter');
       await nextTick();
 
       const popover = wrapper.find('.metrics-popover');
@@ -237,7 +246,7 @@ describe('ToolbarEngineMetrics.vue — eval/health overlap fix (ledger row 2372)
       expect(popover.text()).toContain('100.0%');
       expect(popover.text()).toContain('-999.9');
 
-      await wrapper.find('.eval-summary').trigger('mouseleave');
+      await wrapper.find('.metric-hover-root').trigger('mouseleave');
       wrapper.unmount();
     });
 
@@ -248,7 +257,7 @@ describe('ToolbarEngineMetrics.vue — eval/health overlap fix (ledger row 2372)
 
       expect(wrapper.find('.metrics-popover').exists()).toBe(false);
 
-      await wrapper.find('.health-summary').trigger('mouseenter');
+      await wrapper.find('.metric-hover-root').trigger('mouseenter');
       await nextTick();
 
       const popover = wrapper.find('.metrics-popover');
@@ -259,7 +268,7 @@ describe('ToolbarEngineMetrics.vue — eval/health overlap fix (ledger row 2372)
       expect(popover.text()).toContain('99999ms');
       expect(popover.find('.watchdog-dot').exists()).toBe(true);
 
-      await wrapper.find('.health-summary').trigger('mouseleave');
+      await wrapper.find('.metric-hover-root').trigger('mouseleave');
       wrapper.unmount();
     });
   });

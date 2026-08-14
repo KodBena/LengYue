@@ -60,10 +60,29 @@
  * therefore genuinely witnessed by the integration tests, not
  * marked UNEXERCISED.
  *
+ * **Space-owner cure, dispatch L5** (`.claude/dispatch-reports/
+ * lyt-space-owner-spec.md` §1.5/§3 step 5, ledger rows 2447/2484/2499):
+ * this composable already implements the modal half of the overlay
+ * primitive's own dismissal contract — Escape, a real Tab focus trap,
+ * initial focus, and focus restoration — for every one of the eleven
+ * `src/components/modals/*.vue` call sites. `overlayContract()`
+ * (`state/overlay-contract.ts`) is now constructed once, at setup, to
+ * VALIDATE that shape rather than re-implement it: every caller of this
+ * composable declares `kind: 'modal'`, `focusTrap: true` (this
+ * composable's own guarantee), and its own `outsideClick`/
+ * `explicitCloseControl` disposition (both default `true` — every
+ * current modal has a backdrop `@mousedown.self` dismiss AND its own
+ * Cancel/×/close button; no caller currently needs the `false`
+ * exception, but the parameter exists so a future one can declare it
+ * explicitly rather than silently omitting a channel — the review's own
+ * "the learn-path modal missing Escape" finding, closed by wiring THIS
+ * composable into that one modal that lacked it, `LearnPathModal.vue`).
+ *
  * License: Public Domain (The Unlicense)
  */
 
 import { computed, nextTick, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue';
+import { overlayContract } from '../state/overlay-contract';
 
 // ── Global-hotkey suppression flag ──────────────────────────────
 //
@@ -118,12 +137,35 @@ export function getFocusableElements(container: HTMLElement): HTMLElement[] {
  *   named locally — `close`, `cancel`, `handle('cancel')`, an
  *   emitted `'close'` event). Escape calls exactly this function;
  *   no second close path is introduced.
+ * @param dismissal Optional override of the `outsideClick`/
+ *   `explicitCloseControl` channels `overlayContract()` validates —
+ *   see this file's own header, "Space-owner cure, dispatch L5". Both
+ *   default `true`, byte-identical to every current call site's actual
+ *   dismissal surface (a backdrop click handler this composable does
+ *   NOT own, plus the caller's own close/cancel button).
  */
 export function useModalKeyboard(
   container: Ref<HTMLElement | null>,
   isOpen: Ref<boolean> | ComputedRef<boolean>,
   onClose: () => void,
+  dismissal?: { outsideClick?: boolean; explicitCloseControl?: boolean },
 ): void {
+  // Construction-time refusal only (`overlay-contract.ts`'s own header,
+  // "never itself the source of truth for live UI state") — `open:
+  // false` is a snapshot; `isOpen` (above) is what the reactive `watch`
+  // below actually tracks.
+  overlayContract({
+    kind: 'modal',
+    open: false,
+    dismissal: {
+      escape: true,
+      outsideClick: dismissal?.outsideClick ?? true,
+      explicitCloseControl: dismissal?.explicitCloseControl ?? true,
+    },
+    focusTrap: true,
+    restoreFocusTo: () => (document.activeElement instanceof HTMLElement ? document.activeElement : null),
+  });
+
   // The element focus should return to when this modal closes —
   // captured at open time, restored at close time.
   let opener: HTMLElement | null = null;
