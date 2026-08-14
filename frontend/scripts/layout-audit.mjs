@@ -125,23 +125,43 @@
  *
  * Usage:
  *   node scripts/layout-audit.mjs [--port N] [--build] [--dist-dir DIR]
- *        [--headed] [--check] [--out FILE]
+ *        [--headed] [--check] [--out FILE] [--emit-baseline]
  *
- *   --build   run `npm run build` first (otherwise assumes `dist/` is
- *             current).
- *   --check   compare findings against the committed baseline
- *             (`layout-audit-baseline.json`) and exit nonzero on any
- *             NEW key (a finding whose key is not in the baseline).
- *             Without --check the script only reports (exit 0 unless a
- *             hard error occurs) — the mode `npm run layout-audit`
- *             uses in CI passes --check.
- *   --out     path to write the JSON report (default:
- *             layout-audit-report.json at the frontend root).
+ *   --build          run `npm run build` first (otherwise assumes
+ *                    `dist/` is current).
+ *   --check          compare findings against the committed baseline
+ *                    (`layout-audit-baseline.json`) and exit nonzero on
+ *                    any NEW key (a finding whose key is not in the
+ *                    baseline). Without --check the script only reports
+ *                    (exit 0 unless a hard error occurs) — the mode
+ *                    `npm run layout-audit` uses in CI passes --check.
+ *   --out            path to write the JSON report (default:
+ *                    layout-audit-report.json at the frontend root).
+ *   --emit-baseline  WRITE `layout-audit-baseline.json` directly from
+ *                    this run's own findings (every key across every
+ *                    reached geometry), with a real provenance header
+ *                    (the exact command, the env contract, the geometry
+ *                    set, a timestamp, and the branch SHA at generation
+ *                    time via `git rev-parse HEAD`) — the single
+ *                    reproducible command the baseline's own `_comment`
+ *                    field describes, closing the gap the L4 review
+ *                    named (`.claude/dispatch-reports/
+ *                    lyt-adr0019-gates-review.md` §9: the baseline was
+ *                    historically hand-assembled from a report's own
+ *                    `keys`, not produced by any single command the old
+ *                    comment's own text implied existed). Mutually
+ *                    exclusive with `--check` in practice (emitting
+ *                    OVERWRITES the file `--check` would otherwise read
+ *                    against) — this script does not refuse combining
+ *                    them, but `--check`'s own comparison against a
+ *                    freshly-overwritten baseline is trivially "0 new"
+ *                    and provides no signal; run them as separate
+ *                    invocations.
  *
  * License: Public Domain (The Unlicense)
  */
 import { chromium } from 'playwright-core';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { readFile, writeFile, access } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { createConnection } from 'node:net';
@@ -387,6 +407,7 @@ if (FORBIDDEN_PORTS.has(port)) {
 const headed = Boolean(flag('headed', false));
 const doBuild = Boolean(flag('build', false));
 const doCheck = Boolean(flag('check', false));
+const doEmitBaseline = Boolean(flag('emit-baseline', false));
 const distDir = join(FRONTEND_ROOT, 'dist');
 const outPath = flag('out', join(FRONTEND_ROOT, 'layout-audit-report.json'));
 
@@ -485,6 +506,88 @@ async function auditGeometry(browser, geometry) {
 function loadBaselineSync(text) {
   const parsed = JSON.parse(text);
   return new Set(parsed.keys || []);
+}
+
+/** `git rev-parse HEAD` at the frontend root — `null` (not thrown) on
+ *  any failure (detached tooling, no git binary, not a repo checkout at
+ *  all) since a missing SHA should degrade the provenance record, never
+ *  block emitting the baseline itself. */
+function currentGitShaOrNull() {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: FRONTEND_ROOT, encoding: 'utf8' }).trim();
+  } catch {
+    return null;
+  }
+}
+
+/** Writes `layout-audit-baseline.json` directly from this run's own
+ *  `results` — the `--emit-baseline` mode named in this module's own
+ *  header. Every finding key across every REACHED geometry (an
+ *  unreached geometry contributes nothing — it is its own separate
+ *  failure mode, surfaced by `main()`'s own `!r.reached` check, not
+ *  silently folded into "zero findings here"). The provenance fields
+ *  make the file's own `_comment` describe a genuinely reproducible
+ *  command for the FIRST time (`.claude/dispatch-reports/
+ *  lyt-adr0019-gates-review.md` §9's own named gap: the predecessor
+ *  baseline's `_comment` claimed a single command generated it, but no
+ *  such command existed in the script at that time). `regenerationNote`
+ *  is this specific regeneration's own editorial record — a future
+ *  regeneration replaces it with its own reason, the same way a
+ *  changelog entry is superseded, not accumulated. */
+async function emitBaseline(results) {
+  const keys = new Set();
+  for (const r of results) {
+    if (!r.reached) continue;
+    for (const f of r.findings) keys.add(f.key);
+  }
+  const sortedKeys = [...keys].sort();
+  const generatedAt = new Date().toISOString();
+  const sha = currentGitShaOrNull();
+  const baseline = {
+    _comment:
+      'frontend/layout-audit-baseline.json -- ADR-0019 layout-audit gate baseline. ' +
+      'Keys are `${geometry}::${ruleId}::${stableSelector}` -- NEVER file:line, NEVER pixel ' +
+      'coordinates (see scripts/layout-audit.mjs\'s own header for why). `--check` fails only on a ' +
+      'key NOT present here (a NEW finding); a key that stops appearing is a silent improvement, not ' +
+      'a failure -- ratchet the baseline DOWN by regenerating in the same change that fixes the ' +
+      'underlying defect. See .claude/dispatch-reports/lyt-adr0019-gates-build.md for the census the ' +
+      'PREDECESSOR of this snapshot corresponded to.',
+    _provenance: {
+      generatedByCommand: 'node scripts/layout-audit.mjs --build --emit-baseline',
+      note:
+        'This exact command, run from frontend/, reproduces this file (modulo genuinely new/fixed ' +
+        'UI defects) -- the FIRST baseline generation this project can make that claim honestly (see ' +
+        'regenerationNote below).',
+      environment: {
+        contract:
+          'Cold-boot SPA, no backend/proxy. `--build` bakes VITE_API_BASE_URL to a TCP port this ' +
+          'script itself probed dead (>=19000, refusing the scratch preview port and the project\'s ' +
+          'own forbidden live ports) immediately before building, via `pickDeadBackendPort`/' +
+          '`probePortDead` (this script, "Deterministic cold boot" in the module header) -- the built ' +
+          'dist/ genuinely cannot reach any live service on this or any other host. Served via ' +
+          '`vite preview`.',
+        deadBackendPortRange: '>= 19000, excluding the scratch preview port and 8764/4173/5173/5174',
+      },
+      geometries: GEOMETRIES.map((g) => g.label),
+      generatedAt,
+      branchSha: sha,
+      regenerationNote:
+        'Replaces a CONTAMINATED predecessor baseline: the prior snapshot was captured while a live ' +
+        'backend on the generating host happened to answer at the SPA\'s default ' +
+        'http://localhost:8764, so "cold boot" silently meant "cold boot, plus whatever a reachable ' +
+        'backend supplies" -- the SPA\'s real no-backend state (an auth-error indicator, a first-run ' +
+        'wizard modal, and the pointer-occlusion cascade that modal produces) was never exercised at ' +
+        'all, at any geometry, in any prior snapshot. This regeneration is the space-owner L4 arc\'s ' +
+        'own conclusion (ledger row 2498) -- see .claude/dispatch-reports/lyt-space-owner-l4-build.md ' +
+        'for the isolation proof that the resulting finding-count jump is 100% attributable to this ' +
+        'environment fix, 0% to the space-owner layout mechanism itself.',
+    },
+    generatedAt,
+    generatedAgainst: 'cold-boot SPA, no backend/proxy, npm run build (dist/) served via vite preview -- VITE_API_BASE_URL baked to a probed-dead port',
+    keys: sortedKeys,
+  };
+  await writeFile(BASELINE_PATH, `${JSON.stringify(baseline, null, 2)}\n`);
+  return { path: BASELINE_PATH, keyCount: sortedKeys.length };
 }
 
 function renderSummary(results, baselineKeys, checkMode) {
@@ -599,6 +702,11 @@ async function main() {
     };
     await writeFile(outPath, JSON.stringify(report, null, 2));
     console.log(`[layout-audit] wrote ${outPath}`);
+
+    if (doEmitBaseline) {
+      const { path, keyCount } = await emitBaseline(results);
+      console.log(`[layout-audit] emitted baseline: ${path} (${keyCount} keys)`);
+    }
 
     if (doCheck && totalNew > 0) {
       console.error(`[layout-audit] FAILED: ${totalNew} finding(s) not present in the committed baseline (${BASELINE_PATH}).`);
