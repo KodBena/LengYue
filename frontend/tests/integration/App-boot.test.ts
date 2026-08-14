@@ -67,7 +67,7 @@ vi.mock('../../src/composables/cards/board-card-trees', () => ({
 
 import App from '../../src/App.vue';
 import { i18n } from '../../src/i18n';
-import { store, resetWorkspace } from '../../src/store';
+import { store, resetWorkspace, clearSystemMessages } from '../../src/store';
 import { fakeBackendService, resetFakeBackendService } from '../fakes/backend-service';
 import { LYT_LANDSCAPE } from '../../src/state/lyt-layout.gen';
 import { LYT_PORTRAIT } from '../../src/state/lyt-layout-portrait.gen';
@@ -262,5 +262,66 @@ describe('App.vue — LYT presence arc P2b (control-panel class-aware default + 
     expect(mountEl.querySelector('[role="tablist"]')).toBeNull();
     // The demoted state is restored: still absent from the grid.
     expect(wrapper.find('#control-panel [role="tablist"]').exists()).toBe(false);
+  });
+});
+
+// Dispatch L3 repair, residual (`.claude/dispatch-reports/
+// lyt-space-owner-l3-review.md` §3 condition 3): the coordinator's delta
+// review caught that App.vue's own OUTER-bar `outerRowSovereignPushGate`
+// watcher still pushed a bare `pushSystemMessage('warning', d.message)`,
+// with no `remediation`/`nextAction` — the inner-bar wiring
+// (`useSideColumnLiveLayout.ts`) was fixed but the symmetric outer-bar one
+// was not, so the "ONE real producer" extent claim in the repair's own
+// report was false. This describe block is the symmetric integration
+// test the inner bar lacks a dedicated one for too (see that report's own
+// "what was NOT done" section) — mounting the FULL `App.vue` (the outer
+// bar's push watcher lives inline in its own `<script setup>`, not in a
+// separately-testable composable) and driving a genuine outer-bar
+// starvation, then asserting the pushed `SystemMessage` carries the SAME
+// structured fields the inner bar's diagnostic does.
+describe('App.vue — outer-bar sovereignty diagnostic pushes remediation/nextAction (dispatch L3 repair residual)', () => {
+  let wrapper: VueWrapper | null = null;
+
+  afterEach(() => {
+    wrapper?.unmount();
+    wrapper = null;
+    document.body.innerHTML = '';
+  });
+
+  it('a sovereign treeControlRegionWidthPx that starves #board-area pushes a warning carrying remediation and nextAction, mirroring the inner bar\'s own shape', async () => {
+    // A wide landscape aspect ratio (deriveAxis resolves this to
+    // 'landscape', same reasoning as the "control panel is present"
+    // test above at 1920x1080) but narrow enough in absolute terms that
+    // a 900px sovereign wrapper leaves #board-area well under its own
+    // 300px floor (MIN_BOARD_PX) once the resizer's own width is
+    // reserved too.
+    stubSplitWorkspaceRect(1024, 700);
+    clearSystemMessages();
+
+    wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
+    await flushPromises();
+    expect(wrapper.find('.reb-overlay').exists()).toBe(false);
+
+    // No stored wrapper width yet -> outerRowSovereignDiagnostic starts
+    // empty (nothing sovereign to check), matching
+    // `useResizablePanel.ts`'s own documented "not-yet-measured /
+    // never-dragged" guard -- no push yet.
+    expect(store.engine.messages.some((m) => m.text.includes('board'))).toBe(false);
+
+    // Simulate the sovereign drag/hydrate fact directly on the store —
+    // the same field `resizer-restore-clamp.test.ts`'s own ui-5-3 suite
+    // drives to reproduce this exact starvation (900px on a 1024px row).
+    store.session.ui.treeControlRegionWidthPx = 900;
+    await flushPromises();
+
+    const pushed = store.engine.messages.find((m) => m.text.includes('board'));
+    expect(pushed).toBeDefined();
+    expect(pushed?.type).toBe('warning');
+    // The SAME structured fields the inner bar's own
+    // SovereignOverrideDiagnostic carries (state/feasible-layout.ts's
+    // `resolveSovereignOverrides`) — no divergence between the two
+    // symmetric bars.
+    expect(pushed?.remediation).toBe('reduce this region\'s width, or use Default Layout to reset');
+    expect(pushed?.nextAction).toBe('open-default-layout-control');
   });
 });

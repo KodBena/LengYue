@@ -39,6 +39,15 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
         <div class="msg-content">
           <span class="msg-time">{{ new Date(msg.timestamp).toLocaleTimeString() }}</span>
           <span class="msg-text">{{ msg.text }}</span>
+          <!-- Dispatch L3 repair (ADR-0019 C8): `remediation`/`nextAction`
+               are structured fields on `SystemMessage`, not flattened into
+               `msg.text` — rendered as their own subordinate lines when a
+               producer supplies them. `nextAction` is a LABEL only: no
+               affordance named `open-default-layout-control` exists on
+               this branch to wire a click handler to (disclosed gap, not
+               a silently-implied control). -->
+          <span v-if="msg.remediation" class="msg-remediation">{{ msg.remediation }}</span>
+          <span v-if="msg.nextAction" class="msg-next-action">{{ $t('systemLog.nextAction') }}: {{ msg.nextAction }}</span>
         </div>
         <button class="dismiss-btn" @click="dismissSystemMessage(msg.id)">×</button>
       </div>
@@ -148,6 +157,14 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
   color: var(--text-0);
   font-family: monospace;
   white-space: pre-wrap; /* Preserve stack traces if sent by Python */
+  line-height: 1.4;
+}
+
+.msg-remediation,
+.msg-next-action {
+  font-size: var(--text-body);
+  color: var(--text-0);
+  font-family: monospace;
   line-height: 1.4;
 }
 

@@ -13,13 +13,23 @@
  */
 import type { SystemMessage } from '../types';
 
+/** Optional structured fields a producer may supply alongside `text` —
+ *  `SystemMessage`'s own `remediation`/`nextAction` (dispatch L3 repair,
+ *  ADR-0019 C8: "what would make this valid" / "a reachable next
+ *  action"). Additive: every existing two-argument `push(type, text)`
+ *  call site is unaffected. */
+export interface SystemMessagePushDetails {
+  readonly remediation?: string;
+  readonly nextAction?: string;
+}
+
 /**
  * The push port. `type` reuses `SystemMessage['type']` so the message-kind
  * vocabulary has one home (the `SystemMessage` value object), not a parallel
  * enum.
  */
 export interface SystemMessageSink {
-  push(type: SystemMessage['type'], text: string): void;
+  push(type: SystemMessage['type'], text: string, details?: SystemMessagePushDetails): void;
 }
 
 // Module-scope singleton: the store registers exactly one sink at init.
@@ -39,7 +49,11 @@ export function registerSystemMessageSink(s: SystemMessageSink): void {
  * order bug, and a silently dropped user-visible message is exactly the
  * silent failure the tenet forbids — surface it at the first push instead.
  */
-export function pushSystemMessage(type: SystemMessage['type'], text: string): void {
+export function pushSystemMessage(
+  type: SystemMessage['type'],
+  text: string,
+  details?: SystemMessagePushDetails,
+): void {
   if (sink === null) {
     throw new Error(
       'pushSystemMessage called before a SystemMessageSink was registered. ' +
@@ -48,5 +62,5 @@ export function pushSystemMessage(type: SystemMessage['type'], text: string): vo
         'silently dropped (ADR-0002).',
     );
   }
-  sink.push(type, text);
+  sink.push(type, text, details);
 }

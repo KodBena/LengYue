@@ -206,12 +206,17 @@ export const store = reactive<GlobalStore>({
 // dependents) out of the store/services import cycle. `pushSystemMessage` is
 // re-exported below so the existing store-importers keep working unchanged.
 registerSystemMessageSink({
-  push(type: SystemMessage['type'], text: string) {
+  push(type: SystemMessage['type'], text: string, details) {
     const msg: SystemMessage = {
       id: Math.random().toString(36).substring(2, 9),
       type,
       text,
       timestamp: Date.now(),
+      // Optional structured fields (dispatch L3 repair) — `undefined` for
+      // every existing two-argument caller, so `msg` stays byte-identical
+      // to before whenever a producer doesn't supply them.
+      ...(details?.remediation !== undefined ? { remediation: details.remediation } : {}),
+      ...(details?.nextAction !== undefined ? { nextAction: details.nextAction } : {}),
     };
     store.engine.messages.unshift(msg);
     if (store.engine.messages.length > 50) store.engine.messages.pop();

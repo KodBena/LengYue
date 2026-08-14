@@ -465,6 +465,7 @@
   "systemLog.clearAll":                   "すべてクリア",
   "systemLog.noMessages":                 "メッセージなし — システムアイドル。",
   "systemLog.toggleButton":               "システムログの表示切替",
+  "systemLog.nextAction":                 "次のアクション",
 
   "analysisChart.emptyState":             "{label} のデータはまだありません。",
 

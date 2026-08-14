@@ -114,7 +114,7 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import type { LytAxis, LytChild, LytNodeData, LytProgram, LytTrackShape } from './lyt-layout-types';
+import type { LytAxis, LytChild, LytDemotion, LytNodeData, LytProgram, LytTrackShape } from './lyt-layout-types';
 
 // ── §1.1 Measured<Region> ──────────────────────────────────────────────
 
@@ -540,4 +540,263 @@ export function measuredFromLytProgram(
 
   for (const child of program.root.children) visitChild(child, program.root.axis);
   return out;
+}
+
+// ── §3 step 3: the side-column live solve (dispatch L3, ledger rows
+//    2447/2450/2460/2461) ────────────────────────────────────────────
+
+/** One row-child fact the side-column solve needs: its own compiled
+ *  track (from the active `LytProgram`) and its persisted-or-class-
+ *  default DESIRED visibility (before any width evaluation) — the same
+ *  "desired" input the now-deleted `resolveWidthConditionalPresence`
+ *  (`layout-model.ts`) used to take, folded here into `RegionPresence`
+ *  resolution instead of a bare boolean return (spec §1.3: "presence
+ *  unifies through `RegionPresence`"). */
+export interface SideColumnFixedRegion {
+  readonly widgetId: string;
+  readonly track: LytTrackShape;
+  readonly desiredVisible: boolean;
+  /** Compiled `@demote` threshold, or `null` when this region never
+   *  demotes by width (`previewBoard` today — its own presence toggle is
+   *  unconditional, per the dated addendum this dispatch's own header
+   *  transcribes). */
+  readonly demote: LytDemotion | null;
+}
+
+export interface SideColumnLiveLayoutInput {
+  /** `#tree-control-wrapper`'s own live DOM width (`sideColumnWidthPx`,
+   *  `useResizablePanel.ts`'s second `ResizeObserver`). `<= 0` means "not
+   *  yet measured." */
+  readonly wrapperWidthPx: number;
+  readonly gapPx: number;
+  readonly tree: {
+    /** Must be `'elastic'` — this solve only knows how to read an
+     *  elastic leaf's own `minPx` floor; a different compiled shape is a
+     *  caller error (ADR-0002, guarded at this function's own entry). */
+    readonly track: LytTrackShape;
+    /** Content-demand ceiling (dispatch L2b's `useContentDemand` overlay
+     *  — `TreeWidget.vue`'s own exposed `contentDemandPx`), `null` when
+     *  not yet measured or genuinely unbounded. THE decisive fact this
+     *  dispatch wires live: without it, `tree`'s own candidate below has
+     *  no ceiling at all and reproduces the review's own flagship
+     *  hoarding defect. */
+    readonly maxUsefulPx: Px | null;
+  };
+  /** `store.session.ui.treePanelWidthPx` — `undefined` means never
+   *  dragged this session. */
+  readonly treeSovereignPx: number | undefined;
+  /** The un-dragged default (`computeTreePanelDefaultWidthPx`) — used
+   *  ONLY as this function's own "not yet measured" pass-through value;
+   *  the live solve otherwise re-derives the un-dragged candidate itself
+   *  from `wrapperWidthPx` and the row's own reservations (subsuming the
+   *  deleted `resolveTreeRowWidthPx`'s widen-into-freed-space behavior). */
+  readonly treeDefaultPx: number;
+  /** `controlPanel` then `previewBoard`, in row order — every OTHER
+   *  fixed-demand sibling this row can carry (mirrors the deleted
+   *  `clampTreeWidthForSideColumn`'s own `fixedSiblings` parameter). */
+  readonly others: readonly SideColumnFixedRegion[];
+  readonly screenClassId: LytScreenClassIdInput;
+}
+
+export interface SideColumnRegionOutcome {
+  readonly widgetId: string;
+  readonly present: boolean;
+  readonly candidatePx: number;
+}
+
+export interface SideColumnLiveLayoutResult {
+  readonly treePx: number;
+  readonly others: readonly SideColumnRegionOutcome[];
+  /** Non-empty only when `tree` is sovereign (dragged this session) AND
+   *  the resulting candidate starves another region — §1.6's own
+   *  contract, never a silent clamp, never a silent starvation. */
+  readonly diagnostics: readonly SovereignOverrideDiagnostic[];
+}
+
+function fixedTrackPx(track: LytTrackShape, widgetId: string): number {
+  if (track.kind !== 'fixed') {
+    throw new Error(
+      `resolveSideColumnLiveLayout: ${widgetId}'s own compiled track is ${JSON.stringify(track.kind)}, ` +
+        'not "fixed" — this solve only knows how to reserve a fixed-px sibling demand (ADR-0002); the ' +
+        'compiled program declared something else.',
+    );
+  }
+  return track.px;
+}
+
+/**
+ * The row `FeasibleLayout` now DRIVES, live (dispatch L3, spec §3 step 3):
+ * `tree`, `controlPanel` (the Exclusive), `previewBoard` — exactly the row
+ * the four now-deleted `layout-model.ts` functions
+ * (`clampTreeWidthForSideColumn`, `resolveTreeRowWidthPx`,
+ * `sumFixedRowSiblingReservationPx`, `resolveWidthConditionalPresence`)
+ * used to hand-clamp. `computeTreePanelClampedWidthPx` and
+ * `sanitizeTreeControlRegionWidthPx` (also deleted) are subsumed by
+ * `resolveSovereignOverrides` itself, called below.
+ *
+ * **Presence.** Every `others` entry with a `demote` is evaluated against
+ * `wrapperWidthPx` and every OTHER present sibling's own reservation
+ * (mirrors `resolveWidthConditionalPresence`'s own `otherFixedSiblings`
+ * question, now asked once per region instead of once per call site).
+ *
+ * **Tree's own candidate.** SOVEREIGN (`treeSovereignPx !== undefined`):
+ * the stored value wins VERBATIM — no clamp against `tree`'s own
+ * `minPx`/`maxUsefulPx`, no reservation against a sibling's demand
+ * (§1.6: "its own floor/ceiling no longer bind"). Only a floor of `0` is
+ * applied (a negative pixel measure is not renderable CSS, never a
+ * starvation-avoidance clamp). NON-SOVEREIGN: the candidate is
+ * `wrapperWidthPx` minus every present sibling's own reservation, clamped
+ * to `[tree.track.minPx, tree.maxUsefulPx ?? +Infinity]` — this ONE
+ * expression reproduces the deleted wave-A shrink clamp, the deleted
+ * wave-B1/N2 widen-into-freed-space behavior, AND (new) the content-
+ * demand ceiling dispatch L2b wired but never consumed until now — this
+ * is the flagship fix: at a geometry where every sibling is absent and
+ * `tree`'s own content is 60px wide, the un-dragged candidate is capped
+ * at 60px (or the sibling reservation, whichever binds), never "claim
+ * everything freed."
+ *
+ * **The other regions' own candidates.** `previewBoard` is never shrunk
+ * when present — its own presence toggle is unconditional and
+ * independent of `controlPanel`'s width gate (the dated addendum this
+ * dispatch's own header transcribes); `controlPanel` absorbs whatever the
+ * row has left after `tree` and `previewBoard` claim theirs — which CAN
+ * fall below `controlPanel`'s own compiled fixed px once `tree` is
+ * sovereign. This is the sovereignty completion (SCOPE item 3): the
+ * commissioner's ~640px control-panel drag floor is gone by construction
+ * — nothing in this function reserves `controlPanel`'s own demand against
+ * `tree`'s sovereign candidate, so a drag that claims the whole wrapper
+ * genuinely shrinks `controlPanel` toward `0`, never resisted.
+ *
+ * **Diagnostics.** Only the SOVEREIGN path can produce a starvation — the
+ * non-sovereign candidate is CONSTRUCTED to respect every present
+ * sibling's own reservation, so it can never itself starve one.
+ * `resolveSovereignOverrides` (§1.6) is the one call site that both
+ * APPLIES the override and re-validates every other region in one pass.
+ */
+export function resolveSideColumnLiveLayout(input: SideColumnLiveLayoutInput): SideColumnLiveLayoutResult {
+  if (input.tree.track.kind !== 'elastic') {
+    throw new Error(
+      `resolveSideColumnLiveLayout: tree's own compiled track is ${JSON.stringify(input.tree.track.kind)}, ` +
+        'not "elastic" — this solve only knows how to read an elastic leaf\'s own minPx floor (ADR-0002); ' +
+        'the compiled program declared something else.',
+    );
+  }
+  const treeTrack = input.tree.track;
+
+  if (!Number.isFinite(input.wrapperWidthPx) || input.wrapperWidthPx <= 0) {
+    // Not yet measured: every quantity passes through unclamped — the
+    // SAME "not yet measured" convention every deleted function shared.
+    const treePx = input.treeSovereignPx ?? input.treeDefaultPx;
+    return {
+      treePx,
+      others: input.others.map((o) => ({
+        widgetId: o.widgetId,
+        present: o.desiredVisible,
+        candidatePx: o.desiredVisible ? fixedTrackPx(o.track, o.widgetId) : 0,
+      })),
+      diagnostics: [],
+    };
+  }
+
+  // ── Presence: fold the compiled @demote threshold into RegionPresence.
+  function reservationExcept(exceptWidgetId: string): number {
+    let total = 0;
+    for (const o of input.others) {
+      if (o.widgetId === exceptWidgetId || !o.desiredVisible) continue;
+      total += fixedTrackPx(o.track, o.widgetId) + input.gapPx;
+    }
+    return total;
+  }
+
+  const presentByWidgetId = new Map<string, boolean>();
+  for (const o of input.others) {
+    if (o.demote === null) {
+      presentByWidgetId.set(o.widgetId, o.desiredVisible);
+      continue;
+    }
+    if (o.demote.axis !== 'h') {
+      throw new Error(
+        `resolveSideColumnLiveLayout: unsupported demote axis ${JSON.stringify(o.demote.axis)} for ` +
+          `${o.widgetId} — only "h" (measured against the side column's own live width) is wired (ADR-0002).`,
+      );
+    }
+    const fits = input.wrapperWidthPx >= o.demote.belowPx + reservationExcept(o.widgetId);
+    presentByWidgetId.set(o.widgetId, fits ? o.desiredVisible : false);
+  }
+
+  // ── Tree's own candidate ────────────────────────────────────────────
+  const sovereign = input.treeSovereignPx !== undefined;
+  let treePx: number;
+  if (sovereign) {
+    // `sovereign` is exactly `input.treeSovereignPx !== undefined` — TS's
+    // own narrowing does not propagate that fact from the `const`
+    // computed two lines above into this `if` branch, so the cast
+    // restates a truth already established, not a bypass of one.
+    treePx = Math.max(0, Math.round(input.treeSovereignPx as number));
+  } else {
+    let reservedPx = 0;
+    for (const o of input.others) {
+      if (presentByWidgetId.get(o.widgetId)) reservedPx += fixedTrackPx(o.track, o.widgetId) + input.gapPx;
+    }
+    const roomPx = input.wrapperWidthPx - reservedPx;
+    const ceilingPx = input.tree.maxUsefulPx ?? Number.POSITIVE_INFINITY;
+    treePx = Math.max(treeTrack.minPx, Math.min(Math.round(roomPx), ceilingPx));
+  }
+
+  // ── Others' own candidates ──────────────────────────────────────────
+  const outcomes: SideColumnRegionOutcome[] = [];
+  let claimedPx = treePx;
+  for (const o of input.others) {
+    const present = presentByWidgetId.get(o.widgetId) ?? false;
+    if (!present) {
+      outcomes.push({ widgetId: o.widgetId, present: false, candidatePx: 0 });
+      continue;
+    }
+    if (o.widgetId === 'previewBoard') {
+      claimedPx += input.gapPx + fixedTrackPx(o.track, o.widgetId);
+      outcomes.push({ widgetId: o.widgetId, present: true, candidatePx: fixedTrackPx(o.track, o.widgetId) });
+      continue;
+    }
+    // Absorbs whatever the row has left, capped at its OWN compiled fixed
+    // px (never grants MORE than its declared demand — the leftover slack
+    // a content-demand-capped `tree` frees up is simply unclaimed here,
+    // same as CSS Grid's own fixed track never growing past its declared
+    // size) and floored at 0 (never negative — this is where the
+    // sovereignty completion bites: `remainingPx` can fall below the
+    // sibling's own fixed demand once `tree` is sovereign).
+    const remainingPx = Math.max(0, Math.round(input.wrapperWidthPx - claimedPx - input.gapPx));
+    outcomes.push({ widgetId: o.widgetId, present: true, candidatePx: Math.min(fixedTrackPx(o.track, o.widgetId), remainingPx) });
+  }
+
+  // ── FeasibleLayout / sovereignty ─────────────────────────────────────
+  let diagnostics: readonly SovereignOverrideDiagnostic[] = [];
+  if (sovereign) {
+    const demands: Measured<string>[] = [
+      measured({
+        region: 'tree',
+        axis: 'h',
+        min: px(treeTrack.minPx),
+        preferred: px(treeTrack.minPx),
+        maxUseful: input.tree.maxUsefulPx,
+      }),
+    ];
+    const solved = new Map<string, RegionAllotment<string>>([['tree', { region: 'tree', axis: 'h', px: px(treePx) }]]);
+    for (const o of input.others) {
+      if (!(presentByWidgetId.get(o.widgetId) ?? false)) continue;
+      const demandPx = px(fixedTrackPx(o.track, o.widgetId));
+      demands.push(measured({ region: o.widgetId, axis: 'h', min: demandPx, preferred: demandPx, maxUseful: demandPx }));
+      const outcome = outcomes.find((x) => x.widgetId === o.widgetId);
+      solved.set(o.widgetId, { region: o.widgetId, axis: 'h', px: px(outcome ? outcome.candidatePx : 0) });
+    }
+    const result = resolveSovereignOverrides(
+      demands,
+      solved,
+      [{ region: 'tree', axis: 'h', px: px(treePx), source: 'user-drag' }],
+      input.screenClassId,
+      { widthPx: px(input.wrapperWidthPx), heightPx: px(0) },
+    );
+    diagnostics = result.diagnostics;
+  }
+
+  return { treePx, others: outcomes, diagnostics };
 }

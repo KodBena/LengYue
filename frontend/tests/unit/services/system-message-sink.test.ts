@@ -59,6 +59,35 @@ describe('system-message-sink', () => {
     expect(store.pushSystemMessage).toBe(sink.pushSystemMessage);
   });
 
+  it('an optional third argument (remediation/nextAction) lands on the message unchanged — dispatch L3 repair, ADR-0019 C8', async () => {
+    const sink = await import('../../../src/services/system-message-sink');
+    const store = await import('../../../src/store');
+
+    store.clearSystemMessages();
+    sink.pushSystemMessage('warning', 'a starved region', {
+      remediation: 'reduce this region\'s width, or use Default Layout to reset',
+      nextAction: 'open-default-layout-control',
+    });
+
+    expect(store.store.engine.messages[0]).toMatchObject({
+      type: 'warning',
+      text: 'a starved region',
+      remediation: 'reduce this region\'s width, or use Default Layout to reset',
+      nextAction: 'open-default-layout-control',
+    });
+  });
+
+  it('a push with no third argument carries neither field — additive, byte-identical to every pre-repair call site', async () => {
+    const sink = await import('../../../src/services/system-message-sink');
+    const store = await import('../../../src/store');
+
+    store.clearSystemMessages();
+    sink.pushSystemMessage('info', 'plain message, no details');
+
+    expect(store.store.engine.messages[0].remediation).toBeUndefined();
+    expect(store.store.engine.messages[0].nextAction).toBeUndefined();
+  });
+
   it('caps the message list at 50 (preserved behaviour)', async () => {
     const sink = await import('../../../src/services/system-message-sink');
     const store = await import('../../../src/store');
