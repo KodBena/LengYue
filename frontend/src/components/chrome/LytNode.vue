@@ -222,6 +222,21 @@
   own OWN widget id, the same identity `leafOverflowStyle`/`domId` above
   already key on for that cell.
 
+  Docked-Exclusive scroll port (row 2501 repair, `.claude/dispatch-
+  reports/lyt-cure-repair-build.md`, item 2): the Exclusive branch below
+  (`group.rep.node.kind === 'exclusive'`) had no overflow style of its
+  own — every OTHER terminal (a leaf/blackbox cell) gets one from
+  `leafOverflowStyle`, but the Exclusive's wrapper div predates that
+  mechanism and was never given an equivalent. `exclusiveOverflowStyle`
+  fixes this: `overflow-y:auto` when DOCKED (rendered in its own grid
+  cell, `isPresent`), so content taller than the row's own allotted
+  height gets a real scroll port instead of rendering past the cell's
+  own bounds with nothing to scroll it back into view (the live-witness
+  rig's own item 5a-ii finding: 0 of 7 Settings/Advanced-Registry
+  controls reachable at a docked 2560px boot). Not applied when Teleported
+  into the summon popover — that path already has its own bounded,
+  scrollable box (App.vue's `.control-panel-popover` CSS).
+
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
@@ -374,6 +389,33 @@ function isPresent(child: LytChild): boolean {
 // `node.widget` id.
 function isExclusiveSummoned(node: LytExclusiveNode): boolean {
   return props.exclusivePopoverOpen[node.widget] ?? false;
+}
+
+// Row 2501 repair item 2 (`.claude/dispatch-reports/lyt-cure-repair-
+// build.md`), the live-witness's docked-panel overflow FAIL: a leaf/
+// blackbox cell gets its own scroll port from `leafOverflowStyle` (the
+// template's `v-else-if="isPresent(group.rep)"` branch below, `content`/
+// `scrollAxes`), but the Exclusive's own DOCKED wrapper div here never
+// had ANY overflow style at all — §0's own disclosed gap ("Settings'
+// interior is not a leaf at all, it is inside a blackbox whose interior
+// escaped the LYT contract"). The SUMMON POPOVER path (App.vue's own
+// `.control-panel-popover` CSS class) already gives the SAME content a
+// bounded, scrollable box (`height:70vh; overflow:auto`); the docked
+// in-grid path had none, so overflowing content (e.g. Settings' Advanced
+// Registry controls at a geometry too narrow for all of them) rendered
+// past the grid cell's own bounds with nothing to scroll — 0 of 7
+// controls reachable, the live witness's own item 5a-ii finding.
+//
+// Scoped to ONLY the docked case (`isPresent`): when Teleported into the
+// popover, the OUTER `.control-panel-popover` div already owns the
+// scroll port (App.vue's own CSS) — a second nested `overflow:auto` here
+// would be redundant (though harmless; CSS Grid item stretch does not
+// apply once Teleported out of the grid, so this style would be an
+// inert no-op there regardless). `overflow-x:hidden` matches the tab
+// strip's own fixed-width intent (this row never needs horizontal
+// scroll); `overflow-y:auto` is the actual fix.
+function exclusiveOverflowStyle(child: LytChild): Record<string, string> {
+  return isPresent(child) ? { overflowY: 'auto', overflowX: 'hidden' } : {};
 }
 
 // boardRail reservation generalization — see file header. Finds a
@@ -594,7 +636,7 @@ const slotNames = computed(() => Object.keys(slots));
       <div
         v-else-if="group.rep.node.kind === 'exclusive'"
         :id="domId(group.rep.path)"
-        :style="{ ...placementStyle(group), minWidth: '0', minHeight: '0', position: 'relative' }"
+        :style="{ ...placementStyle(group), minWidth: '0', minHeight: '0', position: 'relative', ...exclusiveOverflowStyle(group.rep) }"
       >
         <!-- Presence arc P2b, file header "Popover summon for an absent
              Exclusive": `disabled` renders in place (byte-identical to

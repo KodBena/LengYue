@@ -287,7 +287,15 @@ function landscapeSideColumnFixtures() {
     { widgetId: 'controlPanel', track: facts.controlPanelTrack, desiredVisible: true, demote: facts.controlPanelDemote },
     { widgetId: 'previewBoard', track: facts.previewBoardTrack, desiredVisible: false, demote: null },
   ];
-  const treeMaxUsefulPx: Px = px(Math.max(facts.treeTrack.kind === 'elastic' ? facts.treeTrack.minPx : 0, 60));
+  // Row 2501 repair: `resolveSideColumnLiveLayout` now computes the
+  // effective floor/ceiling relationship ITSELF (`effectiveDemandFloorPx`,
+  // `src/state/feasible-layout.ts`) — this fixture passes the RAW live
+  // reading (60px) unclamped, matching how the real composable
+  // (`useSideColumnLiveLayout.ts`) actually supplies it in the live app
+  // (an unclamped `TreeWidget.vue` content-demand reading). This purity
+  // suite only asserts path-independence, never an absolute pixel value,
+  // so this change affects nothing it checks.
+  const treeMaxUsefulPx: Px = px(60);
   return { facts, others, treeMaxUsefulPx };
 }
 

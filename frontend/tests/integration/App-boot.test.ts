@@ -263,6 +263,57 @@ describe('App.vue — LYT presence arc P2b (control-panel class-aware default + 
     // The demoted state is restored: still absent from the grid.
     expect(wrapper.find('#control-panel [role="tablist"]').exists()).toBe(false);
   });
+
+  // Row 2501 repair, item 3 (`.claude/dispatch-reports/
+  // lyt-cure-repair-build.md`; live-witness finding
+  // `.claude/dispatch-reports/lyt-cure-live-witness.md`, item 5b-ii): the
+  // L5 build's own Escape-dismissal claim for this exact popover was
+  // UNEXERCISED by any test (only click-to-toggle was covered, above) —
+  // the live rig found it genuinely inert in a real browser. This test
+  // is deliberately STRONGER than the isolated `useDismissiblePopover`
+  // coverage in `ToolbarEngineControls-menu-dismissal.test.ts` (which
+  // mounts ONLY that one component) in two ways the charter's own
+  // diagnosis names: it mounts the FULL `App.vue` tree (so every OTHER
+  // global keydown listener App.vue wires — `useUserIORegistry.ts`,
+  // `SetupToolPalette.vue`, `useModalKeyboard.ts` — is present and could
+  // in principle interfere), and it explicitly puts focus OUTSIDE the
+  // popover's own subtree before dispatching Escape (a plain sibling
+  // `<div>`, focused via `tabIndex`) rather than leaving
+  // `document.activeElement` at whatever the click left it — the exact
+  // shape the charter names as what would have caught a real-browser-only
+  // focus/event-target divergence.
+  it('portrait: Escape closes the summoned popover even with focus OUTSIDE its own subtree, in the FULL App tree (not just the isolated composable)', async () => {
+    stubSplitWorkspaceRect(400, 900);
+    wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
+    await flushPromises();
+
+    await wrapper.find('#control-panel-summon-btn').trigger('click');
+    await flushPromises();
+
+    const mountEl = wrapper.find('#control-panel-popover-mount').element as HTMLElement;
+    expect(mountEl.style.display).not.toBe('none');
+
+    // Focus OUTSIDE the popover's own subtree — a plain sibling element in
+    // document.body, genuinely disjoint from `.control-panel-summon-wrap`
+    // (the `useDismissiblePopover` `rootRef`) and from `#app` itself. This
+    // is the precondition the isolated `ToolbarEngineControls` test never
+    // sets up (it never moves focus at all before dispatching).
+    const outsideEl = document.createElement('button');
+    outsideEl.tabIndex = 0;
+    document.body.appendChild(outsideEl);
+    outsideEl.focus();
+    expect(document.activeElement).toBe(outsideEl);
+    expect(wrapper.find('.control-panel-summon-wrap').element.contains(outsideEl)).toBe(false);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await flushPromises();
+
+    expect(mountEl.style.display).toBe('none');
+    expect(mountEl.querySelector('[role="tablist"]')).toBeNull();
+    expect(wrapper.find('#control-panel [role="tablist"]').exists()).toBe(false);
+
+    outsideEl.remove();
+  });
 });
 
 // Dispatch L3 repair, residual (`.claude/dispatch-reports/

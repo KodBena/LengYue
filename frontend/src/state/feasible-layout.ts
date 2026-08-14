@@ -100,23 +100,59 @@
  * residual item for a follow-up dispatch to `research/lyt/`, matching the
  * spec's own risk-register framing.
  *
- * A superseded `maxUseful` is never allowed to violate `measured()`'s own
- * `preferred <= maxUseful` invariant: the effective value is
- * `max(entry.min, overlayPx)`, not the raw overlay reading. This is
- * deliberate engineering, not a silent clamp of a DIFFERENT quantity —
- * `maxUseful`'s own doc (§1.1) defines it as "the largest extent whose
- * ADDITIONAL px past this point renders no more of the region's own
- * content," so a live content reading BELOW the region's own compiled
- * floor does not mean less than the floor is ever useful (the floor is
- * itself a declared readability guarantee no measurement can shrink) —
- * it means the region already renders everything it has AT its own floor,
- * i.e. `maxUseful` bottoms out at `min`, never below it.
+ * **Superseded by the row 2501 repair (`.claude/dispatch-reports/
+ * lyt-cure-repair-build.md`, `resolveEffectiveDemand` below).** This
+ * paragraph originally described the effective value as `max(entry.min,
+ * overlayPx)` — a live reading below the compiled floor clamped UP to
+ * that floor, on the theory that the floor was "a declared readability
+ * guarantee no measurement can shrink." The live-witness rig
+ * (`.claude/dispatch-reports/lyt-cure-live-witness.md` FAILs 1/2) found
+ * that rule was never actually applied at EVERY site that constructs a
+ * `Measured<'tree'>` triple from a raw live reading —
+ * `resolveSideColumnLiveLayout`'s own sovereign branch built one
+ * directly from the unclamped reading, so a live demand 1px below the
+ * compiled floor self-contradicted at `measured()`'s own construction
+ * (a construction-time THROW, uncaught, crashing the reactive `computed`
+ * that reads it). Rather than merely make the clamp-up rule consistent
+ * everywhere, the rule itself is reversed for a content-dependent
+ * region: the compiled floor is a disclosed, solver-only relaxation, so
+ * live truth wins and the WHOLE triple (including `min`) lowers to the
+ * live reading. See `resolveEffectiveDemand`'s own header for the full
+ * account (including the review's own obligation-2 demand-of-0 special
+ * case); this function and `resolveSideColumnLiveLayout` both consume
+ * it now, so the rule has exactly one home.
  *
  * License: Public Domain (The Unlicense)
  */
 import type { LytAxis, LytChild, LytDemotion, LytNodeData, LytProgram, LytTrackShape } from './lyt-layout-types';
 
 // ── §1.1 Measured<Region> ──────────────────────────────────────────────
+
+/**
+ * Row 2501 review repair (`.claude/dispatch-reports/
+ * lyt-cure-repair-review.md` obligation 1): minted ONLY by `px()`'s and
+ * `measured()`'s own construction-refusal throws below — the two places
+ * that check a region's own `min <= preferred <= (maxUseful ?? +Infinity)`
+ * ordering and its `Px` finiteness/non-negativity. Deliberately NOT thrown
+ * by any OTHER guard in this module: `resolveSideColumnLiveLayout`'s own
+ * two ADR-0002 caller-contract checks (a non-`elastic` tree track, a
+ * non-`h` demote axis) and `fixedTrackPx`'s own "not a fixed track" guard
+ * all stay plain `Error` — those are wiring/shape bugs a caller made, not
+ * a measurement self-contradiction, and per the review's own adversarial
+ * probe (an `others` entry with a broken/undefined track) they must
+ * PROPAGATE rather than degrade into a "layout could not be computed"
+ * system message, which would misdescribe what actually went wrong and
+ * hide a caller-side bug behind a content-demand-shaped excuse.
+ * `resolveSideColumnLiveLayout`'s own defense-in-depth catch (§3 step 3's
+ * doc, "Defense in depth") narrows on `instanceof MeasurementRefusalError`
+ * specifically — see that function's own doc for the narrowed catch.
+ */
+export class MeasurementRefusalError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MeasurementRefusalError';
+  }
+}
 
 /** A CSS-pixel measure, always non-negative, always finite. Branded so a
  *  bare `number` (viewport px, aspect ratio, ch) cannot be passed where a
@@ -128,10 +164,13 @@ export type Px = number & { readonly __brand: 'Px' };
 /** Sole constructor for `Px`. Refuses loudly (ADR-0002) rather than
  *  silently clamping a negative/non-finite input — a caller that computed
  *  a negative pixel measure has a bug upstream, not a value this
- *  constructor should paper over. */
+ *  constructor should paper over. Throws `MeasurementRefusalError` (row
+ *  2501 review repair) — this specific refusal shape is exactly what
+ *  `resolveSideColumnLiveLayout`'s own defense-in-depth catch is scoped
+ *  to degrade gracefully. */
 export function px(n: number): Px {
   if (!Number.isFinite(n) || n < 0) {
-    throw new Error(`px(): ${n} is not a finite, non-negative pixel measure (ADR-0002).`);
+    throw new MeasurementRefusalError(`px(): ${n} is not a finite, non-negative pixel measure (ADR-0002).`);
   }
   // Sole minting site for the `Px` brand: the guard above is the entire
   // runtime contract the brand promises (finite, non-negative), so the
@@ -187,14 +226,14 @@ export function measured<R extends string>(input: {
   maxUseful: Px | null;
 }): Measured<R> {
   if (!(input.min <= input.preferred)) {
-    throw new Error(
+    throw new MeasurementRefusalError(
       `measured(${input.region}, ${input.axis}): min (${input.min}) exceeds ` +
         `preferred (${input.preferred}) — a region's own supplied demand is ` +
         'self-contradictory; this is a measurement-site bug, never clamped here.',
     );
   }
   if (input.maxUseful !== null && !(input.preferred <= input.maxUseful)) {
-    throw new Error(
+    throw new MeasurementRefusalError(
       `measured(${input.region}, ${input.axis}): preferred (${input.preferred}) ` +
         `exceeds maxUseful (${input.maxUseful}) — same class of self-contradiction.`,
     );
@@ -405,6 +444,76 @@ export function resolveSovereignOverrides<R extends string>(
   return { candidate: next, diagnostics };
 }
 
+// ── Row 2501 repair (`.claude/dispatch-reports/lyt-cure-repair-build.md`,
+//    `.claude/dispatch-reports/lyt-cure-live-witness.md` FAILs 1/2):
+//    the live floor/ceiling rule for a content-dependent region ────────
+
+/**
+ * When a content-dependent region's own live measured demand undercuts
+ * its own COMPILED floor, the compiled floor is a disclosed, solver-only
+ * relaxation (spec §0's own facts-provenance table: the compiled `min`
+ * on an `elastic` track is a STATIC estimate the LYT solver assumed at
+ * compile time, never re-measured against the region's own CURRENT
+ * rendered content) — live truth wins, and the region's WHOLE demand
+ * triple lowers to the measured value (`min = preferred = maxUseful =
+ * liveDemandPx`), rather than the prior rule (`max(compiledMinPx,
+ * liveDemandPx)`) that clamped a low reading UP to the compiled floor.
+ *
+ * That prior rule was itself safe wherever it was actually applied
+ * (`measuredFromLytProgram`'s own `applyOverlay`, below) — but it was
+ * NOT applied at every site that constructs a `Measured<'tree'>` triple
+ * from a raw live reading: `resolveSideColumnLiveLayout`'s own sovereign
+ * branch built `measured({ min: treeTrack.minPx, preferred:
+ * treeTrack.minPx, maxUseful: input.tree.maxUsefulPx })` directly from
+ * the UNCLAMPED live reading, so a live demand even 1px below the
+ * compiled floor (110 vs. a live 109) self-contradicted at construction
+ * — exactly the live-witness FAILs 1/2 (`measured(tree, h): preferred
+ * (110) exceeds maxUseful (109)`), which crashed the reactive `computed`
+ * that reads it (`useSideColumnLiveLayout.ts`), demoting the panel to
+ * 1px (FAIL 1) and making every interactive drag inert (FAIL 2).
+ *
+ * Rather than patch every call site to individually clamp (fragile —
+ * the NEXT call site would reintroduce the same class of bug), this
+ * function is now the ONE place the floor/ceiling relationship for a
+ * live reading is decided, consumed by both `applyOverlay` (below) and
+ * `resolveSideColumnLiveLayout` (§3 step 3) — "single home per fact"
+ * (spec §2), applied to this rule itself. When the live demand meets or
+ * exceeds the compiled floor, the floor stands unchanged — the
+ * ordinary, already-consistent case, byte-identical to the pre-repair
+ * behavior.
+ *
+ * **Demand-of-0, review obligation 2 (`.claude/dispatch-reports/
+ * lyt-cure-repair-review.md`).** A live demand of exactly `0` (a
+ * genuinely empty tree) is deliberately NOT treated as "live truth" the
+ * way any positive-but-small reading is. Per spec §1.3's own
+ * `RegionPresence` doctrine: a region resolved `absent` contributes a
+ * `px(0)` candidate with NO `Measured` check run against it at all
+ * (indistinguishable, if checked, from a genuine zero-width bug) — but a
+ * region resolved `present` is ALWAYS checked against its own `min`,
+ * with no zero-content exception carved out. `tree` here is, by
+ * construction, on the PRESENT path (this function is only ever reached
+ * for a region genuinely rendering in the grid) — so letting a live
+ * demand of `0` lower the floor to `0` would produce exactly the
+ * outcome §1.3 reserves for absence, on a region the caller has already
+ * decided is present. The user-visible consequence would be
+ * indistinguishable from the ORIGINAL cure's own target symptom: a
+ * nominally-present region rendered invisibly (FAIL 1's own 1px panel,
+ * one pixel from a literal 0). Read together with §1.3, the answer is
+ * that presence implies a usable minimum — zero belongs to absence, not
+ * to a present region's own demand — so BOTH the floor and the ceiling
+ * pin to the compiled minimum when the live demand is `<= 0`: the
+ * region is granted exactly its compiled floor, never less, and the
+ * "no more useful past this point" ceiling is that same floor (there is
+ * no content to grow into past it either). Any STRICTLY POSITIVE live
+ * demand below the compiled floor is unaffected by this special case —
+ * the ordinary "whole triple lowers to the live reading" rule still
+ * applies there.
+ */
+function resolveEffectiveDemand(compiledMinPx: number, liveDemandPx: number): { readonly minPx: number; readonly maxUsefulPx: number } {
+  if (liveDemandPx <= 0) return { minPx: compiledMinPx, maxUsefulPx: compiledMinPx };
+  return { minPx: Math.min(compiledMinPx, liveDemandPx), maxUsefulPx: liveDemandPx };
+}
+
 // ── §3 step 1 adapter: measuredFromLytProgram ──────────────────────────
 
 /** One `LytTrackShape` compiled to (at most) one `Measured<string>` entry
@@ -480,12 +589,18 @@ export function measuredFromLytProgram(
     if (entry.maxUseful !== null) return entry; // a real compiled ceiling — never superseded
     const overlayPx = overlay.get(entry.region);
     if (overlayPx === undefined || overlayPx === null) return entry; // no live reading yet
+    // Row 2501 repair: the whole triple lowers to the live reading when it
+    // undercuts the compiled floor — see `resolveEffectiveDemand`'s own
+    // header, including its obligation-2 demand-of-0 special case.
+    // `eff.minPx <= eff.maxUsefulPx` always holds by construction, so this
+    // never violates `measured()`'s own `preferred <= maxUseful` check.
+    const eff = resolveEffectiveDemand(entry.min, overlayPx);
     return measured({
       region: entry.region,
       axis: entry.axis,
-      min: entry.min,
-      preferred: entry.preferred,
-      maxUseful: px(Math.max(entry.min, overlayPx)),
+      min: px(eff.minPx),
+      preferred: px(eff.minPx),
+      maxUseful: px(eff.maxUsefulPx),
     });
   }
 
@@ -811,6 +926,44 @@ function fixedTrackPx(track: LytTrackShape, widgetId: string): number {
  * sibling's own reservation, so it can never itself starve one.
  * `resolveSovereignOverrides` (§1.6) is the one call site that both
  * APPLIES the override and re-validates every other region in one pass.
+ *
+ * **Defense in depth (row 2501, `.claude/dispatch-reports/
+ * lyt-cure-repair-build.md`; narrowed per the review's own obligation 1,
+ * `.claude/dispatch-reports/lyt-cure-repair-review.md`).** The two
+ * ADR-0002 guards immediately below (a non-`elastic` tree track; a
+ * non-`h` demote axis) are genuine CALLER contract violations — the
+ * compiled program declared a shape this solve doesn't know how to read
+ * — and stay loud, immediate throws: catching those would silently hide
+ * a real encoding/wiring bug. Everything AFTER those guards runs inside a
+ * `try`/`catch`, but the catch is narrowed to `instanceof
+ * MeasurementRefusalError` specifically — the type `px()`/`measured()`
+ * mint for their own construction-time refusals (the live-witness FAILs
+ * 1/2's own crash site — a self-contradictory live reading this function
+ * failed to construct consistently before the row 2501 fix, and the
+ * class of thing a FUTURE bug at this seam could reintroduce). Anything
+ * ELSE thrown inside the guarded region — `fixedTrackPx`'s own "not a
+ * fixed track" guard included, a wiring bug distinct from a measurement
+ * self-contradiction — is RE-THROWN immediately, never degraded into a
+ * "layout could not be computed for the current content" message that
+ * would misdescribe a caller-contract violation as a content-demand
+ * problem. **The review's own adversarial probe proved the pre-repair
+ * blanket `catch (err)` absorbed exactly this class of unrelated bug**
+ * (an `others` entry with a broken/undefined track), surfacing only by
+ * accident because the fallback's own construction happened to make the
+ * identical unguarded assumption and threw a SECOND, uncaught error —
+ * not a designed narrowness. Kept as a permanent regression test below
+ * (`feasible-layout.test.ts`'s own "unrelated error propagates" case).
+ * The fallback itself is ALSO hardened per the review's own second half
+ * of obligation 1 (a defensive `o.track?.kind === 'fixed'` rather than
+ * the unguarded `o.track.kind`) so a coincidentally-broken `others` entry
+ * UNRELATED to the genuine `MeasurementRefusalError` being handled can
+ * never make the fallback's OWN construction throw a second time. The
+ * fallback shape itself is the SAME "not yet measured" compiled-defaults
+ * shape the early-return branch below already produces (`treeDefaultPx`/
+ * each sibling's own `desiredVisible`-gated compiled px), plus ONE
+ * diagnostic naming the refusal, so `useSideColumnLiveLayout.ts`'s own
+ * EXISTING `pushSystemMessage` watcher (no new wiring needed) surfaces
+ * it.
  */
 export function resolveSideColumnLiveLayout(input: SideColumnLiveLayoutInput): SideColumnLiveLayoutResult {
   if (input.tree.track.kind !== 'elastic') {
@@ -821,7 +974,62 @@ export function resolveSideColumnLiveLayout(input: SideColumnLiveLayoutInput): S
     );
   }
   const treeTrack = input.tree.track;
+  // The demote-axis guard is also a caller contract violation (ADR-0002),
+  // not a measurement refusal — validated HERE, before the try/catch
+  // below, so it stays a loud immediate throw rather than being silently
+  // absorbed into the row 2501 fallback (this function's own doc above).
+  for (const o of input.others) {
+    if (o.demote !== null && o.demote.axis !== 'h') {
+      throw new Error(
+        `resolveSideColumnLiveLayout: unsupported demote axis ${JSON.stringify(o.demote.axis)} for ` +
+          `${o.widgetId} — only "h" (measured against the side column's own live width) is wired (ADR-0002).`,
+      );
+    }
+  }
+  try {
+    return resolveSideColumnLiveLayoutUnguarded(input, treeTrack);
+  } catch (err) {
+    // Row 2501 defense in depth, narrowed per review obligation 1 — see
+    // this function's own doc above. Anything that is not a
+    // `MeasurementRefusalError` is a caller-contract/wiring bug, not a
+    // measurement self-contradiction, and must propagate rather than
+    // degrade.
+    if (!(err instanceof MeasurementRefusalError)) throw err;
+    const reason = err.message;
+    const treePx = input.treeSovereignPx !== undefined ? Math.max(0, Math.round(input.treeSovereignPx)) : input.treeDefaultPx;
+    return {
+      treePx,
+      // `o.track?.kind === 'fixed' ? o.track.px : 0` — NOT `fixedTrackPx`
+      // (which throws on a non-'fixed' track), and NOT the unguarded
+      // `o.track.kind` this fallback originally used (the review's own
+      // obligation 1: a coincidentally-broken `others` entry, UNRELATED
+      // to the genuine refusal being handled here, must not make this
+      // fallback throw a SECOND, uncaught error while trying to degrade
+      // gracefully from the first).
+      others: input.others.map((o) => ({
+        widgetId: o.widgetId,
+        present: o.desiredVisible,
+        candidatePx: o.desiredVisible && o.track?.kind === 'fixed' ? o.track.px : 0,
+      })),
+      diagnostics: [
+        {
+          location: 'tree',
+          starved: [],
+          message:
+            `Layout could not be computed for the current content (${reason}) — the ` +
+            'default layout was used instead.',
+          remediation: 'reduce this region\'s width, or use Default Layout to reset',
+          nextAction: 'open-default-layout-control',
+        },
+      ],
+    };
+  }
+}
 
+function resolveSideColumnLiveLayoutUnguarded(
+  input: SideColumnLiveLayoutInput,
+  treeTrack: Extract<LytTrackShape, { kind: 'elastic' }>,
+): SideColumnLiveLayoutResult {
   if (!Number.isFinite(input.wrapperWidthPx) || input.wrapperWidthPx <= 0) {
     // Not yet measured: every quantity passes through unclamped — the
     // SAME "not yet measured" convention every deleted function shared.
@@ -853,18 +1061,25 @@ export function resolveSideColumnLiveLayout(input: SideColumnLiveLayoutInput): S
       presentByWidgetId.set(o.widgetId, o.desiredVisible);
       continue;
     }
-    if (o.demote.axis !== 'h') {
-      throw new Error(
-        `resolveSideColumnLiveLayout: unsupported demote axis ${JSON.stringify(o.demote.axis)} for ` +
-          `${o.widgetId} — only "h" (measured against the side column's own live width) is wired (ADR-0002).`,
-      );
-    }
+    // `o.demote.axis === 'h'` is guaranteed here — validated in the outer
+    // `resolveSideColumnLiveLayout`, before this function is ever called.
     const fits = input.wrapperWidthPx >= o.demote.belowPx + reservationExcept(o.widgetId);
     presentByWidgetId.set(o.widgetId, fits ? o.desiredVisible : false);
   }
 
   // ── Tree's own candidate ────────────────────────────────────────────
   const sovereign = input.treeSovereignPx !== undefined;
+  // Row 2501 repair: when tree's own live content demand undercuts its
+  // compiled floor, the floor itself lowers to match it — including the
+  // review's own obligation-2 demand-of-0 special case (see
+  // `resolveEffectiveDemand`'s own header) — computed once, consumed by
+  // BOTH the non-sovereign candidate clamp below and the sovereign
+  // branch's own diagnostic-demand construction, so the two paths can
+  // never disagree about what "tree's own floor/ceiling" currently mean.
+  const effectiveTreeDemand = input.tree.maxUsefulPx !== null ? resolveEffectiveDemand(treeTrack.minPx, input.tree.maxUsefulPx) : null;
+  const effectiveTreeMinPx = effectiveTreeDemand?.minPx ?? treeTrack.minPx;
+  const effectiveTreeMaxUsefulPx = effectiveTreeDemand?.maxUsefulPx ?? null;
+
   let treePx: number;
   if (sovereign) {
     // `sovereign` is exactly `input.treeSovereignPx !== undefined` — TS's
@@ -878,8 +1093,13 @@ export function resolveSideColumnLiveLayout(input: SideColumnLiveLayoutInput): S
       if (presentByWidgetId.get(o.widgetId)) reservedPx += fixedTrackPx(o.track, o.widgetId) + input.gapPx;
     }
     const roomPx = input.wrapperWidthPx - reservedPx;
-    const ceilingPx = input.tree.maxUsefulPx ?? Number.POSITIVE_INFINITY;
-    treePx = Math.max(treeTrack.minPx, Math.min(Math.round(roomPx), ceilingPx));
+    // `effectiveTreeMaxUsefulPx`, not the raw `input.tree.maxUsefulPx` —
+    // row 2501 obligation 2: a raw `0` reading must not become a `0`
+    // ceiling (which would immediately re-clamp `treePx` back down to 0
+    // via the `Math.min` below, undoing `effectiveTreeMinPx`'s own
+    // demand-of-0 floor).
+    const ceilingPx = effectiveTreeMaxUsefulPx ?? Number.POSITIVE_INFINITY;
+    treePx = Math.max(effectiveTreeMinPx, Math.min(Math.round(roomPx), ceilingPx));
   }
 
   // ── Others' own candidates ──────────────────────────────────────────
@@ -910,13 +1130,23 @@ export function resolveSideColumnLiveLayout(input: SideColumnLiveLayoutInput): S
   // ── FeasibleLayout / sovereignty ─────────────────────────────────────
   let diagnostics: readonly SovereignOverrideDiagnostic[] = [];
   if (sovereign) {
+    // Row 2501 repair: `effectiveTreeMinPx`/`effectiveTreeMaxUsefulPx`
+    // (computed above) replace the raw `treeTrack.minPx`/
+    // `input.tree.maxUsefulPx` here — this is the EXACT construction site
+    // the live witness caught throwing (`measured(tree, h): preferred
+    // (110) exceeds maxUseful (109)`), because the raw live reading was
+    // passed through UNCLAMPED while `min`/`preferred` stayed pinned at
+    // the compiled floor. `effectiveTreeMinPx <= (effectiveTreeMaxUsefulPx
+    // ?? +Infinity)` always holds by construction (including the
+    // obligation-2 demand-of-0 case, where both pin to the SAME compiled
+    // floor), so this can no longer self-contradict.
     const demands: Measured<string>[] = [
       measured({
         region: 'tree',
         axis: 'h',
-        min: px(treeTrack.minPx),
-        preferred: px(treeTrack.minPx),
-        maxUseful: input.tree.maxUsefulPx,
+        min: px(effectiveTreeMinPx),
+        preferred: px(effectiveTreeMinPx),
+        maxUseful: effectiveTreeMaxUsefulPx !== null ? px(effectiveTreeMaxUsefulPx) : null,
       }),
     ];
     const solved = new Map<string, RegionAllotment<string>>([['tree', { region: 'tree', axis: 'h', px: px(treePx) }]]);
