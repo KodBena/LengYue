@@ -605,20 +605,56 @@ def test_cli_registration_portrait_writes_matching_content(tmp_path):
 
 
 def test_f1_port_leaf_fields_default_empty_for_a_plain_leaf():
-    """`tree` declares none of the eight fields -- every one reads its
-    byte-identical-to-pre-port default (empty list / 'v' / null)."""
+    """`I_board` declares none of the eight fields -- every one reads its
+    byte-identical-to-pre-port default (empty list / 'v' / null).
+
+    RETARGETED, dispatch C4 (ledger rows 2425/2461's own lyt-side rider):
+    this test originally used `tree` (path `2.3.0`) as its "genuinely
+    plain leaf" example -- true when this test was written, false since
+    C4's own `tree` reclassification (`content unbounded, scroll v,
+    edge v item`, honest per `TreeWidget.vue:654`'s own `overflow: auto`
+    and the component's genuinely unbounded game-tree content). `I_board`
+    (path `1.1`, `{24px} I_board[board, info]`) still declares none of
+    the eight fields this test checks, so it is the still-honest "plain
+    leaf" example now -- see `test_tree_leaf_carries_its_own_content_
+    and_scroll_and_edge_fields` below for `tree`'s own new, non-default
+    values, pinned as its own regression rather than silently dropped
+    from coverage."""
+    program = elt.build_program()
+    board_col = _find(program["root"]["children"], "1")["node"]["children"]
+    i_board = _find(board_col, "1.1")["node"]
+    assert i_board["widget"] == "I_board"
+    assert i_board["elasticAxes"] == []
+    assert i_board["ceilingAxes"] == []
+    assert i_board["floorAxes"] == []
+    assert i_board["edgeAxes"] == []
+    assert i_board["orientation"] == "v"
+    assert i_board["activity"] is None
+    assert i_board["demote"] is None
+    assert i_board["envelopeStates"] is None
+    assert i_board["content"] is None
+    assert i_board["scrollAxes"] == []
+
+
+def test_tree_leaf_carries_its_own_content_and_scroll_and_edge_fields():
+    """C4's own reclassification (rider, ledger rows 2425/2461): `tree`
+    is an unbounded-content scrolling widget, honest against
+    `TreeWidget.vue:654`'s own `.tree-widget-outer { overflow: auto; }`
+    rule and the component's genuinely unbounded game-tree content (no
+    cap on node/edge count -- see this dispatch's own report for the
+    full citation). `edge v item` (not `unit`): the tree's own node
+    positions have no declared constant vertical pitch in this
+    substrate, so `item` (indivisible content, no constant pitch) is the
+    honest disposition, matching the SAME choice `SP_advancedRegistry`/
+    `SP_keybindings` already make for their own un-pitched lists."""
     program = elt.build_program()
     side = _find(program["root"]["children"], "2")["node"]["children"]
     tree_row = _find(side, "2.3")["node"]["children"]
     tree = _find(tree_row, "2.3.0")["node"]
-    assert tree["elasticAxes"] == []
-    assert tree["ceilingAxes"] == []
-    assert tree["floorAxes"] == []
-    assert tree["edgeAxes"] == []
-    assert tree["orientation"] == "v"
-    assert tree["activity"] is None
-    assert tree["demote"] is None
-    assert tree["envelopeStates"] is None
+    assert tree["widget"] == "tree"
+    assert tree["content"] == "unbounded"
+    assert tree["scrollAxes"] == ["v"]
+    assert tree["edgeAxes"] == [{"axis": "v", "disposition": "item"}]
 
 
 def test_f1_port_a_app_activity_and_demote():

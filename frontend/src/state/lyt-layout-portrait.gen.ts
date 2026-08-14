@@ -127,7 +127,7 @@ export const LYT_PORTRAIT: LytProgram = {
               path: "5.0",
               presenceDefaultVisible: true,
               track: { kind: "elastic", minPx: 140, frWeight: 1 },
-              node: { kind: "leaf", widget: "tree", domain: "board", facets: ["action", "info"], aspect: null, scrollAxes: [], content: null, elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "h", activity: null, demote: null, envelopeStates: null },
+              node: { kind: "leaf", widget: "tree", domain: "board", facets: ["action", "info"], aspect: null, scrollAxes: ["v"], content: "unbounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [{ axis: "v", disposition: "item" }], orientation: "h", activity: null, demote: null, envelopeStates: null },
             },
             {
               path: "5.1",

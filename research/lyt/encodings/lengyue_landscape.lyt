@@ -16,7 +16,7 @@ layout lengyue-landscape =
       @demote(h 616px) {pinned height-of(A_app, cold-boot-default), content bounded, activity occasional} A_app[common, action],
       @toggle(user, release) {pinned height-of(A_setup, authenticated-toggled), content bounded, activity occasional} A_setup[common, action],
       {pref 1fr, gap 4px} H(
-        {min 110px, pref 1fr, max inf} tree[board, info+action],
+        {min 110px, pref 1fr, max inf, content unbounded, scroll v, edge v item} tree[board, info+action],
         @demote(h sum-of(max-over(children.min), tree.min, gap)) {pinned max-over(children.min)} T(
           {min read-constant(CP-library, landscape), pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 160px, edge v unit, unit v 32px} CP-library[common],
           {min read-constant(CP-cards, landscape), pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 160px, edge v unit, unit v 39px} CP-cards[common],

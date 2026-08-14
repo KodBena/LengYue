@@ -15,7 +15,7 @@ layout lengyue-portrait =
       {pref 1fr, content bounded} A_engine_queue[go, info]
     ),
     {min 140px, pref 1fr, gap 4px} H(
-      {min read-constant(tree), pref 1fr, max inf} tree[board, info+action],
+      {min read-constant(tree), pref 1fr, max inf, content unbounded, scroll v, edge v item} tree[board, info+action],
       @demote(h sum-of(max-over(children.min), tree.min, gap)) {pinned max-over(children.min)} T(
         {min read-constant(CP-library, portrait), pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v unit, unit v 32px} CP-library[common],
         {min read-constant(CP-cards, portrait), pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v unit, unit v 39px} CP-cards[common],

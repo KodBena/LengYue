@@ -2007,6 +2007,166 @@ three floors. This dispatch's own probe harness (§4 of the governing
 spec) can supply the live-measured input for whichever mechanism is
 chosen, once a design point is picked — it does not pick one itself.
 
+Filed 2026-08-14, dispatch C4 of the LYT relations-first amendment
+(ledger rows 2396/2397/2400/2419/2425/2436/2445), folding forward
+three findings dispatch C3's own report
+(`.claude/dispatch-reports/lyt-relations-c3-rewrite.md`) recorded as
+its durable home pending a section like this one — R1/R2's own
+"before this dispatch these lived only in comment blocks" precedent,
+applied to a durable *report* rather than a comment block this time.
+
+### R3 — the "both-664s" cascade: `AT_multires`' own 580px height binds BOTH the outer BLACK BOX `T`'s pin AND `CP-analysis`'s own V-wrapper floor, through Exclusive rectangle-sharing
+
+**What's missing.** Dispatch C3 set out to retire the outer `T(...)
+[BLACK BOX]` node's hand-typed `min 664px, pref 664px, max 664px` pin
+in favor of a genuinely computed `{pinned max-over(children.min)}` —
+row 2403's own prediction was that the honest derivation would land
+far below 664, since the T's five children's own flat declared `min`s
+(160/200/443/664/204, `CP-analysis`'s own V-wrapper being the only one
+anywhere near 664) suggested `pack-rows`' own ~443 result would bind.
+Empirical CP-SAT bisection (663px fails, 664px succeeds, 700px
+succeeds) showed the prediction does not survive contact with
+`AT_multires`: `compiler.py`'s `_constrain` gives every Exclusive/T
+child the SAME shared rectangle on BOTH axes, so `AT_multires`' own
+`min 580px` (nested three levels down: inside `ANALYSIS TABS`'s own T,
+inside `CP-analysis`'s own V) propagates through the recursive
+`_constrain` chain all the way up to the OUTER T's own shared height,
+independent of what any INTERMEDIATE node's own declared `min` field
+says. The outer pin's honest floor and `CP-analysis`'s own V-wrapper
+floor (`80px timelineStrip + 4px gap + 580px AT_multires = 664px`)
+turn out to be the SAME number for the SAME underlying reason — not a
+duplication bug, but two independently-computed floors that are
+honestly equal because `CP-analysis` is the binding child at both
+levels simultaneously. The deliverable (retiring the hand-typed
+literal for a computed relation, `{pinned max-over(children.min)}`) is
+fully achieved; the NUMBER does not move, and this is reported rather
+than silently treated as a no-op, per C3's own "even a no-op value
+outcome is a finding worth surfacing" instruction.
+
+**Why it wasn't closed then, and isn't now.** This is not a defect to
+fix — `max-over(children.min)` computed EXACTLY what it was asked to
+compute; the surprise is a fact about `compiler.py`'s own
+Exclusive-sharing semantics (SPEC.md §2's "every T child receives the
+identical rectangle" rule), not about the relations grammar. Nothing
+in the current primitive inventory lets an encoding author query "what
+does the RECURSIVE cascade through an Exclusive's shared rectangle
+actually bind" ahead of a live CP-SAT bisection — the fact is only
+discoverable empirically, the way C3 discovered it, not derivable from
+the tree's own declared `min` fields by inspection.
+
+**Who'd need to close it.** This item's own "closure" is documentary,
+not mechanical: a future language-substrate wave that wants a
+mechanized answer to "which of a T-group's own children is the true
+recursive-cascade binder" would need a NEW analysis pass (not a new
+relation primitive — this is a solver-behavior fact, not a load-time
+resolution) that walks the whole subtree under `_constrain`'s own
+semantics and reports the binding leaf per axis, ahead of any solve.
+Not attempted here or by C3 — both dispatches treat the CP-SAT
+bisection itself as the authoritative, WITNESSED answer for the two
+real encodings' own current shape, re-derivable on demand rather than
+memoized in a new tool.
+
+### R4 — two substrate bugs C3 surfaced by exercising a genuinely new combination
+
+**What's missing (bug 1, FIXED).** `loader._load_sizing`'s
+fixed/pinned-shorthand branch (the `{Npx}`/`pinned <expr>` early
+return) never included `aspect=rs.aspect` in its own `ast.Sizing(...)`
+construction — only the general (non-shorthand) branch did. Any leaf
+combining `pinned`/the bare `{Npx}` shorthand with `aspect N` silently
+lost its aspect declaration. Pre-existing since dispatch B minted
+`pinned`; dormant until C3's own `previewBoard[common, info]{pinned
+read-constant(previewBoard, portrait), aspect 1}` (portrait) became
+the first real encoding site to combine the two. **Fixed** by C3 in
+the same dispatch (`aspect=rs.aspect` added to the shorthand branch's
+own return), confirmed via the loaded `Sizing.aspect` field
+(`None` before, `1.0` after) and the regenerated `.gen.ts` diff. This
+sub-item is recorded here as CLOSED, not open — folded forward for the
+same "durable home, not lost with the comment/report that first named
+it" reason R3 is.
+
+**What's missing (bug 2, OPEN).** The `envelope` mechanism's own
+consistency check (§4.2/L3: a declared `pref` must equal the computed
+`max-over` of the envelope's own per-state extents) is structurally
+INCOMPATIBLE with `emit_layout_tree.py`'s own closed track-shape
+vocabulary (`_track_shape_for_child`) for a "floor-free, capped-growth"
+leaf — a `min`-only reservation (no rigid floor) that can still grow
+via `pref: 1fr`. Discovered while C3 tried to give
+`A_engine_eval`/`A_engine_health` exactly that shape: the envelope
+check refuses `pref: 1fr` outright once any per-state extent is
+declared (`"the declared reservation must equal what the declared
+states justify"`), and the emitter has no track shape for "capped,
+non-fr pref, no floor" either. Neither check is wrong in isolation —
+both are individually correct, load-bearing laws — but TOGETHER they
+leave `pinned` (a full fixed reservation) as the ONLY reachable
+spelling for a leaf-level envelope this wave; C3's own
+`A_engine_eval`/`A_engine_health` rewrite used `pinned` for exactly
+this reason, which is what produced their own new real 139px floor
+(see the model-change table in C3's own report) and the disclosed
+`("default", "portrait", "420x880")` feasibility flip that followed
+from it.
+
+**Why it wasn't fixed.** Closing this genuinely means picking a side —
+either relaxing L3's own consistency check to tolerate an elastic
+`pref` alongside a declared envelope (weakening an ADR-0002-motivated
+honesty check), or widening the emitter's own track-shape vocabulary
+with a new shape neither `emit_layout_tree.py`'s existing four members
+nor SPEC.md's own §10 (CSS Grid realization mapping) currently name —
+both are genuine language/emitter design decisions, not a bug fix, and
+neither was ratified by any ruling this dispatch or C3 could act on
+unilaterally.
+
+**Who'd need to close it.** A commissioner ruling on which of the two
+directions above (or a third this dispatch didn't consider) the
+language should take, followed by the implementation dispatch that
+carries it out — the SAME "ratify, then implement" arc every other
+amendment in this file followed.
+
+### R5 — `CP-analysis`'s own V-wrapper floor has no primitive that reaches a node's own DESCENDANTS (only an enclosing split's siblings, or an Exclusive's own immediate children)
+
+**What's missing.** `CP-analysis`'s own V-wrapper (`{min sum-of(80px,
+4px, read-constant(AT_multires)), ...} V(timelineStrip, T(...)
+[ANALYSIS TABS])`) needs its own floor to be `timelineStrip`'s fixed
+80px height plus its own 4px gap plus `AT_multires`' real 580px height
+— but `AT_multires` sits TWO levels below this V-wrapper (inside
+`ANALYSIS TABS`'s own T, itself a child of this V). No primitive in
+the current nine-primitive inventory lets a plain (non-Exclusive)
+Split reference its own children's real, recursively-derived
+requirement the way `max-over(children.min)` does for an Exclusive —
+the grammar's sibling/child-reference primitives (`sum-of`/`max-over`'s
+general form, `widget.min`-style sibling references) only reach an
+ENCLOSING split's own already-loaded SIBLINGS, never a node's own
+DESCENDANTS more than one level down. C3's own delivered spelling
+(`sum-of(80px, 4px, read-constant(AT_multires))`) works around this by
+naming `AT_multires` directly (a facts-table lookup, not a tree
+reference) rather than genuinely deriving the floor from the tree
+shape — TWO of the three operands (`80px`, `4px`) stay literals
+because `timelineStrip` has no facts entry and the `gap` keyword
+resolves against the ENCLOSING split (here, the outer BLACK BOX T,
+which has no gap — a T takes none, §9.4), not the CURRENT node's own
+declared gap, confirmed by direct refusal
+(`'gap' referenced ... but the enclosing split declares no gap`).
+
+**Why it wasn't authored.** Adding a genuine "descendant reference"
+primitive (something like `descendant-of(path).min`, or widening
+`max-over`'s own children-reference form to an arbitrary depth) is a
+real grammar extension with its own scoping questions (how deep does
+it reach? does it cross an Exclusive boundary, where "children" means
+something different per T-child rather than a flat partition?) that
+this dispatch — scoped to the refusal flip and two lyt-side riders, not
+a new primitive — has no ruling to act on. C3 itself named this as "a
+language-substrate gap for a future wave, not silently worked around,"
+and this item is that gap's durable home in the doc graph rather than
+left to be rediscovered from C3's own report.
+
+**Who'd need to close it.** A commissioner ruling on the shape of a
+genuine descendant-reference primitive (scope, depth, Exclusive-
+boundary behavior), followed by a `relations.py` extension dispatch
+implementing it — at which point `CP-analysis`'s own V-wrapper floor
+(and any future site with the same "my floor depends on a
+non-sibling, non-immediate-child descendant" shape) could re-derive
+itself from the tree rather than naming a specific descendant widget
+by id.
+
 ## License
 
 Public Domain (The Unlicense), matching [layout-language-consult.md](../../.claude/dispatch-reports/layout-language-consult.md)'s

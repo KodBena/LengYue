@@ -367,6 +367,37 @@ def _resolve_extent_like(
         # site in this module.
         if ctx is not None:
             ctx.deprecated_literals.append({"where": where, "unit": e.unit, "v": e.v})
+            # LYT relations-first amendment, dispatch C4 (ledger rows
+            # 2396/2397/2400/2419/2425/2436/2445): the flip
+            # `RelationsFirstDeprecationWarning`'s own docstring always
+            # named — a px/ch literal (never fr/inf, which have no
+            # relations-first analog to convert to; see
+            # `relations.RelationContext.refuse_literal_bounds`'s own
+            # docstring) resolved under a STRICT context refuses loudly
+            # instead of warning. `ctx.refuse_literal_bounds` defaults to
+            # `False` everywhere pre-C4, so this branch is unreachable
+            # unless a caller opts in (`load_layouts(...,
+            # refuse_literal_bounds=True)`) — byte-identical behavior for
+            # every existing call site.
+            if ctx.refuse_literal_bounds and e.unit in ("px", "ch"):
+                raise LytLoadError(
+                    f"px/ch literal bound at {where} ({e.v:g}{e.unit}) is "
+                    "refused — RELATIONS-FIRST (ledger rows "
+                    "2396/2397/2400/2419/2425/2436/2445, dispatch C4): px/ch "
+                    "literals are banned from research/lyt/encodings/*.lyt; "
+                    "spell this bound as a relation expression instead "
+                    "(relations.py's nine-primitive vocabulary) or move the "
+                    "file out of encodings/ if it is a measurement/"
+                    "transcription fixture, not a governed design encoding",
+                    {
+                        "where": where,
+                        "law": "relations-first",
+                        "prohibition": "px-literal-in-governed-encoding",
+                        "unit": e.unit,
+                        "v": e.v,
+                        "source_file": ctx.source_file,
+                    },
+                )
             warnings.warn(
                 f"px/ch literal bound at {where} ({e.v:g}{e.unit}) — "
                 "RELATIONS-FIRST (ledger rows 2396/2397): a literal extent "
@@ -2496,6 +2527,8 @@ def load_slot(
     orientation_overrides: Optional[Dict[str, str]] = None,
     relctx: Optional["relations.RelationContext"] = None,
     is_exclusive_child: bool = False,
+    refuse_literal_bounds: bool = False,
+    source_file: Optional[str] = None,
 ) -> ast.Slot:
     """`is_exclusive_child` (AMENDMENT 10, ledger rows 2447/2450, L2a of the
     space-owner cure): `True` only for the exact call this function's own
@@ -2567,7 +2600,19 @@ def load_slot(
     computed for the OTHER fragment's solve."""
     orientation_overrides = orientation_overrides or {}
     if relctx is None:
-        relctx = relations.RelationContext(facts=_get_facts_table())
+        # LYT relations-first amendment, dispatch C4: `refuse_literal_
+        # bounds`/`source_file` seed the ROOT context here, from this
+        # call's own parameters — every recursive call below either
+        # passes an explicit `relctx` (never hits this branch) or is a
+        # child/own context built FROM `relctx` (see the Split/Exclusive
+        # branches below, which now carry both fields forward), so a
+        # strict root load stays strict all the way down, never silently
+        # downgraded partway through the tree.
+        relctx = relations.RelationContext(
+            facts=_get_facts_table(),
+            refuse_literal_bounds=refuse_literal_bounds,
+            source_file=source_file,
+        )
     node = rs.node
     if isinstance(node, lytparser.RawLeaf):
         # AMENDMENT 5 (ledger row 1937): resolved before `_load_leaf` so
@@ -2767,6 +2812,11 @@ def load_slot(
                 sibling_sizings=dict(sibling_sizings),
                 children_sizings=None,
                 enclosing_gap_px=gap_px,
+                # dispatch C4: carried forward from the received context,
+                # same posture `facts` already takes — a child of a strict
+                # load is itself strict.
+                refuse_literal_bounds=relctx.refuse_literal_bounds,
+                source_file=relctx.source_file,
             )
             child_slot = load_slot(
                 c,
@@ -2858,6 +2908,10 @@ def load_slot(
                 sibling_sizings={},
                 children_sizings=None,
                 enclosing_gap_px=None,
+                # dispatch C4: carried forward, same posture as the Split
+                # branch's own child_relctx above.
+                refuse_literal_bounds=relctx.refuse_literal_bounds,
+                source_file=relctx.source_file,
             )
             children.append(
                 load_slot(
@@ -2931,6 +2985,10 @@ def load_slot(
             sibling_sizings=relctx.sibling_sizings,
             children_sizings=[c.sizing for c in children],
             enclosing_gap_px=relctx.enclosing_gap_px,
+            # dispatch C4: carried forward, same posture as every other
+            # derived context in this function.
+            refuse_literal_bounds=relctx.refuse_literal_bounds,
+            source_file=relctx.source_file,
         )
         sizing = _load_sizing(rs.sizing, where=path, node_kind="exclusive", relctx=own_relctx)
         # LOOP ITERATION 11 (L15): same threading as the Split branch.
@@ -2954,6 +3012,8 @@ def load_layouts(
     *,
     waivers: Optional["Dict[str, List[object]]"] = None,
     orientation_overrides: Optional[Dict[str, Dict[str, str]]] = None,
+    refuse_literal_bounds: bool = False,
+    source_file: Optional[str] = None,
 ) -> "dict[str, ast.Slot]":
     """Parse + type-check every `layout NAME = ...` fragment in `text`.
     Runs the L1/L2 well-formedness pass on each before returning (see
@@ -2996,6 +3056,19 @@ def load_layouts(
     caller that ever passes a non-`None` value here) was updated in the
     same change to address its single derived map to the one layout it
     computed the derivation for.
+
+    `refuse_literal_bounds`/`source_file` (LYT relations-first amendment,
+    dispatch C4, ledger rows 2396/2397/2400/2419/2425/2436/2445): opt a
+    load into STRICT mode — every px/ch literal bound this call resolves
+    raises a structured `LytLoadError` instead of the ordinary
+    `RelationsFirstDeprecationWarning` (an `fr`/`inf` structural sizing
+    keyword is unaffected either way — see
+    `relations.RelationContext.refuse_literal_bounds`'s own docstring for
+    why). Both default to `False`/`None`, byte-identical to every
+    pre-C4 call site. `source_file`, when given, is threaded into every
+    strict refusal's own `detail["source_file"]` purely for a reader's
+    benefit — it names nothing to the loader itself, which never opens a
+    file (this function only ever sees `text`).
     """
     from wellformed import check_wellformed
 
@@ -3008,6 +3081,8 @@ def load_layouts(
             raw.slot,
             path=raw.name,
             orientation_overrides=orientation_overrides.get(raw.name),
+            refuse_literal_bounds=refuse_literal_bounds,
+            source_file=source_file,
         )
         check_wellformed(slot, layout_name=raw.name, waivers=waivers.get(raw.name))
         out[raw.name] = slot

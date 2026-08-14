@@ -370,6 +370,35 @@ class RelationContext:
     # channel dispatch C's own encoding rewrite flips from "recorded" to
     # "refused".
     deprecated_literals: List[dict] = field(default_factory=list)
+    # LYT relations-first amendment, dispatch C4 (ledger rows
+    # 2396/2397/2400/2419/2425/2436/2445 — the flip this whole channel was
+    # built for). `False` (the default, byte-identical to every pre-C4
+    # call) keeps a px/ch literal a non-fatal `RelationsFirstDeprecation
+    # Warning`, exactly as dispatch B shipped it. `True` — set only by
+    # `load_slot`/`load_layouts` callers that opt a load into STRICT mode
+    # — makes `_resolve_extent_like` raise a structured `LytLoadError`
+    # instead of warning, for a px/ch literal specifically (an `fr`/`inf`
+    # structural sizing keyword is UNCHANGED either way: neither has a
+    # relations-first analog to convert to, so refusing one would refuse
+    # a construct this language has no other way to spell — see C3's own
+    # dispatch report, `.claude/dispatch-reports/lyt-relations-c3-
+    # rewrite.md` §7, for the empirical finding that ~60 of the two real
+    # encodings' own 119 residual deprecation warnings are exactly this
+    # kind, not a coverage gap). `load_slot`'s Split/Exclusive branches
+    # carry this flag (and `source_file`, below) forward into every child
+    # context they build, the same way they already carry `facts`
+    # forward — a child slot loaded under a strict parent load is itself
+    # strict, never silently downgraded.
+    refuse_literal_bounds: bool = False
+    # The `.lyt` source file this context's load ultimately came from
+    # (e.g. `"encodings/lengyue_landscape.lyt"`), threaded through purely
+    # for a refusal's own structured `detail` — "naming file/site/literal"
+    # per this dispatch's own brief. `None` (the default) for any caller
+    # that never supplied one (a direct `load_slot`/`_resolve_extent_like`
+    # call, or a `load_layouts` call that omitted `source_file`) — the
+    # refusal still fires correctly on `refuse_literal_bounds` alone, it
+    # just omits the file name from its own detail dict.
+    source_file: Optional[str] = None
 
 
 ResolveExtentLike = Callable[..., object]  # (raw, *, where, ctx=None) -> ast.Extent

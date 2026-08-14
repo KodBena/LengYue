@@ -26,7 +26,7 @@ import loader
 import parser as lytparser
 import relations
 from compiler import solve_lexicographic
-from errors import LytLoadError
+from errors import LytLoadError, RelationsFirstDeprecationWarning
 
 
 # ---------------------------------------------------------------------------
@@ -504,6 +504,181 @@ def test_literal_extent_with_no_ctx_emits_no_warning():
         warnings.simplefilter("error")
         ext = loader._resolve_extent_like(_parse_extent("28px"), where="test", ctx=None)
     assert ext.v == 28.0
+
+
+# ---------------------------------------------------------------------------
+# Dispatch C4 — the refusal-default flip (ledger rows
+# 2396/2397/2400/2419/2425/2436/2445). `refuse_literal_bounds` on
+# `RelationContext`/`load_slot`/`load_layouts` turns a px/ch literal's
+# deprecation warning into a structured `LytLoadError`, scoped to px/ch
+# only (never fr/inf — see `relations.RelationContext.refuse_literal_
+# bounds`'s own docstring for why) and, at the file level, scoped to
+# `encodings/` only (`runner.is_governed_encoding`/`load_governed_
+# layouts` — never fixtures/, per row 2426: "transcriptions are
+# measurements ... they stay loadable").
+# ---------------------------------------------------------------------------
+
+STRICT_SYNTHETIC_ENCODING = """
+layout strict-synthetic =
+  {min 0px, pref 1fr, max inf} H(
+    {28px} sideRail[common, action],
+    {pref 1fr} board[board]
+  )
+"""
+
+
+def test_strict_mode_refuses_px_literal_naming_where_and_unit():
+    """The core C4 refusal shape: a px literal bound resolved under
+    `refuse_literal_bounds=True` raises `LytLoadError`
+    (`prohibition == "px-literal-in-governed-encoding"`) naming the
+    exact site (`where`), the literal's own unit/value, and — when the
+    caller supplies one — the source file, instead of merely warning."""
+    with pytest.raises(LytLoadError) as exc:
+        loader.load_layouts(
+            STRICT_SYNTHETIC_ENCODING,
+            refuse_literal_bounds=True,
+            source_file="encodings/strict-synthetic.lyt",
+        )
+    detail = exc.value.detail
+    assert detail["prohibition"] == "px-literal-in-governed-encoding"
+    assert detail["law"] == "relations-first"
+    assert detail["unit"] == "px"
+    assert detail["v"] == 28.0
+    assert detail["source_file"] == "encodings/strict-synthetic.lyt"
+    assert "strict-synthetic" in detail["where"]
+
+
+def test_strict_mode_off_by_default_stays_warning_only():
+    """`refuse_literal_bounds` defaults to `False` — byte-identical to
+    every pre-C4 `load_layouts` call. The same snippet that refuses
+    above merely warns here, matching `test_literal_px_still_parses_
+    and_loads_with_deprecation_warning`'s own established behavior."""
+    with pytest.warns(RelationsFirstDeprecationWarning):
+        layouts = loader.load_layouts(STRICT_SYNTHETIC_ENCODING)
+    assert "strict-synthetic" in layouts
+
+
+def test_strict_mode_does_not_refuse_fr_or_inf_literals():
+    """Structural fr/inf sizing keywords have no relations-first analog
+    to convert to (dispatch C3's own empirical finding, ~60 of the two
+    real encodings' own 119 residual deprecation warnings are exactly
+    this kind) — strict mode leaves them as warnings, never refusals,
+    even though the SAME warning channel fires for them. Uses a snippet
+    with NO px/ch literal at all (unlike `STRICT_SYNTHETIC_ENCODING`,
+    which carries one and would raise before ever reaching a fr/inf
+    site) so this test genuinely isolates the fr/inf-is-unaffected
+    claim. `min` is left UNDECLARED — an omitted `min` defaults to a
+    hardcoded `0px` (`loader._load_sizing`'s own "disclosed general
+    completion rule") that never passes through `_resolve_extent_like`
+    at all, so it emits no warning and would not contaminate this test
+    the way an explicit `min 0px` term would."""
+    text = """
+layout strict-fr-only =
+  {pref 1fr, max inf} board[board]
+"""
+    with pytest.warns(RelationsFirstDeprecationWarning):
+        layouts = loader.load_layouts(text, refuse_literal_bounds=True)
+    assert "strict-fr-only" in layouts
+
+
+def test_strict_mode_carries_forward_into_child_and_descendant_contexts():
+    """A single root-level `refuse_literal_bounds=True` must reach a
+    px literal several levels deep — inside a Split's child AND inside
+    a T (Exclusive) node's own child — not just the root slot's own
+    sizing. Regression guard for the Split/Exclusive branches' own
+    child_relctx/own_relctx propagation (loader.py `load_slot`)."""
+    text = """
+layout strict-nested =
+  {min 0px, pref 1fr, max inf} H(
+    {pref 1fr} V(
+      {24px} deepLeaf[board, info]
+    ),
+    {pinned max-over(children.min)} T(
+      {min 40px, pref 1fr, max inf} panelA[common],
+      {min 55px, pref 1fr, max inf} panelB[common]
+    )
+  )
+"""
+    with pytest.raises(LytLoadError) as exc:
+        loader.load_layouts(text, refuse_literal_bounds=True)
+    assert exc.value.detail["prohibition"] == "px-literal-in-governed-encoding"
+    assert "deepLeaf" in exc.value.detail["where"]
+
+
+def test_load_slot_direct_call_honors_refuse_literal_bounds():
+    """`load_slot` itself (not only `load_layouts`) accepts
+    `refuse_literal_bounds`/`source_file` and seeds a fresh root context
+    from them when no explicit `relctx` is supplied — the same
+    "byte-identical when omitted" contract every other `load_slot`
+    parameter this codebase adds already keeps."""
+    tokens = lytparser.tokenize("{28px} leaf[common, action]")
+    rs = lytparser.Parser(tokens).parse_slot()
+    with pytest.raises(LytLoadError) as exc:
+        loader.load_slot(rs, refuse_literal_bounds=True, source_file="x.lyt")
+    assert exc.value.detail["prohibition"] == "px-literal-in-governed-encoding"
+    assert exc.value.detail["source_file"] == "x.lyt"
+
+
+# ---------------------------------------------------------------------------
+# Directory scoping (`runner.is_governed_encoding` / `load_governed_layouts`)
+# ---------------------------------------------------------------------------
+
+
+def test_is_governed_encoding_true_for_encodings_dir():
+    import runner
+
+    p = runner.resolve_encoding_file("lengyue_landscape.lyt")
+    assert p.parent == runner.ENCODINGS_DIR
+    assert runner.is_governed_encoding(p) is True
+
+
+def test_is_governed_encoding_false_for_fixtures_reference():
+    import runner
+
+    p = runner.resolve_encoding_file("q5go.lyt")
+    assert p.parent == runner.FIXTURES_REFERENCE_DIR
+    assert runner.is_governed_encoding(p) is False
+
+
+def test_is_governed_encoding_false_for_fixtures_transcription():
+    import runner
+
+    p = runner.resolve_encoding_file("current_row_asis.lyt")
+    assert p.parent == runner.FIXTURES_TRANSCRIPTION_DIR
+    assert runner.is_governed_encoding(p) is False
+
+
+def test_load_governed_layouts_refuses_on_a_real_encodings_file():
+    """The real, committed `lengyue_landscape.lyt` still carries
+    unconverted px/ch literals (dispatch C3's own disclosed residual —
+    ~59 of 119, genuinely unreachable against the committed facts files
+    this wave) — `load_governed_layouts` routes it through strict mode
+    (directory-scoped, not hand-picked), so loading it this way is
+    EXPECTED to refuse, at the first literal the loader's own recursive
+    descent reaches. This test pins that expectation rather than
+    leaving it an unverified claim in a docstring."""
+    import runner
+
+    with pytest.raises(LytLoadError) as exc:
+        runner.load_governed_layouts("lengyue_landscape.lyt")
+    assert exc.value.detail["prohibition"] == "px-literal-in-governed-encoding"
+    assert exc.value.detail["source_file"] == "encodings/lengyue_landscape.lyt"
+
+
+def test_load_governed_layouts_does_not_refuse_a_fixtures_file():
+    """The directory-scoping half of the same mechanism: a file that
+    resolves OUTSIDE `encodings/` never enters strict mode, regardless
+    of how many literal bounds it carries — proven against a REAL
+    fixture (`current_row_asis.lyt`, `fixtures/transcription/`), not a
+    synthetic stand-in, so the directory check is exercised against the
+    actual on-disk layout this dispatch inherited."""
+    import runner
+    from baseline import BASELINE_WAIVERS
+
+    layouts = runner.load_governed_layouts(
+        "current_row_asis.lyt", waivers=BASELINE_WAIVERS
+    )
+    assert "current-row-asis" in layouts
 
 
 # ---------------------------------------------------------------------------

@@ -78,6 +78,65 @@ def resolve_encoding_file(filename: str) -> Path:
     )
 
 
+def is_governed_encoding(path: Path) -> bool:
+    """LYT relations-first amendment, dispatch C4 (ledger rows
+    2396/2397/2400/2419/2425/2436/2445): `True` iff `path` resolves
+    directly inside `encodings/` itself — a governed design encoding,
+    where a px/ch literal bound is subject to strict-mode refusal
+    (`loader.load_layouts(..., refuse_literal_bounds=True)`). `False`
+    for anything under `fixtures/reference/` or `fixtures/transcription/`
+    — a measurement/transcription fixture (row 2426: "transcriptions are
+    measurements ... they stay loadable"), never refused regardless of
+    how many literal bounds it carries. Directory-based (`path.parent ==
+    ENCODINGS_DIR`), not a filename allowlist, so a file moved between
+    `encodings/` and either fixtures/ directory (as ogs.lyt/q5go.lyt and
+    current_row_asis.lyt/current_row_repaired.lyt already were, dispatch
+    A/C2) is scoped correctly with no code change here."""
+    return path.parent == ENCODINGS_DIR
+
+
+def load_governed_layouts(filename: str, **kwargs) -> "dict[str, ast.Slot]":
+    """The directory-scoped strict-mode entry point dispatch C4 built:
+    resolves `filename` via `resolve_encoding_file`, then loads it
+    through `loader.load_layouts` with `refuse_literal_bounds` set
+    automatically from `is_governed_encoding` (never hand-picked per
+    call) and `source_file` set to the resolved path, relative to this
+    file's own directory, for a strict refusal's own structured detail.
+
+    **NOT wired into `run_all` or any other production caller in this
+    module.** Dispatch C3's own encoding rewrite
+    (`.claude/dispatch-reports/lyt-relations-c3-rewrite.md` §7) reduced
+    the two real clean-room encodings' own residual literal-bound count
+    by 77.5% (528 -> 119) but did not reach zero: ~59 of the 119 are
+    genuine px/ch literals still unreachable against the committed facts
+    files (no probe/measurement exists yet for `boardRail`,
+    `I_board`/`A_board`, the `A_engine_*` row's own height, `tree`'s
+    landscape floor, `settingsSubstrip`, the six `pack-rows` item
+    widths, `timelineStrip`, three inner analysis-column mins,
+    `otherColorDebug`, `otherBand`'s enclosing V, `previewBoard`'s
+    landscape figure, the side-column's own width floor, and `60ch`) —
+    activating strict mode against either real encoding's own default
+    loading path would refuse currently load-bearing, honestly-disclosed
+    content, not a defect this dispatch found. This function is the
+    tested CAPABILITY (`tests/test_relations.py`'s own C4 coverage,
+    plus `tests/test_lyt.py::test_load_governed_layouts_...`) a future
+    wave activates once those literals are grounded — calling it
+    directly against the real `lengyue_landscape.lyt`/
+    `lengyue_portrait.lyt` today is expected to raise, and one of this
+    dispatch's own tests pins that expectation rather than silently
+    assuming it."""
+    import loader
+
+    p = resolve_encoding_file(filename)
+    text = p.read_text()
+    return loader.load_layouts(
+        text,
+        refuse_literal_bounds=is_governed_encoding(p),
+        source_file=str(p.relative_to(Path(__file__).parent)),
+        **kwargs,
+    )
+
+
 SCREEN_SIZES: List[Tuple[str, int, int]] = [
     ("1920x1080", 1920, 1080),
     ("2560x1440", 2560, 1440),
