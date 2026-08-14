@@ -440,14 +440,20 @@ describe('resolveSideColumnLiveLayout()', () => {
   });
 
   // ── Branch 7: dispatch L4 (`.claude/dispatch-reports/
-  //    lyt-space-owner-spec.md` §3 step 4, ledger rows 2447/2484) — the
-  //    parked "no sibling to diagnose against" fork the L3 build report
-  //    named as a STOP-and-report item (`.claude/dispatch-reports/
+  //    lyt-space-owner-spec.md` §3 step 4, ledger rows 2447/2484/2498) —
+  //    the parked "no sibling to diagnose against" fork the L3 build
+  //    report named as a STOP-and-report item (`.claude/dispatch-reports/
   //    lyt-space-owner-l3-build.md` §7 finding 2, §8): a sovereign `tree`
-  //    that overflows the WRAPPER's own physical capacity now produces a
-  //    'starved' StarvationDiagnostic against the region name 'wrapper' —
-  //    no new type, `StarvationDiagnostic.region` is already `string`. ──
-  describe('dispatch L4: wrapper-capacity starvation (the parked "no sibling to diagnose against" fork)', () => {
+  //    that overflows the side column's own physical capacity now
+  //    produces a 'starved' StarvationDiagnostic against the region name
+  //    'side-column-capacity' — no new type, `StarvationDiagnostic.region`
+  //    is already `string`. Named 'side-column-capacity', not 'wrapper',
+  //    to avoid colliding with `useResizablePanel.ts`'s own pre-existing
+  //    (L3-vintage) use of the literal 'wrapper' for a DIFFERENT region
+  //    (the sovereign, rendered control pane itself — the drag target,
+  //    not the row's own container capacity) — L4 review §2's "a
+  //    coincidental prior-art wrinkle." ──
+  describe('dispatch L4: side-column-capacity starvation (the parked "no sibling to diagnose against" fork)', () => {
     it('no sibling AT ALL (others: []) — the EXACT repro from the L3 build report\'s own §7 finding 2 (a landscape-dragged wide treePanelWidthPx replayed against a narrow wrapper)', () => {
       const result = resolveSideColumnLiveLayout(
         baseInput({ wrapperWidthPx: 480, others: [], treeSovereignPx: 820 }),
@@ -458,14 +464,14 @@ describe('resolveSideColumnLiveLayout()', () => {
       const [diagnostic] = result.diagnostics;
       expect(diagnostic.location).toBe('tree');
       expect(diagnostic.starved).toEqual([
-        { kind: 'starved', region: 'wrapper', axis: 'h', demandPx: 820, grantedPx: 480 },
+        { kind: 'starved', region: 'side-column-capacity', axis: 'h', demandPx: 820, grantedPx: 480 },
       ]);
       expect(diagnostic.message).toBe('Your geometry modification no longer fits within the available space.');
       expect(diagnostic.remediation).toBe('reduce this region\'s width, or use Default Layout to reset');
       expect(diagnostic.nextAction).toBe('open-default-layout-control');
     });
 
-    it('a sibling starvation AND a wrapper overflow are BOTH real at once — merged into the SAME location:\'tree\' diagnostic\'s own starved array, never two competing diagnostics', () => {
+    it('a sibling starvation AND a side-column-capacity overflow are BOTH real at once — merged into the SAME location:\'tree\' diagnostic\'s own starved array, never two competing diagnostics', () => {
       const others: readonly SideColumnFixedRegion[] = [
         { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
       ];
@@ -486,14 +492,14 @@ describe('resolveSideColumnLiveLayout()', () => {
       expect(diagnostic.location).toBe('tree');
       expect(diagnostic.starved).toEqual([
         { kind: 'starved', region: 'controlPanel', axis: 'h', demandPx: 664, grantedPx: 0 },
-        { kind: 'starved', region: 'wrapper', axis: 'h', demandPx: 1004, grantedPx: 820 },
+        { kind: 'starved', region: 'side-column-capacity', axis: 'h', demandPx: 1004, grantedPx: 820 },
       ]);
       expect(diagnostic.message).toBe(
         'Your geometry modification no longer permits controlPanel to render, and no longer fits within the available space.',
       );
     });
 
-    it('no wrapper diagnostic when the sovereign claim genuinely fits, even with NO sibling to check against — no spurious noise', () => {
+    it('no side-column-capacity diagnostic when the sovereign claim genuinely fits, even with NO sibling to check against — no spurious noise', () => {
       const result = resolveSideColumnLiveLayout(
         baseInput({ wrapperWidthPx: 480, others: [], treeSovereignPx: 100 }),
       );

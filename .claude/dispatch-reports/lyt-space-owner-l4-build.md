@@ -308,3 +308,173 @@ suppressing the diagnostic to keep the gate green.
   addendum)
 
 License: Public Domain (The Unlicense), per ADR-0006.
+
+---
+
+## Discharge — L4 review conditions (`lyt-space-owner-l4-review.md`,
+verdict ACCEPT-WITH-CONDITIONS)
+
+Fork disposition ratified at orchestrator level, ledger row 2498 (per the
+coordinator's own message relaying it) — the review's own condition 1
+(a ledger ratification entry) is satisfied by that orchestrator-level act
+and is not re-filed here. The remaining three items — the coordinator's
+own numbering — are addressed below, same worktree, same branch.
+
+### Condition 1 — rename the minted capacity region
+
+**Discharged.** `'wrapper'` collided with `useResizablePanel.ts`'s own
+pre-existing (L3-vintage) `outerRowSovereignDiagnostic`, which already
+uses the literal string `'wrapper'` for a DIFFERENT region (the
+sovereign, rendered control pane itself — the drag target) — the L4
+review's own §2 "coincidental prior-art wrinkle" finding. Renamed the L4
+mechanism's own region to `'side-column-capacity'`
+(`SIDE_COLUMN_CAPACITY_REGION` in `feasible-layout.ts`, matching the
+coordinator's own suggested name) throughout: the two function names
+(`wrapperCapacityStarvation` → `sideColumnCapacityStarvation`,
+`mergeWrapperCapacityDiagnostic` → `mergeSideColumnCapacityDiagnostic`),
+every `region: 'wrapper'` literal, `sovereignMessage`'s own filter/check,
+and the three "Branch 7" tests in `feasible-layout.test.ts` (region
+literal, describe-block title, two it()-title wordings). Verified by
+direct `grep` after the rename: zero occurrences of the literal
+`'wrapper'` remain in `feasible-layout.ts` or its own test file outside
+disclosure prose (the header comment naming the OLD collision, for a
+future reader's benefit); `useResizablePanel.ts`'s own `'wrapper'` usage
+is untouched, as the coordinator's own instruction scoped the rename to
+"the minted capacity region," not the pre-existing sovereign-pane sense.
+
+### Condition 2 — correct the imprecise spec citation
+
+**Discharged.** The prior comment claimed "the spec's own §1.2 closure
+names the viewport as part of `FeasibleLayout`'s own quantification
+universe" — the L4 review read the spec directly and found this
+inaccurate: the quoted sentence is §1.1's closure text (§1.2's own
+closure statement says only "§1.1's universe, inherited," no independent
+claim), and §1.1's own enumerated universe names things that RENDER
+content (in-flow leaves, blackbox interiors, corner overlays,
+modal/popover boxes, chart containers) — `FeasibleLayout.viewport` is
+descriptive context metadata in the spec's own §1.2 type, never itself
+checked against a `Measured` entry. `sideColumnCapacityStarvation`'s own
+doc comment (`feasible-layout.ts`) is rewritten to state the honest
+basis precisely: `StarvationDiagnostic.region`'s own pre-existing,
+unchanged-by-this-dispatch `string` type (not a closed union) plus
+ledger row 2498's explicit ratification — never a spec sentence that
+doesn't say what the old comment claimed. The mechanism itself is
+unchanged; only the comment's own citation and its overreach ("names the
+viewport as part of the quantification universe") are corrected, per the
+review's own condition 2 instruction to "drop or soften" that specific
+claim.
+
+### Condition 3 — fix the red ratchet at its root
+
+**The mechanism itself: discharged, verified deterministic.**
+`scripts/layout-audit.mjs` now probes for a genuinely dead TCP port at
+or above 19000 (`pickDeadBackendPort`/`probePortDead`, refusing the
+scratch preview port and the project's own forbidden live ports,
+re-probing on the rare chance a candidate unexpectedly answers, and
+refusing loudly per ADR-0002 if the whole search range is exhausted) and
+builds with `VITE_API_BASE_URL` pointed at it whenever the script itself
+runs `npm run build` (the `--build` flag, `npm run layout-audit`'s own
+canonical invocation). `API_BASE_URL` is baked in at BUILD time
+(`src/config/env.ts`'s own `import.meta.env` read, not a runtime fetch),
+so the resulting `dist/` genuinely cannot reach any live service on this
+or any other host — cold boot becomes a pure function of the committed
+source, independent of what else happens to be running locally. Without
+`--build`, the override does not apply; this is now a printed warning,
+not a silent gap.
+
+**What running it revealed: NOT green — a much larger, fully isolated,
+NON-attributable wave.** `npm run layout-audit` at this dispatch's own
+tip now reports **223 total findings, 172 new vs. the committed
+baseline** (up from the pre-fix run's 89/12) — spanning all 5 rule
+classes (`target-size`, `pointer-occlusion`, `focus-invisible`,
+`unreachable-control`, `viewport-escape`) at EVERY one of the 7
+geometries, not merely the 2 geometries the pre-fix disclosure named.
+Root-caused directly, not merely inferred: the report's own new findings
+include `button.auth-error.user-badge` (an authentication-failure state
+class name) and `div.wizard-card` (a first-run/onboarding modal) at
+every geometry — the SPA, now genuinely unable to reach ANY backend,
+renders a real auth-error indicator and a first-run wizard modal that
+covers most of the viewport, which in turn produces a wide
+`pointer-occlusion` cascade (the modal backdrop intercepting
+`elementFromPoint` for everything beneath it) neither the pre-fix nor
+any prior dispatch's own audit run ever exercised, because a live
+backend on this host has apparently always been reachable at every
+previous audit invocation.
+
+**Isolation, performed exactly as the coordinator's own instruction
+names ("if genuinely-new findings survive isolation, report them").**
+Checked out `frontend/src/state/feasible-layout.ts` verbatim from the L3
+tip (`e9dcc998`, `git checkout e9dcc998 -- ...`) — i.e., this dispatch's
+OWN layout mechanism entirely removed, leaving only the deterministic
+audit-runner fix — rebuilt and re-ran the identical audit. Result:
+**223 total findings, 172 new vs. baseline — byte-identical to the
+figure at this dispatch's own full tip.** This proves, not merely
+argues, that the wave is 100% attributable to the audit-determinism fix
+itself (this dispatch's own condition-3 work) revealing a previously
+NEVER-baselined cold-boot state, and 0% attributable to the
+space-owner layout mechanism (L1–L4's own `feasible-layout.ts` work) —
+the SAME 172 findings appear whether or not that mechanism exists.
+Restored (`git checkout HEAD -- frontend/src/state/feasible-layout.ts`)
+immediately after the isolation run; the working tree's own final state
+was re-verified clean and identical to the pre-isolation diff.
+
+**Disposition: reported, not silently baselined, per the coordinator's
+own explicit fallback instruction.** Adding 172 new keys to
+`layout-audit-baseline.json` unilaterally, in this dispatch, would be
+exactly the "baselining silently" anti-pattern the coordinator's own
+instruction names as the wrong move — this is a materially different
+scale and kind of disclosure than L3's own 2-finding residual (a
+narrowly root-caused, single-mechanism side effect): it is the FIRST
+TIME this project's layout-audit has ever run against a genuinely
+isolated cold boot, and it surfaces a real, previously-invisible
+first-run/auth-error UI surface this dispatch has no charter to
+evaluate, triage, or fix (wizard-modal markup and dismiss-affordances
+are entirely outside `feasible-layout.ts`'s own scope). Baselining 172
+un-triaged findings — many potentially real accessibility defects on a
+UI surface no prior dispatch has ever audited — is a bigger, more
+consequential act than this dispatch's own remit; it is filed here as
+the concrete STOP-and-report item, not resolved unilaterally.
+
+**`npm run layout-audit --check` therefore remains RED (exit 1) at this
+dispatch's own tip** — genuinely not achieved, disclosed with full
+isolation evidence rather than forced green by an unreviewed baseline
+edit. The mechanism this condition asked for (a deterministic,
+host-independent cold boot) is real, verified, and working exactly as
+specified; what it found is the actual state of affairs, not a defect
+in the fix. Recommending a dedicated follow-up dispatch — "layout-audit
+baseline: capture genuine cold-boot state" — scoped to triaging and
+either baselining-with-justification or fixing the 172 newly-visible
+findings (the auth-error/wizard-modal surface first, since it accounts
+for the bulk of the `pointer-occlusion` cascade), separate from any
+space-owner work.
+
+### Gates, re-run at this dispatch's own final tip
+
+- **eslint** (`npx eslint .`): exit `0`, no output. WITNESSED.
+- **`vue-tsc -b --noEmit`**: exit `0`, no output. WITNESSED.
+- **`npm run build`**: exit `0`, 1256 modules transformed, same
+  pre-existing chunk-size notice, no new warnings. WITNESSED.
+- **Full suite** (`NODE_OPTIONS=--max-old-space-size=2048 npx vitest run
+  --maxWorkers=2`): exit `0`, **271 files passed | 3 skipped (274)**,
+  **3368 passed | 8 skipped (3376)** — unchanged from the pre-discharge
+  numbers (the rename and citation fix touch no test assertions'
+  meaning, only literal region-name strings and a comment; the audit
+  script change touches no `.test.ts` file). WITNESSED.
+- **`npm run layout-audit`**: exit `1`. **NOT green** — see above for
+  the full isolation evidence and disposition. This is the one gate this
+  discharge does not close, reported precisely rather than papered over.
+
+### Files touched, this discharge
+
+- `frontend/src/state/feasible-layout.ts` (rename: `'wrapper'` →
+  `'side-column-capacity'`, `SIDE_COLUMN_CAPACITY_REGION` const,
+  function renames; doc-comment citation correction)
+- `frontend/tests/unit/state/feasible-layout.test.ts` (Branch 7: region
+  literal, describe/it titles updated for the rename)
+- `frontend/FILES.md` (the `feasible-layout.ts` entry's L4 addendum
+  updated for the rename + ledger row 2498)
+- `frontend/scripts/layout-audit.mjs` (`probePortDead`,
+  `pickDeadBackendPort`, wired into `main()`'s `--build` step; header
+  doc's "Deterministic cold boot" section added)
+
+License: Public Domain (The Unlicense), per ADR-0006.

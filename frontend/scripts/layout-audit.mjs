@@ -73,6 +73,40 @@
  * rig (per the final-opus-review's own rig recipe) would extend this
  * script's `--backend-url`/`--engine-url` surface; neither exists yet.
  *
+ * ── Deterministic cold boot (dispatch L4 condition 3, ledger row 2498;
+ *    `.claude/dispatch-reports/lyt-space-owner-l4-review.md` §3) ───────
+ *
+ * "No backend required" describes what this script itself stands up,
+ * not what the audited page CAN reach: `src/config/env.ts`'s own
+ * `API_BASE_URL` falls back to `http://localhost:8764` whenever no
+ * `VITE_API_BASE_URL` is set at BUILD time, and `npm run build`
+ * (this script's own `--build` step) inherits the invoking shell's
+ * environment — so on a host where something ELSE happens to be
+ * listening on 8764 (a leftover dev backend, e.g.), the built SPA
+ * genuinely reaches it, and the audited page's own state (persisted
+ * session facts, message-log content) stops being a pure function of
+ * the committed source. This is exactly the root cause the L4 build
+ * report and review both independently traced 3 audit findings to
+ * (`lyt-space-owner-l4-build.md` §7, `lyt-space-owner-l4-review.md`
+ * §3) — a real, environment-dependent nondeterminism in what "cold
+ * boot" means, not a code defect in the audited SPA itself.
+ *
+ * Fixed at the root: when this script BUILDS (`--build`), it first
+ * probes for a genuinely dead TCP port at or above 19000 (`pickDead
+ * BackendPort`, below — refuses the scratch-preview port and the
+ * project's own forbidden live ports, and re-probes on the rare
+ * chance a candidate unexpectedly answers) and builds with
+ * `VITE_API_BASE_URL` pointed at it. `API_BASE_URL` is baked in at
+ * BUILD time (`import.meta.env`, not read at request time), so the
+ * resulting `dist/` genuinely cannot reach any live service on this
+ * or any other host — cold boot becomes a pure function of the
+ * committed source, independent of what else happens to be running
+ * locally. Without `--build` (an existing `dist/` is audited as-is),
+ * this override does not apply — a stale `dist/` built earlier, by
+ * hand, with its own `VITE_API_BASE_URL`, is audited as whatever it
+ * already is; this is disclosed via a printed warning, not silently
+ * masked.
+ *
  * ── Playwright discipline (project convention, see lyt-conformance.mjs
  *    and lyt-w2-usability.mjs's own headers) ─────────────────────────
  *   - This script does not self-wrap in `systemd-run`; the invoking
@@ -110,6 +144,7 @@ import { chromium } from 'playwright-core';
 import { spawn } from 'node:child_process';
 import { readFile, writeFile, access } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { createConnection } from 'node:net';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -363,6 +398,53 @@ function run(cmd, args, opts = {}) {
   });
 }
 
+/** Probes whether nothing is listening on `port` at `host` — resolves
+ *  `true` (dead: safe to bake into the build) on a connection error
+ *  (`ECONNREFUSED` and friends) or a timeout, `false` (alive: something
+ *  DID answer) only on an actual successful connect. Errs toward "dead"
+ *  on ambiguous failures deliberately: this probe exists to catch the
+ *  ONE failure mode that matters here (a real service answering, which
+ *  would make the built SPA reach a stray backend), not to diagnose
+ *  arbitrary network conditions. */
+function probePortDead(port, host = '127.0.0.1', timeoutMs = 300) {
+  return new Promise((resolve) => {
+    const socket = createConnection({ port, host });
+    let settled = false;
+    const finish = (dead) => {
+      if (settled) return;
+      settled = true;
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(dead);
+    };
+    socket.setTimeout(timeoutMs);
+    socket.once('connect', () => finish(false));
+    socket.once('timeout', () => finish(true));
+    socket.once('error', () => finish(true));
+  });
+}
+
+/** Finds a genuinely dead port at/above 19000 to bake into
+ *  `VITE_API_BASE_URL` for a deterministic cold-boot build (this
+ *  module's own header, "Deterministic cold boot"). Refuses the
+ *  scratch preview port (`port`, above — the two must never collide)
+ *  and the project's own forbidden live ports; re-probes forward on
+ *  the rare chance a candidate unexpectedly answers, and refuses
+ *  loudly (ADR-0002) rather than silently proceeding on an ambiguous
+ *  port if the whole search range is exhausted. */
+async function pickDeadBackendPort(startPort = 19400, maxTries = 50) {
+  for (let i = 0; i < maxTries; i += 1) {
+    const candidate = startPort + i;
+    if (candidate === port || FORBIDDEN_PORTS.has(candidate)) continue;
+    const dead = await probePortDead(candidate);
+    if (dead) return candidate;
+    console.error(`[layout-audit] port ${candidate} unexpectedly answered a connection -- skipping, trying next`);
+  }
+  throw new Error(
+    `[layout-audit] could not find a dead port in [${startPort}, ${startPort + maxTries}) for the deterministic cold-boot backend URL -- refusing to build with an ambiguous VITE_API_BASE_URL (ADR-0002)`,
+  );
+}
+
 async function waitForPreviewReady(url, timeoutMs = 30_000) {
   const deadline = Date.now() + timeoutMs;
   let lastErr;
@@ -436,9 +518,18 @@ function renderSummary(results, baselineKeys, checkMode) {
 
 async function main() {
   if (doBuild) {
+    const deadBackendPort = await pickDeadBackendPort();
+    const deadBackendUrl = `http://127.0.0.1:${deadBackendPort}`;
+    console.log(`[layout-audit] deterministic cold boot: probed port ${deadBackendPort} dead, building with VITE_API_BASE_URL=${deadBackendUrl}…`);
     console.log('[layout-audit] building SPA (npm run build)…');
-    await run('npm', ['run', 'build']);
+    await run('npm', ['run', 'build'], { env: { ...process.env, VITE_API_BASE_URL: deadBackendUrl } });
   } else {
+    console.error(
+      '[layout-audit] WARNING: auditing an EXISTING dist/ without --build -- this build\'s own baked-in ' +
+        'VITE_API_BASE_URL (whatever it was built with) is unknown to this run, NOT overridden to a dead ' +
+        'port; cold-boot determinism is only guaranteed via the --build path (this module\'s own header, ' +
+        '"Deterministic cold boot").',
+    );
     try {
       await access(join(distDir, 'index.html'));
     } catch {
