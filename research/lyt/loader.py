@@ -199,6 +199,7 @@ license line and the umbrella's ADR-0006 per-file convention.
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import warnings
 from typing import Dict, FrozenSet, List, Optional, Tuple
 
@@ -252,6 +253,91 @@ VALID_EDGE_DISPOSITIONS = {"unit", "item", "continuous"}
 
 
 _FACTS_TABLE_CACHE: Optional["relations.FactsTable"] = None
+_RATIFIED_MANIFEST_CACHE: Optional["relations.RatifiedManifest"] = None
+
+
+def _get_ratified_manifest() -> "relations.RatifiedManifest":
+    """RATCHET FORM, dispatch C4 (ledger rows 2396/2445): mirrors
+    `_get_facts_table`'s own lazy-load-once-per-process-and-cache
+    posture. `reset_ratified_manifest_cache` (below) is the matching test
+    seam."""
+    global _RATIFIED_MANIFEST_CACHE
+    if _RATIFIED_MANIFEST_CACHE is None:
+        _RATIFIED_MANIFEST_CACHE = relations.RatifiedManifest.load()
+    return _RATIFIED_MANIFEST_CACHE
+
+
+def reset_ratified_manifest_cache(
+    manifest: Optional["relations.RatifiedManifest"] = None,
+) -> None:
+    """Test seam mirroring `reset_facts_table_cache`: install `manifest`
+    as the process-wide ratified-literals manifest (or clear the cache
+    back to lazy-reload-from-disk when `manifest is None`)."""
+    global _RATIFIED_MANIFEST_CACHE
+    _RATIFIED_MANIFEST_CACHE = manifest
+
+
+def _raw_content_signature(node: object) -> str:
+    """RATCHET FORM, dispatch C4 (ledger rows 2396/2445): a canonical,
+    content-derived, POSITION-INDEPENDENT string identifying a raw tree
+    node — the fallback half of `_site_id_for_node` (below), for an
+    untagged Split/Exclusive with no author-declared name of its own. A
+    leaf's own signature is just its widget id; a Split's/an untagged
+    Exclusive's is `"{H|V|T}[" + its own children's signatures, SORTED,
+    joined by commas + "]"`. SORTED is the load-bearing choice: two
+    siblings changing order (an edit this ratchet must not react to)
+    never changes this string, since the string never encodes WHICH
+    position a child held, only WHICH children exist and what THEY
+    themselves (recursively) contain. Two structurally-identical
+    subtrees legitimately collide (the same ratification correctly
+    applies to both — not a bug); two subtrees differing in ANY
+    descendant's identity or composition never collide, by construction,
+    without needing a single line number or sibling index anywhere in
+    the computation."""
+    if isinstance(node, lytparser.RawLeaf):
+        return node.widget
+    if isinstance(node, lytparser.RawSplit):
+        inner = ",".join(sorted(_raw_content_signature(c.node) for c in node.children))
+        return f"{node.axis.upper()}[{inner}]"
+    if isinstance(node, lytparser.RawExclusive):
+        if node.tag:
+            return f"T:{node.tag}"
+        inner = ",".join(sorted(_raw_content_signature(c.node) for c in node.children))
+        return f"T[{inner}]"
+    raise LytLoadError(
+        "unknown raw node kind while deriving a content signature",
+        {"node": repr(node)},
+    )
+
+
+def _site_id_for_node(node: object) -> str:
+    """RATCHET FORM, dispatch C4 (ledger rows 2396/2445): the STABLE site
+    identity `RatifiedManifest` keys on for whichever node's OWN sizing
+    is about to resolve — NEVER a file:line or a sibling/child ORDINAL
+    position (the commissioner's own explicit instruction; see
+    `RatifiedManifest`'s own docstring in relations.py for the anti-
+    pattern this guards against). Three forms, in priority order:
+
+      1. A leaf: its own `widget` id — already the stable, author-chosen
+         identity every other part of this substrate keys on.
+      2. A TAGGED Exclusive (`T(...)[TAG]`): `f"tag:{tag}"` — the SAME
+         author-declared annotation `emit_layout_tree.py`'s own blackbox
+         blocks already read, reused rather than re-invented.
+      3. Anything else (an untagged Split or an untagged Exclusive): the
+         content-derived signature `_raw_content_signature` computes,
+         hashed to a short, stable, collision-resistant handle (the full
+         signature can be long for an outer container — the hash keeps
+         the manifest's own JSON legible while the signature itself is
+         still stored alongside it, per entry, for a commissioner's own
+         audit — see `RatifiedManifest`'s own `content_signature` field).
+    """
+    if isinstance(node, lytparser.RawLeaf):
+        return node.widget
+    if isinstance(node, lytparser.RawExclusive) and node.tag:
+        return f"tag:{node.tag}"
+    signature = _raw_content_signature(node)
+    digest = hashlib.sha256(signature.encode("utf-8")).hexdigest()[:10]
+    return f"anon-{digest}"
 
 
 def _get_facts_table() -> "relations.FactsTable":
@@ -366,13 +452,90 @@ def _resolve_extent_like(
         # loading path this amendment actually governs, not every call
         # site in this module.
         if ctx is not None:
-            ctx.deprecated_literals.append({"where": where, "unit": e.unit, "v": e.v})
+            # RATCHET FORM, dispatch C4 (ledger rows 2396/2445): a px/ch
+            # literal under a STRICT context (`ctx.refuse_literal_bounds`)
+            # is no longer an unconditional refusal — it is checked
+            # against `ctx.ratified` (a `RatifiedManifest`) FIRST, keyed
+            # on `(ctx.source_file, ctx.current_site_id, ctx.current_
+            # construct, e.unit)`. A RATIFIED site loads exactly like a
+            # pre-C4 literal (no warning either — it is sanctioned, not
+            # merely tolerated); an UNLISTED site refuses, naming all four
+            # key components and the manifest path so a reader knows
+            # exactly what to add and where. `fr` is never checked against
+            # the manifest at all (structurally exempt regardless of
+            # `refuse_literal_bounds` — see `RelationContext.refuse_
+            # literal_bounds`'s own docstring for why).
+            if ctx.refuse_literal_bounds and e.unit in ("px", "ch"):
+                manifest = ctx.ratified
+                is_ratified = manifest is not None and manifest.is_ratified(
+                    file=ctx.source_file or "",
+                    site_id=ctx.current_site_id or "",
+                    construct=ctx.current_construct or "",
+                    unit=e.unit,
+                    value=e.v,
+                )
+                if is_ratified:
+                    if e.unit == "ch":
+                        return ast.Extent(unit="px", v=e.v * PX_PER_CH)
+                    return ast.Extent(unit=e.unit, v=e.v)
+                raise LytLoadError(
+                    f"px/ch literal bound at {where} ({e.v:g}{e.unit}) is "
+                    "refused — RELATIONS-FIRST RATCHET (ledger rows "
+                    "2396/2445, dispatch C4): this exact site is not in the "
+                    "ratified-literals manifest "
+                    f"({relations.DEFAULT_RATIFIED_LITERALS_PATH.name}) — "
+                    "either spell this bound as a relation expression "
+                    "instead (relations.py's nine-primitive vocabulary), or "
+                    "have the commissioner ratify this site by adding "
+                    f"{{\"file\": {ctx.source_file!r}, \"site_id\": "
+                    f"{ctx.current_site_id!r}, \"construct\": "
+                    f"{ctx.current_construct!r}, \"unit\": {e.unit!r}, "
+                    f"\"ratified_values\": [{e.v!r}]}} to the manifest",
+                    {
+                        "where": where,
+                        "law": "relations-first",
+                        "prohibition": "unratified-literal-in-governed-encoding",
+                        "unit": e.unit,
+                        "v": e.v,
+                        "source_file": ctx.source_file,
+                        "site_id": ctx.current_site_id,
+                        "construct": ctx.current_construct,
+                        "manifest_path": str(relations.DEFAULT_RATIFIED_LITERALS_PATH),
+                    },
+                )
+            ctx.deprecated_literals.append(
+                {
+                    "where": where,
+                    "unit": e.unit,
+                    "v": e.v,
+                    # RATCHET FORM, dispatch C4: the site identity this
+                    # SAME literal would be checked against under strict
+                    # mode — recorded here too (not only inside the
+                    # strict-mode branch) so a non-strict, ordinary
+                    # WARNING-mode load can still enumerate candidate
+                    # manifest entries (`tools/dump_ratifiable_sites.py`
+                    # reads exactly this field), without needing a second,
+                    # strict-mode pass.
+                    "site_id": ctx.current_site_id,
+                    "construct": ctx.current_construct,
+                }
+            )
             warnings.warn(
                 f"px/ch literal bound at {where} ({e.v:g}{e.unit}) — "
                 "RELATIONS-FIRST (ledger rows 2396/2397): a literal extent "
                 "here is deprecated, not yet refused, pending the dispatch C "
                 "encoding rewrite that replaces it with a relation "
-                "expression (governing spec, dispatch B)",
+                "expression (governing spec, dispatch B) "
+                # RATCHET FORM, dispatch C4: site_id/construct appended
+                # here too (in addition to `ctx.deprecated_literals`,
+                # which only reliably accumulates the OUTERMOST context's
+                # own direct literals, not a descendant's — each Split/
+                # Exclusive branch builds a FRESH child context with its
+                # own empty list) so `tools/dump_ratifiable_sites.py` can
+                # recover site_id/construct from the warning stream alone,
+                # the same way `tools/count_deprecations.py` already reads
+                # `where`/unit/value from it.
+                f"[site_id={ctx.current_site_id!r} construct={ctx.current_construct!r}]",
                 category=RelationsFirstDeprecationWarning,
                 stacklevel=3,
             )
@@ -570,8 +733,17 @@ def _resolve_envelope_state_extents(
         )
     resolved: Dict[str, ast.Extent] = {}
     for name, raw_ext in named:
+        # RATCHET FORM, dispatch C4: each declared state is its own
+        # construct (`envelope-state:<name>`) — two states at the same
+        # site are two different literals, ratified (or not)
+        # independently.
+        state_ctx = (
+            dataclasses.replace(ctx, current_construct=f"envelope-state:{name}")
+            if ctx is not None
+            else None
+        )
         resolved[name] = _resolve_extent_like(
-            raw_ext, where=f"{where} (envelope state {name!r})", ctx=ctx
+            raw_ext, where=f"{where} (envelope state {name!r})", ctx=state_ctx
         )
     units = {e.unit for e in resolved.values()}
     if len(units) > 1:
@@ -784,7 +956,12 @@ def _load_sizing(
         # active; envelope_states is then purely documentation for this
         # slot, since Sizing has no second axis to reserve variably (see
         # build report).
-        fixed_extent = _resolve_extent_like(fixed_like, where=where, ctx=relctx)
+        # RATCHET FORM, dispatch C4: "fixed" covers BOTH the bare
+        # `{Npx}` shorthand and the `pinned <extent>` keyword spelling —
+        # they mean the same thing (min=pref=max), so ratifying one
+        # spelling at a site covers an author switching to the other.
+        fixed_ctx = dataclasses.replace(relctx, current_construct="fixed") if relctx is not None else None
+        fixed_extent = _resolve_extent_like(fixed_like, where=where, ctx=fixed_ctx)
         basis = "reserved"
         envelope_states = None
         if rs.envelope_states is not None:
@@ -826,17 +1003,23 @@ def _load_sizing(
         # constraining choice, never a silently-invented larger floor.
         min_extent = zero
     else:
-        min_extent = _resolve_extent_like(rs.min, where=where, ctx=relctx)
+        # RATCHET FORM, dispatch C4: min/pref/max are three DISTINCT
+        # constructs at the SAME site — an author ratified for `min`
+        # is not thereby ratified for `pref`/`max` at the same widget.
+        min_ctx = dataclasses.replace(relctx, current_construct="min") if relctx is not None else None
+        min_extent = _resolve_extent_like(rs.min, where=where, ctx=min_ctx)
 
     if rs.pref is None:
         raise LytLoadError(f"sizing at {where} is missing 'pref'", {"where": where})
-    pref_extent = _resolve_extent_like(rs.pref, where=where, ctx=relctx)
+    pref_ctx = dataclasses.replace(relctx, current_construct="pref") if relctx is not None else None
+    pref_extent = _resolve_extent_like(rs.pref, where=where, ctx=pref_ctx)
     if rs.max is None:
         # Same disclosed completion rule, mirrored for 'max': omitted ->
         # 'inf' (the least constraining choice).
         max_val: "ast.Extent | str" = "inf"
     else:
-        max_val = _resolve_max(rs.max, where=where, ctx=relctx)
+        max_ctx = dataclasses.replace(relctx, current_construct="max") if relctx is not None else None
+        max_val = _resolve_max(rs.max, where=where, ctx=max_ctx)
 
     basis = "reserved"
     envelope_states = None
@@ -1014,7 +1197,19 @@ def _load_demote_presence(
                     "prohibition": "demote-exclusive-without-tag",
                 },
             )
-        return _load_demote_axis_and_threshold(axis, ext, where=where, relctx=relctx)
+        # RATCHET FORM, dispatch C4: a relation-valued @demote threshold
+        # is its own construct — currently dormant in both real
+        # encodings (every @demote threshold there is a relation, never
+        # a bare literal, so this branch's own literal-shape check below
+        # never reaches `_resolve_extent_like` at all today), tagged here
+        # for correctness against a future encoding that does combine
+        # the two.
+        demote_ctx = (
+            dataclasses.replace(relctx, current_construct="demote-threshold")
+            if relctx is not None
+            else None
+        )
+        return _load_demote_axis_and_threshold(axis, ext, where=where, relctx=demote_ctx)
     if activity != "occasional":
         raise LytLoadError(
             f"@demote declared at {where} but this leaf's declared activity "
@@ -2496,6 +2691,8 @@ def load_slot(
     orientation_overrides: Optional[Dict[str, str]] = None,
     relctx: Optional["relations.RelationContext"] = None,
     is_exclusive_child: bool = False,
+    refuse_literal_bounds: bool = False,
+    source_file: Optional[str] = None,
 ) -> ast.Slot:
     """`is_exclusive_child` (AMENDMENT 10, ledger rows 2447/2450, L2a of the
     space-owner cure): `True` only for the exact call this function's own
@@ -2567,7 +2764,33 @@ def load_slot(
     computed for the OTHER fragment's solve."""
     orientation_overrides = orientation_overrides or {}
     if relctx is None:
-        relctx = relations.RelationContext(facts=_get_facts_table())
+        # LYT relations-first amendment, dispatch C4: `refuse_literal_
+        # bounds`/`source_file` seed the ROOT context here, from this
+        # call's own parameters — every recursive call below either
+        # passes an explicit `relctx` (never hits this branch) or is a
+        # child/own context built FROM `relctx` (see the Split/Exclusive
+        # branches below, which now carry both fields forward), so a
+        # strict root load stays strict all the way down, never silently
+        # downgraded partway through the tree.
+        relctx = relations.RelationContext(
+            facts=_get_facts_table(),
+            refuse_literal_bounds=refuse_literal_bounds,
+            source_file=source_file,
+            # RATCHET FORM, dispatch C4: loaded unconditionally (cheap,
+            # cached, mirrors `facts` immediately above) — an empty/absent
+            # manifest is harmless when `refuse_literal_bounds` is False
+            # (never consulted) and is the correct "refuse everything"
+            # default when it is True.
+            ratified=_get_ratified_manifest(),
+        )
+    # RATCHET FORM, dispatch C4: this node's OWN site identity, computed
+    # once here (before any of its own sizing/envelope/operand literals
+    # resolve) and threaded into every context this function builds FOR
+    # this node's own `_load_sizing`/`_load_presence` calls below, via
+    # `dataclasses.replace(relctx, current_site_id=...)` at each such call
+    # site — see `_site_id_for_node`'s own docstring for the three forms
+    # this can take and why none of them is positional.
+    own_site_id = _site_id_for_node(rs.node)
     node = rs.node
     if isinstance(node, lytparser.RawLeaf):
         # AMENDMENT 5 (ledger row 1937): resolved before `_load_leaf` so
@@ -2699,7 +2922,10 @@ def load_slot(
             where=f"{path}:{node.widget}",
             node_kind="leaf",
             orientation=orientation,
-            relctx=relctx,
+            # RATCHET FORM, dispatch C4: this leaf's own site identity
+            # (its `widget` id) for every literal its own sizing block
+            # resolves.
+            relctx=dataclasses.replace(relctx, current_site_id=own_site_id),
         )
         # AMENDMENT 7 (L9, see `_load_ceiling_flag`): resolved AFTER
         # `_load_sizing` and folded in with `dataclasses.replace` rather
@@ -2767,6 +2993,12 @@ def load_slot(
                 sibling_sizings=dict(sibling_sizings),
                 children_sizings=None,
                 enclosing_gap_px=gap_px,
+                # dispatch C4: carried forward from the received context,
+                # same posture `facts` already takes — a child of a strict
+                # load is itself strict.
+                refuse_literal_bounds=relctx.refuse_literal_bounds,
+                source_file=relctx.source_file,
+                ratified=relctx.ratified,
             )
             child_slot = load_slot(
                 c,
@@ -2825,7 +3057,15 @@ def load_slot(
         # among ITS OWN siblings, in ITS OWN enclosing split) — never the
         # `child_relctx` built above, which is scoped to this split's
         # children, not to the split itself.
-        sizing = _load_sizing(rs.sizing, where=path, node_kind="split", relctx=relctx)
+        sizing = _load_sizing(
+            rs.sizing,
+            where=path,
+            node_kind="split",
+            # RATCHET FORM, dispatch C4: this Split's own site identity
+            # (widget-less, so `own_site_id` is the content-signature
+            # hash — see `_site_id_for_node`).
+            relctx=dataclasses.replace(relctx, current_site_id=own_site_id),
+        )
         # AMENDMENT 7 (L11): a Split IS the shape a board composite may
         # declare `measure-bound` on, so this branch resolves it rather
         # than refusing it.
@@ -2858,6 +3098,11 @@ def load_slot(
                 sibling_sizings={},
                 children_sizings=None,
                 enclosing_gap_px=None,
+                # dispatch C4: carried forward, same posture as the Split
+                # branch's own child_relctx above.
+                refuse_literal_bounds=relctx.refuse_literal_bounds,
+                source_file=relctx.source_file,
+                ratified=relctx.ratified,
             )
             children.append(
                 load_slot(
@@ -2931,6 +3176,15 @@ def load_slot(
             sibling_sizings=relctx.sibling_sizings,
             children_sizings=[c.sizing for c in children],
             enclosing_gap_px=relctx.enclosing_gap_px,
+            # dispatch C4: carried forward, same posture as every other
+            # derived context in this function.
+            refuse_literal_bounds=relctx.refuse_literal_bounds,
+            source_file=relctx.source_file,
+            ratified=relctx.ratified,
+            # RATCHET FORM, dispatch C4: this Exclusive's own site
+            # identity — its own `[TAG]` if present, else a content hash
+            # (see `_site_id_for_node`).
+            current_site_id=own_site_id,
         )
         sizing = _load_sizing(rs.sizing, where=path, node_kind="exclusive", relctx=own_relctx)
         # LOOP ITERATION 11 (L15): same threading as the Split branch.
@@ -2954,6 +3208,8 @@ def load_layouts(
     *,
     waivers: Optional["Dict[str, List[object]]"] = None,
     orientation_overrides: Optional[Dict[str, Dict[str, str]]] = None,
+    refuse_literal_bounds: bool = False,
+    source_file: Optional[str] = None,
 ) -> "dict[str, ast.Slot]":
     """Parse + type-check every `layout NAME = ...` fragment in `text`.
     Runs the L1/L2 well-formedness pass on each before returning (see
@@ -2996,6 +3252,19 @@ def load_layouts(
     caller that ever passes a non-`None` value here) was updated in the
     same change to address its single derived map to the one layout it
     computed the derivation for.
+
+    `refuse_literal_bounds`/`source_file` (LYT relations-first amendment,
+    dispatch C4, ledger rows 2396/2397/2400/2419/2425/2436/2445): opt a
+    load into STRICT mode — every px/ch literal bound this call resolves
+    raises a structured `LytLoadError` instead of the ordinary
+    `RelationsFirstDeprecationWarning` (an `fr`/`inf` structural sizing
+    keyword is unaffected either way — see
+    `relations.RelationContext.refuse_literal_bounds`'s own docstring for
+    why). Both default to `False`/`None`, byte-identical to every
+    pre-C4 call site. `source_file`, when given, is threaded into every
+    strict refusal's own `detail["source_file"]` purely for a reader's
+    benefit — it names nothing to the loader itself, which never opens a
+    file (this function only ever sees `text`).
     """
     from wellformed import check_wellformed
 
@@ -3008,6 +3277,8 @@ def load_layouts(
             raw.slot,
             path=raw.name,
             orientation_overrides=orientation_overrides.get(raw.name),
+            refuse_literal_bounds=refuse_literal_bounds,
+            source_file=source_file,
         )
         check_wellformed(slot, layout_name=raw.name, waivers=waivers.get(raw.name))
         out[raw.name] = slot

@@ -136,6 +136,8 @@ def rebind(
     result: SolveResult,
     *,
     waivers: Optional[Dict[str, list]] = None,
+    refuse_literal_bounds: bool = False,
+    source_file: Optional[str] = None,
 ) -> ast.Slot:
     """Derive residual orientations from `result` and, only if there is at
     least one to derive, re-load `text` a second time with them threaded
@@ -186,6 +188,15 @@ def rebind(
     the language-substrate ports this amendment continues), so a real
     rebind has nothing downstream to show a difference in — THAT is the
     genuinely dormant fact, not `tree`'s own eligibility, which is real.
+
+    `refuse_literal_bounds`/`source_file` (RATCHET FORM, dispatch C4,
+    ledger rows 2396/2445): threaded straight through to this second
+    `load_layouts` call, so a caller whose FIRST load of `text` ran in
+    strict mode (checked against `ratified-literals.json`) gets the SAME
+    strict treatment on this re-load — a literal that was ratified (or
+    refused) the first time is ratified (or refused) identically the
+    second time, since both loads resolve the exact same source text
+    through the exact same manifest.
     """
     derived = compute_derived_orientations(root, result)
     if not derived:
@@ -198,5 +209,9 @@ def rebind(
     # inherit an override computed from THIS layout's own solve. See
     # `loader.load_layouts`'s own docstring for the full hazard this closes.
     return loader.load_layouts(
-        text, waivers=waivers, orientation_overrides={layout_name: derived}
+        text,
+        waivers=waivers,
+        orientation_overrides={layout_name: derived},
+        refuse_literal_bounds=refuse_literal_bounds,
+        source_file=source_file,
     )[layout_name]

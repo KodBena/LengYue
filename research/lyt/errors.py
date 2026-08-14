@@ -47,15 +47,37 @@ class RelationsFirstDeprecationWarning(DeprecationWarning):
     """LYT relations-first amendment, dispatch B (ledger rows
     2396/2397/2400/2401), task 4 (backward compat during transition): a
     px/ch LITERAL bound (min/pref/max/the bare `{extent}` shorthand)
-    remains parseable and loadable this wave — the two clean-room
-    encodings still carry them until dispatch C's own encoding rewrite —
-    but every such literal now emits ONE of these, non-fatally, so the
-    encoding-rewrite dispatch can measure exactly how many remain and, in
-    its own change, flip this from a warning to a `LytLoadError` refusal
-    (RELATIONS-FIRST, row 2396/2397: "px literals... banned from
-    encodings"). Never raised on its own; `warnings.warn(...,
+    remains parseable and loadable — `warnings.warn(...,
     category=RelationsFirstDeprecationWarning)` is how `loader.py` emits
-    it — a caller that wants it to fail loudly today may already do so
-    with `warnings.simplefilter("error", RelationsFirstDeprecationWarning)`
-    or `pytest -W error::errors.RelationsFirstDeprecationWarning`, without
-    any code change here."""
+    it, once per resolution, for every caller that does not opt into
+    strict mode. A caller that wants it to fail loudly may do so with
+    `warnings.simplefilter("error", RelationsFirstDeprecationWarning)` or
+    `pytest -W error::errors.RelationsFirstDeprecationWarning` (channel B,
+    zero code changes here) — but note that filter is UNSCOPED: it also
+    turns the SAME warning fired for an `fr`/`inf` structural sizing
+    keyword into an error, which has no relations-first analog to convert
+    to (see `relations.RelationContext.refuse_literal_bounds`'s own
+    docstring).
+
+    FLIPPED, PER-UNIT, dispatch C4 (ledger rows
+    2396/2397/2400/2419/2425/2436/2445, the closing step of the relations-
+    first amendment): `loader.load_layouts(..., refuse_literal_bounds=
+    True)` is the scoped alternative to channel B above — it makes
+    `loader._resolve_extent_like` RAISE a structured `errors.LytLoadError`
+    (`detail["prohibition"] == "px-literal-in-governed-encoding"`) instead
+    of warning, for a px/ch literal ONLY (an `fr`/`inf` structural literal
+    is unaffected, unlike the unscoped `simplefilter`/`pytest -W` channel
+    above). `False`/unset is the default everywhere — byte-identical to
+    every pre-C4 call. Dispatch C3's own encoding rewrite
+    (`.claude/dispatch-reports/lyt-relations-c3-rewrite.md`) reduced the
+    two real clean-room encodings' own residual literal count by 77.5%
+    (528 -> 119) but did not reach zero — ~59 of the 119 are genuine px/ch
+    literals still unreachable against the committed facts files (no
+    probe/measurement exists yet), so C4 does NOT wire
+    `refuse_literal_bounds=True` into either encoding's own default
+    loading path (`runner.py`/`emit_*.py`/`coverage_matrix.py` all still
+    load both encodings warning-only) — doing so would refuse currently
+    load-bearing, honestly-disclosed content, not a defect. The flip is a
+    tested, directory-scopable CAPABILITY (see `tests/test_relations.py`'s
+    own C4 coverage) that a future wave activates once the residual
+    literals are grounded, not something this dispatch forces on."""

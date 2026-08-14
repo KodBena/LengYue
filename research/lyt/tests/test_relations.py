@@ -17,6 +17,7 @@ whatever facts dispatch A/C happen to have populated).
 License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
 license line and the umbrella's ADR-0006 per-file convention.
 """
+import warnings
 from pathlib import Path
 
 import pytest
@@ -26,7 +27,7 @@ import loader
 import parser as lytparser
 import relations
 from compiler import solve_lexicographic
-from errors import LytLoadError
+from errors import LytLoadError, RelationsFirstDeprecationWarning
 
 
 # ---------------------------------------------------------------------------
@@ -491,7 +492,13 @@ def test_literal_px_still_parses_and_loads_with_deprecation_warning():
         ext = _resolve("28px", ctx=ctx)
     assert ext.v == 28.0
     assert any("RELATIONS-FIRST" in str(w.message) for w in record)
-    assert ctx.deprecated_literals == [{"where": "test", "unit": "px", "v": 28.0}]
+    # RATCHET FORM, dispatch C4: `deprecated_literals` entries now also
+    # carry `site_id`/`construct` (both `None` here — this `ctx` was
+    # built directly, never routed through `load_slot`'s own
+    # `current_site_id`/`current_construct` threading).
+    assert ctx.deprecated_literals == [
+        {"where": "test", "unit": "px", "v": 28.0, "site_id": None, "construct": None}
+    ]
 
 
 def test_literal_extent_with_no_ctx_emits_no_warning():
@@ -504,6 +511,386 @@ def test_literal_extent_with_no_ctx_emits_no_warning():
         warnings.simplefilter("error")
         ext = loader._resolve_extent_like(_parse_extent("28px"), where="test", ctx=None)
     assert ext.v == 28.0
+
+
+# ---------------------------------------------------------------------------
+# Dispatch C4 — the RATCHET form (ledger rows 2396/2445), reconciling
+# ruling 2396 ("px literals... banned from encodings") with ruling 2445
+# (a QUALIFIED zero is ratified, not silently tolerated). `refuse_
+# literal_bounds` on `RelationContext`/`load_slot`/`load_layouts` turns a
+# px/ch literal's deprecation warning into either a SILENT SUCCESS (the
+# site is in `relations.RatifiedManifest`) or a structured `LytLoadError`
+# naming the site (the site is NOT in the manifest) — scoped to px/ch
+# only (never fr/inf) and, at the file level, scoped to `encodings/` only
+# (`runner.is_governed_encoding`/`load_governed_layouts` — never
+# fixtures/, per row 2426: "transcriptions are measurements ... they stay
+# loadable").
+# ---------------------------------------------------------------------------
+
+STRICT_SYNTHETIC_ENCODING = """
+layout strict-synthetic =
+  {pref 1fr, max inf} H(
+    {28px} sideRail[common, action],
+    {pref 1fr} board[board]
+  )
+"""
+
+
+def _synthetic_manifest(entries) -> "relations.RatifiedManifest":
+    return relations.RatifiedManifest(list(entries), status="test-fixture")
+
+
+def test_strict_mode_refuses_unratified_px_literal_naming_site():
+    """The core C4 ratchet refusal shape: a px literal bound resolved
+    under `refuse_literal_bounds=True`, with NO manifest entry for its
+    own (file, site_id, construct, unit) key, raises `LytLoadError`
+    (`prohibition == "unratified-literal-in-governed-encoding"`) naming
+    the exact site (`where`), the literal's own unit/value, the derived
+    `site_id`/`construct`, the source file, and the manifest's own path —
+    instead of merely warning. An empty manifest (`RatifiedManifest([])`)
+    is installed explicitly so this test does not depend on whatever the
+    REAL committed manifest happens to ratify."""
+    loader.reset_ratified_manifest_cache(_synthetic_manifest([]))
+    try:
+        with pytest.raises(LytLoadError) as exc:
+            loader.load_layouts(
+                STRICT_SYNTHETIC_ENCODING,
+                refuse_literal_bounds=True,
+                source_file="encodings/strict-synthetic.lyt",
+            )
+    finally:
+        loader.reset_ratified_manifest_cache(None)
+    detail = exc.value.detail
+    assert detail["prohibition"] == "unratified-literal-in-governed-encoding"
+    assert detail["law"] == "relations-first"
+    assert detail["unit"] == "px"
+    assert detail["v"] == 28.0
+    assert detail["source_file"] == "encodings/strict-synthetic.lyt"
+    assert detail["site_id"] == "sideRail"
+    assert detail["construct"] == "fixed"
+    assert detail["manifest_path"].endswith("ratified-literals.json")
+    assert "strict-synthetic" in detail["where"]
+
+
+def test_strict_mode_loads_silently_when_site_is_ratified():
+    """The ratchet's own POSITIVE case: the SAME snippet as the test
+    above loads cleanly under strict mode once its exact (file, site_id,
+    construct, unit) key is in the manifest — no refusal, and no
+    deprecation warning for THAT site either (a ratified literal is
+    sanctioned, not merely tolerated). The snippet's OWN `pref 1fr`/`max
+    inf` structural keywords still warn regardless (fr/inf are never
+    manifest-checked at all — see `test_strict_mode_does_not_refuse_fr_
+    or_inf_literals`), so this test checks for the ABSENCE of a
+    `sideRail`/`28px`-naming warning specifically, not a global zero."""
+    manifest = _synthetic_manifest(
+        [
+            relations.RatifiedLiteral(
+                file="encodings/strict-synthetic.lyt",
+                site_id="sideRail",
+                construct="fixed",
+                unit="px",
+                ratified_values=(28.0,),
+            )
+        ]
+    )
+    loader.reset_ratified_manifest_cache(manifest)
+    try:
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            layouts = loader.load_layouts(
+                STRICT_SYNTHETIC_ENCODING,
+                refuse_literal_bounds=True,
+                source_file="encodings/strict-synthetic.lyt",
+            )
+    finally:
+        loader.reset_ratified_manifest_cache(None)
+    assert "strict-synthetic" in layouts
+    assert not any(
+        issubclass(w.category, RelationsFirstDeprecationWarning) and "28px" in str(w.message)
+        for w in record
+    )
+
+
+def test_strict_mode_ratification_does_not_leak_to_a_different_construct():
+    """Ratifying `sideRail`'s `fixed` construct at 28px must NOT silently
+    admit a DIFFERENT construct at the same widget, nor the same
+    construct at a DIFFERENT value — both are refused, proving the key
+    is genuinely `(file, site_id, construct, unit)` and the payload is a
+    VALUE-membership check, not a blanket per-widget allowance."""
+    manifest = _synthetic_manifest(
+        [
+            relations.RatifiedLiteral(
+                file="encodings/strict-synthetic.lyt",
+                site_id="sideRail",
+                construct="fixed",
+                unit="px",
+                ratified_values=(28.0,),
+            )
+        ]
+    )
+    text_different_value = """
+layout strict-synthetic-2 =
+  {min 0px, pref 1fr, max inf} H(
+    {29px} sideRail[common, action],
+    {pref 1fr} board[board]
+  )
+"""
+    loader.reset_ratified_manifest_cache(manifest)
+    try:
+        with pytest.raises(LytLoadError) as exc:
+            loader.load_layouts(
+                text_different_value,
+                refuse_literal_bounds=True,
+                source_file="encodings/strict-synthetic.lyt",
+            )
+    finally:
+        loader.reset_ratified_manifest_cache(None)
+    assert exc.value.detail["prohibition"] == "unratified-literal-in-governed-encoding"
+    assert exc.value.detail["v"] == 29.0
+
+
+def test_strict_mode_off_by_default_stays_warning_only():
+    """`refuse_literal_bounds` defaults to `False` — byte-identical to
+    every pre-C4 `load_layouts` call, manifest never consulted. The same
+    snippet that refuses above merely warns here, matching
+    `test_literal_px_still_parses_and_loads_with_deprecation_warning`'s
+    own established behavior."""
+    with pytest.warns(RelationsFirstDeprecationWarning):
+        layouts = loader.load_layouts(STRICT_SYNTHETIC_ENCODING)
+    assert "strict-synthetic" in layouts
+
+
+def test_strict_mode_does_not_refuse_fr_or_inf_literals():
+    """Structural fr/inf sizing keywords have no relations-first analog
+    to convert to (dispatch C3's own empirical finding, ~60 of the two
+    real encodings' own 119 residual deprecation warnings are exactly
+    this kind) — strict mode leaves them as warnings, never refusals,
+    REGARDLESS of the manifest (an empty manifest is installed here, so
+    if fr/inf were manifest-checked at all, this would refuse). Uses a
+    snippet with NO px/ch literal at all (unlike `STRICT_SYNTHETIC_
+    ENCODING`, which carries one and would raise before ever reaching a
+    fr/inf site) so this test genuinely isolates the claim. `min` is left
+    UNDECLARED — an omitted `min` defaults to a hardcoded `0px`
+    (`loader._load_sizing`'s own "disclosed general completion rule")
+    that never passes through `_resolve_extent_like` at all, so it emits
+    no warning and would not contaminate this test the way an explicit
+    `min 0px` term would."""
+    text = """
+layout strict-fr-only =
+  {pref 1fr, max inf} board[board]
+"""
+    loader.reset_ratified_manifest_cache(_synthetic_manifest([]))
+    try:
+        with pytest.warns(RelationsFirstDeprecationWarning):
+            layouts = loader.load_layouts(text, refuse_literal_bounds=True)
+    finally:
+        loader.reset_ratified_manifest_cache(None)
+    assert "strict-fr-only" in layouts
+
+
+def test_strict_mode_carries_forward_into_child_and_descendant_contexts():
+    """A single root-level `refuse_literal_bounds=True` (and the
+    manifest it was given) must reach a px literal several levels deep —
+    inside a Split's child AND inside a T (Exclusive) node's own child —
+    not just the root slot's own sizing. Regression guard for the
+    Split/Exclusive branches' own child_relctx/own_relctx propagation
+    (loader.py `load_slot`), including `ratified` (this dispatch's own
+    new field) alongside the pre-existing `refuse_literal_bounds`/
+    `source_file` carry-forward."""
+    text = """
+layout strict-nested =
+  {min 0px, pref 1fr, max inf} H(
+    {pref 1fr} V(
+      {24px} deepLeaf[board, info]
+    ),
+    {pinned max-over(children.min)} T(
+      {min 40px, pref 1fr, max inf} panelA[common],
+      {min 55px, pref 1fr, max inf} panelB[common]
+    )
+  )
+"""
+    loader.reset_ratified_manifest_cache(_synthetic_manifest([]))
+    try:
+        with pytest.raises(LytLoadError) as exc:
+            loader.load_layouts(text, refuse_literal_bounds=True)
+    finally:
+        loader.reset_ratified_manifest_cache(None)
+    assert exc.value.detail["prohibition"] == "unratified-literal-in-governed-encoding"
+    assert exc.value.detail["site_id"] == "deepLeaf"
+    assert exc.value.detail["construct"] == "fixed"
+    assert "deepLeaf" in exc.value.detail["where"]
+
+
+def test_load_slot_direct_call_honors_refuse_literal_bounds():
+    """`load_slot` itself (not only `load_layouts`) accepts
+    `refuse_literal_bounds`/`source_file` and seeds a fresh root context
+    from them (including the manifest, via `_get_ratified_manifest`) when
+    no explicit `relctx` is supplied — the same "byte-identical when
+    omitted" contract every other `load_slot` parameter this codebase
+    adds already keeps."""
+    tokens = lytparser.tokenize("{28px} leaf[common, action]")
+    rs = lytparser.Parser(tokens).parse_slot()
+    loader.reset_ratified_manifest_cache(_synthetic_manifest([]))
+    try:
+        with pytest.raises(LytLoadError) as exc:
+            loader.load_slot(rs, refuse_literal_bounds=True, source_file="x.lyt")
+    finally:
+        loader.reset_ratified_manifest_cache(None)
+    assert exc.value.detail["prohibition"] == "unratified-literal-in-governed-encoding"
+    assert exc.value.detail["source_file"] == "x.lyt"
+    assert exc.value.detail["site_id"] == "leaf"
+
+
+# ---------------------------------------------------------------------------
+# Site-identity derivation (`loader._site_id_for_node`/
+# `loader._raw_content_signature`) — the ratchet's own "never file:line,
+# never ordinal position" discipline, tested directly.
+# ---------------------------------------------------------------------------
+
+
+def test_site_id_for_leaf_is_its_own_widget_id():
+    tokens = lytparser.tokenize("{28px} someWidget[common, action]")
+    rs = lytparser.Parser(tokens).parse_slot()
+    assert loader._site_id_for_node(rs.node) == "someWidget"
+
+
+def test_site_id_for_tagged_exclusive_uses_its_tag():
+    tokens = lytparser.tokenize("{min 0px, pref 1fr, max inf} T(a[common], b[common])[MY TAG]")
+    rs = lytparser.Parser(tokens).parse_slot()
+    assert loader._site_id_for_node(rs.node) == "tag:MY TAG"
+
+
+def test_site_id_for_untagged_split_is_stable_under_sibling_reorder():
+    """The load-bearing anti-pattern guard: two Splits whose children are
+    the SAME set in a DIFFERENT order must derive the SAME site_id — a
+    content-signature is sorted, so sibling order (an ordinal fact) never
+    changes it."""
+    tokens_a = lytparser.tokenize("{min 0px, pref 1fr, max inf} H(x[common], y[common])")
+    tokens_b = lytparser.tokenize("{min 0px, pref 1fr, max inf} H(y[common], x[common])")
+    node_a = lytparser.Parser(tokens_a).parse_slot().node
+    node_b = lytparser.Parser(tokens_b).parse_slot().node
+    assert loader._site_id_for_node(node_a) == loader._site_id_for_node(node_b)
+
+
+def test_site_id_for_untagged_split_changes_if_membership_changes():
+    """The converse: a GENUINE content change (a different child set) —
+    the only thing this scheme intentionally reacts to — DOES change the
+    id, correctly demanding fresh ratification rather than silently
+    reusing an old one."""
+    tokens_a = lytparser.tokenize("{min 0px, pref 1fr, max inf} H(x[common], y[common])")
+    tokens_b = lytparser.tokenize("{min 0px, pref 1fr, max inf} H(x[common], z[common])")
+    node_a = lytparser.Parser(tokens_a).parse_slot().node
+    node_b = lytparser.Parser(tokens_b).parse_slot().node
+    assert loader._site_id_for_node(node_a) != loader._site_id_for_node(node_b)
+
+
+def test_site_id_for_untagged_split_is_stable_under_an_unrelated_line_inserted_above():
+    """The other half of the anti-pattern guard: parsing the SAME split
+    fragment with extra, unrelated whitespace/comment-free padding lines
+    inserted BEFORE it in the source text changes nothing about the
+    fragment's own parsed node, hence nothing about its derived site_id —
+    there is no file:line dependency anywhere in the computation."""
+    tokens_a = lytparser.tokenize("{min 0px, pref 1fr, max inf} H(x[common], y[common])")
+    padded = "\n" * 20 + "{min 0px, pref 1fr, max inf} H(x[common], y[common])"
+    tokens_b = lytparser.tokenize(padded)
+    node_a = lytparser.Parser(tokens_a).parse_slot().node
+    node_b = lytparser.Parser(tokens_b).parse_slot().node
+    assert loader._site_id_for_node(node_a) == loader._site_id_for_node(node_b)
+
+
+# ---------------------------------------------------------------------------
+# Directory scoping (`runner.is_governed_encoding` / `load_governed_layouts`)
+# ---------------------------------------------------------------------------
+
+
+def test_is_governed_encoding_true_for_encodings_dir():
+    import runner
+
+    p = runner.resolve_encoding_file("lengyue_landscape.lyt")
+    assert p.parent == runner.ENCODINGS_DIR
+    assert runner.is_governed_encoding(p) is True
+
+
+def test_is_governed_encoding_false_for_fixtures_reference():
+    import runner
+
+    p = runner.resolve_encoding_file("q5go.lyt")
+    assert p.parent == runner.FIXTURES_REFERENCE_DIR
+    assert runner.is_governed_encoding(p) is False
+
+
+def test_is_governed_encoding_false_for_fixtures_transcription():
+    import runner
+
+    p = runner.resolve_encoding_file("current_row_asis.lyt")
+    assert p.parent == runner.FIXTURES_TRANSCRIPTION_DIR
+    assert runner.is_governed_encoding(p) is False
+
+
+def test_load_governed_layouts_succeeds_on_a_real_encodings_file():
+    """RATCHET FORM: the real, committed `lengyue_landscape.lyt` still
+    carries unconverted px/ch literals (dispatch C3's own disclosed
+    residual — ~59 of 119, genuinely unreachable against the committed
+    facts files C3's own wave had), but every one of them is now an
+    explicit `ratified-literals.json` entry (ledger row 2445) —
+    `load_governed_layouts` routes it through strict mode
+    (directory-scoped, not hand-picked) and it loads CLEANLY, no
+    refusal. Installs the REAL facts table explicitly (this module's own
+    `autouse` fixture installs a synthetic one for every other test
+    here, which has no entries for the real encoding's own `width-of`/
+    `read-constant` relation sites — irrelevant to a px-literal refusal
+    test, but load-bearing once the literal sites themselves stop
+    refusing and resolution reaches the real relation sites beyond
+    them)."""
+    import runner
+
+    loader.reset_facts_table_cache(relations.FactsTable.load())
+    try:
+        layouts = runner.load_governed_layouts("lengyue_landscape.lyt")
+    finally:
+        loader.reset_facts_table_cache(_synthetic_facts_table())
+    assert "lengyue-landscape" in layouts
+
+
+def test_load_governed_layouts_refuses_a_synthetic_unratified_site():
+    """The ratchet's own negative case, against `load_governed_layouts`
+    specifically (not just `load_layouts` directly, covered above): a
+    SYNTHETIC file-shaped snippet placed logically "in encodings/" (via
+    an explicit `source_file`/`refuse_literal_bounds=True` call, since
+    writing a real throwaway file into the committed `encodings/`
+    directory is not this test's job) with a literal at a site the real
+    manifest does not know about refuses, naming the site."""
+    text = """
+layout totally-new-synthetic-layout =
+  {min 0px, pref 1fr, max inf} H(
+    {12345px} neverBeforeSeenWidget[common, action],
+    {pref 1fr} board[board]
+  )
+"""
+    with pytest.raises(LytLoadError) as exc:
+        loader.load_layouts(
+            text,
+            refuse_literal_bounds=True,
+            source_file="encodings/lengyue_landscape.lyt",
+        )
+    assert exc.value.detail["prohibition"] == "unratified-literal-in-governed-encoding"
+    assert exc.value.detail["site_id"] == "neverBeforeSeenWidget"
+
+
+def test_load_governed_layouts_does_not_refuse_a_fixtures_file():
+    """The directory-scoping half of the same mechanism: a file that
+    resolves OUTSIDE `encodings/` never enters strict mode, regardless
+    of how many literal bounds it carries — proven against a REAL
+    fixture (`current_row_asis.lyt`, `fixtures/transcription/`), not a
+    synthetic stand-in, so the directory check is exercised against the
+    actual on-disk layout this dispatch inherited."""
+    import runner
+    from baseline import BASELINE_WAIVERS
+
+    layouts = runner.load_governed_layouts(
+        "current_row_asis.lyt", waivers=BASELINE_WAIVERS
+    )
+    assert "current-row-asis" in layouts
 
 
 # ---------------------------------------------------------------------------

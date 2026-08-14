@@ -53,7 +53,7 @@ import lyt_ast as ast
 import loader
 from compiler import solve_lexicographic
 from presence import ALL_PRESENT, resolve_and_validate
-from runner import resolve_encoding_file
+from runner import is_governed_encoding, resolve_encoding_file, source_file_label
 
 
 @dataclass
@@ -176,8 +176,19 @@ def bench_real_encodings(*, n: int, time_limit_s: float = 20.0) -> List[BenchRes
         # uses) keeps this benchmark's file lookup working after the move,
         # rather than hardcoding ENCODINGS_DIR for a file that may no
         # longer live there.
-        text = "\n".join(resolve_encoding_file(f).read_text() for f in spec.files)
-        layouts = loader.load_layouts(text, waivers=waivers)
+        # RATCHET FORM, dispatch C4 (ledger rows 2396/2445): every
+        # `RealBenchSpec.files` entry this workload declares is a SINGLE
+        # file (confirmed directly, not assumed) — the strict-mode
+        # decision is unambiguous per spec, computed from that one file's
+        # own resolved path.
+        resolved_paths = [resolve_encoding_file(f) for f in spec.files]
+        text = "\n".join(p.read_text() for p in resolved_paths)
+        layouts = loader.load_layouts(
+            text,
+            waivers=waivers,
+            refuse_literal_bounds=is_governed_encoding(resolved_paths[0]),
+            source_file=source_file_label(resolved_paths[0]),
+        )
         valuation = ALL_PRESENT
         if spec.absent_widgets:
             from presence import PresenceValuation

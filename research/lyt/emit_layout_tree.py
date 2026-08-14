@@ -664,8 +664,18 @@ def _derive_tree_orientation(class_id: str) -> str:
         )
     raw_layouts: Dict[str, ast.Slot] = {}
     for f in reg.files:
-        text = resolve_encoding_file(f).read_text()
-        raw_layouts.update(loader.load_layouts(text, waivers=reg.waivers))
+        p = resolve_encoding_file(f)
+        text = p.read_text()
+        # RATCHET FORM, dispatch C4 (ledger rows 2396/2445): see
+        # `runner.load_governed_layouts`'s own docstring.
+        raw_layouts.update(
+            loader.load_layouts(
+                text,
+                waivers=reg.waivers,
+                refuse_literal_bounds=runner.is_governed_encoding(p),
+                source_file=runner.source_file_label(p),
+            )
+        )
     valuation = runner.valuation_for_class(reg, class_id)
     slot = resolve_and_validate(raw_layouts, [layout_name], valuation)[layout_name]
     reach = _gather_reach_preferred_widgets(slot, reg.board_widget)
@@ -1154,8 +1164,20 @@ def build_program(
     control_panel_tab_ids: Tuple[str, ...] = (),
     control_panel_collapse_indices: frozenset = frozenset(),
 ) -> dict:
-    text = (ENCODINGS_DIR / layout_file).read_text()
-    layouts = loader.load_layouts(text)
+    encoding_path = ENCODINGS_DIR / layout_file
+    text = encoding_path.read_text()
+    # RATCHET FORM, dispatch C4 (ledger rows 2396/2445): this function
+    # always reads directly from `ENCODINGS_DIR` by construction (its own
+    # default `layout_file=LAYOUT_FILE` and every override this module's
+    # own callers pass), so `refuse_literal_bounds` is unconditionally
+    # `True` here — no `is_governed_encoding` check needed, unlike the
+    # `resolve_encoding_file`-based call sites above (which may resolve
+    # into a fixtures/ directory instead).
+    layouts = loader.load_layouts(
+        text,
+        refuse_literal_bounds=True,
+        source_file=runner.source_file_label(encoding_path),
+    )
     slot = layouts[layout_name]
     if not isinstance(slot.node, ast.Split):
         raise TypeError(f"{layout_name}'s root is not a Split: {slot.node!r}")

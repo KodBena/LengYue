@@ -234,7 +234,12 @@ import loader
 from compiler import solve_lexicographic
 from emit_ts import _find_registration, _slots_from_result
 from presence import PresenceValuation, resolve_and_validate
-from runner import _gather_reach_preferred_widgets, resolve_encoding_file
+from runner import (
+    _gather_reach_preferred_widgets,
+    is_governed_encoding,
+    resolve_encoding_file,
+    source_file_label,
+)
 
 REGISTRATION_NAME = "lengyue_landscape+portrait"
 OUT_DIR = Path(__file__).parent / "mockups"
@@ -1659,8 +1664,18 @@ def load_class_slots() -> Tuple["object", Dict[str, ast.Slot]]:
     reg = _find_registration(REGISTRATION_NAME)
     layouts: Dict[str, ast.Slot] = {}
     for f in reg.files:
-        text = resolve_encoding_file(f).read_text()
-        layouts.update(loader.load_layouts(text, waivers=reg.waivers))
+        p = resolve_encoding_file(f)
+        text = p.read_text()
+        # RATCHET FORM, dispatch C4 (ledger rows 2396/2445): see
+        # `runner.load_governed_layouts`'s own docstring.
+        layouts.update(
+            loader.load_layouts(
+                text,
+                waivers=reg.waivers,
+                refuse_literal_bounds=is_governed_encoding(p),
+                source_file=source_file_label(p),
+            )
+        )
     return reg, layouts
 
 

@@ -134,7 +134,7 @@ export const LYT_LANDSCAPE: LytProgram = {
                     path: "2.3.0",
                     presenceDefaultVisible: true,
                     track: { kind: "elastic", minPx: 110, frWeight: 1 },
-                    node: { kind: "leaf", widget: "tree", domain: "board", facets: ["action", "info"], aspect: null, scrollAxes: [], content: null, elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: null, demote: null, envelopeStates: null },
+                    node: { kind: "leaf", widget: "tree", domain: "board", facets: ["action", "info"], aspect: null, scrollAxes: ["v"], content: "unbounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [{ axis: "v", disposition: "item" }], orientation: "v", activity: null, demote: null, envelopeStates: null },
                   },
                   {
                     path: "2.3.1",
