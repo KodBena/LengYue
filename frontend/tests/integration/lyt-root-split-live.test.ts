@@ -418,3 +418,87 @@ describe('useResizablePanel — reattachObservers() recovers from a DOM element 
     expect(panel.rowWidthPx.value).toBe(1920);
   });
 });
+
+// ── window 'resize' fallback — row 2504's A2b re-witness (live-rig-only
+//    root cause, jsdom-inexpressible; the FIX's own wiring, pinned) ──────
+//
+// Rig evidence (this dispatch, live browser, three convergent
+// reproductions): the PRODUCTION `rowObserver` — a genuine, correctly-
+// identified `ResizeObserver` still watching the live `#split-workspace`
+// element (verified: same element reference before/after, per a
+// `sameElement` DOM-identity check) — stopped delivering resize
+// notifications entirely after its initial settle, while a FRESH
+// `ResizeObserver` attached to the SAME live element moments before the
+// SAME resize event fired normally. `reattachObservers()` (the row
+// 2502/2503 fix, tested above) cannot recover from this: it is triggered
+// BY `activeScreenClassId` changing, which itself depends on `rowWidthPx`
+// — a value only `measureRowDims` (the stuck observer's own callback)
+// updates. A catch-22 independent of WHY the specific ResizeObserver
+// instance went silent in that browser session — a mechanism jsdom
+// cannot reproduce at all (jsdom's `ResizeObserver` never delivers real
+// box-size notifications for anything; every suite in this file already
+// drives it with a hand-fired fake, per this file's own header).
+//
+// What IS jsdom-expressible, and pinned here: the FIX's own wiring — a
+// plain `window` 'resize' listener that force-remeasures BOTH dimensions
+// directly, decoupled from ResizeObserver delivery entirely. This suite
+// uses a ResizeObserver fake that NEVER fires (mirrors the live
+// regression's own symptom — an attached-but-silent observer) and proves
+// only the `window` 'resize' event, not any ResizeObserver activity,
+// recovers a correct reading.
+describe('useResizablePanel — window "resize" fallback recovers when ResizeObserver goes silent (row 2504 A2b live-rig finding)', () => {
+  class SilentResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+
+  function mountRect(id: string, widthPx: number, heightPx: number): HTMLDivElement {
+    const el = document.createElement('div');
+    el.id = id;
+    el.getBoundingClientRect = () =>
+      ({ width: widthPx, height: heightPx, top: 0, left: 0, right: widthPx, bottom: heightPx, x: 0, y: 0, toJSON() {} }) as DOMRect;
+    document.body.appendChild(el);
+    return el;
+  }
+
+  let restoreRO: unknown;
+
+  beforeEach(() => {
+    resetWorkspace();
+    restoreRO = (globalThis as { ResizeObserver?: unknown }).ResizeObserver;
+    (globalThis as { ResizeObserver?: unknown }).ResizeObserver = SilentResizeObserver;
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+    (globalThis as { ResizeObserver?: unknown }).ResizeObserver = restoreRO;
+  });
+
+  it('a window "resize" event re-measures #split-workspace and #tree-control-wrapper even though the (silent) ResizeObserver never calls back', () => {
+    mountRect('split-workspace', 1920, 1080);
+    const wrapperEl = mountRect('tree-control-wrapper', 820, 300);
+    const panel = withSetup(() => useResizablePanel());
+
+    expect(panel.rowWidthPx.value).toBe(1920);
+    expect(panel.sideColumnWidthPx.value).toBe(820);
+
+    // Live resize, no reload: the DOM box changes (as it genuinely did in
+    // the rig — #split-workspace's own getBoundingClientRect().width read
+    // 480 directly), but the SilentResizeObserver never invokes its
+    // callback — exactly the witnessed live-browser symptom.
+    (document.getElementById('split-workspace') as HTMLDivElement).getBoundingClientRect = () =>
+      ({ width: 480, height: 900, top: 0, left: 0, right: 480, bottom: 900, x: 0, y: 0, toJSON() {} }) as DOMRect;
+    wrapperEl.getBoundingClientRect = () =>
+      ({ width: 345, height: 900, top: 0, left: 0, right: 345, bottom: 900, x: 0, y: 0, toJSON() {} }) as DOMRect;
+
+    // Without the fallback, nothing would ever re-measure — pinned
+    // negatively first, so this test cannot pass by accident.
+    expect(panel.rowWidthPx.value).toBe(1920);
+
+    window.dispatchEvent(new Event('resize'));
+
+    expect(panel.rowWidthPx.value).toBe(480);
+    expect(panel.sideColumnWidthPx.value).toBe(345);
+  });
+});

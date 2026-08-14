@@ -643,9 +643,51 @@ export function useResizablePanel() {
     return true;
   }
 
+  // Dispatch row 2504's A2b finding (`.claude/dispatch-reports/
+  // lyt-cure-final-repair.md`'s "FINAL re-witness discharge", finding 2,
+  // and the two live-rig re-witnesses that followed): the RE-ENTRANT
+  // `attachRowObserver`/`reattachObservers()` fix above is correct as far
+  // as it goes but is chained AFTER `activeScreenClassId`'s own watch
+  // (App.vue) — a signal that can only fire once `rowWidthPx` has
+  // already been correctly re-measured. If the ResizeObserver instance
+  // itself simply stops delivering callbacks for a live, still-attached,
+  // still-correctly-identified element (witnessed live, three
+  // reproductions: a `MutationObserver` proof of zero style mutations
+  // for 3+ seconds post-resize; a raw-callback trace showing the
+  // production `rowObserver`'s own callback fires twice during initial
+  // settle and never again despite the element's real, later
+  // `getBoundingClientRect().width` genuinely changing 1920→480; and a
+  // FRESH `ResizeObserver` attached to the SAME live element moments
+  // before the same resize DOES fire) — nothing downstream can ever
+  // recover, because the recovery mechanism depends on the very delivery
+  // that stopped. This is a structural catch-22 independent of whatever
+  // causes the specific browser/engine's ResizeObserver instance to stop
+  // delivering (not root-caused further here — a live-rig, real-browser-
+  // only mechanism, not reproducible in jsdom, which never runs real
+  // ResizeObserver box-size delivery at all).
+  //
+  // Fix: a plain `window` `resize` listener, decoupled from
+  // ResizeObserver entirely, force-remeasures BOTH dimensions directly
+  // whenever the browser tells us the VIEWPORT itself changed — the
+  // exact trigger category the live-rig regression is about. `window`
+  // 'resize' is dispatched by the browser unconditionally on a real
+  // viewport change (confirmed live, independent of the ResizeObserver
+  // question entirely), so this path never depends on ResizeObserver's
+  // own health to recover a live resize. It is a SUPPLEMENT, not a
+  // replacement: ResizeObserver remains the primary, finer-grained path
+  // for layout changes that are NOT a window resize (a resizer drag,
+  // presence toggles, a sidebar reflow) — this listener only closes the
+  // one gap where the window itself resizes and the observer chain
+  // doesn't recover.
+  function handleWindowResize(): void {
+    measureRowDims();
+    measureWrapperWidth();
+  }
+
   onMounted(() => {
     const rowAttached = attachRowObserver();
     const wrapperAttached = attachWrapperObserver();
+    window.addEventListener('resize', handleWindowResize);
     if (rowAttached && wrapperAttached) return;
     // Either element not in the DOM yet (cold-load gate): attach one
     // tick after the workspace actually renders, same as the row
@@ -671,6 +713,7 @@ export function useResizablePanel() {
     wrapperObserver?.disconnect();
     wrapperObserver = null;
     observedWrapperEl = null;
+    window.removeEventListener('resize', handleWindowResize);
   });
 
   // Row 2502/2503 review repair, finding 2: the caller-facing re-attach
