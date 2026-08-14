@@ -824,7 +824,10 @@ const rootSplitLayout = computed(() => {
     rowHeightPx: rowHeightPx.value,
     gapPx: activeLytProgram.value.root.gapPx,
     boardRailReservedPx: boardRailReservedPx.value,
-    board: { fixedSiblingSumPx: sideColumnTrack.fixedSiblingSumPx },
+    board: {
+      fixedSiblingSumPx: sideColumnTrack.fixedSiblingSumPx,
+      naturalBoardCrossUnit: sideColumnTrack.naturalBoardCrossUnit,
+    },
     sideColumn: { minPx: sideColumnTrack.minPx, maxPx: sideColumnTrack.maxPx },
     boardFloorPx: MIN_BOARD_PX,
     sovereignWrapperPx: store.session.ui.treeControlRegionWidthPx,

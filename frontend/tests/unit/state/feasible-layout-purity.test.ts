@@ -423,13 +423,20 @@ describe('purity §C: resolveSideColumnLiveLayout() — SOVEREIGN override prese
 //    board-priority-clamp track's own fields, the sovereign override) are
 //    part of the pure layer this gate polices, same as §B/§C above. ─────
 
-function rootSplitFactsFromLandscape(): { fixedSiblingSumPx: number; minPx: number; maxPx: number; gapPx: number } {
+function rootSplitFactsFromLandscape(): {
+  fixedSiblingSumPx: number;
+  naturalBoardCrossUnit: 'vh' | 'vw';
+  minPx: number;
+  maxPx: number;
+  gapPx: number;
+} {
   const sideColumnChild = LYT_LANDSCAPE.root.children[2];
   if (sideColumnChild.track.kind !== 'board-priority-clamp') {
     throw new Error('rootSplitFactsFromLandscape: root child "2" is not board-priority-clamp — encoding changed.');
   }
   return {
     fixedSiblingSumPx: sideColumnChild.track.fixedSiblingSumPx,
+    naturalBoardCrossUnit: sideColumnChild.track.naturalBoardCrossUnit,
     minPx: sideColumnChild.track.minPx,
     maxPx: sideColumnChild.track.maxPx,
     gapPx: LYT_LANDSCAPE.root.gapPx,
@@ -461,7 +468,7 @@ describe('purity §D: resolveRootSplitLiveLayout() — non-sovereign, path-indep
       rowHeightPx: g.heightPx,
       gapPx: facts.gapPx,
       boardRailReservedPx: 0,
-      board: { fixedSiblingSumPx: facts.fixedSiblingSumPx },
+      board: { fixedSiblingSumPx: facts.fixedSiblingSumPx, naturalBoardCrossUnit: facts.naturalBoardCrossUnit },
       sideColumn: { minPx: facts.minPx, maxPx: facts.maxPx },
       boardFloorPx: ROOT_SPLIT_BOARD_FLOOR_PX,
       sovereignWrapperPx: undefined,
@@ -493,7 +500,7 @@ describe('purity §E: resolveRootSplitLiveLayout() — SOVEREIGN override presen
       rowHeightPx: g.heightPx,
       gapPx: facts.gapPx,
       boardRailReservedPx: 0,
-      board: { fixedSiblingSumPx: facts.fixedSiblingSumPx },
+      board: { fixedSiblingSumPx: facts.fixedSiblingSumPx, naturalBoardCrossUnit: facts.naturalBoardCrossUnit },
       sideColumn: { minPx: facts.minPx, maxPx: facts.maxPx },
       boardFloorPx: ROOT_SPLIT_BOARD_FLOOR_PX,
       sovereignWrapperPx: SOVEREIGN_PX,

@@ -1043,9 +1043,23 @@ export function resolveSideColumnLiveLayout(input: SideColumnLiveLayoutInput): S
  *  leaving it as a browser-evaluated `calc(100vh - ...)` (which assumes
  *  the row's own height tracks the literal viewport `vh` unit exactly —
  *  true only when no chrome above `#split-workspace` consumes vertical
- *  space; a live `rowHeightPx` reading is exact regardless). */
+ *  space; a live `rowHeightPx` reading is exact regardless).
+ *
+ *  Row 2502/2503 review repair (`.claude/dispatch-reports/
+ *  lyt-cure-final-repair-review.md` condition C1): `naturalBoardCrossUnit`
+ *  is carried alongside `fixedSiblingSumPx` — not silently ignored — so
+ *  `resolveRootSplitLiveLayout` can refuse loudly (ADR-0002) rather than
+ *  silently substituting a `rowHeightPx`-based formula for a track that
+ *  declared a DIFFERENT natural cross unit. The field exists on the
+ *  compiled type specifically because it can vary (`'vh' | 'vw'`,
+ *  `lyt-layout-types.ts`'s own CASE A doc); this resolver's own closed
+ *  form only mirrors the `'vh'` half of `trackCssValue`'s CASE A branch
+ *  (`useLytTrackCss.ts`), so a `'vw'` (or any future) unit must be a
+ *  construction-time refusal, never a silent divergence from the CSS
+ *  branch it numerically twins. */
 export interface RootSplitBoardRegion {
   readonly fixedSiblingSumPx: number;
+  readonly naturalBoardCrossUnit: 'vh' | 'vw';
 }
 
 /** The side column's own compiled `board-priority-clamp` bounds
@@ -1156,8 +1170,30 @@ export interface RootSplitLiveLayoutResult {
  *
  * **Sovereign.** The stored value wins verbatim — this function does
  * not change drag behavior, only the un-dragged default's derivation.
+ *
+ * **Row 2502/2503 review repair, condition C1.** `board.
+ * naturalBoardCrossUnit` is checked FIRST, before any arithmetic —
+ * `boardUsefulPx = rowHeightPx - fixedSiblingSumPx` is only the correct
+ * closed form when the compiled track's own natural cross unit is
+ * `'vh'` (height-based); a `'vw'` track (CASE A's own declared other
+ * member, `lyt-layout-types.ts`) would need `rowWidthPx`, not
+ * `rowHeightPx`, and this function does not implement that branch.
+ * Refuses loudly (`MeasurementRefusalError`, naming the offending unit)
+ * rather than silently computing a wrong number against the wrong
+ * dimension — the exact class of divergence-from-the-CSS-branch this
+ * module's own header names as the risk this field's own carry-through
+ * exists to prevent.
  */
 export function resolveRootSplitLiveLayout(input: RootSplitLiveLayoutInput): RootSplitLiveLayoutResult {
+  if (input.board.naturalBoardCrossUnit !== 'vh') {
+    throw new MeasurementRefusalError(
+      `resolveRootSplitLiveLayout: board.naturalBoardCrossUnit is ${JSON.stringify(input.board.naturalBoardCrossUnit)}, ` +
+        'not "vh" — this resolver\'s own closed form only mirrors the height-based CASE A branch ' +
+        '(useLytTrackCss.ts); a "vw" (width-based) natural cross unit needs a different formula this ' +
+        'function does not implement, and computing rowHeightPx-based arithmetic against it would silently ' +
+        'diverge from the compiled CSS calc() it is meant to numerically twin (ADR-0002).',
+    );
+  }
   const boardUsefulPx = Math.max(0, input.rowHeightPx - input.board.fixedSiblingSumPx);
   if (input.sovereignWrapperPx !== undefined) {
     return { sideColumnPx: Math.max(0, Math.round(input.sovereignWrapperPx)), boardUsefulPx };

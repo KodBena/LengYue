@@ -27,6 +27,7 @@ import {
   resolveSovereignOverrides,
   resolveSideColumnLiveLayout,
   resolveRootSplitLiveLayout,
+  MeasurementRefusalError,
   type Measured,
   type RegionAllotment,
   type SovereignOverride,
@@ -713,7 +714,7 @@ describe('resolveSideColumnLiveLayout()', () => {
 // compiled `@demote(h, 778)` threshold (`lyt-layout.gen.ts`) — the two
 // facts corroborate each other, not a coincidence this suite invents.
 describe('resolveRootSplitLiveLayout() — GAP A: the root split (board vs. side column) under FeasibleLayout', () => {
-  const BOARD = { fixedSiblingSumPx: 52 };
+  const BOARD = { fixedSiblingSumPx: 52, naturalBoardCrossUnit: 'vh' as const };
   const SIDE_COLUMN = { minPx: 345, maxPx: 820 };
   const BOARD_FLOOR_PX = 300;
   const ROOT_GAP_PX = 12;
@@ -801,5 +802,48 @@ describe('resolveRootSplitLiveLayout() — GAP A: the root split (board vs. side
     const withRail = resolveRootSplitLiveLayout(baseInput({ rowWidthPx: 1378, rowHeightPx: 768, boardRailReservedPx: 180 })); // 168px fixed + 12px gap
     expect(withoutRail.sideColumnPx).toBe(650);
     expect(withRail.sideColumnPx).toBe(withoutRail.sideColumnPx - 180);
+  });
+
+  // Review repair, condition C1 (`.claude/dispatch-reports/
+  // lyt-cure-final-repair-review.md` §5): `naturalBoardCrossUnit` must be
+  // asserted, not silently substituted past — this resolver's own closed
+  // form only mirrors the height-based CASE A branch
+  // (`useLytTrackCss.ts`'s `board-priority-clamp` case, the `'vh'` half);
+  // a `'vw'` track needs a DIFFERENT formula (width-based), which this
+  // function does not implement.
+  describe('condition C1: naturalBoardCrossUnit is asserted before any arithmetic runs', () => {
+    it('refuses loudly (MeasurementRefusalError, naming the offending unit) when the compiled track declares "vw" instead of "vh"', () => {
+      expect(() =>
+        resolveRootSplitLiveLayout(baseInput({ board: { fixedSiblingSumPx: 52, naturalBoardCrossUnit: 'vw' } })),
+      ).toThrow(MeasurementRefusalError);
+      expect(() =>
+        resolveRootSplitLiveLayout(baseInput({ board: { fixedSiblingSumPx: 52, naturalBoardCrossUnit: 'vw' } })),
+      ).toThrow(/naturalBoardCrossUnit is "vw", not "vh"/);
+    });
+
+    it('the refusal fires BEFORE any arithmetic — even a geometry that would otherwise dock cleanly still refuses, not merely "wrong number, no throw"', () => {
+      // Same 1920x1080 default-content input the acceptance table's own
+      // docking case uses — proves the guard is unconditional, not only
+      // reachable at some contrived degenerate geometry.
+      expect(() =>
+        resolveRootSplitLiveLayout(
+          baseInput({ rowWidthPx: 1920, rowHeightPx: 1080, board: { fixedSiblingSumPx: 52, naturalBoardCrossUnit: 'vw' } }),
+        ),
+      ).toThrow(MeasurementRefusalError);
+    });
+
+    it('the refusal fires even on the SOVEREIGN (dragged) path — the unit check is not skipped by an early sovereign return', () => {
+      expect(() =>
+        resolveRootSplitLiveLayout(
+          baseInput({ sovereignWrapperPx: 500, board: { fixedSiblingSumPx: 52, naturalBoardCrossUnit: 'vw' } }),
+        ),
+      ).toThrow(MeasurementRefusalError);
+    });
+
+    it('passes through cleanly for the expected "vh" unit — the guard is a refusal, not a silent behavior change for the normal case', () => {
+      const result = resolveRootSplitLiveLayout(baseInput({ board: { fixedSiblingSumPx: 52, naturalBoardCrossUnit: 'vh' } }));
+      expect(result.sideColumnPx).toBe(820);
+      expect(result.boardUsefulPx).toBe(1028);
+    });
   });
 });
