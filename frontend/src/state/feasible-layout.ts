@@ -613,6 +613,117 @@ export interface SideColumnLiveLayoutResult {
   readonly diagnostics: readonly SovereignOverrideDiagnostic[];
 }
 
+/**
+ * Dispatch L4 (`.claude/dispatch-reports/lyt-space-owner-spec.md` §3 step
+ * 4, ledger rows 2447/2484): closes the "no sibling to diagnose against"
+ * fork the L3 build report parked (`.claude/dispatch-reports/
+ * lyt-space-owner-l3-build.md` §7 finding 2, §8) — a sovereign `tree`
+ * drag whose own candidate overflows the WRAPPER's own physical capacity
+ * produces NO diagnostic from `resolveSovereignOverrides` alone when no
+ * OTHER `Measured` region exists to check it against (`others: []`, or
+ * every `others` entry resolved absent): that function's own contract
+ * (§1.6) only ever validates "another region," never the row's own
+ * container.
+ *
+ * **Resolution, no new type.** The spec's own §1.2 closure names the
+ * viewport as part of `FeasibleLayout`'s own quantification universe
+ * ("every sibling surface... because `Measured<Region>` is generic over
+ * `Region extends string`, not `LytLeafId` alone") and `StarvationDiagnostic
+ * .region` is already `string` — not a closed union over a fixed `Region`
+ * set. Minting a `Measured<'wrapper'>` demand — `min` = the row's own
+ * ACTUAL rendered claim (tree's own sovereign candidate plus every present
+ * sibling's own reservation), `candidate` = the wrapper's own REAL
+ * physical width (`wrapperWidthPx`, this function's own operational
+ * stand-in for "viewport" already threaded into every
+ * `resolveSovereignOverrides` call below) — and running it through the
+ * SAME `FeasibleLayout.validate` this module already uses everywhere else
+ * produces exactly a `'starved'` diagnostic (the wrapper is starved of the
+ * space the row's own content demands) whenever the row's total claim
+ * exceeds the wrapper's own capacity. No field is added to any type;
+ * `'wrapper'` is a new REGION NAME threaded through a pre-existing shape,
+ * the same way `'tree'`/`'controlPanel'` already are.
+ *
+ * **Scope, disclosed.** This check runs ONLY in the sovereign branch. A
+ * non-sovereign candidate is constructed to fit within `wrapperWidthPx` by
+ * its own clamp (this function's own doc, "the non-sovereign candidate is
+ * CONSTRUCTED to respect every present sibling's own reservation") — it
+ * can still fall short of `tree`'s own compiled floor at a pathologically
+ * narrow wrapper (`treeTrack.minPx` exceeding `wrapperWidthPx` outright),
+ * but that is a DIFFERENT, pre-existing gap this dispatch does not open;
+ * named here rather than silently folded in, per ADR-0004.
+ */
+function wrapperCapacityStarvation(
+  totalRowClaimPx: number,
+  wrapperWidthPx: number,
+  screenClassId: LytScreenClassIdInput,
+): StarvationDiagnostic | null {
+  const demand = measured({
+    region: 'wrapper',
+    axis: 'h',
+    min: px(totalRowClaimPx),
+    preferred: px(totalRowClaimPx),
+    maxUseful: null,
+  });
+  const candidate = new Map<string, RegionAllotment<string>>([
+    ['wrapper', { region: 'wrapper', axis: 'h', px: px(wrapperWidthPx) }],
+  ]);
+  const result = FeasibleLayout.validate([demand], candidate, screenClassId, {
+    widthPx: px(wrapperWidthPx),
+    heightPx: px(0),
+  });
+  if (!('refused' in result)) return null;
+  // Exactly one demand was passed in, so at most one diagnostic returns —
+  // named defensively rather than assumed, per ADR-0002.
+  return result.refused[0] ?? null;
+}
+
+/** Composes the wrapper-capacity check above into whatever
+ * `resolveSovereignOverrides` already produced for the SAME sovereign
+ * drag: merged into the existing 'tree'-located diagnostic when one
+ * already exists (a sibling starvation AND a wrapper overflow can both be
+ * real at once — the review's own "starved+hoarding pair from one call"
+ * discipline, §1.2, applied here to a second diagnostic source), or
+ * synthesized fresh when `resolveSovereignOverrides` found nothing to
+ * diagnose (the exact parked-fork shape: no sibling, so its own `starved`
+ * array was empty and it emitted no diagnostic at all). */
+function mergeWrapperCapacityDiagnostic(
+  diagnostics: readonly SovereignOverrideDiagnostic[],
+  wrapperStarved: StarvationDiagnostic | null,
+): readonly SovereignOverrideDiagnostic[] {
+  if (wrapperStarved === null) return diagnostics;
+  const existing = diagnostics.find((d) => d.location === 'tree');
+  if (existing !== undefined) {
+    const starved = [...existing.starved, wrapperStarved];
+    return diagnostics.map((d) => (d.location === 'tree' ? { ...d, starved, message: sovereignMessage(starved) } : d));
+  }
+  const starved = [wrapperStarved];
+  return [
+    ...diagnostics,
+    {
+      location: 'tree',
+      starved,
+      message: sovereignMessage(starved),
+      remediation: 'reduce this region\'s width, or use Default Layout to reset',
+      nextAction: 'open-default-layout-control',
+    },
+  ];
+}
+
+/** `'wrapper'` is not a renderable region (nothing "renders" a container
+ * overflowing itself) — its own clause reads differently from the
+ * render-target clause `resolveSovereignOverrides` already produces for a
+ * genuine sibling, rather than folding it into the same "no longer
+ * permits X to render" sentence, which would misdescribe what actually
+ * happened. */
+function sovereignMessage(starved: readonly StarvationDiagnostic[]): string {
+  const renderTargets = starved.filter((s) => s.region !== 'wrapper').map((s) => s.region);
+  const overflows = starved.some((s) => s.region === 'wrapper');
+  const clauses: string[] = [];
+  if (renderTargets.length > 0) clauses.push(`no longer permits ${renderTargets.join(', ')} to render`);
+  if (overflows) clauses.push('no longer fits within the available space');
+  return clauses.length > 0 ? `Your geometry modification ${clauses.join(', and ')}.` : '';
+}
+
 function fixedTrackPx(track: LytTrackShape, widgetId: string): number {
   if (track.kind !== 'fixed') {
     throw new Error(
@@ -795,7 +906,18 @@ export function resolveSideColumnLiveLayout(input: SideColumnLiveLayoutInput): S
       input.screenClassId,
       { widthPx: px(input.wrapperWidthPx), heightPx: px(0) },
     );
-    diagnostics = result.diagnostics;
+
+    // Dispatch L4's own parked-fork closure (this module's own
+    // `wrapperCapacityStarvation` doc above): the row's OWN total claim
+    // (tree's sovereign candidate plus every present sibling's own
+    // reservation) can overflow `wrapperWidthPx` itself — with or without
+    // a sibling for `resolveSovereignOverrides` to have diagnosed against.
+    const totalRowClaimPx = outcomes.reduce(
+      (sum, o) => (o.present ? sum + input.gapPx + o.candidatePx : sum),
+      treePx,
+    );
+    const wrapperStarved = wrapperCapacityStarvation(totalRowClaimPx, input.wrapperWidthPx, input.screenClassId);
+    diagnostics = mergeWrapperCapacityDiagnostic(result.diagnostics, wrapperStarved);
   }
 
   return { treePx, others: outcomes, diagnostics };

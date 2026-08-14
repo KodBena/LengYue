@@ -438,4 +438,67 @@ describe('resolveSideColumnLiveLayout()', () => {
       expect(result.treePx + GAP_PX + previewBoard.candidatePx).toBe(819); // exact, no overflow
     });
   });
+
+  // ── Branch 7: dispatch L4 (`.claude/dispatch-reports/
+  //    lyt-space-owner-spec.md` §3 step 4, ledger rows 2447/2484) — the
+  //    parked "no sibling to diagnose against" fork the L3 build report
+  //    named as a STOP-and-report item (`.claude/dispatch-reports/
+  //    lyt-space-owner-l3-build.md` §7 finding 2, §8): a sovereign `tree`
+  //    that overflows the WRAPPER's own physical capacity now produces a
+  //    'starved' StarvationDiagnostic against the region name 'wrapper' —
+  //    no new type, `StarvationDiagnostic.region` is already `string`. ──
+  describe('dispatch L4: wrapper-capacity starvation (the parked "no sibling to diagnose against" fork)', () => {
+    it('no sibling AT ALL (others: []) — the EXACT repro from the L3 build report\'s own §7 finding 2 (a landscape-dragged wide treePanelWidthPx replayed against a narrow wrapper)', () => {
+      const result = resolveSideColumnLiveLayout(
+        baseInput({ wrapperWidthPx: 480, others: [], treeSovereignPx: 820 }),
+      );
+      expect(result.treePx).toBe(820); // verbatim — sovereignty, never resisted
+      expect(result.others).toEqual([]);
+      expect(result.diagnostics).toHaveLength(1);
+      const [diagnostic] = result.diagnostics;
+      expect(diagnostic.location).toBe('tree');
+      expect(diagnostic.starved).toEqual([
+        { kind: 'starved', region: 'wrapper', axis: 'h', demandPx: 820, grantedPx: 480 },
+      ]);
+      expect(diagnostic.message).toBe('Your geometry modification no longer fits within the available space.');
+      expect(diagnostic.remediation).toBe('reduce this region\'s width, or use Default Layout to reset');
+      expect(diagnostic.nextAction).toBe('open-default-layout-control');
+    });
+
+    it('a sibling starvation AND a wrapper overflow are BOTH real at once — merged into the SAME location:\'tree\' diagnostic\'s own starved array, never two competing diagnostics', () => {
+      const others: readonly SideColumnFixedRegion[] = [
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
+      ];
+      // wrapperWidthPx=820 (the review's own 1920x1080 witness figure, per
+      // the sovereignty describe block above); treeSovereignPx=1000 is a
+      // drag that claims MORE than the entire wrapper — controlPanel's own
+      // remainingPx-floored candidate is genuinely starved (0 < its own
+      // 664 min) AND the row's own total claim genuinely overflows 820.
+      const result = resolveSideColumnLiveLayout(
+        baseInput({ wrapperWidthPx: 820, others, treeSovereignPx: 1000 }),
+      );
+      expect(result.treePx).toBe(1000);
+      const controlPanel = result.others.find((o) => o.widgetId === 'controlPanel')!;
+      expect(controlPanel).toMatchObject({ present: true, candidatePx: 0 });
+
+      expect(result.diagnostics).toHaveLength(1); // ONE diagnostic, not two
+      const [diagnostic] = result.diagnostics;
+      expect(diagnostic.location).toBe('tree');
+      expect(diagnostic.starved).toEqual([
+        { kind: 'starved', region: 'controlPanel', axis: 'h', demandPx: 664, grantedPx: 0 },
+        { kind: 'starved', region: 'wrapper', axis: 'h', demandPx: 1004, grantedPx: 820 },
+      ]);
+      expect(diagnostic.message).toBe(
+        'Your geometry modification no longer permits controlPanel to render, and no longer fits within the available space.',
+      );
+    });
+
+    it('no wrapper diagnostic when the sovereign claim genuinely fits, even with NO sibling to check against — no spurious noise', () => {
+      const result = resolveSideColumnLiveLayout(
+        baseInput({ wrapperWidthPx: 480, others: [], treeSovereignPx: 100 }),
+      );
+      expect(result.treePx).toBe(100);
+      expect(result.diagnostics).toEqual([]);
+    });
+  });
 });
