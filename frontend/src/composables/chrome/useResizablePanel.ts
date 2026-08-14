@@ -538,6 +538,13 @@ export function useResizablePanel() {
   const rowWidthPx = ref(0);
   const rowHeightPx = ref(0);
   let rowObserver: ResizeObserver | null = null;
+  // Row 2502/2503 review repair, finding 2 (`.claude/dispatch-reports/
+  // lyt-cure-final-repair-review.md` §5, "SCREEN-CLASS FREEZE"): tracks
+  // WHICH element is currently observed, so a re-attach can detect the
+  // element identity changed (see `attachRowObserver`'s own doc below)
+  // rather than trusting `rowObserver !== null` alone to mean "still
+  // watching the live element."
+  let observedRowEl: Element | null = null;
 
   function measureRowDims() {
     const row = document.getElementById('split-workspace');
@@ -555,14 +562,37 @@ export function useResizablePanel() {
   // never observed, rowWidthPx stayed 0, and the clamp pinned the
   // region to its minimum ("divider stopped dragging", commissioner
   // report 2026-08-07).
+  //
+  // Row 2502/2503 review repair, finding 2: RE-ENTRANT, not attach-once.
+  // `document.getElementById('split-workspace')` by id is stable across
+  // a landscape/portrait screen-class swap for THIS element specifically
+  // (App.vue's own `activeLytDomIdByPath` maps the compiled program's
+  // OWN root path — `''` — to this id in BOTH classes, and `<LytNode>`'s
+  // root template element is the SAME component instance across a prop
+  // change, never remounted) — but `attachWrapperObserver` (below)
+  // observes a DIFFERENT element (`#tree-control-wrapper`) that sits
+  // several levels deep inside the RECURSIVE `<LytNode>` structure,
+  // where a screen-class swap genuinely CAN replace the underlying DOM
+  // node (landscape's and portrait's own tree-row splits live at
+  // completely different tree depths/shapes, so Vue's own `v-for`/`:key`
+  // diffing tears down and recreates the nested `<LytNode>` instances
+  // along that path). An observer left attached to a DETACHED element
+  // never fires again — `sideColumnWidthPx` would freeze at whatever it
+  // last measured. Both functions below now re-check the CURRENTLY LIVE
+  // element on every call (not only the first successful one) and
+  // re-observe when identity changed, so `reattachObservers()` (exposed
+  // below, called by App.vue on every screen-class transition) is a
+  // genuine no-op when nothing moved and a real fix when it did.
   function attachRowObserver(): boolean {
     const row = document.getElementById('split-workspace');
     if (!row) return false;
     measureRowDims();
-    if (typeof ResizeObserver !== 'undefined' && rowObserver === null) {
-      rowObserver = new ResizeObserver(measureRowDims);
-      rowObserver.observe(row);
-    }
+    if (typeof ResizeObserver === 'undefined') return true;
+    if (rowObserver !== null && observedRowEl === row) return true; // already observing the live element
+    rowObserver?.disconnect();
+    rowObserver = new ResizeObserver(measureRowDims);
+    rowObserver.observe(row);
+    observedRowEl = row;
     return true;
   }
 
@@ -589,6 +619,10 @@ export function useResizablePanel() {
   // exists to avoid for the sibling case.
   const sideColumnWidthPx = ref(0);
   let wrapperObserver: ResizeObserver | null = null;
+  // Row 2502/2503 review repair, finding 2 — see `attachRowObserver`'s
+  // own doc above for why THIS element specifically is the one at real
+  // risk of identity change across a screen-class swap.
+  let observedWrapperEl: Element | null = null;
 
   function measureWrapperWidth() {
     const wrapper = document.getElementById('tree-control-wrapper');
@@ -600,16 +634,60 @@ export function useResizablePanel() {
     const wrapper = document.getElementById('tree-control-wrapper');
     if (!wrapper) return false;
     measureWrapperWidth();
-    if (typeof ResizeObserver !== 'undefined' && wrapperObserver === null) {
-      wrapperObserver = new ResizeObserver(measureWrapperWidth);
-      wrapperObserver.observe(wrapper);
-    }
+    if (typeof ResizeObserver === 'undefined') return true;
+    if (wrapperObserver !== null && observedWrapperEl === wrapper) return true; // already observing the live element
+    wrapperObserver?.disconnect();
+    wrapperObserver = new ResizeObserver(measureWrapperWidth);
+    wrapperObserver.observe(wrapper);
+    observedWrapperEl = wrapper;
     return true;
+  }
+
+  // Dispatch row 2504's A2b finding (`.claude/dispatch-reports/
+  // lyt-cure-final-repair.md`'s "FINAL re-witness discharge", finding 2,
+  // and the two live-rig re-witnesses that followed): the RE-ENTRANT
+  // `attachRowObserver`/`reattachObservers()` fix above is correct as far
+  // as it goes but is chained AFTER `activeScreenClassId`'s own watch
+  // (App.vue) — a signal that can only fire once `rowWidthPx` has
+  // already been correctly re-measured. If the ResizeObserver instance
+  // itself simply stops delivering callbacks for a live, still-attached,
+  // still-correctly-identified element (witnessed live, three
+  // reproductions: a `MutationObserver` proof of zero style mutations
+  // for 3+ seconds post-resize; a raw-callback trace showing the
+  // production `rowObserver`'s own callback fires twice during initial
+  // settle and never again despite the element's real, later
+  // `getBoundingClientRect().width` genuinely changing 1920→480; and a
+  // FRESH `ResizeObserver` attached to the SAME live element moments
+  // before the same resize DOES fire) — nothing downstream can ever
+  // recover, because the recovery mechanism depends on the very delivery
+  // that stopped. This is a structural catch-22 independent of whatever
+  // causes the specific browser/engine's ResizeObserver instance to stop
+  // delivering (not root-caused further here — a live-rig, real-browser-
+  // only mechanism, not reproducible in jsdom, which never runs real
+  // ResizeObserver box-size delivery at all).
+  //
+  // Fix: a plain `window` `resize` listener, decoupled from
+  // ResizeObserver entirely, force-remeasures BOTH dimensions directly
+  // whenever the browser tells us the VIEWPORT itself changed — the
+  // exact trigger category the live-rig regression is about. `window`
+  // 'resize' is dispatched by the browser unconditionally on a real
+  // viewport change (confirmed live, independent of the ResizeObserver
+  // question entirely), so this path never depends on ResizeObserver's
+  // own health to recover a live resize. It is a SUPPLEMENT, not a
+  // replacement: ResizeObserver remains the primary, finer-grained path
+  // for layout changes that are NOT a window resize (a resizer drag,
+  // presence toggles, a sidebar reflow) — this listener only closes the
+  // one gap where the window itself resizes and the observer chain
+  // doesn't recover.
+  function handleWindowResize(): void {
+    measureRowDims();
+    measureWrapperWidth();
   }
 
   onMounted(() => {
     const rowAttached = attachRowObserver();
     const wrapperAttached = attachWrapperObserver();
+    window.addEventListener('resize', handleWindowResize);
     if (rowAttached && wrapperAttached) return;
     // Either element not in the DOM yet (cold-load gate): attach one
     // tick after the workspace actually renders, same as the row
@@ -631,9 +709,28 @@ export function useResizablePanel() {
   onUnmounted(() => {
     rowObserver?.disconnect();
     rowObserver = null;
+    observedRowEl = null;
     wrapperObserver?.disconnect();
     wrapperObserver = null;
+    observedWrapperEl = null;
+    window.removeEventListener('resize', handleWindowResize);
   });
+
+  // Row 2502/2503 review repair, finding 2: the caller-facing re-attach
+  // hook — `App.vue` calls this after `nextTick()` on every
+  // `activeScreenClassId` transition (the one signal that CAN replace
+  // `#tree-control-wrapper`'s own DOM identity, per `attachRowObserver`'s
+  // own doc above). A plain re-invocation of both attach functions:
+  // idempotent when nothing moved (the `observed*El === live element`
+  // check above short-circuits to a no-op), corrective when it did
+  // (disconnects the stale observer, attaches a fresh one, and
+  // immediately re-measures via each attach function's own synchronous
+  // `measure*()` call — no waiting for the new observer's first async
+  // callback to recover a correct reading).
+  function reattachObservers(): void {
+    attachRowObserver();
+    attachWrapperObserver();
+  }
 
   const effectiveTreeControlRegionWidthPx = computed(() => {
     const raw = store.session.ui.treeControlRegionWidthPx;
@@ -774,5 +871,8 @@ export function useResizablePanel() {
     // this file's header comment at its own ResizeObserver above for the
     // full derivation.
     sideColumnWidthPx,
+    // Row 2502/2503 review repair, finding 2 ("SCREEN-CLASS FREEZE") —
+    // see `reattachObservers`'s own doc above.
+    reattachObservers,
   };
 }

@@ -1026,6 +1026,194 @@ export function resolveSideColumnLiveLayout(input: SideColumnLiveLayoutInput): S
   }
 }
 
+// ── Root-split live solve (GAP A, dispatch `.claude/dispatch-reports/
+//    lyt-cure-final-repair.md`, ledger rows 2502/2503) ─────────────────
+
+/** The board composite's own aspect-locked-demand facts this solve needs
+ *  — read STRAIGHT OFF the compiled `board-priority-clamp` track
+ *  (`lyt-layout.gen.ts` root child "2", `state/lyt-layout-types.ts`'s own
+ *  CASE A doc), never re-derived: `fixedSiblingSumPx` is the board
+ *  composite's own fixed internal siblings (`I_board`+`A_board`, 52px
+ *  today) that share the board's row-height budget — the SAME field
+ *  `useLytTrackCss.ts#trackCssValue`'s `board-priority-clamp` branch
+ *  already consumes to build its CSS `calc()`. This module does not
+ *  invent a second aspect-coupling derivation (ratified fork default,
+ *  row 2447, §5 open question 6) — it evaluates the IDENTICAL closed
+ *  form numerically, against LIVE measured `rowHeightPx`, instead of
+ *  leaving it as a browser-evaluated `calc(100vh - ...)` (which assumes
+ *  the row's own height tracks the literal viewport `vh` unit exactly —
+ *  true only when no chrome above `#split-workspace` consumes vertical
+ *  space; a live `rowHeightPx` reading is exact regardless).
+ *
+ *  Row 2502/2503 review repair (`.claude/dispatch-reports/
+ *  lyt-cure-final-repair-review.md` condition C1): `naturalBoardCrossUnit`
+ *  is carried alongside `fixedSiblingSumPx` — not silently ignored — so
+ *  `resolveRootSplitLiveLayout` can refuse loudly (ADR-0002) rather than
+ *  silently substituting a `rowHeightPx`-based formula for a track that
+ *  declared a DIFFERENT natural cross unit. The field exists on the
+ *  compiled type specifically because it can vary (`'vh' | 'vw'`,
+ *  `lyt-layout-types.ts`'s own CASE A doc); this resolver's own closed
+ *  form only mirrors the `'vh'` half of `trackCssValue`'s CASE A branch
+ *  (`useLytTrackCss.ts`), so a `'vw'` (or any future) unit must be a
+ *  construction-time refusal, never a silent divergence from the CSS
+ *  branch it numerically twins. */
+export interface RootSplitBoardRegion {
+  readonly fixedSiblingSumPx: number;
+  readonly naturalBoardCrossUnit: 'vh' | 'vw';
+}
+
+/** The side column's own compiled `board-priority-clamp` bounds
+ *  (`minPx`/`maxPx`) — the solver-time floor/ceiling, unchanged and
+ *  read verbatim from the SAME compiled track as `RootSplitBoardRegion`
+ *  above (both are fields of the ONE `board-priority-clamp` track
+ *  object at root child "2" — see this module's own `measuredFromTrack`
+ *  for the sibling case that already reads a track object's fields this
+ *  way). */
+export interface RootSplitSideColumnRegion {
+  readonly minPx: number;
+  readonly maxPx: number;
+}
+
+export interface RootSplitLiveLayoutInput {
+  /** `#split-workspace`'s own live width/height — `useResizablePanel.ts`'s
+   *  `rowWidthPx`/`rowHeightPx` ResizeObserver readings, unchanged. */
+  readonly rowWidthPx: number;
+  readonly rowHeightPx: number;
+  /** The root split's own compiled gap between the board composite and
+   *  the side column (`lyt-layout.gen.ts` root `gapPx`). */
+  readonly gapPx: number;
+  /** `boardRail`'s own live reserved width (its fixed px plus one root
+   *  gap) when visible, `0` otherwise — mirrors `LytNode.vue`'s own
+   *  `boardRailReservedPx` computed (this module's twin, evaluated by
+   *  the CALLER, which alone knows boardRail's resolved presence). */
+  readonly boardRailReservedPx: number;
+  readonly board: RootSplitBoardRegion;
+  readonly sideColumn: RootSplitSideColumnRegion;
+  /** The board's own hard floor (`MIN_BOARD_PX`, `state/layout-model.ts`)
+   *  — this module does not import `layout-model.ts` (this file's own
+   *  header, "one-directional dependency"), so the caller threads the
+   *  literal floor through, mirroring how `useResizablePanel.ts`'s own
+   *  `outerRowSovereignDiagnostic` already threads `MIN_BOARD_PX` in. */
+  readonly boardFloorPx: number;
+  /** `store.session.ui.treeControlRegionWidthPx` — `undefined` means
+   *  never dragged this session. Sovereignty is UNCHANGED by this
+   *  function: a dragged value wins verbatim, byte-identical to
+   *  `effectiveTreeControlRegionWidthPx`'s own existing sovereign
+   *  branch — this function only replaces the UN-DRAGGED default's own
+   *  derivation (previously `computeTreeControlRegionDefaultWidthPx`'s
+   *  flat 32%-of-row-width fraction, `state/layout-model.ts`, wholly
+   *  disconnected from the board's own aspect lock — the live-witness
+   *  rig's own flagship finding, `.claude/dispatch-reports/
+   *  lyt-cure-live-witness.md` item 1). */
+  readonly sovereignWrapperPx: number | undefined;
+}
+
+export interface RootSplitLiveLayoutResult {
+  /** The side column's (root child "2") own resolved candidate width —
+   *  feeds the SAME `trackStyleOverrides` channel
+   *  `effectiveTreeControlRegionWidthPx` used to feed, verbatim. */
+  readonly sideColumnPx: number;
+  /** The board's own aspect-locked useful width at the current
+   *  `rowHeightPx` — informational (a diagnostic/test fact), not itself
+   *  written anywhere: the board's OWN grid track stays plain `elastic
+   *  1fr` (`lyt-layout.gen.ts` root child "1") and absorbs CSS Grid's
+   *  own complement once `sideColumnPx` (and boardRail's reservation)
+   *  are subtracted — this module never overrides the board's track
+   *  directly, per §3 step 3's own "consume, don't rebuild" framing. */
+  readonly boardUsefulPx: number;
+}
+
+/**
+ * GAP A: brings the ROOT split (board vs. side column) under the SAME
+ * live-measurement authority `resolveSideColumnLiveLayout` already
+ * applies to the side column's OWN interior (tree/controlPanel/
+ * previewBoard) — closing the live-witness rig's flagship finding that
+ * the panel could not dock at 1920×1080 even after every interior fix
+ * landed, because the ROOT split's own un-dragged default never
+ * consulted the board's aspect-locked demand at all.
+ *
+ * **The board's useful width.** `boardUsefulPx = max(0, rowHeightPx -
+ * board.fixedSiblingSumPx)` — the board is a square (`aspect: 1`,
+ * `lyt-layout.gen.ts`'s own `B` leaf); its useful width is bounded by
+ * the row's own AVAILABLE HEIGHT, never by the row's width — past that
+ * point, extra width renders as dead centered margin around the square
+ * (`.lyt-board-cell`'s own `place-items: center`, `LytNode.vue`), the
+ * exact "hoarding" shape the tree region was guilty of pre-cure, now
+ * named for the board too (per this dispatch's own framing).
+ *
+ * **Non-sovereign candidate.** `naturalSideColumnPx = availableForSplitPx
+ * - boardUsefulPx` — the IDENTICAL closed form
+ * `useLytTrackCss.ts#trackCssValue`'s `board-priority-clamp` branch
+ * already encodes as a CSS `calc()`, evaluated here numerically against
+ * LIVE `rowWidthPx`/`rowHeightPx` instead of the browser's own
+ * `calc(100vh - ...)`. Clamped to `[sideColumn.minPx,
+ * maxRegionWidthPx]`, where `maxRegionWidthPx` additionally reserves
+ * `boardFloorPx` for the board (mirrors
+ * `computeTreeControlRegionDefaultWidthPx`'s own protective bound,
+ * `state/layout-model.ts`, so this replacement default does not
+ * regress that floor's protection at a pathologically narrow
+ * viewport).
+ *
+ * **Deliberately NOT demand-forcing.** An earlier version of this
+ * function additionally floored the candidate at the side column's own
+ * live CONTENT demand (`max(demandPx, naturalSideColumnPx)`) — rejected
+ * on review: that would force the side column past what the board can
+ * actually spare, silently squeezing the board below its own useful
+ * (square) size even when its natural yield genuinely can't cover the
+ * panel's demand (the narrower-viewport case the acceptance arithmetic
+ * table's own 1366×768 row names: "demotion remains honest"). This
+ * function answers ONLY "how much can the row spare the side column
+ * without the board hoarding past its own useful ceiling" — whether
+ * that's enough to dock the panel is the INTERIOR solve's own question
+ * (`resolveSideColumnLiveLayout`, fed by this function's own
+ * `sideColumnPx` output as its `wrapperWidthPx` input), not this one's.
+ *
+ * **Sovereign.** The stored value wins verbatim — this function does
+ * not change drag behavior, only the un-dragged default's derivation.
+ *
+ * **Row 2502/2503 review repair, condition C1.** `board.
+ * naturalBoardCrossUnit` is checked FIRST, before any arithmetic —
+ * `boardUsefulPx = rowHeightPx - fixedSiblingSumPx` is only the correct
+ * closed form when the compiled track's own natural cross unit is
+ * `'vh'` (height-based); a `'vw'` track (CASE A's own declared other
+ * member, `lyt-layout-types.ts`) would need `rowWidthPx`, not
+ * `rowHeightPx`, and this function does not implement that branch.
+ * Refuses loudly (`MeasurementRefusalError`, naming the offending unit)
+ * rather than silently computing a wrong number against the wrong
+ * dimension — the exact class of divergence-from-the-CSS-branch this
+ * module's own header names as the risk this field's own carry-through
+ * exists to prevent.
+ */
+export function resolveRootSplitLiveLayout(input: RootSplitLiveLayoutInput): RootSplitLiveLayoutResult {
+  if (input.board.naturalBoardCrossUnit !== 'vh') {
+    throw new MeasurementRefusalError(
+      `resolveRootSplitLiveLayout: board.naturalBoardCrossUnit is ${JSON.stringify(input.board.naturalBoardCrossUnit)}, ` +
+        'not "vh" — this resolver\'s own closed form only mirrors the height-based CASE A branch ' +
+        '(useLytTrackCss.ts); a "vw" (width-based) natural cross unit needs a different formula this ' +
+        'function does not implement, and computing rowHeightPx-based arithmetic against it would silently ' +
+        'diverge from the compiled CSS calc() it is meant to numerically twin (ADR-0002).',
+    );
+  }
+  const boardUsefulPx = Math.max(0, input.rowHeightPx - input.board.fixedSiblingSumPx);
+  if (input.sovereignWrapperPx !== undefined) {
+    return { sideColumnPx: Math.max(0, Math.round(input.sovereignWrapperPx)), boardUsefulPx };
+  }
+  if (!Number.isFinite(input.rowWidthPx) || input.rowWidthPx <= 0 || !Number.isFinite(input.rowHeightPx) || input.rowHeightPx <= 0) {
+    // Not yet measured: degrade to the side column's own compiled floor —
+    // the same "not yet measured" convention every other solve in this
+    // module shares.
+    return { sideColumnPx: input.sideColumn.minPx, boardUsefulPx: 0 };
+  }
+  const availableForSplitPx = input.rowWidthPx - input.boardRailReservedPx - input.gapPx;
+  const naturalSideColumnPx = availableForSplitPx - boardUsefulPx;
+  const maxRegionWidthPx = Math.max(
+    input.sideColumn.minPx,
+    Math.min(input.sideColumn.maxPx, availableForSplitPx - input.boardFloorPx),
+  );
+  const sideColumnPx = Math.min(Math.max(Math.round(naturalSideColumnPx), input.sideColumn.minPx), maxRegionWidthPx);
+  return { sideColumnPx, boardUsefulPx };
+}
+
 function resolveSideColumnLiveLayoutUnguarded(
   input: SideColumnLiveLayoutInput,
   treeTrack: Extract<LytTrackShape, { kind: 'elastic' }>,

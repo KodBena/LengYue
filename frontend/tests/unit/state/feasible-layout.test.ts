@@ -26,6 +26,8 @@ import {
   FeasibleLayout,
   resolveSovereignOverrides,
   resolveSideColumnLiveLayout,
+  resolveRootSplitLiveLayout,
+  MeasurementRefusalError,
   type Measured,
   type RegionAllotment,
   type SovereignOverride,
@@ -694,6 +696,154 @@ describe('resolveSideColumnLiveLayout()', () => {
         expect(diagnostic.remediation).toBe('reduce this region\'s width, or use Default Layout to reset');
         expect(diagnostic.nextAction).toBe('open-default-layout-control');
       });
+    });
+  });
+});
+
+// ── resolveRootSplitLiveLayout() — GAP A (`.claude/dispatch-reports/
+//    lyt-cure-final-repair.md`, ledger rows 2502/2503) ──────────────────
+//
+// Fixed facts below are the REAL compiled values, cited so a reader can
+// cross-check against the source without re-deriving them: root child "2"
+// (the side column)'s own `board-priority-clamp` track in
+// `src/state/lyt-layout.gen.ts` — `{ minPx: 345, maxPx: 820,
+// fixedSiblingSumPx: 52, parentGapPx: 12 }`; `MIN_BOARD_PX = 300`
+// (`src/state/layout-model.ts`); the side column's own live content
+// demand at default content is `tree.minPx (110) + gap (4) +
+// controlPanel (664) = 778`, which happens to equal `controlPanel`'s own
+// compiled `@demote(h, 778)` threshold (`lyt-layout.gen.ts`) — the two
+// facts corroborate each other, not a coincidence this suite invents.
+describe('resolveRootSplitLiveLayout() — GAP A: the root split (board vs. side column) under FeasibleLayout', () => {
+  const BOARD = { fixedSiblingSumPx: 52, naturalBoardCrossUnit: 'vh' as const };
+  const SIDE_COLUMN = { minPx: 345, maxPx: 820 };
+  const BOARD_FLOOR_PX = 300;
+  const ROOT_GAP_PX = 12;
+
+  function baseInput(overrides: Partial<Parameters<typeof resolveRootSplitLiveLayout>[0]> = {}) {
+    return {
+      rowWidthPx: 1920,
+      rowHeightPx: 1080,
+      gapPx: ROOT_GAP_PX,
+      boardRailReservedPx: 0,
+      board: BOARD,
+      sideColumn: SIDE_COLUMN,
+      boardFloorPx: BOARD_FLOOR_PX,
+      sovereignWrapperPx: undefined,
+      ...overrides,
+    };
+  }
+
+  it('1920x1080 (default content): board useful width is 1028 (1080-52); side column gets 820 (clamped at its own compiled ceiling), well past the panel-docking demand of 778', () => {
+    const result = resolveRootSplitLiveLayout(baseInput());
+    expect(result.boardUsefulPx).toBe(1028);
+    expect(result.sideColumnPx).toBe(820);
+    expect(result.sideColumnPx).toBeGreaterThanOrEqual(778); // panel min (664) + tree cap (110) + gap (4)
+  });
+
+  it('1366x768: board useful width is 716 (768-52); side column gets exactly its NATURAL yield, 638 — BELOW the 778px docking demand, so demotion remains honest (not forced)', () => {
+    const result = resolveRootSplitLiveLayout(baseInput({ rowWidthPx: 1366, rowHeightPx: 768 }));
+    expect(result.boardUsefulPx).toBe(716);
+    expect(result.sideColumnPx).toBe(638);
+    expect(result.sideColumnPx).toBeLessThan(778);
+  });
+
+  it('2560x1080: side column again clamps at its own compiled ceiling (820) — the SAME docking margin as 1920x1080, board absorbs the larger complement', () => {
+    const result = resolveRootSplitLiveLayout(baseInput({ rowWidthPx: 2560, rowHeightPx: 1080 }));
+    expect(result.boardUsefulPx).toBe(1028);
+    expect(result.sideColumnPx).toBe(820);
+  });
+
+  it("never demand-forces past the board's own natural yield: the 1366x768 result equals the hand-computed natural-yield formula exactly, proving it is not an artifact of some accidental demand-flooring", () => {
+    const rowWidthPx = 1366;
+    const rowHeightPx = 768;
+    const boardUsefulPx = Math.max(0, rowHeightPx - BOARD.fixedSiblingSumPx);
+    const naturalSideColumnPx = rowWidthPx - ROOT_GAP_PX - boardUsefulPx;
+    const result = resolveRootSplitLiveLayout(baseInput({ rowWidthPx, rowHeightPx }));
+    expect(result.sideColumnPx).toBe(Math.round(naturalSideColumnPx));
+  });
+
+  it('sovereign (dragged): the stored value wins VERBATIM, independent of geometry', () => {
+    const result = resolveRootSplitLiveLayout(baseInput({ sovereignWrapperPx: 500, rowWidthPx: 1366, rowHeightPx: 768 }));
+    expect(result.sideColumnPx).toBe(500);
+    // boardUsefulPx is still reported (informational) even on the
+    // sovereign path — it does not gate the sovereign branch's own
+    // verbatim return.
+    expect(result.boardUsefulPx).toBe(716);
+  });
+
+  it('sovereign: a negative stored value floors at 0, never negative CSS', () => {
+    const result = resolveRootSplitLiveLayout(baseInput({ sovereignWrapperPx: -40 }));
+    expect(result.sideColumnPx).toBe(0);
+  });
+
+  it("not yet measured (rowWidthPx <= 0): degrades to the side column's own compiled floor", () => {
+    const result = resolveRootSplitLiveLayout(baseInput({ rowWidthPx: 0, rowHeightPx: 0 }));
+    expect(result.sideColumnPx).toBe(SIDE_COLUMN.minPx);
+    expect(result.boardUsefulPx).toBe(0);
+  });
+
+  it('board-floor protection: at a pathologically narrow/tall viewport, the side column never claims so much that the board falls below boardFloorPx', () => {
+    const result = resolveRootSplitLiveLayout(baseInput({ rowWidthPx: 900, rowHeightPx: 1200 }));
+    // Board useful (1200-52=1148) vastly exceeds available width — the
+    // side column's OWN compiled ceiling (820) would normally bind, but
+    // the board-floor reservation (900-12-300=588) binds FIRST here,
+    // protecting MIN_BOARD_PX.
+    const availableForSplitPx = 900 - ROOT_GAP_PX;
+    expect(result.sideColumnPx).toBeLessThanOrEqual(availableForSplitPx - BOARD_FLOOR_PX);
+  });
+
+  it('boardRailReservedPx is subtracted from the available split before the board-priority-clamp math runs', () => {
+    // rowWidthPx chosen so BOTH the with-rail and without-rail candidates
+    // land strictly inside [minPx, maxPx] — neither clamp masks the
+    // subtraction (unlike a too-narrow or too-wide width, where one or
+    // both sides would hit the same floor/ceiling regardless of the
+    // rail's own reservation).
+    const withoutRail = resolveRootSplitLiveLayout(baseInput({ rowWidthPx: 1378, rowHeightPx: 768, boardRailReservedPx: 0 }));
+    const withRail = resolveRootSplitLiveLayout(baseInput({ rowWidthPx: 1378, rowHeightPx: 768, boardRailReservedPx: 180 })); // 168px fixed + 12px gap
+    expect(withoutRail.sideColumnPx).toBe(650);
+    expect(withRail.sideColumnPx).toBe(withoutRail.sideColumnPx - 180);
+  });
+
+  // Review repair, condition C1 (`.claude/dispatch-reports/
+  // lyt-cure-final-repair-review.md` §5): `naturalBoardCrossUnit` must be
+  // asserted, not silently substituted past — this resolver's own closed
+  // form only mirrors the height-based CASE A branch
+  // (`useLytTrackCss.ts`'s `board-priority-clamp` case, the `'vh'` half);
+  // a `'vw'` track needs a DIFFERENT formula (width-based), which this
+  // function does not implement.
+  describe('condition C1: naturalBoardCrossUnit is asserted before any arithmetic runs', () => {
+    it('refuses loudly (MeasurementRefusalError, naming the offending unit) when the compiled track declares "vw" instead of "vh"', () => {
+      expect(() =>
+        resolveRootSplitLiveLayout(baseInput({ board: { fixedSiblingSumPx: 52, naturalBoardCrossUnit: 'vw' } })),
+      ).toThrow(MeasurementRefusalError);
+      expect(() =>
+        resolveRootSplitLiveLayout(baseInput({ board: { fixedSiblingSumPx: 52, naturalBoardCrossUnit: 'vw' } })),
+      ).toThrow(/naturalBoardCrossUnit is "vw", not "vh"/);
+    });
+
+    it('the refusal fires BEFORE any arithmetic — even a geometry that would otherwise dock cleanly still refuses, not merely "wrong number, no throw"', () => {
+      // Same 1920x1080 default-content input the acceptance table's own
+      // docking case uses — proves the guard is unconditional, not only
+      // reachable at some contrived degenerate geometry.
+      expect(() =>
+        resolveRootSplitLiveLayout(
+          baseInput({ rowWidthPx: 1920, rowHeightPx: 1080, board: { fixedSiblingSumPx: 52, naturalBoardCrossUnit: 'vw' } }),
+        ),
+      ).toThrow(MeasurementRefusalError);
+    });
+
+    it('the refusal fires even on the SOVEREIGN (dragged) path — the unit check is not skipped by an early sovereign return', () => {
+      expect(() =>
+        resolveRootSplitLiveLayout(
+          baseInput({ sovereignWrapperPx: 500, board: { fixedSiblingSumPx: 52, naturalBoardCrossUnit: 'vw' } }),
+        ),
+      ).toThrow(MeasurementRefusalError);
+    });
+
+    it('passes through cleanly for the expected "vh" unit — the guard is a refusal, not a silent behavior change for the normal case', () => {
+      const result = resolveRootSplitLiveLayout(baseInput({ board: { fixedSiblingSumPx: 52, naturalBoardCrossUnit: 'vh' } }));
+      expect(result.sideColumnPx).toBe(820);
+      expect(result.boardUsefulPx).toBe(1028);
     });
   });
 });
