@@ -319,4 +319,124 @@ conditions are process (ratification), accuracy (citation), and a
 mechanized-gate completion (baseline) the build report's own honesty already
 surfaced but did not close.
 
+---
+
+## Addendum, 2026-08-14 — discharge delta-verification (refute posture)
+
+**Artifact.** Same worktree, branch `lyt-space-owner-l4`, new tip
+`8edb0d33395e8fcd5205a331aa535dbe51d58d6e` (two commits on top of the
+reviewed `b2d5e521`: `a796dde1` rename+citation, `8edb0d33` baseline
+regeneration). Governing: ledger row 2498 (`led show 2498`, read in full)
+and the discharge appendix appended to `lyt-space-owner-l4-build.md`
+(§"Discharge — L4 review conditions", read in full).
+
+**Condition 1 (ledger ratification).** WITNESSED — row 2498 exists,
+explicitly names the fork disposition, and mirrors row 2447's own
+"delegated fix authority" framing exactly as requested. Discharged.
+
+**Condition 2 (rename).** WITNESSED, independently, not taken on the
+report's word: `grep -rn "'wrapper'"` across `src/` and `tests/` shows
+zero remaining occurrences in the region-name role — every survivor is
+either disclosure prose in `feasible-layout.ts`'s own doc comment
+(correctly explaining the OLD collision for a future reader) or
+`useResizablePanel.ts`'s own pre-existing, legitimately-distinct
+`outerRowSovereignDiagnostic` usage (untouched, correctly out of scope).
+The new name `'side-column-capacity'` (`SIDE_COLUMN_CAPACITY_REGION`)
+is threaded through both function names, the message-building filter,
+and all three "Branch 7" tests. Discharged.
+
+**Condition 2, citation.** WITNESSED — read the new doc comment on
+`sideColumnCapacityStarvation` in full: it now states the honest, narrow
+basis (`region: string`'s own pre-existing open type, plus row 2498's
+ratification) and explicitly documents the OLD citation's own error
+(misattributing §1.1's text to §1.2, and correctly noting `viewport` is
+descriptive metadata never checked against a `Measured` entry) rather
+than silently dropping the wrong claim. This is a genuine correction,
+not a rewording that preserves the overreach. Discharged.
+
+**Condition 3 (ratchet fixed at its root), independently reproduced —
+every claim re-run, not re-read.**
+
+- Ran `node scripts/layout-audit.mjs --build --emit-baseline` myself.
+  Result: **223 keys**, matching the committed file and the report's
+  own figure exactly. Diffed my regenerated file against the committed
+  one field-by-field: the `keys` arrays are **identical, 223/223, zero
+  set difference** — only `generatedAt`/`branchSha` (expected to differ
+  run-to-run) changed. Restored the committed file via `git checkout`
+  afterward (worktree confirmed clean).
+- Independently recomputed the per-geometry × per-rule deduped-key
+  breakdown directly from a fresh report JSON (not copied from the
+  build report) — **matches the report's own table exactly**, row for
+  row and in the 223 total: 2560×1440=52, 1920×1080=33, 1366×768=34,
+  1024×768=24, 900×600=24, 480×900=23, 1080×1920=33; by rule
+  focus-invisible=25, pointer-occlusion=115, target-size=66,
+  unreachable-control=14, viewport-escape=3.
+- Ran `node scripts/layout-audit.mjs --build --check` against the
+  current committed baseline: **exit 0**, `0 new` at every geometry —
+  green, independently confirmed (not merely re-stated from the report).
+- **Ratchet fail-noisy probe, reproduced myself, not merely re-read.**
+  Added the exact CSS rule the build report names
+  (`#lyt-presence-menu-btn { width: 4px !important; height: 4px !important; }`)
+  to `src/App.vue`'s existing style block, rebuilt, ran `--check`:
+  **exit 1**, 7 new findings (one per geometry, all
+  `target-size::#lyt-presence-menu-btn`) — matches the report's own
+  figure exactly. Reverted via `git checkout -- src/App.vue` (confirmed
+  zero diff), rebuilt, re-ran `--check`: **exit 0**, back to 0 new. The
+  ratchet is genuinely live, independently witnessed red-then-green, not
+  merely trusted on the strength of the build report's own narrative.
+- One minor, non-blocking imprecision found: the discharge report's
+  "Files touched" bullet calls the predecessor baseline an "89-key
+  predecessor" — the actual predecessor baseline file (`b2d5e521`'s
+  committed `layout-audit-baseline.json`, checked directly) has **147
+  keys**; "89" is the total-findings count from one contaminated
+  pre-fix run (correctly used elsewhere in the same report's own
+  narrative prose), not the baseline file's own key count. Loose
+  wording in a summary bullet, not a substantive misrepresentation —
+  every number that actually matters (the 223-key regeneration, the
+  172-new delta, the isolation re-run's byte-identical 172) was
+  independently reproduced above and checks out.
+
+**Gates, re-run by exit code, this tip:**
+
+- `npx eslint .`: exit 0.
+- `npx vue-tsc -b --noEmit`: exit 0.
+- `npm run build`: exit 0, 1256 modules, same pre-existing chunk notice.
+- `feasible-layout*.test.ts` (purity + unit + geometry-sweep, the files
+  touched by the rename): 3 files, **97/97 passed**, exit 0 — confirms
+  the rename didn't silently break a test that still referenced the old
+  string.
+- Full suite (`NODE_OPTIONS=--max-old-space-size=2048 npx vitest run
+  --maxWorkers=2`): **271 files passed | 3 skipped (274)**, **3368
+  passed | 8 skipped (3376)**, exit 0 — identical counts to the
+  pre-discharge tip (expected: the rename changes names, not test
+  count).
+- `layout-audit --build --check`: exit 0, 0 new (see above) — this is
+  now a genuinely green, mechanized CI gate, not a disclosed-but-red
+  residual a human has to read past.
+
+**All four conditions from the original review are discharged**, three
+of them (rename, citation, ratchet) independently re-verified by
+re-running the actual mechanisms rather than trusting the discharge
+report's own narration, and the fourth (ledger ratification) confirmed
+by reading row 2498 directly. No new defect surfaced during
+delta-verification beyond the one minor wording imprecision noted above,
+which does not affect merge-worthiness.
+
+### Final verdict: ACCEPT
+
+**Basis (3 lines):** All four discharge conditions are independently
+verified, not merely re-read — the rename has zero surviving
+occurrences of the contested `'wrapper'` usage, the citation is
+honestly corrected (including naming its own prior error), and the
+ratchet is proven genuinely live via a red-then-green probe I
+reproduced myself, with the regenerated baseline's 223 keys and full
+per-geometry/per-rule breakdown reproduced byte-for-byte independently.
+Every gate (eslint, vue-tsc, build, full suite, and now `layout-audit
+--check`) is green by exit code at tip `8edb0d33`, matching the
+discharge report's own numbers exactly, with `layout-audit` now a
+genuinely passing mechanized gate rather than a disclosed residual.
+The one imprecision found (a summary bullet conflating a 147-key
+baseline with an 89-finding run) is cosmetic, not load-bearing, and does
+not warrant withholding merge.
+
 License: Public Domain (The Unlicense), per ADR-0006.
