@@ -1,8 +1,116 @@
 # Space-owner cure, dispatch L5 build report — CornerStack + the overlay primitive
 
-**Status.** Built. Commits on `worktree-agent-a384e74735fb4d353` (the
-worktree's own branch, reset to LOCAL `lyt-phase2`'s tip before work per
-rows 2402/2460). Ledger rows 2447/2484/2499.
+**Status.** Built, reviewed (ACCEPT-WITH-CONDITIONS,
+`.claude/dispatch-reports/lyt-space-owner-l5-review.md`), condition
+discharged in the same worktree. Commits on
+`worktree-agent-a384e74735fb4d353` (the worktree's own branch, reset to
+LOCAL `lyt-phase2`'s tip before work per rows 2402/2460). Ledger rows
+2447/2484/2499.
+
+## Discharge — ToolbarEngineControls.vue's menu-path popover (review condition)
+
+The review's own §2 finding: `ToolbarEngineControls.vue`'s `menu-path`
+form — a real, commonly-reached surface (its own header discloses the
+`menu-path` form is selected even at idle 1920×1080 after the
+state-invariance correction) — was driven by `useClickTogglePopover.ts`,
+a pre-existing composable structurally IDENTICAL to
+`useDismissiblePopover` (its own click-toggle open boolean, a
+document-level capture-phase `pointerdown` outside-click listener, a
+`keydown`/Escape listener, each installed only while open and torn down
+on close/unmount), but never itself migrated onto the primitive and
+never named in the original census table. Confirmed directly (not
+assumed) by reading `useClickTogglePopover.ts` and its sole consumer.
+
+**Resolution: migrated, not declared an exception** — the default the
+coordinator's own instruction named, and no genuine reason to exclude
+it surfaced (it is structurally the exact "independently re-implemented
+click/outside-click/Escape idiom" the spec's own §1.5 closure statement
+targets). `ToolbarEngineControls.vue` now composes `useDismissiblePopover()`
+(dismissal: escape/outsideClick/explicitCloseControl all `true`, no
+exception) + `useFixedAnchoredPopover` directly (position), the same
+two-composable split `LocalePicker.vue` already established post-L5.
+`useClickTogglePopover.ts` had no other consumer (confirmed by a fresh
+repo-wide grep, `grep -rn useClickTogglePopover frontend/src
+frontend/tests` — one hit, the sole consumer, before the edit) and is
+DELETED, not left as a dead near-duplicate of the primitive.
+
+**Survivor sweep, per the coordinator's own instruction ("leave
+none").** Beyond `useClickTogglePopover.ts` itself:
+
+- `grep -rln "document.addEventListener('pointerdown'" frontend/src` —
+  **one hit after the fix: `useDismissiblePopover.ts` itself** (the
+  primitive's own implementation). Zero bespoke survivors.
+- `grep -rln "useFixedAnchoredPopover" frontend/src` — every consumer
+  (`ToolbarEngineMetrics.vue`, `ToolbarSliderPopover.vue`,
+  `ToolbarEngineControls.vue`, `LocalePicker.vue`, `EngineQueueTooltip.vue`,
+  `PboPopover.vue`) pairs it with `useDismissiblePopover`/`useHoverPopover`
+  for dismissal — none use it standalone with a hand-rolled dismiss
+  listener. `App.vue`/`LytNode.vue` only MENTION the composable in prose
+  comments (the commission-naming disclosure, `App.vue`'s own header);
+  neither imports it.
+- `grep -rl "key === 'Escape'" frontend/src` — beyond the three shared
+  composables, two component-local hits: `KeybindingRow.vue`
+  (keybinding-capture cancel — a reserved-key interrupt, not a popover)
+  and `CardMetadataPanel.vue` (a tag-autocomplete suggestions list,
+  blur-delay-dismissed, the same UX shape `MintCardModal.vue`'s own
+  inner two-stage Escape already established as legitimately outside
+  this primitive's own named census — an inline suggestion list attached
+  to a text input, not a corner/toolbar trigger-button popover). Both
+  disclosed here rather than silently swept in; neither is the class of
+  surface `overlayContract()`/`useDismissiblePopover` target.
+- `LytNode.vue`'s own P2b summon `<Teleport>` re-confirmed directly this
+  pass (grep for `keydown`/`pointerdown`/`Escape` inside the file):
+  **zero hits** — the Teleport is purely a DOM relocation mechanism,
+  dismissal is entirely owned by `App.vue`'s control-panel-summon-wrap
+  (migrated in the original L5 build). Upgraded from the original
+  report's "UNEXERCISED re-confirmation" to **WITNESSED**.
+
+**New test.**
+`tests/integration/ToolbarEngineControls-menu-dismissal.test.ts` — 4
+cases, all WITNESSED: Escape closes the open menu; a `pointerdown`
+outside the component's own root closes it; a `pointerdown` ON a
+menuitem (before its own click handler runs) does NOT close it
+prematurely (the outside-click boundary is scoped correctly); re-clicking
+the trigger (`explicitCloseControl`) toggles it closed. The two
+pre-existing test files touching this component
+(`ToolbarEngineControls-menu-capabilities.test.ts`,
+`ToolbarEngineControls-state-invariance.test.ts`) needed no changes —
+neither read `useClickTogglePopover`'s internals directly, only the
+DOM shape (`.engine-controls-trigger`/`.engine-controls-menu`/
+`role="menuitem"`), which is unchanged by the composable swap.
+
+**FILES.md hygiene, caught during discharge.** The original L5 delivery
+missed `frontend/FILES.md` entries for its own four new files
+(`CornerStackHost.vue`, `useDismissiblePopover.ts`, `corner-stack.ts`,
+`overlay-contract.ts`) — a real gap against the frontend `CLAUDE.md`'s
+own "add a corresponding entry in the same PR" discipline, caught while
+auditing for the deleted `useClickTogglePopover.ts`'s own stale row.
+Fixed in this discharge: four new rows added, the deleted composable's
+row removed, and every FILES.md row that named `#lyt-corner-chrome`/
+`#lyt-overlay-stack` literally (`SystemLogPanel.vue`, `DebugMenu.vue`,
+`usePopoverEdgeClamp.ts`, `useFixedAnchoredPopover.ts`,
+`ToolbarEngineControls.vue`, `useModalKeyboard.ts`, `useHoverPopover.ts`)
+updated to the current structure.
+
+**Gates, re-run in full after the discharge (all five, by exit code):**
+
+- **eslint** (`npx eslint .`): exit `0`, no output. WITNESSED.
+- **`vue-tsc -b --noEmit`**: exit `0`, no output. WITNESSED.
+- **`npm run build`**: exit `0`, **1261** modules transformed (one fewer
+  than pre-discharge's 1262 — `useClickTogglePopover.ts`'s own deletion),
+  same pre-existing chunk-size notice, no new warnings. WITNESSED.
+- **Full suite** (`NODE_OPTIONS=--max-old-space-size=2048 npx vitest run
+  --maxWorkers=2`): exit `0`, **275 files passed | 3 skipped (278)**,
+  **3397 passed | 8 skipped (3405)** — net +1 file / +3 tests over the
+  pre-discharge run (the new dismissal-test file's 4 cases, minus 1
+  file/0 tests from no removed files — the arithmetic: 274→275 files,
+  3394→3397 tests). WITNESSED.
+- **`npm run layout-audit`**: exit `0`, **223 total findings, 0 new vs.
+  the (already-regenerated) baseline**, all seven geometries — the
+  composable swap changed no rendered DOM shape, so no baseline
+  re-emission was needed this pass. WITNESSED.
+
+---
 
 **Base freshness (rows 2402/2460).** The worktree's checkout was on a
 stale `main`-family tip (`3378806f`) at session start — not `lyt-phase2`
@@ -195,7 +303,7 @@ holds exactly 11 files, matching the spec's own "eleven modals" phrase;
 LoginModal used to but is out of this dispatch's named census (disclosed,
 not silently migrated).
 
-### Popovers — full census, exceeding the spec's own "six" (disclosed: the walk found eight distinct components, not a pre-counted six)
+### Popovers — full census, exceeding the spec's own "six" (nine distinct components, one closed as a review discharge)
 
 | Popover | Old contract | New contract | Explicit false? |
 |---|---|---|---|
@@ -208,15 +316,31 @@ not silently migrated).
 | PboPopover.vue | same | same fix (shared composable) | same disclosed falses |
 | EngineQueueTooltip.vue | same | same fix (shared composable) | same disclosed falses |
 | ToolbarEngineMetrics.vue (`eval`+`health`) | same, PLUS the structural HOVER-GRACE bug (§3) | same composable-level fix + the shared-hover-root structural fix | same disclosed falses |
+| **ToolbarEngineControls.vue menu-path popover** — review-found survivor (`.claude/dispatch-reports/lyt-space-owner-l5-review.md` §2), missing from the original census | `useClickTogglePopover.ts` (pre-existing, structurally identical to the primitive: own click-toggle open ref + document `pointerdown`(capture)/`keydown` listeners + `useFixedAnchoredPopover` for position), never migrated, never named | `useDismissiblePopover()` (escape/outsideClick/explicitCloseControl all `true`) + `useFixedAnchoredPopover` composed directly for position — the same two-composable split `LocalePicker.vue` already uses. `useClickTogglePopover.ts` deleted (confirmed sole consumer). | none |
 
 **LYT Exclusive's own P2b summon mechanism** (`LytNode.vue`'s Teleport
 target, named in spec §1.5's own quantification universe): its
 dismissal is entirely owned by the App.vue control-panel-summon popover
 row above (the Teleport TARGET is a DOM relocation point, not an
 independent dismissal site) — migrated by that row's own migration.
-`LytNode.vue` itself was not re-read in full this dispatch (no dismissal
-logic lives there per the spec's own text); flagged as **UNEXERCISED
-re-confirmation** rather than silently assumed.
+Re-confirmed directly this discharge pass (grepped `LytNode.vue` for
+`keydown`/`pointerdown`/`Escape`: zero hits) — **WITNESSED**, upgraded
+from the original report's "UNEXERCISED re-confirmation."
+
+**Survivor sweep (discharge pass, per the coordinator's own "leave
+none" instruction).** `grep -rln "document.addEventListener('pointerdown'"
+frontend/src` returns exactly one hit post-discharge:
+`useDismissiblePopover.ts` itself (the primitive's own implementation).
+`grep -rln useFixedAnchoredPopover frontend/src` — every real consumer
+pairs it with `useDismissiblePopover`/`useHoverPopover` for dismissal;
+`App.vue`/`LytNode.vue` only mention it in prose. `grep -rl "key ===
+'Escape'" frontend/src` beyond the three shared composables surfaces
+two component-local hits, both disclosed as out-of-scope rather than
+silently ignored: `KeybindingRow.vue` (a keybinding-capture cancel, not
+a popover) and `CardMetadataPanel.vue` (a tag-autocomplete suggestions
+list, blur-delay-dismissed — the same UX shape `MintCardModal.vue`'s
+own inner two-stage Escape already established as outside this
+primitive's named census).
 
 ---
 
@@ -278,7 +402,10 @@ dispatch, unchanged by this one.
 
 ---
 
-## 6. Gates
+## 6. Gates (original build, pre-discharge — superseded by the
+   discharge section's own final re-run at the top of this report;
+   kept here for the historical record of what the review actually
+   audited)
 
 - **eslint** (`npx eslint .`): exit `0`, no output. WITNESSED.
 - **`vue-tsc -b --noEmit`**: exit `0`, no output. WITNESSED.
@@ -295,6 +422,14 @@ dispatch, unchanged by this one.
   pinning against the new selectors, net delta consistent with the diff.)
 - **`npm run layout-audit`**: exit `0`, **223 total findings, 0 new vs
   the regenerated baseline**, all seven geometries. WITNESSED.
+
+**Post-discharge final numbers** (ToolbarEngineControls.vue's menu-path
+popover migrated, `useClickTogglePopover.ts` deleted, one new dismissal
+test file added — see the discharge section at the top of this
+report): eslint 0, vue-tsc 0, build 0 (1261 modules — one fewer),
+full suite 0 failures (**275 files | 3 skipped (278)**, **3397 tests |
+8 skipped (3405)**), layout-audit 0 new vs baseline (223 total,
+unchanged — the composable swap altered no rendered DOM shape).
 
 **Two pre-existing test files needed re-pinning against the structural
 rename** (disclosed, not silent):
@@ -347,13 +482,20 @@ construction-time validation call added). `useHoverPopover.ts`'s own
    layout-audit). `reserves` field present per spec; two entries
    overlapping in the stacking direction unrepresentable by construction
    (`CornerStack.build`'s own collision refusal, unit-tested).
-2. **Overlay primitive, full census** — delivered. Eleven modals: two
-   gaps found and closed (LearnPathModal's missing Escape; LoginModal's
-   markup divergence), nine already conformant, now contract-validated.
-   Eight popovers (exceeding the named six): four migrated to
-   `useDismissiblePopover` (one with a disclosed `outsideClick: false`
-   exception), four hover popovers gained Escape + disclosed
-   `outsideClick`/`explicitCloseControl: false`. Portrait
+2. **Overlay primitive, full census** — delivered, with one review-caught
+   gap closed in discharge (see the discharge section at the top of
+   this report). Eleven modals: two gaps found and closed (LearnPathModal's
+   missing Escape; LoginModal's markup divergence), nine already
+   conformant, now contract-validated. Nine popovers (exceeding the
+   named six): five migrated to `useDismissiblePopover` (one with a
+   disclosed `outsideClick: false` exception — DebugMenu.vue; the fifth,
+   ToolbarEngineControls.vue's menu-path popover, closed in discharge
+   after the review found it missing from the original table), four
+   hover popovers gained Escape + disclosed
+   `outsideClick`/`explicitCloseControl: false`. A post-discharge
+   survivor sweep (`document.addEventListener('pointerdown'`,
+   `useFixedAnchoredPopover`, `key === 'Escape'`, all repo-wide) found
+   no further bespoke click-popover implementations. Portrait
    control-panel-popover's own missing-Escape claim (spec's own §1.5
    text) — **UNEXERCISED re-confirmation**: the control-panel-summon
    popover (the one this dispatch found and migrated) IS
