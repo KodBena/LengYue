@@ -174,7 +174,7 @@ describe('nncache-session: transition', () => {
     expect(sent.action).toBe('cache_attach');
   });
 
-  it('when a context IS attached: dump {what:"both"} then detach (no discard) then attach the new context, in order', async () => {
+  it('when a context IS attached: dump {what:"both"} then detach (discardUndumped:true, since the dump succeeded) then attach the new context, in order', async () => {
     fakeAnalysisService.sendActionCommand.mockResolvedValue(okActionResponse());
     await enable('card-5');
     fakeAnalysisService.sendActionCommand.mockClear();
@@ -188,13 +188,48 @@ describe('nncache-session: transition', () => {
     expect(dumpQuery.what).toBe('both');
     expect(dumpQuery.context).toBe('alice.card-5');
 
+    // Per ledger row 2543: a SUCCESSFUL dump's follow-on detach discards
+    // exactly what the admission policy itself refused to persist
+    // (single-observation evals; the count is already on disk via the
+    // dump's .nncounts leg, so a future session's re-observation still
+    // promotes it).
     const detachQuery = fakeAnalysisService.sendActionCommand.mock.calls[1]?.[0] as Record<string, unknown>;
-    expect('discardUndumped' in detachQuery).toBe(false);
+    expect(detachQuery.discardUndumped).toBe(true);
 
     const attachQuery = fakeAnalysisService.sendActionCommand.mock.calls[2]?.[0] as Record<string, unknown>;
     expect(attachQuery.context).toBe('alice.card-6');
 
     expect(activeAttachedContext.value).toBe('alice.card-6');
+  });
+
+  it('a SUCCESSFUL dump followed by a plain-detach admission refusal ("N earned entries not on disk") now succeeds via discardUndumped:true, with the discard logged', async () => {
+    fakeAnalysisService.sendActionCommand.mockResolvedValue(okActionResponse());
+    await enable('card-5');
+    fakeAnalysisService.sendActionCommand.mockClear();
+    // dump succeeds; the ensuing cache_detach carries discardUndumped:true
+    // per the fix, so the fake's admission-refusal branch is never hit —
+    // this pins the outcome (transition completes) rather than re-deriving
+    // the fake's refusal logic.
+    fakeAnalysisService.sendActionCommand
+      .mockResolvedValueOnce(okActionResponse()) // dump ok
+      .mockResolvedValueOnce(okActionResponse({ discardedUndumpedEntries: 1 })) // detach ok (discard)
+      .mockResolvedValueOnce(okActionResponse()); // attach ok
+
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+
+    await transition('card-6');
+
+    const detachQuery = fakeAnalysisService.sendActionCommand.mock.calls[1]?.[0] as Record<string, unknown>;
+    expect(detachQuery.action).toBe('cache_detach');
+    expect(detachQuery.discardUndumped).toBe(true);
+    expect(activeAttachedContext.value).toBe('alice.card-6');
+    expect(nncacheEnabled.value).toBe(true);
+    expect(nncacheStatus.value).toBe('attached');
+    expect(infoSpy.mock.calls.some(
+      call => typeof call[0] === 'string' && call[0].includes('discarded post-dump admission-refused entries'),
+    )).toBe(true);
+
+    infoSpy.mockRestore();
   });
 
   it('a refused dump aborts the transition, surfaces the refusal, and leaves the OLD context attached (no attach attempted, never left half-tracked)', async () => {
@@ -242,7 +277,7 @@ describe('nncache-session: endSession', () => {
     expect(fakeAnalysisService.sendActionCommand).not.toHaveBeenCalled();
   });
 
-  it('dumps then detaches WITHOUT discarding (distinct from disable()\'s explicit discard)', async () => {
+  it('dumps then detaches with discardUndumped:true (post-dump admission-refused residue only — distinct from disable()\'s unconditional discard, which never dumps)', async () => {
     fakeAnalysisService.sendActionCommand.mockResolvedValue(okActionResponse());
     await enable('card-5');
     fakeAnalysisService.sendActionCommand.mockClear();
@@ -252,8 +287,24 @@ describe('nncache-session: endSession', () => {
     const calls = fakeAnalysisService.sendActionCommand.mock.calls.map(c => (c[0] as Record<string, unknown>).action);
     expect(calls).toEqual(['cache_dump', 'cache_detach']);
     const detachQuery = fakeAnalysisService.sendActionCommand.mock.calls[1]?.[0] as Record<string, unknown>;
-    expect('discardUndumped' in detachQuery).toBe(false);
+    expect(detachQuery.discardUndumped).toBe(true);
     expect(nncacheEnabled.value).toBe(false);
     expect(activeAttachedContext.value).toBeNull();
+  });
+
+  it('a FAILED dump keeps the current behavior exactly: reverts to attached, surfaces the refusal, and never attempts a detach', async () => {
+    fakeAnalysisService.sendActionCommand.mockResolvedValue(okActionResponse());
+    await enable('card-5');
+    fakeAnalysisService.sendActionCommand.mockClear();
+    fakeAnalysisService.sendActionCommand.mockResolvedValueOnce(errorResponse('open requests', 'action'));
+
+    await endSession();
+
+    expect(fakeAnalysisService.sendActionCommand).toHaveBeenCalledTimes(1);
+    expect(fakeAnalysisService.sendActionCommand.mock.calls[0]?.[0]).toMatchObject({ action: 'cache_dump' });
+    expect(nncacheEnabled.value).toBe(true);
+    expect(nncacheStatus.value).toBe('attached');
+    expect(activeAttachedContext.value).toBe('alice.card-5');
+    expect(store.engine.messages.some(m => m.type === 'warning')).toBe(true);
   });
 });
