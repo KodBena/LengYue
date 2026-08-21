@@ -185,6 +185,7 @@ import {
   type StarvationDiagnostic,
   type SideColumnFixedRegion,
 } from '../../../src/state/feasible-layout';
+import { CONTROL_PANEL_MIN_WIDTH_PX } from '../../../src/state/layout-model';
 import { LYT_LANDSCAPE } from '../../../src/state/lyt-layout.gen';
 import { LYT_PORTRAIT } from '../../../src/state/lyt-layout-portrait.gen';
 import type { Px } from '../../../src/state/feasible-layout';
@@ -630,8 +631,8 @@ const LIVE_ALLOTMENT_TABLE: LiveAllotmentRow[] = [];
 describe('dispatch L3: resolveSideColumnLiveLayout — live-solve regression oracle', () => {
   const facts = extractLandscapeSideColumnRowFacts();
   const others: readonly SideColumnFixedRegion[] = [
-    { widgetId: 'controlPanel', track: facts.controlPanelTrack, desiredVisible: true, demote: facts.controlPanelDemote },
-    { widgetId: 'previewBoard', track: facts.previewBoardTrack, desiredVisible: false, demote: null },
+    { widgetId: 'controlPanel', track: facts.controlPanelTrack, desiredVisible: true, viabilityFloorPx: CONTROL_PANEL_MIN_WIDTH_PX },
+    { widgetId: 'previewBoard', track: facts.previewBoardTrack, desiredVisible: false, viabilityFloorPx: null },
   ];
   // The review's own witnessed content-demand reading (this file's own
   // `TREE_LIVE_CONTENT_OVERLAY`, `px(60)`), passed RAW/unclamped — row
@@ -735,22 +736,40 @@ describe('dispatch L3: resolveSideColumnLiveLayout — live-solve regression ora
 describe('dispatch L3: sovereignty — WITNESSED trace (drag override -> unclamped track -> diagnostic)', () => {
   const facts = extractLandscapeSideColumnRowFacts();
   const others: readonly SideColumnFixedRegion[] = [
-    { widgetId: 'controlPanel', track: facts.controlPanelTrack, desiredVisible: true, demote: facts.controlPanelDemote },
-    { widgetId: 'previewBoard', track: facts.previewBoardTrack, desiredVisible: false, demote: null },
+    { widgetId: 'controlPanel', track: facts.controlPanelTrack, desiredVisible: true, viabilityFloorPx: CONTROL_PANEL_MIN_WIDTH_PX },
+    { widgetId: 'previewBoard', track: facts.previewBoardTrack, desiredVisible: false, viabilityFloorPx: null },
   ];
 
-  it('the commissioner\'s ~640px control-panel drag floor is GONE: a sovereign drag shrinks controlPanel below its 664px floor, diagnosed not resisted', () => {
+  // MIGRATED per ledger row 2532 (the ruled demotion remedy): under the
+  // pre-row-2532 mechanism, sovereignty meant `controlPanel`'s own
+  // COMPILED fixed track (664px) was the only "floor" ever checked —
+  // there was no smaller region-owned viability floor, so a sovereign
+  // drag could shrink the panel to ANY value above 0 while it stayed
+  // "present," diagnosed as "starved against 664" every time it dipped
+  // below that. Ledger row 2532 (`.claude/dispatch-reports/
+  // control-panel-demotion-rca.md` Remedy 1, mandate item 1) replaces
+  // that compiled-track floor with the panel's own SMALLER minimum
+  // renderable demand (`CONTROL_PANEL_MIN_WIDTH_PX`, 300px landscape) —
+  // and rules that a DRAG must FLOOR the panel at that minimum rather
+  // than let it fall through to an arbitrary sliver (the "drags floor,
+  // never demote to absent" ruling). `allot()`'s own sovereign branch
+  // (`state/feasible-layout.ts`) therefore caps `tree`'s own dragged
+  // candidate so at least `viabilityFloorPx + gapPx` stays reserved for
+  // `controlPanel` — this test's own drag (which used to leave the panel
+  // only 40px) now leaves it exactly its floor (300px), and `tree`
+  // itself renders 516px (820 - 304), not the raw 776px the drag asked
+  // for. No diagnostic fires: the panel stayed PRESENT and never dropped
+  // below its own floor, so there is nothing to diagnose — under the OLD
+  // mechanism this exact drag produced a "starved" message even though
+  // the panel was plainly still on screen (the RCA's own §4 "false alarm
+  // on the inner path" finding, closed by no longer checking a
+  // still-present region against anything at all).
+  it('the ruled demotion remedy: a sovereign drag FLOORS controlPanel at its own viability minimum (300px) rather than shrinking it past that point — never demoted, never falsely diagnosed', () => {
     const wrapperWidthPx = computeLandscapeSideColumnWidthPx({ widthPx: 1920, heightPx: 1080 });
-    // WITNESSED trace, step 1: the drag event. `startResizeInner`'s own
-    // sovereignty fix (`useResizablePanel.ts`) removes the
-    // CONTROL_PANEL_MIN_WIDTH_PX reservation from the drag's own ceiling
-    // — the user CAN drag the tree panel to claim (nearly) the whole
-    // wrapper. Simulated here as the resulting stored fact,
-    // `session.ui.treePanelWidthPx`, a drag would produce.
-    const draggedTreePx = wrapperWidthPx - facts.gapPx - 40; // leaves controlPanel only 40px — starved
+    // The drag event: the user drags the tree divider far enough that the
+    // OLD mechanism would have left controlPanel only 40px.
+    const draggedTreePx = wrapperWidthPx - facts.gapPx - 40;
 
-    // WITNESSED trace, step 2: the override. `treeSovereignPx` below is
-    // exactly `store.session.ui.treePanelWidthPx` post-drag.
     const live = resolveSideColumnLiveLayout({
       wrapperWidthPx,
       gapPx: facts.gapPx,
@@ -761,26 +780,22 @@ describe('dispatch L3: sovereignty — WITNESSED trace (drag override -> unclamp
       screenClassId: 'landscape',
     });
 
-    // WITNESSED trace, step 3: the unclamped track. `tree` renders the
-    // dragged value VERBATIM — no resistance, even though it is far past
-    // `tree`'s own compiled floor/ceiling (sovereignty, §1.6).
-    expect(live.treePx).toBe(draggedTreePx);
+    // The floor reservation: `wrapperWidthPx (820) - (viabilityFloorPx
+    // 300 + gapPx 4) = 516` — tree's own candidate is capped there,
+    // BELOW the raw 776px the drag asked for, so the panel's own floor
+    // is always reserved.
+    const floorReservationPx = CONTROL_PANEL_MIN_WIDTH_PX + facts.gapPx;
+    expect(live.treePx).toBe(wrapperWidthPx - floorReservationPx);
+    expect(live.treePx).toBeLessThan(draggedTreePx); // the drag's own raw ask was NOT honored verbatim — floored, not resisted to zero
     const controlPanelOutcome = live.others.find((o) => o.widgetId === 'controlPanel')!;
-    expect(controlPanelOutcome.present).toBe(true); // never demoted to absent by a drag
-    expect(controlPanelOutcome.candidatePx).toBe(40); // genuinely shrunk BELOW its 664px floor
-    expect(controlPanelOutcome.candidatePx).toBeLessThan(664);
+    expect(controlPanelOutcome.present).toBe(true); // never demoted to absent by a drag — the pinned doctrine, now floor-variant
+    expect(controlPanelOutcome.candidatePx).toBe(CONTROL_PANEL_MIN_WIDTH_PX); // floored exactly at its own viability minimum
+    expect(controlPanelOutcome.candidatePx).toBeLessThan(664); // still genuinely shrunk below its compiled fixed track
 
-    // WITNESSED trace, step 4: the diagnostic. Never a silent clamp,
-    // never a silent starvation — `useSideColumnLiveLayout.ts`'s own
-    // watcher pushes this THROUGH `pushSystemMessage` in the live app;
-    // this test pins the diagnostic's own shape, the fact the push watch
-    // reads.
-    expect(live.diagnostics).toHaveLength(1);
-    const [diagnostic] = live.diagnostics;
-    expect(diagnostic.location).toBe('tree');
-    expect(diagnostic.starved).toHaveLength(1);
-    expect(diagnostic.starved[0]).toMatchObject({ kind: 'starved', region: 'controlPanel', demandPx: 664, grantedPx: 40 });
-    expect(diagnostic.message).toBe('Your geometry modification no longer permits controlPanel to render.');
+    // No diagnostic: the panel stayed present and never fell below its
+    // own floor — a squeezed-but-present region is not a starvation
+    // under the region-owned model (ledger row 2532 Remedy 3).
+    expect(live.diagnostics).toEqual([]);
   });
 
   it('a sovereign drag that leaves every sibling satisfied produces NO diagnostic (the common case)', () => {
@@ -800,5 +815,54 @@ describe('dispatch L3: sovereignty — WITNESSED trace (drag override -> unclamp
     });
     expect(live.treePx).toBe(draggedTreePx);
     expect(live.diagnostics).toEqual([]);
+  });
+
+  // Commissioner live finding (shots `8b66_instant_snap_on_dragging_
+  // control_panel_resizer.png`), ledger row 2533 addendum item 3: a
+  // resizer drag observed SNAPPING instantly to a new allocation instead
+  // of tracking the cursor continuously. This is a pure-function
+  // regression test over `resolveSideColumnLiveLayout` alone (no live
+  // DOM/mouse-event rig available to this pass — see this ticket's own
+  // report for the disclosed UNEXERCISED-live status): a continuous
+  // sweep of `treeSovereignPx` (the exact quantity a drag writes,
+  // `useResizablePanel.ts`'s `onMouseMoveInner`) at 1px steps must
+  // produce a `controlPanel.candidatePx` that changes by AT MOST 1px per
+  // step — any larger jump would be a discrete "snap," the class of bug
+  // this finding names. The `allot()` floor-reservation mechanism this
+  // ticket's own item 1 introduces is the most likely NEW source of such
+  // a discontinuity (a presence flip, or the floor's own `Math.max`
+  // engaging) — this test exists specifically to prove it does NOT
+  // introduce one.
+  it('continuous drag tracking: a 1px-stepped sweep of treeSovereignPx never jumps controlPanel.candidatePx (or treePx) by more than 1px per step — no discrete "snap" (commissioner live finding, ledger row 2533 addendum 3)', () => {
+    const wrapperWidthPx = computeLandscapeSideColumnWidthPx({ widthPx: 1920, heightPx: 1080 });
+    let prevTreePx: number | null = null;
+    let prevControlPanelPx: number | null = null;
+    for (let dragPx = 0; dragPx <= wrapperWidthPx + 50; dragPx += 1) {
+      const live = resolveSideColumnLiveLayout({
+        wrapperWidthPx,
+        gapPx: facts.gapPx,
+        tree: { track: facts.treeTrack, maxUsefulPx: px(110) },
+        treeSovereignPx: dragPx,
+        treeDefaultPx: 0,
+        others,
+        screenClassId: 'landscape',
+      });
+      const controlPanel = live.others.find((o) => o.widgetId === 'controlPanel')!;
+      if (prevTreePx !== null) {
+        expect(Math.abs(live.treePx - prevTreePx), `treePx jumped at dragPx=${dragPx}`).toBeLessThanOrEqual(1);
+      }
+      if (prevControlPanelPx !== null) {
+        expect(
+          Math.abs(controlPanel.candidatePx - prevControlPanelPx),
+          `controlPanel.candidatePx jumped at dragPx=${dragPx}`,
+        ).toBeLessThanOrEqual(1);
+      }
+      prevTreePx = live.treePx;
+      prevControlPanelPx = controlPanel.candidatePx;
+    }
+    // Non-vacuity: the sweep must actually cross BOTH the floor-engaged
+    // and floor-clear regimes, or "never jumps" would be trivially true
+    // over a single regime.
+    expect(prevControlPanelPx).not.toBeNull();
   });
 });

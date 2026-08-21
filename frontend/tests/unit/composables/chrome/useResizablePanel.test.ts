@@ -261,17 +261,23 @@ describe('computePaneWidthPx — the shared generic both wrappers delegate to', 
   });
 });
 
-// Sovereignty (dispatch L3, SCOPE item 3): `startResizeOuter`'s own
-// `regionMaxWidthPx` no longer reserves `MIN_BOARD_PX` against the OUTER
-// bar's own drag range — a drag that would squeeze `#board-area` below
-// its floor is diagnosed (`outerRowSovereignDiagnostic`,
-// `useResizablePanel.ts`), never resisted at the drag-math level. This
-// describe block used to pin the OLD reservation contract; it now pins
-// `MIN_BOARD_PX`'s own value only, since the constant itself still
-// exists (as the `board` region's own `Measured.min` in the sovereignty
-// diagnostic), just no longer as a drag-range ceiling.
-describe('sanity: MIN_BOARD_PX still names the board\'s own floor (now a diagnostic input, not a drag-range reservation)', () => {
-  it('MIN_BOARD_PX is unchanged — consumed by outerRowSovereignDiagnostic as the board region\'s own Measured.min, not by startResizeOuter\'s own drag-range ceiling (deleted by sovereignty)', () => {
+// Sovereignty (dispatch L3, SCOPE item 3), REVISED by the row 2511 review
+// condition 2 (`.claude/dispatch-reports/lyt-disease-repair-review.md`,
+// defect 4): `startResizeOuter`'s own `regionMaxWidthPx` briefly reserved
+// ONLY the resizer's own physical width against the OUTER bar's drag
+// range (dispatch L3) — that left the drag-time ceiling far LOOSER than
+// `resolveRootSplitLiveLayout`'s render-time ceiling, letting the cursor
+// and the rendered divider decouple mid-drag. `startResizeOuter` now ALSO
+// reserves `MIN_BOARD_PX` against the drag range (unification, not a
+// reintroduction of "resistance": a drag can still ask for more than the
+// board's floor allows and the render still just clamps + diagnoses
+// rather than fighting the cursor — the drag range itself now simply
+// can't promise a delta the render would immediately refuse). This
+// describe block pins `MIN_BOARD_PX`'s own value, still consumed BOTH by
+// `outerRowSovereignDiagnostic` (as the `board` region's `Measured.min`)
+// and now directly by `startResizeOuter`'s own drag-range ceiling too.
+describe('sanity: MIN_BOARD_PX names the board\'s own floor — a diagnostic input AND (row 2511) a drag-range reservation', () => {
+  it('MIN_BOARD_PX is unchanged — consumed by outerRowSovereignDiagnostic as the board region\'s own Measured.min, and by startResizeOuter\'s own drag-range ceiling (row 2511 review condition 2)', () => {
     expect(MIN_BOARD_PX).toBe(300);
   });
 });

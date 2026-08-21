@@ -21,10 +21,10 @@ import { warmSnapshotAccessor } from '../../composables/cards/usePreviewSnapshot
 import { useNodePositionHashes } from '../../composables/cards/useNodePositionHashes';
 import { toggleNodeSelection } from '../../composables/cards/mint-selection';
 import { isReviewStartNode } from '../../composables/forest/tree-review-marker';
-import { useContentDemand }  from '../../composables/chrome/useContentDemand';
 import { themeColor }        from '../../utils/theme-color';
 import FloatingThumbnail    from '../chrome/FloatingThumbnail.vue';
 import { boardsById }        from '../../store';
+import { px, type Px }       from '../../state/feasible-layout';
 import type { GameNode, NodeId, BoardId } from '../../types';
 
 /**
@@ -151,10 +151,36 @@ const viewportFollow = useViewportFollow(outerRef);
 // this widget has no opinion about its own allotment) for a caller to
 // feed into `measuredFromLytProgram`'s runtime overlay; see that
 // function's own header for the full "why an overlay, not a direct
-// clamp" account. `outerRef` is unconditionally rendered (never behind a
-// `v-if`) in the template below, so it is never null once this component
-// mounts — satisfying `useContentDemand`'s own mount-time refusal.
-const contentDemandPx = useContentDemand(outerRef, 'h');
+// clamp" account.
+//
+// Disease repair (`.claude/dispatch-reports/lyt-second-opus-review.md`
+// N3, ledger row 2511): this USED to be `useContentDemand(outerRef, 'h')`
+// — `outerRef.scrollWidth`, per that composable's own disclosed caveat,
+// equals the SVG's true intrinsic content width only while the SVG
+// genuinely overflows the box (`.tree-widget-outer { overflow: auto }`,
+// below). Whenever the tree's real content is NARROWER than whatever
+// width the side-column solve most recently assigned it (the ordinary
+// case for a small game tree), `scrollWidth` degenerates to the BOX's
+// own rendered width instead — the exact contamination the composable's
+// header names as a caveat it assumed no current caller hit. Feeding
+// that back into `resolveSideColumnLiveLayout`'s non-sovereign ceiling
+// (`effectiveTreeMaxUsefulPx`) closed a measure-render-remeasure loop: a
+// presence toggle (e.g. "Preview Board") that momentarily narrows the
+// tree's box gets that narrower box "remembered" as the tree's own
+// content demand, capping the NEXT candidate at the same width even
+// once the toggle reverses and room frees back up — witnessed as an
+// ~31px leak per on/off cycle, never recovering short of a reload
+// (`tests/unit/state/feasible-layout.test.ts`'s own presence-toggle-
+// idempotence case pins the fix at the pure-function layer). `svgWidth`
+// (below) is the tree's OWN intrinsic width —
+// `layout.value.rows/cols * CELL + PAD * 2`, a pure function of the
+// game-tree's shape, never of the box it's rendered into — so reading
+// it directly is a strictly MORE correct content-demand measurement
+// (identical to the old one in the genuine-overflow case, immune to the
+// contamination in the non-overflow case), not a narrower one.
+// `outerRef`/`useContentDemand` accordingly no longer feed this value;
+// `outerRef` remains in use for scroll and viewport-follow, untouched.
+const contentDemandPx = computed<Px>(() => px(svgWidth.value));
 
 const expansion = useTreeExpansion();
 const { variationMarkerLabels } = useThumbnailCache();

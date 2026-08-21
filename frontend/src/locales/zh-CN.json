@@ -517,6 +517,7 @@
   "systemLog.noMessages":                 "无消息 — 系统空闲。",
   "systemLog.toggleButton":               "切换系统日志显示",
   "systemLog.nextAction":                 "下一步",
+  "systemLog.nextActionToken.open-default-layout-control": "打开“默认布局”控件",
 
   "analysisChart.emptyState":             "暂无{label}数据。",
 

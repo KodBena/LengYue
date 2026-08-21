@@ -124,7 +124,7 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import type { LytAxis, LytChild, LytDemotion, LytNodeData, LytProgram, LytTrackShape } from './lyt-layout-types';
+import type { LytAxis, LytChild, LytNodeData, LytProgram, LytTrackShape } from './lyt-layout-types';
 
 // ── §1.1 Measured<Region> ──────────────────────────────────────────────
 
@@ -667,15 +667,35 @@ export function measuredFromLytProgram(
  *  (`layout-model.ts`) used to take, folded here into `RegionPresence`
  *  resolution instead of a bare boolean return (spec §1.3: "presence
  *  unifies through `RegionPresence`"). */
+/**
+ * Ledger row 2532 (`.claude/dispatch-reports/control-panel-demotion-rca.md`
+ * Remedy 1, "re-home the demotion threshold from the container to the
+ * region"): `demote: LytDemotion | null` (a container-scale composite —
+ * the panel's own floor PLUS a sibling's floor PLUS a gap, evaluated
+ * against the row's raw `wrapperWidthPx`) is replaced by
+ * `viabilityFloorPx: number | null` — the region's OWN minimum
+ * renderable demand, evaluated (by `resolveRowPresence` below) against
+ * the region's OWN resolved allotment, never against the container. This
+ * is the RCA's diagnosed root cause of the path-dependent demotion
+ * verdict (the same realized panel width producing a DIFFERENT presence
+ * verdict depending on which divider produced it): a predicate whose
+ * input is not the quantity it decides about. `controlPanel`'s value is
+ * `CONTROL_PANEL_MIN_WIDTH_PX` (`state/layout-model.ts`) — a frontend-
+ * composed fact, not a `research/lyt/` compiler edit (out of scope per
+ * the umbrella `CLAUDE.md`'s cross-boundary discipline; the RCA's own
+ * "bypass the compiled composite, don't remodel it" framing, mirroring
+ * the S1 fix's identical posture toward `sideColumn.maxPx`).
+ * `previewBoard` carries `null` — unchanged: its own presence toggle is
+ * unconditional (the dated addendum this dispatch's own header
+ * transcribes), never width-gated.
+ */
 export interface SideColumnFixedRegion {
   readonly widgetId: string;
   readonly track: LytTrackShape;
   readonly desiredVisible: boolean;
-  /** Compiled `@demote` threshold, or `null` when this region never
-   *  demotes by width (`previewBoard` today — its own presence toggle is
-   *  unconditional, per the dated addendum this dispatch's own header
-   *  transcribes). */
-  readonly demote: LytDemotion | null;
+  /** The region's own minimum renderable demand — `null` for a region
+   *  that never demotes by width (see this interface's own header). */
+  readonly viabilityFloorPx: number | null;
 }
 
 export interface SideColumnLiveLayoutInput {
@@ -974,18 +994,6 @@ export function resolveSideColumnLiveLayout(input: SideColumnLiveLayoutInput): S
     );
   }
   const treeTrack = input.tree.track;
-  // The demote-axis guard is also a caller contract violation (ADR-0002),
-  // not a measurement refusal — validated HERE, before the try/catch
-  // below, so it stays a loud immediate throw rather than being silently
-  // absorbed into the row 2501 fallback (this function's own doc above).
-  for (const o of input.others) {
-    if (o.demote !== null && o.demote.axis !== 'h') {
-      throw new Error(
-        `resolveSideColumnLiveLayout: unsupported demote axis ${JSON.stringify(o.demote.axis)} for ` +
-          `${o.widgetId} — only "h" (measured against the side column's own live width) is wired (ADR-0002).`,
-      );
-    }
-  }
   try {
     return resolveSideColumnLiveLayoutUnguarded(input, treeTrack);
   } catch (err) {
@@ -1106,6 +1114,21 @@ export interface RootSplitLiveLayoutInput {
    *  rig's own flagship finding, `.claude/dispatch-reports/
    *  lyt-cure-live-witness.md` item 1). */
   readonly sovereignWrapperPx: number | undefined;
+  /** Ledger row 2511 pragmatic repair (UI shoddiness audit S1/S2/S3/S10,
+   *  `.claude/dispatch-reports/ui-shoddiness-audit-2026-08-21.md`):
+   *  the genuine minimum width the side column's OWN interior wants
+   *  right now, when its content actually wants it — today, the
+   *  `controlPanel` Exclusive's own compiled `@demote.belowPx`
+   *  threshold (778 landscape) when the user wants it visible, `0`
+   *  otherwise. This is NOT a second content-demand derivation: it is
+   *  the SAME `demote.belowPx` fact `resolveSideColumnLiveLayout`
+   *  already reads off the compiled program to decide presence — the
+   *  caller threads it through so the ROOT split's own un-dragged
+   *  candidate can try to satisfy it (see this function's own "board
+   *  yields honestly" doc below) BEFORE the interior solve ever runs
+   *  and finds it starved. `0`/`undefined` reproduces this field's own
+   *  absence — no change from the pre-row-2511 behavior. */
+  readonly sideColumnDesiredMinPx?: number;
 }
 
 export interface RootSplitLiveLayoutResult {
@@ -1121,6 +1144,23 @@ export interface RootSplitLiveLayoutResult {
    *  are subtracted — this module never overrides the board's track
    *  directly, per §3 step 3's own "consume, don't rebuild" framing. */
   readonly boardUsefulPx: number;
+  /** Disease repair (`.claude/dispatch-reports/lyt-second-opus-review.md`
+   *  N4, ledger row 2511). Non-null EXACTLY when the sovereign clamp
+   *  above (see this function's own "Sovereign (revised)" doc) actually
+   *  reduced a stored/dragged override below what it literally asked
+   *  for — the RAW value it was clamped FROM, so a caller can push the
+   *  same honest "your geometry modification no longer fits" diagnostic
+   *  `resolveSovereignOverrides` produces for a starved sibling, this
+   *  time for "the override overshot what this region can render."
+   *  `null` on every other path (non-sovereign, sovereign but already
+   *  within bounds, not yet measured with no override). Without this,
+   *  a drag that overshoots the side column's own compiled ceiling (a
+   *  common case — `sideColumn.maxPx` frequently binds before
+   *  `boardFloorPx` ever would) renders visibly "stuck" with NO
+   *  explanation: the exact silent-refusal shape ADR-0002 forbids, and
+   *  the review's own N4 finding ("dragging the same bar back... changed
+   *  nothing at all, with no system message"). */
+  readonly sovereignClampedFromPx: number | null;
 }
 
 /**
@@ -1168,8 +1208,22 @@ export interface RootSplitLiveLayoutResult {
  * (`resolveSideColumnLiveLayout`, fed by this function's own
  * `sideColumnPx` output as its `wrapperWidthPx` input), not this one's.
  *
- * **Sovereign.** The stored value wins verbatim — this function does
- * not change drag behavior, only the un-dragged default's derivation.
+ * **Sovereign (revised, disease repair `.claude/dispatch-reports/
+ * lyt-second-opus-review.md` N2, ledger row 2511).** The stored value
+ * wins verbatim ONLY up to the SAME `maxRegionWidthPx` ceiling the
+ * un-dragged branch already reserves `boardFloorPx` against — this
+ * function's own board-can-never-render-at-0 guarantee, which the
+ * pre-repair version of this specific function did not carry (see the
+ * clamp's own inline comment for the "why here, why now" derivation;
+ * the older, WIDER "never drag resistance" doctrine at §1.6 above still
+ * governs a live drag gesture in progress and is untouched — this
+ * clamp only bounds what a STORED override may replay at a geometry the
+ * user never dragged at, e.g. a cold boot on a narrower screen). A
+ * clamped override still produces the SAME starvation diagnostic a
+ * fully-verbatim one would (via `outerRowSovereignDiagnostic`, which
+ * reads the raw stored value independently of this function) — the
+ * user is told their geometry choice no longer fits, even though the
+ * board itself keeps rendering.
  *
  * **Row 2502/2503 review repair, condition C1.** `board.
  * naturalBoardCrossUnit` is checked FIRST, before any arithmetic —
@@ -1195,23 +1249,143 @@ export function resolveRootSplitLiveLayout(input: RootSplitLiveLayoutInput): Roo
     );
   }
   const boardUsefulPx = Math.max(0, input.rowHeightPx - input.board.fixedSiblingSumPx);
+  const notYetMeasured =
+    !Number.isFinite(input.rowWidthPx) || input.rowWidthPx <= 0 || !Number.isFinite(input.rowHeightPx) || input.rowHeightPx <= 0;
   if (input.sovereignWrapperPx !== undefined) {
-    return { sideColumnPx: Math.max(0, Math.round(input.sovereignWrapperPx)), boardUsefulPx };
+    const rawSideColumnPx = Math.max(0, Math.round(input.sovereignWrapperPx));
+    if (notYetMeasured) {
+      // Not yet measured: nothing to clamp the override AGAINST yet (no
+      // live row geometry to reserve `boardFloorPx` out of) — degrade to
+      // the side column's own compiled ceiling, the same defensive
+      // shrink the un-dragged "not yet measured" branch below already
+      // applies, rather than shipping the raw override unclamped for the
+      // one tick before the row measures.
+      const clampedNotYetMeasuredPx = Math.min(rawSideColumnPx, input.sideColumn.maxPx);
+      return {
+        sideColumnPx: clampedNotYetMeasuredPx,
+        boardUsefulPx: 0,
+        sovereignClampedFromPx: clampedNotYetMeasuredPx < rawSideColumnPx ? rawSideColumnPx : null,
+      };
+    }
+    const availableForSplitPx = input.rowWidthPx - input.boardRailReservedPx - input.gapPx;
+    // Ledger row 2511 pragmatic repair (UI shoddiness audit S1/S2/S3/S10):
+    // `maxRegionWidthPx` no longer clamps to the compiled `sideColumn.maxPx`
+    // (820px, `board-priority-clamp`) — that STATIC ceiling is exactly the
+    // audit's own root cause for "absurd amounts of unused space and yet
+    // the panel claims too little width": at any geometry where the board's
+    // own useful (aspect-locked) size leaves more than 820px of genuine
+    // leftover, the side column used to be clamped DOWN to 820 regardless,
+    // converting real available width into dead space (S2's `.engine-
+    // controls` frozen at 265px and S3's Cards content column frozen at
+    // 664px both trace back to this same side-column ceiling). The ONLY
+    // ceiling that still binds is the board's own hard floor
+    // (`boardFloorPx`) — a bypass of the compiled DSL constant, not a
+    // remodeling of it, per the standing ruling (ledger row 2511): the
+    // board keeps at least its floor; the side column may now claim
+    // everything past that, live-measured, same as it always could have.
+    const maxRegionWidthPx = Math.max(input.sideColumn.minPx, availableForSplitPx - input.boardFloorPx);
+    // Disease repair (`.claude/dispatch-reports/lyt-second-opus-review.md`
+    // N2, ledger row 2511): this USED to return `rawSideColumnPx`
+    // verbatim, no ceiling at all — a sovereign override taken on a wide
+    // monitor (e.g. 1200px) was carried BYTE-IDENTICAL to every narrower
+    // geometry, including geometries where `availableForSplitPx -
+    // boardFloorPx` is far below it, starving `#board-area` to exactly
+    // `0` (the CATASTROPHIC cold-boot-with-no-board finding). The
+    // "never drag resistance" doctrine this module's own §1.6 header
+    // documents governs the DRAG itself (a live gesture the user is
+    // watching); it was never meant to license carrying a stale override
+    // across a COLD BOOT at a geometry the user never dragged at, into a
+    // state that cannot render at all. `maxRegionWidthPx` is the EXACT
+    // same bound the non-sovereign branch below already reserves
+    // `boardFloorPx` against — reusing it here (rather than a new,
+    // second bound) guarantees the sovereign candidate can never claim
+    // more than the non-sovereign one would, so the board always keeps
+    // at least its own floor. The diagnostic this clamp's own siblings
+    // already compute (`outerRowSovereignDiagnostic`,
+    // `useResizablePanel.ts`) is UNCHANGED — it reads the RAW stored
+    // value independently and keeps firing whenever the raw override
+    // would have starved the board, so the user still sees "your
+    // geometry modification no longer permits board to render" even
+    // though this clamp now keeps the board itself renderable.
+    const clampedSideColumnPx = Math.min(rawSideColumnPx, maxRegionWidthPx);
+    return {
+      sideColumnPx: clampedSideColumnPx,
+      boardUsefulPx,
+      sovereignClampedFromPx: clampedSideColumnPx < rawSideColumnPx ? rawSideColumnPx : null,
+    };
   }
-  if (!Number.isFinite(input.rowWidthPx) || input.rowWidthPx <= 0 || !Number.isFinite(input.rowHeightPx) || input.rowHeightPx <= 0) {
+  if (notYetMeasured) {
     // Not yet measured: degrade to the side column's own compiled floor —
     // the same "not yet measured" convention every other solve in this
     // module shares.
-    return { sideColumnPx: input.sideColumn.minPx, boardUsefulPx: 0 };
+    return { sideColumnPx: input.sideColumn.minPx, boardUsefulPx: 0, sovereignClampedFromPx: null };
   }
   const availableForSplitPx = input.rowWidthPx - input.boardRailReservedPx - input.gapPx;
   const naturalSideColumnPx = availableForSplitPx - boardUsefulPx;
-  const maxRegionWidthPx = Math.max(
-    input.sideColumn.minPx,
-    Math.min(input.sideColumn.maxPx, availableForSplitPx - input.boardFloorPx),
-  );
-  const sideColumnPx = Math.min(Math.max(Math.round(naturalSideColumnPx), input.sideColumn.minPx), maxRegionWidthPx);
-  return { sideColumnPx, boardUsefulPx };
+  // Ledger row 2511 pragmatic repair: see the sovereign branch's own
+  // comment above for the full account of why `sideColumn.maxPx` no
+  // longer participates in this ceiling — only the board's own hard
+  // floor does now.
+  const maxRegionWidthPx = Math.max(input.sideColumn.minPx, availableForSplitPx - input.boardFloorPx);
+  // Ledger row 2511 pragmatic repair (S1, the audit's central case): the
+  // side column's own INTERIOR content can genuinely want more than its
+  // natural (leftover-after-the-board's-own-square) yield — most
+  // concretely, `controlPanel`'s own compiled `@demote.belowPx` threshold
+  // (778 landscape): below it, the panel undocks into the summon overlay
+  // even though the board could honestly afford to yield a FEW more
+  // pixels and still stay above its own floor. `sideColumnDesiredMinPx`
+  // (this function's own input doc) is that genuine want, threaded in by
+  // the caller (App.vue) from the SAME compiled fact
+  // `resolveSideColumnLiveLayout` already reads — not a second,
+  // independently-derived demand. Raising the candidate to it (capped at
+  // `maxRegionWidthPx`, so the board's floor still always wins) is the
+  // "board yields honestly if needed" the audit's own central finding
+  // calls for: the board gives up a little of its natural square size
+  // ONLY when doing so actually lets the panel dock, never further.
+  const desiredMinPx = Math.min(input.sideColumnDesiredMinPx ?? 0, maxRegionWidthPx);
+  const flooredNaturalSideColumnPx = Math.max(naturalSideColumnPx, desiredMinPx);
+  const sideColumnPx = Math.min(Math.max(Math.round(flooredNaturalSideColumnPx), input.sideColumn.minPx), maxRegionWidthPx);
+  return { sideColumnPx, boardUsefulPx, sovereignClampedFromPx: null };
+}
+
+/**
+ * Ledger row 2532 Remedy 2 (`.claude/dispatch-reports/
+ * control-panel-demotion-rca.md`, "make presence a total function of the
+ * row's allotment vector, with no access to the container"): the
+ * presence stage's own signature carries `RowAllotmentForPresence` —
+ * per-region RESOLVED candidate widths — and nothing else. `wrapperWidthPx`
+ * is not merely unused, it is structurally ABSENT from this function's
+ * parameter list, so a future author cannot re-reach for the container
+ * the way the deleted `fits = wrapperWidthPx >= demote.belowPx + ...`
+ * predicate did. A region demotes to absent iff it is `desiredVisible`
+ * AND carries a `viabilityFloorPx` AND its own ALLOTTED candidate (from
+ * `allot()`, below) falls short of that floor — the region-owned
+ * question the RCA names, in place of the container-scale one.
+ */
+interface RowAllotmentForPresence {
+  readonly others: readonly { readonly widgetId: string; readonly candidatePx: number }[];
+}
+
+function resolveRowPresence(
+  allotment: RowAllotmentForPresence,
+  regions: readonly SideColumnFixedRegion[],
+): ReadonlyMap<string, boolean> {
+  const present = new Map<string, boolean>();
+  for (const r of regions) {
+    if (!r.desiredVisible) {
+      present.set(r.widgetId, false);
+      continue;
+    }
+    if (r.viabilityFloorPx === null) {
+      // No width-conditional floor at all — presence is the raw desire,
+      // unconditionally (previewBoard's own doctrine, unchanged).
+      present.set(r.widgetId, true);
+      continue;
+    }
+    const got = allotment.others.find((o) => o.widgetId === r.widgetId);
+    present.set(r.widgetId, (got?.candidatePx ?? 0) >= r.viabilityFloorPx);
+  }
+  return present;
 }
 
 function resolveSideColumnLiveLayoutUnguarded(
@@ -1233,138 +1407,157 @@ function resolveSideColumnLiveLayoutUnguarded(
     };
   }
 
-  // ── Presence: fold the compiled @demote threshold into RegionPresence.
-  function reservationExcept(exceptWidgetId: string): number {
-    let total = 0;
-    for (const o of input.others) {
-      if (o.widgetId === exceptWidgetId || !o.desiredVisible) continue;
-      total += fixedTrackPx(o.track, o.widgetId) + input.gapPx;
-    }
-    return total;
-  }
-
-  const presentByWidgetId = new Map<string, boolean>();
-  for (const o of input.others) {
-    if (o.demote === null) {
-      presentByWidgetId.set(o.widgetId, o.desiredVisible);
-      continue;
-    }
-    // `o.demote.axis === 'h'` is guaranteed here — validated in the outer
-    // `resolveSideColumnLiveLayout`, before this function is ever called.
-    const fits = input.wrapperWidthPx >= o.demote.belowPx + reservationExcept(o.widgetId);
-    presentByWidgetId.set(o.widgetId, fits ? o.desiredVisible : false);
-  }
-
-  // ── Tree's own candidate ────────────────────────────────────────────
+  // ── Tree's own effective demand (row 2501, unchanged) ────────────────
   const sovereign = input.treeSovereignPx !== undefined;
-  // Row 2501 repair: when tree's own live content demand undercuts its
-  // compiled floor, the floor itself lowers to match it — including the
-  // review's own obligation-2 demand-of-0 special case (see
-  // `resolveEffectiveDemand`'s own header) — computed once, consumed by
-  // BOTH the non-sovereign candidate clamp below and the sovereign
-  // branch's own diagnostic-demand construction, so the two paths can
-  // never disagree about what "tree's own floor/ceiling" currently mean.
   const effectiveTreeDemand = input.tree.maxUsefulPx !== null ? resolveEffectiveDemand(treeTrack.minPx, input.tree.maxUsefulPx) : null;
   const effectiveTreeMinPx = effectiveTreeDemand?.minPx ?? treeTrack.minPx;
   const effectiveTreeMaxUsefulPx = effectiveTreeDemand?.maxUsefulPx ?? null;
 
-  let treePx: number;
-  if (sovereign) {
-    // `sovereign` is exactly `input.treeSovereignPx !== undefined` — TS's
-    // own narrowing does not propagate that fact from the `const`
-    // computed two lines above into this `if` branch, so the cast
-    // restates a truth already established, not a bypass of one.
-    treePx = Math.max(0, Math.round(input.treeSovereignPx as number));
-  } else {
-    let reservedPx = 0;
-    for (const o of input.others) {
-      if (presentByWidgetId.get(o.widgetId)) reservedPx += fixedTrackPx(o.track, o.widgetId) + input.gapPx;
+  /**
+   * Ledger row 2532 Remedy 1's own ALLOT stage: given a presence verdict
+   * (as if every entry in it were the final one), compute what tree and
+   * every `others` entry would actually be GRANTED. Called TWICE — once
+   * with `desiredVisible` as the presence guess (the RCA's own "allot
+   * with every desired region present at its own floor" ordering
+   * obligation), once more with the presence verdict `resolveRowPresence`
+   * derives from the first pass's own output — a declared two-pass
+   * fixpoint, not an implicit one (the RCA's own "ordering hazard,
+   * disclosed" §7 obligation).
+   *
+   * **Drags FLOOR, never demote to absent (ledger row 2532, the ruled
+   * demotion remedy).** When `tree` is SOVEREIGN, its own candidate is
+   * capped so at least every desired, floor-bearing sibling's own
+   * `viabilityFloorPx` (+ one gap each) stays reserved — a drag can shrink
+   * a floor-bearing sibling DOWN TO its floor, never past it into
+   * absence. This is the pinned doctrine
+   * (`feasible-layout-geometry-sweep.test.ts`'s "never demoted to absent
+   * by a drag") extended from "never demoted at all" to "floored, not
+   * demoted" — sovereignty still means the sibling's own COMPILED fixed
+   * track no longer binds (it can render far below its normal size), but
+   * the region-owned VIABILITY floor still does. A degenerate wrapper too
+   * narrow to afford even the reserved floor still floors the sibling's
+   * candidate (never a demotion from this branch) — the row's own total
+   * claim can then genuinely exceed `wrapperWidthPx`, which
+   * `sideColumnCapacityStarvation` (below) is the existing, correct
+   * mechanism to diagnose.
+   */
+  function allot(presentByWidgetId: ReadonlyMap<string, boolean>): {
+    readonly treePx: number;
+    readonly others: readonly { readonly widgetId: string; readonly candidatePx: number }[];
+  } {
+    let treePx: number;
+    if (sovereign) {
+      const floorReservationPx = input.others.reduce(
+        (sum, o) => (o.viabilityFloorPx !== null && (presentByWidgetId.get(o.widgetId) ?? false) ? sum + o.viabilityFloorPx + input.gapPx : sum),
+        0,
+      );
+      const rawTreePx = Math.max(0, Math.round(input.treeSovereignPx as number));
+      // The reservation cap applies ONLY when there is something to
+      // reserve for — `floorReservationPx === 0` (no desired, floor-
+      // bearing sibling at all) leaves `tree` exactly as sovereignty
+      // always meant it: verbatim, never resisted, capable of overflowing
+      // `wrapperWidthPx` itself (the side-column-capacity diagnostic,
+      // below, is the existing mechanism for THAT case — capping here
+      // unconditionally would silently duplicate it with a DIFFERENT,
+      // undiagnosed ceiling).
+      treePx = floorReservationPx > 0 ? Math.min(rawTreePx, Math.max(0, input.wrapperWidthPx - floorReservationPx)) : rawTreePx;
+    } else {
+      let reservedPx = 0;
+      for (const o of input.others) {
+        if (presentByWidgetId.get(o.widgetId)) reservedPx += fixedTrackPx(o.track, o.widgetId) + input.gapPx;
+      }
+      const roomPx = input.wrapperWidthPx - reservedPx;
+      const ceilingPx = effectiveTreeMaxUsefulPx ?? Number.POSITIVE_INFINITY;
+      treePx = Math.max(effectiveTreeMinPx, Math.min(Math.round(roomPx), ceilingPx));
     }
-    const roomPx = input.wrapperWidthPx - reservedPx;
-    // `effectiveTreeMaxUsefulPx`, not the raw `input.tree.maxUsefulPx` —
-    // row 2501 obligation 2: a raw `0` reading must not become a `0`
-    // ceiling (which would immediately re-clamp `treePx` back down to 0
-    // via the `Math.min` below, undoing `effectiveTreeMinPx`'s own
-    // demand-of-0 floor).
-    const ceilingPx = effectiveTreeMaxUsefulPx ?? Number.POSITIVE_INFINITY;
-    treePx = Math.max(effectiveTreeMinPx, Math.min(Math.round(roomPx), ceilingPx));
+
+    // Unconditional (non-floor-bearing, e.g. previewBoard) siblings are
+    // reserved FIRST, ahead of the floor-bearing ones absorbing whatever
+    // is left — matching this row's own declared order (tree, then every
+    // OTHER fixed-demand sibling, previewBoard's own reservation among
+    // them) rather than the input array's incidental iteration order.
+    let unconditionalClaimedPx = 0;
+    for (const o of input.others) {
+      if (o.viabilityFloorPx === null && (presentByWidgetId.get(o.widgetId) ?? false)) {
+        unconditionalClaimedPx += input.gapPx + fixedTrackPx(o.track, o.widgetId);
+      }
+    }
+    const others: { widgetId: string; candidatePx: number }[] = [];
+    for (const o of input.others) {
+      const present = presentByWidgetId.get(o.widgetId) ?? false;
+      if (!present) {
+        others.push({ widgetId: o.widgetId, candidatePx: 0 });
+        continue;
+      }
+      if (o.viabilityFloorPx === null) {
+        others.push({ widgetId: o.widgetId, candidatePx: fixedTrackPx(o.track, o.widgetId) });
+        continue;
+      }
+      const remainingPx = Math.max(0, Math.round(input.wrapperWidthPx - treePx - input.gapPx - unconditionalClaimedPx));
+      const cappedPx = Math.min(fixedTrackPx(o.track, o.widgetId), remainingPx);
+      // Sovereign floor guarantee (see this function's own header): a
+      // desired, present, floor-bearing sibling never renders below its
+      // own viability floor while `tree` is being dragged — `treePx`'s
+      // own reservation above already tries to make this hold without
+      // needing the floor here; this `Math.max` is the degenerate-wrapper
+      // backstop (see header) for when it still can't.
+      const flooredPx = sovereign ? Math.max(o.viabilityFloorPx, cappedPx) : cappedPx;
+      others.push({ widgetId: o.widgetId, candidatePx: flooredPx });
+    }
+    return { treePx, others };
   }
 
-  // ── Others' own candidates ──────────────────────────────────────────
-  const outcomes: SideColumnRegionOutcome[] = [];
-  let claimedPx = treePx;
+  const desiredPresentByWidgetId = new Map(input.others.map((o) => [o.widgetId, o.desiredVisible]));
+  const pass1 = allot(desiredPresentByWidgetId);
+  const finalPresentByWidgetId = resolveRowPresence(pass1, input.others);
+  const pass2 = allot(finalPresentByWidgetId);
+
+  const outcomes: SideColumnRegionOutcome[] = input.others.map((o) => ({
+    widgetId: o.widgetId,
+    present: finalPresentByWidgetId.get(o.widgetId) ?? false,
+    candidatePx: pass2.others.find((x) => x.widgetId === o.widgetId)?.candidatePx ?? 0,
+  }));
+
+  // ── Diagnostics ────────────────────────────────────────────────────
+  // Presence-derived (ledger row 2532 Remedy 3, "make the honesty of the
+  // verdict single-sourced"): fires iff a DESIRED, floor-bearing region
+  // actually resolved absent — on EITHER divider's path, not only the
+  // sovereign one (closing the RCA §4 "outer path emits no diagnostic at
+  // all" bug). Never fires for a region that stayed present, however
+  // squeezed — presence itself is now the one true "can this render"
+  // verdict; a squeezed-but-present region is not a starvation.
+  const presenceDiagnostics: SovereignOverrideDiagnostic[] = [];
   for (const o of input.others) {
-    const present = presentByWidgetId.get(o.widgetId) ?? false;
-    if (!present) {
-      outcomes.push({ widgetId: o.widgetId, present: false, candidatePx: 0 });
-      continue;
-    }
-    if (o.widgetId === 'previewBoard') {
-      claimedPx += input.gapPx + fixedTrackPx(o.track, o.widgetId);
-      outcomes.push({ widgetId: o.widgetId, present: true, candidatePx: fixedTrackPx(o.track, o.widgetId) });
-      continue;
-    }
-    // Absorbs whatever the row has left, capped at its OWN compiled fixed
-    // px (never grants MORE than its declared demand — the leftover slack
-    // a content-demand-capped `tree` frees up is simply unclaimed here,
-    // same as CSS Grid's own fixed track never growing past its declared
-    // size) and floored at 0 (never negative — this is where the
-    // sovereignty completion bites: `remainingPx` can fall below the
-    // sibling's own fixed demand once `tree` is sovereign).
-    const remainingPx = Math.max(0, Math.round(input.wrapperWidthPx - claimedPx - input.gapPx));
-    outcomes.push({ widgetId: o.widgetId, present: true, candidatePx: Math.min(fixedTrackPx(o.track, o.widgetId), remainingPx) });
+    if (!o.desiredVisible || o.viabilityFloorPx === null) continue;
+    if (finalPresentByWidgetId.get(o.widgetId)) continue;
+    const grantedPx = pass1.others.find((x) => x.widgetId === o.widgetId)?.candidatePx ?? 0;
+    const starved: StarvationDiagnostic[] = [
+      { kind: 'starved', region: o.widgetId, axis: 'h', demandPx: px(o.viabilityFloorPx), grantedPx: px(grantedPx) },
+    ];
+    presenceDiagnostics.push({
+      location: o.widgetId,
+      starved,
+      message: `Your geometry modification no longer permits ${o.widgetId} to render.`,
+      remediation: 'reduce this region\'s width, or use Default Layout to reset',
+      nextAction: 'open-default-layout-control',
+    });
   }
 
-  // ── FeasibleLayout / sovereignty ─────────────────────────────────────
-  let diagnostics: readonly SovereignOverrideDiagnostic[] = [];
+  let diagnostics: readonly SovereignOverrideDiagnostic[] = presenceDiagnostics;
   if (sovereign) {
-    // Row 2501 repair: `effectiveTreeMinPx`/`effectiveTreeMaxUsefulPx`
-    // (computed above) replace the raw `treeTrack.minPx`/
-    // `input.tree.maxUsefulPx` here — this is the EXACT construction site
-    // the live witness caught throwing (`measured(tree, h): preferred
-    // (110) exceeds maxUseful (109)`), because the raw live reading was
-    // passed through UNCLAMPED while `min`/`preferred` stayed pinned at
-    // the compiled floor. `effectiveTreeMinPx <= (effectiveTreeMaxUsefulPx
-    // ?? +Infinity)` always holds by construction (including the
-    // obligation-2 demand-of-0 case, where both pin to the SAME compiled
-    // floor), so this can no longer self-contradict.
-    const demands: Measured<string>[] = [
-      measured({
-        region: 'tree',
-        axis: 'h',
-        min: px(effectiveTreeMinPx),
-        preferred: px(effectiveTreeMinPx),
-        maxUseful: effectiveTreeMaxUsefulPx !== null ? px(effectiveTreeMaxUsefulPx) : null,
-      }),
-    ];
-    const solved = new Map<string, RegionAllotment<string>>([['tree', { region: 'tree', axis: 'h', px: px(treePx) }]]);
-    for (const o of input.others) {
-      if (!(presentByWidgetId.get(o.widgetId) ?? false)) continue;
-      const demandPx = px(fixedTrackPx(o.track, o.widgetId));
-      demands.push(measured({ region: o.widgetId, axis: 'h', min: demandPx, preferred: demandPx, maxUseful: demandPx }));
-      const outcome = outcomes.find((x) => x.widgetId === o.widgetId);
-      solved.set(o.widgetId, { region: o.widgetId, axis: 'h', px: px(outcome ? outcome.candidatePx : 0) });
-    }
-    const result = resolveSovereignOverrides(
-      demands,
-      solved,
-      [{ region: 'tree', axis: 'h', px: px(treePx), source: 'user-drag' }],
-      input.screenClassId,
-      { widthPx: px(input.wrapperWidthPx), heightPx: px(0) },
-    );
-
     // Dispatch L4's own parked-fork closure (this module's own
     // `sideColumnCapacityStarvation` doc above): the row's OWN total claim
-    // (tree's sovereign candidate plus every present sibling's own
-    // reservation) can overflow `wrapperWidthPx` itself — with or without
-    // a sibling for `resolveSovereignOverrides` to have diagnosed against.
+    // (tree's own candidate plus every present sibling's own reservation)
+    // can overflow `wrapperWidthPx` itself — the ONE overflow shape
+    // presence's own per-region floor guarantee cannot rule out (the
+    // degenerate-wrapper backstop named in `allot()`'s own header).
     const totalRowClaimPx = outcomes.reduce(
       (sum, o) => (o.present ? sum + input.gapPx + o.candidatePx : sum),
-      treePx,
+      pass2.treePx,
     );
     const capacityStarved = sideColumnCapacityStarvation(totalRowClaimPx, input.wrapperWidthPx, input.screenClassId);
-    diagnostics = mergeSideColumnCapacityDiagnostic(result.diagnostics, capacityStarved);
+    diagnostics = mergeSideColumnCapacityDiagnostic(diagnostics, capacityStarved);
   }
 
-  return { treePx, others: outcomes, diagnostics };
+  return { treePx: pass2.treePx, others: outcomes, diagnostics };
 }
