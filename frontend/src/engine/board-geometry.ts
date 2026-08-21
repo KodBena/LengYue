@@ -16,6 +16,28 @@ import { BOARD_PX, STONE_RADIUS_RATIO } from './constants';
 import type { StoneColor, Move } from '../types';
 
 /**
+ * A single move in a principal-variation sequence, ready for rendering —
+ * the shape both the main board's animated PV overlay
+ * (`composables/board/use-pv-animation.ts`, which imports and re-exports
+ * this exact type as `PvMove` for its own long-established call sites)
+ * and the thumbnail family below project from. Homed in the engine layer
+ * (alongside `BoardSnapshot`, which now carries it) rather than in the
+ * composable that first needed it: `board-geometry.ts` sits BELOW
+ * `composables/` in this codebase's layering (`frontend/CLAUDE.md`
+ * "Architectural shape" — composables depend on engine, never the
+ * reverse), so `BoardSnapshot.pv` cannot reference a type declared in a
+ * composable without an upward import. One definition, engine-owned;
+ * the composable re-exports rather than re-declaring.
+ */
+export interface PvVariationMove {
+  x: number;
+  y: number;
+  color: StoneColor;
+  /** 1-indexed position in the PV; the displayed move-number label. */
+  moveNumber: number;
+}
+
+/**
  * A replayed board position — the one data primitive every thumbnail
  * renderer projects from. The cache stores this (not a rendered string);
  * the string projection (`renderBoardToSvg`) and the component projection
@@ -28,6 +50,15 @@ export interface BoardSnapshot {
   lastMove?: Move | null;
   /** "x,y" -> short label (e.g. "A", "B") for variation-branch thumbnails. */
   markerLabels?: Record<string, string>;
+  /**
+   * Best-move principal variation from this position, in play order —
+   * the same analysis source (`useMoveSuggestions.buildPvMoves`) the
+   * main board's PV overlay (`MoveSuggestions.vue`) reads, populated by
+   * `PreviewBoardPanel.vue`. Absent (undefined) when no analysis packet
+   * covers this position — the honest empty state, never a fabricated
+   * empty array standing in for "no data yet" vs. "genuinely no PV".
+   */
+  pv?: readonly PvVariationMove[];
 }
 
 /**

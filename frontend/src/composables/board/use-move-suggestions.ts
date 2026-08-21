@@ -67,19 +67,23 @@ export interface SuggestionDisk {
 }
 
 /**
- * `getNodeId` is now typed as `() => NodeId` rather than `() => string`.
- * Every call site of this composable produces NodeIds (they come from
- * `currentNodeId` on the active board, or from the variation path); the
- * loose `string` return type was a signature lie. Tightening it pushes
- * the cast (where any caller has a plain string) to the call site
- * rather than to the ledger lookup here.
+ * `getNodeId` is typed as `() => NodeId | null` — `NodeId` because every
+ * call site with a real position produces NodeIds (they come from
+ * `currentNodeId` on the active board, or from the variation path), the
+ * loose `string` return type this replaced was a signature lie; `| null`
+ * because `PreviewBoardPanel.vue` (mandate addendum item 2) is a
+ * genuinely optional caller — `activeBoard` can itself be null (no board
+ * open), and there is no honest NodeId to hand back in that case. `null`
+ * short-circuits `packet` to "no analysis" below rather than forcing a
+ * synthetic placeholder NodeId into the ledger lookup.
  */
 export function useMoveSuggestions(
-  getNodeId: () => NodeId
+  getNodeId: () => NodeId | null
 ) {
-  const packet = computed<RawAnalysis | null>(() =>
-    ledger.getRaw(activeAnalysisKeys.value.rawKey, getNodeId())
-  );
+  const packet = computed<RawAnalysis | null>(() => {
+    const nodeId = getNodeId();
+    return nodeId === null ? null : ledger.getRaw(activeAnalysisKeys.value.rawKey, nodeId);
+  });
 
   const compiledFilter = computed(() => {
     const exprString = store.session.ui.moveFilterExpression

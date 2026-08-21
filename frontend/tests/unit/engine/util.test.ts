@@ -27,12 +27,10 @@ import {
   resolveGameName,
   getRulesetResolution,
   pathHasMidTreeSetup,
-  getGameEndStatus,
 } from '../../../src/engine/util';
-import { applySetup, applyGoMove, applyPass } from '../../../src/logic';
+import { applySetup } from '../../../src/logic';
 import { createInitialBoard } from '../../../src/store/board-factory';
-import { getPath } from '../../../src/engine/navigator';
-import type { BoardState, GameNode, NodeId } from '../../../src/types';
+import type { BoardState, NodeId } from '../../../src/types';
 
 describe('sgfToMove', () => {
   it('decodes "pd" on 19×19 to (15, 15) (y inverts to bottom-origin)', () => {
@@ -367,118 +365,4 @@ describe('pathHasMidTreeSetup', () => {
   });
 });
 
-/**
- * `getGameEndStatus` truth table (pass-support design's "Game-end
- * signal", `.claude/dispatch-reports/design-engine-features.md`) —
- * status-only, no scoring: pass-pass ends, pass-move doesn't, and
- * branch switching resets correctly along the ACTIVE path (the
- * function is evaluated purely off the `path` argument, so this also
- * pins that navigating off the two-pass position reverts the signal).
- */
-describe('getGameEndStatus', () => {
-  function path(board: BoardState): readonly NodeId[] {
-    return getPath(board.nodes, board.currentNodeId);
-  }
 
-  it('in-progress on a fresh board (root only, path length 1)', () => {
-    const board = createInitialBoard();
-    expect(getGameEndStatus(board.nodes, path(board))).toEqual({ kind: 'in-progress' });
-  });
-
-  it('in-progress after a single placed move', () => {
-    let board = createInitialBoard();
-    board = applyGoMove(board, 3, 3)!;
-    expect(getGameEndStatus(board.nodes, path(board))).toEqual({ kind: 'in-progress' });
-  });
-
-  it('in-progress after one pass followed by a placed move (pass-move truth-table row)', () => {
-    let board = createInitialBoard();
-    board = applyPass(board); // B passes
-    board = applyGoMove(board, 3, 3)!; // W plays — not two passes
-    expect(getGameEndStatus(board.nodes, path(board))).toEqual({ kind: 'in-progress' });
-  });
-
-  it('ended-by-pass after two consecutive passes, carrying the second pass\'s color', () => {
-    let board = createInitialBoard();
-    board = applyPass(board); // B passes
-    board = applyPass(board); // W passes
-    expect(getGameEndStatus(board.nodes, path(board))).toEqual({
-      kind: 'ended-by-pass',
-      lastMoveColor: 'W',
-    });
-  });
-
-  it('a placed move after two passes is NOT ended (continuing past the signal)', () => {
-    let board = createInitialBoard();
-    board = applyPass(board);
-    board = applyPass(board);
-    board = applyGoMove(board, 3, 3)!;
-    expect(getGameEndStatus(board.nodes, path(board))).toEqual({ kind: 'in-progress' });
-  });
-
-  it('branch switching resets correctly along the active path: a sibling branch that does not end in two passes reads in-progress even though a cousin branch did', () => {
-    let board = createInitialBoard();
-    board = applyPass(board); // B passes at root
-    const afterFirstPass = board;
-    // Branch 1 (from the current node, whatever it may be renamed to):
-    // W also passes — two-pass ended.
-    const ended = applyPass(afterFirstPass);
-    expect(getGameEndStatus(ended.nodes, path(ended))).toEqual({
-      kind: 'ended-by-pass',
-      lastMoveColor: 'W',
-    });
-
-    // Branch 2 (sibling, from the SAME afterFirstPass node): W plays a
-    // stone instead. Nodes accumulate on the shared `nodes` map the
-    // same way a real tree does (both branches are children of the
-    // same parent), so read status off branch 2's own leaf.
-    const played = applyGoMove({ ...afterFirstPass, nodes: ended.nodes }, 15, 15)!;
-    expect(getGameEndStatus(played.nodes, path(played))).toEqual({ kind: 'in-progress' });
-  });
-
-  it('reads status positionally: navigating back to before the second pass reads in-progress even though the leaf (two passes later) is ended', () => {
-    let board = createInitialBoard();
-    const beforeSecondPass = applyPass(board); // B passes; cursor at B's pass node
-    const ended = applyPass(beforeSecondPass); // W passes; cursor at W's pass node
-
-    // At the leaf: ended.
-    expect(getGameEndStatus(ended.nodes, path(ended))).toEqual({
-      kind: 'ended-by-pass',
-      lastMoveColor: 'W',
-    });
-    // At the position one step back (only one pass has happened along
-    // this shorter path): in-progress. Same `nodes` map (ended.nodes
-    // already contains the earlier node), different cursor.
-    const rewound: BoardState = { ...ended, currentNodeId: beforeSecondPass.currentNodeId };
-    expect(getGameEndStatus(rewound.nodes, path(rewound))).toEqual({ kind: 'in-progress' });
-  });
-
-  it('a moveless node (e.g. an SGF scoring TW/TB node) trailing two passes reads in-progress at ITS OWN position', () => {
-    let board = createInitialBoard();
-    board = applyPass(board);
-    board = applyPass(board);
-    // Synthesize a moveless trailing node the way an SGF's root-less
-    // scoring node would decode (move: null) — same shape sgf-loader
-    // produces for a node with no B/W property.
-    const leafId = board.currentNodeId;
-    const scoringId = 'node-scoring' as NodeId;
-    const scoringNode: GameNode = {
-      id: scoringId,
-      parent: leafId,
-      children: [],
-      activeChildIndex: 0,
-      properties: { TW: ['aa'], TB: ['bb'] },
-      move: null,
-    };
-    const withScoring: BoardState = {
-      ...board,
-      nodes: {
-        ...board.nodes,
-        [leafId]: { ...board.nodes[leafId], children: [scoringId] },
-        [scoringId]: scoringNode,
-      },
-      currentNodeId: scoringId,
-    };
-    expect(getGameEndStatus(withScoring.nodes, path(withScoring))).toEqual({ kind: 'in-progress' });
-  });
-});

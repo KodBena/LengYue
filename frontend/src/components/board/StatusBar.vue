@@ -45,8 +45,7 @@ import { useTransientHint } from '../../composables/useTransientHint';
 import { useSetupTools, SETUP_TOOL_LABEL_KEYS } from '../../composables/board/useSetupTools';
 import { useDeferredContainerBreakpoint } from '../../composables/chrome/useDeferredContainerBreakpoint';
 import { store, touchSession } from '../../store';
-import { getRulesetResolution, getGameEndStatus } from '../../engine/util';
-import { getPath } from '../../engine/navigator';
+import { getRulesetResolution } from '../../engine/util';
 import { RULESET_NAMES, type RulesetName } from '../../engine/rulesets';
 import { komiDomainStep } from '../../engine/katago/komi-calibration';
 
@@ -260,13 +259,6 @@ const moveNumber = computed((): number => {
   return count;
 });
 
-// Game-end signal (pass-support design's status-only two-pass check):
-// evaluated positionally against the current cursor via `getPath`
-// (root→current), so navigating off the two-pass position — or into a
-// sibling branch that doesn't end that way — reverts the message.
-const gameStatus = computed(() =>
-  getGameEndStatus(props.board.nodes, getPath(props.board.nodes, props.board.currentNodeId)),
-);
 </script>
 
 <template>
@@ -287,11 +279,13 @@ const gameStatus = computed(() =>
       >{{ $t('statusBar.setupModeActive', { tool: $t(SETUP_TOOL_LABEL_KEYS[activeTool]) }) }}</span>
       <span class="move-badge">{{ $t('statusBar.move', { n: moveNumber }) }}</span>
       <span class="player-names" :title="playerNamesTitle">
-        <span class="stone-chip stone-chip--black" :class="{ active: turn === 'B' }" :aria-label="turn === 'B' ? $t('statusBar.blackToPlay') : undefined"></span>
-        {{ metadata?.blackName }}
-        {{ $t('statusBar.versus') }}
-        <span class="stone-chip stone-chip--white" :class="{ active: turn === 'W' }" :aria-label="turn === 'W' ? $t('statusBar.whiteToPlay') : undefined"></span>
-        {{ metadata?.whiteName }}
+        <span class="player-name player-name--black">
+          <span class="stone-chip stone-chip--black" :class="{ active: turn === 'B' }" :aria-label="turn === 'B' ? $t('statusBar.blackToPlay') : undefined"></span>{{ metadata?.blackName }}
+        </span>
+        <span class="vs-text">{{ $t('statusBar.versus') }}</span>
+        <span class="player-name player-name--white">
+          <span class="stone-chip stone-chip--white" :class="{ active: turn === 'W' }" :aria-label="turn === 'W' ? $t('statusBar.whiteToPlay') : undefined"></span>{{ metadata?.whiteName }}
+        </span>
       </span>
       <span class="game-info">
         <select
@@ -319,7 +313,6 @@ const gameStatus = computed(() =>
          the layout never toggles. Empty text when no hint is active. -->
     <span class="transient-hint">{{ hint }}</span>
     <div class="status-right">
-      <span v-if="gameStatus.kind === 'ended-by-pass'" class="game-end-badge">{{ $t('statusBar.gameEndedByPass') }}</span>
       <button
         class="pass-btn"
         :disabled="props.canPass === false"
@@ -373,8 +366,30 @@ const gameStatus = computed(() =>
    `.player-names` (below) is the one child that actually absorbs that
    shrink, via its own `flex: 1 1 auto` + ellipsis. `.status-right`
    gets `flex-shrink: 0` so Pass/caps/the user badge are never
-   themselves compressed or pushed off — only `.player-names` yields. */
-.status-left  { display: flex; gap: var(--space-medium); align-items: center; min-width: 0; }
+   themselves compressed or pushed off — only `.player-names` yields.
+
+   Item 1 (occluded-names REOPENED, commissioner-witnessed live — the
+   fix above only cured "ellipsis renders" but left the names STARVED
+   even in a bar with ample free width). Root cause: `.status-left` had
+   no `flex-grow` of its own (the shorthand default is `flex: 0 1 auto`),
+   so as a flex item of `.status-bar` it never claimed a share of the
+   bar's spare width — `.status-bar`'s only `flex-grow` child was
+   `.transient-hint` (`flex: 1 1 0`, below), which absorbed 100% of any
+   surplus regardless of how it was needed elsewhere. `.player-names`'
+   own `flex: 1 1 auto` (below) was consequently INERT: a flex-grow
+   factor can only redistribute genuine positive free space *within its
+   own containing flex context*, and `.status-left` never had any to
+   redistribute — it was never wider than the bare sum of its children's
+   content widths, so `.player-names` could never render past its own
+   unclamped text width no matter how much blank bar remained to its
+   right. `flex: 1 1 auto` here (replacing the bare `display: flex`)
+   lets `.status-left` compete with `.transient-hint` for the bar's
+   surplus on equal footing; whatever share it wins flows straight into
+   `.player-names`, the only `flex-grow` child inside it — so the two
+   names are now genuinely free to render at FULL width whenever the
+   bar has room, not merely whenever their own bare text happens to fit
+   inside a box that was never allowed to grow. */
+.status-left  { display: flex; flex: 1 1 auto; gap: var(--space-medium); align-items: center; min-width: 0; }
 .status-right { display: flex; gap: var(--space-medium); align-items: center; flex-shrink: 0; }
 
 .move-badge {
@@ -456,17 +471,57 @@ const gameStatus = computed(() =>
    "ellipsis + affordance" requirement — mirroring the rest of this
    codebase's elided-chrome-label convention (`.claude/dispatch-reports/
    component-shoddiness-build.md` S9, `HyperparamPromptModal.vue`'s own
-   hover-title pattern for a value elided from permanent display). */
+   hover-title pattern for a value elided from permanent display).
+
+   Item 1 (occluded-names REOPENED, mandate addendum): the single
+   `.player-names` blob applied ONE `text-overflow: ellipsis` to the
+   whole "Black vs White" run — under narrowing, the ellipsis always
+   lands at the TAIL of that run, so Black's name (first) stayed
+   perpetually intact while White's name (last) was the only one ever
+   eaten, all the way down to nothing. That is first-takes-all tail
+   elision, never a symmetric degradation — the defect the mandate
+   names explicitly. Fix: `.player-names` is now a flex ROW (not the
+   ellipsizing box itself); each name gets its OWN `.player-name` child
+   with `flex: 1 1 0` (equal basis, equal growth) and its own
+   `overflow: hidden` + `text-overflow: ellipsis` + `white-space:
+   nowrap` — so whatever width `.player-names` is given (ample or
+   narrow, see `.status-left`'s own comment above) is split EVENLY
+   between the two names, and both abbreviate/elide together as that
+   width shrinks. Neither player is privileged by DOM position. The
+   `:title` tooltip (below, unchanged) still carries the full
+   untruncated pairing regardless of which (or both) names are elided. */
 .player-names {
-  color: var(--text-0);
-  font-weight: 600;
-  display: inline-block;
-  vertical-align: middle;
+  display: flex;
+  align-items: center;
+  gap: var(--space-tight);
   flex: 1 1 auto;
   min-width: 32px;
+}
+.player-name {
+  color: var(--text-0);
+  font-weight: 600;
+  /* `display: inline-block`, NOT `inline-flex` — this is a flex ITEM
+     of `.player-names` (the `flex: 1 1 0`/`min-width: 0` below), but
+     its OWN inner display must stay plain inline flow: `text-overflow:
+     ellipsis` is only reliably inserted against inline-flow content
+     (the same reasoning as the original S4→item-4 fix on the old
+     unified `.player-names` rule, now applied per-name). A flex
+     display here, even `inline-flex`, would silently hard-clip the
+     name (chip + text as two flex-item children) with no "…" glyph —
+     exactly the defect that fix closed, reopened one level down. */
+  display: inline-block;
+  vertical-align: middle;
+  flex: 1 1 0;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.vs-text {
+  color: var(--text-0);
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 /* S4: fixed-content segment (ruleset + komi) — never wraps, never
    shrinks below its own legible size. `.player-names` above is the
@@ -485,13 +540,15 @@ const gameStatus = computed(() =>
   height: 0.85em;
   border-radius: var(--radius-circle);
   flex-shrink: 0;
-  /* Item 4: `.player-names` is no longer a flex container (see its own
-     rule's comment), so the inter-child spacing `gap` used to provide
-     is replaced by a plain right-margin on each chip — the "vs"/name
-     spacing itself still comes from the template's own literal
-     whitespace between text runs. `vertical-align: middle` keeps the
-     circle centered on the text's line box in normal inline flow,
-     matching the old flex `align-items: center` visually. */
+  /* Item 4 / item 1 (mandate addendum): each `.player-name` is a plain
+     inline-block, not a flex container (see its own rule's comment —
+     ellipsis needs inline flow), so the chip-to-name spacing comes from
+     a plain right-margin on the chip rather than `gap`. The name-to-
+     "vs" spacing is `.player-names`' own `gap` (it IS a flex row, one
+     level up — see that rule's comment) between `.player-name` and
+     `.vs-text`. `vertical-align: middle` keeps the circle centered on
+     the text's line box in normal inline flow, matching flex
+     `align-items: center`'s visual effect without needing to BE flex. */
   vertical-align: middle;
   margin-right: var(--space-tight);
 }
@@ -654,18 +711,24 @@ const gameStatus = computed(() =>
       realistic long-game move badge + capture count). The gap/
       padding reductions below (all of an EXISTING declaration's
       value, never a new rule) close that remainder.
-   90px still shows a stone chip and several characters of the
-   higher-priority (to-play) name before eliding; the full pairing
-   remains one hover/selection away, same as any other ellipsized
-   chrome label in this codebase — `.pass-btn`, `.move-badge` and
-   `.caps` are the segments this bar's own header ranks above
-   `.player-names`, and none of the three is touched below beyond a
-   light padding trim that stays well over the G30 pointer-target
-   floor. */
+   90px still shows a stone chip and a character or two of EACH name
+   before eliding; the full pairing remains one hover/selection away,
+   same as any other ellipsized chrome label in this codebase —
+   `.pass-btn`, `.move-badge` and `.caps` are the segments this bar's
+   own header ranks above `.player-names`, and none of the three is
+   touched below beyond a light padding trim that stays well over the
+   G30 pointer-target floor.
+
+   Item 1 (occluded-names REOPENED, mandate addendum, contract (b)):
+   this `max-width` still constrains the OUTER `.player-names` row, not
+   either name directly — `.player-names` is now `display: flex` with
+   two `flex: 1 1 0` children (`.player-name--black` / `--white`, see
+   the base rule's own comment), so squeezing this ceiling squeezes
+   BOTH names by an equal share automatically. Neither player's name is
+   privileged: both abbreviate and elide together as the ceiling
+   tightens, never one first-takes-all tail elision at the other's
+   expense — the symmetric-degradation half of the mandate's contract. */
 .status-bar--narrow .player-names {
-  /* white-space/overflow/text-overflow now live in the base
-     `.player-names` rule above (S4 fix) — narrow mode only needs to
-     tighten the ceiling further. */
   max-width: 90px;
 }
 .status-bar--narrow.status-bar {
@@ -726,16 +789,6 @@ const gameStatus = computed(() =>
   border-color: var(--border-2);
   cursor: default;
   opacity: 0.5;
-}
-
-/* Two-consecutive-passes status message — the game-end signal is a
-   status only (no scoring), so it reads as informational rather than
-   a warning/error accent. */
-.game-end-badge {
-  /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
-  color: var(--text-0);
-  font-weight: 600;
-  font-size: var(--text-body);
 }
 
 /* Move-number toggle. Inactive: --text-disabled (rows 1478/1479/

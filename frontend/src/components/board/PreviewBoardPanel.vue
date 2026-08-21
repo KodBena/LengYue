@@ -38,22 +38,54 @@
  * low/moderate-frequency structural read (changes on navigation, not
  * per-packet), not the high-frequency class that rule is aimed at.
  *
+ * Best-move variation (mandate addendum item 2, `preview-board-
+ * followup-build.md`): the prior build found `BoardSnapshot` had no PV
+ * field at all and flagged the omission for ratification rather than
+ * silently building over it — the commissioner has now filed it as a
+ * defect. `boardSnapshot.pv` below reads the SAME analysis source the
+ * main board's PV overlay reads: `useMoveSuggestions(getNodeId)`'s
+ * `suggestions`/`buildPvMoves`, exactly what `MoveSuggestions.vue` (the
+ * main board's own PV renderer) calls — no new engine demand, no new
+ * plumbing, a second reader of state that already exists. The BEST
+ * move's PV (`suggestions.find(s => s.isBest)`, `order === 0` in the
+ * KataGo wire shape) is the one shown, unconditionally — this panel has
+ * no hover surface of its own to select a different suggestion, and
+ * "best" is the variation a preview thumbnail should default to.
+ * `pv` stays `undefined` (never `[]`) when no analysis packet covers
+ * `activeBoard`'s current node — the honest empty state the mandate
+ * asks for, distinct from "analysis ran and found no PV moves".
+ *
  * License: Public Domain (The Unlicense)
  */
 import { computed } from 'vue';
 import { activeBoard } from '../../store';
 import MiniBoard from './MiniBoard.vue';
 import { getBoardSize } from '../../engine/util';
+import { useMoveSuggestions } from '../../composables/board/use-move-suggestions';
 import type { BoardSnapshot } from '../../engine/board-geometry';
+import type { NodeId } from '../../types';
+
+// `useMoveSuggestions` takes a `() => NodeId | null` accessor (ADR-0010
+// read-locality: the subscription is established where the value is
+// actually consumed, inside the composable's own `computed`s). Unlike
+// `BoardWidget` (always mounted with a real board), this panel can be
+// live with `activeBoard` null — `null` is the honest "no position"
+// signal the composable's own `| null` widening (this mandate item)
+// exists for, rather than a synthetic placeholder NodeId.
+const currentNodeId = (): NodeId | null => activeBoard.value?.currentNodeId ?? null;
+const { suggestions, buildPvMoves } = useMoveSuggestions(currentNodeId);
 
 const boardSnapshot = computed((): BoardSnapshot | null => {
   const board = activeBoard.value;
   if (!board) return null;
   const currentNode = board.nodes[board.currentNodeId];
+  const best = suggestions.value.find((s) => s.isBest);
+  const pv = best ? buildPvMoves(best.moveIndex) : [];
   return {
     size: getBoardSize(board),
     stones: board.stones,
     lastMove: currentNode?.move ?? null,
+    pv: pv.length > 0 ? pv : undefined,
   };
 });
 </script>

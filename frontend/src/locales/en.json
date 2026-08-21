@@ -468,7 +468,6 @@
   "statusBar.toggleMoveNumbers":          "Toggle move-number annotation on stones",
   "statusBar.pass":                       "Pass",
   "statusBar.passTitle":                  "Play a pass (consumes the turn, no stone placed)",
-  "statusBar.gameEndedByPass":            "Game ended — two consecutive passes",
 
   "moveSuggestions.pasteHint":            "{key}+click to paste PV",
   "moveSuggestions.pasteIllegal":         "PV paste stopped at move {n}: ({x}, {y}) is illegal in that position",

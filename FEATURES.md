@@ -90,10 +90,14 @@ patterns supported, others render without hoshi).
 
 - **Position preview panel.** `[experimental]` A small square
   board mounted in the lower-right of the workspace, off the
-  corner presence menu (default off). Today it mirrors the
-  active board's current position; a planned upgrade will make
-  it follow the position under the cursor as you hover
-  variations elsewhere in the app (tree, analysis charts).
+  corner presence menu (default off). Mirrors the active
+  board's current position, and — when an analysis packet
+  covers it — overlays the engine's best-move variation as
+  faded, numbered stones, the same principal-variation data the
+  main board's hover overlay reads. A planned upgrade will make
+  the base position follow the cursor as you hover variations
+  elsewhere in the app (tree, analysis charts), rather than
+  always trailing the active board.
 
 - **SGF import and export.** Load via the toolbar's file dialog;
   export the active board to an SGF file via the same surface.

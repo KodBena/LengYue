@@ -48,8 +48,8 @@
  */
 
 import { computed, onUnmounted, reactive, ref, watchEffect } from 'vue';
-import type { StoneColor } from '../../types';
 import { NEXT_TICK_DEFER_MS } from '../../lib/timing';
+import type { PvVariationMove } from '../../engine/board-geometry';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -78,16 +78,18 @@ export interface PvConfig {
  */
 export type PvAnimationSettings = Required<PvConfig>;
 
-/** A single move in a PV sequence, ready for rendering. */
-export interface PvMove {
-  x: number;
-  y: number;
-  color: StoneColor;
-  /** 1-indexed position in the PV; used as the displayed move number AND
-   *  as the Vue v-for key. Stable across packet updates of the same PV
-   *  line so element reuse works for in-place position updates. */
-  moveNumber: number;
-}
+/**
+ * A single move in a PV sequence, ready for rendering. Re-exported from
+ * the engine layer (`board-geometry.ts::PvVariationMove`) rather than
+ * declared here — `BoardSnapshot.pv` (the thumbnail-family field this
+ * type also now serves) lives in `engine/`, below `composables/` in this
+ * codebase's layering, so the shared shape must be engine-owned. Kept
+ * under this module's own established name (`PvMove`) so every existing
+ * call site (`MoveSuggestions.vue`, `use-move-suggestions.ts`, `App.vue`)
+ * is untouched. Used as the displayed move number AND as the Vue v-for
+ * key; stable across packet updates of the same PV line so element reuse
+ * works for in-place position updates. */
+export type PvMove = PvVariationMove;
 
 /** A PvMove augmented with a resolved opacity in [0, 1] for the current frame. */
 export interface PvStoneDisplay extends PvMove {
