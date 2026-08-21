@@ -985,51 +985,6 @@ function fixedTrackPx(track: LytTrackShape, widgetId: string): number {
  * EXISTING `pushSystemMessage` watcher (no new wiring needed) surfaces
  * it.
  */
-/**
- * Divider-mechanics repair, item 4 (presence-core review condition): the
- * ALLOT/presence two-pass fixpoint below (`resolveSideColumnLiveLayoutUnguarded`'s
- * own `allot()`, "Drags FLOOR, never demote to absent") is only PROVABLY
- * CORRECT while AT MOST ONE region in a real `others` registry carries a
- * `viabilityFloorPx`. The sovereign branch's own `floorReservationPx` sum
- * and the presence-diagnostic loop both reason about "the" single
- * floor-bearing sibling converging in one extra pass (ledger row 2532
- * Remedy 1's own "ordering hazard, disclosed" obligation, `.claude/
- * dispatch-reports/control-panel-demotion-rca.md` §7, ratified around a
- * TWO-PASS fixpoint specifically) — a SECOND floor-bearing region could
- * depend on the FIRST's own presence verdict in a way one more `allot()`
- * pass does not resolve in general, reopening the exact ordering hazard
- * that ratification named. Today `controlPanel` is the only region
- * App.vue constructs with a non-null `viabilityFloorPx` (`previewBoard`'s
- * own is `null` — see App.vue's own `sideColumnOtherRegions`).
- *
- * Deliberately a SEPARATE function, called by the composable that builds
- * the PRODUCTION registry (`useSideColumnLiveLayout.ts`) rather than
- * folded into `resolveSideColumnLiveLayout` itself: the pure solver's own
- * unit suite (`feasible-layout.test.ts`'s "row 2501 defense in depth"
- * block) deliberately constructs `others` arrays with ZERO floor-bearing
- * regions to probe an UNRELATED refusal path (an `others` entry with a
- * broken/undefined track) — a universal "exactly one" precondition inside
- * the solver itself would misfire on those fixtures for a reason that has
- * nothing to do with the ALLOT fixpoint they're actually testing. This
- * function is about the shape of the REAL region registry a caller wires
- * in, not a mathematical precondition of every possible `others` array
- * the pure function can be fed in a test.
- */
-export function assertSingleFloorBearingRegion(others: readonly SideColumnFixedRegion[]): void {
-  const floorBearingWidgetIds = others.filter((o) => o.viabilityFloorPx !== null).map((o) => o.widgetId);
-  if (floorBearingWidgetIds.length > 1) {
-    throw new Error(
-      `assertSingleFloorBearingRegion: ${floorBearingWidgetIds.length} regions carry a non-null ` +
-        `viabilityFloorPx (${JSON.stringify(floorBearingWidgetIds)}) — at most 1 is provably safe (ADR-0002). ` +
-        'The ALLOT/presence two-pass fixpoint (resolveSideColumnLiveLayoutUnguarded\'s own allot(), ' +
-        'state/feasible-layout.ts) is only provably correct for a SINGLE floor-bearing region — see this ' +
-        'function\'s own header. Widening to a second floor-bearing region needs its own N-pass (or ' +
-        'genuinely iterative) convergence-loop treatment before this guard can be relaxed; it must not be ' +
-        'silently removed or bypassed.',
-    );
-  }
-}
-
 export function resolveSideColumnLiveLayout(input: SideColumnLiveLayoutInput): SideColumnLiveLayoutResult {
   if (input.tree.track.kind !== 'elastic') {
     throw new Error(
@@ -1283,47 +1238,6 @@ export interface RootSplitLiveLayoutResult {
  * module's own header names as the risk this field's own carry-through
  * exists to prevent.
  */
-/**
- * The root split's own side-column ceiling — the largest px the side
- * column (root child "2") may claim while still leaving the board (root
- * child "1") its own hard floor (`boardFloorPx`, `MIN_BOARD_PX` in the
- * caller's own `state/layout-model.ts`). `rowWidthPx -
- * boardRailReservedPx - gapPx - boardFloorPx`, floored at `0` (a
- * negative pixel measure is not renderable CSS).
- *
- * Divider-mechanics repair, item 3. Exported so BOTH the render-time
- * authority (`resolveRootSplitLiveLayout` below, both its sovereign and
- * non-sovereign branches) and the drag-time gate
- * (`useResizablePanel.ts`'s own `startResizeOuter`) read this ONE
- * region-owned bound, closing a divergence this module's own header
- * used to disclose rather than fix: `startResizeOuter`'s drag-range
- * ceiling used to APPROXIMATE this exact quantity as `rowWidthPx -
- * RESIZER_WIDTH_PX - MIN_BOARD_PX`, standing in for `boardRailReservedPx
- * + gapPx` (a live, App.vue-only fact the composable could not see) with
- * the resizer bar's own physical width — a value with no principled
- * relationship to boardRail's reservation at all. The two ceilings
- * agreed only when `boardRailReservedPx + gapPx` happened to equal
- * `RESIZER_WIDTH_PX` (boardRail invisible, and even then only if the
- * root gap itself matched the resizer's width by coincidence); they
- * diverged — the drag accepting mouse deltas the render would then
- * refuse, decoupling the cursor from the divider mid-gesture — whenever
- * boardRail was genuinely visible (168px + 12px vs. a handful of px).
- * `useResizablePanel.ts`'s own inline comment (row 2511 review
- * condition 2) carried this as a disclosed, accepted "NARROWER
- * unification, not byte-identical" gap; this function removes the gap
- * instead of re-disclosing it — both call sites now compute the
- * IDENTICAL number from the IDENTICAL inputs, never two independently
- * approximated ones.
- */
-export function computeRootSplitSideColumnCeilingPx(input: {
-  readonly rowWidthPx: number;
-  readonly boardRailReservedPx: number;
-  readonly gapPx: number;
-  readonly boardFloorPx: number;
-}): number {
-  return Math.max(0, input.rowWidthPx - input.boardRailReservedPx - input.gapPx - input.boardFloorPx);
-}
-
 export function resolveRootSplitLiveLayout(input: RootSplitLiveLayoutInput): RootSplitLiveLayoutResult {
   if (input.board.naturalBoardCrossUnit !== 'vh') {
     throw new MeasurementRefusalError(
@@ -1353,6 +1267,7 @@ export function resolveRootSplitLiveLayout(input: RootSplitLiveLayoutInput): Roo
         sovereignClampedFromPx: clampedNotYetMeasuredPx < rawSideColumnPx ? rawSideColumnPx : null,
       };
     }
+    const availableForSplitPx = input.rowWidthPx - input.boardRailReservedPx - input.gapPx;
     // Ledger row 2511 pragmatic repair (UI shoddiness audit S1/S2/S3/S10):
     // `maxRegionWidthPx` no longer clamps to the compiled `sideColumn.maxPx`
     // (820px, `board-priority-clamp`) — that STATIC ceiling is exactly the
@@ -1368,18 +1283,7 @@ export function resolveRootSplitLiveLayout(input: RootSplitLiveLayoutInput): Roo
     // remodeling of it, per the standing ruling (ledger row 2511): the
     // board keeps at least its floor; the side column may now claim
     // everything past that, live-measured, same as it always could have.
-    // (Divider-mechanics repair, item 3: `computeRootSplitSideColumnCeilingPx`
-    // is the ONE region-owned bound this expression and `startResizeOuter`'s
-    // own drag-time ceiling both now read — see that function's own header.)
-    const maxRegionWidthPx = Math.max(
-      input.sideColumn.minPx,
-      computeRootSplitSideColumnCeilingPx({
-        rowWidthPx: input.rowWidthPx,
-        boardRailReservedPx: input.boardRailReservedPx,
-        gapPx: input.gapPx,
-        boardFloorPx: input.boardFloorPx,
-      }),
-    );
+    const maxRegionWidthPx = Math.max(input.sideColumn.minPx, availableForSplitPx - input.boardFloorPx);
     // Disease repair (`.claude/dispatch-reports/lyt-second-opus-review.md`
     // N2, ledger row 2511): this USED to return `rawSideColumnPx`
     // verbatim, no ceiling at all — a sovereign override taken on a wide
@@ -1421,17 +1325,8 @@ export function resolveRootSplitLiveLayout(input: RootSplitLiveLayoutInput): Roo
   // Ledger row 2511 pragmatic repair: see the sovereign branch's own
   // comment above for the full account of why `sideColumn.maxPx` no
   // longer participates in this ceiling — only the board's own hard
-  // floor does now. (Divider-mechanics repair, item 3: same shared
-  // `computeRootSplitSideColumnCeilingPx` as the sovereign branch above.)
-  const maxRegionWidthPx = Math.max(
-    input.sideColumn.minPx,
-    computeRootSplitSideColumnCeilingPx({
-      rowWidthPx: input.rowWidthPx,
-      boardRailReservedPx: input.boardRailReservedPx,
-      gapPx: input.gapPx,
-      boardFloorPx: input.boardFloorPx,
-    }),
-  );
+  // floor does now.
+  const maxRegionWidthPx = Math.max(input.sideColumn.minPx, availableForSplitPx - input.boardFloorPx);
   // Ledger row 2511 pragmatic repair (S1, the audit's central case): the
   // side column's own INTERIOR content can genuinely want more than its
   // natural (leftover-after-the-board's-own-square) yield — most

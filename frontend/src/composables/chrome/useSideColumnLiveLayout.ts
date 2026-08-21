@@ -27,7 +27,6 @@ import { computed, watch, type Ref } from 'vue';
 import { pushSystemMessage } from '../../services/system-message-sink';
 import {
   resolveSideColumnLiveLayout,
-  assertSingleFloorBearingRegion,
   type LytScreenClassIdInput,
   type Px,
   type SideColumnFixedRegion,
@@ -54,17 +53,8 @@ export interface UseSideColumnLiveLayoutInput {
 }
 
 export function useSideColumnLiveLayout(input: UseSideColumnLiveLayoutInput): Ref<SideColumnLiveLayoutResult> {
-  const layout = computed<SideColumnLiveLayoutResult>(() => {
-    // Divider-mechanics repair, item 4 (presence-core review condition):
-    // this composable is the PRODUCTION construction site for the
-    // `others` region registry (App.vue's own `sideColumnOtherRegions`
-    // feeds it straight through) — see `assertSingleFloorBearingRegion`'s
-    // own header (`state/feasible-layout.ts`) for why the guard lives
-    // here rather than inside the pure solver itself. Re-checked on every
-    // recompute (not once at setup) since `others` is reactive and a
-    // future presence-menu change could, in principle, rewrite it.
-    assertSingleFloorBearingRegion(input.others.value);
-    return resolveSideColumnLiveLayout({
+  const layout = computed<SideColumnLiveLayoutResult>(() =>
+    resolveSideColumnLiveLayout({
       wrapperWidthPx: input.wrapperWidthPx.value,
       gapPx: input.gapPx,
       tree: { track: input.treeTrack.value, maxUsefulPx: input.treeMaxUsefulPx.value },
@@ -72,8 +62,8 @@ export function useSideColumnLiveLayout(input: UseSideColumnLiveLayoutInput): Re
       treeDefaultPx: input.treeDefaultPx.value,
       others: input.others.value,
       screenClassId: input.screenClassId.value,
-    });
-  });
+    }),
+  );
 
   let lastPushedKey = '';
   watch(
