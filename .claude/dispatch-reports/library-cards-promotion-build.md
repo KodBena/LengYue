@@ -214,4 +214,117 @@ Branch: `lyt-library-cards-promotion` (worktree
   existing precedent to extend; flagged for the commissioner if a
   reload-durable preference turns out to be wanted.
 
+## Addendum: merge onto local lyt-phase2 tip (4b4b14d2)
+
+The coordinator flagged that the local `lyt-phase2` this repo actually
+integrates on had advanced to `4b4b14d2` (69 commits ahead of my
+original `148899f7` base — `origin/lyt-phase2` itself never moved;
+re-fetched at merge time, still `148899f7`), carrying the region-owned
+presence core (ledger row 2532) which rewrote large parts of
+`state/feasible-layout.ts` and the compiled `.gen.ts` programs I hand-
+edited. Merged via `git merge 4b4b14d2` (the commit was present in the
+shared object store — no `origin/` reference used).
+
+**Merge commit: `dff77bec`** (plus one follow-up fixup, `017059de` —
+see below). Base for this merge: `14fb528c` (my prior commit).
+
+### Conflicts and resolutions (4 files)
+
+1. **`frontend/src/state/lyt-layout.gen.ts`** — CONFLICT. Their side
+   (presence-core) hoisted `content`/`scrollAxes` from a purely
+   `node`-nested fact onto each Exclusive child directly (the
+   ALLOT/presence split), and still carried the `library`/`cards`
+   children in that new shape; my side had deleted those two children
+   entirely. **Resolution: took the deletion** (my side) — dropped the
+   `library`/`cards` entries in their new schema shape too, keeping
+   everything else from their auto-merged (non-conflicting) hunks
+   (`settings`/`analysis`/`other` already carry the new
+   `content`/`scrollAxes` fields, merged cleanly since I never touched
+   those lines). `defaultTabId: "settings"` preserved.
+2. **`frontend/src/state/lyt-layout-portrait.gen.ts`** — CONFLICT,
+   identical shape to the landscape file. Same resolution.
+3. **`frontend/src/components/modals/HyperparamPromptModal.vue`** —
+   CONFLICT. My side added the `<Teleport to="body">` wrapper (rider
+   2); their side (S9, component-shoddiness audit) simplified the
+   per-field label markup (dropped the permanently-visible raw wire
+   symbol `<span class="field-name">`, added a `:title` tooltip
+   instead). **Resolution: both, composed** — their simplified
+   label/field markup, wrapped in my `<Teleport>`. Confirmed no stray
+   `.field-name` CSS rule survived (there wasn't one post-merge to
+   remove).
+4. **`frontend/tests/unit/state/layout-model.test.ts`** — CONFLICT
+   (large, ~800 lines). Their side (dispatch L3) DELETED five
+   functions this file used to test (`computeTreePanelClampedWidthPx`,
+   `resolveWidthConditionalPresence`, `clampTreeWidthForSideColumn`,
+   `resolveTreeRowWidthPx`, `sumFixedRowSiblingReservationPx` —
+   subsumed by `feasible-layout.ts#resolveSideColumnLiveLayout`,
+   disclosures transcribed per ADR-0002 Rule 6 in
+   `lyt-space-owner-l3-build.md`) and left a HISTORICAL comment in
+   their place; my side had ALSO touched one of those five tests (the
+   900x600 clamp regression, adjusted for my 188px floor) — moot, since
+   the function itself no longer exists. **Resolution: took their
+   deletion wholesale** for the conflicted region; confirmed via grep
+   that none of the five deleted functions are exported by
+   `layout-model.ts` any more. My OWN unconflicted edits earlier in the
+   same file (the `CONTROL_PANEL_TAB_IDS` 5→3 fixes, outside this
+   conflict's line range) survived the merge untouched.
+
+### Post-merge regression (not a textual conflict — a numeric ripple)
+
+`tests/unit/state/feasible-layout-purity.test.ts` §G's non-vacuity
+sanity check (`purity §G ... sanity: both sweeps genuinely exercise
+BOTH present and absent verdicts`) failed after the merge, though the
+file itself merged without conflict. Root cause: that describe block's
+`OUTER_WRAPPER_WIDTHS_PX` sweep (`[300, 345, 400, ..., 820, ...]`) was
+hand-picked to straddle the OLD `CONTROL_PANEL_MIN_WIDTH_PX` (300px);
+my mandate change narrowed that constant to 188px (five tabs → three),
+so every existing probe point now sits comfortably above the new
+floor and the sweep stopped producing an `absent` verdict anywhere.
+Fixed in a follow-up commit (`017059de`): three genuinely-starved
+probe points (0, 60, 120px) prepended to the sweep, every original
+point preserved verbatim. Re-ran the isolated file after the fix — 31/31
+pass.
+
+### Re-verification of the 7 tab-activation sites (presence core touched App.vue)
+
+Confirmed present and unchanged in the merged tree:
+- `App.vue:1034` — `controlPanelLytPath` computed.
+- `App.vue:1041-1042` — `lytExclusiveActiveByPath` (reader, feeds
+  LytNode's TabWidget `v-model`).
+- `App.vue:1044-1046` — `handleLytExclusiveActiveChange` (writer,
+  strip-driven).
+- `App.vue:1338` — `activeTab` computed getter/setter (the persisted
+  `store.session.ui.activeTab` cell).
+- `App.vue:1360` — `rightPanelMode` computed (reader, drives the
+  overlay + toolbar active-state).
+- `App.vue:1364-1365` — `openLibrarySurface`/`openCardsSurface`
+  (writers, toolbar-driven).
+- `store/defaults.ts` — `activeTab: 'cards'` default seed (unaffected
+  by the merge; still resolves to the Cards overlay by construction).
+
+`ToolbarEngineControls.vue`'s `open-library`/`open-cards`
+emits/props/CSS and the `#exclusive-controlPanel` overlay markup in
+App.vue both auto-merged cleanly (no conflict) — spot-checked via grep
+post-merge, all present.
+
+### Gates on the merged tree
+
+- `nice -n 19 npm run build` → **exit 0** (1269 modules, no type
+  errors; re-ran again after the purity-test fixup — still exit 0).
+- `NODE_OPTIONS=--max-old-space-size=2048 nice -n 19 npx vitest run
+  --changed=4b4b14d2 --maxWorkers=2` → first run: **exit 1** (1 failed,
+  the purity §G non-vacuity check above; 555/556 otherwise green).
+  After the fixup commit: **exit 0**, 51/51 files, 556/556 tests.
+
+### Commits
+
+- `14fb528c` — original library-cards-promotion delivery (base
+  `148899f7`).
+- `dff77bec` — merge of `4b4b14d2` (region-owned presence core, docker
+  container-name fix, and everything between) into
+  `lyt-library-cards-promotion`. Four conflicted files resolved per
+  above; both mandates preserved.
+- `017059de` — post-merge fixup: restore purity §G's non-vacuity sweep
+  under the new 188px control-panel floor.
+
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
