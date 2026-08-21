@@ -30,13 +30,21 @@ from __future__ import annotations
 import pytest
 
 from domain.auth import UserId
-from domain.errors import CardNotFoundError, InvalidInputError
+from domain.errors import (
+    BatchIndexReferenceError,
+    CardBatchTooLargeError,
+    CardNotFoundError,
+    InvalidInputError,
+)
 from schemas.card import (
+    BatchCardItem,
     CardCreate,
     CardPatch,
     GameSourceCreate,
     GradingParameterData,
     GradingParameterPatch,
+    ParentRefBatchIndex,
+    ParentRefCardId,
 )
 from services.card_service import CardService
 from tests.fakes import FakeCardRepository, FakeNormalizer
@@ -706,3 +714,246 @@ async def test_update_card_metadata_empty_patch_is_no_op():
     assert updated.num_moves == 5
     assert updated.num_reviews == 3
     assert updated.alpha == 4.2
+
+
+# ─── create_cards_batch — transactional batch card mint (ledger 884/885/886) ──
+#
+# These are service-level orchestration tests driven against
+# FakeCardRepository — they pin the batch loop's per-member
+# parent_ref resolution, the failure-index-carrying error wrapping,
+# and cap enforcement. They deliberately do NOT verify "zero rows
+# inserted on failure" — FakeCardRepository has no transaction
+# concept, so that guarantee only exists where the real transaction
+# lives (the route's `async with db.begin():`, backed by the real
+# SQLAlchemy session). The rollback witness is a route-level
+# integration test (tests/integration/routes/test_cards_batch_routes.py)
+# against a real (in-memory SQLite) database, per backend/CLAUDE.md's
+# testing-posture tier split (service test = orchestration, route
+# test = wire contract + real transaction behaviour).
+
+
+def _root_item(raw_content: str = "(;FF[4])", **kwargs) -> BatchCardItem:
+    return BatchCardItem(
+        raw_content=raw_content,
+        num_moves=5,
+        game_metadata=GameSourceCreate(),
+        **kwargs,
+    )
+
+
+def _branch_item(parent_ref, raw_content: str = "(;FF[4]C[b])", **kwargs) -> BatchCardItem:
+    return BatchCardItem(
+        raw_content=raw_content,
+        num_moves=5,
+        parent_ref=parent_ref,
+        **kwargs,
+    )
+
+
+# Failure modes first (CLAUDE.md test-authoring posture).
+
+
+async def test_create_cards_batch_raises_batch_too_large_above_cap(monkeypatch):
+    """
+    `CardBatchTooLargeError` is raised before any Port call once the
+    request exceeds `config.CARDS_BATCH_MINT_MAX` — mirrors
+    `BatchTooLargeError` / `PositionHashBatchTooLargeError`'s cap
+    enforcement shape on the sibling batch endpoints.
+    """
+    import core.config as config_module
+
+    monkeypatch.setattr(config_module.config, "CARDS_BATCH_MINT_MAX", 2)
+    svc, repo, normalizer = _make_service()
+    normalizer.set_metadata("(;FF[4])", {})
+
+    with pytest.raises(CardBatchTooLargeError) as exc_info:
+        await svc.create_cards_batch(
+            [_root_item(), _root_item(), _root_item()], user_id=ALICE,
+        )
+
+    assert exc_info.value.received == 3
+    assert exc_info.value.maximum == 2
+    # No Port call happened — the fake's card table is untouched.
+    assert repo.cards == {}
+
+
+async def test_create_cards_batch_self_batch_index_reference_raises():
+    """
+    `batch_index == own index` is the self-reference case of the
+    forward-reference prohibition — a card cannot be a child of
+    itself. 422-shaped (`BatchIndexReferenceError` is an
+    `InvalidInputError`), naming the failing index.
+    """
+    svc, repo, normalizer = _make_service()
+    normalizer.set_metadata("(;FF[4])", {})
+
+    with pytest.raises(BatchIndexReferenceError) as exc_info:
+        await svc.create_cards_batch(
+            [_branch_item(ParentRefBatchIndex(batch_index=0))], user_id=ALICE,
+        )
+
+    assert exc_info.value.index == 0
+    assert exc_info.value.batch_index == 0
+    assert repo.cards == {}
+
+
+async def test_create_cards_batch_forward_batch_index_reference_raises():
+    """A batch_index referring to a LATER member is also rejected."""
+    svc, repo, normalizer = _make_service()
+    normalizer.set_metadata("(;FF[4])", {})
+
+    with pytest.raises(BatchIndexReferenceError) as exc_info:
+        await svc.create_cards_batch(
+            [
+                _branch_item(ParentRefBatchIndex(batch_index=1)),  # index 0
+                _root_item(),  # index 1
+            ],
+            user_id=ALICE,
+        )
+
+    assert exc_info.value.index == 0
+    assert exc_info.value.batch_index == 1
+    # The forward-referencing member never reached a Port call, and
+    # the loop never got to index 1 — nothing inserted.
+    assert repo.cards == {}
+
+
+async def test_create_cards_batch_batch_index_message_names_the_index():
+    """The InvalidInputError message names the failing index."""
+    svc, _repo, normalizer = _make_service()
+    normalizer.set_metadata("(;FF[4])", {})
+
+    with pytest.raises(InvalidInputError, match=r"batch item 0"):
+        await svc.create_cards_batch(
+            [_branch_item(ParentRefBatchIndex(batch_index=0))], user_id=ALICE,
+        )
+
+
+async def test_create_cards_batch_cross_tenant_card_id_parent_raises_card_not_found():
+    """
+    `parent_ref: {"card_id": ...}` naming another tenant's card
+    raises `CardNotFoundError` — the same 404-not-403 collapse
+    `create_card`'s parent-ownership precheck gives a cross-tenant
+    `parent_card_id`. The message names the failing batch index.
+    """
+    svc, repo, normalizer = _make_service()
+    normalizer.set_metadata("(;FF[4])", {})
+    bobs_card = repo.seed_card(user_id=int(BOB))
+
+    with pytest.raises(CardNotFoundError, match=r"batch item 0"):
+        await svc.create_cards_batch(
+            [_branch_item(ParentRefCardId(card_id=bobs_card))], user_id=ALICE,
+        )
+
+    # No card was inserted under Alice's tenancy on the failed precheck.
+    assert all(
+        repo.user_id_by_card[cid] != int(ALICE) for cid in repo.cards.keys()
+    )
+
+
+async def test_create_cards_batch_nonexistent_card_id_parent_raises_card_not_found():
+    svc, _repo, normalizer = _make_service()
+    normalizer.set_metadata("(;FF[4])", {})
+
+    with pytest.raises(CardNotFoundError, match=r"batch item 0"):
+        await svc.create_cards_batch(
+            [_branch_item(ParentRefCardId(card_id=999_999))], user_id=ALICE,
+        )
+
+
+async def test_create_cards_batch_mid_batch_error_names_the_later_index():
+    """
+    A failure on a non-zero index (not just index 0) still carries
+    the correct, specific index in the error.
+    """
+    svc, repo, normalizer = _make_service()
+    normalizer.set_metadata("(;FF[4])", {})
+    bobs_card = repo.seed_card(user_id=int(BOB))
+
+    with pytest.raises(CardNotFoundError, match=r"batch item 2"):
+        await svc.create_cards_batch(
+            [
+                _root_item(),  # index 0: succeeds
+                _root_item(),  # index 1: succeeds
+                _branch_item(ParentRefCardId(card_id=bobs_card)),  # index 2: fails
+            ],
+            user_id=ALICE,
+        )
+
+
+# Happy paths.
+
+
+async def test_create_cards_batch_returns_ids_in_request_order():
+    svc, repo, normalizer = _make_service()
+    normalizer.set_metadata("(;FF[4])", {})
+
+    ids = await svc.create_cards_batch(
+        [_root_item(), _root_item(), _root_item()], user_id=ALICE,
+    )
+
+    assert len(ids) == 3
+    assert len(set(ids)) == 3  # Distinct.
+    for cid in ids:
+        assert repo.user_id_by_card[cid] == int(ALICE)
+
+
+async def test_create_cards_batch_parent_ref_card_id_branches_off_existing_card():
+    svc, repo, normalizer = _make_service()
+    normalizer.set_metadata("(;FF[4]C[b])", {})
+    parent_id = repo.seed_card(user_id=int(ALICE))
+
+    [branch_id] = await svc.create_cards_batch(
+        [_branch_item(ParentRefCardId(card_id=parent_id))], user_id=ALICE,
+    )
+
+    parent_card_id, game_source_id = repo.card_sources[branch_id]
+    assert parent_card_id == parent_id
+    assert game_source_id is None
+
+
+async def test_create_cards_batch_anchor_child_grandchild_lineage():
+    """
+    The commission's worked happy-path: anchor (parent_ref null) +
+    child (batch_index 0) + grandchild (batch_index 1) in one batch.
+    Verifies the resulting lineage rows link correctly and every
+    card's content_hash is present (the wire field known-positions
+    depends on — verified here via the fake's read Port, exactly as
+    a route test would verify it via GET /cards/{id}).
+    """
+    svc, repo, normalizer = _make_service()
+    normalizer.set_metadata("(;FF[4])", {})
+    normalizer.set_metadata("(;FF[4]C[child])", {})
+    normalizer.set_metadata("(;FF[4]C[grandchild])", {})
+
+    anchor_id, child_id, grandchild_id = await svc.create_cards_batch(
+        [
+            _root_item(raw_content="(;FF[4])"),
+            _branch_item(
+                ParentRefBatchIndex(batch_index=0), raw_content="(;FF[4]C[child])",
+            ),
+            _branch_item(
+                ParentRefBatchIndex(batch_index=1), raw_content="(;FF[4]C[grandchild])",
+            ),
+        ],
+        user_id=ALICE,
+    )
+
+    # Lineage: child's parent is the anchor; grandchild's parent is the child.
+    child_parent, child_gs = repo.card_sources[child_id]
+    assert child_parent == anchor_id
+    assert child_gs is None
+    grandchild_parent, grandchild_gs = repo.card_sources[grandchild_id]
+    assert grandchild_parent == child_id
+    assert grandchild_gs is None
+    # Anchor itself links to a game_source (root), not a parent card.
+    anchor_parent, anchor_gs = repo.card_sources[anchor_id]
+    assert anchor_parent is None
+    assert anchor_gs is not None
+
+    # content_hash present on each, via the tenant-aware read Port —
+    # the same surface GET /cards/{id} exposes.
+    for cid in (anchor_id, child_id, grandchild_id):
+        card = await repo.get_card_by_id(cid, user_id=ALICE)
+        assert card is not None
+        assert card.content_hash

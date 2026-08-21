@@ -4,14 +4,16 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue';
+import { ref, computed, watch, onUnmounted, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQeubo } from '../../composables/useQeubo';
 import { pushSystemMessage } from '../../store';
 import { currentClaim, onClaimChange } from '../../lib/knobs';
+import { useAppDialogs } from '../../composables/useAppDialogs';
 import type { AnalysisEnvironment, AnalysisPalette, ConsumerClaim, KnobId, ParameterMeta } from '../../types';
 
 const { t } = useI18n();
+const dialogs = useAppDialogs();
 
 import { Codemirror } from 'vue-codemirror';
 import { python } from '@codemirror/lang-python';
@@ -57,10 +59,24 @@ function select(type: ViewType, id: string) {
   selectedId.value = id;
 }
 
+// M24 (audit finding, ledger row 1251): the detail pane opened onto
+// "Select an item to edit" filling ~85% of the surface with nothing
+// to act on. Genre precedent (macOS System Settings, Thunderbird
+// accounts, Sabaki's engine manager) selects the first row on
+// arrival. Symbols are the top-of-list, most-fundamental entity
+// (parameters/palettes reference symbols, not the reverse — see
+// addPalette's delta_fn/summary_fn defaults below), so the first
+// symbol is the natural landing selection when any exist.
+onMounted(() => {
+  if (selectedType.value === null && symbolKeys.value.length > 0) {
+    select('symbol', symbolKeys.value[0]);
+  }
+});
+
 // ── Mutations ──────────────────────────────────────────
 
-function addSymbol() {
-  const name = prompt(t('palette.prompt.symbolName'));
+async function addSymbol() {
+  const name = await dialogs.prompt({ message: t('palette.prompt.symbolName') });
   if (!name || props.env.symbols[name]) return;
   const next = getClone();
   next.symbols[name] = '0.0';
@@ -75,8 +91,8 @@ function updateSymbolValue(val: string) {
   commit(next);
 }
 
-function addParameter() {
-  const name = prompt(t('palette.prompt.parameterName'));
+async function addParameter() {
+  const name = await dialogs.prompt({ message: t('palette.prompt.parameterName') });
   if (!name || props.env.parameters[name] !== undefined) return;
   const next = getClone();
   next.parameters[name] = 1.0;
@@ -261,8 +277,8 @@ async function setParamQeuboControlled(name: string, checked: boolean): Promise<
   }
 }
 
-function addPalette() {
-  const name = prompt(t('palette.prompt.paletteName'));
+async function addPalette() {
+  const name = await dialogs.prompt({ message: t('palette.prompt.paletteName') });
   if (!name) return;
   const id = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
   const next = getClone();
@@ -278,8 +294,8 @@ function addPalette() {
   select('palette', id);
 }
 
-function addStateFnToPalette(paletteId: string) {
-  const name = prompt(t('palette.prompt.chartName'));
+async function addStateFnToPalette(paletteId: string) {
+  const name = await dialogs.prompt({ message: t('palette.prompt.chartName') });
   if (!name) return;
   const next = getClone();
   const p = next.palettes.find(p => p.id === paletteId);
@@ -322,9 +338,13 @@ function updatePaletteStateFn(paletteId: string, chartName: string, symRef: stri
   }
 }
 
-function deleteItem() {
+async function deleteItem() {
   if (!selectedType.value || !selectedId.value) return;
-  if (!confirm(t('palette.confirm.deleteItem', { type: selectedType.value, id: selectedId.value }))) return;
+  const ok = await dialogs.confirm({
+    message: t('palette.confirm.deleteItem', { type: selectedType.value, id: selectedId.value }),
+    danger: true,
+  });
+  if (!ok) return;
   
   const next = getClone();
   if (selectedType.value === 'symbol') delete next.symbols[selectedId.value];
@@ -348,7 +368,14 @@ function deleteItem() {
     <!-- LEFT PANE: Directory -->
     <div class="sidebar">
       <div class="section">
-        <div class="section-header">
+        <!-- M24 (audit finding, ledger row 1251): the "+" affordance
+             sat at the far-right edge of the 200px sidebar column,
+             ~180px from the "Symbols" heading it adds to — a
+             space-between layout meant for a two-fact header row,
+             not an action button that belongs to a single label.
+             section-header-tight packs label+button adjacent
+             instead. -->
+        <div class="section-header section-header-tight">
           <span>{{ $t('palette.sidebar.symbols') }}</span>
           <button class="add-btn" @click="addSymbol">+</button>
         </div>
@@ -403,13 +430,27 @@ function deleteItem() {
         </div>
 
         <!-- Symbol Editor (CodeMirror) -->
-        <div v-if="selectedType === 'symbol'" class="editor-wrap">
-          <Codemirror
-            :model-value="env.symbols[selectedId]"
-            :extensions="extensions"
-            :style="{ height: '100%', fontSize: '12px' }"
-            @update:model-value="updateSymbolValue"
-          />
+        <div v-if="selectedType === 'symbol'" class="symbol-editor-pane">
+          <p class="symbol-intro">{{ $t('palette.symbol.intro') }}</p>
+          <div class="editor-wrap">
+            <!-- S7 (component-shoddiness audit, 2026-08-21): `height:
+                 '100%'` forced the editor to fill `.editor-wrap`'s whole
+                 flex:1 share of a 400px-tall panel regardless of content
+                 — a 442×280 dark slab under a single-line formula, ~260px
+                 of empty CodeMirror gutter below the actual text. `height:
+                 'auto'` lets CodeMirror size to its content (formulas are
+                 normally 1-3 lines); `minHeight` keeps short formulas from
+                 collapsing to an uncomfortably thin strip, `maxHeight`
+                 caps a pathologically long formula with CodeMirror's own
+                 internal scroll rather than growing the editor (and the
+                 panel) without bound. -->
+            <Codemirror
+              :model-value="env.symbols[selectedId]"
+              :extensions="extensions"
+              :style="{ height: 'auto', minHeight: '4.5em', maxHeight: '240px', fontSize: '12px' }"
+              @update:model-value="updateSymbolValue"
+            />
+          </div>
         </div>
 
         <!-- Parameter Editor -->
@@ -546,18 +587,26 @@ function deleteItem() {
 .section { border-bottom: 1px solid var(--surface-2); }
 .section-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-1); font-size: var(--text-body); text-transform: uppercase;
+  padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-0); font-size: var(--text-body); text-transform: uppercase;
 }
-.add-btn { background: none; border: none; color: var(--accent-primary); cursor: pointer; font-weight: bold; font-size: var(--text-heading); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.add-btn { background: none; border: none; color: var(--text-0); cursor: pointer; font-weight: bold; font-size: var(--text-heading); }
+/* M24: label + "+" adjacent, not spread to the row's opposite ends. */
+.section-header-tight { justify-content: flex-start; gap: var(--space-default); }
 
 .item-list { list-style: none; padding: 0; margin: 0; }
 .item-list li {
-  padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); color: var(--text-1); cursor: pointer; border-left: 2px solid transparent;
+  padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); color: var(--text-0); cursor: pointer; border-left: 2px solid transparent;
 }
 .item-list li:hover { background: var(--surface-2); }
-.item-list li.active { background: var(--surface-0); border-left-color: var(--accent-primary); color: var(--accent-primary); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border-left stays accent (ornament). */
+.item-list li.active { background: var(--surface-0); border-left-color: var(--accent-primary); color: var(--text-0); }
 
-.active-badge { font-size: var(--text-tiny); background: var(--accent-primary); color: var(--surface-0); padding: 1px 4px; border-radius: var(--radius-default); margin-left: var(--space-default); }
+/* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-0 text on an
+   --accent-primary fill measures 2.08:1 in the default cluster theme.
+   --text-on-accent is the token minted for text directly on an accent
+   fill (theme.css, ledger rows 1018/1144). */
+.active-badge { font-size: var(--text-tiny); background: var(--accent-primary); color: var(--text-on-accent); padding: 1px 4px; border-radius: var(--radius-default); margin-left: var(--space-default); }
 
 /* `min-width: 0` lets the flex item shrink below the intrinsic
    width of CodeMirror's content; without it, an unwrapped long line
@@ -582,11 +631,29 @@ function deleteItem() {
    Preserved until the substrate gains tinted-surface vocabulary. */
 .del-btn { background: var(--surface-0); color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: var(--radius-default); cursor: pointer; font-size: var(--text-body); }
 
+/* M24: wraps the intro sentence + CodeMirror editor so the pane
+   takes the same flex:1/min-height:0 slot .editor-wrap owned alone
+   before — see .detail-content's own flex-column layout. */
+.symbol-editor-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.symbol-intro {
+  margin: 0;
+  padding: var(--space-medium);
+  border-bottom: 1px solid var(--surface-3);
+  color: var(--text-0);
+  font-size: var(--text-body);
+  line-height: 1.5;
+  flex-shrink: 0;
+}
 .editor-wrap { flex: 1; overflow: auto; }
 
 .palette-form, .form-grid { padding: var(--space-medium); }
 .form-grid { display: grid; grid-template-columns: 120px 1fr; gap: var(--space-medium); align-items: center; }
-.form-grid label { font-size: var(--text-emphasis); color: var(--text-2); }
+.form-grid label { font-size: var(--text-emphasis); color: var(--text-0); }
 
 /* Top-level editor forms scroll when their content exceeds the
    400px PaletteEditor container — the .palette-form for a palette
@@ -623,10 +690,10 @@ function deleteItem() {
 .range-sep { color: var(--border-3); }
 .dark-input.invalid { border-color: var(--state-error); }
 .qeubo-control { display: flex; flex-direction: column; gap: var(--space-tight); }
-.checkbox-label { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-emphasis); color: var(--text-1); cursor: pointer; }
+.checkbox-label { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-emphasis); color: var(--text-0); cursor: pointer; }
 .checkbox-label input[type=checkbox] { cursor: pointer; }
 .checkbox-label input[type=checkbox]:disabled { cursor: not-allowed; }
 .checkbox-label input[type=checkbox]:disabled + span { color: var(--border-3); }
 .validation-error { font-size: var(--text-body); color: var(--state-error); }
-.validation-hint { font-size: var(--text-body); color: var(--text-2); font-style: italic; }
+.validation-hint { font-size: var(--text-body); color: var(--text-0); font-style: italic; }
 </style>

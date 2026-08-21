@@ -34,6 +34,7 @@ import {
   onClaimChange,
 } from '../../lib/knobs';
 import type { ConsumerClaim, KnobId } from '../../types';
+import { PANEL_CONTENT_READING_MEASURE_CH } from '../../state/layout-model';
 
 const { t } = useI18n();
 
@@ -212,6 +213,20 @@ const displayValue = computed(() => {
 });
 
 /**
+ * M17 (audit finding, ledger row 1290): the slider carried no
+ * min/max labels at all — "Hue offset: −36" of what range was
+ * unanswerable without reading source. These are the SAME
+ * `effectiveMin`/`effectiveMax` values already driving the
+ * `<input type="range">`'s own `min`/`max` attributes above (the
+ * cross-knob `maxFromKnob` constraint and the `minFloor` pin both
+ * already resolve into those two computeds) formatted at the same
+ * precision the value badge uses, so the endpoint labels and the
+ * live badge never disagree on decimal places.
+ */
+const formattedMin = computed(() => effectiveMin.value.toFixed(precision.value));
+const formattedMax = computed(() => effectiveMax.value.toFixed(precision.value));
+
+/**
  * True when the displayed (clamped) value sits at the absolute
  * lower-floor pin AND the floor is genuinely active (i.e. the floor
  * is above the static range's lower bound — otherwise sitting at
@@ -305,22 +320,46 @@ function onInput(event: Event) {
   // widget never hands the live store to the substrate itself.
   writeStoreKnobValue(props.knobId, [n], { kind: 'manual' });
 }
+
+// M17: bounded track width — measured ~1050px of travel for a 0..1
+// value in the default (non-compact) KnobRegistryEditor layout, so
+// precision-per-pixel silently changed on every resize. Reuses the
+// app's existing phase-3 reading-measure vocabulary
+// (`PANEL_CONTENT_READING_MEASURE_CH`, state/layout-model.ts —
+// same constant RegistryEditor.vue's own M6 fix and
+// LibraryTab.vue/ForestDirectory.vue already cap on) rather than a
+// second, hand-typed `ch`/px literal (ADR-0012 one-home-per-fact).
+// Single (un-doubled) measure — a slider row is one region, not
+// RegistryEditor's label+value pair — applied only to the
+// spacious/default row (see `:not(.knob-slider-compact)` in the
+// style block below); ToolbarSliderPopover's compact layout is
+// unrelated audit territory (a toolbar-popover-owned surface) and is
+// deliberately left unbounded here.
+const knobSliderMaxWidthCss = computed(() => `${PANEL_CONTENT_READING_MEASURE_CH}ch`);
 </script>
 
 <template>
   <div v-if="decl" :class="['knob-slider-row', { 'knob-slider-compact': compact }]">
     <span class="knob-slider-label-text" :title="displayLabel">{{ displayLabel }}</span>
-    <input
-      type="range"
-      :min="effectiveMin"
-      :max="effectiveMax"
-      :step="step"
-      :value="value"
-      :disabled="disabled"
-      :title="disabledTitle"
-      class="knob-slider-input"
-      @input="onInput"
-    />
+    <div class="knob-slider-track">
+      <!-- M17: min/max endpoint labels — omitted in compact mode
+           (the toolbar popover's own dense layout, out of this
+           pass's territory); see `formattedMin`/`formattedMax`
+           above. -->
+      <span v-if="!compact" class="knob-slider-endpoint knob-slider-endpoint-min">{{ formattedMin }}</span>
+      <input
+        type="range"
+        :min="effectiveMin"
+        :max="effectiveMax"
+        :step="step"
+        :value="value"
+        :disabled="disabled"
+        :title="disabledTitle"
+        class="knob-slider-input"
+        @input="onInput"
+      />
+      <span v-if="!compact" class="knob-slider-endpoint knob-slider-endpoint-max">{{ formattedMax }}</span>
+    </div>
     <span
       :class="['knob-slider-value', { 'knob-slider-value-at-floor': atFloor }]"
       :title="floorTooltip"
@@ -330,21 +369,40 @@ function onInput(event: Event) {
 
 <style scoped>
 /* Default (spacious) layout — used by the Other tab's
-   KnobRegistryEditor. Label sits above the slider; value badge
-   shares the label row at the right edge via the order property
-   below. */
+   KnobRegistryEditor. Label and value sit on one line, ADJACENT
+   (G19, opus-uiux-geometry-consult.md — the value badge previously
+   sat ~330px from its label because the label column was `1fr`,
+   stretching to the row's full bounded width and pushing the value
+   flush to the far right; label and value read as one object only
+   when they're close). `minmax(0, max-content)` on the label column
+   lets it size to its own text (so it sits right next to the value)
+   while still being able to shrink — and ellipsize via
+   `.knob-slider-label-text`'s own overflow rules below — if a long
+   store-derived label plus the value would overflow the row's
+   existing `PANEL_CONTENT_READING_MEASURE_CH` cap; the trailing `1fr`
+   column absorbs the row's leftover width instead of it landing
+   between label and value. The slider row below is unchanged — it
+   still spans the full width via `"slider slider slider"`. */
 .knob-slider-row {
   display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-areas: "label value" "slider slider";
+  grid-template-columns: minmax(0, max-content) max-content 1fr;
+  grid-template-areas: "label value ." "slider slider slider";
   column-gap: var(--space-default);
   row-gap: var(--space-tight);
   margin-bottom: var(--space-default);
   font-size: var(--text-emphasis);
 }
+/* M17: bounded track width, default (non-compact) row only — see
+   `knobSliderMaxWidthCss` above. `.knob-slider-compact` (the toolbar
+   popover) is excluded so its own, already-narrow layout is
+   untouched. */
+.knob-slider-row:not(.knob-slider-compact) {
+  max-width: v-bind(knobSliderMaxWidthCss);
+}
 .knob-slider-label-text {
   grid-area: label;
-  color: var(--text-1);
+  min-width: 0;
+  color: var(--text-0);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -366,12 +424,89 @@ function onInput(event: Event) {
   text-underline-offset: 2px;
   cursor: help;
 }
-.knob-slider-input {
+/* M17: the input's own former `grid-area: slider` moved to the new
+   `.knob-slider-track` wrapper (the min/max endpoint labels flank
+   the input inside it); the input itself now just flex-fills the
+   space between the two endpoint labels. */
+/* G19: the min/max endpoint captions collided with the track they
+   annotate. The M16/ledger-1395 thumb hit-box is a LAW-fixed 24x24px
+   total box (16.8px painted circle + 3.6px transparent border each
+   side, untouched by this pass); at the slider's min/max extreme the
+   thumb centers exactly on the input's own edge, so half that box
+   (12px) overflows the `<input>`'s rendered bounds into whatever sits
+   next to it. A `--space-tight` (4px) gap let that 12px overflow land
+   on top of the endpoint text. `--space-loose` (20px) clears the
+   12px overflow with an 8px buffer to spare, composing with the
+   thumb's existing geometry rather than shrinking it. */
+.knob-slider-track {
   grid-area: slider;
-  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-loose);
+  min-width: 0;
+}
+.knob-slider-endpoint {
+  flex-shrink: 0;
+  font-family: monospace;
+  font-size: var(--text-tiny);
+  color: var(--text-0);
+}
+.knob-slider-input {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .knob-slider-input:disabled {
   opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* M16 (audit finding, ledger row 1251): the native thumb measured
+   ~18x8px, under the WCAG 2.5.8 24x24 floor — fixed by sizing the
+   thumb pseudo-elements to 24x24 directly.
+   ledger rows 1395/1396 (commissioner): at 24x24 VISUAL, the thumbs
+   read huge against the popover's compact text and visually overlap
+   between adjacent compact rows. Cut the visual circle to 0.7x
+   (16.8px = 24 * 0.7) while PRESERVING the >=24x24 effective pointer
+   target M16 established (WCAG 2.5.8) — the standard technique: the
+   pseudo-element's own box stays 24x24 total, but a `border` of
+   transparent pixels (content 16.8px + border 3.6px each side =
+   24px) shrinks only the PAINTED area via `background-clip:
+   content-box`. The border is part of the interactive hit box (same
+   as padding would be on a normal element) but paints nothing, so
+   it's invisible while still counting toward the pointer target —
+   the visible circle shrinks, the draggable/tappable region doesn't.
+   `box-sizing: content-box` is stated explicitly rather than relied
+   on as a UA default, since the width/height-is-content-only math
+   above depends on it.
+   `margin-top` stays -10px unchanged: it re-centers the *total*
+   24x24 box (content + border) on the ~4px native track, and that
+   total box is still 24px tall — only what's visible inside it
+   shrank. */
+.knob-slider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: content-box;
+  width: 16.8px;
+  height: 16.8px;
+  border: 3.6px solid transparent;
+  background: var(--accent-primary);
+  background-clip: content-box;
+  border-radius: var(--radius-circle);
+  cursor: pointer;
+  margin-top: -10px; /* re-centers the (still 24x24) box on a ~4px native track */
+}
+.knob-slider-input::-moz-range-thumb {
+  box-sizing: content-box;
+  width: 16.8px;
+  height: 16.8px;
+  border: 3.6px solid transparent;
+  background: var(--accent-primary);
+  background-clip: content-box;
+  border-radius: var(--radius-circle);
+  cursor: pointer;
+}
+.knob-slider-input:disabled::-webkit-slider-thumb,
+.knob-slider-input:disabled::-moz-range-thumb {
   cursor: not-allowed;
 }
 
@@ -387,5 +522,9 @@ function onInput(event: Event) {
   align-items: center;
   font-size: var(--text-body);
 }
-.knob-slider-compact .knob-slider-input { min-width: 0; }
+/* Grid-item min-width guard moved from the input (pre-M17: the input
+   itself was the direct grid child) to `.knob-slider-track` (now the
+   direct grid child; the input is a flex child within it, already
+   `min-width: 0` from the base rule above). */
+.knob-slider-compact .knob-slider-track { min-width: 0; }
 </style>

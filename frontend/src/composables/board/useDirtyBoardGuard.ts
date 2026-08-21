@@ -43,6 +43,45 @@ import { loadSgfIntoBoard } from '../sgf/loadIntoBoard';
 import type { BoardId, BoardState, LibraryGame, ReviewCard } from '../../types';
 import ConfirmLoadModal from '../../components/modals/ConfirmLoadModal.vue';
 
+// Ledger row 1015 (audit L7, "modal on every open"): a module-local,
+// NON-PERSISTED map from BoardId to the node count observed
+// immediately after the last library/card load into that board — the
+// count that reflects exactly the loaded content with zero moves
+// added since. Deliberately outside BoardState / store/schema.ts: this
+// is a same-session-only heuristic (reset on reload, never round-trips
+// through SyncService), not a new piece of domain state, so it stays
+// local to the composable that consumes it rather than growing the
+// persisted board schema for one interaction-model decision.
+//
+// ASSUMPTION (declared per CLAUDE.md point 7, adjudicated at review):
+// "meaningful unsaved state" for the open-path modal means the active
+// board's node count has changed since it was last (re)loaded from a
+// card or library game. A board sitting at its just-loaded node count
+// has nothing in it the user made — reopening a different game from
+// the library only discards a view of already-persisted content, not
+// work — so the modal should stay silent for that case exactly as it
+// already does for a truly pristine (root-only) board. Any node-count
+// change since the load (a move added, a variation branched, moves
+// undone past the loaded count) is treated as meaningful and still
+// gets the modal. This deliberately reuses the codebase's existing
+// "node count" signal (the same cheap heuristic `resolveTargetBoard`
+// and `useCloseBoardGuard.requestCloseBoard` already use to mean
+// "has moves") rather than inventing a new dirty-tracking mechanism;
+// it does not attempt to detect same-count structural edits (e.g. an
+// added move immediately followed by an undo of a different move),
+// which is an accepted approximation, not a claim of exactness.
+//
+// Left unbounded per boardId for the app's lifetime, same acceptance
+// posture as `BoardState.analysisRanges`'s uncapped growth (ledger
+// rows 112/119): bounded in practice by how many boards a session
+// actually opens, not by an enforced limit.
+const loadedNodeCountByBoard = new Map<BoardId, number>();
+
+function stampLoadedNodeCount(boardId: BoardId): void {
+  const board = store.boards.find(b => b.id === boardId);
+  if (board) loadedNodeCountByBoard.set(boardId, Object.keys(board.nodes).length);
+}
+
 export function useDirtyBoardGuard(
   confirmLoadModalRef: Ref<InstanceType<typeof ConfirmLoadModal> | null>,
 ): {
@@ -65,10 +104,17 @@ export function useDirtyBoardGuard(
     if (!board) return null;
 
     const nodeCount = Object.keys(board.nodes).length;
+    // "Meaningful" per the declared assumption above: more than the
+    // root AND changed since the last load into this board. A board
+    // still sitting at exactly its just-loaded count has nothing the
+    // user would lose that isn't already safely in the library/card
+    // it came from.
+    const loadedCount = loadedNodeCountByBoard.get(board.id);
+    const isMeaningful = nodeCount > 1 && loadedCount !== nodeCount;
     let targetBoardId = board.id;
     let action = store.profile.settings.navigation.actionOnDirtyBoard;
 
-    if (nodeCount > 1 && action === 'ask') {
+    if (isMeaningful && action === 'ask') {
       // Contract: ConfirmLoadModal must be mounted via
       // confirmLoadModalRef before this handler can be invoked.
       // Fail loud if the contract is broken (per ADR-0002), rather
@@ -106,6 +152,11 @@ export function useDirtyBoardGuard(
    * has already been made by the time we get here, so a parse failure
    * must not reopen the modal. Logging is the right behaviour and
    * matches the pre-extraction shape.
+   *
+   * On success, stamps `loadedNodeCountByBoard` with the freshly
+   * loaded content's node count (ledger row 1015) — the baseline the
+   * next `resolveTargetBoard` call compares against to decide whether
+   * this board's state has become "meaningful" since.
    */
   function loadOrLog(
     targetBoardId: BoardId,
@@ -114,6 +165,7 @@ export function useDirtyBoardGuard(
   ): void {
     try {
       loadSgfIntoBoard(targetBoardId, sgfContent, stamp);
+      stampLoadedNodeCount(targetBoardId);
     } catch (err) {
       console.error('Failed to load SGF into board:', err);
     }
@@ -138,12 +190,11 @@ export function useDirtyBoardGuard(
       // Stamp the library row's `client_game_id` so a subsequent
       // mint reuses the existing `game_source` row via the
       // backend's `get_or_create_game_source_by_client_id` dedup.
-      // Legacy library rows (pre-dedup) carry `clientGameId ===
-      // null` — leave the board's freshly generated UUID in place
-      // for those; the card-mint will create a sibling row.
-      if (game.clientGameId !== null) {
-        board.clientGameId = game.clientGameId;
-      }
+      // Per-user-id-enumeration design: `clientGameId` is no longer
+      // nullable — the "legacy pre-dedup rows carry null" exception
+      // is closed (the migration backfills historical NULLs), so
+      // this assignment is now unconditional.
+      board.clientGameId = game.clientGameId;
     });
   }
 
@@ -162,9 +213,10 @@ export function useDirtyBoardGuard(
     createBoard();
     const targetBoardId = store.boards[store.activeBoardIndex].id;
     loadOrLog(targetBoardId, game.rawContent, board => {
-      if (game.clientGameId !== null) {
-        board.clientGameId = game.clientGameId;
-      }
+      // Per-user-id-enumeration design: see handleLoadLibraryGame's
+      // identical note — unconditional now that clientGameId is
+      // never null.
+      board.clientGameId = game.clientGameId;
     });
   }
 

@@ -146,16 +146,24 @@ export function useLibraryPreview(): LibraryPreview {
         // need brand mints); the shape is recorded here at the fill
         // site instead.
         const path = getActiveVariationPath(board);
-        // Start at the root so the user sees the empty board first
-        // and moves through. The component can override via
-        // scrubPosition write if it prefers a different default.
+        // Default to the FINAL position, not the root. A blank board
+        // is identical for every game in the library and answers
+        // nothing; genre convention (OGS thumbnails the final
+        // position, Sabaki shows the loaded node, GoBase's diagrams
+        // carry stones) is to show a position that actually
+        // distinguishes this game. `path.length - 1` is the last
+        // main-line node; an empty game (`path.length <= 1`, no
+        // moves played) correctly stays on the empty board — that
+        // default is honest for a genuinely empty game. The
+        // component can still override via scrubPosition write.
+        const defaultIndex = path.length > 0 ? path.length - 1 : 0;
         if (path.length > 0) {
-          navigateTo(board, path[0]);
+          navigateTo(board, path[defaultIndex]);
         }
         if (myGen !== generation) return;
         parsedBoard.value = board;
         variationPath.value = path;
-        scrubPosition.value = 0;
+        scrubPosition.value = defaultIndex;
       } catch (err) {
         // Bad SGF — render a placeholder; the underlying library
         // row was successfully fetched, only the parse failed.

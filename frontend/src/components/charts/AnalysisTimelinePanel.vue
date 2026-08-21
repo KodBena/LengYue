@@ -40,6 +40,21 @@ const selectionNodeCount = computed(() =>
   Math.max(0, Math.round(selectionRange.value[1] - selectionRange.value[0]))
 );
 
+// M11 (menus-ui audit row 1291): "the Analyse affordance reflects
+// engine availability honestly (disabled-with-reason or equivalent)".
+// The button was already functionally disabled on both conditions
+// (`!engineConnected || selectionNodeCount === 0`) — the defect was
+// that disabled state carried no reason, so a disabled-but-visually-
+// present button (audit: "Analyse Selection (20) still presents as
+// available") gave no account of WHY. `analyseDisabledTitle` names
+// the specific blocking condition (engine-offline checked first: it's
+// the one requiring an action outside this panel).
+const analyseDisabledTitle = computed<string | null>(() => {
+  if (!engineConnected.value) return 'analysisTimeline.analyseDisabledOffline';
+  if (selectionNodeCount.value === 0) return 'analysisTimeline.analyseDisabledNoSelection';
+  return null;
+});
+
 // Boundary brand-cast: HorizontalTimelineVisualizer is band-1
 // (domain-agnostic — works on any numeric vector), so its model-value
 // is `[number, number]`. Here the data-vector is the visit-vector
@@ -88,7 +103,8 @@ function onAnalyze(): void {
       />
       <button
         class="analyze-btn"
-        :disabled="!engineConnected || selectionNodeCount === 0"
+        :disabled="analyseDisabledTitle !== null"
+        :title="analyseDisabledTitle ? $t(analyseDisabledTitle) : undefined"
         @click="onAnalyze"
       >
         {{ $t('analysisTimeline.analyseSelection', { n: selectionNodeCount }) }}
@@ -146,7 +162,7 @@ function onAnalyze(): void {
   width: 72px;
   background: var(--surface-0);
   border: 1px solid var(--border-2);
-  color: var(--text-1);
+  color: var(--text-0);
   padding: 3px 6px;
   border-radius: var(--radius-default);
   font-size: var(--text-emphasis);

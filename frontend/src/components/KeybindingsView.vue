@@ -4,7 +4,8 @@
  *
  * The Keybindings sub-tab of the Settings surface. Walks
  * KEYBINDINGS_REGISTRY, groups actions by domain prefix
- * (`nav` / `display` / `engine`) in plan-sketch order, and
+ * (`nav` / `board` / `display` / `engine` / `review` / `card`) in plan-sketch
+ * order, and
  * delegates each row's render + edit affordance to
  * KeybindingRow. Phase 4 of the archived plan
  * (docs/archive/notes/design/keybindings-plan.md) landed the
@@ -27,18 +28,19 @@ import {
 
 const { t } = useI18n();
 
-const KNOWN_DOMAINS = ['nav', 'display', 'engine'] as const;
+const KNOWN_DOMAINS = ['nav', 'board', 'display', 'engine', 'review', 'card'] as const;
 type Domain = (typeof KNOWN_DOMAINS)[number];
 
 const grouped = computed<ReadonlyArray<readonly [Domain, ReadonlyArray<KeybindingActionDecl>]>>(() => {
-  const groups: Record<Domain, KeybindingActionDecl[]> = { nav: [], display: [], engine: [] };
+  const groups: Record<Domain, KeybindingActionDecl[]> = { nav: [], board: [], display: [], engine: [], review: [], card: [] };
   for (const action of KEYBINDINGS_REGISTRY) {
     const prefix = action.id.split('.')[0];
-    if (prefix !== 'nav' && prefix !== 'display' && prefix !== 'engine') {
+    if (prefix !== 'nav' && prefix !== 'board' && prefix !== 'display' && prefix !== 'engine' && prefix !== 'review' && prefix !== 'card') {
       // ADR-0002: KeybindingsView's grouped render assumes the closed
-      // {nav, display, engine} domain set. A new prefix means the
-      // KNOWN_DOMAINS list and the i18n `keybindings.section.<domain>`
-      // catalog entries need extending in the same change.
+      // {nav, board, display, engine, review, card} domain set. A new prefix
+      // means the KNOWN_DOMAINS list and the i18n
+      // `keybindings.section.<domain>` catalog entries need extending
+      // in the same change.
       throw new Error(`KeybindingsView: unknown action domain prefix "${prefix}" for action "${action.id}"`);
     }
     groups[prefix].push(action);
@@ -109,12 +111,25 @@ async function handleResetAll(): Promise<void> {
 .keybindings-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-small);
+  /* Ghost-token fix: --space-small isn't a defined token (see
+     theme.css); --space-tight is the nearest real one. */
+  gap: var(--space-tight);
 }
 
 .keybindings-table {
   width: 100%;
   border-collapse: collapse;
+  /* M5 (audit finding, ledger row 1251): every section renders its
+     own <table>, so an auto-layout table computes column widths
+     independently per section from that section's own content —
+     the audited "chord column" landed at a different x per section
+     even though within any one section it was already aligned.
+     table-layout: fixed plus explicit widths on the key/buttons
+     columns (KeybindingRow.vue's .action-key / .action-buttons)
+     makes every section's table use the SAME absolute column
+     widths, so the chord column lines up across the whole page,
+     not just within one section. */
+  table-layout: fixed;
 }
 
 .keybindings-footer {
@@ -144,15 +159,16 @@ async function handleResetAll(): Promise<void> {
 
 .reserved-keys-disclosure > summary {
   cursor: pointer;
-  color: var(--text-1);
-  font-size: var(--text-small);
+  color: var(--text-0);
+  /* Ghost-token fix: --text-small isn't a defined token. */
+  font-size: var(--text-body);
   user-select: none;
 }
 
 .reserved-keys-body {
-  margin-top: var(--space-small);
-  color: var(--text-2);
-  font-size: var(--text-small);
+  margin-top: var(--space-tight);
+  color: var(--text-0);
+  font-size: var(--text-body);
   line-height: 1.5;
 }
 </style>

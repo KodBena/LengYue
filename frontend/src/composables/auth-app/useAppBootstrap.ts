@@ -37,6 +37,8 @@ import { i18n } from '../../i18n';
 import { isSupportedLocale, DEFAULT_LOCALE } from '../../i18n/locales';
 import type { BoardId } from '../../types';
 import { useQeubo, reconcileQeuboKnobs, rehydrateExperimentClaims } from '../useQeubo';
+import { applyContrastTextAttribute } from './contrast-text-attribute';
+import { useKnownPositions } from '../cards/useKnownPositions';
 import type { useAuth } from './useAuth';
 
 // Path-prefix allowlist for the knob-registry coherence check (PR #410
@@ -45,7 +47,7 @@ import type { useAuth } from './useAuth';
 // coupled vocabulary of subtrees the profile-owner knob seam is
 // sanctioned to drive. Every seeded KnobDecl output path begins with
 // one of these (`profile.settings.*` for the profile-document knobs,
-// `session.ui.*` for the two move-filter / pv-fade session knobs). A
+// `session.ui.*` for the move-filter session knob). A
 // decl targeting any other subtree — arriving in a persisted blob, a
 // migration, or a future decl-editor surface — is refused loudly at
 // `validateRegistry`, since that leaf belongs to its own owner, not the
@@ -152,6 +154,28 @@ export function useAppBootstrap(
     { immediate: true },
   );
 
+  // Mirror the opt-in high-contrast-text override onto
+  // `<html data-contrast-text="...">`, same shape as the theme mirror
+  // immediately above. `theme.css`'s
+  // `[data-theme="cluster"][data-contrast-text="on"]` block is the only
+  // consumer — it exists solely to darken `--text-2` / `--accent-primary`
+  // past WCAG's 4.5:1 floor (ADR-0019 audit §S4) without touching the
+  // `dark` theme or the untouched OFF-state cluster block. The attribute
+  // is REMOVED (not set to `"off"`) when the flag is false, so the OFF
+  // state has no attribute at all and the override selector structurally
+  // cannot match — this is the byte-identical-to-today guarantee, not
+  // just a value flip. `immediate: true` syncs at setup-time so a
+  // pre-hydration default (`false`) lands as a no-op matching the
+  // attribute's absence from index.html. The set/remove decision itself
+  // is `applyContrastTextAttribute` (`./contrast-text-attribute.ts`),
+  // pulled out to a pure unit so the OFF-state guarantee is unit-testable
+  // without mounting this whole composable.
+  watch(
+    () => store.profile.settings.appearance.highContrastText,
+    (on) => applyContrastTextAttribute(document.documentElement, on),
+    { immediate: true },
+  );
+
   // qEUBO knob-registry reconcile (knob-registry Phase 6). Watches
   // `analysis_env.parameter_meta` deep so a user authoring a range
   // or toggling `qeubo_controlled` via PaletteEditor's Analysis
@@ -214,7 +238,7 @@ export function useAppBootstrap(
   // arriving in a persisted blob could otherwise target a store subtree
   // (`engine.*`, `boards.*`) the profile-owner knob seam has no
   // business writing. The seam is sanctioned for the profile document
-  // and the two seeded `session.ui.*` knobs only; an out-of-prefix decl
+  // and the one seeded `session.ui.*` knob only; an out-of-prefix decl
   // is a loud startup failure at the data-validation boundary, where
   // the lint (which cannot see runtime path strings) can't reach.
   watch(
@@ -280,6 +304,16 @@ export function useAppBootstrap(
       }
     },
   );
+
+  // Known-positions boot-time hydrate (see
+  // `.claude/dispatch-reports/known-positions-boot-hydrate.md`).
+  // Extracted to the named export `installKnownPositionsHydrateWatcher`
+  // below — see that function's docstring for the behavioural contract
+  // — so `tests/integration/known-positions-boot-hydrate.test.ts` can
+  // drive the REAL production edge-detection logic against a fake
+  // `auth`, rather than a hand-copy of it. Installed here at bootstrap
+  // exactly once, same as every other auth-state watcher in this file.
+  installKnownPositionsHydrateWatcher(auth);
 
   // Restart active analyses whenever the qEUBO audition toggle
   // changes the parameters the engine should see. The
@@ -443,4 +477,57 @@ export function useAppBootstrap(
   });
 
   return { sync };
+}
+
+/**
+ * Known-positions boot-time hydrate watcher (see
+ * `.claude/dispatch-reports/known-positions-boot-hydrate.md`). Installs
+ * a `watch` on `auth.state` that calls `useKnownPositions
+ * .hydrateKnownPositions()` on every genuine unauthenticated/unknown ->
+ * `authenticated` EDGE — cold-start auto-login AND any later
+ * re-authentication after logout/identity-switch — so the
+ * `known-positions` state module's `ContentHash -> CardId` map (and the
+ * game-tree known-position rings / mint-dialog duplicate warning it
+ * feeds) is populated at auth-readiness rather than only filling in
+ * incidentally as navigation happens to touch cards.
+ *
+ * `wasAuth`/`isAuth` edge detection — same shape as the qEUBO-bootstrap
+ * and analysis-persistence-hydrate watchers in `useAppBootstrap` above
+ * — so this fires once per genuine flip-in, never on an unrelated
+ * `auth.state` mutation (e.g. an `authenticated` row gaining a
+ * `userId`). `hydrateKnownPositions` swallows its own failures (logs
+ * loudly, never throws) per ADR-0002 "audible, not fatal", so no
+ * `.catch()` is needed here.
+ *
+ * The prior identity's entries are purged by `known-positions.ts`'s own
+ * `workspace-reset` teardown handler (fired by `resetWorkspace` on
+ * identity-out) — this watcher only owns the re-fill half; the purge is
+ * the state module's own resource-ownership responsibility, not
+ * bootstrap's.
+ *
+ * Extracted as a named export (rather than inlined in
+ * `useAppBootstrap`, like the file's other auth-state watchers are) so
+ * `tests/integration/known-positions-boot-hydrate.test.ts` can drive
+ * this EXACT production edge-detection logic against a fake `auth`
+ * object, instead of a hand-copy that could silently drift from the
+ * real watcher. Takes `Pick<UseAuth, 'state'>` rather than the full
+ * `UseAuth` interface — this function only ever reads `auth.state`, and
+ * the narrower parameter type keeps the test's fake minimal (no need to
+ * stub `tryAutoLogin`/`login`/`register`/`logout` just to satisfy the
+ * type).
+ */
+export function installKnownPositionsHydrateWatcher(
+  auth: Pick<ReturnType<typeof useAuth>, 'state'>,
+): ReturnType<typeof watch> {
+  const { hydrateKnownPositions } = useKnownPositions();
+  return watch(
+    () => auth.state.value,
+    (next, prev) => {
+      const wasAuth = prev?.kind === 'authenticated';
+      const isAuth = next.kind === 'authenticated';
+      if (isAuth && !wasAuth) {
+        void hydrateKnownPositions();
+      }
+    },
+  );
 }

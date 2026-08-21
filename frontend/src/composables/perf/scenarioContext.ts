@@ -112,7 +112,9 @@ function createScenarioContext(name: string): {
         throw new Error(`scenarioContext.loadLibraryGameById: library game ${gameId} not found`);
       }
       return ctx.loadSgf(game.rawContent, (board) => {
-        if (game.clientGameId !== null) board.clientGameId = game.clientGameId;
+        // Per-user-id-enumeration design: clientGameId is no longer
+        // nullable on LibraryGame — unconditional now.
+        board.clientGameId = game.clientGameId;
       });
     },
 

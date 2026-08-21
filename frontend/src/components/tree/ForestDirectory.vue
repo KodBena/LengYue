@@ -12,9 +12,10 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { store, activeBoard, pushSystemMessage } from '../../store';
+import { store, activeBoard, pushSystemMessage, touchSession } from '../../store';
+import { useDeferredContainerBreakpoint } from '../../composables/chrome/useDeferredContainerBreakpoint';
 import type { BoardId, CardId, CardMetadataPatch, ForestStat, ReviewCard } from '../../types';
 import { useCardTreeData } from '../../composables/cards/useCardTreeData';
 import { useCardMetadata } from '../../composables/cards/useCardMetadata';
@@ -23,6 +24,7 @@ import { useForestBrowsePolicy } from '../../composables/forest/useForestBrowseP
 import { useForestStats } from '../../composables/forest/useForestStats';
 import { useReviewSession } from '../../composables/review/useReviewSession';
 import { useAuth } from '../../composables/auth-app/useAuth';
+import { FOREST_NARROW_THRESHOLD_PX, PANEL_CONTENT_READING_MEASURE_CH } from '../../state/layout-model';
 import { expandContextIdMacros } from '../../utils/context-id-macros';
 import CardTreeWidget from '../charts/CardTreeWidget.vue';
 import ForestTreeNav from './ForestTreeNav.vue';
@@ -32,6 +34,13 @@ import TabWidget from '../chrome/TabWidget.vue';
 import HyperparamPromptModal, { type HyperparamValues } from '../modals/HyperparamPromptModal.vue';
 
 const { t } = useI18n();
+
+// Phase 3 (resolution roadmap, audit finding R3) — same prop shape as
+// LibraryTab.vue's `twoColumnReflow`: App.vue derives it once from the
+// workspace's LayoutClass (`getPanelContentPolicy`) and hands it down.
+// Defaults to `false` (today's single-stacked-column behaviour) so a
+// standalone mount that doesn't pass the prop is unaffected.
+const props = defineProps<{ twoColumnReflow?: boolean }>();
 
 const emit = defineEmits<{
   (e: 'load-card', card: ReviewCard): void;
@@ -75,6 +84,13 @@ const cardMetadata = useCardMetadata();
 const reviewSession = useReviewSession(boardIdRef);
 const selectedDeckId = ref<string>(store.session.ui.activeCardSetId);
 const orientation = ref<'horizontal' | 'vertical'>('vertical');
+
+// Phase 3 (audit finding R3) — the metadata panel's own width when
+// reflowed beside the chart (`.panel-content-two-col`, style block
+// below). Sourced from the SAME declared reading measure LibraryTab.vue's
+// split cap uses, so this and that never drift into two independently
+// hand-picked `ch` figures.
+const cardMetadataMaxWidthCss = computed(() => `${PANEL_CONTENT_READING_MEASURE_CH}ch`);
 
 // "In-session" gating for the Decks panel: when a session is running
 // against the active board, the Decks left panel hosts the
@@ -213,10 +229,16 @@ async function runDeck(): Promise<void> {
   if (collected === 'cancelled') return;
   const values: HyperparamValues = collected === 'skipped' ? {} : collected;
   // Single ephemeral context (schema-version 16): the deck is a pure
-  // strategy, the context lives on `cardsContextIds`. The matched-cards
-  // return value is unused here — this codepath is browse-only,
-  // distinct from the start-review-session flow that consumes it.
-  await tree.runPipeline(deck, store.session.ui.cardsContextIds, values);
+  // strategy, the context lives on `cardsContextIds` /
+  // `cardsContextGameSourceOrdinals`. The matched-cards return value
+  // is unused here — this codepath is browse-only, distinct from the
+  // start-review-session flow that consumes it.
+  await tree.runPipeline(
+    deck,
+    store.session.ui.cardsContextIds,
+    values,
+    store.session.ui.cardsContextGameSourceOrdinals,
+  );
 }
 
 /**
@@ -238,7 +260,12 @@ async function startReviewFromConfig(): Promise<void> {
   const collected = await collectHyperparameters(deck);
   if (collected === 'cancelled') return;
   const values: HyperparamValues = collected === 'skipped' ? {} : collected;
-  const matched = await tree.runPipeline(deck, store.session.ui.cardsContextIds, values);
+  const matched = await tree.runPipeline(
+    deck,
+    store.session.ui.cardsContextIds,
+    values,
+    store.session.ui.cardsContextGameSourceOrdinals,
+  );
   if (matched.length > 0) {
     await reviewSession.startSession(matched);
   }
@@ -262,25 +289,66 @@ const contextIdInput = ref(store.session.ui.cardsContextIds.join(', '));
 // shows their literal typing rather than the parsed form).
 const hasContextIdMacro = computed(() => /\$\{/.test(contextIdInput.value));
 
+// macro-public-id-tokens: the hint can no longer show the FINAL
+// resolved root card ids (resolution is server-side now, not a
+// client-side lookup) — it shows what will actually be SENT: the
+// literal card ids plus each recognized game_source ordinal, tagged
+// so it's clear which is which. `t('cards.decks.expandsToGameTag')`
+// (e.g. "game N") disambiguates a bare number typed outside a macro
+// from a resolved-at-request-time game token.
+const expandsToDisplay = computed(() => {
+  const parts = [
+    ...store.session.ui.cardsContextIds.map(id => String(id)),
+    ...store.session.ui.cardsContextGameSourceOrdinals.map(
+      ordinal => t('cards.decks.expandsToGameTag', { ordinal }),
+    ),
+  ];
+  return parts.length > 0 ? parts.join(', ') : t('cards.decks.expandsToEmpty');
+});
+
+// macro-public-id-tokens (ledger rows 456/498/500): restores the
+// `${gameSourceId}` macro that browse-leak-fix broke. The macro
+// expander no longer resolves a token to a raw root card id itself
+// (`ForestStat` has none to give it) — it just recognizes which
+// typed macro tokens are known `gameSourceDisplayOrdinal` values and
+// hands both the literal card ids and the recognized ordinals to
+// `/forests/query` unresolved; the backend resolves each ordinal to
+// its game_source's root card id(s) server-side, within this user's
+// tenancy (`PipelineExecutor.run`'s `game_source_ordinals` param).
+// The SPA never sees or handles a raw root-card PK for this purpose.
+const warnedUnknownMacroTokens = new Set<number>();
+
 function updateContextIds(val: string): void {
   // Preserve the user's literal typing in the local ref.
   contextIdInput.value = val;
-  // Pre-expand `${gameSourceId, ...}` macros to the corresponding
-  // root card ids, then mirror CardSetEditor's parser: split on
-  // comma, parse, drop NaN. Resolution uses the same `roots` ref
-  // that drives the navigator — no backend round-trip needed.
-  const expanded = expandContextIdMacros(val, (gameSourceId) =>
-    roots.value
-      // Brand-strip GameSourceId/CardId → raw number to compare against the
-      // numeric macro arg / build the numeric context-id list; documented
-      // debt, IDENTIFIERS.md erosion (b) (maintainer-directed re-brand helper).
-      .filter(s => (s.gameSourceId as unknown as number) === gameSourceId)
-      .map(s => s.rootCardId as unknown as number), // same brand-strip, erosion (b)
+  const expanded = expandContextIdMacros(val, (gameSourceDisplayOrdinal) =>
+    roots.value.some(
+      // Brand-strip GameDisplayOrdinal -> raw number to compare against the
+      // macro's parsed-int token; documented debt, IDENTIFIERS.md erosion
+      // (b) (maintainer-directed re-brand-helper fix, not done here).
+      s => (s.gameSourceDisplayOrdinal as unknown as number) === gameSourceDisplayOrdinal,
+    ),
   );
-  store.session.ui.cardsContextIds = expanded
-    .split(',')
-    .map(s => parseInt(s.trim(), 10))
-    .filter(n => !isNaN(n));
+  // A token inside `${...}` that doesn't match any of the user's own
+  // known game sources is still the ADR-0002 UI-input-validation
+  // exception (silently drop from the request), but warned once per
+  // distinct value so a typo doesn't look like an unexplained no-op.
+  for (const token of expanded.unknownGameSourceOrdinalTokens) {
+    if (!warnedUnknownMacroTokens.has(token)) {
+      warnedUnknownMacroTokens.add(token);
+      console.warn(
+        `[ForestDirectory] \${${token}} does not match any of your ` +
+        'game sources — dropped from the query. Check the Browse tab ' +
+        'for the game source\'s actual display id.',
+      );
+    }
+  }
+  store.session.ui.cardsContextIds = [...expanded.cardIds];
+  store.session.ui.cardsContextGameSourceOrdinals = [...expanded.gameSourceOrdinals];
+  // Persisted `session.ui` fields — bump the session counter SyncService
+  // keys persistence on (it no longer deep-watches `store.session`; see
+  // `sessionVersion` in `store/index.ts`).
+  touchSession();
 }
 
 function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }): void {
@@ -341,19 +409,56 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
     cardMetadataSaving.value = false;
   }
 }
+
+// resizer-rearch charter amendment (deferred-reorg mechanism, ledger
+// row 391): the row↔column reflow below used to be a pure CSS
+// `@container (max-width: 479px)` query (iter-17, see the template
+// comment). That's exactly the class of "discrete responsiveness
+// reorganization" the amendment names — this panel is hosted inside
+// #control-panel (the Cards tab), so a resizer drag sweeps this
+// wrapper's width continuously through the threshold, and the CQ used
+// to flip the layout mid-gesture. Converted to a ResizeObserver-driven
+// class via useDeferredContainerBreakpoint, which freezes the reorg
+// while EITHER resizer bar is dragging and commits once, with
+// hysteresis, on release. See that composable's header for the full
+// mechanism.
+//
+// Phase 0 (resolution roadmap): the threshold itself is no longer the
+// bare literal `479` — it's `FOREST_NARROW_THRESHOLD_PX`
+// (state/layout-model.ts), projected from this panel's own content
+// facts (`.left-panel`'s natural width + the ECharts forest's usable
+// floor, both declared there) via `computeForestNarrowThresholdPx`.
+// See that module's header for why this and
+// `CONTROL_PANEL_MIN_WIDTH_PX` are documentation-adjacent, not
+// numerically coupled, despite App.vue's own pre-existing comment
+// once claiming otherwise.
+const forestCqWrapperEl = ref<HTMLElement | null>(null);
+const {
+  committed: forestNarrow,
+  observe: observeForestWidth,
+  stop: stopForestWidthObserver,
+} = useDeferredContainerBreakpoint(FOREST_NARROW_THRESHOLD_PX);
+
+onMounted(() => {
+  if (forestCqWrapperEl.value) observeForestWidth(forestCqWrapperEl.value);
+});
+// ADR-0010 imperative-escape step 4: the ResizeObserver lives outside
+// Vue's reactivity graph and must be released, or every mounted
+// ForestDirectory leaks an observer for the component's lifetime.
+onUnmounted(() => {
+  stopForestWidthObserver();
+});
 </script>
 
 <template>
-  <!-- Container-query wrapper (iter-17). The CQ container must be
-       an ancestor — not the queried element itself. iter-16 placed
-       `container-type` on `.forest-container` and tried to style
-       `.forest-container { flex-direction: column }` inside its own
-       `@container` block, which never matches (you can't query an
-       element from its own descendants). The wrapper moves the
-       container-type up one level so `.forest-container` and its
-       children become proper descendants. -->
-  <div class="forest-cq-wrapper">
-  <div class="forest-container">
+  <!-- Was a container-query wrapper (iter-17); converted to a
+       ResizeObserver-driven class (resizer-rearch charter amendment,
+       ledger row 391) — see the script's forestNarrow comment for
+       why. The wrapper element is kept as the ResizeObserver's
+       target (same ancestor-not-self reasoning iter-17 established:
+       `.forest-container` cannot observe/react to its own width). -->
+  <div class="forest-cq-wrapper" ref="forestCqWrapperEl">
+  <div class="forest-container" :class="{ 'forest-narrow-stack': forestNarrow, 'panel-content-two-col': props.twoColumnReflow }">
 
     <!-- LEFT PANEL: Navigation — Decks / Browse via the shared TabWidget -->
     <div class="left-panel">
@@ -381,7 +486,7 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
                 :title="$t('cards.decks.contextIdsTooltip', ['${N}', '${N, M, ...}'])"
               />
               <p v-if="hasContextIdMacro" class="macro-hint">
-                {{ $t('cards.decks.expandsTo', { ids: store.session.ui.cardsContextIds.join(', ') || $t('cards.decks.expandsToEmpty') }) }}
+                {{ $t('cards.decks.expandsTo', { ids: expandsToDisplay }) }}
               </p>
 
               <button
@@ -408,7 +513,7 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
         <template #browse>
           <div class="browse-view">
             <div class="tools-row">
-              <span style="font-size: var(--text-body); color: var(--text-2);">{{ $t('cards.browse.allGameSources') }}</span>
+              <span style="font-size: var(--text-body); color: var(--text-0);">{{ $t('cards.browse.allGameSources') }}</span>
               <button class="reload-btn" @click="reloadRoots">↻</button>
             </div>
 
@@ -467,7 +572,13 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
            Surfaces here (Browse view) so the user can inspect /
            edit metadata without starting a review session — the
            gap that surfaced when legacy decks' suspended cards
-           silently emptied review queues. -->
+           silently emptied review queues. Phase 3 (audit finding R3):
+           at wide/vast LayoutWidthClass (.panel-content-two-col below,
+           `.tree-panel`'s own CSS), this sits BESIDE the chart/empty-
+           state block instead of stacked below it — `.tree-panel`
+           itself is the shared flex container for both, so this stays
+           a plain sibling; only the container's flex-direction and
+           this panel's own max-width change. -->
       <CardMetadataPanel
         v-if="selectedCard"
         :card="selectedCard"
@@ -483,54 +594,143 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
 </template>
 
 <style scoped>
-/* Container-query wrapper (iter-17 correction of iter-16). The CQ
-   container is the wrapper `.forest-cq-wrapper`; `.forest-container`
-   is its descendant. Threshold 479 px is content-derived (left-panel
-   natural width 280 + tree-panel min-width ≈200 = 480), not viewport-
-   derived — a user widening the control panel above ~480 px gets the
-   side-by-side layout regardless of the actual viewport. */
-.forest-cq-wrapper { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; container-type: inline-size; }
+/* Was a `@container` query (iter-17 correction of iter-16); converted
+   to a ResizeObserver-driven `.forest-narrow-stack` class
+   (resizer-rearch charter amendment, ledger row 391 — see the
+   script's forestNarrow comment for why: a live `@container` flips
+   mid-drag, which is exactly the "discrete reorganization during a
+   continuous gesture" the amendment forbids). `.forest-cq-wrapper`
+   is kept as the ResizeObserver's target (an ancestor of
+   `.forest-container`, not the styled element itself — the
+   ancestor-not-self lesson iter-17 originally paid for still applies
+   to a ResizeObserver target the same way it applied to a CQ
+   container). Threshold (`FOREST_NARROW_THRESHOLD_PX`,
+   state/layout-model.ts) is content-derived (left-panel natural width
+   280 + tree-panel usable floor 200 = 480, threshold fires strictly
+   below), not viewport-derived — a user widening the control panel
+   above that gets the side-by-side layout regardless of the actual
+   viewport. */
+.forest-cq-wrapper { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; }
 .forest-container { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; overflow: hidden; background: var(--surface-0); }
 .left-panel { width: 280px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--surface-3); flex-shrink: 0; }
 
-/* magic-literal: 479px CQ threshold — derived, not arbitrary. The
-   side-by-side layout needs `.left-panel`'s natural width (280px,
-   set immediately above) plus `.tree-panel`'s usable minimum
-   (~200px, the threshold below which the lineage explorer's
-   ECharts forest renders unintelligibly). 280 + 200 = 480; the
-   query fires below that. If the left-panel's natural width or the
-   tree-panel's usable floor changes, this threshold needs to track
-   them. */
-@container (max-width: 479px) {
-  .forest-container { flex-direction: column; }
-  /* magic-literal: 40% max-height on stacked left-panel — leaves
-     ~60% for the tree-panel below. Picked so the lineage explorer
-     gets the larger share (it's the visualization the user came to
-     this tab for); left-panel is navigation + form chrome and 40%
-     of a ~700px stacked container is ~280px, enough for the
-     deck-selector form to render without internal scroll in the
-     common case. Soft cap — if left-panel content is shorter than
-     40%, it sizes to content. */
-  .left-panel { width: 100%; max-height: 40%; border-right: none; border-bottom: 1px solid var(--surface-3); flex-shrink: 1; }
+/* FOREST_NARROW_THRESHOLD_PX (useDeferredContainerBreakpoint call
+   site in the script, state/layout-model.ts) — derived, not
+   arbitrary, and no longer a bare literal here (Phase 0, resolution
+   roadmap). The side-by-side layout needs `.left-panel`'s natural
+   width (280px, `FOREST_LEFT_PANEL_NATURAL_WIDTH_PX`, set immediately
+   above) plus `.tree-panel`'s usable minimum (~200px,
+   `FOREST_TREE_USABLE_FLOOR_PX`, the threshold below which the
+   lineage explorer's ECharts forest renders unintelligibly). If
+   either fact changes, update it at its declaration in
+   state/layout-model.ts — this threshold re-derives from it by
+   construction, nothing here to keep in sync by hand. */
+.forest-container.forest-narrow-stack {
+  flex-direction: column;
+}
+/* magic-literal: 40% max-height on stacked left-panel — leaves ~60%
+   for the tree-panel below. Picked so the lineage explorer gets the
+   larger share (it's the visualization the user came to this tab
+   for); left-panel is navigation + form chrome and 40% of a ~700px
+   stacked container is ~280px, enough for the deck-selector form to
+   render without internal scroll in the common case. Soft cap — if
+   left-panel content is shorter than 40%, it sizes to content. */
+.forest-container.forest-narrow-stack .left-panel {
+  width: 100%; max-height: 40%; border-right: none; border-bottom: 1px solid var(--surface-3); flex-shrink: 1;
 }
 .panel-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-tight) var(--space-default); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); font-size: var(--text-emphasis); text-transform: uppercase; color: var(--text-0); letter-spacing: var(--tracking-default); flex-shrink: 0; }
 .decks-view, .browse-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .deck-selector-box { padding: var(--space-default); border-bottom: 1px solid var(--surface-3); }
-.deck-selector-box label { font-size: var(--text-emphasis); color: var(--text-2); display: block; margin-bottom: 3px; text-transform: uppercase; }
+.deck-selector-box label { font-size: var(--text-emphasis); color: var(--text-0); display: block; margin-bottom: 3px; text-transform: uppercase; }
 .deck-dropdown { width: 100%; padding: 2px 4px; font-size: var(--text-emphasis); margin-bottom: var(--space-tight); background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); outline: none; }
 .deck-dropdown:focus { border-color: var(--accent-primary); }
-.hint { font-size: var(--text-body); color: var(--text-2); margin: 0 0 var(--space-tight) 0; }
-.macro-hint { font-size: var(--text-body); color: var(--text-2); margin: 2px 0 var(--space-tight) 0; font-style: italic; word-break: break-all; }
-.action-btn-large { width: 100%; background: var(--surface-2); color: var(--accent-primary); border: 1px solid var(--border-2); padding: 2px 4px; border-radius: var(--radius-default); font-size: var(--text-emphasis); cursor: pointer; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
+.hint { font-size: var(--text-body); color: var(--text-0); margin: 0 0 var(--space-tight) 0; }
+.macro-hint { font-size: var(--text-body); color: var(--text-0); margin: 2px 0 var(--space-tight) 0; font-style: italic; word-break: break-all; }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.action-btn-large { width: 100%; background: var(--surface-2); color: var(--text-0); border: 1px solid var(--border-2); padding: 2px 4px; border-radius: var(--radius-default); font-size: var(--text-emphasis); cursor: pointer; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 .action-btn-large:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
-.start-review-btn { background: var(--accent-secondary); color: var(--surface-1); margin-bottom: var(--space-tight); }
+/* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-1 text on an
+   --accent-secondary fill measures ~2.03:1 in the default cluster
+   theme. --text-on-accent is the token minted for text directly on an
+   accent fill (theme.css, ledger rows 1018/1144). */
+.start-review-btn { background: var(--accent-secondary); color: var(--text-on-accent); margin-bottom: var(--space-tight); }
 .tools-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 8px; border-bottom: 1px solid var(--surface-3); }
-.reload-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: var(--text-heading); padding: 0; line-height: 1; }
+.reload-btn { background: none; border: none; color: var(--text-disabled); cursor: pointer; font-size: var(--text-heading); padding: 0; line-height: 1; }
 .tree-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 .header-controls { display: flex; align-items: center; gap: var(--space-default); }
-.orient-btn { background: var(--surface-2); color: var(--accent-primary); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: 1px 3px; font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-tight); cursor: pointer; font-family: inherit; }
-.tree-meta { color: var(--accent-primary); font-size: var(--text-body); }
-.empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-2); font-size: var(--text-emphasis); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.orient-btn { background: var(--surface-2); color: var(--text-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: 1px 3px; font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-tight); cursor: pointer; font-family: inherit; }
+.tree-meta { color: var(--text-0); font-size: var(--text-body); }
+.empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-0); font-size: var(--text-emphasis); }
 .empty-state.error { color: var(--state-error); }
 .chart-wrapper { flex: 1; padding: var(--space-tight); min-height: 0; min-width: 0; overflow: hidden; display: flex; }
+
+/* Phase 3 (audit finding R3): at wide/vast LayoutWidthClass, the
+   right pane's chart + metadata panel sit SIDE BY SIDE (genre's "two
+   columns") instead of the chart stretching across the panel's full
+   width with CardMetadataPanel stacked below it.
+
+   cardtrees-fix-next (ledger row 1937): this was originally a
+   wrapped flexbox (`flex-flow: row wrap` + `align-content:
+   flex-start`) with `.panel-header`/`.empty-state` forced onto their
+   own full-width line via `flex: 1 1 100%`. That shape has a defeat
+   case per docs/adr/0000 Rule 2(a): `align-content` other than the
+   stretch-by-default `normal` opts *every* flex line out of
+   cross-axis stretch, sized to its own hypothetical content height
+   instead — so whenever `.chart-wrapper` lands alone on the second
+   line (no `CardMetadataPanel` sibling, the ordinary Browse-tab case
+   with nothing selected for inline edit), its `flex: 1 1 0` only
+   still governs its *width* (the row's main axis); its *height* (the
+   cross axis) collapses to content instead of filling the panel's
+   available space, and `CardTreeWidget`'s `height: 100%` chain
+   bottoms out at 0 — see
+   .claude/dispatch-reports/lyt-cardtrees-regression.md for the full
+   diagnosis. Dropping the `align-content` override alone doesn't
+   foreclose the class cleanly either: flexbox's *default*
+   multi-line stretch distributes the container's leftover cross
+   space equally across every line, so `.panel-header`'s forced
+   full-width line would grow past its own content height too,
+   stealing space from the chart instead of staying compact.
+
+   Converted to `display: grid` with two explicit tracks
+   (`grid-template-rows: auto 1fr`) so the header row is sized to its
+   own content (`auto`) and the body row (chart-wrapper /
+   card-metadata-panel) is an explicit fraction of the remaining
+   space (`1fr`) — never an implicit content-hypothetical default,
+   and never subject to a wrap-axis flip's cross-axis stretch
+   surprise. `grid-template-columns: 1fr auto` gives `.chart-wrapper`
+   the flexible column and the metadata panel its own natural
+   ("auto") column, collapsing to zero width when the panel isn't
+   mounted. `cardMetadataMaxWidthCss` (script) keeps the metadata
+   column's own width sourced from `PANEL_CONTENT_READING_MEASURE_CH`,
+   the same declared measure LibraryTab.vue's split cap uses — no
+   second hand-typed `ch` literal. */
+.forest-container.panel-content-two-col .tree-panel {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto 1fr;
+  overflow: auto;
+}
+.forest-container.panel-content-two-col .tree-panel > .panel-header {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+.forest-container.panel-content-two-col .tree-panel > .empty-state {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+.forest-container.panel-content-two-col .tree-panel > .chart-wrapper {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+  min-height: 0;
+}
+.forest-container.panel-content-two-col .tree-panel :deep(.card-metadata-panel) {
+  grid-column: 2;
+  grid-row: 2;
+  width: v-bind(cardMetadataMaxWidthCss);
+  max-width: 100%;
+  margin-top: 0;
+  align-self: start;
+}
 </style>

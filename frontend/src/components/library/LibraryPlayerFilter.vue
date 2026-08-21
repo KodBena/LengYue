@@ -86,19 +86,19 @@ function onBlur(): void {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--space-tiny);
+  gap: var(--space-tight);
 }
 .filter-label {
-  font-size: var(--text-small);
-  color: var(--text-muted);
+  font-size: var(--text-tiny);
+  color: var(--text-0);
 }
 .filter-input {
-  padding: var(--space-tiny) var(--space-small);
+  padding: var(--space-tight) var(--space-default);
   font-size: var(--text-body);
   background: var(--surface-0);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
-  color: var(--text-default);
+  color: var(--text-0);
 }
 .filter-input:focus {
   outline: none;
@@ -109,24 +109,27 @@ function onBlur(): void {
   top: 100%;
   left: 0;
   right: 0;
-  z-index: var(--z-dropdown);
+  z-index: var(--z-popover);
   margin: 0;
   padding: 0;
   list-style: none;
   background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-1);
   border-radius: var(--radius-default);
   max-height: 240px;
   overflow-y: auto;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 .filter-suggest-item {
-  padding: var(--space-tiny) var(--space-small);
+  padding: var(--space-tight) var(--space-default);
   font-size: var(--text-body);
   cursor: pointer;
 }
 .filter-suggest-item:hover {
+  /* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-1 text on
+     an --accent-primary fill measures ~1.84:1 in the default cluster
+     theme. --text-on-accent is the token minted for text directly on
+     an accent fill (theme.css, ledger rows 1018/1144). */
   background: var(--accent-primary);
-  color: var(--surface-1);
+  color: var(--text-on-accent);
 }
 </style>

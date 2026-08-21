@@ -68,6 +68,31 @@ export function cancelCapture(): void {
   captureMode.value = null;
 }
 
+/**
+ * Resolve the human-readable label for whichever action `capturingId`
+ * names, or `null` when nothing is capturing. Pulled out as a pure
+ * function (App.vue's `capturingActionLabel` computed is a one-line
+ * wrapper around this) so the resolution logic — id -> registry
+ * lookup -> translated label, with the "id not found" fallback — has
+ * a unit-testable seam independent of App.vue's own heavy composable
+ * graph (review remedy, ledger row 1335: the prior coverage was a
+ * source-regex proxy over App.vue's template wiring, not the
+ * derivation itself).
+ *
+ * `translate` is injected (not a direct `useI18n()` call) so this
+ * stays a plain function, callable from a unit test with a bare
+ * `(key) => key` stub instead of mounting the i18n plugin.
+ */
+export function resolveCapturingActionLabel(
+  capturingId: KeybindingActionId | null,
+  registry: ReadonlyArray<KeybindingActionDecl>,
+  translate: (labelKey: string) => string,
+): string | null {
+  if (capturingId === null) return null;
+  const decl = registry.find((a) => a.id === capturingId);
+  return decl ? translate(decl.labelKey) : capturingId;
+}
+
 // ── Reserved keys ───────────────────────────────────────────
 
 /**

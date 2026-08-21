@@ -50,6 +50,17 @@ patterns supported, others render without hoshi).
   Pass moves are representable in the data model and SGF I/O
   but no UI surface for issuing one ships today `[planned]`.
 
+- **Ghost-stone hover preview.** A translucent stone in the
+  side-to-move's colour follows the pointer to the nearest empty
+  intersection (cgoban3 convention). Deliberately the simplest
+  preview possible: on an empty point it renders identically
+  whether that placement is legal or not, and it never previews
+  a capture — no board-evaluation affordance, just "here's where
+  and what colour a click would place." It is hidden on an
+  already-occupied intersection rather than painting over the
+  existing stone. On by default; toggle it off via the Session
+  (UI) settings pane.
+
 - **Move-number annotation toggle.** A "#" button in the status
   bar overlays each placed stone with its ordinal (1, 2, 3, …),
   scaling font size with digit count so three-digit numbers
@@ -66,13 +77,27 @@ patterns supported, others render without hoshi).
   proportionally to the board so the labels stay readable
   across 9-line, 13-line, and 19-line boards.
 
-- **Multiple boards in tabs.** A board rail along the left side
-  hosts each open board as a tab — name, close button, an
-  inline analysis-meter rugplot showing recent visit pressure,
-  and an activity dot ("geiger counter") indicating real-time
-  engine work. Hover a tab to preview that board's current
-  position in a docked preview shelf at the foot of the rail —
-  without switching to it.
+- **Multiple boards in tabs.** A board rail hosts each open
+  board as a tab — name, close button, an inline analysis-meter
+  rugplot showing recent visit pressure, and an activity dot
+  ("geiger counter") indicating real-time engine work. Hover a
+  tab to preview that board's current position in a docked
+  preview shelf at the foot of the rail — without switching to
+  it. Off by default; reachable via the corner presence menu's
+  "Board Rail" checkbox (bottom-right of the workspace), which
+  also offers a choice between docking the rail in the layout
+  or opening it as a popover from a corner-adjacent button.
+
+- **Position preview panel.** `[experimental]` A small square
+  board mounted in the lower-right of the workspace, off the
+  corner presence menu (default off). Mirrors the active
+  board's current position, and — when an analysis packet
+  covers it — overlays the engine's best-move variation as
+  faded, numbered stones, the same principal-variation data the
+  main board's hover overlay reads. A planned upgrade will make
+  the base position follow the cursor as you hover variations
+  elsewhere in the app (tree, analysis charts), rather than
+  always trailing the active board.
 
 - **SGF import and export.** Load via the toolbar's file dialog;
   export the active board to an SGF file via the same surface.
@@ -158,6 +183,21 @@ as a git submodule).
   a Toolbar dropdown lets the user pick which model serves the
   active board. The choice flows through to the wire as a
   `model` field on each analysis query.
+
+- **Persisted NN-cache context** `[experimental]`. A checkbox +
+  text field beside the model picker lets the user attach a
+  named context to KataGo's persisted neural-net cache (a
+  newer KataGo capability — the engine keeps evaluations on
+  disk across sessions rather than recomputing them from a
+  cold cache each time). Wire contexts are namespaced under
+  the signed-in username so multiple users sharing one engine
+  never collide. Enabled automatically for spaced-repetition
+  review — each card gets its own context, re-attached on
+  every card advance — and available as a manual toggle
+  elsewhere. Requires the connected engine to be configured
+  with a persisted-cache directory; on an engine without it,
+  the toggle surfaces the engine's own refusal rather than
+  silently doing nothing.
 
 - **Engine-vs-engine match.** A modal lets the user configure
   black and white engines (independent model + visit budget
@@ -363,6 +403,14 @@ the review controls:
   hidden during this phase so the user isn't influenced by the
   engine.
 
+- **Start marker in the game tree.** While a review session is
+  active, the game-tree panel rings the node the current card
+  starts from — the same visual family as the green "play vs
+  engine" head ring and the engine-match head, an accent-colored
+  ring around the node's circle. It appears when a card loads and
+  disappears when the session ends, so navigating the tree
+  mid-review always shows where the card began.
+
 - **Engine response and grading.** After the user moves,
   KataGo evaluates the position; the palette-compiled grading
   signal produces a recall outcome that Ebisu uses to schedule
@@ -386,6 +434,17 @@ the review controls:
 
 - **FINISHED state.** Session-end summary; back to the deck
   picker.
+
+- **Back / Forward (deck repeat).** Step back to a card already
+  visited this session and its exact played line, per-move
+  scores, and grading chart reappear — no re-analysis, nothing
+  lost. A card revisited this way is view-only ("Reviewed"): no
+  new moves, no re-grading. "Retry Card" (with a confirmation,
+  since it replaces the recorded score) discards the retained
+  attempt and re-enters the card fresh for a genuine second try.
+  Forward returns to wherever the session was, including an
+  attempt left mid-move. Retained visits are session-scoped —
+  they don't survive "End Session" or closing the tab.
 
 ### Browse mode (Forest Directory)
 
@@ -586,34 +645,132 @@ backend; flip the env-var to opt in.
 
 ## Workspace and chrome
 
-- **Resizable layout.** Sidebar, board area, control panel —
-  the boundary between board column and control panel is
-  user-draggable; the drag mutates a registry setting that
-  caps the board square's max width. Tree panel within the
-  Cards tab is also resizable.
+The chrome is compiled from a small layout-as-data language (LYT):
+a per-screen-class grid program, checked in as a plain data
+structure, that a generic renderer interprets — moving a widget
+between a tab and a side-by-side split is a data edit, not a
+template rewrite. Two screen classes exist today, **landscape**
+and **portrait**; the app measures its own aspect ratio and swaps
+between the two compiled programs automatically (with hysteresis,
+so a window sitting near the boundary doesn't flicker between
+them), each with its own resizer/tab/rail arrangement suited to
+the shape.
 
-- **Tabs.** The control panel hosts four named tabs: Cards
-  (the primary surface above), Settings (managed registry +
-  palette + deck editors + analysis environment), Analysis
-  (the chart cluster), Other (gradient calibration, qEUBO
-  bookmarks).
+- **Resizers.** Two independent drag handles: one between the
+  board column and the tree-plus-control-panel region (landscape
+  only — portrait's single-column stack has no equivalent split to
+  own), and one between the game-tree panel and the control panel
+  (both screen classes). Drags persist across sessions. The Cards
+  tab's own tree-forest resizer (inside Browse mode) is a separate,
+  unrelated control. A **"Default layout"** button at the bottom of
+  the corner presence menu (below) clears both drags in one click,
+  returning each resized region to the size the app would compute
+  fresh for the current window — not a remembered factory pixel
+  value, so the result can differ before and after a window resize.
+  It only touches these two drag facts; which panels are shown or
+  hidden is untouched. At a narrow/short window where a panel would
+  already be hidden for lack of room, it stays hidden after the
+  reset — that's the correct outcome, not a partial reset.
+
+- **Toolbar organisation.** Two purposed clusters sit in the side
+  column (landscape) or the top strip (portrait): an **engine
+  cluster** — connect/disconnect, mint-card / learn-this-path /
+  play / match, and (once connected) the live engine-telemetry
+  readout — and an **app cluster** — load/save SGF, the knob
+  quick-access popover, the setup tool palette, PBO calibration,
+  the engine address editor, and the locale picker. Connecting or
+  disconnecting the engine only changes what's visible *inside*
+  the engine cluster's own reserved space; it never moves anything
+  else on screen. Move-navigation (first/previous/next/last, the
+  genre-standard `|< < > >|` cluster) lives on the status bar
+  directly under the board, alongside Pass and the move-number
+  toggle, rather than in either toolbar cluster.
+
+- **Corner presence menu.** A small button in the bottom-right
+  corner opens a popover listing the panels that can be toggled
+  on or off — the board rail, the position preview panel (see
+  "Multiple boards in tabs" and "Position preview panel" above),
+  the **control panel**, and the **setup tool palette** — plus the
+  board-rail style selector (docked-in-layout vs.
+  popover-from-a-corner-button, described there too). The menu is
+  the one home for panel visibility; it replaced a set of
+  individually-scattered collapse toggles. Each checkbox reflects
+  the CURRENT screen size's own sensible starting point until the
+  user explicitly changes it — the control panel starts checked on
+  a wide window and unchecked on a narrow/tall one (repetition-
+  first: a narrow window prioritises the board and game tree), and
+  a user's own choice, once made, always wins over that starting
+  point and is remembered across sessions. The same popover's
+  "Default layout" button (see "Resizers" above) lives at the
+  bottom, below the panel checkboxes and the rail-style selector —
+  this menu is the one existing chrome surface that already gathers
+  layout-shaping controls, so the reset action joins it rather than
+  opening a second menu.
+
+- **Tabs.** The control panel hosts five named tabs: Library (the
+  SGF repository above), Cards (the primary study surface above),
+  Settings (managed registry + palette + deck editors + analysis
+  environment), Analysis (the chart cluster), Other (gradient
+  calibration, qEUBO bookmarks). On a narrow/tall (portrait) window,
+  where the control panel starts hidden to keep the board and game
+  tree front-and-centre, a small button appears next to the corner
+  presence menu to open it as a temporary popover with every tab
+  still fully working — closing the popover (the same button, a
+  click outside it, or Escape) returns to the narrow layout without
+  changing the underlying show/hide choice.
+
+- **Overlay banners and alerts.** Transient chrome — the
+  keybinding-capture banner, a workspace-save-error banner — and
+  the system log (below) render in a fixed overlay layer anchored
+  above the corner presence menu, never as in-flow chrome that
+  would push the board or tree smaller. The layer contributes no
+  layout cost and is verified never to overlap the board.
+
+- **Setup tool palette.** The classic Go-editor setup mode (place
+  a BLACK/WHITE setup stone, or a triangle mark, without it
+  counting as a played move) docks as a fixed-space toolbar
+  cluster — its trigger and open panel never cover the board,
+  by standing design rule. Hidden by default; a checkbox in the
+  corner presence menu turns it on, and the choice persists across
+  sessions.
+
+- **Debug menu** *(development builds only)*. A pill-shaped
+  trigger consolidating cache-clearing, perf-scenario, popover-
+  stress, and jank-test affordances used while developing the
+  chrome itself. Absent from production builds; not a
+  user-facing feature.
 
 - **Internationalisation.** Vue-i18n with bundled catalogs.
   English source is fully populated. Simplified Chinese,
   Japanese, and Korean ship as LLM-drafted catalogs with a
   machine-translation notice — native-speaker review is the
   remaining gate per locale. Locale picker in the toolbar;
-  selection persists across sessions.
+  selection persists across sessions. The first-run setup
+  wizard's opening step offers the same choice — picking a
+  language there takes effect immediately, so the rest of the
+  wizard (and the app) renders in the chosen language right
+  away.
 
-- **System log.** Always-visible bar at the bottom showing
-  errors, warnings, and info messages. Collapsible; when
-  collapsed, error / warning arrivals briefly auto-reveal the
-  panel so the user notices.
+- **System log.** A panel showing errors, warnings, and info
+  messages; renders in the overlay layer described above. A small
+  toggle button next to the corner presence menu opens and closes
+  it manually, and the choice persists across sessions. Error /
+  warning arrivals also briefly auto-reveal it regardless of the
+  manual setting, so the user notices even when the panel is
+  collapsed.
 
 - **Theme substrate.** All chrome colours and typography route
   through CSS variables. A "Gradient Calibration" surface in
   the Other tab lets the user tune the colour gradient driving
   move-suggestion intensity.
+
+- **High-contrast text (opt-in).** A checkbox next to the theme
+  picker (Settings → Advanced Registry → `appearance.highContrastText`)
+  darkens the light ("cluster") theme's low-emphasis text and
+  primary accent colour just enough to clear WCAG's 4.5:1 contrast
+  floor — same hues, better readability. Off by default; leaves the
+  dark theme and every chart / data-series colour untouched either
+  way.
 
 ## Authentication and persistence
 
@@ -637,6 +794,20 @@ backend; flip the env-var to opt in.
 - **Force-persistence button.** In Settings — bypasses the
   debounce and writes immediately. Useful for debugging or
   before a known disconnect.
+
+- **Future-workspace recovery.** If the workspace document saved
+  on the server is from a newer app version than the one
+  currently running (schema migrations only walk forward), the
+  app no longer goes blank. A blocking prompt names both
+  versions and offers two explicit choices: continue this
+  session on in-memory defaults with saving suppressed (the
+  server's newer workspace is left untouched — the default,
+  non-destructive option), or reset the server workspace to
+  defaults, permanently overwriting it (behind a confirmation
+  that spells out what is lost). If "continue" is chosen, a
+  persistent banner keeps reminding that saving is off for the
+  rest of the session, with the same reset option still
+  available from there.
 
 ## What's intentionally absent
 

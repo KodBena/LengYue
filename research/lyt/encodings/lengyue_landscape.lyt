@@ -1,0 +1,61 @@
+layout lengyue-landscape =
+  {min 0px, pref 1fr, max inf, gap 12px} H(
+    @toggle(user, release) {168px} boardRail[common, info+action],
+    {pref 1fr} V(
+      {pref maximize, aspect 1} B[board],
+      {24px} I_board[board, info],
+      {28px} A_board[board, action]
+    ),
+    {min 345px, pref 32fr, max sum-of(read-constant(sideColumnMaxCap, landscape), 60ch), gap 4px} V(
+      {80px, envelope: {disconnected, connected}, gap 4px} H(
+        {min width-of(A_engine_controls, disconnected), pref 1fr, content bounded} A_engine_controls[go, action],
+        {pinned max-over(width-of(A_engine_eval, connected-real), width-of(A_engine_eval, connected-1digit), width-of(A_engine_eval, connected-2digit), width-of(A_engine_eval, connected-3digit), width-of(A_engine_eval, connected-4digit), width-of(A_engine_eval, connected-5digit)), envelope: {connected-real: width-of(A_engine_eval, connected-real), connected-1digit: width-of(A_engine_eval, connected-1digit), connected-2digit: width-of(A_engine_eval, connected-2digit), connected-3digit: width-of(A_engine_eval, connected-3digit), connected-4digit: width-of(A_engine_eval, connected-4digit), connected-5digit: width-of(A_engine_eval, connected-5digit)}, content bounded} A_engine_eval[go, info],
+        {pinned max-over(width-of(A_engine_health, connected-real), width-of(A_engine_health, connected-1digit), width-of(A_engine_health, connected-2digit), width-of(A_engine_health, connected-3digit), width-of(A_engine_health, connected-4digit), width-of(A_engine_health, connected-5digit)), envelope: {connected-real: width-of(A_engine_health, connected-real), connected-1digit: width-of(A_engine_health, connected-1digit), connected-2digit: width-of(A_engine_health, connected-2digit), connected-3digit: width-of(A_engine_health, connected-3digit), connected-4digit: width-of(A_engine_health, connected-4digit), connected-5digit: width-of(A_engine_health, connected-5digit)}, content bounded} A_engine_health[go, info],
+        {pref 1fr, content bounded} A_engine_queue[go, info]
+      ),
+      @demote(h 616px) {pinned height-of(A_app, cold-boot-default), content bounded, activity occasional} A_app[common, action],
+      @toggle(user, release) {pinned height-of(A_setup, authenticated-toggled), content bounded, activity occasional} A_setup[common, action],
+      {pref 1fr, gap 4px} H(
+        {min 110px, pref 1fr, max inf, content unbounded, scroll v, edge v item} tree[board, info+action],
+        @demote(h sum-of(max-over(children.min), tree.min, gap)) {pinned max-over(children.min)} T(
+          {min read-constant(CP-library, landscape), pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 160px, edge v unit, unit v 32px} CP-library[common],
+          {min read-constant(CP-cards, landscape), pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 160px, edge v unit, unit v 39px} CP-cards[common],
+          {min pack-rows(items: [113px, 177px, 153px, 153px, 137px, 105px], target-rows: 2, search-ceiling: 838px), pref 1fr, max inf, gap 4px} V(
+            {77px, boundary, content bounded} settingsSubstrip[common],
+            {min max-over(children.min), pref 1fr, max inf, content unbounded} T(
+              {min read-constant(SP_session, landscape), pref 1fr, max inf, boundary, content bounded} SP_session[common],
+              {min read-constant(SP_analysisEnv, landscape), pref 1fr, max inf, boundary, content bounded} SP_analysisEnv[common],
+              {min read-constant(SP_cardSets, landscape), pref 1fr, max inf, boundary, content bounded} SP_cardSets[common],
+              {min read-constant(SP_advancedRegistry, landscape), pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v item} SP_advancedRegistry[common],
+              {min read-constant(SP_analysis, landscape), pref 1fr, max inf, boundary, content bounded} SP_analysis[common],
+              {min read-constant(SP_keybindings, landscape), pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v item} SP_keybindings[common]
+            )
+          ),
+          {min sum-of(80px, 4px, read-constant(AT_multires)), pref 1fr, max inf, gap 4px, content unbounded} V(
+            {min 80px, pref 80px, max 80px, boundary, content designed} timelineStrip[go],
+            {min 160px, pref 1fr, max inf} T(
+              {min 160px, pref 1fr, max inf, gap 4px} V(
+                {pinned read-constant(AT_basic_interval), boundary, content designed} AT_basic_interval[go],
+                {min read-constant(AT_basic_scoreLead), pref 1fr, max inf, boundary, content designed} AT_basic_scoreLead[go],
+                {min read-constant(AT_basic_mergedDelta), pref 1fr, max inf, boundary, content designed} AT_basic_mergedDelta[go]
+              ),
+              {min 160px, pref 1fr, max inf, gap 4px} V(
+                {min read-constant(AT_dist_deltaDist), pref 1fr, max inf, boundary, content designed} AT_dist_deltaDist[go],
+                {min read-constant(AT_dist_mistakeGap), pref 1fr, max inf, boundary, content designed} AT_dist_mistakeGap[go]
+              ),
+              {min 160px, pref 1fr, max inf, gap 4px} V(
+                {min read-constant(AT_stab_stability), pref 1fr, max inf, boundary, content designed} AT_stab_stability[go],
+                {min read-constant(AT_stab_crossCorr), pref 1fr, max inf, boundary, content designed} AT_stab_crossCorr[go]
+              ),
+              {min read-constant(AT_multires), pref read-constant(AT_multires), max inf, boundary, content designed} AT_multires[go]
+            )[ANALYSIS TABS]
+          ),
+          {min 204px, pref 1fr, max inf, gap 4px, content unbounded} V(
+            {264px, boundary, content designed} otherColorDebug[debug],
+            {min read-constant(otherBand, landscape), pref 1fr, max inf, boundary, content unbounded, scroll v, edge v continuous} otherBand[common]
+          )
+        )[BLACK BOX],
+        @toggle(user, release) {min 160px, pref 160px, max 160px, aspect 1} previewBoard[common, info]
+      )
+    )
+  )

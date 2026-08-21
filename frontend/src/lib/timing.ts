@@ -29,9 +29,13 @@
  *     report cadences, the persisted PV-animation timings
  *     (`session.ui.pvAnimation`), and the move-suggestions fade (a
  *     knob default). These are runtime-user-owned, not constants.
- *   - CSS transition durations are theme tokens
- *     (`assets/css/theme.css`: `--duration-default`, `--duration-slow`),
- *     reachable from CSS, not TS.
+ *   - Feature-carrying `@keyframes` animation durations are a theme
+ *     token (`assets/css/theme.css`: `--duration-slow`), reachable
+ *     from CSS, not TS. `--duration-default` (the former chrome
+ *     hover/state-transition token) was deleted by the ledger-row-
+ *     1506 removal sweep along with every `transition:` declaration
+ *     that referenced it — see
+ *     `.claude/dispatch-reports/effects-ban-sweep-build.md`.
  *   - `waitForAnalysis`'s timeout is caller-supplied (a parameter,
  *     not a constant).
  *
@@ -133,8 +137,15 @@ export const QUEUE_TOOLTIP_REDRAW_THROTTLE_MS = SUBSCRIBER_PROJECTION_REDRAW_THR
  * 5 s latency reads churn at the packet rate through object identity.
  * Coalescing the displayed scalars to 4 Hz drops the strip from
  * ~packet-rate to ~4 redraws/sec; the headline numbers to one decimal
- * don't change meaningfully faster. The watchdog dot is intentionally NOT
- * throttled (it stays live so a latency spike flips it promptly).
+ * don't change meaningfully faster. The watchdog dot's `pingPendingSince`
+ * / `latencyMs` inputs are folded into this SAME throttled snapshot
+ * (fixed 2026-08 — an un-throttled watchdog read was re-running the
+ * whole component's render on every 1 Hz `ENGINE_METRICS_TICK_MS` store
+ * tick, reasserting the SELECTOR `<select>`'s value and killing hover;
+ * see `ToolbarEngineMetrics.vue`'s throttled-snapshot comment). 250ms is
+ * an order of magnitude faster than either watchdog cadence (the
+ * animated ping-tandem duration or the ~5s sample poll), so "a latency
+ * spike flips it promptly" still holds in practice.
  * Distinct from the chart / queue throttles despite the shared 250 ms:
  * different consumer, independently tunable.
  */
@@ -234,6 +245,25 @@ export const CHART_INIT_RETRY_MS = 100;
  * — a distinct consumer with its own tuned value; independently tunable.
  */
 export const FOREST_RENDER_RETRY_MS = 50;
+
+/**
+ * Wall-clock ceiling for the chart render-retry family
+ * (`CHART_INIT_RETRY_MS`, `FOREST_RENDER_RETRY_MS`): once a container has
+ * been polled for this long without acquiring a usable size, the retry
+ * (`lib/capped-retry.ts`) gives up and escalates loudly instead of
+ * continuing forever — the ADR-0011 Rule 2 mechanization of the recurring
+ * uncapped-`setTimeout` shape named in
+ * `.claude/dispatch-reports/lyt-cardtrees-regression.md` (cardtrees-fix-next,
+ * ledger row 1937). One shared ceiling across all three call sites
+ * (`useEChartsForestRender.ts`, `BaseChart.vue`, `HeatmapChart.vue`) —
+ * genuinely the same decision ("how long before 'still unsized' means the
+ * container will never resolve, not just that layout hasn't settled yet"),
+ * unlike the per-consumer poll interval above. 5s is generously above any
+ * observed real layout-settle latency (single-digit poll cycles in
+ * practice); a container still unsized after 5s indicates a structural
+ * layout defect, not a timing race.
+ */
+export const CHART_RENDER_RETRY_TIMEOUT_MS = 5000;
 
 // ═══════════════════════════════════════════════════════════════════
 // §5 — Micro-scheduling  [band-1]
@@ -335,6 +365,6 @@ export const KATAGO_FIRST_REPORT_FLOOR_S = 0.001;
 //     store.profile.settings.engine.katago.reportDuringSearchEvery
 //     (default 0.15 s) and .firstReportDuringSearchAfter (default 0.05 s).
 //   • PV-animation timings — store.profile.session.ui.pvAnimation
-//     (stepDelayMs / windowDurationMs / fadeDurationMs; defaults in
-//     src/store/defaults.ts and use-pv-animation's PV_DEFAULTS seed).
+//     (stepDelayMs / windowDurationMs; defaults in src/store/defaults.ts
+//     and use-pv-animation's PV_DEFAULTS seed).
 //   • Move-suggestions fade — a knob default (moveSuggestionsFadeMs).

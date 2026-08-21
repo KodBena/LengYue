@@ -27,16 +27,66 @@
  */
 
 import { vi } from 'vitest';
-import type { CardId, CardCreatePayload, CardMetadataPatch, ReviewCard } from '../../src/types';
+import type {
+  CardId,
+  CardCreatePayload,
+  CardBatchCreateRequestPayload,
+  CardLineageTree,
+  CardMetadataPatch,
+  CardPublicId,
+  ContentHash,
+  ResolveRootsResult,
+  ReviewCard,
+  TagStat,
+} from '../../src/types';
 
 export const fakeBackendService = {
   submitReview: vi.fn<(cardId: CardId, scores: number[]) => Promise<ReviewCard>>(),
   createCard: vi.fn<(payload: CardCreatePayload) => Promise<number>>(),
+  // Batch card-minting affordance (ledger rows 926/957/1008): one
+  // transactional POST /cards/batch call — see
+  // src/composables/cards/batch-mint-core.ts for the payload builder
+  // and MintCardModal.vue's submit() for the sole caller.
+  createCardsBatch: vi.fn<(payload: CardBatchCreateRequestPayload) => Promise<number[]>>(),
   updateCardMetadata: vi.fn<(cardId: CardId, patch: CardMetadataPatch) => Promise<ReviewCard>>(),
+  // useLearnPath's dedup-coverage read path (frontend/CLAUDE.md fakes
+  // discipline: added when useLearnPath.test.ts started exercising it).
+  // Browse-leak-fix (ledger rows 417/423): fetchTreeByRoot takes the
+  // per-user display id, not the raw CardId.
+  resolveRoots: vi.fn<(cardIds: CardId[]) => Promise<ResolveRootsResult>>(),
+  fetchTreeByRoot: vi.fn<(rootCardPublicId: CardPublicId, maxNodes?: number) => Promise<CardLineageTree>>(),
+  fetchCard: vi.fn<(cardId: CardId) => Promise<ReviewCard>>(),
+  // card-position-annotations Stage A: the stateless hash lookup
+  // (`POST /positions/hash`) — exercised by useMinting/useKnownPositions'
+  // mint-time duplicate check.
+  hashPosition: vi.fn<(rawContent: string) => Promise<ContentHash>>(),
+  // card-position-annotations Stage B: the batched hash lookup
+  // (`POST /positions/hash-batch`) — exercised by
+  // useNodePositionHashes' viewport-driven tree-node cache fill.
+  hashPositionsBatch: vi.fn<(rawContents: string[]) => Promise<ContentHash[]>>(),
+  // Known-positions boot-time hydrate: the bulk `(content_hash,
+  // card_id)` fetch (`GET /cards/hashes`) — exercised by
+  // useAppBootstrap's auth-flip-in watcher via
+  // useKnownPositions.hydrateKnownPositions.
+  fetchKnownPositionHashes:
+    vi.fn<() => Promise<Array<{ contentHash: ContentHash; cardId: CardId }>>>(),
+  // App-boot mechanism test (`tests/integration/App-boot.test.ts`,
+  // `.claude/dispatch-reports/lyt-boot-restoration.md`): useAppBootstrap's
+  // cold-start sequence fetches the tag dictionary unconditionally
+  // (`getTags`) — mounting the real App.vue exercises this call.
+  getTags: vi.fn<() => Promise<TagStat[]>>(),
 };
 
 export function resetFakeBackendService(): void {
   fakeBackendService.submitReview.mockReset();
   fakeBackendService.createCard.mockReset();
+  fakeBackendService.createCardsBatch.mockReset();
   fakeBackendService.updateCardMetadata.mockReset();
+  fakeBackendService.resolveRoots.mockReset();
+  fakeBackendService.fetchTreeByRoot.mockReset();
+  fakeBackendService.fetchCard.mockReset();
+  fakeBackendService.hashPosition.mockReset();
+  fakeBackendService.hashPositionsBatch.mockReset();
+  fakeBackendService.fetchKnownPositionHashes.mockReset();
+  fakeBackendService.getTags.mockReset();
 }

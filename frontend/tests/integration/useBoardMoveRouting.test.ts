@@ -155,6 +155,122 @@ beforeEach(() => {
 
 // ── AWAITING_MOVE: the graded path, never free play ─────────────────────────
 
+describe('useBoardMoveRouting — handlePass mirrors handleBoardMove\'s gating', () => {
+  it('AWAITING_MOVE: a pass routes to the review session\'s graded pass handler', async () => {
+    const { board, boardId, routing, fireAndAdvanceHead } = setup();
+    setReviewStatus(boardId, 'AWAITING_MOVE', board);
+
+    vi.mocked(waitForAnalysis).mockRejectedValue(new AnalysisWaitError('timeout'));
+
+    routing.handlePass();
+    await flushPromises();
+
+    expect(fakeAnalysisService.analyzeRange).toHaveBeenCalledTimes(1);
+    expect(store.session.reviews[boardId]?.userMovesCount).toBe(1);
+    const passNode = liveBoard(boardId).nodes[liveBoard(boardId).currentNodeId];
+    expect(passNode.move?.type).toBe('pass');
+    expect(fireAndAdvanceHead).not.toHaveBeenCalled();
+  });
+
+  it.each(['LOADING', 'ANALYZING'] as const)('%s: handlePass is a no-op', status => {
+    const { board, boardId, routing } = setup();
+    setReviewStatus(boardId, status, board);
+    const nodeBefore = liveBoard(boardId).currentNodeId;
+
+    routing.handlePass();
+
+    expect(liveBoard(boardId).currentNodeId).toBe(nodeBefore);
+    expect(fakeAnalysisService.analyzeRange).not.toHaveBeenCalled();
+  });
+
+  it('REVIEWED: handlePass is a no-op (restored snapshot is view-only)', () => {
+    const { board, boardId, routing } = setup();
+    setReviewStatus(boardId, 'REVIEWED', board);
+    const nodeBefore = liveBoard(boardId).currentNodeId;
+
+    routing.handlePass();
+
+    expect(liveBoard(boardId).currentNodeId).toBe(nodeBefore);
+  });
+
+  it('IDLE: a pass plays freely, turn flips, and no stone is placed', () => {
+    const { boardId, routing } = setup();
+    const before = liveBoard(boardId);
+    expect(before.turn).toBe('B');
+
+    routing.handlePass();
+
+    const after = liveBoard(boardId);
+    expect(after.turn).toBe('W');
+    expect(Object.keys(after.stones)).toHaveLength(0);
+    expect(after.nodes[after.currentNodeId].move).toEqual({ x: 0, y: 0, color: 'B', type: 'pass' });
+  });
+
+  // Item 4 (commissioner ruling, ledger row 2540): a go GUI permits
+  // unlimited passing — pass interpretation ("game ended") is a
+  // game-server concern, and this SPA is not one. `getGameEndStatus` /
+  // `GameStatus` (formerly `src/engine/util.ts`) and the StatusBar
+  // "Game ended — two consecutive passes" badge are REMOVED outright,
+  // not merely unwired — see that file's own removal comment. This
+  // pins the behavioural half of the removal at the routing layer:
+  // `handlePass` itself never consulted the removed status (confirmed
+  // by reading its full body before this change), so N consecutive
+  // passes must leave the board exactly as playable as after one.
+  it('IDLE: N consecutive passes never lock the board — every pass keeps flipping the turn and stays playable, no end state', () => {
+    const { boardId, routing } = setup();
+    const N = 5;
+    for (let i = 0; i < N; i++) {
+      routing.handlePass();
+    }
+
+    const after = liveBoard(boardId);
+    // 5 passes starting from Black: B,W,B,W,B — turn 5 is done, next to
+    // move is White. No stones are ever placed by a pass.
+    expect(after.turn).toBe('W');
+    expect(Object.keys(after.stones)).toHaveLength(0);
+    // The board is still fully playable: one more pass is accepted
+    // exactly like the first (never refused, never a no-op past some
+    // pass count).
+    const beforeSixth = liveBoard(boardId).nodes[liveBoard(boardId).currentNodeId].move;
+    routing.handlePass();
+    const afterSixth = liveBoard(boardId);
+    expect(afterSixth.nodes[afterSixth.currentNodeId].move).not.toEqual(beforeSixth);
+    expect(afterSixth.turn).toBe('B');
+    // And a genuine move still applies normally after any number of
+    // passes — passing never transitions the board into a state that
+    // refuses further mutation.
+    routing.handleBoardMove(3, 3);
+    const afterMove = liveBoard(boardId);
+    expect(afterMove.nodes[afterMove.currentNodeId].move).toMatchObject({ type: 'place', x: 3, y: 3 });
+  });
+
+  it('FINISHED: a pass is allowed (intermission exploration) and is not counted as a review move', () => {
+    const { board, boardId, routing } = setup();
+    setReviewStatus(boardId, 'FINISHED', board);
+
+    routing.handlePass();
+
+    expect(liveBoard(boardId).nodes[liveBoard(boardId).currentNodeId].move?.type).toBe('pass');
+    expect(store.session.reviews[boardId]?.userMovesCount).toBe(0);
+  });
+
+  it('a free-play pass FROM a game head fires the engine responder — passing off a head is still a move', () => {
+    const { board, boardId, routing, fireAndAdvanceHead } = setup();
+    const startNodeId: NodeId = board.rootNodeId;
+    mutateBoard(boardId, draft => {
+      draft.games[startNodeId] = {
+        config: { userColor: 'B', engineMaxVisits: 100, engineModel: null },
+        currentHeadNodeId: startNodeId,
+      };
+    });
+
+    routing.handlePass();
+
+    expect(fireAndAdvanceHead).toHaveBeenCalledTimes(1);
+    expect(fireAndAdvanceHead).toHaveBeenCalledWith(boardId, startNodeId);
+  });
+});
+
 describe('useBoardMoveRouting — AWAITING_MOVE routes to the graded handler', () => {
   it('a board click engages grading (analyzeRange + move count) and never the free-play head trigger', async () => {
     const { board, boardId, routing, fireAndAdvanceHead } = setup();

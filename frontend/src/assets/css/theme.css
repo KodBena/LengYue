@@ -2,9 +2,11 @@
  * src/assets/css/theme.css
  *
  * Chrome substrate — the SSOT for chrome design decisions in the
- * codebase. Color anchors (16 base: 4 surface, 3 border, 3 text,
- * 2 accent, 4 semantic state; plus 6 chart-derived helpers and 5
- * role aliases). Z-index ladder (4 layering tiers). Animation
+ * codebase. Color anchors (16 base: 4 surface, 3 border, 2 text,
+ * 2 accent, 1 text-on-accent, 4 semantic state; plus 6 chart-derived
+ * helpers, 5 role aliases, and 1 theme-invariant theme-exception
+ * literal accent — `--accent-peach`, wiki2-scrollbar-color). Z-index
+ * ladder (4 layering tiers). Animation
  * durations (2 timing tiers). Spacing scale (4 spacing tiers).
  * Font-size scale (4 typographic tiers). Border-radius scale (2
  * rounding tiers). Letter-spacing scale (3 tracking tiers).
@@ -19,7 +21,7 @@
  * accessors).
  *
  * ─── Theme variants (data-theme) ─────────────────────────────
- * The 16 base color anchors live inside `[data-theme="..."]`
+ * The 17 base color anchors live inside `[data-theme="..."]`
  * blocks at the top of this file; the alias layer (chart-derived
  * helpers, role aliases) stays in `:root` because CSS resolves
  * `var()` references at use time, not at declaration time — an
@@ -61,6 +63,62 @@
  * PATH_ENUMS to include the new name, and append a migration
  * coercion if a prior valid value is being retired.
  *
+ * ─── Text tier retirement: --text-1 / --text-2 → --text-0 / --text-disabled ───
+ * Commissioner ruling (ledger rows 1478/1479/1481/1497, ADR-0000-class
+ * fix): "*TEXT* should be read with maximal contrast ALWAYS. Any text
+ * that is intended for reading is max contrast (text-0) or it's not
+ * even rendered." The former medium/low-emphasis text tiers
+ * (`--text-1`, `--text-2`) let readable prose (labels, hints,
+ * descriptions, chart axis/legend text) render at lowered contrast —
+ * exactly the pattern the ruling forbids. Both are DELETED from every
+ * theme block below; every former consumer was migrated at its own
+ * site (see `.claude/dispatch-reports/labels-text0-sweep-build.md`
+ * for the full per-site census) to one of:
+ *   - `--text-0` — the text was actually meant to be read. This is
+ *     now the ONLY text-emphasis anchor; there is no more "high vs.
+ *     medium vs. low" tier for readable text.
+ *   - `--text-disabled` — the site is a disabled/inactive CONTROL
+ *     (the ruling's one worked exception), not readable prose. Minted
+ *     per theme block, taking that theme's old `--text-2` value (a
+ *     value already tuned as a plausible muted tone) — see each
+ *     block's own `--text-disabled` comment. Sanctioned for
+ *     functional de-emphasis on disabled/inactive controls ONLY; do
+ *     not reach for it to dim readable text.
+ * A residual handful of icon/glyph/border sites that were already
+ * misusing a text token for non-text paint (chevrons, close buttons,
+ * SVG strokes — token-category misuse predating this ruling, rows
+ * 681/742) were carried forward onto `--text-disabled` too, since it
+ * still holds the old `--text-2` value byte-for-byte (zero visual
+ * regression) — flagged as findings for a future dedicated
+ * `--icon-muted`-style mint, not a sanctioned use of the disabled
+ * semantic. See the sweep report for the itemized list.
+ *
+ * ─── High-contrast text override (data-contrast-text) ─────────
+ * Opt-in, default OFF (`AppSettings.appearance.highContrastText`,
+ * mirrored onto `<html data-contrast-text="on">` by the same
+ * useAppBootstrap watcher pattern as `data-theme`, attribute
+ * ABSENT — not `"off"` — when the setting is false). The
+ * `[data-theme="cluster"][data-contrast-text="on"]` block below
+ * the `cluster` block overrides ONLY `--text-on-accent` and
+ * `--accent-primary` now — `--text-2` (the third token the
+ * ADR-0019 audit, `.claude/dispatch-reports/adr19-audit.md` §S4,
+ * originally measured failing WCAG 2.1's 4.5:1 normal-text floor
+ * against `--surface-0`) is RETIRED per the text-tier note above, so
+ * there is nothing left for this block to darken on its behalf — its
+ * former base-block fix (the M26 taupe darkening, ledger row 1292)
+ * lives on only as `--text-disabled`'s value, which is exempt from
+ * the WCAG normal-text floor by design (disabled text is allowed to
+ * read as de-emphasized). `--accent-primary`'s override value is the
+ * same hue, darkened only as far as clearing 4.5:1 requires (see the
+ * block's own comments for the computed ratio) — this is a
+ * readability patch, not a second theme. Chart-derived helpers, role
+ * aliases, and every other base anchor (including the data-series /
+ * chart palette) are untouched; the `dark` theme has no matching
+ * block and is therefore untouched regardless of this attribute's
+ * value; the OFF state (attribute absent) matches no selector in
+ * this file, so it renders byte-identical to the theme with the
+ * override never having existed.
+ *
  * Out of scope:
  * - Domain (Go-specific) colors live in src/engine/constants.ts.
  * - Visualization-system anchors (visit-intensity LUT,
@@ -99,14 +157,57 @@
   --border-2: #333;      /* default — input edge, panel edge */
   --border-3: #555;      /* strong — focus, hover, active */
 
-  /* ── Text (3) ────────────────────────────────────────────── */
-  --text-0: #fff;        /* high emphasis — titles, primary */
-  --text-1: #aaa;        /* medium — body copy */
-  --text-2: #666;        /* low — labels, hints, axis text */
+  /* Splitter/divider handle — max-contrast against the theme ground
+   * (commissioner ruling 2026-08-10: the resizer sits flush against
+   * the peach scrollbar; a max-contrast bar separates the two
+   * affordances without dead space). White on dark, near-black on
+   * the light theme (see the cluster block's copy). */
+  --resizer-contrast: #fff;
+
+  /* ── Text (2) ────────────────────────────────────────────── */
+  /* rows 1478/1479/1481/1497: --text-1 (medium) and --text-2 (low)
+   * are RETIRED — see this file's header docstring, "Text tier
+   * retirement." --text-0 is now the only emphasis tier for
+   * readable text; --text-disabled below is the disabled-control
+   * exception, not a second reading-text tier. */
+  --text-0: #fff;        /* the only text-emphasis tier — titles, body, labels, hints, all readable text */
+  /* Old --text-2 value, carried forward as the disabled/inactive-
+   * control tone ONLY (commissioner ruling rows 1481/1497) — never
+   * for readable text, however secondary it may look. */
+  --text-disabled: #666;
 
   /* ── Accent (2) ──────────────────────────────────────────── */
   --accent-primary:   #4aaef0;  /* cyan — active interactive */
   --accent-secondary: #f0a04a;  /* orange — SR / CTA / current-card */
+  /* Chart-series-locked mirror of --accent-primary (decouple-via-alias,
+   * same pattern as the "Role aliases" section below). The `dark` theme
+   * has no high-contrast-text override block, so this equals
+   * --accent-primary today and always will here — declared for parity
+   * with the `cluster` block below, where the two DO diverge, so
+   * `--player-black` / the chart-derived helpers read from one stable
+   * name regardless of theme. See the `[data-theme="cluster"]` block's
+   * copy of this comment for the full rationale. */
+  --accent-primary-canonical: #4aaef0;
+
+  /* ── Text-on-accent (1) ──────────────────────────────────── */
+  /* Ledger row 1018 / row 1144 (Library audit L10/L11, commissioner
+   * ruling): a role for text that sits DIRECTLY on an --accent-primary
+   * fill — a filled button label, a selected-row highlight — distinct
+   * from the `text-*` tier, which is calibrated for THIS theme's own
+   * page background (black), not for a light accent chip. Measured:
+   * `--text-0` (#fff) on `--accent-primary` (#4aaef0, luminance
+   * 0.380) is ~2.44:1 — fails 4.5:1, and no `text-*` anchor in this
+   * theme (#fff/#aaa/#666) is dark enough to clear it (need luminance
+   * <= ~0.046; the only anchors that dark are surface-0/1, which
+   * would repeat the surface-as-foreground category-inversion defect
+   * this token exists to avoid). #333 is a literal, independently
+   * chosen value for this role (not an alias to --border-2, even
+   * though it happens to share border-2's hex today — a future
+   * border-2 retune must not silently drag this token with it):
+   * #333 on #4aaef0 = ~5.18:1, clears the WCAG AA 4.5:1 normal-text
+   * floor with margin. See the `[data-theme="cluster"]` block's copy
+   * of this comment for that theme's (very different) derivation. */
+  --text-on-accent: #333;
 
   /* ── Semantic state (4) ──────────────────────────────────── */
   --state-success:   #4caf50;  /* engine connected, complete */
@@ -181,19 +282,70 @@
   --border-2: var(--cluster-12-6);  /* default (taupe) */
   --border-3: var(--cluster-12-4);  /* strong / focus (purple) */
 
-  /* ── Text (3) — two effective values ─────────────────────────
-   * text-0 and text-1 collapse to deep purple (the only strong-
-   * contrast text against pink and taupe alike); text-2 is
-   * taupe (low-emphasis on pink, blends-into-chrome on taupe —
-   * which reads as "incidental" rather than "informational",
-   * the right semantic for axis labels and hints). */
-  --text-0: var(--cluster-12-4);    /* high emphasis (purple) */
-  --text-1: var(--cluster-12-4);    /* body copy (purple) */
-  --text-2: var(--cluster-12-6);    /* labels, hints (taupe) */
+  /* Splitter/divider handle — max-contrast against the theme ground
+   * (commissioner ruling 2026-08-10; see the dark block's copy).
+   * Palette-strict: the canonical near-black text entry, not a raw
+   * #000 (this block uses ONLY the 12 palette entries — see the
+   * block docstring). */
+  --resizer-contrast: var(--cluster-12-4);
+
+  /* ── Text (2) — rows 1478/1479/1481/1497: --text-1/--text-2
+   * RETIRED (see this file's header docstring, "Text tier
+   * retirement"). --text-0 (deep purple) is now the sole
+   * text-emphasis tier — every former --text-1 site read the same
+   * deep-purple value anyway, so the collapse is a no-op for them;
+   * every former --text-2 (readable-text) site was migrated to
+   * --text-0 too, at its own consumer site. */
+  --text-0: var(--cluster-12-4);    /* the only text-emphasis tier (purple) */
+  /* M26's already-vetted darkened taupe (audit finding, ledger row
+   * 1292) carried forward as --text-disabled — disabled/inactive
+   * CONTROLS only (commissioner ruling rows 1481/1497), never
+   * readable text. The raw palette entry (--cluster-12-6, taupe,
+   * rgb(122,111,109), L ~= 0.1661) measures ~3.84:1 against
+   * --surface-0 (--cluster-12-9, rgb(254,218,247), L ~= 0.7796) —
+   * below WCAG AA 4.5:1, which is why M26 darkened it in the first
+   * place when this value still had to carry readable text; that
+   * floor no longer applies to this token now that its only
+   * sanctioned use is disabled-control de-emphasis, but the already-
+   * derived value (same hue, R:G:B ratio preserved, scaled to ~85%
+   * luminance-equivalent brightness: rgb(104,94,93), L ~= 0.1175,
+   * ~4.95:1) is kept rather than reverting to the raw palette entry —
+   * it is still a perfectly good muted tone, no reason to re-derive. */
+  --text-disabled: #685E5D;
 
   /* ── Accent (2) ──────────────────────────────────────────── */
   --accent-primary:   var(--cluster-12-2);   /* sky blue */
   --accent-secondary: var(--cluster-12-11);  /* orange — SR / CTA */
+  /* Chart-series-locked mirror of --accent-primary, sourced from the
+   * palette entry directly (--cluster-12-2), NOT from --accent-primary
+   * itself. This is deliberate: the high-contrast-text override block
+   * below darkens --accent-primary for its TEXT/CTA role (the ADR-0019
+   * audit's failing-contrast finding), and CSS custom properties
+   * resolve `var()` against the live cascade — a naive `var(--accent-
+   * primary)` indirection here would inherit that darkened value too,
+   * silently recoloring every chart-derived consumer of this alias.
+   * Routing the chart-derived helpers (`--heatmap-mid`, `--chart-
+   * marker`) and `--player-black` through THIS anchor instead keeps
+   * them pinned to the palette's curated blue in both contrast states —
+   * "the data-series palette is untouched in both states" per the
+   * commissioner's brief. Same decouple-via-alias discipline as the
+   * "Role aliases" section below, applied one layer earlier because the
+   * conflict originates in a base anchor, not an alias. */
+  --accent-primary-canonical: var(--cluster-12-2);
+
+  /* ── Text-on-accent (1) ──────────────────────────────────── */
+  /* Ledger row 1018 / row 1144 (Library audit L10/L11, commissioner
+   * ruling). See the `[data-theme="dark"]` block's copy of this
+   * comment for the role's full rationale — text sitting DIRECTLY on
+   * an --accent-primary fill, distinct from the `text-*` tier. Here
+   * the derivation is easier: `--cluster-12-4` (deep purple, the same
+   * entry `--text-0` already uses) against `--accent-
+   * primary` (`--cluster-12-2`, sky blue, luminance 0.349) is ~7.74:1
+   * — comfortably clears 4.5:1, so no separate literal is needed here;
+   * strict palette compliance (this block's own docstring) is
+   * preserved by projecting to the same curated `--cluster-12-N`
+   * entry rather than introducing a new literal for this theme. */
+  --text-on-accent: var(--cluster-12-4);
 
   /* ── Semantic state (4) ──────────────────────────────────── */
   --state-success:   var(--cluster-12-1);   /* bright green */
@@ -202,17 +354,90 @@
   --state-attention: var(--cluster-12-10);  /* hot pink */
 }
 
+/* Opt-in high-contrast text override for `cluster` — see this file's
+ * header docstring, "High-contrast text override (data-contrast-text)",
+ * for the mechanism. `AppSettings.appearance.highContrastText` (default
+ * false); useAppBootstrap mirrors it onto this attribute.
+ *
+ * Only `--accent-primary` is overridden here now — the ADR-0019 audit
+ * (`.claude/dispatch-reports/adr19-audit.md` §S4) originally measured
+ * BOTH this token and the former `--text-2` failing WCAG 2.1's 4.5:1
+ * normal-text floor against `--surface-0` (`--cluster-12-9`, `#fedaf7`)
+ * when bound to their raw cluster-12 entries; M26 (audit finding,
+ * ledger row 1292) re-found the same `--text-2` failure as the DEFAULT
+ * (not opt-in) rendering and moved its darkened value into the base
+ * `[data-theme="cluster"]` block. Rows 1478/1479/1481/1497 then
+ * retired `--text-2` as a text token entirely (this file's header
+ * docstring, "Text tier retirement") — its former darkened value now
+ * lives on only as `--text-disabled` (disabled-control tone), which
+ * this override block has no reason to touch. The override here is
+ * the SAME hue as the palette entry it replaces, scaled down in
+ * luminance only (no hue rotation, no desaturation toward gray) —
+ * "same look, readable", per the commissioner's brief, not a second
+ * theme. `--text-0` (`--cluster-12-4`, deep purple) already clears
+ * ~16:1 against `--surface-0` and is left alone; every other base
+ * anchor, every chart-derived helper (`--heatmap-*`, `--chart-*`),
+ * and every role alias (`--player-*`, `--review-*`) is untouched, so
+ * the data-series / chart palette this rule must not touch stays
+ * exactly as `[data-theme="cluster"]` declares it.
+ *
+ * Ratio computed via the WCAG 2.1 relative-luminance formula
+ * (`L = 0.2126 R + 0.7152 G + 0.0722 B` on gamma-expanded channels;
+ * contrast `= (L1 + 0.05) / (L2 + 0.05)`), against `--surface-0`
+ * (`--cluster-12-9`, rgb(254,218,247), L ≈ 0.7796) — the background
+ * the audit's worst-offender rows were measured against and the
+ * background the vast majority of the affected text nodes (tab
+ * labels, leaf-labels, the accent CTA/badges) actually render on. */
+[data-theme="cluster"][data-contrast-text="on"] {
+  /* accent-primary (Mint Card CTA, active tab, "5%" badge, branch
+   * labels): cluster-12-2 rgb(0,167,255), sky blue, L ≈ 0.3486 →
+   * 2.08:1 against surface-0 (fails both 4.5:1 and 3:1). Scaled to
+   * ~63% luminance-equivalent brightness (hue and 0-red channel
+   * preserved) → rgb(0,105,161), L ≈ 0.1269 → 4.69:1. PASS (normal
+   * text, ≥ 4.5:1; also clears the 3:1 large-text/glyph floor with
+   * more margin). */
+  --accent-primary: #0069A1;
+
+  /* text-on-accent (.preview-btn.primary label, .library-row.selected
+   * text): NOT one of the two tokens the ADR-0019 audit measured, but
+   * left un-overridden here it silently inherits the base cluster
+   * block's value for that role, `var(--cluster-12-4)` (deep purple,
+   * rgb(11,0,27), L ≈ 0.0016) — measured directly against THIS block's
+   * darkened --accent-primary (rgb(0,105,161), L ≈ 0.1269): (0.0016 +
+   * 0.05) / (0.1269 + 0.05) ≈ 3.43:1, fails the 4.5:1 normal-text
+   * floor (row 1198). Unlike accent-primary above, darkening
+   * the existing palette entry further isn't the fix — the token
+   * needs to go LIGHTER against a now-dark fill, so a literal (same
+   * discipline as the base :root block's own independently-chosen
+   * hex for that role, #333, not a --cluster-12-N alias) is category-
+   * correct here: white, rgb(255,255,255), L = 1.0 → (1.0 + 0.05) /
+   * (0.1269 + 0.05) ≈ 5.94:1. PASS (normal text, ≥ 4.5:1, with
+   * headroom). */
+  --text-on-accent: #FFFFFF;
+}
+
 :root {
   /* ── Chart-derived helpers (aliases; no new decisions) ────
    * `var()` resolves at use time against the active cascade,
    * so these aliases automatically pick up the active theme's
    * base values. Declared here once rather than per-theme. */
   --heatmap-low:  var(--surface-2);
-  --heatmap-mid:  var(--accent-primary);
+  /* --heatmap-mid and --chart-marker route through
+   * --accent-primary-canonical, NOT --accent-primary — see that
+   * anchor's docstring in each `[data-theme="X"]` block above. These
+   * are data-series-adjacent chart paint; the high-contrast-text
+   * override must not recolor them. */
+  --heatmap-mid:  var(--accent-primary-canonical);
   --heatmap-high: var(--state-error);
   --chart-grid:   var(--border-1);
-  --chart-axis:   var(--text-2);
-  --chart-marker: var(--accent-primary);
+  /* rows 1478/1479/1481: chart axis tick text is read by users like
+   * any other label, so this alias now routes to --text-0 (max
+   * contrast), not --text-2. Flipped here — the alias's one home —
+   * not at each consumer; no consumer currently references
+   * --chart-axis (they read --text-1/--text-2 directly, each
+   * reclassified at its own site in this same sweep). */
+  --chart-axis:   var(--text-0);
+  --chart-marker: var(--accent-primary-canonical);
 
   /* ── Role aliases for implicit handles (decouple-via-alias) ─
    * Where a consumer's semantic role doesn't fit the chrome
@@ -230,8 +455,12 @@
    * base values the active theme block defines. */
 
   /* Player identifiers — used in chart series for B/W deltas
-   * and per-point markers. Band 2 (game-tree-coupled). */
-  --player-black: var(--accent-primary);
+   * and per-point markers. Band 2 (game-tree-coupled). Routes
+   * through --accent-primary-canonical (not --accent-primary) for
+   * the same data-series-lock reason as --heatmap-mid /
+   * --chart-marker above — --player-black is a per-series chart
+   * color, not chrome text. */
+  --player-black: var(--accent-primary-canonical);
   --player-white: var(--state-error);
 
   /* Review-session lifecycle states — used for tab-thumb
@@ -267,26 +496,49 @@
    * color decouple-via-alias pattern. */
   --z-popover:    10;     /* in-stacking-context popovers, dropdowns, brush handles */
   --z-affordance: 50;     /* panel-level chrome affordances (resizers, drag handles) */
+  /* --z-popover-chrome (W4, lyt-vue-realization-roadmap.md §8 W4 item 3):
+   * role alias for the toolbar/corner-chrome popover family (the corner
+   * presence menu, the board-rail popover trigger, the sliders popover,
+   * PboPopover, the engine-queue tooltip, the locale picker) — these all
+   * live directly inside the LYT grid tree (LytNode.vue's own grid-item
+   * cells), which is a page-level layout, not a modal's own elevated
+   * stacking context the way --z-popover's own doc comment assumes
+   * ("in-stacking-context popovers"). Before this alias each of the six
+   * hardcoded its own ad hoc literal (1000 or, for the queue tooltip,
+   * 100 — LOWER than its siblings, an inconsistency a commissioner
+   * screenshot review caught as popovers occluding one another /
+   * rendering under later LYT grid siblings). One shared token so every
+   * chrome popover clears the grid tree uniformly and a future site
+   * can't silently regress to a mismatched literal. */
+  --z-popover-chrome: 1000;
+  /* --z-chrome-overlay (W4 item 1): role alias for the banners +
+   * system-log OVERLAY STRATUM (roadmap §7 ruling: "overlay, never
+   * occluding the board") — App.vue's `#lyt-overlay-stack`. Sits above
+   * --z-popover-chrome so an alert (keybinding-capture, save-failure,
+   * a freshly-arrived error the log auto-reveals) is never silently
+   * hidden behind an open toolbar popover, but below --z-modal so a
+   * real modal dialog still wins focus/stacking over a standing
+   * banner. */
+  --z-chrome-overlay: 2000;
   --z-modal:      9999;   /* page-level modal scrim, drag-preview overlays */
   --z-overlay:    99999;  /* error / system overlay above modals */
 
-  /* ── Animation durations (2) ──────────────────────────────────
-   * Two tiers, ordered fast → slow. Snap-by-cluster applied to
-   * 22 surveyed transition sites: the prior 0.1s / 0.12s / 0.15s
-   * / 0.2s spread is within JND for the role they all serve
-   * (hover and state transitions on chrome) and collapses into
-   * a single --duration-default at 0.2s (the largest cluster and
-   * web-design canonical default). The pulse-and-attention
-   * animation tier is preserved as a distinct role at 1s. If a
-   * future need surfaces for a snappier-than-default tier (e.g.
-   * an SVG node hover with sub-100ms feedback), add the tier
-   * here rather than reaching for an inline literal — same
-   * discipline as z-index. The MoveSuggestions PV-stone fade
-   * (60ms inline in MoveSuggestions.vue) is intentionally faster
-   * than chrome and band-2 game-tree-coupled; it stays inline-
-   * justified rather than entering this scale. */
-  --duration-default: 0.2s;  /* chrome hover and state transitions */
-  --duration-slow:    1s;    /* pulse and attention animations */
+  /* ── Animation durations (1) ──────────────────────────────────
+   * --duration-default (formerly the chrome hover/state-transition
+   * SSOT, already zeroed to 0s per an earlier maintainer ruling)
+   * was DELETED here: the removal sweep for ledger row 1506 (box-
+   * shadow / CSS transitions / blur banned outright, no carve-
+   * outs) deleted every `transition:` declaration that referenced
+   * it, leaving the token unreferenced — see
+   * .claude/dispatch-reports/effects-ban-sweep-build.md. Do not
+   * reintroduce a `transition:` declaration that reaches for this
+   * name; it no longer exists. --duration-slow is untouched: it
+   * gates only feature-carrying `animation:` keyframes (the
+   * watchdog-pinging indicator, off by default, and PboPopover's
+   * busy-dot pulse), which are `@keyframes`-driven animation, not
+   * a CSS `transition` — outside row 1506's ban and reported as a
+   * finding, not removed, per the sweep's brief. */
+  --duration-slow: 1s;    /* pulse and attention animations (feature-carrying keyframes only) */
 
   /* ── Spacing scale (4) ───────────────────────────────────────
    * Four tiers for gap, padding, margin. Snap-by-cluster
@@ -399,4 +651,60 @@
    * obviously-disabled-enough in a future tuning pass, lower
    * to 0.4 here without disturbing consumers. */
   --alpha-disabled: 0.5;
+
+  /* ── Theme-exception accent (1) ──────────────────────────────
+   * A peach accent outside the chrome substrate's own vocabulary
+   * (--accent-primary is cyan, --accent-secondary is orange
+   * #f0a04a — this peach is distinct from both), theme-invariant
+   * by design: same category as the ~14 documented
+   * `theme-exception` blocks this file's header names
+   * (RegistryEditor's amber/pink role indicators, QeuboToolbar's
+   * muted-cyan buttons, …). Minted (wiki2-scrollbar-color) for the
+   * scrollbar styling below; App.vue's `.panel-resizer` briefly
+   * shared it but moved to `--resizer-contrast` (commissioner
+   * ruling 2026-08-10 — adjacent same-color affordances read as
+   * one), leaving the scrollbar as the sole consumer. */
+  --accent-peach: #eba46d;
+}
+
+/* ── App-wide scrollbar color (wiki2-scrollbar-color) ────────────
+ * Commissioned literally as "#eba46d" — the same peach
+ * `--accent-peach` token above already carries for App.vue's
+ * `.panel-resizer` handles, reused here rather than minting a
+ * second token for the identical value. Theme-invariant (declared
+ * outside any `[data-theme="…"]` block) to match that precedent —
+ * scrollbars read as a chrome-affordance accent, not a
+ * per-theme-tunable surface.
+ *
+ * Two mechanisms, both included since this app ships both as a Vite/
+ * Chromium web build and as a Tauri desktop shell (`package.json`'s
+ * `tauri:dev`/`tauri:build`, `src-tauri/`) whose embedded webview
+ * varies by OS — the exact per-OS webview engine is not re-verified
+ * here (out of scope for this pass), so both the standard property and
+ * the longer-standing WebKit-specific pseudo-elements are declared
+ * rather than assuming either alone covers every shell: `scrollbar-color`
+ * is the standard property (Firefox and current WebKit/Chromium both
+ * honor it); the `::-webkit-scrollbar*` pseudo-elements are kept
+ * alongside for any embedded engine that supports the pseudo-elements
+ * but not yet (or only partially) the standard property.
+ *
+ * COLOR ONLY (commissioner corrections, ledger rows 1626/1628): the
+ * commission changes scrollbar colors (plus explicitly-commissioned
+ * thumb rounding, Chromium-only by mechanism) and nothing else — no
+ * width or hover restyle; browser-default metrics stay untouched.
+ * The track color is the syntactically-required second value of
+ * `scrollbar-color`; `--surface-0` per the standing surface-token
+ * discipline (--surface-1 is the justified-exception token, and no
+ * justification applies here — commissioner correction 2026-08-10). */
+* {
+  scrollbar-color: var(--accent-peach) var(--surface-0);
+}
+*::-webkit-scrollbar-track {
+  background: var(--surface-0);
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--accent-peach);
+  /* Rounding commissioned explicitly (2026-08-10, follow-up to the
+   * row-1626 color-only correction) — width/hover remain untouched. */
+  border-radius: var(--radius-default);
 }

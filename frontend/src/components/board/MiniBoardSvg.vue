@@ -67,6 +67,23 @@ const markerRing = computed(() => {
   const onBlack = props.snapshot.stones[`${lm.x},${lm.y}`] === 'B';
   return { x, y, r: geo.value.stoneR * MARKER_INNER_RATIO, stroke: onBlack ? 'white' : 'black' };
 });
+
+// Item 2 (mandate addendum, best-move variation): PV stones — same
+// per-move colour/position/moveNumber data `MoveSuggestions.vue`'s own
+// "2. Animated PV Stones" group projects, statically (this thumbnail has
+// no hover surface to drive an animation off of; a fixed, always-visible
+// variation IS the preview). `PV_OPACITY` mirrors that overlay's own
+// gradient-fill idiom at reduced opacity so a PV stone reads as
+// "hypothetical", never confusable with a REAL stone in `stoneList`
+// above at a glance — the same visual grammar the main board already
+// established for exactly this distinction.
+const PV_OPACITY = 0.55;
+const pvStoneList = computed(() =>
+  (props.snapshot.pv ?? []).map((mv) => {
+    const { x, y } = geo.value.toSVG(mv.x, mv.y);
+    return { key: `pv-${mv.moveNumber}`, x, y, color: mv.color, moveNumber: mv.moveNumber };
+  }),
+);
 </script>
 
 <template>
@@ -116,6 +133,28 @@ const markerRing = computed(() => {
       opacity="0.8"
     />
 
+    <g v-for="stone in pvStoneList" :key="stone.key" class="pv-stone-group" data-testid="mini-board-pv-stone">
+      <circle
+        :cx="stone.x"
+        :cy="stone.y"
+        :r="geo.stoneR"
+        :fill="stone.color === 'B' ? `url(#gb-${uid})` : `url(#gw-${uid})`"
+        :stroke="stone.color === 'B' ? '#000' : '#aaa'"
+        stroke-width="0.5"
+        :opacity="PV_OPACITY"
+      />
+      <text
+        :x="stone.x"
+        :y="stone.y + 1"
+        class="pv-stone-label"
+        :font-size="geo.stoneR * 0.82"
+        text-anchor="middle"
+        dominant-baseline="middle"
+        :fill="stone.color === 'B' ? '#e8e8e8' : '#1a1a1a'"
+        :opacity="PV_OPACITY"
+      >{{ stone.moveNumber }}</text>
+    </g>
+
     <!-- Variation A/B/C labels (optional). -->
     <template v-for="lbl in labelList" :key="lbl.key">
       <rect :x="lbl.x - 7" :y="lbl.y - 7" width="14" height="14" fill="rgba(255,255,255,0)" rx="2" />
@@ -139,4 +178,8 @@ const markerRing = computed(() => {
   width: 100%;
   height: 100%;
 }
+/* Item 2: PV stones are decorative overlay, not interactive content —
+   mirrors `MoveSuggestions.vue`'s own `.pv-stone-group` rule. */
+.pv-stone-group { pointer-events: none; }
+.pv-stone-label { pointer-events: none; font-family: monospace; font-weight: bold; user-select: none; }
 </style>

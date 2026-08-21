@@ -18,7 +18,8 @@ import * as echarts from 'echarts';
 import type { EChartsTreeNode } from '../../components/charts/card-tree-echarts';
 import { themeColor } from '../../utils/theme-color';
 import { store } from '../../store';
-import { FOREST_RENDER_RETRY_MS } from '../../lib/timing';
+import { FOREST_RENDER_RETRY_MS, CHART_RENDER_RETRY_TIMEOUT_MS } from '../../lib/timing';
+import { cappedRetry, type CappedRetryHandle } from '../../lib/capped-retry';
 
 export interface ForestChartConfig<P> {
   /** Per-tree key (stable identifier ECharts instances are stored under). */
@@ -67,8 +68,19 @@ export interface ForestChartHandle<P> {
 export function useEChartsForestRender<P>(): ForestChartHandle<P> {
   const instances = new Map<string, echarts.ECharts>();
   const observers = new Map<string, ResizeObserver>();
+  // Per-tree pending render-retry (cardtrees-fix-next, ledger row 1937 —
+  // the capped-retry mechanization of the class named in
+  // .claude/dispatch-reports/lyt-cardtrees-regression.md). Tracked so a
+  // retry in flight when the tree drops out of the forest (destroy) or the
+  // component unmounts is cancelled rather than left to keep polling a
+  // container that's about to be torn down — the ADR-0010 imperative-
+  // escape step-4 discipline applied to this timer the same way it applies
+  // to a ResizeObserver.
+  const pendingRetries = new Map<string, CappedRetryHandle>();
 
   function destroy(key: string): void {
+    pendingRetries.get(key)?.cancel();
+    pendingRetries.delete(key);
     const inst = instances.get(key);
     if (inst) {
       inst.dispose();
@@ -121,76 +133,106 @@ export function useEChartsForestRender<P>(): ForestChartHandle<P> {
   }
 
   function render(cfg: ForestChartConfig<P>): void {
-    const inst = ensure(cfg);
-    if (!inst) {
-      // Container not yet sized — try again on next tick. Mirrors
-      // LineageTreeChart's initial-mount race-window pattern.
-      // Render-retry — short enough to feel immediate after layout
-      // settles, long enough that the next tick has actually happened.
-      // The forest render-retry constant from the timing catalog
-      // (`lib/timing`).
-      setTimeout(() => render(cfg), FOREST_RENDER_RETRY_MS);
-      return;
-    }
-    const isMassive = cfg.renderedNodeCount > 500;
-    inst.setOption({
-      backgroundColor: 'transparent',
-      tooltip: {
-        trigger: 'item',
-        triggerOn: 'mousemove',
-        backgroundColor: themeColor('--surface-0'),
-        borderColor: themeColor('--accent-primary'),
-        textStyle: { color: themeColor('--text-1'), fontSize: 11 },
-        enterable: true,
-        // Keep the tooltip inside the chart's bounding rect — without
-        // this, ECharts positions the tooltip outside the chart when
-        // hovering near an edge, and the chart's ancestor
-        // `.forest-container { overflow: hidden }` then clips it. The
-        // visible symptom was "tooltip falls under the adjacent pane"
-        // at 4K and 1024×768 (1024×768 worse because the chart is
-        // narrower; tooltip exits sooner). Same fix as `BaseChart.vue`
-        // for the analysis charts; iter-18 backfilled it here.
-        confine: true,
-        formatter: (info: { data?: { payload?: P } }) => {
-          const payload = info.data?.payload;
-          if (payload === undefined) return '';
-          return cfg.tooltipFor(payload);
-        },
-      },
-      series: [
-        {
-          type: 'tree',
-          data: [cfg.data],
-          top: '5%',
-          left: '10%',
-          bottom: '5%',
-          right: '15%',
-          layout: 'orthogonal',
-          orient: cfg.orient,
-          symbolSize: 8,
-          initialTreeDepth: -1,
-          roam: true,
-          // Disable ECharts' built-in collapse so click is purely
-          // a navigation/expansion signal we own.
-          expandAndCollapse: false,
-          label: {
-            show: !isMassive,
-            position: cfg.orient === 'TB' ? 'top' : 'left',
-            fontSize: 9,
-            color: themeColor('--text-1'),
+    // Cancel any retry already in flight for this key before starting a
+    // fresh attempt — syncCharts / the theme-change watcher below can call
+    // render() again (new data, new theme) before an earlier attempt's
+    // retry has fired; without this, two overlapping cappedRetry loops
+    // would both poll the same container.
+    pendingRetries.get(cfg.treeKey)?.cancel();
+    pendingRetries.delete(cfg.treeKey);
+
+    // Container-size gate + the actual setOption body, wrapped in
+    // cappedRetry (lib/capped-retry.ts) instead of a raw uncapped
+    // `setTimeout` self-recursion — the ADR-0011 Rule 2 mechanization of
+    // the recurring shape named in
+    // .claude/dispatch-reports/lyt-cardtrees-regression.md. Short enough
+    // to feel immediate after layout settles, long enough that the next
+    // tick has actually happened (FOREST_RENDER_RETRY_MS, `lib/timing`);
+    // capped at CHART_RENDER_RETRY_TIMEOUT_MS wall-clock before escalating
+    // to a console.warn instead of polling forever.
+    const attempt = (): boolean => {
+      const inst = ensure(cfg);
+      if (!inst) return false;
+      const isMassive = cfg.renderedNodeCount > 500;
+      inst.setOption({
+        backgroundColor: 'transparent',
+        tooltip: {
+          trigger: 'item',
+          triggerOn: 'mousemove',
+          backgroundColor: themeColor('--surface-0'),
+          // Chrome, not data-series (disclosed, contrast-tokens-review.md (4)):
+          // a tooltip-box border encodes no data. Reads
+          // '--accent-primary' directly (not the chart-series-locked
+          // canonical) so it inherits the high-contrast override like any
+          // other chrome accent use; the guard test
+          // (tests/unit/chart-accent-primary-lock.test.ts) allowlists this
+          // exact line.
+          borderColor: themeColor('--accent-primary'),
+          textStyle: { color: themeColor('--text-0'), fontSize: 11 },
+          enterable: true,
+          // Keep the tooltip inside the chart's bounding rect — without
+          // this, ECharts positions the tooltip outside the chart when
+          // hovering near an edge, and the chart's ancestor
+          // `.forest-container { overflow: hidden }` then clips it. The
+          // visible symptom was "tooltip falls under the adjacent pane"
+          // at 4K and 1024×768 (1024×768 worse because the chart is
+          // narrower; tooltip exits sooner). Same fix as `BaseChart.vue`
+          // for the analysis charts; iter-18 backfilled it here.
+          confine: true,
+          formatter: (info: { data?: { payload?: P } }) => {
+            const payload = info.data?.payload;
+            if (payload === undefined) return '';
+            return cfg.tooltipFor(payload);
           },
-          leaves: {
+        },
+        series: [
+          {
+            type: 'tree',
+            data: [cfg.data],
+            top: '5%',
+            left: '10%',
+            bottom: '5%',
+            right: '15%',
+            layout: 'orthogonal',
+            orient: cfg.orient,
+            symbolSize: 8,
+            initialTreeDepth: -1,
+            roam: true,
+            // Disable ECharts' built-in collapse so click is purely
+            // a navigation/expansion signal we own.
+            expandAndCollapse: false,
             label: {
               show: !isMassive,
-              position: cfg.orient === 'TB' ? 'bottom' : 'right',
+              position: cfg.orient === 'TB' ? 'top' : 'left',
+              fontSize: 9,
+              color: themeColor('--text-0'),
             },
+            leaves: {
+              label: {
+                show: !isMassive,
+                position: cfg.orient === 'TB' ? 'bottom' : 'right',
+              },
+            },
+            animationDuration: isMassive ? 0 : 400,
+            animationDurationUpdate: isMassive ? 0 : 400,
+            lineStyle: { color: themeColor('--border-3'), curveness: 0.4, width: 1.2 },
           },
-          animationDuration: isMassive ? 0 : 400,
-          animationDurationUpdate: isMassive ? 0 : 400,
-          lineStyle: { color: themeColor('--border-3'), curveness: 0.4, width: 1.2 },
-        },
-      ],
+        ],
+      });
+      return true;
+    };
+
+    const handle = cappedRetry(attempt, {
+      intervalMs: FOREST_RENDER_RETRY_MS,
+      timeoutMs: CHART_RENDER_RETRY_TIMEOUT_MS,
+      label: `forest-chart:${cfg.treeKey}`,
+      // Escalation-time size read (review finding 1 — the diagnosis's own
+      // closure statement names "the container and its measured size" as
+      // the minimum loudness bar). `cfg.el` is the container the whole
+      // gate is keyed on, so it's always available to measure.
+      readSize: () => ({ width: cfg.el.clientWidth, height: cfg.el.clientHeight }),
     });
+    pendingRetries.set(cfg.treeKey, handle);
   }
 
   // Last-applied configs, retained so the theme-change watcher below
@@ -222,6 +264,12 @@ export function useEChartsForestRender<P>(): ForestChartHandle<P> {
 
   onUnmounted(() => {
     stopThemeWatch();
+    // Cancel every pending render-retry first — a retry that hasn't
+    // resolved yet may belong to a treeKey with no instance in
+    // `instances` at all (still awaiting its first successful ensure()),
+    // so the destroy() loop below alone wouldn't reach it.
+    for (const handle of pendingRetries.values()) handle.cancel();
+    pendingRetries.clear();
     for (const k of [...instances.keys()]) destroy(k);
   });
 

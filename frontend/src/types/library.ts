@@ -11,7 +11,7 @@
  * License: Public Domain (The Unlicense)
  */
 
-import type { BoardId, GameSourceId } from './ids';
+import type { BoardId, GameSourceId, GameDisplayOrdinal } from './ids';
 
 // ── Value Objects (readonly preserved) — SGF library domain ───────────────────
 //
@@ -62,7 +62,13 @@ export interface PlayerCount {
 // discipline (~2 KB/row × 100 rows would dwarf the metadata).
 export interface LibraryGameListItem {
   readonly id: GameSourceId;
-  readonly clientGameId: BoardId | null;
+  // Per-user-id-enumeration design: no longer `BoardId | null` — the
+  // "may be None for legacy rows" exception is closed (every
+  // `game_source` row now mints a `client_game_id` at insert time,
+  // and the migration backfills historical NULLs). See
+  // `.claude/dispatch-reports/per-user-id-enumeration-design.md`,
+  // Decision 4's disposition table.
+  readonly clientGameId: BoardId;
   readonly playerWhite: string | null;
   readonly playerBlack: string | null;
   readonly date: string | null;
@@ -70,6 +76,9 @@ export interface LibraryGameListItem {
   readonly ruleset: string | null;
   readonly boardSize: number | null;
   readonly createdAt: string;  // ISO 8601 — leave as string at the ACL
+  // Per-user, gaps-on-delete display ordinal — the library list's
+  // row-numbering column. Never round-tripped as a reference.
+  readonly displayOrdinal: GameDisplayOrdinal;
 }
 
 // Full library row including raw SGF body. Returned by GET
@@ -79,7 +88,9 @@ export interface LibraryGameListItem {
 // `source_path` provenance field stamped at import time.
 export interface LibraryGame {
   readonly id: GameSourceId;
-  readonly clientGameId: BoardId | null;
+  // Per-user-id-enumeration design: see LibraryGameListItem's
+  // identical note — no longer `BoardId | null`.
+  readonly clientGameId: BoardId;
   readonly playerWhite: string | null;
   readonly playerBlack: string | null;
   readonly date: string | null;
@@ -89,6 +100,7 @@ export interface LibraryGame {
   readonly metadataExtra: Readonly<Record<string, unknown>>;
   readonly createdAt: string;
   readonly rawContent: string;
+  readonly displayOrdinal: GameDisplayOrdinal;
 }
 
 // Filter predicates for GET /library/games. All optional; omitted
@@ -133,7 +145,27 @@ export interface LibraryImportInput {
 // failure, etc.) — the batch as a whole stays 200 OK and the
 // remaining files are unaffected. `deduplicated.clientGameId` may
 // be `null` for legacy rows that pre-date the dedup arc.
+// Per-user-id-enumeration design: `deduplicated.clientGameId` is no
+// longer `BoardId | null` — the legacy exception is closed the same
+// way as `LibraryGameListItem.clientGameId` above.
 export type LibraryImportOutcome =
-  | { readonly status: 'created'; readonly gameId: GameSourceId; readonly clientGameId: BoardId }
-  | { readonly status: 'deduplicated'; readonly gameId: GameSourceId; readonly clientGameId: BoardId | null }
+  | { readonly status: 'created'; readonly gameId: GameSourceId; readonly clientGameId: BoardId; readonly displayOrdinal: GameDisplayOrdinal }
+  | { readonly status: 'deduplicated'; readonly gameId: GameSourceId; readonly clientGameId: BoardId; readonly displayOrdinal: GameDisplayOrdinal }
   | { readonly status: 'errored'; readonly error: string };
+
+// A parsed SGF file staged by the setup wizard's optional import step,
+// not yet sent to the backend (commission rows 1404/1407/1464/1468:
+// the wizard's import step is a PURE STAGING core — no backend/DB
+// mutation before wizard finish — with the actual upload living in an
+// imperative shell that commits only when the wizard finishes;
+// cancelling/closing the wizard simply never calls that shell, so the
+// staged plan evaporates with zero externally-visible effect). Owned
+// by the wizard session (`useSetupWizard.ts`), not by
+// `useLibraryImport.ts` — that composable stays the EFFECTFUL path the
+// Library tab's own import UI uses unchanged. `fileName` is
+// display-only (progress/list rendering); `input` is the exact wire
+// payload `LibraryService.importGames` sends when the plan commits.
+export interface StagedImportFile {
+  readonly fileName: string;
+  readonly input: LibraryImportInput;
+}

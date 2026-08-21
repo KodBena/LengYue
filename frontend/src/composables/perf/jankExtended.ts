@@ -58,7 +58,7 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { store, setActiveBoard } from '../../store';
+import { store, setActiveBoard, touchSession } from '../../store';
 import { mutateProfile } from '../../store/profile-owner';
 import { analysisService } from '../../services/analysis-service';
 import { useQueryTelemetry } from '../useQueryTelemetry';
@@ -126,6 +126,10 @@ function enableAllOverlays(): void {
   // `needsOwnership` so range queries request `includeOwnership: true`.
   ui.overlayLayers.ownership.continuous = true;
   ui.showTranspositionRings = true;
+  // Aliased writes into `store.session.ui` above — bump the session counter so
+  // SyncService sees them (it no longer deep-watches `store.session`; see
+  // `sessionVersion` in `store/index.ts`).
+  touchSession();
   // Transposition CAPABILITY (wire `transposition: {}` opt-in) — owner-routed
   // profile write. Default true, but set explicitly per the assert-not-assume
   // posture; the capability only engages when the proxy advertises it.
@@ -160,6 +164,9 @@ function restoreOverlayState(s: OverlayState): void {
   ui.overlayLayers.ownership.liveness = s.liveness;
   ui.overlayLayers.ownership.continuous = s.ownershipContinuous;
   ui.showTranspositionRings = s.showTranspositionRings;
+  // Aliased `store.session.ui` restore writes — bump the session counter
+  // (see the `enableAllOverlays` note and `sessionVersion`).
+  touchSession();
   mutateProfile((p) => { p.settings.engine.katago.useTransposition = s.useTransposition; });
 }
 

@@ -26,11 +26,13 @@
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { store, activeBoard } from '../../store';
+import { useModalKeyboard } from '../../composables/useModalKeyboard';
 import type { BoardState, GameNode, NodeId, StoneColor } from '../../types';
 
 const { t } = useI18n();
 
 const isOpen = ref(false);
+const modalContentRef = ref<HTMLElement | null>(null);
 const userColor = ref<StoneColor>('B');
 const engineModel = ref<string | undefined>(undefined);
 const engineVisits = ref(500);
@@ -110,6 +112,11 @@ function close() {
   isOpen.value = false;
 }
 
+// Escape → same close path as the Cancel/× buttons (ADR-0019 S5);
+// Tab focus trap + initial focus + focus restoration — all one
+// shared mechanism, see useModalKeyboard.ts.
+useModalKeyboard(modalContentRef, isOpen, close);
+
 function submit() {
   emit('start-game', {
     userColor: userColor.value,
@@ -138,9 +145,9 @@ function colorLabel(c: StoneColor): string {
 
 <template>
   <div v-if="isOpen" class="modal-backdrop" @mousedown.self="close">
-    <div class="modal-content">
+    <div ref="modalContentRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="play-engine-title" tabindex="-1">
       <div class="modal-header">
-        <h2>{{ t('playEngine.title') }}</h2>
+        <h2 id="play-engine-title">{{ t('playEngine.title') }}</h2>
         <button class="close-btn" @click="close">×</button>
       </div>
 
@@ -226,7 +233,7 @@ function colorLabel(c: StoneColor): string {
    EngineMatchModal.vue (sibling modal, intentional parity). */
 .modal-content {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
-  width: 420px; max-width: 90vw; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+  width: 420px; max-width: 90vw;
   display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 .modal-header {
@@ -234,12 +241,12 @@ function colorLabel(c: StoneColor): string {
   padding: var(--space-medium); border-bottom: 1px solid var(--surface-3); background: var(--surface-2);
 }
 .modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-tight); }
-.close-btn { background: none; border: none; color: var(--text-2); font-size: var(--text-heading); cursor: pointer; }
+.close-btn { background: none; border: none; color: var(--text-disabled); font-size: var(--text-heading); cursor: pointer; }
 .modal-body { padding: var(--space-medium); }
 
 .section-heading {
   font-size: var(--text-emphasis);
-  color: var(--text-2);
+  color: var(--text-0);
   text-transform: uppercase;
   letter-spacing: var(--tracking-default);
   margin: var(--space-medium) 0 var(--space-small) 0;
@@ -272,7 +279,7 @@ function colorLabel(c: StoneColor): string {
   border-radius: var(--radius-default);
 }
 .active-game-label {
-  color: var(--text-1);
+  color: var(--text-0);
   font-family: monospace;
   font-size: var(--text-emphasis);
 }
@@ -296,7 +303,7 @@ function colorLabel(c: StoneColor): string {
   border-radius: var(--radius-default);
   padding: var(--space-default) var(--space-medium);
   font-size: var(--text-emphasis);
-  color: var(--text-1);
+  color: var(--text-0);
   margin-bottom: var(--space-medium);
   font-family: monospace;
 }
@@ -309,7 +316,7 @@ function colorLabel(c: StoneColor): string {
 }
 .form-grid label {
   font-size: var(--text-emphasis);
-  color: var(--text-2);
+  color: var(--text-0);
   text-transform: uppercase;
 }
 .dark-input, .dark-select {
@@ -319,13 +326,17 @@ function colorLabel(c: StoneColor): string {
 }
 .dark-input:focus, .dark-select:focus { border-color: var(--accent-primary); }
 
-.hint { font-size: var(--text-body); color: var(--text-2); margin: 0; }
+.hint { font-size: var(--text-body); color: var(--text-0); margin: 0; }
 
 .modal-footer {
   display: flex; justify-content: flex-end; gap: var(--space-medium);
   padding: var(--space-medium); border-top: 1px solid var(--surface-3); background: var(--surface-2);
 }
-.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
-.btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-0); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+/* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-1 text on
+   an --accent-primary fill measures ~1.84:1 in the default cluster
+   theme. --text-on-accent is the token minted for text directly on
+   an accent fill (theme.css, ledger rows 1018/1144). */
+.btn-submit { background: var(--accent-primary); border: none; color: var(--text-on-accent); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 </style>

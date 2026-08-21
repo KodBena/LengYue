@@ -7,24 +7,87 @@
 import { ref, computed, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { store, pushSystemMessage } from '../../store';
-import { useMinting } from '../../composables/review/useMinting';
-import type { BoardId, CardCreatePayload } from '../../types';
+import { useMinting, compileMintGradingParameter, resolveBoardLineageAsBatchFallback } from '../../composables/review/useMinting';
+import { useMetadata } from '../../composables/auth-app/useMetadata';
+import { getSelectedNodeIds, removeFromSelection } from '../../composables/cards/mint-selection';
+import { buildBatchMintPayload, filterUncardedSelection } from '../../composables/cards/batch-mint-core';
+import { getCachedNodeHash } from '../../state/node-position-hashes';
+import { getKnownPositionHashes } from '../../state/known-positions';
+import { serializeActivePath } from '../../engine/sgf-writer';
+import { useModalKeyboard } from '../../composables/useModalKeyboard';
+import { useAppDialogs } from '../../composables/useAppDialogs';
+import type { BoardId, NodeId } from '../../types';
 import { INTERACTION_DISMISS_DELAY_MS } from '../../lib/timing';
 
 const { t } = useI18n();
-const { prepareDraft, calibrateKomiOnDraft, commitMint } = useMinting();
+const dialogs = useAppDialogs();
+const {
+  calibrateKomiOnDraft,
+  commitMintBatch,
+  checkDuplicate,
+  resetDuplicateCheck,
+  duplicateCheckStatus,
+  duplicateCardId,
+} = useMinting();
 
 const isOpen = ref(false);
+const modalContentRef = ref<HTMLElement | null>(null);
 const isLoading = ref(false);
-const draft = ref<CardCreatePayload | null>(null);
-// The board this draft was prepared from — retained so the
-// komi-calibration evaluation (run at submit) can re-read the board's
-// position. Set in `open`, cleared in `close`.
 const draftBoardId = ref<BoardId | null>(null);
+
+// ── Batch card-minting affordance (commissioner-designed, ledger rows
+//    926/957/1008) — ONE code path, not two ─────────────────────────────
+//
+// "Mint card(s)": `mintNodeIds` is the set of positions THIS submit
+// will mint — ALWAYS non-empty, ALWAYS resolved at `open()` time, and
+// ALWAYS minted through the SAME single call, `commitMintBatch`
+// (`POST /cards/batch`). An empty mint-selection at open() time
+// resolves to a one-element Set of the board's current node — "nothing
+// marked IMPLIES the current node is marked" (commissioner's wording).
+// There is no separate size-based branch to the OLD single-item
+// `POST /cards/` endpoint anywhere in this file; `useMinting.
+// commitMint`/`prepareDraft` were retired along with that second path
+// (no other caller remained — see the closing report).
+//
+// `isSingleCard` gates ONLY the duplicate-check control, which is
+// inherently single-position (a batch of N has N positions to check,
+// out of this build's scope) — never the wire call itself, which is
+// always `commitMintBatch` regardless of size. Komi calibration is
+// NOT gated on size (commissioner ruling, ledger row 1063): it applies
+// to EVERY card in the batch, each calibrated to its OWN position —
+// see the `calibrateKomi`/`submit()` per-card loop below.
+const mintNodeIds = ref<ReadonlySet<NodeId>>(new Set());
+const isSingleCard = computed(() => mintNodeIds.value.size === 1);
+const mintCount = computed(() => mintNodeIds.value.size);
+
+// Shared draft settings (num_moves / grading_parameter / tags) applied
+// uniformly to every card in the batch, degenerate size-1 batch
+// included — replaces the old per-single-mint `draft` object.
+interface SharedDraft {
+  num_moves: number;
+  grading_parameter: Record<string, unknown> | null;
+  tags: string[];
+}
+const draft = ref<SharedDraft | null>(null);
 
 // Tag Input State
 const tagInput = ref('');
 const showSuggestions = ref(false);
+
+// Dynamic-query entry mode (M15, ledger row 1250): the OLD affordance
+// carried "prefix with $" as a magic character inside the tag text
+// itself — an in-band control sentinel (ADR-0019 C11). Replaced with
+// an explicit toggle: while active, `addTag` prepends `$` to whatever
+// the user commits, so the character never has to be typed by hand.
+// The STORAGE format is unchanged on purpose (a card's `tags` array
+// still carries plain strings, `$`-led ones included — downstream
+// consumers, notably the tag-DSL virtual-tag reference syntax
+// `backend/domain/tag_dsl_grammar.py`, key off that leading character
+// in the stored string, not off any separate flag) — only how the
+// user GETS there changes. With the toggle off, `$` is ordinary text:
+// typing `$price` and pressing Enter now reliably produces the literal
+// tag `$price`, same as any other character.
+const dynamicQueryMode = ref(false);
 
 // Palette Override State
 const selectedPaletteId = ref<string>('active');
@@ -40,15 +103,24 @@ const engineConnected = computed(() => store.engine.status === 'connected');
 const calibrateKomi = ref(false);
 const calibrationVisits = ref<number>(store.profile.settings.engine.katago.calibrationVisits);
 
+const activeBoard = computed(() => draftBoardId.value ? store.boards.find(b => b.id === draftBoardId.value) : undefined);
+
+// Single-card lineage display (the `isSingleCard` template branch) —
+// mirrors the board-level XOR rule `resolveBoardLineage` applies for
+// the wire payload; display-only here (the actual wire `parent_ref`
+// for the batch is resolved independently, per node, in `submit()`).
+const singleCardParentId = computed(() => activeBoard.value?.sourceCardId);
+
 const palettes = computed(() => store.profile.settings.engine.katago.analysis_env.palettes);
 
 // Typed accessors for the two editable fields inside `grading_parameter`.
 // The wire shape declares `grading_parameter: { [key: string]: unknown } | null`
-// (OpenAPI-honest about the blob's opacity), but `useMinting.prepareDraft`
-// populates `data.default_visits: number` and `data.gamma: number` before
-// the modal renders, and the modal's contract is to surface those two
-// fields as editable. The localized casts widen at the access boundary;
-// the rest of the blob stays opaque. Read-side counterparts are the
+// (OpenAPI-honest about the blob's opacity), but `open()` (below)
+// populates `data.default_visits: number` and `data.gamma: number` via
+// `compileMintGradingParameter` before the modal renders, and the
+// modal's contract is to surface those two fields as editable. The
+// localized casts widen at the access boundary; the rest of the blob
+// stays opaque. Read-side counterparts are the
 // `readGradingParam<number>` calls in
 // `services/backend-service.ts::mapToReviewCard`.
 const defaultVisits = computed<number>({
@@ -99,17 +171,43 @@ const filteredTags = computed(() => {
 
 defineExpose({
   async open(boardId: BoardId) {
+    const board = store.boards.find(b => b.id === boardId);
+    if (!board) return;
+
     selectedPaletteId.value = store.profile.settings.minting.defaultPaletteId;
-    draft.value = await prepareDraft(boardId);
-    if (draft.value) {
-      draftBoardId.value = boardId;
-      isOpen.value = true;
-      tagInput.value = '';
-      // Reset calibration to its opt-in default each open; prefill the
-      // visits input from the current setting (per-mint edits don't
-      // write back).
-      calibrateKomi.value = false;
-      calibrationVisits.value = store.profile.settings.engine.katago.calibrationVisits;
+
+    // "Nothing marked IMPLIES the current node is marked" — the ONLY
+    // place this resolution happens; every downstream step (settings,
+    // duplicate check, calibration gating, submit) reads `mintNodeIds`,
+    // never re-branches on "was there a selection."
+    const selection = getSelectedNodeIds(boardId);
+    mintNodeIds.value = selection.size > 0 ? new Set(selection) : new Set([board.currentNodeId]);
+
+    draft.value = {
+      num_moves: store.profile.settings.minting.defaultNumMoves,
+      grading_parameter: compileMintGradingParameter(),
+      tags: [],
+    };
+    draftBoardId.value = boardId;
+    isOpen.value = true;
+    tagInput.value = '';
+
+    // Reset calibration to its opt-in default each open; prefill the
+    // visits input from the current setting (per-mint edits don't
+    // write back). Batch-wide (ledger row 1063) — offered whenever an
+    // engine is connected, regardless of `mintNodeIds`'s size.
+    calibrateKomi.value = false;
+    calibrationVisits.value = store.profile.settings.engine.katago.calibrationVisits;
+
+    // card-position-annotations Stage A: duplicate-position check —
+    // only meaningful for a single card (a batch of N has N positions
+    // to check, out of scope for this build's duplicate-warning UI).
+    // Fired without awaiting — the modal must render immediately;
+    // the warning box appears once the async check settles.
+    resetDuplicateCheck();
+    if (mintNodeIds.value.size === 1) {
+      const [nodeId] = mintNodeIds.value;
+      void checkDuplicate(serializeActivePath(board, nodeId));
     }
   }
 });
@@ -118,14 +216,31 @@ function close() {
   isOpen.value = false;
   draft.value = null;
   draftBoardId.value = null;
+  mintNodeIds.value = new Set();
+  resetDuplicateCheck();
 }
+
+// Escape → same close path as the Cancel/× buttons (ADR-0019 S5);
+// Tab focus trap + initial focus + focus restoration — all one
+// shared mechanism, see useModalKeyboard.ts. (The tag input's own
+// Escape handler below, `handleTagKeydown`, stops propagation so
+// a first Escape closes the suggestions dropdown only; a second
+// Escape — dropdown already closed — reaches this and closes the
+// modal.)
+useModalKeyboard(modalContentRef, isOpen, close);
 
 // ─── Tag Management ──────────────────────────────────────────────────────────
 
 function addTag(tag: string) {
-  const cleanTag = tag.trim().toLowerCase();
+  let cleanTag = tag.trim().toLowerCase();
   if (!cleanTag || !draft.value) return;
-  
+
+  // Dynamic-query mode supplies the `$` itself (see the ref's doc
+  // comment above) — don't double it if the user typed it anyway.
+  if (dynamicQueryMode.value && !cleanTag.startsWith('$')) {
+    cleanTag = '$' + cleanTag;
+  }
+
   if (!draft.value.tags.includes(cleanTag)) {
     draft.value.tags.push(cleanTag);
   }
@@ -134,13 +249,25 @@ function addTag(tag: string) {
 }
 
 function handleTagKeydown(e: KeyboardEvent) {
-  if (e.key === 'Enter' || e.key === ',') {
+  // Enter-only commit (M15, ledger row 1250; rejected: comma-as-
+  // separator, even an escapable one — the token/chip-input genre
+  // (GitHub labels, Linear, Notion) commits on Enter alone, so a
+  // comma typed into the field is just a character, and a tag like
+  // "a,b" is now representable by typing it and pressing Enter, no
+  // escape syntax to learn or document).
+  if (e.key === 'Enter') {
     e.preventDefault();
     addTag(tagInput.value);
   } else if (e.key === 'Backspace' && tagInput.value === '' && draft.value?.tags.length) {
     draft.value.tags.pop();
   } else if (e.key === 'Escape') {
-    showSuggestions.value = false;
+    if (showSuggestions.value) {
+      // Contain the first Escape to the suggestions dropdown; don't
+      // let it also bubble to the modal-level handler and discard
+      // the in-progress draft in the same keypress.
+      e.stopPropagation();
+      showSuggestions.value = false;
+    }
   } else {
     showSuggestions.value = true;
   }
@@ -215,7 +342,7 @@ async function submit() {
       // Local cast at the read site: the wire shape's `grading_parameter`
       // is `{[key: string]: unknown} | null`; the create-flow contract
       // populates `data.default_visits` and `data.gamma` (see
-      // `useMinting.prepareDraft`).
+      // `compileMintGradingParameter`, called from `open()` above).
       const gp = draft.value.grading_parameter as
         | { data?: { default_visits?: number; gamma?: number } }
         | null;
@@ -235,56 +362,136 @@ async function submit() {
     }
   }
 
+  // ONE code path: always builds and sends exactly one
+  // `POST /cards/batch` call (`commitMintBatch`) for the UNCARDED
+  // subset of `mintNodeIds` — whether that's the N nodes the user
+  // ctrl+clicked, or the one-element degenerate Set `open()` resolved
+  // from an empty selection. There is no size-based branch to a second
+  // wire call.
+  if (!draftBoardId.value) { isLoading.value = false; return; }
+  const boardIdForMint = draftBoardId.value;
+
   // Tracks whether a requested calibration is still the in-flight step,
   // so the catch can attribute the failure correctly: a throw while this
   // is true is a CALIBRATION failure (calibration-failed message); a
-  // throw after it clears came from `commitMint` (mint-failed alert only).
+  // throw after it clears came from the mint itself (mint-failed alert
+  // only).
   let calibrationPending = false;
   try {
-    // Komi calibration (opt-in). Runs a fresh bounded evaluation and
-    // rewrites the draft's SGF komi so the minted card stores the
-    // even-game komi. If the evaluation fails (engine disconnect,
-    // error packet, timeout), `calibrateKomiOnDraft` throws and we
-    // ABORT the mint loudly (ADR-0002) — the catch below surfaces the
-    // failure and the card is NOT created. The visits passed are the
-    // per-mint value (which does not write back to the setting).
-    if (calibrateKomi.value && engineConnected.value && draftBoardId.value) {
+    const board = store.boards.find(b => b.id === boardIdForMint);
+    if (!board) throw new Error(`Mint card(s): board ${boardIdForMint} not found.`);
+
+    // Pre-existing-card exclusion, type-level (commissioner ruling,
+    // ledger row 1063): "positions that already have cards must never
+    // enter the batch-mint pipeline — filtered by construction, not by
+    // dialog." `filterUncardedSelection` is the ONLY way to produce an
+    // `UncardedNodeId` — `buildBatchMintPayload` below refuses a plain
+    // `NodeId` set. `getCachedNodeHash` / `getKnownPositionHashes` are
+    // the same per-node hash cache and known-hashes set
+    // `useKnownPositionNodes.ts` already reads for TreeWidget's own
+    // "already a card" ring — see `filterUncardedSelection`'s own doc
+    // comment for the cache-miss accepted-cost posture.
+    const uncarded = filterUncardedSelection(mintNodeIds.value, getCachedNodeHash, getKnownPositionHashes());
+    // Positions excluded here can NEVER mint (they already have a
+    // card) — drop them from the live selection unconditionally, not
+    // just on a successful mint below.
+    if (uncarded.excludedAsKnown.length > 0) {
+      removeFromSelection(boardIdForMint, uncarded.excludedAsKnown);
+    }
+    if (uncarded.ids.size === 0) {
+      // Honest empty-batch reflection (ruling: "the mint affordance
+      // reflects that state honestly rather than posting an empty
+      // batch") — no wire call, modal stays open.
+      void dialogs.alert({
+        title: t('mint.alert.allKnown'),
+        message: t('mint.alert.allKnownRemediation'),
+      });
+      return;
+    }
+
+    const metadata = useMetadata(computed(() => board)).value;
+    const { fallbackParentRef, fallbackGameMetadata } = resolveBoardLineageAsBatchFallback(board, metadata);
+    const built = buildBatchMintPayload({
+      board,
+      selectedNodeIds: uncarded.ids,
+      fallbackParentRef,
+      fallbackGameMetadata,
+      numMoves: draft.value.num_moves,
+      gradingParameter: draft.value.grading_parameter,
+      tags: draft.value.tags,
+    });
+
+    // Komi calibration (opt-in, pedagogical; commissioner ruling,
+    // ledger row 1063: BATCH-WIDE, not size-gated). Applies to EVERY
+    // card in the batch — each calibrated to its OWN position (a
+    // fresh bounded evaluation per card, sequential: `calibrate`'s
+    // one-shot connection lifecycle is owned per call, and the walk is
+    // already a blocking step behind `isLoading`). `calibrateKomiOnDraft`
+    // rewrites `built.cards[i]`'s SGF komi so the minted card stores
+    // the even-game komi, already rounded to the nearest half-integer
+    // and clamped to KataGo's accepted [-150, 150] range — ~0.5 point
+    // from even is the best achievable and is never chased further
+    // (`engine/katago/komi-calibration.ts`). If ANY evaluation fails
+    // (engine disconnect, error packet, timeout), `calibrateKomiOnDraft`
+    // throws and we ABORT THE WHOLE MINT loudly (ADR-0002) — the catch
+    // below surfaces the failure and NO card is created (the batch
+    // call hasn't fired yet, so a mid-loop failure never leaves a
+    // partially-calibrated batch on the wire).
+    if (calibrateKomi.value && engineConnected.value) {
       calibrationPending = true;
-      const result = await calibrateKomiOnDraft(
-        draftBoardId.value,
-        draft.value,
-        calibrationVisits.value,
-      );
+      let clampedCount = 0;
+      for (let i = 0; i < built.cards.length; i++) {
+        const result = await calibrateKomiOnDraft(
+          boardIdForMint, built.cards[i], calibrationVisits.value, built.nodeOrder[i],
+        );
+        if (result.clamped) clampedCount++;
+      }
       calibrationPending = false;
-      // System-log the komi set for this card; name the clamp when it
-      // fired so the user isn't surprised by an out-of-range adjustment.
+      // System-log a batch-wide summary; name the clamped count when
+      // any card's computed komi fell outside KataGo's range so the
+      // user isn't surprised by an out-of-range adjustment.
       pushSystemMessage(
         'info',
-        result.clamped
-          ? t('mint.komiCalibration.setClamped', {
-              komi: result.evenKomi,
-              raw: result.rawEvenKomi.toFixed(1),
-            })
-          : t('mint.komiCalibration.set', { komi: result.evenKomi }),
+        clampedCount > 0
+          ? t('mint.komiCalibration.setBatchClamped', { n: built.cards.length, clamped: clampedCount })
+          : t('mint.komiCalibration.setBatch', { n: built.cards.length }),
       );
     }
 
-    await commitMint(draft.value);
+    await commitMintBatch(built);
+    // Lifecycle: a successful mint clears ONLY the minted entries — any
+    // node selected AFTER the draft opened stays selected.
+    removeFromSelection(boardIdForMint, built.nodeOrder);
     close();
   } catch (err) {
-    console.error('[Minting] Failed to create card:', err);
+    console.error('[Minting] Failed to create card(s):', err);
     // A calibration failure aborts the mint loudly (ADR-0002) — surface
-    // it in the system log as an error so the user knows the card was
-    // NOT created and why, then fall through to the existing alert.
-    // Scoped to throws from the calibration step itself: a post-
-    // calibration `commitMint` failure must not be mislabelled as a
-    // calibration failure (coordinator gate correction, PR #434).
+    // it in the system log as an error so the user knows nothing was
+    // created and why, then fall through to the existing alert. Scoped
+    // to throws from the calibration step itself: a post-calibration
+    // batch-call failure must not be mislabelled as a calibration
+    // failure (coordinator gate correction, PR #434).
     if (calibrationPending) {
       pushSystemMessage('error', t('mint.komiCalibration.failed', { err: String(err) }));
     }
-    // Native alert wraps the English `${err}` per the (a) backend-error
-    // pass-through approach (see frontend/docs/i18n.md).
-    alert(t('mint.alert.failed', { err: String(err) }));
+    // A failed batch is transactional (backend rolls back the whole
+    // request) — the selection is left INTACT for anything that made
+    // it into the payload (no `removeFromSelection(...built.nodeOrder)`
+    // call above this catch — the already-known exclusions above are a
+    // separate, permanent fact and stay removed), so the user can
+    // retry unchanged.
+    //
+    // Sanctioned in-app alert (ADR-0019 S14) wraps the English `${err}`
+    // per the (a) backend-error pass-through approach (see
+    // frontend/docs/i18n.md). C8: the message names the remediation
+    // (retry Mint Card(s)) — the modal stays open on failure so that
+    // next action is reachable without navigating anywhere. Not
+    // awaited: the dialog is non-blocking, unlike the native alert() it
+    // replaces.
+    void dialogs.alert({
+      title: t('mint.alert.failed', { err: String(err) }),
+      message: t('mint.alert.failedRemediation'),
+    });
   } finally {
     isLoading.value = false;
   }
@@ -293,23 +500,52 @@ async function submit() {
 
 <template>
   <div v-if="isOpen" class="modal-backdrop" @mousedown.self="close">
-    <div class="modal-content">
-      
+    <div ref="modalContentRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="mint-card-title" tabindex="-1">
+
       <div class="modal-header">
-        <h2>{{ $t('mint.title') }}</h2>
+        <h2 id="mint-card-title">{{ $t('mint.title') }}</h2>
         <button class="close-btn" @click="close">×</button>
       </div>
 
       <div class="modal-body" v-if="draft">
 
-        <!-- Lineage Indicator -->
-        <div class="lineage-box" :class="draft.parent_card_id ? 'branch' : 'root'">
-          <span class="lineage-icon">{{ draft.parent_card_id ? '↳' : '🌱' }}</span>
+        <!-- Batch summary (mintCount > 1) — a batch's per-node parent
+             linkage (ancestor-in-selection -> batch_index, else the
+             board's own lineage) is resolved individually per card at
+             submit time (`buildBatchMintPayload`), not a single value
+             this box could show. -->
+        <div v-if="!isSingleCard" class="lineage-box branch">
+          <span class="lineage-icon">🗂️</span>
           <div class="lineage-text">
-            <strong>{{ draft.parent_card_id ? $t('mint.lineage.branch') : $t('mint.lineage.root') }}</strong>
-            <span v-if="draft.parent_card_id">{{ $t('mint.lineage.derivedFrom', { id: draft.parent_card_id }) }}</span>
+            <strong>{{ $t('mint.batch.title') }}</strong>
+            <span>{{ $t('mint.batch.summary', { n: mintCount }) }}</span>
+          </div>
+        </div>
+
+        <!-- Lineage Indicator — the degenerate size-1 batch (today's
+             single-mint UX, unchanged display, board-level XOR rule). -->
+        <div v-else class="lineage-box" :class="singleCardParentId ? 'branch' : 'root'">
+          <span class="lineage-icon">{{ singleCardParentId ? '↳' : '🌱' }}</span>
+          <div class="lineage-text">
+            <strong>{{ singleCardParentId ? $t('mint.lineage.branch') : $t('mint.lineage.root') }}</strong>
+            <span v-if="singleCardParentId">{{ $t('mint.lineage.derivedFrom', { id: singleCardParentId }) }}</span>
             <span v-else>{{ $t('mint.lineage.newOrigin') }}</span>
           </div>
+        </div>
+
+        <!-- card-position-annotations Stage A: duplicate-position notice.
+             Warning, not a hard block (C10 posture) — the user may
+             proceed deliberately (e.g. a second card with different
+             grading params over the same position). C6: the in-flight
+             lookup renders as "checking", never as a silent
+             no-duplicate-found. Single-card only — `open()` only fires
+             `checkDuplicate` when `mintNodeIds.size === 1` (a batch of
+             N has N positions to check, out of this build's scope). -->
+        <div v-if="isSingleCard && duplicateCheckStatus === 'checking'" class="duplicate-notice duplicate-checking">
+          {{ $t('mint.duplicateCheck.checking') }}
+        </div>
+        <div v-else-if="isSingleCard && duplicateCardId !== null" class="duplicate-notice duplicate-warning">
+          {{ $t('mint.duplicateCheck.warning', { id: duplicateCardId }) }}
         </div>
 
         <!-- Basic Settings -->
@@ -323,16 +559,22 @@ async function submit() {
                that path opaque (`{[key: string]: unknown}`); the typed
                accessor `defaultVisits` (see <script>) widens at the
                access boundary. The path is guaranteed to exist because
-               `useMinting.prepareDraft` constructs it before the modal
-               renders. -->
+               `open()`'s `compileMintGradingParameter` call constructs
+               it before the modal renders. -->
           <input type="number" v-model.number="defaultVisits" min="1" step="100" class="dark-input" />
 
-          <label>{{ $t('mint.field.discountGamma') }}</label>
+          <!-- M21 (audit finding, ledger row 1292): labelled with a
+               bare "Discount γ:" — notation the audience of a
+               flashcard app's most-used dialog doesn't read. Plain
+               domain name in the label; the γ symbol/formula demoted
+               to a `title` tooltip, matching the app's existing
+               tooltip convention (see e.g. KeybindingRow.vue). -->
+          <label :title="$t('mint.field.discountGammaHint')">{{ $t('mint.field.discountGamma') }}</label>
           <!-- gamma rides in `grading_parameter.data.gamma` alongside
                default_visits; same opacity story, same typed-accessor
                pattern (see <script>). Range bounded to (0, 1] —
                Ebisu's recall-discount semantics. -->
-          <input type="number" v-model.number="gamma" min="0.01" max="1" step="0.01" class="dark-input" />
+          <input type="number" v-model.number="gamma" min="0.01" max="1" step="0.01" class="dark-input" :title="$t('mint.field.discountGammaHint')" />
 
           <label>{{ $t('mint.field.analysisPalette') }}</label>
           <select v-model="selectedPaletteId" class="dark-select">
@@ -341,10 +583,14 @@ async function submit() {
           </select>
 
           <!-- Komi calibration (opt-in, pedagogical). Shown only when an
-               engine is connected — calibration needs a live evaluation.
-               The visits input is enabled only when the checkbox is
-               checked; its value is per-mint and does not write back to
-               the `engine.katago.calibrationVisits` setting. -->
+               engine is connected — commissioner ruling (ledger row
+               1063): calibration is a BATCH-WIDE option, applied per
+               card, each card evaluated at its OWN position
+               (`submit()`'s per-card loop) — no longer gated to a
+               single-card selection. The visits input is enabled only
+               when the checkbox is checked; its value is per-mint and
+               does not write back to the `engine.katago.calibrationVisits`
+               setting. -->
           <template v-if="engineConnected">
             <label>{{ $t('mint.field.calibrateKomi') }}</label>
             <label class="checkbox-cell">
@@ -366,7 +612,19 @@ async function submit() {
 
         <!-- Tag Autocomplete -->
         <div class="form-group" style="margin-top: var(--space-medium);">
-          <label class="tag-label">{{ $t('mint.field.tags') }}</label>
+          <div class="tag-label-row">
+            <label class="tag-label">{{ $t('mint.field.tags') }}</label>
+            <!-- Explicit dynamic-query affordance (M15, ledger row
+                 1250) — replaces the old "prefix with $" magic
+                 character with a named, discoverable toggle. -->
+            <button
+              type="button"
+              class="tag-mode-toggle"
+              :class="{ active: dynamicQueryMode }"
+              :aria-pressed="dynamicQueryMode"
+              @click="dynamicQueryMode = !dynamicQueryMode"
+            >{{ $t('mint.tags.dynamicToggle') }}</button>
+          </div>
           <div class="tag-input-wrapper">
             <div class="tag-badges">
               <span v-for="(tag, i) in draft.tags" :key="tag" class="tag-badge">
@@ -379,7 +637,7 @@ async function submit() {
               type="text"
               class="tag-input"
               v-model="tagInput"
-              :placeholder="$t('mint.tags.placeholder')"
+              :placeholder="dynamicQueryMode ? $t('mint.tags.placeholderDynamic') : $t('mint.tags.placeholder')"
               @keydown="handleTagKeydown"
               @focus="showSuggestions = true"
               @blur="hideSuggestionsDelayed"
@@ -392,7 +650,7 @@ async function submit() {
               </li>
             </ul>
           </div>
-          <p class="hint">{{ $t('mint.tags.hint') }}</p>
+          <p class="hint">{{ dynamicQueryMode ? $t('mint.tags.hintDynamic') : $t('mint.tags.hint') }}</p>
         </div>
 
       </div>
@@ -420,7 +678,7 @@ async function submit() {
    2 widths is a thin cluster). */
 .modal-content {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
-  width: 420px; max-width: 90vw; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+  width: 420px; max-width: 90vw;
   display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
@@ -429,7 +687,7 @@ async function submit() {
   padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); background: var(--surface-2);
 }
 .modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-tight); }
-.close-btn { background: none; border: none; color: var(--text-2); font-size: var(--text-heading); cursor: pointer; }
+.close-btn { background: none; border: none; color: var(--text-disabled); font-size: var(--text-heading); cursor: pointer; }
 
 .modal-body { padding: var(--space-medium); }
 
@@ -440,11 +698,33 @@ async function submit() {
 .lineage-box.root { background: color-mix(in srgb, var(--state-success) 10%, transparent); border-color: color-mix(in srgb, var(--state-success) 30%, transparent); }
 .lineage-box.branch { background: color-mix(in srgb, var(--accent-primary) 10%, transparent); border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent); }
 .lineage-icon { font-size: var(--text-heading); }
-.lineage-text { display: flex; flex-direction: column; font-size: var(--text-emphasis); color: var(--text-1); }
+.lineage-text { display: flex; flex-direction: column; font-size: var(--text-emphasis); color: var(--text-0); }
 .lineage-text strong { color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase; }
 
+/* card-position-annotations Stage A: duplicate-position notice. A
+   distinct border/background per genre convention (ADR-0019) rather
+   than color-only (C18) — the text itself names the condition, the
+   color is a secondary reinforcement, not the sole signal. */
+.duplicate-notice {
+  padding: var(--space-default) var(--space-medium);
+  border-radius: var(--radius-default);
+  margin-bottom: var(--space-medium);
+  border: 1px solid transparent;
+  font-size: var(--text-emphasis);
+}
+.duplicate-checking {
+  color: var(--text-0);
+  background: color-mix(in srgb, var(--text-disabled) 8%, transparent);
+  border-color: color-mix(in srgb, var(--text-disabled) 20%, transparent);
+}
+.duplicate-warning {
+  color: var(--text-0);
+  background: color-mix(in srgb, var(--state-warning) 12%, transparent);
+  border-color: color-mix(in srgb, var(--state-warning) 40%, transparent);
+}
+
 .form-grid { display: grid; grid-template-columns: 110px 1fr; gap: var(--space-medium); align-items: center; }
-.form-grid label { font-size: var(--text-emphasis); color: var(--text-2); text-transform: uppercase; }
+.form-grid label { font-size: var(--text-emphasis); color: var(--text-0); text-transform: uppercase; }
 .dark-input {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default);
   border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
@@ -460,9 +740,24 @@ async function submit() {
    checkbox sits next to its explanatory hint without inheriting the
    form-grid label's letter-spacing / uppercase transform. */
 .checkbox-cell { display: flex; align-items: center; gap: var(--space-default); text-transform: none; }
-.calibrate-checkbox { width: auto; accent-color: var(--accent-primary); cursor: pointer; }
+/* G30 (WCAG 2.5.8): no `width`/`height` override here — the global
+   `input[type="checkbox"]` rule (style.css) pins those to the 24x24
+   effective pointer-target floor; a scoped `width: auto` here would
+   win on specificity ([data-v-*] beats the element+attribute global
+   selector) and silently reopen the sub-24px target on this checkbox
+   alone. */
+.calibrate-checkbox { accent-color: var(--accent-primary); cursor: pointer; }
 
-.tag-label { font-size: var(--text-emphasis); color: var(--text-2); text-transform: uppercase; display: block; margin-bottom: var(--space-default); }
+.tag-label-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-default); margin-bottom: var(--space-default); }
+.tag-label { font-size: var(--text-emphasis); color: var(--text-0); text-transform: uppercase; display: block; margin-bottom: 0; }
+.tag-mode-toggle {
+  background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
+  color: var(--text-0); font-size: var(--text-emphasis); padding: 2px var(--space-default); cursor: pointer;
+  text-transform: none;
+}
+.tag-mode-toggle:hover { border-color: var(--accent-primary); color: var(--text-0); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament). */
+.tag-mode-toggle.active { background: var(--border-1); border-color: var(--accent-primary); color: var(--text-0); }
 .tag-input-wrapper {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   display: flex; flex-wrap: wrap; padding: var(--space-tight); gap: var(--space-tight); position: relative;
@@ -471,10 +766,11 @@ async function submit() {
 
 .tag-badges { display: flex; flex-wrap: wrap; gap: var(--space-tight); }
 .tag-badge {
-  background: var(--border-1); color: var(--accent-primary); padding: 2px 6px; border-radius: var(--radius-default);
+  /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+  background: var(--border-1); color: var(--text-0); padding: 2px 6px; border-radius: var(--radius-default);
   font-size: var(--text-emphasis); font-family: monospace; display: flex; align-items: center; gap: var(--space-tight);
 }
-.tag-remove { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: var(--text-emphasis); padding: 0; line-height: 1; }
+.tag-remove { background: none; border: none; color: var(--text-disabled); cursor: pointer; font-size: var(--text-emphasis); padding: 0; line-height: 1; }
 .tag-remove:hover { color: var(--state-attention); }
 
 .tag-input {
@@ -487,16 +783,21 @@ async function submit() {
   border: 1px solid var(--border-2); border-top: none; border-radius: 0 0 var(--radius-default) var(--radius-default);
   list-style: none; padding: 0; margin: 0; max-height: 150px; overflow-y: auto; z-index: var(--z-popover);
 }
-.suggestions-list li { padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); font-family: monospace; color: var(--text-1); cursor: pointer; }
-.suggestions-list li:hover { background: var(--border-1); color: var(--accent-primary); }
+.suggestions-list li { padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); font-family: monospace; color: var(--text-0); cursor: pointer; }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.suggestions-list li:hover { background: var(--border-1); color: var(--text-0); }
 
-.hint { font-size: var(--text-body); color: var(--text-2); margin: var(--space-tight) 0 0 0; }
+.hint { font-size: var(--text-body); color: var(--text-0); margin: var(--space-tight) 0 0 0; }
 
 .modal-footer {
   display: flex; justify-content: flex-end; gap: var(--space-medium); padding: var(--space-medium) var(--space-medium);
   border-top: 1px solid var(--surface-3); background: var(--surface-2);
 }
-.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
-.btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-0); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+/* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-1 text on
+   an --accent-primary fill measures ~1.84:1 in the default cluster
+   theme. --text-on-accent is the token minted for text directly on
+   an accent fill (theme.css, ledger rows 1018/1144). */
+.btn-submit { background: var(--accent-primary); border: none; color: var(--text-on-accent); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 </style>

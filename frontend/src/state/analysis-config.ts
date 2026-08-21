@@ -204,6 +204,14 @@ function compileRawDescriptorFromParts(
  *
  * Both are derived from the same parts so the two keys can never drift on
  * which legs feed which.
+ *
+ * Deliberately NOT a fourth parameter: `cacheContext` (the NN-cache
+ * feature's attribution field, `state/nncache-context.ts`). It changes
+ * which persisted-cache context on disk EARNS a query's cache entries,
+ * not what content KataGo returns — two otherwise-identical queries
+ * produce byte-identical analysis whether or not a context is
+ * attached, so folding it into either key would fork the ledger
+ * bucket over a change that has no bearing on the packets themselves.
  */
 export function deriveAnalysisKeys(
   analysis_config: unknown,

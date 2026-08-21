@@ -22,11 +22,37 @@ import {
   always,
   activeBoardExists,
   engineConnected,
+  engineSelectorMode,
+  reviewSessionHasCurrentCard,
+  reviewSessionCanGoBack,
 } from '../../../src/composables/keybindings-catalog';
 import { validateKeybindingsRegistry } from '../../../src/lib/keybindings';
-import { resetWorkspace, store, addBoard } from '../../../src/store';
+import { resetWorkspace, store, addBoard, mutateReviewSession } from '../../../src/store';
 import { createInitialBoard } from '../../../src/store/board-factory';
-import type { KeybindingActionId } from '../../../src/types';
+import { mintDialogRequestCount } from '../../../src/composables/useMintDialogSignal';
+import { passRequestCount } from '../../../src/composables/board/usePassSignal';
+import type { KeybindingActionId, ReviewCard, CardId, EbisuModel } from '../../../src/types';
+
+// Minimal fixture — mirrors `makeStubCard` in
+// `tests/unit/composables/autonomous-srs-policies.test.ts`. The
+// `reviewSessionHasCurrentCard` predicate only reads
+// `currentIndex`/`queue.length` (via `currentCard`), so the card's
+// own fields are irrelevant beyond satisfying the type.
+function makeStubCard(): ReviewCard {
+  const model: EbisuModel = { alpha: 4, beta: 4, t: 1 };
+  return {
+    id: 1 as CardId,
+    canonicalContent: '(;FF[4]GM[1]SZ[19])',
+    numMoves: 1,
+    model,
+    lastReviewedAt: null,
+    numReviews: 0,
+    suspended: false,
+    defaultVisits: 1000,
+    gamma: 1.0,
+    tags: [],
+  };
+}
 
 // ── enabledWhen predicates ─────────────────────────────────
 
@@ -70,14 +96,85 @@ describe('enabledWhen predicates', () => {
     store.engine.status = 'connected';
     expect(engineConnected()).toBe(true);
   });
+
+  it("'engineSelectorMode' is false when disconnected, even with a selector advertisement", () => {
+    store.engine.status = 'disconnected';
+    store.engine.info = { ...store.engine.info, capabilities: { selector: {} } as never };
+    expect(engineSelectorMode()).toBe(false);
+  });
+
+  it("'engineSelectorMode' is false when connected but no capabilities advertised", () => {
+    store.engine.status = 'connected';
+    store.engine.info = { ...store.engine.info, capabilities: null };
+    expect(engineSelectorMode()).toBe(false);
+  });
+
+  it("'engineSelectorMode' is false when connected with capabilities but no 'selector' key", () => {
+    store.engine.status = 'connected';
+    store.engine.info = { ...store.engine.info, capabilities: {} as never };
+    expect(engineSelectorMode()).toBe(false);
+  });
+
+  it("'engineSelectorMode' is true when connected and 'selector' is advertised", () => {
+    store.engine.status = 'connected';
+    store.engine.info = { ...store.engine.info, capabilities: { selector: {} } as never };
+    expect(engineSelectorMode()).toBe(true);
+  });
+
+  it("'reviewSessionHasCurrentCard' is false with no review session for the active board", () => {
+    expect(reviewSessionHasCurrentCard()).toBe(false);
+  });
+
+  it("'reviewSessionHasCurrentCard' is true once a queue has a card at currentIndex", () => {
+    const boardId = store.boards[store.activeBoardIndex].id;
+    mutateReviewSession(boardId, (draft) => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [makeStubCard()];
+      draft.currentIndex = 0;
+    });
+    expect(reviewSessionHasCurrentCard()).toBe(true);
+  });
+
+  it("'reviewSessionHasCurrentCard' is false once currentIndex runs past the queue (post-nextCard end-of-queue shape)", () => {
+    const boardId = store.boards[store.activeBoardIndex].id;
+    mutateReviewSession(boardId, (draft) => {
+      draft.status = 'FINISHED';
+      draft.queue = [makeStubCard()];
+      draft.currentIndex = 1; // one past the single-card queue
+    });
+    expect(reviewSessionHasCurrentCard()).toBe(false);
+  });
+
+  // Deck-repeat: `review.prevCard`'s gate. Mirrors
+  // `ReviewSessionPanel.vue`'s Back button `:disabled="!canGoBack"`
+  // binding (`useReviewSession.ts`'s `canGoBack = currentIndex > 0`).
+  it("'reviewSessionCanGoBack' is false at the first queue slot", () => {
+    const boardId = store.boards[store.activeBoardIndex].id;
+    mutateReviewSession(boardId, (draft) => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [makeStubCard(), makeStubCard()];
+      draft.currentIndex = 0;
+    });
+    expect(reviewSessionCanGoBack()).toBe(false);
+  });
+
+  it("'reviewSessionCanGoBack' is true once past the first queue slot", () => {
+    const boardId = store.boards[store.activeBoardIndex].id;
+    mutateReviewSession(boardId, (draft) => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [makeStubCard(), makeStubCard()];
+      draft.currentIndex = 1;
+    });
+    expect(reviewSessionCanGoBack()).toBe(true);
+  });
 });
 
 // ── KEYBINDINGS_REGISTRY ship-time smoke ───────────────────
 
 describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
-  it('contains the 12 actions ACTIONS catalog declares', () => {
+  it('contains the 19 actions ACTIONS catalog declares', () => {
     expect(KEYBINDINGS_REGISTRY.length).toBe(Object.keys(ACTIONS).length);
-    expect(KEYBINDINGS_REGISTRY.length).toBe(12);
+    expect(KEYBINDINGS_REGISTRY.length).toBe(19);
   });
 
   it('every action id is unique', () => {
@@ -100,18 +197,25 @@ describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
     // instead. See the catalog header's persisted-id contract.
     const ids = KEYBINDINGS_REGISTRY.map((a) => a.id as string).sort();
     expect(ids).toEqual([
+      'board.pass',
+      'card.mint',
       'display.toggleMoveNumbers',
       'display.toggleMoveSuggestions',
       'display.toggleOwnershipContinuous',
       'display.toggleOwnershipDots',
       'display.toggleOwnershipLiveness',
+      'engine.cycleModel',
       'engine.ponderToggle',
+      'engine.swapLastActiveModel',
       'nav.end',
       'nav.home',
       'nav.next',
       'nav.prev',
+      'nav.toggleMainLine',
       'nav.variationNext',
       'nav.variationPrev',
+      'review.nextCard',
+      'review.prevCard',
     ]);
   });
 
@@ -136,11 +240,11 @@ describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
     }
   });
 
-  it('every action id is `<domain>.<verb>` with domain ∈ {nav, display, engine}', () => {
+  it('every action id is `<domain>.<verb>` with domain ∈ {nav, display, engine, review, card, board}', () => {
     // KeybindingsView's grouped render assumes this closed set.
     for (const action of KEYBINDINGS_REGISTRY) {
       const [domain] = action.id.split('.');
-      expect(['nav', 'display', 'engine']).toContain(domain);
+      expect(['nav', 'display', 'engine', 'review', 'card', 'board']).toContain(domain);
     }
   });
 
@@ -160,5 +264,42 @@ describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
 
   it('passes the substrate validator (the same call useAppBootstrap makes at ship time)', () => {
     expect(() => validateKeybindingsRegistry(KEYBINDINGS_REGISTRY)).not.toThrow();
+  });
+
+  it("'card.mint' handler bumps the mint-dialog request signal (App.vue's watcher entry point)", () => {
+    const action = KEYBINDINGS_REGISTRY.find((a) => a.id === ACTIONS.cardMint);
+    expect(action).toBeDefined();
+    const before = mintDialogRequestCount.value;
+    action!.handler();
+    expect(mintDialogRequestCount.value).toBe(before + 1);
+  });
+
+  // Deck-repeat: `review.prevCard`'s handler is the literal
+  // `reviewSession.goBack` reference (same "the button and the
+  // hotkey call the same function" idiom as `review.nextCard` /
+  // `reviewSession.nextCard` above it) — wiring smoke, not a
+  // re-test of `goBack`'s own snapshot-restore behaviour (covered
+  // in `useReviewSession-deck-repeat.test.ts`).
+  it("'review.prevCard' handler steps currentIndex back via reviewSession.goBack", () => {
+    resetWorkspace();
+    const boardId = store.boards[store.activeBoardIndex].id;
+    mutateReviewSession(boardId, (draft) => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [makeStubCard(), makeStubCard()];
+      draft.currentIndex = 1;
+    });
+    const action = KEYBINDINGS_REGISTRY.find((a) => a.id === ACTIONS.reviewPrevCard);
+    expect(action).toBeDefined();
+    action!.handler();
+    expect(store.session.reviews[boardId].currentIndex).toBe(0);
+  });
+
+  it("'board.pass' handler bumps the pass request signal (App.vue's watcher entry point)", () => {
+    const action = KEYBINDINGS_REGISTRY.find((a) => a.id === ACTIONS.boardPass);
+    expect(action).toBeDefined();
+    expect(action!.defaultKey).toBe('p');
+    const before = passRequestCount.value;
+    action!.handler();
+    expect(passRequestCount.value).toBe(before + 1);
   });
 });

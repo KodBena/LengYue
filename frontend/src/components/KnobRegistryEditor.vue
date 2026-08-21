@@ -31,6 +31,7 @@ import { useI18n } from 'vue-i18n';
 import { store } from '../store';
 import KnobSlider from './knobs/KnobSlider.vue';
 import type { KnobDecl, KnobDomain, KnobId } from '../types';
+import { PANEL_CONTENT_READING_MEASURE_CH } from '../state/layout-model';
 
 const { t } = useI18n();
 
@@ -82,6 +83,21 @@ function domainLabel(domain: KnobDomain): string {
 }
 
 const isEmpty = computed(() => grouped.value.length === 0);
+
+// M17 (audit finding, ledger row 1290): "help paragraphs under knobs
+// run full-width as unbroken ~10px monospace lines." Bounds this
+// editor's own container (each per-domain group, and any future
+// per-knob help/description text rendered inside it) to the app's
+// existing phase-3 reading measure — same constant RegistryEditor.vue's
+// M6 fix and KnobSlider.vue's own M17 track-width fix reuse (ADR-0012
+// one-home-per-fact); this editor currently renders no prose of its
+// own (KnobSlider rows only), so this is the measure cap "under
+// knobs" as far as this component's DOM extends — the Other tab's
+// sibling sections below it (Gradient Calibration's hint paragraph,
+// Visits-Lerp/Per-Query-Overrides/Qeubo-Bookmarks prose) are declared
+// and mounted in App.vue, outside this pass's registry/session-pane +
+// KnobSlider charter.
+const knobRegistryMeasureMaxWidthCss = computed(() => `${PANEL_CONTENT_READING_MEASURE_CH}ch`);
 </script>
 
 <template>
@@ -111,9 +127,10 @@ const isEmpty = computed(() => grouped.value.length === 0);
   display: flex;
   flex-direction: column;
   gap: var(--space-default);
+  max-width: v-bind(knobRegistryMeasureMaxWidthCss);
 }
 .knob-registry-empty {
-  color: var(--text-2);
+  color: var(--text-0);
   font-style: italic;
   margin: 0;
 }
@@ -125,7 +142,7 @@ const isEmpty = computed(() => grouped.value.length === 0);
   margin: 0 0 var(--space-tight) 0;
   font-size: var(--text-emphasis);
   font-weight: 600;
-  color: var(--text-2);
+  color: var(--text-0);
   text-transform: uppercase;
   letter-spacing: var(--tracking-tight);
 }

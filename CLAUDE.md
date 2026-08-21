@@ -75,7 +75,15 @@ Implementation is incomplete until the documentation graph reflects
 it. Before declaring a task done or filing a PR, audit:
 
 - Does the work-status store need updating — a status transition
-  (open → closed), a new item, or a retire-on-ship closure? It is the
+  (open → closed), a new item, or a retire-on-ship closure?
+  **[Corrected 2026-08-13, maintainer's word (autoharn ledger rows
+  2384/2385): the `todo` PostgreSQL database this section describes was
+  the PROTOTYPE work-status store and has been REPLACED by the autoharn
+  ledger — it "turned out to be insufficient for work with claude code."
+  Record and query work status on the autoharn ledger (`./autoharn led`
+  from the repo root); do not write to the `todo` database. The
+  paragraph below is preserved as the description of the retired
+  prototype, not live guidance.]** It is the
   canonical record of open / shipped / deferred work status — the single
   source of truth for that one duty (RCA guard G5, now in force; "SSOT" is
   the role this file plays, not a proper noun for it). The store is the

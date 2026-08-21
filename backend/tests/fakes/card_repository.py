@@ -30,9 +30,10 @@ License: Public Domain (The Unlicense)
 """
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from core.config import config
 from domain.auth import UserId
@@ -59,6 +60,10 @@ class FakeCardRepository:
         self.user_id_by_card: Dict[int, int] = {}
         self.positions: Dict[bytes, int] = {}
         self.canonical_by_position: Dict[int, str] = {}
+        # content_hash Stage A: mirrors canonical_by_position, keyed the
+        # other direction, so insert_card can populate Card.content_hash
+        # without a reverse scan of self.positions.
+        self.hash_by_position: Dict[int, bytes] = {}
         self.game_sources: Dict[int, Dict[str, Any]] = {}
         self.client_id_to_gs: Dict[Tuple[int, UUID], int] = {}
         self.card_sources: Dict[int, Tuple[Optional[int], Optional[int]]] = {}
@@ -67,6 +72,17 @@ class FakeCardRepository:
         self._next_card_id = 1
         self._next_position_id = 1
         self._next_game_source_id = 1
+        # Per-user-id-enumeration design: fake stand-in for the
+        # production `user_display_counters` atomic increment, keyed
+        # per user_id since a service test may seed cards/game_sources
+        # across more than one tenant.
+        self._next_card_ordinal: Dict[int, int] = {}
+        self._next_game_ordinal: Dict[int, int] = {}
+
+    def _next_ordinal(self, counters: Dict[int, int], user_id: int) -> int:
+        n = counters.get(user_id, 0) + 1
+        counters[user_id] = n
+        return n
 
     # ─── Test helpers ──────────────────────────────────────────────────────
 
@@ -75,6 +91,7 @@ class FakeCardRepository:
         *,
         user_id: int,
         canonical_content: str = "(;FF[4]SZ[19])",
+        content_hash: Optional[bytes] = None,
         parent_card_id: Optional[int] = None,
         alpha: float = 3.0,
         beta: float = 3.0,
@@ -90,9 +107,18 @@ class FakeCardRepository:
         Insert a card directly. Returns the new card id. Useful for
         preconditions in service tests (e.g. seeding a parent that
         ``CardService.create_card`` checks ownership against).
+
+        ``content_hash`` defaults to the SHA-256 digest of
+        ``canonical_content`` — the same dedup-hash shape the real
+        ``SgfNormalizer`` produces — so callers that don't care about
+        the hash's exact value still get a Card that round-trips
+        through the (now-required) field.
         """
         card_id = self._next_card_id
         self._next_card_id += 1
+        resolved_hash = content_hash or hashlib.sha256(
+            canonical_content.encode()
+        ).digest()
         self.cards[card_id] = Card(
             id=card_id,
             num_moves=num_moves,
@@ -105,7 +131,10 @@ class FakeCardRepository:
             suspended=suspended,
             grading_parameter=grading_parameter,
             canonical_content=canonical_content,
+            content_hash=resolved_hash,
             card_source_id=parent_card_id,
+            public_id=uuid4(),
+            display_ordinal=self._next_ordinal(self._next_card_ordinal, user_id),
         )
         self.user_id_by_card[card_id] = user_id
         self.card_sources[card_id] = (parent_card_id, None)
@@ -165,6 +194,7 @@ class FakeCardRepository:
         self._next_position_id += 1
         self.positions[content_hash] = pid
         self.canonical_by_position[pid] = canonical_content
+        self.hash_by_position[pid] = content_hash
         return pid
 
     async def insert_card(
@@ -191,7 +221,10 @@ class FakeCardRepository:
             suspended=False,
             grading_parameter=grading_parameter,
             canonical_content=self.canonical_by_position[position_id],
+            content_hash=self.hash_by_position[position_id],
             card_source_id=None,
+            public_id=uuid4(),
+            display_ordinal=self._next_ordinal(self._next_card_ordinal, int(user_id)),
         )
         self.user_id_by_card[card_id] = int(user_id)
         return card_id
@@ -215,7 +248,10 @@ class FakeCardRepository:
             "player_black": player_black,
             "description": description,
             "raw_content": raw_content,
-            "client_game_id": None,
+            # Per-user-id-enumeration design: always minted now (the
+            # "may be None" exception is closed).
+            "client_game_id": uuid4(),
+            "display_ordinal": self._next_ordinal(self._next_game_ordinal, int(user_id)),
         }
         return gs_id
 
@@ -244,6 +280,7 @@ class FakeCardRepository:
             "description": description,
             "raw_content": raw_content,
             "client_game_id": client_game_id,
+            "display_ordinal": self._next_ordinal(self._next_game_ordinal, int(user_id)),
         }
         self.client_id_to_gs[key] = gs_id
         return gs_id

@@ -3,33 +3,64 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { store, setActiveBoard, createBoard, closeBoard } from '../../store';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
+import { store, setActiveBoard, createBoard } from '../../store';
 import BoardTab from '../board/BoardTab.vue';
 import MiniBoard from '../board/MiniBoard.vue';
+import ConfirmCloseBoardModal from '../modals/ConfirmCloseBoardModal.vue';
+import { useVirtualList } from '../../composables/chrome/useVirtualList';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
-import { useJankTest } from '../../composables/perf/useJankTest';
+import { useCloseBoardGuard } from '../../composables/board/useCloseBoardGuard';
 import type { BoardId } from '../../types';
 import type { BoardSnapshot } from '../../engine/board-geometry';
 
-// Dev-only "jank test" affordance (below). import.meta.env.DEV is statically
-// folded, so the button and its composable dead-code-eliminate from prod
-// builds — the harness must never ship to users.
-const isDevBuild = import.meta.env.DEV;
-const jankTest = useJankTest();
+// Dev-only "jank test" affordance — REMOVED from this component, W4
+// item 5. See DebugMenu.vue, which now owns `useJankTest()` directly.
 
-// Load / save SGF emits relocated here from Toolbar (2026-05-15):
-// SGF-file operations act on the board collection, not on engine
-// telemetry, so they belong adjacent to the thumb-list's other
-// board-lifecycle action (the `+` new-board button). The parent
-// (`App.vue`) listens for these events and dispatches to the
-// existing `openFileDialog` / `downloadActiveBoard` handlers.
-defineEmits<{
-  (e: 'load-sgf'): void;
-  (e: 'save-sgf'): void;
-}>();
+// Load / save SGF emits — REMOVED (W4 item 2; see the template's own
+// comment at the removed `.board-actions` header for the full
+// derivation). The toolbar strip is now the one home for these two
+// actions; this component no longer originates either event.
 
 const { getSnapshot, getSnapshotSync } = useThumbnailCache();
+
+// ── Virtualized board-tab rail ──────────────────────────────────────────────
+// Only the visible BoardTabs render — the rail can hold hundreds of boards,
+// each ~800 DOM nodes (~185k live at 230 boards before this). `useVirtualList`
+// windows the render to the scroll viewport; see the close-at-scale postmortem
+// (§2.2 space, §Finding 2 leak).
+const thumbListRef = ref<HTMLElement | null>(null);
+// Fixed BoardTab height. magic-literal tied to BoardTab.vue's CSS — `.thumb-
+// container`'s `padding-top: 10px` (widened from 6px in the ADR-0019 audit S6
+// dispatch, when the close button's hit area grew to the 24x24 C21 floor —
+// see BoardTab.vue's `.thumb-container` comment; originally 6px for the
+// tab-close-button clip fix, ui-defects-investigation.md Defect 4) +
+// `.tab-thumb-wrap` 32 + `.indicator-row` (12 + 2px margin-top) = 56 (global
+// box-sizing:border-box and the `*` margin reset). Measured at mount to
+// self-correct if that drifts — `offsetHeight` includes padding, so the
+// correction picks up the padding-top automatically without any change to
+// this composable's math.
+const tabHeight = ref(56);
+const { window: tabWindow, topPadPx, bottomPadPx, scrollToIndex } = useVirtualList({
+  items: () => store.boards,
+  itemHeight: () => tabHeight.value,
+  containerRef: thumbListRef,
+  overscan: 4,
+});
+// Id-based active flag (not an index) so a tab's prop stays referentially stable
+// across a sibling's close — the keyed diff then skips it.
+const activeBoardId = computed(() => store.boards[store.activeBoardIndex]?.id ?? null);
+
+onMounted(async () => {
+  await nextTick();
+  const firstTab = thumbListRef.value?.querySelector<HTMLElement>('.thumb-container');
+  if (firstTab && firstTab.offsetHeight > 0) tabHeight.value = firstTab.offsetHeight;
+  scrollToIndex(store.activeBoardIndex);
+});
+
+// Keep the active tab in view when the active board changes (keyboard switch, or
+// a close re-selecting a new active). No-op when it is already visible.
+watch(() => store.activeBoardIndex, (i) => scrollToIndex(i));
 
 // ── Docked hover preview ────────────────────────────────────────────────────
 // The board-tab hover preview is a DOCKED pane at the foot of the rail, not a
@@ -90,7 +121,11 @@ function getReviewState(boardId: BoardId) {
   if (!status) return null;
 
   if (status === 'AWAITING_MOVE' || status === 'ANALYZING' || status === 'LOADING') return 'ACTIVE';
-  if (status === 'FINISHED') return 'INTERMISSION';
+  // REVIEWED (deck-repeat arc: a goBack/goForward-restored, view-only
+  // card) reads as the same tab-badge bucket as FINISHED — both are
+  // "not actively awaiting a move," and REVIEWED has no dedicated
+  // badge state of its own yet.
+  if (status === 'FINISHED' || status === 'REVIEWED') return 'INTERMISSION';
   return null;
 }
 
@@ -107,72 +142,95 @@ function onHoverEnter(id: BoardId) {
 function onHoverLeave() {
   previewBoardId.value = null;
 }
+
+// ── Close guard (ADR-0019 audit S6 / C10) ───────────────────────────────
+// Board close used to go straight to the store's closeBoard — irreversible,
+// no confirm, no undo. BoardTab now emits 'request-close' (renamed from
+// 'close' so the wiring can't silently regress back to the direct call);
+// the policy (when to confirm, resolving the board's display name, calling
+// closeBoard) lives in useCloseBoardGuard.ts — same composable-owns-the-
+// decision shape as useDirtyBoardGuard, and independently unit-testable
+// without mounting this whole widget.
+const confirmCloseBoardModalRef = ref<InstanceType<typeof ConfirmCloseBoardModal> | null>(null);
+const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
 </script>
 
 <template>
   <div id="sidebar-widget">
-    <!-- File-ops header — LOAD / SAVE for SGF import/export, sitting
-         above the thumb-list so the affordance is visible regardless
-         of how many boards crowd the rail. Placed here (not foot-
-         adjacent to `+`) deliberately: LOAD / SAVE act on EXTERNAL
-         files; `+` acts on the IN-MEMORY collection. Spatial split
-         reflects the conceptual difference, and the chrome-header
-         placement is the convention any user (Go researcher or
-         developer) recognises for file operations. Emits bubble to
-         App.vue which dispatches to the existing `openFileDialog`
-         / `downloadActiveBoard` handlers — same wiring the Toolbar
-         used before the 2026-05-15 separation-of-concerns move. -->
-    <div class="board-actions">
-      <button class="board-action-btn" @click="$emit('load-sgf')">{{ $t('sidebar.loadSgf') }}</button>
-      <button class="board-action-btn" @click="$emit('save-sgf')">{{ $t('sidebar.saveSgf') }}</button>
+    <!-- File-ops header — LOAD / SAVE for SGF import/export — REMOVED
+         (W4 commission item 2, roadmap `.claude/dispatch-reports/
+         lyt-vue-realization-roadmap.md` §8 W4; parity inventory's own
+         "Chrome-mounted features" census lists "SGF import/export
+         toolbar entries" as ONE feature with ONE home). Pre-LYT-rework
+         this rail was that home; the LYT skeleton's own toolbar strip
+         (originally `Toolbar.vue`'s merged A_go mount, `App.vue`'s
+         `#leaf-A_go`/`#leaf-A_top` templates; since the 2026-08-11
+         toolbar ontology reencode, `ToolbarAppCluster.vue`'s own mount
+         at `#leaf-A_app` in both classes) grew its OWN Load/Save SGF buttons
+         during the W1 skeleton build (disclosed there as "no dedicated
+         boardRail mount in this wave") — since boardRail can now
+         genuinely be visible again (W2's presence menu / popover
+         style), both surfaces rendered simultaneously, a real
+         duplicate the commissioner's screenshot review caught. The
+         toolbar strip is the one census-declared home going forward;
+         this rail's own copy is removed, not the toolbar's — the
+         toolbar's Load/Save buttons already reuse this component's
+         OWN i18n keys (`sidebar.loadSgf`/`sidebar.saveSgf`) and the
+         SAME `openFileDialog`/`downloadActiveBoard` handlers, so no
+         behavior is lost, only the second surface. The `load-sgf`/
+         `save-sgf` emits below are ALSO removed — nothing in this
+         component emits them anymore; App.vue's own `@load-sgf`/
+         `@save-sgf` listeners on `<SidebarWidget>` are removed in the
+         same change (there is no longer a source event to bind). -->
+
+    <!-- Virtualized board-tab rail: only the visible slice renders
+         (`useVirtualList` windows on scroll). The padded inner wrapper preserves
+         the scrollbar geometry; its `counter-reset: boardtab <start>` keeps the
+         "Board N" CSS-counter labels ABSOLUTE (the first rendered tab is board
+         `tabWindow.start`). Per-tab props stay referentially stable — stable
+         module handlers (BoardTab emits its own id) + an id-based `:isActive` —
+         so Vue's keyed diff skips an unchanged tab on a sibling's close (the
+         close-render-storm fix; close-at-scale postmortem). No v-memo: it caches
+         positionally and never helped the close path.
+
+         @request-close (not @close, ADR-0019 audit S6 / C10): BoardTab no
+         longer wires straight to the store's closeBoard — requestCloseBoard
+         (from useCloseBoardGuard) decides whether the target board's close
+         needs confirming first. See the composable + ConfirmCloseBoardModal
+         below. -->
+    <div class="thumb-list" ref="thumbListRef">
+      <div
+        class="thumb-virt"
+        :style="{
+          paddingTop: topPadPx + 'px',
+          paddingBottom: bottomPadPx + 'px',
+          counterReset: 'boardtab ' + tabWindow.start,
+        }"
+      >
+        <BoardTab
+          v-for="board in tabWindow.items"
+          :key="board.id"
+          :state="board"
+          :isActive="board.id === activeBoardId"
+          :reviewState="getReviewState(board.id)"
+          @activate="onActivate"
+          @request-close="requestCloseBoard"
+          @hover-enter="onHoverEnter"
+          @hover-leave="onHoverLeave"
+        />
+      </div>
     </div>
 
-    <div class="thumb-list">
-      <!-- No v-memo (deliberate). App.vue re-renders on every navigation, and
-           this widget's `v-show` force-updates it on each parent render, so this
-           v-for re-runs often AND on every board close. Tabs skip re-rendering
-           anyway because every BoardTab prop is referentially stable for an
-           unchanged tab: `:state` is the board object (stable ref — a move-play
-           replacement via updateBoardState changes it, which correctly DOES
-           re-render that one tab), `:isActive`/`:reviewState` are value-stable,
-           and the handlers are STABLE module functions (BoardTab emits its own
-           id) rather than per-`v-for`-item closures. Vue's keyed diff +
-           shouldUpdateComponent then skips the O(N) tabs a sibling's close
-           leaves untouched — closing the O(N²) close-render storm at its real
-           root. (v-memo was the old mask for the nav case, but it caches
-           POSITIONALLY, so a close-induced shift busts every memo and it never
-           helped the close path; the per-item-closure handlers were the actual
-           driver. See docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md
-           and docs/notes/perf-audit-game-scroll-2026-05-28.md.) -->
-      <BoardTab
-        v-for="(board, index) in store.boards"
-        :key="board.id"
-        :state="board"
-        :isActive="store.activeBoardIndex === index"
-        :reviewState="getReviewState(board.id)"
-        @activate="onActivate"
-        @close="closeBoard"
-        @hover-enter="onHoverEnter"
-        @hover-leave="onHoverLeave"
-      />
-    </div>
+    <!-- Close-confirm guard (ADR-0019 audit S6 / C10) — opened by
+         requestCloseBoard only when the target board has moves. -->
+    <ConfirmCloseBoardModal ref="confirmCloseBoardModalRef" />
 
     <button class="tab-add-btn" :title="$t('sidebar.newBoard')" @click="handleAdd">+</button>
 
-    <!-- Dev-only thumbnail-preview "jank test". Loads 16 boards (one fixed
-         342-move Shusaku game + 15 random library games), auto-navigates the
-         long game, and scrubs the docked hover preview at a 20–50 ms cadence so
-         a human can capture a DevTools performance profile of the preview
-         render under stress. Gated to dev builds (import.meta.env.DEV); the
-         literal "jank test" label is intentional — it is a developer
-         affordance, not a user-facing string, so it skips i18n. -->
-    <button
-      v-if="isDevBuild"
-      class="jank-test-btn"
-      :class="{ running: jankTest.isRunning.value }"
-      :title="'Dev: stress the thumbnail-preview render (loads 16 boards, auto-navs the long Shusaku game, scrubs the hover preview). Click again to stop.'"
-      @click="jankTest.toggle()"
-    >{{ jankTest.isRunning.value ? 'jank test (stop)' : 'jank test' }}</button>
+    <!-- Dev-only thumbnail-preview "jank test" — REMOVED from this
+         surface, W4 item 5 (roadmap §7 resolution 4). Now lives in
+         DebugMenu.vue (App.vue's corner chrome cluster), dev builds
+         only, alongside Clear Cache / Auto-Nav Perf / Popover Stress. -->
 
     <!-- Docked hover-preview shelf — the vertical split below `+`. A fixed
          framed box that shows the hovered board's current position and falls
@@ -193,21 +251,45 @@ function onHoverLeave() {
    still render at their own 86px and sit centred, so they carry a wider gutter
    now — a deliberate "narrow tab strip + preview shelf" split. Both the rail
    width and the tab gutter are visual tunables (the author retunes by eye); if
-   `.board-preview`'s box grows, raise this in tandem, floor = that box width. */
+   `.board-preview`'s box grows, raise this in tandem, floor = that box width.
+
+   Content-need audit (commission row 848): the docked preview box is the
+   width DRIVER — the `--tab-width: 86px` tabs fit well inside 168px with
+   room to spare, so they add no width pressure of their own (the LOAD/SAVE
+   buttons this note originally also named are gone — W4 item 2 removed
+   them, see the removed `.board-actions` header comment above). No further
+   narrowing available without shrinking the preview box itself, which is a
+   separate, out-of-scope surface (not named in the commission). */
 #sidebar-widget {
   display: flex; flex-direction: column; align-items: center;
   padding: var(--space-medium) 0; background: var(--surface-0); height: 100%;
   border-right: 1px solid var(--surface-1); width: 168px;
 }
 
+/* Scroll container for the virtualized rail (block, not flex — the flex-column
+   centering moves to `.thumb-virt`, the single padded child whose height the
+   spacer padding inflates to N×tabHeight so the scrollbar geometry is correct).
+   `min-height: 0` is LOAD-BEARING: a flex item defaults to `min-height: auto`,
+   which refuses to shrink below its content — so without this the list grows to
+   fit ALL tabs (clientHeight = full content) and the virtual window spans
+   everything (windowing inert). The classic flexbox-scroll footgun. */
 .thumb-list {
-  flex: 1; overflow-y: auto; width: 100%; display: flex;
-  flex-direction: column; align-items: center;
-  /* Resets the `boardtab` CSS counter each BoardTab's `.thumb-container`
-     increments to render its "Board N" ordinal — see BoardTab's
-     `.tab-label-num`. The browser recomputes it on a close-induced reflow, so
-     the labels renumber with no Vue re-render (fix-boardtab-vmemo-index-key). */
-  counter-reset: boardtab;
+  flex: 1; min-height: 0; overflow-y: auto; width: 100%;
+  /* Disable scroll-anchoring: when the window scrolls and the inline top-pad
+     (content ABOVE the viewport) changes height, the browser would re-adjust
+     scrollTop to preserve the visual position — which fires another scroll
+     event, recomputes the window/pad, re-anchors… a per-frame busy-loop. The
+     window math owns scrollTop here; the browser must not also move it. */
+  overflow-anchor: none;
+}
+
+/* Windowed-slice wrapper. Its inline `counter-reset: boardtab <start>` offsets
+   the "Board N" CSS counter (BoardTab's `.tab-label-num`) so labels stay
+   ABSOLUTE though only the visible slice renders; the inline top/bottom padding
+   reserves the off-screen space (set from useVirtualList). */
+.thumb-virt {
+  display: flex; flex-direction: column; align-items: center;
+  width: 100%; box-sizing: border-box;
 }
 
 .tab-add-btn {
@@ -215,30 +297,7 @@ function onHoverLeave() {
   background: var(--surface-2); color: var(--text-0); font-size: var(--text-emphasis); cursor: pointer; margin-top: var(--space-medium);
 }
 
-/* Dev-only "jank test" toggle — quiet chrome (surface-2 fill, monospace,
-   matching the LOAD/SAVE board-action register) so it reads as a developer
-   affordance, not a primary action. The `.running` accent makes it observable
-   that the stress loop is in flight. Only mounts in dev builds. */
-.jank-test-btn {
-  margin-top: var(--space-tight);
-  width: 100%;
-  max-width: 150px;
-  height: 18px;
-  border: none;
-  border-radius: 0%;
-  background: var(--surface-2);
-  color: var(--text-1);
-  font-family: monospace;
-  font-size: var(--text-tiny);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-tight);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.jank-test-btn.running {
-  background: var(--accent-primary);
-  color: var(--surface-0);
-}
+/* Dev-only "jank test" toggle — REMOVED, W4 item 5 (now DebugMenu.vue). */
 
 /* Docked hover-preview shelf. magic-literal: 150px box matches the app's
    established thumbnail size (the old FloatingThumbnail, the card thumbnails).
@@ -258,38 +317,8 @@ function onHoverLeave() {
   flex-shrink: 0;
 }
 
-/* LOAD / SAVE file-ops header — horizontal pair at the top of
-   the sidebar, above the scrollable thumb-list. Thin separator
-   on the bottom edge sets the header off from the list without
-   adding a heavy chrome element. Visual register matches
-   `.tab-add-btn` (no border on the buttons themselves, surface-2
-   fill) so the row reads as quiet chrome rather than a primary-
-   action shelf — the user's "out of sight, out of mind during
-   study" aesthetic preference, honoured under a discoverable
-   placement. */
-.board-actions {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: var(--space-tight);
-  width: 100%;
-  padding: 0 var(--space-tight) var(--space-tight);
-  border-bottom: 1px solid var(--surface-1);
-  margin-bottom: var(--space-tight);
-}
-.board-action-btn {
-  flex: 1;
-  height: 20px;
-  border-radius: 0%;
-  border: none;
-  background: var(--surface-2);
-  color: var(--text-0);
-  font-family: monospace;
-  font-size: var(--text-tiny);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-tight);
-  cursor: pointer;
-  padding: 0 var(--space-tight);
-  min-width: 0;
-}
+/* LOAD / SAVE file-ops header — REMOVED (W4 item 2; see the template's
+   own comment at the removed header markup for the full derivation).
+   `.board-actions`/`.board-action-btn` no longer have any markup to
+   style; the rule bodies are deleted rather than left as dead CSS. */
 </style>

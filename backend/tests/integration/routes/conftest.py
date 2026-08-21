@@ -32,6 +32,7 @@ from api.routes import (
     forests,
     library,
     lineage,
+    positions,
     resources,
     stats,
 )
@@ -62,6 +63,7 @@ def _build_test_app(db: Database) -> FastAPI:
     app.include_router(documents.router)
     app.include_router(library.router)
     app.include_router(lineage.router)
+    app.include_router(positions.router)
     app.include_router(resources.router)
     app.include_router(stats.router)
     return app

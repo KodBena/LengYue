@@ -31,9 +31,11 @@ import { activeBoard, mutateBoard, mutateReviewSession, store, pushSystemMessage
 import { getActiveVariationPath } from '../engine/util';
 import { navigateTo } from '../engine/navigator';
 import { themeColor } from '../utils/theme-color';
+import { useAppDialogs } from '../composables/useAppDialogs';
 import type { BoardId, CardMetadataPatch, ReviewCard } from '../types';
 
 const { t } = useI18n();
+const dialogs = useAppDialogs();
 const cardMetadata = useCardMetadata();
 
 // The composable is per-board: it projects the active board's
@@ -49,11 +51,21 @@ const cardMetadata = useCardMetadata();
 const activeBoardId = computed(() => activeBoard.value?.id as BoardId | null);
 const reviewSession = useReviewSession(activeBoardId);
 
-// Intermission chart series — only meaningful in FINISHED state.
-// Lifted from the prior App.vue inline binding without behaviour
-// change.
+// Deck-repeat arc: FINISHED (live intermission) and REVIEWED (a
+// goBack/goForward-restored, view-only snapshot of a prior FINISHED
+// visit) share the same read-only display shape — the intermission
+// chart, no moves-made/visits-override rows. They differ only in the
+// header text (see stateLabelKey) and in REVIEWED showing the Retry
+// action instead of nothing.
+const isReadOnlyDisplay = computed(() =>
+  reviewSession.state.value === 'FINISHED' || reviewSession.state.value === 'REVIEWED');
+
+// Intermission chart series — meaningful in FINISHED and REVIEWED
+// (both carry a settled userMoveScores array). Lifted from the prior
+// App.vue inline binding without behaviour change beyond the REVIEWED
+// extension.
 const intermissionSeries = computed(() => {
-  if (reviewSession.state.value !== 'FINISHED') return [];
+  if (!isReadOnlyDisplay.value) return [];
   const accentSecondary = themeColor('--accent-secondary');
   const data = reviewSession.userMoveScores.value.map((score, index) => {
     return { value: [index + 1, score], itemStyle: { color: accentSecondary } };
@@ -79,6 +91,16 @@ function handleVisitsOverrideChange(e: Event) {
   const raw = (e.target as HTMLInputElement).value;
   const n = Number(raw);
   reviewSession.setVisitsOverride(n);
+}
+
+// Retry re-grades the current card — a destructive re-entry (it
+// discards the restored snapshot). Guarded by the sanctioned in-app
+// confirm dialog (ADR-0019 S14) before proceeding to
+// reviewSession.retryCard().
+async function handleRetry() {
+  const ok = await dialogs.confirm({ message: t('review.session.retryConfirm'), danger: true });
+  if (!ok) return;
+  reviewSession.retryCard();
 }
 
 /**
@@ -162,7 +184,11 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
 
 <template>
   <div v-if="reviewSession.currentCard.value" class="review-session-panel">
-    <h3>{{ reviewSession.state.value === 'FINISHED' ? $t('review.session.intermission') : $t('review.session.active') }}</h3>
+    <h3>{{
+      reviewSession.state.value === 'REVIEWED' ? $t('review.session.reviewed')
+      : reviewSession.state.value === 'FINISHED' ? $t('review.session.intermission')
+      : $t('review.session.active')
+    }}</h3>
     <p class="hint text-muted card-counter">
       {{ $t('review.session.cardOf', {
         n: reviewSession.queue.value.indexOf(reviewSession.currentCard.value) + 1,
@@ -170,13 +196,35 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
       }) }}
     </p>
 
+    <!-- Deck-repeat back/forward affordances. Disabled (not hidden) at
+         the queue edges so the control's presence doesn't jump around
+         as the user navigates — matches the rest of the panel's
+         always-mounted-buttons chrome (rewindToStart/endSession are
+         likewise always present). -->
+    <div class="nav-buttons-row">
+      <button
+        class="toolbar-btn-sm"
+        :disabled="!reviewSession.canGoBack.value"
+        @click="reviewSession.goBack"
+      >{{ $t('review.session.goBack') }}</button>
+      <button
+        class="toolbar-btn-sm"
+        :disabled="!reviewSession.canGoForward.value"
+        @click="reviewSession.goForward"
+      >{{ $t('review.session.goForward') }}</button>
+    </div>
+
+    <!-- wC-contrast (F9): readable text is --text-0, not accent-secondary
+         (~1.91:1 in the default cluster theme); the state-attention
+         branch is a separate semantic-state token, out of this
+         defect's class. -->
     <p class="status-line"
-       :style="{ color: reviewSession.state.value === 'FINISHED' ? 'var(--accent-secondary)' : 'var(--state-attention)' }">
+       :style="{ color: isReadOnlyDisplay ? 'var(--text-0)' : 'var(--state-attention)' }">
       {{ $t('review.session.statusLine', { state: $t(stateLabelKey(reviewSession.state.value)) }) }}
       <span v-if="reviewSession.state.value === 'ANALYZING'">{{ $t('review.session.ponderHint') }}</span>
     </p>
 
-    <div v-if="reviewSession.state.value === 'FINISHED'" class="intermission-chart">
+    <div v-if="isReadOnlyDisplay" class="intermission-chart">
       <BaseChart
         :series="intermissionSeries"
         :zoomRange="[1, reviewSession.currentCard.value.numMoves]"
@@ -184,7 +232,7 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
       />
     </div>
 
-    <p class="hint text-muted moves-made" v-if="reviewSession.state.value !== 'FINISHED'">
+    <p class="hint text-muted moves-made" v-if="!isReadOnlyDisplay">
       {{ $t('review.session.movesMade', {
         n: reviewSession.userMovesCount.value,
         total: reviewSession.currentCard.value.numMoves,
@@ -195,7 +243,7 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
          effective value (override if set, else the card's
          defaultVisits). Persists across moves within the same card;
          auto-resets on next card via loadCard. -->
-    <div v-if="reviewSession.state.value !== 'FINISHED'" class="visits-override-row">
+    <div v-if="!isReadOnlyDisplay" class="visits-override-row">
       <label>{{ $t('review.session.maxVisitsLabel') }}</label>
       <input
         type="number"
@@ -207,6 +255,15 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
       />
     </div>
 
+    <!-- Retry: the only path back into a gradeable state from REVIEWED
+         (see useReviewSession.retryCard's docstring). Re-grades on
+         confirmation, so it carries its own destructive confirm. -->
+    <button
+      v-if="reviewSession.state.value === 'REVIEWED'"
+      class="toolbar-btn-sm retry-btn"
+      @click="handleRetry"
+    >{{ $t('review.session.retry') }}</button>
+
     <!-- Inline metadata editor for the current card (arc 2). -->
     <CardMetadataPanel
       :card="reviewSession.currentCard.value"
@@ -215,7 +272,7 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
     />
 
     <button class="action-btn-large advance-btn" @click="reviewSession.nextCard">
-      {{ reviewSession.state.value === 'FINISHED' ? $t('review.session.nextCard') : $t('review.session.skipCard') }}
+      {{ isReadOnlyDisplay ? $t('review.session.nextCard') : $t('review.session.skipCard') }}
     </button>
 
     <button class="toolbar-btn-sm" @click="reviewSession.rewindToStart">
@@ -232,6 +289,9 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
 .review-session-panel { padding: var(--space-default); display: flex; flex-direction: column; }
 .review-session-panel h3 { margin: 0 0 var(--space-default) 0; font-size: var(--text-emphasis); color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-default); }
 .card-counter { margin-bottom: var(--space-medium); }
+.nav-buttons-row { display: flex; gap: var(--space-default); margin-bottom: var(--space-medium); }
+.nav-buttons-row button { flex: 1; }
+.retry-btn { margin-bottom: var(--space-medium); }
 .status-line { font-weight: bold; margin-bottom: var(--space-medium); }
 .intermission-chart {
   height: 180px;
@@ -243,7 +303,7 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
 }
 .moves-made { margin-bottom: var(--space-medium); }
 .visits-override-row { display: flex; align-items: center; gap: var(--space-default); margin-bottom: var(--space-medium); }
-.visits-override-row label { font-size: var(--text-body); color: var(--text-2); white-space: nowrap; }
+.visits-override-row label { font-size: var(--text-body); color: var(--text-0); white-space: nowrap; }
 .visits-input { width: 100%; }
 .advance-btn { margin-bottom: var(--space-medium); margin-top: var(--space-medium); }
 /* End-session affordance — de-emphasised against Skip/Next so the

@@ -6,7 +6,8 @@
  * moved to `lib/utils.ts` 2026-06-10 — this module is [B3].)
  * License: Public Domain (The Unlicense)
  */
-import type { Move, StoneColor, BoardState, NodeId, RootToLeafPath } from '../types';
+import type { Move, StoneColor, BoardState, NodeId, GameNode, RootToLeafPath } from '../types';
+import { normalizeRuleset, type RulesetResolution } from './rulesets';
 
 /**
  * Thrown when an inbound SGF coordinate is malformed — a character
@@ -131,6 +132,30 @@ export function getActiveVariationPath(board: BoardState): RootToLeafPath {
   return path as RootToLeafPath;
 }
 
+/**
+ * Every NodeId in `nodeId`'s subtree, inclusive of `nodeId` itself —
+ * a plain BFS over `children`. Minted for the setup-toolkit's
+ * thumbnail-invalidation obligation: `applySetup` (`src/logic.ts`)
+ * mutates the CURRENT node's stone projection, and every descendant's
+ * cached thumbnail snapshot is a replay that starts from that
+ * projection, so all of them go stale together (contrast
+ * `applyMarkup`, whose mutation has no board-state carry-forward and
+ * therefore invalidates only the one node it touched — no subtree
+ * walk needed there).
+ */
+export function collectSubtreeIds(nodes: Record<NodeId, GameNode>, nodeId: NodeId): NodeId[] {
+  const out: NodeId[] = [];
+  const queue: NodeId[] = [nodeId];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    const node = nodes[id];
+    if (!node) continue;
+    out.push(id);
+    queue.push(...node.children);
+  }
+  return out;
+}
+
 const GTP_ALPHABET = "ABCDEFGHJKLMNOPQRSTUVWXYZ".split("");
 
 export function toGtp(x: number, y: number): string {
@@ -142,6 +167,39 @@ export function toGtp(x: number, y: number): string {
   const col = GTP_ALPHABET[x];
   const row = y + 1;
   return `${col}${row}`;
+}
+
+/**
+ * Inverse of `toGtp` — parses a GTP/KataGo wire coordinate
+ * (`KataCoord`, e.g. `"Q16"`) into 0-indexed board `{x, y}`, or
+ * `null` for `"pass"`. Case-insensitive on the column letter (KataGo
+ * emits uppercase; tolerate lowercase defensively). Throws (ADR-0002
+ * fail-loudly) on a coordinate outside `[0, boardSize)` or a column
+ * letter not in the GTP alphabet (`"I"` is skipped, same as
+ * `toGtp`'s encode side) — a malformed coordinate is a data-integrity
+ * problem the caller needs to know about, not a value to silently
+ * clamp or drop.
+ */
+export function fromGtp(coord: string, boardSize: number): { x: number; y: number } | null {
+  if (coord.toLowerCase() === 'pass') return null;
+
+  const col = coord[0]?.toUpperCase();
+  const x = GTP_ALPHABET.indexOf(col ?? '');
+  if (x < 0 || x >= boardSize) {
+    throw new Error(`[util.ts:fromGtp] Unrecognized or out-of-range GTP column in coordinate "${coord}".`);
+  }
+
+  const rowStr = coord.slice(1);
+  const row = parseInt(rowStr, 10);
+  if (!Number.isFinite(row) || rowStr === '') {
+    throw new Error(`[util.ts:fromGtp] Unrecognized GTP row in coordinate "${coord}".`);
+  }
+  const y = row - 1;
+  if (y < 0 || y >= boardSize) {
+    throw new Error(`[util.ts:fromGtp] GTP row out of range in coordinate "${coord}" for board size ${boardSize}.`);
+  }
+
+  return { x, y };
 }
 
 /**
@@ -168,6 +226,46 @@ export function getKomi(state: BoardState): number {
   const kmStr = state.nodes[state.rootNodeId]?.properties['KM']?.[0];
   const km = parseFloat(kmStr ?? '6.5');
   return isNaN(km) ? 6.5 : km;
+}
+
+/**
+ * Extracts the player to move BEFORE any move has been played, from
+ * the SGF root node's `PL` property. Defaults to 'B' — the ordinary
+ * "Black moves first" convention every non-handicap board carries — for
+ * a missing, empty, or unrecognized `PL` value; only an exact `PL[W]`
+ * flips the default. `engine/handicap.ts::applyHandicap` is the write
+ * side of this property (handicap hands the first move to White);
+ * `loadSgf` reads it to seed `BoardState.turn` correctly for a
+ * reloaded handicap game, and the analysis query builder
+ * (`services/analysis-service.ts`) reads it to tell KataGo who is to
+ * move at the position `initialStones` describes when the query's
+ * `moves` list is empty (turn 0 has no move to carry a colour, so the
+ * wire's `initialPlayer` field is the only way to say it) — parallel
+ * in shape to `getKomi` / `getRulesetResolution` above, all three
+ * root-level scalar facts read directly off the SGF properties rather
+ * than off `BoardState.turn`, which only tracks the CURSOR's turn and
+ * is not itself the root-level fact for a board navigated away from
+ * the root.
+ */
+export function getInitialPlayer(state: BoardState): StoneColor {
+  const pl = state.nodes[state.rootNodeId]?.properties['PL']?.[0];
+  return pl === 'W' ? 'W' : 'B';
+}
+
+/**
+ * Extracts the ruleset from the SGF root node's `RU` property, parallel
+ * in shape to `getKomi` / `getBoardSize` but returning the
+ * `RulesetResolution` record (an effective `RulesetName` plus a
+ * `source` provenance tag) rather than a bare string — per the
+ * live-testing adjudication superseding the original ruleset ruling
+ * (`.claude/dispatch-reports/ruleset-default-wedge-fix.md`), a missing
+ * or unrecognized `RU` defaults to Tromp-Taylor (`source: 'defaulted'`)
+ * rather than refusing; a recognized `RU` resolves with `source: 'ru'`.
+ * See `normalizeRuleset` in `engine/rulesets.ts` for the full contract.
+ */
+export function getRulesetResolution(state: BoardState): RulesetResolution {
+  const raw = state.nodes[state.rootNodeId]?.properties['RU']?.[0];
+  return normalizeRuleset(raw);
 }
 
 /**
@@ -232,6 +330,53 @@ export function getInitialStones(state: BoardState): [StoneColor, string][] {
 
   return result;
 }
+
+/**
+ * True iff any NON-ROOT node on `path` carries a setup property (`AB`/
+ * `AW`/`AE`). `getInitialStones` above (and `analyzeRange` /
+ * `analyzeActiveNode` in `src/services/analysis-service.ts`) only ever
+ * project the ROOT's own AB/AW into KataGo's `initialStones` — that is
+ * wire-protocol-correct for handicap/problem setups, but a mid-tree
+ * setup edit (the setup toolkit, ledger rows 603/604, can place one on
+ * ANY current node — not just root) is silently absent from BOTH
+ * `initialStones` (root-only) and `moves` (`buildMovesAndTurnIndex`
+ * only ever collects `node.move`, treating a setup-only node exactly
+ * like any other moveless node): KataGo's analysis-engine protocol has
+ * no wire primitive for "insert a stone mid-sequence with no move,"
+ * so the analyzed position silently diverges from the board the user
+ * is looking at. This predicate is the query-construction-time
+ * detection that lets a caller surface that divergence loudly
+ * (ADR-0002) rather than ship a silently-wrong analysis — see the
+ * mid-tree-setup system-message notice at both `analyzeRange` and
+ * `analyzeActiveNode` call sites.
+ *
+ * `path[0]` (root) is always excluded — root AB/AW is the
+ * wire-correct, already-handled case.
+ */
+export function pathHasMidTreeSetup(nodes: Record<NodeId, GameNode>, path: readonly NodeId[]): boolean {
+  for (let i = 1; i < path.length; i++) {
+    const node = nodes[path[i]];
+    if (!node) continue;
+    if (
+      (node.properties.AB && node.properties.AB.length > 0)
+      || (node.properties.AW && node.properties.AW.length > 0)
+      || (node.properties.AE && node.properties.AE.length > 0)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Game-end-by-pass status (`GameStatus` / `getGameEndStatus`) was
+// removed (commissioner ruling, ledger row 2540): the SPA is not a
+// game server and must never treat two consecutive passes as a
+// terminal/locking condition — see `StatusBar.vue`'s history for the
+// removed badge, and `frontend/tests/unit/engine/util.test.ts` for the
+// removed truth-table coverage. Unlimited passing is genre-correct
+// (Sabaki/KaTrain/OGS); pass interpretation, if ever needed, is a
+// concern for a specific play-vs-engine protocol, not this general
+// board/GUI helper module.
 
 /**
  * Decodes a flat KataGo board-shaped array (length = size²) into per-cell

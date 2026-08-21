@@ -15,7 +15,15 @@
  * Per-action `dispatchMode` decides immediate-vs-coalesced firing
  * (rAF coalesce for navigation, synchronous for toggles — same
  * posture perf Fix #1 introduced and the now-removed hardcoded
- * `COALESCED_NAV_KEYS` set tracked). Per-action `enabledWhen` —
+ * `COALESCED_NAV_KEYS` set tracked) — but ONLY for OS auto-repeat
+ * (`KeyboardEvent.repeat`); a coalesced-mode action's discrete
+ * (non-repeat) keydowns always fire synchronously, same as
+ * 'immediate' mode. See the `handleKeyDown` body for the 2026-08-10
+ * G25/G26/G27 fix this split closes: rAF-coalescing every keydown of
+ * a coalesced action (not just its auto-repeat stream) silently
+ * dropped discrete presses and could let a stale pending action fire
+ * after a later, unrelated keypress had already mutated state.
+ * Per-action `enabledWhen` —
  * a catalog-supplied predicate (active-board / engine-connected /
  * always today) — gates dispatch, replacing the prior global
  * `if (!activeBoard.value) return`
@@ -49,6 +57,7 @@ import {
 } from '../lib/keybindings';
 import { KEYBINDINGS_REGISTRY } from './keybindings-catalog';
 import { captureMode } from '../lib/keybindings-capture';
+import { anyModalOpen } from './useModalKeyboard';
 
 export function useUserIORegistry() {
   // Reactive key→action map. Recomputes when `store.profile.settings.keybindings`
@@ -92,6 +101,34 @@ export function useUserIORegistry() {
     // lifecycle.
     if (captureMode.value !== null) return;
 
+    // Modal guard: while any modal wired through useModalKeyboard is
+    // open, its own controls are the only thing the keyboard should
+    // reach. Without this, a registry-bound key pressed while focus
+    // sits on a modal's own <button> (not covered by the form-control
+    // guard below) would fire the underlying page's action beneath
+    // the modal (ADR-0019 audit, S5). useModalKeyboard.ts owns the
+    // Escape/Tab handling for the modal itself; this is the other
+    // half of the same seam.
+    if (anyModalOpen.value) return;
+
+    // Workspace-load guard (ADR-0019 audit S1 review, nit 1): App.vue's
+    // render gate withholds the board/tree/control-panel surfaces while
+    // `store.workspaceLoadState.kind !== 'loaded'`, but this listener is
+    // global (`window`) and independent of the render tree — the
+    // per-action `enabledWhen` predicates (`activeBoardExists` /
+    // `engineConnected`) are satisfied by the store's DEFAULT board
+    // during the loading window, so nav/display-toggle hotkeys and
+    // especially the Space ponder-toggle (a real `analysisService`
+    // WebSocket query, not just a store write) could still fire against
+    // a workspace about to be replaced wholesale by hydrate(). Composed
+    // as the second sibling early-return, after the modal guard above
+    // (per this composable's own prior anticipation note): no modal can
+    // legitimately be open during the load gate today, since every
+    // modal-opening trigger lives inside App.vue's gated toolbar, but
+    // ordering them defensively — modal first — costs nothing and holds
+    // even if that invariant is ever relaxed.
+    if (store.workspaceLoadState.kind !== 'loaded') return;
+
     // Context Guard: ignore hardware events when user is typing.
     //
     // The form-control branches (HTMLInputElement, HTMLTextAreaElement,
@@ -123,7 +160,37 @@ export function useUserIORegistry() {
 
     if (!action.enabledWhen()) return;
 
-    if (action.dispatchMode === 'coalesced') {
+    // Root-cause fix (2026-08-10, G25/G26/G27 diagnosis —
+    // `.claude/dispatch-reports/geo-a-input-build.md`): coalescing
+    // must key off OS AUTO-REPEAT (`e.repeat`), never off "this
+    // action's dispatchMode is coalesced". The prior rule coalesced
+    // every keydown of a coalesced-mode action — including two
+    // ordinary, discrete taps — via a single latest-wins pending
+    // slot. That conflates two different questions: "the user is
+    // holding this key down for continuous fast-navigation" (repeat
+    // events, where dropping intermediate frames toward the latest
+    // position is exactly the desired "fast-forward" behaviour) vs
+    // "the user pressed this key N separate times" (discrete
+    // keydowns, each `repeat: false`, where every press is a
+    // distinct intent and NONE may be silently dropped — the primary
+    // review-loop gesture, G25's "1,2,2,3,3" sequence). It also let a
+    // still-pending coalesced action from an EARLIER keypress fire
+    // AFTER a LATER, unrelated immediate-mode keypress (e.g. Pass)
+    // had already mutated the board — an ordering hazard with no
+    // guard, matching the mechanism the G26 diagnosis names for the
+    // move-5-to-mainline-tip jump. Gating on `e.repeat` closes the
+    // hazard structurally for DISCRETE presses; a pending rAF from a
+    // genuinely held key is not cancelled by a later immediate press
+    // (its late fire is a harmless re-dispatch of the same held
+    // action — witnessed as a no-op in the interleaving test, not
+    // proven never to fire). For discrete input:
+    // every discrete press (repeat: false) fires synchronously and
+    // immediately, in dispatch order, exactly like an 'immediate'-
+    // mode action — "one keypress, one move" — while a genuinely
+    // held key (repeat: true) still rAF-coalesces so heavy downstream
+    // work can't back-pressure the input queue (perf Fix #1's
+    // original intent, preserved for the case it actually targets).
+    if (action.dispatchMode === 'coalesced' && e.repeat) {
       pendingAction = action;
       if (rafId !== null) cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {

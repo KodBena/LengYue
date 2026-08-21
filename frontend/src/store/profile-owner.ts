@@ -36,13 +36,15 @@
  *   - `resetWorkspace` / `updateFromRemote` (wholesale profile
  *     replacement on identity flip / hydration) stay in
  *     `store/index.ts`, the subtree's other enumerated owner file.
- *   - Knob output paths are profile-majority but two seeded knobs
- *     target `session.ui.*` leaves (`display.move-filter-threshold`,
- *     `display.pv-fade-ms`). `writeStoreKnobValue` is therefore
- *     honestly a GlobalStore-root knob writer, homed here because
- *     the registry it dispatches over is profile state and the
+ *   - Knob output paths are profile-majority but one seeded knob
+ *     targets a `session.ui.*` leaf (`display.move-filter-threshold`;
+ *     the sibling `display.pv-fade-ms` knob that used to be the
+ *     second one was removed, wiki2-pv-fade-knob — CSS transitions
+ *     were purged from `frontend/src`, leaving it dead). `writeStoreKnobValue`
+ *     is therefore honestly a GlobalStore-root knob writer, homed here
+ *     because the registry it dispatches over is profile state and the
  *     owner is the sanctioned root supplier; the session-targeting
- *     decls ride the same seam.
+ *     decl rides the same seam.
  *   - Enforcement (ADR-0011 Rule 1): direct dotted-path writes AND the
  *     two aliased generic-machinery shapes — `updateRegistry` over a
  *     `store.profile` root, `writeKnobValue`/`writeKnob` with the
@@ -59,17 +61,24 @@
  *     intermediate variable remains review's to catch — the lint
  *     family's named gap, not closed here.
  *
- * Persistence observability: every verb mutates the same deep
- * reactive object graph the direct writes did, so SyncService's
- * deep `store.profile` watch observes identically — no version
- * counter is needed (unlike `mutateBoard`'s `boardsVersion`, which
- * exists for shallow watchers). The integration contract is pinned
- * by `tests/integration/profile-owner.test.ts`.
+ * Persistence observability: the profile verbs (`mutateProfile`,
+ * `updateProfileAt`) mutate the same deep reactive object graph the
+ * direct writes did, so SyncService's deep `store.profile` watch
+ * observes them identically — no version counter is needed for the
+ * profile subtree. `writeStoreKnobValue` is the one exception: the
+ * knob seam may target `session.ui.*` leaves (one seeded knob does),
+ * and SyncService watches `store.session` via the `sessionVersion`
+ * counter rather than a deep watch (the per-board session dicts made
+ * a deep `session` traversal O(open-board count) — see
+ * `sessionVersion` in `store/index.ts`). So `writeStoreKnobValue`
+ * bumps `touchSession()` to keep session-targeting knob writes
+ * observable. The integration contract is pinned by
+ * `tests/integration/profile-owner.test.ts`.
  *
  * License: Public Domain (The Unlicense)
  */
 
-import { store } from './index';
+import { store, touchSession } from './index';
 import { updateRegistry } from '../lib/utils';
 import { writeKnobValue } from '../lib/knobs';
 import type { KnobId, ProfileState, WriteContext, WriteResult } from '../types';
@@ -130,5 +139,19 @@ export function writeStoreKnobValue(
   // `aliasedWrites` leg, which exempts this owner file via its `owners`
   // list (same as updateProfileAt above; previously a no-restricted-syntax
   // disable).
-  return writeKnobValue(store, store.profile.settings.knobs, knobId, inputVector, ctx);
+  const result = writeKnobValue(store, store.profile.settings.knobs, knobId, inputVector, ctx);
+  // One seeded knob targets a `session.ui.*` leaf
+  // (`display.move-filter-threshold` → `session.ui.moveFilterThreshold`).
+  // That write mutates `store.session`, which SyncService no longer deep-watches
+  // — bump the session counter so a session-targeting knob write still
+  // schedules a save. Profile-targeting knobs are already caught by the
+  // profile deep watch; the extra bump there is a harmless redundant
+  // schedule (the same debounce slot the profile change already occupies),
+  // and bumping unconditionally keeps this seam complete without
+  // re-deriving each decl's target subtree here. A refused write
+  // (claim-policy rejection) also bumps — vacuously harmless: no leaf
+  // changed, so the debounced PUT just re-sends identical state, the
+  // existing last-write-wins contract.
+  touchSession();
+  return result;
 }

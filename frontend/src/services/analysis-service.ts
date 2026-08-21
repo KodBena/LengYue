@@ -11,6 +11,8 @@ import {
   type KataAnalysisResponse,
   type KataErrorResponse,
   type WinrateFraming,
+  type KataGoActionQuery,
+  type KataGoResponse,
 } from '../engine/katago/types';
 import {
   resolveWinrateFraming,
@@ -29,9 +31,18 @@ import {
   buildPerQueryCapabilities,
   shouldWarnTranspositionUnmet,
 } from '../engine/katago/capability-injection';
-import { type BoardId, type RootedPath, type RawKey, type EnrichedKey, type QueryId } from '../types';
+import {
+  type BoardId,
+  type RootedPath,
+  type RawKey,
+  type EnrichedKey,
+  type QueryId,
+  type NodeId,
+  type GameNode,
+} from '../types';
 import { asQueryId } from './query-id';
-import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones } from '../engine/util';
+import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones, getInitialPlayer, getRulesetResolution, pathHasMidTreeSetup } from '../engine/util';
+import { rulesetToWireName } from '../engine/rulesets';
 import { rootToCurrentPrefix } from '../engine/navigator';
 import { store, mutateBoard, setSelectedModel } from '../store';
 import {
@@ -84,6 +95,86 @@ const telemetry = useQueryTelemetry();
 // and skews dev profiles — a flip-to-debug tool, not always-on spam.
 const DEBUG_PACKETS = false;
 
+/**
+ * Wire-protocol invariant this helper exists to make unconstructable:
+ * a KataGo `analyzeTurns` entry is a **turn index** — "the position
+ * after N real moves" — valid only for `0 <= N <= moves.length` against
+ * the `moves` array sent on the same query. Tree-node position (a
+ * path's index into `NodeId[]`, which is what `PlyIndex` / the
+ * `startTurn`/`endTurn` callers of `analyzeRange` actually pass) is a
+ * DIFFERENT axis whenever a node in the path carries no move — a
+ * territory/scoring node (`TW`/`TB`), a comment-only node, or any other
+ * moveless tree position. The two axes coincide only when every
+ * non-root node up to that point is a move; a trailing OR mid-path
+ * moveless node breaks the coincidence (SGF-pass-tail specimen:
+ * `.claude/dispatch-reports/sgf-pass-diagnosis.md`, "WITH-ENGINE
+ * REPRODUCTION" — a 250-tree-node path with one moveless leaf produced
+ * `analyzeTurns` up to 249 against only 248 real moves, and the whole
+ * query was rejected by the wire).
+ *
+ * **Second invariant, added after fresh-context review rejected the
+ * first pass** (`.claude/dispatch-reports/sgf-analyzeturns-review.md`):
+ * bounding the OUTBOUND `analyzeTurns` is not enough on its own — a
+ * response packet's `turnNumber` comes back in this SAME turn-index
+ * space, and `onAnalysisUpdate` must resolve it to a `nodeId` through
+ * the SAME mapping this function used to build the query, never by
+ * re-deriving a tree-index lookup (`path[turnNumber]`) independently.
+ * Two independently-derived mappings between the same two spaces is
+ * exactly the defect class the outbound-only fix reintroduced: an
+ * un-reconciled `path[turnNumber]` after this function switched
+ * `analyzeTurns` to real-move counts silently mis-keyed every response
+ * at/after a mid-path moveless node to the WRONG node — worse than the
+ * crash it replaced, because it fails silently. `turnToNodeId` is the
+ * single authority for this direction too, minted HERE (the same site
+ * that mints `analyzeTurns`) and threaded onto the query's bookkeeping
+ * entry so ingestion has no arithmetic left to diverge: `turnToNodeId
+ * .get(response.turnNumber)` is the only sanctioned way to resolve a
+ * response to a nodeId.
+ *
+ * `turnIndexAtTreeIndex[i]` is the count of real moves among
+ * `pathPrefix[0..i]` inclusive — i.e. the turn index a caller must use
+ * to mean "the position reached by tree index i." A moveless node at
+ * tree index i simply repeats the prior index's turn value (it
+ * contributes no new turn), so deriving `analyzeTurns` from this array
+ * — rather than from the caller's raw tree-index range — makes
+ * `max(analyzeTurns) > moves.length` unconstructable by construction:
+ * the values placed on the wire are never anything but real turn
+ * counts, regardless of where in the path a moveless node falls.
+ *
+ * `turnToNodeId` is the inverse direction: turn 0 maps to the prefix's
+ * root; turn k (1 <= k <= moves.length) maps to the id of the tree
+ * node where the k-th real move was played. A moveless node never
+ * becomes a map VALUE (only a real-move node can be "where turn k was
+ * reached"), so a response for a turn whose tree position also had a
+ * trailing/interposed moveless node is correctly attributed to the
+ * real-move node the turn count actually reached, never to the
+ * moveless node itself and never to an unrelated later node.
+ */
+function buildMovesAndTurnIndex(
+  nodes: Record<NodeId, GameNode>,
+  pathPrefix: readonly NodeId[],
+): {
+  moves: [Player, KataCoord][];
+  turnIndexAtTreeIndex: number[];
+  turnToNodeId: Map<number, NodeId>;
+} {
+  let turnCounter = 0;
+  const turnIndexAtTreeIndex: number[] = [];
+  const moves: [Player, KataCoord][] = [];
+  const turnToNodeId = new Map<number, NodeId>();
+  if (pathPrefix.length > 0) turnToNodeId.set(0, pathPrefix[0]); // turn 0 = root, before any move
+  for (const id of pathPrefix) {
+    const move = nodes[id]?.move ?? null;
+    if (move) {
+      turnCounter++;
+      moves.push([move.color, moveToKataCoord(move)]);
+      turnToNodeId.set(turnCounter, id); // turn `turnCounter` is reached AT this node
+    }
+    turnIndexAtTreeIndex.push(turnCounter);
+  }
+  return { moves, turnIndexAtTreeIndex, turnToNodeId };
+}
+
 export class AnalysisService {
   private client: KataGoClient;
   // Per-query bookkeeping. Keyed by queryId. `boardId` lets `stopQuery`
@@ -102,12 +193,18 @@ export class AnalysisService {
     // per-board "is a ponder running" predicate from the board's
     // live query set. Set at query mint time and never mutated.
     mode: 'analyze' | 'ponder',
-    // The analyzed line this query was built over — whichever
-    // root-anchored shape the caller supplied (root→leaf from the
-    // full-game / timeline paths, root→current from the review
-    // session). Indexed by wire `turnNumber` in `onAnalysisUpdate`;
-    // both shapes index identically over the analyzed turns.
-    path: RootedPath,
+    // Turn→nodeId authority for this query, minted by
+    // `buildMovesAndTurnIndex` at the SAME call site that built the
+    // outbound `analyzeTurns` (dispatch time), never re-derived at
+    // ingestion. `onAnalysisUpdate` resolves every response's
+    // `turnNumber` through THIS map exclusively — see
+    // `buildMovesAndTurnIndex`'s docstring for why a second,
+    // independently-computed turn→node mapping (e.g. a raw tree-path
+    // index) is the defect class this field exists to foreclose
+    // (fresh-context review, `.claude/dispatch-reports/
+    // sgf-analyzeturns-review.md`: an un-reconciled `path[turnNumber]`
+    // silently mis-keyed responses after a mid-path moveless node).
+    turnToNodeId: ReadonlyMap<number, NodeId>,
     // The two provenance-stratified ledger keys for this query. `rawKey`
     // (model + overrides) keys the raw store; `enrichedKey` (+ palette) keys
     // the enrichment store and equals the legacy composite hash.
@@ -135,8 +232,12 @@ export class AnalysisService {
     ponderCeiling?: number,
     // Natural-completion bookkeeping for restart-thunk reaping.
     // `analyzedTurnCount` is the number of turns this query reports
-    // on — `analyzeTurns.length` (range: endTurn − startTurn + 1;
-    // ponder/analyze: 1). `finalizedTurns` accumulates the turn
+    // on — `analyzeTurns.length` (range queries: the count of DISTINCT
+    // real turn indices covered by [startTurn, endTurn], which can be
+    // fewer than `endTurn − startTurn + 1` when a moveless tree
+    // position in that span collapses onto its predecessor's turn —
+    // see `buildMovesAndTurnIndex`; ponder/analyze: always 1).
+    // `finalizedTurns` accumulates the turn
     // numbers that have received their authoritative final packet
     // (`isDuringSearch === false`). When `finalizedTurns.size`
     // reaches `analyzedTurnCount` the query has completed naturally
@@ -178,9 +279,34 @@ export class AnalysisService {
   // the path used by board-close, engine-disconnect, HMR-dispose, and
   // the purge button.
   private boardToQueries = new Map<BoardId, Set<QueryId>>();
+  // One-time-per-board-per-session dedup for the mid-tree-setup-drop
+  // notice (see `warnIfMidTreeSetupDropped` below). Deliberately
+  // coarser than the ponder-ceiling warning's per-QUERY `undefined`-
+  // clear dedup (that one re-arms on every fresh query so a genuinely
+  // new ceiling-hit is reported again); this is a standing FACT about
+  // the board's tree shape, true on every subsequent query the same
+  // way, so re-warning on every query construction would be noise —
+  // once per board is the honest "you should know this" cadence.
+  // Released on board-close (this board's own entry) and workspace
+  // reset (the whole set) via the teardown registry, same discipline
+  // as every other per-board module-scope resource in this codebase
+  // (frontend/CLAUDE.md "Resource ownership at mutation sites").
+  private midTreeSetupWarnedBoards = new Set<BoardId>();
   private packetCount = 0;
   private metricsTimer: number | null = null;
   private watchdogTimer: number | null = null;
+  // Best-effort hooks run before the user-initiated `disconnect()`
+  // tears down the WebSocket (see that method below). Registered-port
+  // shape (like `system-message-sink.ts`'s sink registration) rather
+  // than a direct import of the registering module: this service is
+  // imported BY `engine/katago/query-routing.ts`, and the NN-cache
+  // session driver (`services/nncache-session.ts`, the sole registrant
+  // today) itself imports THIS service to send its wire actions — a
+  // direct import back here would form a cycle. Hooks are fired
+  // fire-and-forget (best effort; `disconnect()` does not await them,
+  // since the socket must still close promptly for the user-initiated
+  // action).
+  private disconnectHooks: Array<() => void> = [];
 
   constructor() {
     this.client = new KataGoClient('');
@@ -450,7 +576,29 @@ export class AnalysisService {
     if (this.watchdogTimer) clearInterval(this.watchdogTimer);
   }
 
+  /**
+   * Register a best-effort hook to run just before a user-initiated
+   * `disconnect()` tears down the WebSocket. See `disconnectHooks`'
+   * field comment for why this is a registered port rather than a
+   * direct dependency. Not fired on an unexpected WS drop
+   * (`onDisconnect` above) — by the time that callback runs the
+   * socket is already gone, so there is nothing left to send.
+   */
+  public registerDisconnectHook(hook: () => void): void {
+    this.disconnectHooks.push(hook);
+  }
+
   public disconnect() {
+    // Best-effort teardown hooks (NN-cache session dump+detach today)
+    // fire BEFORE the telemetry sweep / socket close below, while the
+    // WebSocket can still carry their wire messages.
+    for (const hook of this.disconnectHooks) {
+      try {
+        hook();
+      } catch (err) {
+        console.error('[AnalysisService] disconnect hook failed:', err);
+      }
+    }
     // Telemetry sweep before `client.disconnect()` so the queue
     // tooltip clears immediately on user-initiated disconnect
     // (rather than waiting for the WS-level onDisconnect to fire,
@@ -498,6 +646,27 @@ export class AnalysisService {
     }
   }
 
+  /**
+   * Query-construction-time fail-loud notice (ADR-0002; maintainer
+   * adjudication ledger row 622): when the path a query is about to
+   * analyze carries a NON-ROOT setup edit (`pathHasMidTreeSetup`,
+   * `engine/util.ts`), the wire query silently omits it — KataGo's
+   * protocol has no primitive for a mid-sequence stone insertion, and
+   * `buildMovesAndTurnIndex` above only ever forwards `node.move`, so
+   * the setup-only node's AB/AW/AE never reaches `moves`, and
+   * `getInitialStones` only ever reads root. Root-level setup
+   * (handicap) is unaffected and fires no notice. Fires at most once
+   * per board per session (`midTreeSetupWarnedBoards`); called from
+   * both `analyzeRange` and `analyzeActiveNode` — the two query-
+   * construction sites that build a `moves` array from a path.
+   */
+  private warnIfMidTreeSetupDropped(boardId: BoardId, nodes: Record<NodeId, GameNode>, path: readonly NodeId[]): void {
+    if (this.midTreeSetupWarnedBoards.has(boardId)) return;
+    if (!pathHasMidTreeSetup(nodes, path)) return;
+    this.midTreeSetupWarnedBoards.add(boardId);
+    pushSystemMessage('warning', i18n.global.t('analysis.midTreeSetupDropped'));
+  }
+
   public analyzeFullGame(boardId: BoardId, visits: number): QueryId | null {
     const board = store.boards.find(b => b.id === boardId);
     if (!board || store.engine.status !== 'connected') return null;
@@ -528,6 +697,14 @@ export class AnalysisService {
     if (!board || store.engine.status !== 'connected') return null;
     if (fullPath.length === 0 || endTurn < startTurn) return null;
 
+    // Ruleset resolution (live-testing adjudication superseding ruling
+    // §RULESETS, `.claude/dispatch-reports/ruleset-default-wedge-fix.md`):
+    // `getRulesetResolution` is now total — a missing/unrecognized `RU`
+    // resolves to `{ name: 'Tromp-Taylor', source: 'defaulted' }` rather
+    // than refusing query construction. `.name` is always defined, so
+    // this call site no longer gates on it.
+    const rulesetResolution = getRulesetResolution(board);
+
     // Record the board's visit target only once the query is actually
     // going out — behind the guards above, where the write used to
     // fire even when the query was refused — and through `mutateBoard`
@@ -544,14 +721,39 @@ export class AnalysisService {
     // moves list runs root → the analyzed range's end position.
     const pathUpToEnd = rootToCurrentPrefix(fullPath, endTurn);
 
-    const moves = pathUpToEnd
-      .map(id => board.nodes[id]?.move ?? null)
-      .filter((m): m is NonNullable<typeof m> => !!m)
-      .map(m => [m.color, moveToKataCoord(m)] as [Player, KataCoord]); // fix the 2-element literal to the [Player, KataCoord] move-pair tuple
+    // See `buildMovesAndTurnIndex`'s docstring above for the invariant
+    // this derivation enforces: `analyzeTurns` is built from the same
+    // real-move count that produced `moves`, never from the caller's
+    // raw tree-index range, so `max(analyzeTurns) <= moves.length` by
+    // construction — a moveless node anywhere in [startTurn, endTurn]
+    // (mid-path or trailing) cannot push a turn index past the wire
+    // ceiling.
+    const { moves, turnIndexAtTreeIndex, turnToNodeId } = buildMovesAndTurnIndex(board.nodes, pathUpToEnd);
 
     const initialStones = getInitialStones(board);
+    // A handicap board's root turn-0 position (before any move) is
+    // described entirely by `initialStones` — `moves` carries no entry
+    // to hang a colour off. KataGo's wire `initialPlayer` field is the
+    // only way to tell it who moves first there; omitted (KataGo's own
+    // 'B' default) unless the root explicitly says otherwise (`PL[W]`,
+    // written by `engine/handicap.ts::applyHandicap`). See
+    // `getInitialPlayer`'s doc comment (`engine/util.ts`) for the full
+    // rationale.
+    const initialPlayer = getInitialPlayer(board);
+    this.warnIfMidTreeSetupDropped(boardId, board.nodes, pathUpToEnd);
 
-    const analyzeTurns = Array.from({ length: endTurn - startTurn + 1 }, (_, i) => startTurn + i);
+    // Unique + sorted: a moveless tree index repeats its predecessor's
+    // turn value (see docstring), so the naive per-tree-index mapping
+    // can contain duplicates — collapse them rather than sending the
+    // same turn twice.
+    const analyzeTurns = Array.from(
+      new Set(
+        Array.from(
+          { length: endTurn - startTurn + 1 },
+          (_, i) => turnIndexAtTreeIndex[startTurn + i],
+        ),
+      ),
+    ).sort((a, b) => a - b);
     const queryId = asQueryId(`range-${boardId}-${Date.now()}`);
 
     // When the caller supplied a `configOverride` it provided BOTH
@@ -598,7 +800,7 @@ export class AnalysisService {
     // each invocation).
     const framing = resolveWinrateFraming(overrideSettings);
 
-    this.activeQueries.set(queryId, { boardId, mode: 'analyze', path: fullPath, rawKey: keys.rawKey, enrichedKey: keys.enrichedKey, framing, startedAt: performance.now(), analyzedTurnCount: analyzeTurns.length, finalizedTurns: new Set() });
+    this.activeQueries.set(queryId, { boardId, mode: 'analyze', turnToNodeId, rawKey: keys.rawKey, enrichedKey: keys.enrichedKey, framing, startedAt: performance.now(), analyzedTurnCount: analyzeTurns.length, finalizedTurns: new Set() });
 
     // Queue telemetry — register at construction so the Toolbar's
     // queue tooltip can render this range query and its ETA.
@@ -673,7 +875,8 @@ export class AnalysisService {
       id: queryId,
       moves,
       ...(initialStones.length ? { initialStones } : {}),
-      rules: 'tromp-taylor',
+      ...(initialPlayer === 'W' ? { initialPlayer } : {}),
+      rules: rulesetToWireName(rulesetResolution.name),
       boardXSize: size,
       boardYSize: size,
       komi, // Added Komi mapping
@@ -759,10 +962,17 @@ export class AnalysisService {
     const board = store.boards.find(b => b.id === boardId);
     if (!board || store.engine.status !== 'connected') return null;
 
-    // Root→leaf is needed here for the turn-index mapping: the wire
-    // `analyzeTurns: [currentIdx]` and the packet-to-node lookup
-    // (`queryInfo.path[turnNumber]`) both index positions on the
-    // active line, and the cursor's index is found on it below.
+    // Ruleset resolution — see analyzeRange above for the full
+    // rationale (live-testing adjudication superseding ruling
+    // §RULESETS). `getRulesetResolution` is total; no gate needed.
+    const rulesetResolution = getRulesetResolution(board);
+
+    // Root→leaf is needed here only to locate the cursor's tree
+    // index below (`currentIdx`); the wire `analyzeTurns` value and
+    // the response→nodeId map are both derived separately, from the
+    // real-move count up to the cursor (see `buildMovesAndTurnIndex`
+    // below) — the packet-to-node lookup goes through the returned
+    // `turnToNodeId` map exclusively, never through this tree path.
     const fullPath = getActiveVariationPath(board);
     const currentIdx = fullPath.indexOf(board.currentNodeId);
     if (currentIdx === -1) return null;
@@ -791,13 +1001,31 @@ export class AnalysisService {
     // full root→leaf line here is exactly the wrong-position class
     // the match postmortem's Bug B records.
     const pathUpToCurrent = rootToCurrentPrefix(fullPath, currentIdx);
+    this.warnIfMidTreeSetupDropped(boardId, board.nodes, pathUpToCurrent);
 
-    const moves = pathUpToCurrent
-      .map(id => board.nodes[id]?.move ?? null)
-      .filter((m): m is NonNullable<typeof m> => !!m)
-      .map(m => [m.color, moveToKataCoord(m)] as [Player, KataCoord]); // fix the 2-element literal to the [Player, KataCoord] move-pair tuple
+    const { moves, turnToNodeId } = buildMovesAndTurnIndex(board.nodes, pathUpToCurrent);
+    // `analyzeActiveNode` is a single-explicit-target query — unlike
+    // `analyzeRange`, the caller already names the exact nodeId the
+    // one requested turn is for (`board.currentNodeId`, the cursor).
+    // `buildMovesAndTurnIndex`'s generic rule maps a turn to the node
+    // where the k-th real MOVE was played, which is the cursor itself
+    // whenever the cursor carries a move — but when the cursor is
+    // itself moveless (e.g. parked on a trailing TW/TB scoring node),
+    // the generic map has no entry naming the cursor at all (a
+    // moveless node is never a map value) and would otherwise leave
+    // `turnToNodeId.get(moves.length)` pointing at the nearest earlier
+    // real-move ancestor instead. Overriding the single requested
+    // turn's target to the cursor explicitly keeps "analyze the active
+    // node" attaching its result to the node the user is actually
+    // looking at, regardless of move-type — still exactly one
+    // authoritative entry for this query's one turn, just naming the
+    // caller's own explicit target rather than the generic per-move
+    // rule's implicit one.
+    turnToNodeId.set(moves.length, board.currentNodeId);
 
     const initialStones = getInitialStones(board);
+    // See analyzeRange above for the rationale — same wire gap, same fix.
+    const initialPlayer = getInitialPlayer(board);
 
     const queryId = asQueryId(`${mode}-${boardId}-${Date.now()}`);
     // See analyzeRange above for the configOverride-vs-live rationale.
@@ -823,10 +1051,10 @@ export class AnalysisService {
       mode === 'ponder'
         ? store.profile.settings.engine.katago.ponderMaxVisits
         : undefined;
-    // Single-turn query (`analyzeTurns: [currentIdx]`), so the
-    // natural-completion threshold is 1 — the first authoritative
-    // final reaps the restart thunk.
-    this.activeQueries.set(queryId, { boardId, mode, path: fullPath, rawKey: keys.rawKey, enrichedKey: keys.enrichedKey, framing, startedAt: performance.now(), ponderCeiling, analyzedTurnCount: 1, finalizedTurns: new Set() });
+    // Single-turn query (`analyzeTurns: [moves.length]`, see below),
+    // so the natural-completion threshold is 1 — the first
+    // authoritative final reaps the restart thunk.
+    this.activeQueries.set(queryId, { boardId, mode, turnToNodeId, rawKey: keys.rawKey, enrichedKey: keys.enrichedKey, framing, startedAt: performance.now(), ponderCeiling, analyzedTurnCount: 1, finalizedTurns: new Set() });
 
     // Queue telemetry — single-turn entry. For ponder, the per-turn
     // visit budget is the ponderMaxVisits ceiling; for analyze, the
@@ -863,7 +1091,7 @@ export class AnalysisService {
     const hasOverrides =
       overrideSettings !== undefined && Object.keys(overrideSettings).length > 0;
     // Per-query capability opt-in. analyzeActiveNode is turn-locked
-    // by construction (single-turn `analyzeTurns: [currentIdx]`),
+    // by construction (single-turn `analyzeTurns: [moves.length]`),
     // so `adaptive_reevaluate` is structurally inappropriate
     // regardless of forReview — the helper's `isRangeBased: false`
     // enforces this. forReview defaults to false here because no
@@ -888,7 +1116,8 @@ export class AnalysisService {
       id: queryId,
       moves,
       ...(initialStones.length ? { initialStones } : {}),
-      rules: 'tromp-taylor',
+      ...(initialPlayer === 'W' ? { initialPlayer } : {}),
+      rules: rulesetToWireName(rulesetResolution.name),
       boardXSize: size,
       boardYSize: size,
       komi, // Added Komi mapping
@@ -917,7 +1146,13 @@ export class AnalysisService {
         ),
       ),
       ...(mode === 'ponder' ? { maxVisits: store.profile.settings.engine.katago.ponderMaxVisits } : {}),
-      analyzeTurns: [currentIdx],
+      // `moves.length`, not `currentIdx` (tree-node position): the two
+      // diverge whenever a moveless node sits anywhere on the path up
+      // to and including the cursor (see `buildMovesAndTurnIndex`'s
+      // docstring above). `moves` was built from exactly this prefix,
+      // so its length IS the turn index for "the position reached by
+      // the cursor" by construction — no separate clamp needed.
+      analyzeTurns: [moves.length],
       ...(needsOwnership ? { includeOwnership: true } : {}),
       ...(hasOverrides ? { overrideSettings } : {}),
       ...(analysis_config ? { analysis_config } : {}),
@@ -1121,7 +1356,13 @@ export class AnalysisService {
     const queryInfo = this.activeQueries.get(queryId);
     if (!queryInfo) return;
 
-    const nodeId = queryInfo.path[response.turnNumber];
+    // Sole sanctioned resolution of a response to a nodeId: through the
+    // `turnToNodeId` map minted alongside `analyzeTurns` at dispatch
+    // time (`buildMovesAndTurnIndex`), never through a re-derived
+    // tree-path index — see that function's docstring for why a second
+    // independently-computed mapping is exactly the defect class this
+    // line exists to foreclose.
+    const nodeId = queryInfo.turnToNodeId.get(response.turnNumber);
     if (nodeId) {
       // RB-3 (ADR-0009): per-packet receive-work timing — the before-anchor
       // for the packet-receive chunking arc. DEV-only (dead-code-eliminated
@@ -1314,6 +1555,51 @@ export class AnalysisService {
       this.stopBoardAnalysis(boardId);
     }
   }
+
+  /**
+   * Whether this service currently tracks any in-flight query
+   * (analyze, ponder, or range) on ANY board. `stopAllBoardAnalyses`
+   * is the only path that empties `activeQueries` back to zero (via
+   * `stopQuery`'s synchronous bookkeeping release — see that method's
+   * doc comment); natural packet completion does not remove the entry.
+   * NOT currently called by `services/nncache-session.ts` — that
+   * driver's `quiesce()` step calls `stopAllBoardAnalyses()` directly,
+   * which synchronously empties `activeQueries` as a side effect, so
+   * the same "no queries in flight" postcondition holds without a
+   * separate check here. (That postcondition only covers THIS
+   * service's own tracked queries, not every open request the engine
+   * counts — see `nncache-session.ts`'s module header for the
+   * `connectFresh`-based paths it can't see.) Exposed as a
+   * general-purpose observer of the in-flight count for any future
+   * caller that needs to check it without stopping anything.
+   */
+  public hasActiveQueries(): boolean {
+    return this.activeQueries.size > 0;
+  }
+
+  /**
+   * Forwards an action query to the underlying `KataGoClient`, for a
+   * caller outside this service that needs the one-shot
+   * action-request/response shape without owning its own WebSocket
+   * connection. First (and, by design, only sanctioned) consumer:
+   * `services/nncache-session.ts`'s cache_attach/cache_detach/
+   * cache_dump/cache_stats verbs — this service still owns the sole
+   * `KataGoClient` instance and the connection lifecycle; this is a
+   * thin, typed pass-through, not a second transport.
+   */
+  public sendActionCommand(query: KataGoActionQuery): Promise<KataGoResponse> {
+    return this.client.sendCommand(query);
+  }
+
+  /** Board-close release for `midTreeSetupWarnedBoards` (resource-ownership discipline). */
+  public clearMidTreeSetupWarning(boardId: BoardId): void {
+    this.midTreeSetupWarnedBoards.delete(boardId);
+  }
+
+  /** Workspace-reset release for `midTreeSetupWarnedBoards` (identity flip). */
+  public clearAllMidTreeSetupWarnings(): void {
+    this.midTreeSetupWarnedBoards.clear();
+  }
 }
 
 export const analysisService = new AnalysisService();
@@ -1348,6 +1634,19 @@ registerWorkspaceResetHandler({
   // first (same discipline as closeBoard) so an in-flight response can't
   // re-populate the ledger after purgeAll. (Audit O7.)
   run: () => analysisService.stopAllBoardAnalyses(),
+});
+
+// `midTreeSetupWarnedBoards` release (setup-toolkit mid-tree-drop notice,
+// ledger row 622) — order-independent (DEFAULT band): this Set carries no
+// engine-stop-before-ledger-purge constraint, it's purely "has this board
+// already been told."
+registerBoardCloseHandler({
+  label: 'analysis-service:mid-tree-setup-warning',
+  run: (boardId) => analysisService.clearMidTreeSetupWarning(boardId),
+});
+registerWorkspaceResetHandler({
+  label: 'analysis-service:mid-tree-setup-warnings-all',
+  run: () => analysisService.clearAllMidTreeSetupWarnings(),
 });
 
 // HMR dispose — dev-only. Vite re-instantiates this module's singleton

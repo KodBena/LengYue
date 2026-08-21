@@ -40,3 +40,10 @@ __pycache__/
 # Autonomous-SRS run output (the JSONL recorder writes here by
 # default; per-run logs aren't worth committing).
 autonomous-srs-results.jsonl
+
+# ADR-0019 gate run output (scripts/layout-audit.mjs,
+# scripts/style-tokens-audit.mjs) -- per-run JSON reports, not the
+# curated baseline (layout-audit-baseline.json / style-tokens-audit-
+# baseline.json ARE committed, deliberately not matched by this rule).
+layout-audit-report.json
+style-tokens-audit-report.json

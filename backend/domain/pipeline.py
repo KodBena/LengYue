@@ -185,6 +185,7 @@ class PipelineExecutor:
         pipeline: List[Stage],
         *,
         user_id: UserId,
+        game_source_ordinals: Optional[List[int]] = None,
     ) -> List[CardWithRecall]:
         """
         Executes a typed pipeline against the given context ids,
@@ -195,6 +196,18 @@ class PipelineExecutor:
           - pipeline is non-empty
           - pipeline[0] is a SelectStage
           - no other pipeline[i] is a SelectStage
+          - at least one of context_ids / game_source_ordinals is
+            non-empty
+
+        macro-public-id-tokens: `game_source_ordinals` (default
+        `None`, treated as empty — kept Optional rather than a
+        mutable-default list per the usual Python gotcha) is resolved
+        via `lineage_repo.resolve_game_source_root_card_ids` to a set
+        of internal root card ids BEFORE the selection CTE runs; those
+        ids are unioned into `context_ids` for the rest of this
+        method, which otherwise proceeds exactly as before. A caller
+        that supplies no game_source_ordinals pays no extra Port call
+        (the `if game_source_ordinals:` guard below short-circuits).
 
         This method therefore needs no defensive structural checks —
         it dispatches over typed values and calls Ports.
@@ -233,6 +246,21 @@ class PipelineExecutor:
             # which is structurally BaseSelection.
             selection = select_stage.selection  # type: ignore[assignment]
 
+        # macro-public-id-tokens: resolve game_source_ordinals to
+        # internal root card ids BEFORE building the selection pool,
+        # and union them into the same context-id list fetch_selection
+        # consumes. Raises GameSourceNotFoundError (→ 404 at the
+        # route) on the first ordinal that doesn't resolve within
+        # this user's tenancy.
+        all_context_ids = list(context_ids)
+        if game_source_ordinals:
+            resolved_root_ids = (
+                await self.lineage_repo.resolve_game_source_root_card_ids(
+                    game_source_ordinals, user_id=user_id
+                )
+            )
+            all_context_ids.extend(resolved_root_ids)
+
         # Build the pool via the lineage Port. Item 30c: a single call
         # covering all context ids. The repository executes one CTE;
         # the per-context loop that lived here pre-30c is gone.
@@ -242,7 +270,7 @@ class PipelineExecutor:
         # collision policy ("smallest depth wins") is a pipeline-level
         # decision, not a persistence-boundary one.
         nodes = await self.lineage_repo.fetch_selection(
-            selection, context_ids, user_id=user_id
+            selection, all_context_ids, user_id=user_id
         )
         pool_map: dict[int, CardNode] = {}
         for node in nodes:

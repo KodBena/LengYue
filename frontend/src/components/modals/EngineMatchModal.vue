@@ -24,10 +24,13 @@
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { store } from '../../store';
+import { useModalKeyboard } from '../../composables/useModalKeyboard';
+import MatchPlayerOverridesConfig from '../MatchPlayerOverridesConfig.vue';
 
 const { t } = useI18n();
 
 const isOpen = ref(false);
+const modalContentRef = ref<HTMLElement | null>(null);
 const blackModel = ref<string | undefined>(undefined);
 const whiteModel = ref<string | undefined>(undefined);
 const blackVisits = ref(500);
@@ -78,6 +81,11 @@ function close() {
   isOpen.value = false;
 }
 
+// Escape → same close path as the Cancel/× buttons (ADR-0019 S5);
+// Tab focus trap + initial focus + focus restoration — all one
+// shared mechanism, see useModalKeyboard.ts.
+useModalKeyboard(modalContentRef, isOpen, close);
+
 function submit() {
   emit('start-match', {
     numMoves: numMoves.value,
@@ -105,9 +113,9 @@ const canSubmit = computed(() => {
 
 <template>
   <div v-if="isOpen" class="modal-backdrop" @mousedown.self="close">
-    <div class="modal-content">
+    <div ref="modalContentRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="engine-match-title" tabindex="-1">
       <div class="modal-header">
-        <h2>{{ t('match.title') }}</h2>
+        <h2 id="engine-match-title">{{ t('match.title') }}</h2>
         <button class="close-btn" @click="close">×</button>
       </div>
 
@@ -154,6 +162,14 @@ const canSubmit = computed(() => {
         </div>
 
         <p class="hint">{{ t('match.hint.stopAnytime') }}</p>
+
+        <div class="overrides-section">
+          <h3 class="section-title">{{ t('match.section.overrides') }}</h3>
+          <div class="overrides-grid">
+            <MatchPlayerOverridesConfig player="B" />
+            <MatchPlayerOverridesConfig player="W" />
+          </div>
+        </div>
       </div>
 
       <div class="modal-footer">
@@ -176,7 +192,7 @@ const canSubmit = computed(() => {
    ConfirmLoadModal.vue and MintCardModal.vue. */
 .modal-content {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
-  width: 420px; max-width: 90vw; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+  width: 420px; max-width: 90vw;
   display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 .modal-header {
@@ -184,7 +200,7 @@ const canSubmit = computed(() => {
   padding: var(--space-medium); border-bottom: 1px solid var(--surface-3); background: var(--surface-2);
 }
 .modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-tight); }
-.close-btn { background: none; border: none; color: var(--text-2); font-size: var(--text-heading); cursor: pointer; }
+.close-btn { background: none; border: none; color: var(--text-disabled); font-size: var(--text-heading); cursor: pointer; }
 .modal-body { padding: var(--space-medium); }
 
 .single-engine-note {
@@ -193,7 +209,7 @@ const canSubmit = computed(() => {
   border-radius: var(--radius-default);
   padding: var(--space-default) var(--space-medium);
   font-size: var(--text-emphasis);
-  color: var(--text-1);
+  color: var(--text-0);
   margin-bottom: var(--space-medium);
   font-family: monospace;
 }
@@ -206,7 +222,7 @@ const canSubmit = computed(() => {
 }
 .form-grid label {
   font-size: var(--text-emphasis);
-  color: var(--text-2);
+  color: var(--text-0);
   text-transform: uppercase;
 }
 .dark-input {
@@ -221,14 +237,22 @@ const canSubmit = computed(() => {
 }
 .dark-input:focus, .dark-select:focus { border-color: var(--accent-primary); }
 
-.hint { font-size: var(--text-body); color: var(--text-2); margin: var(--space-tight) 0 0 0; }
+.hint { font-size: var(--text-body); color: var(--text-0); margin: var(--space-tight) 0 0 0; }
 .modal-body .hint:first-child { margin-bottom: var(--space-medium); margin-top: 0; }
+
+.overrides-section { margin-top: var(--space-medium); padding-top: var(--space-medium); border-top: 1px solid var(--surface-3); }
+.section-title { margin: 0 0 var(--space-default) 0; font-size: var(--text-emphasis); color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-tight); }
+.overrides-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-medium); }
 
 .modal-footer {
   display: flex; justify-content: flex-end; gap: var(--space-medium);
   padding: var(--space-medium); border-top: 1px solid var(--surface-3); background: var(--surface-2);
 }
-.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
-.btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-0); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+/* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-1 text on
+   an --accent-primary fill measures ~1.84:1 in the default cluster
+   theme. --text-on-accent is the token minted for text directly on
+   an accent fill (theme.css, ledger rows 1018/1144). */
+.btn-submit { background: var(--accent-primary); border: none; color: var(--text-on-accent); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 </style>

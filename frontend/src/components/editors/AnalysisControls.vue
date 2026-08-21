@@ -16,9 +16,11 @@ import { mutateProfile } from '../../store/profile-owner';
 import { ledger } from '../../state/analysis-ledger';
 import { useAnalysisPersistence } from '../../composables/analysis/useAnalysisPersistence';
 import type { AnalysisBundleStorageError } from '../../services/analysis-bundle';
+import { useAppDialogs } from '../../composables/useAppDialogs';
 import AnalysisDashboard from '../charts/AnalysisDashboard.vue';
 
 const { t } = useI18n();
+const dialogs = useAppDialogs();
 const props = defineProps<{ boardId: BoardId; }>();
 const persist = useAnalysisPersistence(() => props.boardId);
 const palettes = computed(() => store.profile.settings.engine.katago.analysis_env.palettes);
@@ -196,7 +198,8 @@ async function onSave() {
 }
 
 async function onDiscard() {
-  if (!confirm(t('analysis.persist.confirmDiscard'))) return;
+  const ok = await dialogs.confirm({ message: t('analysis.persist.confirmDiscard'), danger: true });
+  if (!ok) return;
   try {
     await persist.discard();
     lastError.value = null;
@@ -205,38 +208,59 @@ async function onDiscard() {
   }
 }
 
-function purgeLedger() {
-  if (confirm(t('analysis.confirmPurge'))) {
-    persist.stopAnalysis();
-    // The ledger no longer reaches up into the store to derive the
-    // board's node list (the up-edge `analysis-ledger → store` was an
-    // import cycle); the caller hands it the nodes directly. A missing
-    // board yields an empty array, a no-op purge.
-    const board = store.boards.find(b => b.id === props.boardId);
-    // `board.nodes` keys are NodeIds — re-brand the Object.keys string[]
-    // widening (matches the cast the old purgeBoard carried internally).
-    const nodeIds = (board ? Object.keys(board.nodes) : []) as NodeId[];
-    ledger.purgeNodes(nodeIds);
-  }
+async function purgeLedger() {
+  const ok = await dialogs.confirm({ message: t('analysis.confirmPurge'), danger: true });
+  if (!ok) return;
+  persist.stopAnalysis();
+  // The ledger no longer reaches up into the store to derive the
+  // board's node list (the up-edge `analysis-ledger → store` was an
+  // import cycle); the caller hands it the nodes directly. A missing
+  // board yields an empty array, a no-op purge.
+  const board = store.boards.find(b => b.id === props.boardId);
+  // `board.nodes` keys are NodeIds — re-brand the Object.keys string[]
+  // widening (matches the cast the old purgeBoard carried internally).
+  const nodeIds = (board ? Object.keys(board.nodes) : []) as NodeId[];
+  ledger.purgeNodes(nodeIds);
 }
 </script>
 
 <template>
   <div class="tab-padding">
     <div class="header-row">
-      <p>
-        {{ $t('analysis.engineLabel') }}
-        <span class="status-indicator" :class="{ 'connected': store.engine.status === 'connected' }">
+      <!-- M11 (menus-ui audit row 1291): "Engine: Offline — the fact
+           explaining the whole screen — is ~10px text in the corner
+           with no colour, icon or as-of time." A status chip with
+           state colour + icon, genre precedent Lizzie/KaTrain (both
+           surface engine reachability as a coloured, iconed badge,
+           not incidental prose). The icon shape itself (filled vs
+           hollow dot) differs per state too, not only its colour —
+           the same "never color alone" discipline the codebase
+           already applies elsewhere (ADR-0019 appendix C18). -->
+      <div
+        class="engine-status-chip"
+        :class="store.engine.status === 'connected' ? 'is-connected' : 'is-offline'"
+        data-testid="engine-status-chip"
+      >
+        <span class="engine-status-icon" aria-hidden="true">{{ store.engine.status === 'connected' ? '●' : '○' }}</span>
+        <span>
+          {{ $t('analysis.engineLabel') }}
           {{ store.engine.status === 'connected' ? $t('analysis.engineConnected') : $t('analysis.engineOffline') }}
         </span>
-      </p>
+      </div>
 
       <div style="display: flex; flex-wrap: wrap; gap: var(--space-default); min-width: 0;">
         <div class="palette-selector">
-          <label>{{ $t('analysis.paletteLabel') }}</label>
+          <!-- M27 (audit finding, ledger row 1251): the DOM probe
+               found this <select> with no id, no aria-label, and no
+               associated <label> — a visually-adjacent <label> with
+               no `for` isn't a programmatic association, so AT
+               announced an unnamed combobox for a control that
+               governs move-quality display app-wide. `for`/`id`
+               closes that gap. -->
+          <label for="analysis-palette-select">{{ $t('analysis.paletteLabel') }}</label>
           <!-- Owner-routed writable computed (see script); the prior
                direct profile v-model was an annotated exemption. -->
-          <select v-model="activePaletteId" class="dark-select">
+          <select id="analysis-palette-select" v-model="activePaletteId" class="dark-select">
             <option v-for="p in palettes" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
         </div>
@@ -244,17 +268,15 @@ function purgeLedger() {
       </div>
     </div>
 
-    <!-- Move-filter slider relocated to the cross-domain knob
-         registry editor (knob-registry Phase 3b + 6 sweep). The
-         eventual home is a toolbar-hover quick-access surface; this
-         stub points users at the current location in the interim. -->
+    <!-- Move-filter threshold lives in the cross-domain knob registry
+         editor (knob-registry Phase 3b + 6 sweep); this badge mirrors
+         the live value read-only (ADR-0019 S3/S16). -->
     <div class="analysis-config-box move-filter-box">
       <div class="settings-row">
         <label class="label-with-value">
           <span>{{ $t('analysis.moveFilter') }}</span>
           <span class="value-badge">{{ (store.session.ui.moveFilterThreshold * 100).toFixed(0) }}%</span>
         </label>
-        <p class="hint">{{ $t('analysis.moveFilter.movedNotice') }}</p>
       </div>
     </div>
 
@@ -383,26 +405,53 @@ function purgeLedger() {
    and pushing PURGE entirely off-screen. `row-gap` keeps a
    little vertical breathing room when wrap engages. */
 .header-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: var(--space-default); row-gap: var(--space-default); }
-h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary); }
-.status-indicator { font-weight: bold; color: var(--text-0); }
-.status-indicator.connected { color: var(--state-success); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--text-0); }
+/* M11: bordered status chip — same shape as this file's own
+   `.experimental-tag`/`.auto-badge` (colored border + colored text,
+   no fill of its own) rather than a solid state-color fill: measured,
+   `--state-error` is DARK in the cluster theme (`--cluster-12-5`,
+   #630000) — a dark accent-role text on it (the `--text-on-accent`
+   token StatusBar.vue's `.setup-mode-chip` and KeybindingRow.vue's
+   `.row-capturing` use for the same "text on saturated fill" role)
+   would land at ~1.5:1, illegible. Reusing this file's own
+   already-audited "colored border + colored text against the panel's
+   own opaque background" idiom sidesteps that per-theme lightness
+   mismatch entirely — no new fill color, so no new contrast pairing
+   to verify per theme. Not a translucent overlay: there is no fill at
+   all, just the panel's own already-opaque background showing
+   through, same as its badge siblings. */
+.engine-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-tight);
+  padding: 1px 8px;
+  border-radius: var(--radius-default);
+  border: 1px solid currentColor;
+  font-weight: bold;
+  font-size: var(--text-body);
+}
+.engine-status-chip.is-connected { color: var(--state-success); }
+.engine-status-chip.is-offline   { color: var(--state-error); }
+.engine-status-icon { font-size: var(--text-emphasis); line-height: 1; }
 
-.palette-selector { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-body); color: var(--text-1); text-transform: uppercase; min-width: 0; }
-.dark-select { border: 1px solid var(--border-2); color: var(--accent-primary); padding: 2px 6px; border-radius: var(--radius-default); font-size: var(--text-body); outline: none; cursor: pointer; text-transform: uppercase; max-width: 100%; min-width: 0; }
+.palette-selector { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-body); color: var(--text-0); text-transform: uppercase; min-width: 0; }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.dark-select { border: 1px solid var(--border-2); color: var(--text-0); padding: 2px 6px; border-radius: var(--radius-default); font-size: var(--text-body); outline: none; cursor: pointer; text-transform: uppercase; max-width: 100%; min-width: 0; }
 
 /* theme-exception: .warning-btn uses muted-state-error variants
    (#5a1a1a border, #3a1a1a hover bg) — same pattern as
    PaletteEditor's .del-btn. */
 .warning-btn { color: var(--state-error) !important; border-color: #5a1a1a !important; }
 
-.toolbar-btn-sm { border: 1px solid var(--border-3); color: var(--text-1); padding: 2px 6px; font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); text-transform: uppercase; }
+.toolbar-btn-sm { border: 1px solid var(--border-3); color: var(--text-0); padding: 2px 6px; font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); text-transform: uppercase; }
 
 /* ... remaining styles ... */
 .analysis-config-box { margin-top: 0; background: var(--surface-2); padding: 0 var(--space-medium); border-radius: var(--radius-default); border: 1px solid var(--surface-3); }
 .move-filter-box { border-bottom: 2px solid var(--border-2); margin-bottom: var(--space-medium); }
 .persist-box { padding: var(--space-default) var(--space-medium); margin-bottom: var(--space-medium); border-bottom: 2px solid var(--border-2); }
 .adaptive-box { padding: var(--space-default) var(--space-medium); margin-bottom: var(--space-medium); border-bottom: 2px solid var(--border-2); }
-.checkbox-row { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-body); color: var(--text-1); cursor: pointer; }
+.checkbox-row { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-body); color: var(--text-0); cursor: pointer; }
 .checkbox-row input[type="checkbox"] { accent-color: var(--accent-primary); cursor: pointer; }
 .adaptive-fields { margin-top: var(--space-default); display: flex; flex-direction: column; gap: var(--space-default); }
 .adaptive-field-row { padding-left: var(--space-loose); }
@@ -410,7 +459,8 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary
    for compact value entry (worst_quantile is sub-1, extra_visits is
    in hundreds). Same width chosen for both so the two rows align
    visually. */
-.adaptive-input { width: 100px; padding: 1px 4px; font-family: monospace; font-size: var(--text-body); background: var(--surface-0); border: 1px solid var(--border-2); color: var(--accent-primary); border-radius: var(--radius-default); outline: none; }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.adaptive-input { width: 100px; padding: 1px 4px; font-family: monospace; font-size: var(--text-body); background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); border-radius: var(--radius-default); outline: none; }
 .adaptive-input:focus { border-color: var(--accent-primary); }
 .persist-btn-row { display: flex; gap: var(--space-default); margin-top: var(--space-default); }
 .error-hint { color: var(--state-error); }
@@ -420,11 +470,19 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary
    accent-primary palette to signal "active policy" rather than
    "danger / caution". Sits inline with the experimental-tag in
    the title row when analysisAutoSave is on. */
-.auto-badge { font-size: var(--text-tiny); padding: 0 var(--space-default); border: 1px solid var(--accent-primary); color: var(--accent-primary); border-radius: var(--radius-default); text-transform: uppercase; line-height: 1.4; }
-.info-icon { display: inline-block; width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--text-1); text-align: center; font-size: 9px; line-height: 11px; color: var(--text-1); cursor: help; }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament). */
+.auto-badge { font-size: var(--text-tiny); padding: 0 var(--space-default); border: 1px solid var(--accent-primary); color: var(--text-0); border-radius: var(--radius-default); text-transform: uppercase; line-height: 1.4; }
+/* rows 1478/1479/1481/1497: --text-1 retired with no direct
+   successor (only --text-2's value was carried forward, as
+   --text-disabled). This "?" glyph is an icon, not readable prose,
+   but since its old tier no longer exists, it defaults up to
+   --text-0 rather than down to the disabled tone — safe (more
+   contrast, not less) and consistent with the ruling's spirit. */
+.info-icon { display: inline-block; width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--text-0); text-align: center; font-size: 9px; line-height: 11px; color: var(--text-0); cursor: help; }
 .settings-row { display: flex; flex-direction: column; gap: 3px; }
-.label-with-value { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-body); color: var(--text-1); }
-.value-badge { padding: 0 var(--space-default); border-radius: var(--radius-default); color: var(--accent-primary); font-family: monospace; }
+.label-with-value { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-body); color: var(--text-0); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.value-badge { padding: 0 var(--space-default); border-radius: var(--radius-default); color: var(--text-0); font-family: monospace; }
 .range-slider { width: 100%; accent-color: var(--accent-primary); cursor: pointer; }
 .hint { font-size: var(--text-body); color: var(--text-0); margin: 0; }
 /* Iter-2 audit Finding C: the 200px floor that lived here

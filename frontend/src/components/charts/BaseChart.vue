@@ -1,4 +1,24 @@
 <script lang="ts">
+/**
+ * src/components/charts/BaseChart.vue
+ *
+ * Shared ECharts line/scatter chart shell for the analysis dashboard's
+ * per-metric panels (winrate, score lead, distributions, delta panels,
+ * etc.): container-size-gated init with a bounded, fail-loud retry
+ * (`lib/capped-retry.ts`, cardtrees-fix-next / ledger row 1937),
+ * ResizeObserver-driven resize, throttled data/marker redraw, zoom-range
+ * and active-index click/hover wiring. Two `<script>` blocks: this one
+ * (module scope) holds `globalLegendState`, a true cross-instance
+ * singleton; `<script setup>` below holds the per-instance chart logic.
+ *
+ * ADR-0006 retrofit note (cardtrees-fix-next review finding 2): this
+ * header was added when the file was touched under full visibility for
+ * the capped-retry mechanization above — it was missing before, which
+ * an earlier delivery report in this same arc incorrectly claimed was
+ * not the case; see that report's amendment for the correction.
+ *
+ * License: Public Domain (The Unlicense)
+ */
 import { reactive } from 'vue';
 
 /**
@@ -21,8 +41,10 @@ export const globalLegendState: Record<string, boolean> = reactive({});
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import { themeColor } from '../../utils/theme-color';
-import { CHART_MARKER_DEBOUNCE_MS as DEBOUNCE_MS, BASE_CHART_REDRAW_THROTTLE_MS, CHART_INIT_RETRY_MS } from '../../lib/timing';
+import { CHART_MARKER_DEBOUNCE_MS as DEBOUNCE_MS, BASE_CHART_REDRAW_THROTTLE_MS, CHART_INIT_RETRY_MS, CHART_RENDER_RETRY_TIMEOUT_MS } from '../../lib/timing';
 import { createTrailingThrottle } from '../../composables/useThrottledSnapshot';
+import { cappedRetry, type CappedRetryHandle } from '../../lib/capped-retry';
+import { seriesHasData } from './chart-data';
 
 const props = withDefaults(defineProps<{
   series: any[];
@@ -299,10 +321,18 @@ const updateOptions = () => {
   chartInstance.setOption({
     animation: false,
     backgroundColor: 'transparent',
-    legend: { 
-      show: true, 
+    legend: {
+      // M11 (menus-ui audit row 1291): a legend naming every series
+      // reads as an affirmative claim that data for those series
+      // exists. Suppress it when every series is empty/all-null —
+      // AnalysisChartPanel.vue additionally swaps the whole chart for
+      // a real empty-state message in that case, but BaseChart is
+      // reused by non-Analysis consumers too (ReviewSessionPanel,
+      // TreeWidget, BoardDeltaAnnotation) that render it directly, so
+      // the gate belongs here as the shared floor.
+      show: seriesHasData(props.series),
       selected: getSelectionMap(),
-      textStyle: { color: themeColor('--text-2'), fontSize: 10 },
+      textStyle: { color: themeColor('--text-0'), fontSize: 10 },
       top: '0%',
       left: 'center'
     },
@@ -317,7 +347,7 @@ const updateOptions = () => {
       // convention).
       backgroundColor: themeColor('--surface-0'),
       borderColor: themeColor('--border-2'),
-      textStyle: { color: themeColor('--text-1'), fontSize: 8 },
+      textStyle: { color: themeColor('--text-0'), fontSize: 8 },
       confine: true,
       padding: 0,
       formatter: props.tooltipFormatter ?? ((params: any[]) => {
@@ -325,7 +355,7 @@ const updateOptions = () => {
         const firstParam = params[0];
         const xVal = Array.isArray(firstParam.value) ? firstParam.value[0] : firstParam.value;
         const xHeader = props.formatXTooltip ? props.formatXTooltip(xVal) : `Move ${xVal}`;
-        res += `<b style="font-size: var(--text-body); color: ${themeColor('--text-1')};">${xHeader}</b>`;
+        res += `<b style="font-size: var(--text-body); color: ${themeColor('--text-0')};">${xHeader}</b>`;
         params.forEach(item => {
           // When per-series-normalised, the plotted Y is in [0, 1] and
           // the absolute magnitude is carried on the datum as `rawY`.
@@ -338,7 +368,7 @@ const updateOptions = () => {
           res += `
             <div style="margin-top: 2px; display: flex; align-items: center; gap: var(--space-tight);">
               ${item.marker.replace('width:10px;height:10px', 'width:6px;height:6px')}
-              <span style="color: ${themeColor('--text-1')};">${item.seriesName}:</span>
+              <span style="color: ${themeColor('--text-0')};">${item.seriesName}:</span>
               <b style="margin-left: auto;">${val}</b>
             </div>`;
         });
@@ -348,6 +378,15 @@ const updateOptions = () => {
       // magic-literal: axisPointer opacity 0.5 — chart-visualization role,
       // distinct from --alpha-disabled. Hand-tuned for visible-but-not-
       // intrusive cursor crosshair against the chart background.
+      //
+      // Chrome, not data-series (disclosed, contrast-tokens-review.md (4)):
+      // the axis-pointer crosshair encodes no data — it's cursor
+      // chrome, same category as the accent border two lines below on
+      // hover state. Reads '--accent-primary' directly (not the
+      // chart-series-locked canonical) so it inherits the high-contrast
+      // override like any other chrome accent use; the guard test
+      // (tests/unit/chart-accent-primary-lock.test.ts) allowlists this
+      // exact line.
       axisPointer: { type: 'line', lineStyle: { color: themeColor('--accent-primary'), opacity: 0.5 } }
     },
     grid: {
@@ -371,7 +410,7 @@ const updateOptions = () => {
       max: bounds.max,
       axisLabel: {
         fontSize: 9,
-        color: themeColor('--text-2'),
+        color: themeColor('--text-0'),
         // Hide the axis labels in per-series mode: a number in [0, 1]
         // doesn't tell the operator which series's scale they're
         // reading, so the label is actively misleading. Hover restores
@@ -483,7 +522,10 @@ const updateMarker = () => {
         symbolSize: 8,
         label: { show: false },
         itemStyle: {
-          color: themeColor('--accent-primary'),
+          // Chart marker (the active-index dot), not chrome — reads the
+          // chart-series-locked canonical anchor per
+          // contrast-tokens-review.md (3).
+          color: themeColor('--accent-primary-canonical'),
           borderColor: themeColor('--text-0'),
           borderWidth: 1,
           shadowBlur: 4,
@@ -512,17 +554,21 @@ const debouncedUpdateMarker = () => {
 };
 
 let resizeObserver: ResizeObserver | null = null;
+// Init-retry handle: captured so onUnmounted can cancel it. Failure mode if
+// uncancelled — a chart unmounted while a retry is pending (TabWidget lazy
+// unmount, App.vue's `:key`-driven board remount) leaves a closure that
+// reschedules itself forever against a dead `chartRef`/`chartInstance`,
+// never satisfying `chartRef.value` and never calling `echarts.init` for
+// that mount (mirrors HeatmapChart's `initRetry` cleanup, HeatmapChart.vue).
+// Bounded via cappedRetry (lib/capped-retry.ts) rather than a raw
+// self-recursing `setTimeout` — the ADR-0011 Rule 2 mechanization of the
+// class named in .claude/dispatch-reports/lyt-cardtrees-regression.md: an
+// uncapped retry against a container that never resolves polls forever
+// with no signal that anything is wrong.
+let initRetry: CappedRetryHandle | null = null;
 
-
-const initChart = async () => {
-  await nextTick();
-  if (!chartRef.value || chartRef.value.clientHeight === 0) {
-    // Re-init delay — gives the ECharts container time to acquire
-    // layout. The shared chart init-retry constant from the timing
-    // catalog (`lib/timing`), also used by HeatmapChart.
-    setTimeout(initChart, CHART_INIT_RETRY_MS);
-    return;
-  }
+const attemptInitChart = (): boolean => {
+  if (!chartRef.value || chartRef.value.clientHeight === 0) return false;
 
   chartInstance = echarts.init(chartRef.value, 'dark');
 
@@ -534,7 +580,7 @@ const initChart = async () => {
 
   chartInstance.on('legendselectchanged', (params: any) => {
     Object.assign(globalLegendState, params.selected);
-    updateAxisOnly(); 
+    updateAxisOnly();
   });
 
   const zr = chartInstance.getZr();
@@ -569,6 +615,30 @@ const initChart = async () => {
   });
 
   updateOptions();
+  return true;
+};
+
+const initChart = async () => {
+  await nextTick();
+  // Re-init poll interval — gives the ECharts container time to acquire
+  // layout. The shared chart init-retry constant from the timing catalog
+  // (`lib/timing`), also used by HeatmapChart; capped at
+  // CHART_RENDER_RETRY_TIMEOUT_MS wall-clock before escalating to a
+  // console.warn instead of polling forever.
+  initRetry = cappedRetry(attemptInitChart, {
+    intervalMs: CHART_INIT_RETRY_MS,
+    timeoutMs: CHART_RENDER_RETRY_TIMEOUT_MS,
+    label: 'BaseChart',
+    // Escalation-time size read (review finding 1 — the diagnosis's own
+    // closure statement names "the container and its measured size" as
+    // the minimum loudness bar). `chartRef.value` may have gone away
+    // between the last failed attempt and escalation (component
+    // unmounted mid-retry, though onUnmounted's cancel() ordinarily
+    // pre-empts that) — null-guarded rather than assumed present.
+    readSize: () => chartRef.value
+      ? { width: chartRef.value.clientWidth, height: chartRef.value.clientHeight }
+      : null,
+  });
 };
 
 // Series-data redraw throttle (the shared subscriber-projection mechanism).
@@ -606,6 +676,11 @@ onUnmounted(() => {
   // Release the data-redraw throttle timer too, so a pending setOption
   // can't fire into a disposed chartInstance.
   dataThrottle.cancel();
+  // Release the init-retry: without this, a chart unmounted while a retry
+  // is pending leaks a closure that keeps polling a dead
+  // chartRef/chartInstance (see the declaration comment above). Mirrors
+  // HeatmapChart.vue's `initRetry` cleanup.
+  initRetry?.cancel();
   if (resizeObserver && chartRef.value) {
     resizeObserver.unobserve(chartRef.value);
     resizeObserver.disconnect();

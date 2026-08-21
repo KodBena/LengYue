@@ -238,7 +238,7 @@ readers.
 | File | Reason |
 |---|---|
 | `backend/ebisu.db` | Active database; subproject-local. Should remain in `backend/` and be in `backend/.gitignore` (verify). Later renamed to `backend/cards.db` per `docs/release-scope.md` item 1; the runtime carries a one-cycle disk-rename compat shim in `backend/main.py::_apply_legacy_db_rename_compat`. |
-| `backend/data/visit_distribution.json` | Application data, not documentation. Stays in `backend/data/`. |
+| `backend/resources_data/visit_distribution.json` | Application data, not documentation. Stays in `backend/resources_data/` (relocated from `backend/data/` — see `backend/resources_data/README.md` — so the shipped resource is no longer co-located with the mutable, gitignored `backend/data/` directory). |
 | `backend/scripts/migrate_*.py` | Migration scripts are backend-internal tooling. Stay in `backend/scripts/`. |
 | KataProxy's `ARCHITECTURE.md`, `FRAMEWORK.md`, `README.md`, `goboard_transposition/COMPILATION.md` | Submodule-internal; preserved by virtue of the submodule itself. |
 

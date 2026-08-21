@@ -1,0 +1,378 @@
+/**
+ * tests/integration/App-boot.test.ts
+ *
+ * Boot-restoration mechanism (M2 stage B2b, `.claude/dispatch-reports/
+ * lyt-boot-restoration.md`, ledger row 2346). The bug: `lyt-layout.gen.ts`
+ * / `lyt-layout-portrait.gen.ts` carry new widget ids (`A_setup`,
+ * `A_engine_controls`/`_eval`/`_health`/`_queue`, `SP_session`) that had no
+ * `lyt-widget-registry.ts` entry and no `App.vue` slot — every leaf mount
+ * in `LytNode.vue` looks up its mounting widget id unconditionally
+ * (`lytMountingWidgetId`), so the mismatch crashed the ENTIRE app render,
+ * caught by `RootErrorBoundary` (`.reb-overlay` fallback UI), not just the
+ * affected leaf's own region.
+ *
+ * This test mounts the FULL `App.vue` (matching `main.ts`'s own
+ * `createApp(App).use(i18n)` shape) against BOTH compiled programs and
+ * asserts no error boundary fires and every leaf widget id the program
+ * declares resolves to a rendered slot. Screen-class selection
+ * (`activeScreenClassId`) is driven by `#split-workspace`'s live
+ * `getBoundingClientRect()` via `useResizablePanel`'s ResizeObserver
+ * (`resizer-restore-clamp.test.ts`'s own established pattern) — stubbed
+ * per-test so one mount exercises landscape, the other portrait.
+ *
+ * RED-at-base witness: run against `lyt-phase2` at `bc08c39c` (this
+ * commission's own base commit, before the registry/App.vue fix below)
+ * and both tests fail with the exact `lytMountingWidgetId: no
+ * LYT_WIDGET_REGISTRY entry for widget id "A_setup"` throw the
+ * measurement-wave dispatch report already diagnosed live — see this
+ * commission's own report for the literal captured output.
+ *
+ * License: Public Domain (The Unlicense)
+ */
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { mount, flushPromises, type VueWrapper } from '@vue/test-utils';
+
+// ── Effectful-service fakes (same preamble as resizer-restore-clamp.test.ts
+//    and useReviewSession.test.ts — App.vue's own dependency chain pulls
+//    every one of these transitively). ─────────────────────────────────
+vi.mock('../../src/services/analysis-service', async () => {
+  const { fakeAnalysisService } = await import('../fakes/analysis-service');
+  return { analysisService: fakeAnalysisService };
+});
+vi.mock('../../src/services/analysis-persistence-service', async () => {
+  const { fakeAnalysisPersistenceService } = await import('../fakes/analysis-persistence-service');
+  return { analysisPersistenceService: fakeAnalysisPersistenceService };
+});
+vi.mock('../../src/services/backend-service', async () => {
+  const { fakeBackendService } = await import('../fakes/backend-service');
+  return { backendService: fakeBackendService };
+});
+vi.mock('../../src/composables/cards/useCardThumbnail', () => ({
+  clearCardThumbnailCache: vi.fn(),
+  getCardThumbnailSync: vi.fn(() => ''),
+}));
+vi.mock('../../src/composables/cards/useThumbnailCache', () => ({
+  useThumbnailCache: () => ({ warmPath: vi.fn() }),
+}));
+vi.mock('../../src/composables/cards/thumbnail-render-resources', () => ({
+  purgeBoardThumbnails: vi.fn(),
+  purgeAllThumbnails: vi.fn(),
+}));
+vi.mock('../../src/composables/cards/board-card-trees', () => ({
+  removeBoardCardTree: vi.fn(),
+  clearAllBoardCardTrees: vi.fn(),
+  getOrCreateBoardCardTree: vi.fn(),
+  getBoardCardTree: vi.fn(() => null),
+}));
+
+import App from '../../src/App.vue';
+import { i18n } from '../../src/i18n';
+import { store, resetWorkspace, clearSystemMessages } from '../../src/store';
+import { fakeBackendService, resetFakeBackendService } from '../fakes/backend-service';
+import { LYT_LANDSCAPE } from '../../src/state/lyt-layout.gen';
+import { LYT_PORTRAIT } from '../../src/state/lyt-layout-portrait.gen';
+import type { LytNodeData, LytProgram } from '../../src/state/lyt-layout-types';
+import { lytMountingWidgetId, lytRegistryStatus } from '../../src/state/lyt-widget-registry';
+import { installRenderEnvStubs, removeRenderEnvStubs } from './render-count/jsdom-stubs';
+
+// jsdom ships no ResizeObserver; a no-op stand-in lets `useResizablePanel`'s
+// onMounted construct one without throwing. It never needs to actually
+// FIRE — `attachRowObserver`'s own synchronous `measureRowDims()` call
+// (immediately on attach, before any observer callback) is what this test
+// drives via the stubbed `getBoundingClientRect` below.
+class NoopResizeObserver {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+
+// Every leaf/blackbox `widget` id the compiled program can carry, walked
+// from the program tree — the SAME ids `LytNode.vue`'s own `groups`
+// computed resolves via `lytMountingWidgetId`/`lytRegistryStatus`. Mirrors
+// `LytNode.vue`'s own recursion shape (Leaf/blackbox terminal; Split and
+// Exclusive recurse) rather than re-deriving it independently, so this
+// walk asks the exact same question the renderer asks.
+function collectWidgetIds(node: LytNodeData): string[] {
+  if (node.kind === 'leaf' || node.kind === 'blackbox') return [node.widget];
+  if (node.kind === 'split') return node.children.flatMap((c) => collectWidgetIds(c.node));
+  // exclusive: include the representative id (DOM-id anchoring only, per
+  // LytExclusiveNode's own doc — harmless to also registry-check it) plus
+  // every child's own node, recursively.
+  return [node.widget, ...node.children.flatMap((c) => collectWidgetIds(c.node))];
+}
+
+function widgetIdsOf(program: LytProgram): string[] {
+  return collectWidgetIds(program.root);
+}
+
+function stubSplitWorkspaceRect(widthPx: number, heightPx: number): void {
+  const original = Element.prototype.getBoundingClientRect;
+  Element.prototype.getBoundingClientRect = function (this: Element) {
+    if (this.id === 'split-workspace') {
+      return {
+        width: widthPx, height: heightPx, top: 0, left: 0,
+        right: widthPx, bottom: heightPx, x: 0, y: 0, toJSON() {},
+      } as DOMRect;
+    }
+    return original.call(this);
+  };
+}
+
+let restoreGBCR: typeof Element.prototype.getBoundingClientRect;
+let restoreFetch: typeof globalThis.fetch;
+
+beforeEach(() => {
+  resetWorkspace();
+  resetFakeBackendService();
+  // Non-network fallback services App.vue's cold-start reads
+  // unconditionally (`useAppBootstrap`'s tag-dictionary fetch) — not
+  // network-refused like the raw `fetch` stub below, since this one
+  // goes through the mocked SERVICE singleton, not `api-client.ts`.
+  fakeBackendService.getTags.mockResolvedValue([]);
+  installRenderEnvStubs();
+  (globalThis as { ResizeObserver?: unknown }).ResizeObserver = NoopResizeObserver;
+  restoreGBCR = Element.prototype.getBoundingClientRect;
+  restoreFetch = globalThis.fetch;
+  // Boot-time fire-and-forget reads (suggestion-color calibration,
+  // qEUBO reconcile, auth auto-login) go through `api-client.ts`'s own
+  // `fetch` wrapper, which none of the fakes above substitute (they
+  // cover the effectful SERVICE singletons App.vue reads through
+  // composables, not the raw HTTP boundary). A network-refused stub
+  // keeps every such call an ordinary rejected promise — each site's
+  // own catch/fire-and-forget handling is what production relies on
+  // when offline anyway, so this is a realistic boot condition, not an
+  // artificial one.
+  globalThis.fetch = vi.fn(() => Promise.reject(new Error('network disabled in App-boot test'))) as typeof fetch;
+});
+
+afterEach(() => {
+  Element.prototype.getBoundingClientRect = restoreGBCR;
+  globalThis.fetch = restoreFetch;
+  removeRenderEnvStubs();
+});
+
+describe('App.vue boot — every compiled-program widget id resolves to a rendered slot (M2 stage B2b restoration)', () => {
+  let wrapper: VueWrapper | null = null;
+
+  afterEach(() => {
+    wrapper?.unmount();
+    wrapper = null;
+    document.body.innerHTML = '';
+  });
+
+  it('landscape: mounts without triggering RootErrorBoundary, every leaf widget id renders', async () => {
+    // Unmeasured (0x0) `#split-workspace` is `layout-model.ts`'s own
+    // documented "not yet measured" default -> landscape — see that
+    // file's `nearestScreenClassId`, "today's pre-W3 default".
+    stubSplitWorkspaceRect(0, 0);
+
+    wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
+    await flushPromises();
+
+    expect(wrapper.find('.reb-overlay').exists()).toBe(false);
+    expect(store.workspaceLoadState.kind).toBe('loaded');
+
+    // Completeness half: EVERY leaf/blackbox widget id the compiled
+    // program declares must resolve through the registry without
+    // throwing — the exact call LytNode.vue's own `groups` computed
+    // makes unconditionally for every leaf/blackbox child (see that
+    // file's header, "Run-length merge"). The mount succeeding above
+    // already proves this for whichever ids are on the DEFAULT-visible
+    // path (e.g. the default-active settings sub-tab is `session`, not
+    // `SP_session`'s siblings inside a not-yet-opened tab); this direct
+    // call additionally covers ids that only appear once a user
+    // navigates to a non-default tab (CP-settings/CP-analysis/Other),
+    // which a single mount snapshot would not otherwise exercise.
+    for (const widgetId of widgetIdsOf(LYT_LANDSCAPE)) {
+      expect(() => lytMountingWidgetId(widgetId, 'landscape')).not.toThrow();
+      expect(() => lytRegistryStatus(widgetId, 'landscape')).not.toThrow();
+    }
+  });
+
+  it('portrait: mounts without triggering RootErrorBoundary, every leaf widget id renders', async () => {
+    // A tall, narrow rect — `deriveAxis`'s own aspect-ratio test
+    // resolves this to the portrait screen class.
+    stubSplitWorkspaceRect(400, 900);
+
+    wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
+    await flushPromises();
+
+    expect(wrapper.find('.reb-overlay').exists()).toBe(false);
+
+    for (const widgetId of widgetIdsOf(LYT_PORTRAIT)) {
+      expect(() => lytMountingWidgetId(widgetId, 'portrait')).not.toThrow();
+      expect(() => lytRegistryStatus(widgetId, 'portrait')).not.toThrow();
+    }
+  });
+});
+
+describe('App.vue — LYT presence arc P2b (control-panel class-aware default + popover summon/dismiss)', () => {
+  let wrapper: VueWrapper | null = null;
+
+  afterEach(() => {
+    wrapper?.unmount();
+    wrapper = null;
+    document.body.innerHTML = '';
+  });
+
+  it('landscape: the control panel is present in-grid (its own tab strip renders); no summon trigger is shown', async () => {
+    stubSplitWorkspaceRect(1920, 1080);
+    wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
+    await flushPromises();
+
+    expect(wrapper.find('.reb-overlay').exists()).toBe(false);
+    expect(wrapper.find('#control-panel [role="tablist"]').exists()).toBe(true);
+    expect(wrapper.find('#control-panel-summon-btn').exists()).toBe(false);
+  });
+
+  it('portrait: the control panel is ABSENT from the grid (repetition-first default); the summon trigger IS shown', async () => {
+    stubSplitWorkspaceRect(400, 900);
+    wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
+    await flushPromises();
+
+    expect(wrapper.find('.reb-overlay').exists()).toBe(false);
+    expect(wrapper.find('#control-panel [role="tablist"]').exists()).toBe(false);
+    expect(wrapper.find('#control-panel-summon-btn').exists()).toBe(true);
+    // Never rendered simultaneously with the board in the grid itself —
+    // the popover mount exists but stays closed (v-show) until summoned.
+    expect(wrapper.find('#control-panel-popover-mount').exists()).toBe(true);
+    expect((wrapper.find('#control-panel-popover-mount').element as HTMLElement).style.display).toBe('none');
+  });
+
+  it('portrait: clicking the summon trigger opens the popover with the SAME live tab content (summon), and clicking it again dismisses (restores the demoted state)', async () => {
+    stubSplitWorkspaceRect(400, 900);
+    wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
+    await flushPromises();
+
+    await wrapper.find('#control-panel-summon-btn').trigger('click');
+    await flushPromises();
+
+    const mountEl = wrapper.find('#control-panel-popover-mount').element as HTMLElement;
+    expect(mountEl.style.display).not.toBe('none');
+    expect(mountEl.querySelector('[role="tablist"]')).not.toBeNull();
+    // Full functionality: the default-active tab's own real content
+    // (Library) is mounted, same as the in-grid case.
+    expect(mountEl.querySelector('[role="tab"]')).not.toBeNull();
+
+    // Dismiss (re-click the trigger — same idiom as
+    // BoardRailPopoverTrigger/LytPresenceMenu's own toggle-to-close).
+    await wrapper.find('#control-panel-summon-btn').trigger('click');
+    await flushPromises();
+    expect(mountEl.style.display).toBe('none');
+    expect(mountEl.querySelector('[role="tablist"]')).toBeNull();
+    // The demoted state is restored: still absent from the grid.
+    expect(wrapper.find('#control-panel [role="tablist"]').exists()).toBe(false);
+  });
+
+  // Row 2501 repair, item 3 (`.claude/dispatch-reports/
+  // lyt-cure-repair-build.md`; live-witness finding
+  // `.claude/dispatch-reports/lyt-cure-live-witness.md`, item 5b-ii): the
+  // L5 build's own Escape-dismissal claim for this exact popover was
+  // UNEXERCISED by any test (only click-to-toggle was covered, above) —
+  // the live rig found it genuinely inert in a real browser. This test
+  // is deliberately STRONGER than the isolated `useDismissiblePopover`
+  // coverage in `ToolbarEngineControls-menu-dismissal.test.ts` (which
+  // mounts ONLY that one component) in two ways the charter's own
+  // diagnosis names: it mounts the FULL `App.vue` tree (so every OTHER
+  // global keydown listener App.vue wires — `useUserIORegistry.ts`,
+  // `SetupToolPalette.vue`, `useModalKeyboard.ts` — is present and could
+  // in principle interfere), and it explicitly puts focus OUTSIDE the
+  // popover's own subtree before dispatching Escape (a plain sibling
+  // `<div>`, focused via `tabIndex`) rather than leaving
+  // `document.activeElement` at whatever the click left it — the exact
+  // shape the charter names as what would have caught a real-browser-only
+  // focus/event-target divergence.
+  it('portrait: Escape closes the summoned popover even with focus OUTSIDE its own subtree, in the FULL App tree (not just the isolated composable)', async () => {
+    stubSplitWorkspaceRect(400, 900);
+    wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
+    await flushPromises();
+
+    await wrapper.find('#control-panel-summon-btn').trigger('click');
+    await flushPromises();
+
+    const mountEl = wrapper.find('#control-panel-popover-mount').element as HTMLElement;
+    expect(mountEl.style.display).not.toBe('none');
+
+    // Focus OUTSIDE the popover's own subtree — a plain sibling element in
+    // document.body, genuinely disjoint from `.control-panel-summon-wrap`
+    // (the `useDismissiblePopover` `rootRef`) and from `#app` itself. This
+    // is the precondition the isolated `ToolbarEngineControls` test never
+    // sets up (it never moves focus at all before dispatching).
+    const outsideEl = document.createElement('button');
+    outsideEl.tabIndex = 0;
+    document.body.appendChild(outsideEl);
+    outsideEl.focus();
+    expect(document.activeElement).toBe(outsideEl);
+    expect(wrapper.find('.control-panel-summon-wrap').element.contains(outsideEl)).toBe(false);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await flushPromises();
+
+    expect(mountEl.style.display).toBe('none');
+    expect(mountEl.querySelector('[role="tablist"]')).toBeNull();
+    expect(wrapper.find('#control-panel [role="tablist"]').exists()).toBe(false);
+
+    outsideEl.remove();
+  });
+});
+
+// Dispatch L3 repair, residual (`.claude/dispatch-reports/
+// lyt-space-owner-l3-review.md` §3 condition 3): the coordinator's delta
+// review caught that App.vue's own OUTER-bar `outerRowSovereignPushGate`
+// watcher still pushed a bare `pushSystemMessage('warning', d.message)`,
+// with no `remediation`/`nextAction` — the inner-bar wiring
+// (`useSideColumnLiveLayout.ts`) was fixed but the symmetric outer-bar one
+// was not, so the "ONE real producer" extent claim in the repair's own
+// report was false. This describe block is the symmetric integration
+// test the inner bar lacks a dedicated one for too (see that report's own
+// "what was NOT done" section) — mounting the FULL `App.vue` (the outer
+// bar's push watcher lives inline in its own `<script setup>`, not in a
+// separately-testable composable) and driving a genuine outer-bar
+// starvation, then asserting the pushed `SystemMessage` carries the SAME
+// structured fields the inner bar's diagnostic does.
+describe('App.vue — outer-bar sovereignty diagnostic pushes remediation/nextAction (dispatch L3 repair residual)', () => {
+  let wrapper: VueWrapper | null = null;
+
+  afterEach(() => {
+    wrapper?.unmount();
+    wrapper = null;
+    document.body.innerHTML = '';
+  });
+
+  it('a sovereign treeControlRegionWidthPx that starves #board-area pushes a warning carrying remediation and nextAction, mirroring the inner bar\'s own shape', async () => {
+    // A wide landscape aspect ratio (deriveAxis resolves this to
+    // 'landscape', same reasoning as the "control panel is present"
+    // test above at 1920x1080) but narrow enough in absolute terms that
+    // a 900px sovereign wrapper leaves #board-area well under its own
+    // 300px floor (MIN_BOARD_PX) once the resizer's own width is
+    // reserved too.
+    stubSplitWorkspaceRect(1024, 700);
+    clearSystemMessages();
+
+    wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
+    await flushPromises();
+    expect(wrapper.find('.reb-overlay').exists()).toBe(false);
+
+    // No stored wrapper width yet -> outerRowSovereignDiagnostic starts
+    // empty (nothing sovereign to check), matching
+    // `useResizablePanel.ts`'s own documented "not-yet-measured /
+    // never-dragged" guard -- no push yet.
+    expect(store.engine.messages.some((m) => m.text.includes('board'))).toBe(false);
+
+    // Simulate the sovereign drag/hydrate fact directly on the store —
+    // the same field `resizer-restore-clamp.test.ts`'s own ui-5-3 suite
+    // drives to reproduce this exact starvation (900px on a 1024px row).
+    store.session.ui.treeControlRegionWidthPx = 900;
+    await flushPromises();
+
+    const pushed = store.engine.messages.find((m) => m.text.includes('board'));
+    expect(pushed).toBeDefined();
+    expect(pushed?.type).toBe('warning');
+    // The SAME structured fields the inner bar's own
+    // SovereignOverrideDiagnostic carries (state/feasible-layout.ts's
+    // `resolveSovereignOverrides`) — no divergence between the two
+    // symmetric bars.
+    expect(pushed?.remediation).toBe('reduce this region\'s width, or use Default Layout to reset');
+    expect(pushed?.nextAction).toBe('open-default-layout-control');
+  });
+});

@@ -57,6 +57,10 @@ const props = withDefaults(
 // units, opacity 0.3) so the two renderers stay visually identical.
 const GRID_WIDTH = 0.8;
 const GRID_ALPHA = 0.3;
+// Item 2: PV-stone opacity, mirrors the SVG projection's own
+// `PV_OPACITY` (`MiniBoardSvg.vue`) so both renderers read identically
+// "hypothetical, not a real stone".
+const PV_OPACITY = 0.55;
 
 const canvasEl = ref<HTMLCanvasElement | null>(null);
 let resizeObserver: ResizeObserver | null = null;
@@ -130,6 +134,25 @@ function draw(): void {
     ctx.beginPath();
     ctx.arc(x, y, geo.stoneR * MARKER_INNER_RATIO, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.restore();
+  }
+
+  // Item 2 (mandate addendum): best-move principal variation, canvas
+  // parity with the SVG projection's own `pvStoneList` / "Best-move
+  // principal variation" block (read that file's comment for the
+  // opacity-as-hypothetical-vs-real rationale — PV_OPACITY mirrors it).
+  if (snap.pv && snap.pv.length > 0) {
+    ctx.save();
+    ctx.globalAlpha = PV_OPACITY;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const mv of snap.pv) {
+      const { x, y } = geo.toSVG(mv.x, mv.y);
+      ctx.drawImage(stoneSprite(mv.color, rpx), x - geo.stoneR, y - geo.stoneR, geo.stoneR * 2, geo.stoneR * 2);
+      ctx.fillStyle = mv.color === 'B' ? '#e8e8e8' : '#1a1a1a';
+      ctx.font = `bold ${Math.round(geo.stoneR * 0.82)}px monospace`;
+      ctx.fillText(String(mv.moveNumber), x, y + 1);
+    }
     ctx.restore();
   }
 

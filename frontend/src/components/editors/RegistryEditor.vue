@@ -8,6 +8,9 @@ import { ref, computed } from 'vue';
 import { SUPPORTED_LOCALES } from '../../i18n/locales';
 import { WINRATE_FRAMINGS } from '../../engine/katago/types';
 import { BUNDLE_COMPRESSION_SCHEMES } from '../../types';
+import { isRegistryGroupDefaultCollapsed } from '../../lib/utils';
+import { PANEL_CONTENT_READING_MEASURE_CH } from '../../state/layout-model';
+import { PATH_LABELS } from '../../i18n/registry-labels';
 
 const props = defineProps<{
   registry: any;
@@ -61,6 +64,21 @@ function isObject(val: any) {
   return val !== null && typeof val === 'object' && !Array.isArray(val);
 }
 
+// Initial open/closed state for a branch's native <details> disclosure.
+// Deliberately a per-render *initial value*, not a persisted/controlled
+// binding — `:open` below is uncontrolled (Vue only ever writes it when
+// this expression's own value changes, and `isRegistryGroupDefaultCollapsed`
+// is a pure function of `key`), so it never fights the user's own toggle
+// after mount. That is the "always collapsed by default" reading the
+// disclosure was commissioned under: collapsed on every fresh render of
+// the row, not remembered across a session the way `.settings-section`'s
+// other native <details> mounts (Settings tab's own accordion, retired
+// 2026-06-12) are NOT wired to persist either — there is no existing
+// persisted-disclosure precedent in this codebase to diverge from.
+function isInitiallyOpen(key: string): boolean {
+  return !isRegistryGroupDefaultCollapsed(key);
+}
+
 // Path → finite set of allowed string values for typed-union fields.
 // The lookup key is a dot-joined path RELATIVE to the editor's root —
 // `App.vue` mounts the editor twice (once with `store.profile.settings`
@@ -101,6 +119,8 @@ const PATH_ENUMS: Record<string, readonly string[]> = {
   'pvAnimation.annotation':        ['none', 'from1', 'fromCurrent'],
   'qeuboToolbarView':              ['applied', 'A', 'B'],
   'boardVariations':               ['off', 'circles', 'letters'],
+  'moveDeltaAnnotation':           ['off', 'deltaVisits', 'perPlayer'],
+  'deltaViewMode':                 ['shared', 'black', 'white'],
 };
 
 function enumOptions(key: string): readonly string[] | undefined {
@@ -124,6 +144,12 @@ function enumOptions(key: string): readonly string[] | undefined {
 //     inverted. Tracking note in `docs/handoff-current.md`'s
 //     "Known gaps (frontend)".
 const PATH_TOOLTIPS: Record<string, string> = {
+  'appearance.highContrastText':
+    "Only affects the 'cluster' (light) theme. Darkens the low-emphasis " +
+    "text and the primary accent colour so they clear WCAG's 4.5:1 " +
+    'contrast floor against the theme background; hue is preserved, only ' +
+    'luminance drops. Off by default. Chart/data-series colours and the ' +
+    "'dark' theme are unaffected either way.",
   'engine.katago.overrideSettings.reportAnalysisWinratesAs':
     "Only 'WHITE' is fully supported. 'BLACK' and 'SIDETOMOVE' will " +
     'not be supported in the near future unless another contributor ' +
@@ -172,6 +198,27 @@ function tooltipText(key: string): string | undefined {
   return PATH_TOOLTIPS[[...(props.path ?? []), key].join('.')];
 }
 
+// S9 (component-shoddiness audit, 2026-08-21): the raw registry key
+// (`activeTab`, `lytPresence`, …) is an internal storage identifier, not
+// user-facing copy. `PATH_LABELS` (src/i18n/registry-labels.ts) maps the
+// keys this editor's flagged mount root (`store.session.ui`) is known to
+// carry onto an i18n key that resolves to a human label. A key with no
+// mapped entry — including every leaf under the "Advanced Registry"
+// tab's `store.profile.settings` root, out of scope for this pass — is
+// NOT silently prettied up with a guessed label (ADR-0002 Rule 7,
+// closest-match discipline): `labelKey` falls back to the raw key
+// itself, which the template feeds to `$t(...)`. Passing an unmapped
+// string to `$t` is the codebase's OWN existing "surface missing
+// translations" mechanism (`i18n/index.ts`'s `missingWarn: true`) — it
+// renders the raw key back out (vue-i18n's documented missing-key
+// fallback) AND logs a console warning naming it, which is exactly the
+// "show it AND log it" loud fallback this finding asks for, with no
+// second warn/dedup mechanism needed.
+function labelKey(key: string): string {
+  const path = [...(props.path ?? []), key].join('.');
+  return PATH_LABELS[path] ?? key;
+}
+
 function getFieldType(key: string, value: any) {
   if (typeof value !== 'string') return 'scalar';
   if (enumOptions(key)) return 'enum';
@@ -212,17 +259,48 @@ function isModified(key: string, value: any) {
   if (!props.defaults) return false;
   return JSON.stringify(value) !== JSON.stringify(props.defaults[key]);
 }
+
+// M6 (audit finding, ledger row 1290): measured a 700-900px empty
+// gutter between the leaf label (x≈63) and its value column (x≈937) —
+// `.registry-leaf.scalar`'s `justify-content: space-between` was
+// stretching across the FULL unbounded pane width. Reuses the app's
+// existing phase-3 reading-measure vocabulary
+// (`PANEL_CONTENT_READING_MEASURE_CH`, state/layout-model.ts —
+// LibraryTab.vue's split panes and ForestDirectory.vue's card
+// metadata already cap on this same constant) rather than a
+// second, hand-typed `ch` literal (ADR-0012 one-home-per-fact).
+// Doubled — `calc(2 * ${PANEL_CONTENT_READING_MEASURE_CH}ch)` — the
+// same multiplier LibraryTab.vue's `librarySplitMaxWidthCss` uses for
+// its own two-region (list + preview) split: a registry leaf is a
+// two-region row too (label column + value column), so one bare
+// 60ch reading measure (sized for a single prose column) would clip
+// longer field names or the value input; doubling gives the row
+// room for both regions while still killing the multi-hundred-px
+// gutter. assumption (not spec-given): the exact multiplier — the
+// finding names "bound the form's measure", not a number; 2x is
+// reused from the one existing two-region precedent in this file
+// tree rather than invented fresh.
+const registryMeasureMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING_MEASURE_CH}ch)`);
 </script>
 
 <template>
   <div class="registry-editor" :class="{ 'registry-root': !path }">
     <div v-for="[key, value] in entries" :key="key" class="registry-row">
 
-      <!-- BRANCH: Object recursion -->
-      <div v-if="isObject(value)" class="registry-branch">
-        <div class="branch-header">
+      <!-- BRANCH: Object recursion, as a native <details> disclosure
+           (shared-chrome.css's .settings-section idiom — the same
+           collapsible-heading disclosure the Settings tab's own
+           accordion sections use; ADR-0019 genre: standard disclosure
+           triangle, natively focusable/enterable). `:open` is an
+           uncontrolled initial value — see isInitiallyOpen above. -->
+      <details
+        v-if="isObject(value)"
+        class="registry-branch settings-section"
+        :open="isInitiallyOpen(key)"
+      >
+        <summary class="branch-header">
           <div class="label-group">
-             <span class="branch-label">{{ key }}</span>
+             <span class="branch-label" :title="key">{{ $t(labelKey(key)) }}</span>
              <span v-if="isModified(key, value)" class="modified-dot"></span>
              <span
                v-if="tooltipText(key)"
@@ -233,10 +311,13 @@ function isModified(key: string, value: any) {
              >⚠</span>
           </div>
           <div class="action-group">
-            <button v-if="isModified(key, value)" class="restore-btn" :title="$t('registry.restoreBranchDefaults')" @click="restoreDefault(key)">↺</button>
-            <button v-if="isDynamicNode" class="delete-btn" @click="deleteKey(key)">×</button>
+            <!-- .stop: these sit inside <summary>, whose native click
+                 target is "toggle the disclosure" — without .stop a
+                 restore/delete click would also flip open/closed. -->
+            <button v-if="isModified(key, value)" class="restore-btn" :title="$t('registry.restoreBranchDefaults')" @click.stop="restoreDefault(key)">↺</button>
+            <button v-if="isDynamicNode" class="delete-btn" @click.stop="deleteKey(key)">×</button>
           </div>
-        </div>
+        </summary>
         <div class="branch-content">
           <RegistryEditor
             :registry="value"
@@ -245,13 +326,13 @@ function isModified(key: string, value: any) {
             @update="e => emit('update', e)"
           />
         </div>
-      </div>
+      </details>
 
       <!-- LEAF: Scalar/Expression/Ref -->
       <div v-else class="registry-leaf" :class="getFieldType(key, value)">
         <div class="leaf-header">
           <div class="label-group">
-            <label class="leaf-label">{{ key }}</label>
+            <label class="leaf-label" :title="key">{{ $t(labelKey(key)) }}</label>
             <span v-if="isModified(key, value)" class="modified-dot"></span>
             <span
               v-if="tooltipText(key)"
@@ -305,6 +386,16 @@ function isModified(key: string, value: any) {
 
 <style scoped>
 .registry-editor { display: flex; flex-direction: column; font-family: 'Consolas', monospace; }
+/* M6: measure cap applies at the ROOT editor only (`registry-root` —
+   `:class="{ 'registry-root': !path }"`, already declared for this
+   purpose, previously unstyled). RegistryEditor recurses into its own
+   branches (`.branch-content > RegistryEditor`, no `path` guard
+   omitted there), so capping every recursive instance would compound
+   the cap under nested indentation; capping the root once and letting
+   nested branches inherit the bounded ancestor width (their own
+   `padding-left` indent already narrows further) is the one-home
+   application of the same fact. */
+.registry-editor.registry-root { max-width: v-bind(registryMeasureMaxWidthCss); }
 .registry-row { margin-bottom: 2px; }
 
 .branch-header, .leaf-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-tight); }
@@ -317,7 +408,7 @@ function isModified(key: string, value: any) {
    existing --state-warning (#f0a04a) is close in hue but differs in
    brightness and is reserved for warning-level system messages.
    Preserved verbatim. */
-.modified-dot { width: 4px; height: 4px; border-radius: var(--radius-circle); background: #fbbf24; box-shadow: 0 0 4px #fbbf24; }
+.modified-dot { width: 4px; height: 4px; border-radius: var(--radius-circle); background: #fbbf24; }
 
 /* The tooltip-hint glyph uses --state-warning (#f0a04a) — the
    substrate's warning-level anchor, deliberately distinct from
@@ -335,20 +426,24 @@ function isModified(key: string, value: any) {
   line-height: 1;
 }
 
+/* wC-contrast (F9): readable text is --text-0, not accent-primary —
+   2.08:1 in the default cluster theme. The 5% tint background and
+   border-left stay accent (ornament). */
 .branch-label {
-  color: var(--accent-primary); text-transform: uppercase; font-size: var(--text-body); font-weight: bold;
+  color: var(--text-0); text-transform: uppercase; font-size: var(--text-body); font-weight: bold;
   padding: var(--space-tight) var(--space-default); background: color-mix(in srgb, var(--accent-primary) 5%, transparent); border-left: 2px solid var(--accent-primary);
 }
 
 .branch-content { padding-left: var(--space-medium); border-left: 1px solid var(--surface-3); margin-left: var(--space-tight); }
 
-/* theme-exception: .expression-input's #fbbf24 text matches the
-   .modified-dot indicator above — same Tailwind amber-400, marking
-   asteval expressions visually distinct from non-expression scalar
-   inputs. Same substrate gap as the indicator. */
+/* Expression inputs read in normal text tokens (commission row 748:
+   the amber-400 text was unreadable against surface-0 on the cluster
+   theme — orange on pink); the .modified-dot indicator alone carries
+   the asteval-expression distinctness now. Border was a
+   surface-token-as-border inversion (rows 681/742). */
 .expression-input {
   width: 100%; min-height: 50px; padding: var(--space-default); line-height: 1.4;
-  color: #fbbf24; background: var(--surface-0); border: 1px solid var(--surface-3); resize: vertical;
+  color: var(--text-0); background: var(--surface-0); border: 1px solid var(--border-2); resize: vertical;
 }
 
 .symbol-ref-box { display: flex; align-items: center; width: 100%; gap: var(--space-default); }
@@ -361,14 +456,21 @@ function isModified(key: string, value: any) {
 
 .registry-leaf { padding: 0; border-bottom: 1px solid var(--surface-2); }
 .registry-leaf.scalar, .registry-leaf.symbol-ref, .registry-leaf.enum { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-medium); }
-.leaf-label { color: var(--text-2); font-size: var(--text-emphasis); }
+.leaf-label { color: var(--text-0); font-size: var(--text-emphasis); }
 
-.restore-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: var(--text-emphasis); }
+/* G30 (WCAG 2.5.8): witnessed at 10x14 — under the 24x24 pointer-target
+   floor. min-width/min-height is the same transparent-expansion floor
+   KeybindingRow's .row-btn already carries (M16 era) — no background/
+   border painted, so the glyph's visual size is unchanged and only the
+   invisible hit box grows; flex-centering keeps the glyph centred in
+   the taller/wider box. */
+.restore-btn { background: none; border: none; color: var(--text-disabled); cursor: pointer; font-size: var(--text-emphasis); min-width: 24px; min-height: 24px; display: inline-flex; align-items: center; justify-content: center; }
 .delete-btn { background: none; border: none; color: var(--border-3); cursor: pointer; font-size: var(--text-heading); }
 
 .add-key-row { display: flex; padding: var(--space-default); gap: var(--space-tight); background: rgba(0,0,0,0.2); }
 .add-input { flex: 1; border-style: dashed; }
-.add-btn { background: var(--surface-3); border: 1px solid var(--border-2); color: var(--accent-primary); cursor: pointer; font-size: var(--text-body); padding: 0 var(--space-default); text-transform: uppercase; }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.add-btn { background: var(--surface-3); border: 1px solid var(--border-2); color: var(--text-0); cursor: pointer; font-size: var(--text-body); padding: 0 var(--space-default); text-transform: uppercase; }
 
 /* `.dark-input` deliberately omitted: this component's copy was
    byte-equivalent to the shared global (assets/css/shared-chrome.css:104)

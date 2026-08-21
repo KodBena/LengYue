@@ -1,0 +1,74 @@
+{
+  "summaries": [
+    {
+      "className": "landscape",
+      "statesWalked": 128,
+      "total": 128,
+      "guardChecks": 12,
+      "targets": [
+        {
+          "id": "board-rail",
+          "presence": "release"
+        },
+        {
+          "id": "board-controls",
+          "presence": "preserve"
+        },
+        {
+          "id": "go-actions",
+          "presence": "release"
+        },
+        {
+          "id": "engine-info",
+          "presence": "release"
+        },
+        {
+          "id": "common-actions",
+          "presence": "release"
+        },
+        {
+          "id": "tree-panels",
+          "presence": "release"
+        },
+        {
+          "id": "preview-board",
+          "presence": "release"
+        }
+      ]
+    },
+    {
+      "className": "portrait",
+      "statesWalked": 64,
+      "total": 64,
+      "guardChecks": 10,
+      "targets": [
+        {
+          "id": "board-rail",
+          "presence": "release"
+        },
+        {
+          "id": "top-actions",
+          "presence": "release"
+        },
+        {
+          "id": "board-controls",
+          "presence": "preserve"
+        },
+        {
+          "id": "engine-info",
+          "presence": "release"
+        },
+        {
+          "id": "tree-panels",
+          "presence": "release"
+        },
+        {
+          "id": "preview-board",
+          "presence": "release"
+        }
+      ]
+    }
+  ],
+  "violationCount": 0,
+  "violations": []
+}

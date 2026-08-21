@@ -3,9 +3,11 @@
  *
  * Domain-free utility helpers: debounce, plain-object guard +
  * deep-merge (hydration default-backfill), RFC4122 v4 UUID
- * generation, and the silent-create registry deep-write behind the
- * Settings editors. Band 1 per ADR-0003 — nothing here knows about
- * Go, game trees, or the engine wire.
+ * generation, the silent-create registry deep-write behind the
+ * Settings editors, and the registry-branch default-collapse
+ * predicate the Advanced Registry's disclosure headings key off of.
+ * Band 1 per ADR-0003 — nothing here knows about Go, game trees, or
+ * the engine wire.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -32,6 +34,32 @@ export function debounce<T extends (...args: any[]) => any>(
  */
 export function isObject(item: any): boolean {
   return (item && typeof item === 'object' && !Array.isArray(item));
+}
+
+/**
+ * Registry-branch keys that default to collapsed the moment the
+ * Advanced Registry (or any other `RegistryEditor` mount) renders —
+ * every visit, never persisted. `knobs` (the knob-registry subtree)
+ * and `analysis_env` (the KataGo analysis-environment subtree, which
+ * also has its own dedicated Analysis Environment sub-tab via
+ * `PaletteEditor.vue`) are almost never edited through the raw
+ * registry view, per the maintainer's wiki line. Every other branch
+ * key defaults expanded. A pure key->boolean predicate so the
+ * collapse decision is testable without mounting the component
+ * (`RegistryEditor.vue` calls this at each branch row).
+ */
+export function isRegistryGroupDefaultCollapsed(key: string): boolean {
+  // knobs / analysis_env: almost never edited raw (maintainer wiki line).
+  // pvAnimation / forestNav / cardTreeNav: commissioner directive
+  // 2026-08-07 (commission row 748) — always start collapsed on entering
+  // Session (UI).
+  return (
+    key === 'knobs' ||
+    key === 'analysis_env' ||
+    key === 'pvAnimation' ||
+    key === 'forestNav' ||
+    key === 'cardTreeNav'
+  );
 }
 
 /**

@@ -15,8 +15,10 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView } from '@codemirror/view';
 import { parse, format, validate } from '../../lib/dsl-harness';
 import HyperparameterPanel from './HyperparameterPanel.vue';
+import { useAppDialogs } from '../../composables/useAppDialogs';
 
 const { t } = useI18n();
+const dialogs = useAppDialogs();
 
 const props = defineProps<{
   cardSets: Record<string, CardSet>;
@@ -73,11 +75,14 @@ function select(id: string) {
   selectedId.value = id;
 }
 
-function addCardSet() {
-  const name = prompt(t('cardSet.prompt.deckName'));
+async function addCardSet() {
+  const name = await dialogs.prompt({ message: t('cardSet.prompt.deckName') });
   if (!name) return;
   const id = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-  if (props.cardSets[id]) return alert(t('cardSet.alert.idExists'));
+  if (props.cardSets[id]) {
+    void dialogs.alert({ message: t('cardSet.alert.idExists') });
+    return;
+  }
 
   const next = getClone();
   next[id] = {
@@ -99,9 +104,13 @@ function addCardSet() {
   select(id);
 }
 
-function deleteCardSet() {
+async function deleteCardSet() {
   if (!selectedId.value) return;
-  if (!confirm(t('cardSet.confirm.deleteDeck', { id: selectedId.value }))) return;
+  const ok = await dialogs.confirm({
+    message: t('cardSet.confirm.deleteDeck', { id: selectedId.value }),
+    danger: true,
+  });
+  if (!ok) return;
 
   const next = getClone();
   delete next[selectedId.value];
@@ -195,7 +204,14 @@ function updateHyperparameters(decls: HyperparamDecl[]) {
 
       <div v-else class="detail-content">
         <div class="detail-header">
-          <h3>{{ selectedId }}</h3>
+          <!-- M25 (audit finding, ledger row 1251): heading rendered
+               the raw id (e.g. "default") while the Name field and
+               the sidebar row both already show the human name
+               ("Standard") — one entity, two names on one screen.
+               The id is still the row key (list `:key="key"`,
+               `selectedId`), just no longer what the user reads as
+               the entity's name. -->
+          <h3>{{ cardSets[selectedId].name || selectedId }}</h3>
           <button class="del-btn" @click="deleteCardSet">{{ $t('cardSet.detail.delete') }}</button>
         </div>
 
@@ -249,15 +265,21 @@ function updateHyperparameters(decls: HyperparamDecl[]) {
 
 .sidebar { width: 200px; background: var(--surface-0); border-right: 1px solid var(--surface-3); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
 .section { border-bottom: 1px solid var(--surface-2); }
-.section-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-1); font-size: var(--text-body); text-transform: uppercase; }
+.section-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-0); font-size: var(--text-body); text-transform: uppercase; }
 .pipeline-header { margin-top: var(--space-medium); border-top: 1px solid #1a1a1a; }
-.add-btn { background: none; border: none; color: var(--accent-primary); cursor: pointer; font-weight: bold; font-size: var(--text-heading); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.add-btn { background: none; border: none; color: var(--text-0); cursor: pointer; font-weight: bold; font-size: var(--text-heading); }
 
 .item-list { list-style: none; padding: 0; margin: 0; }
-.item-list li { padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); color: var(--text-1); cursor: pointer; border-left: 2px solid transparent; display: flex; justify-content: space-between; align-items: center;}
+.item-list li { padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); color: var(--text-0); cursor: pointer; border-left: 2px solid transparent; display: flex; justify-content: space-between; align-items: center;}
 .item-list li:hover { background: var(--surface-2); }
-.item-list li.active { background: var(--surface-0); border-left-color: var(--accent-primary); color: var(--accent-primary); }
-.active-badge { font-size: var(--text-tiny); background: var(--accent-primary); color: var(--surface-0); padding: 1px 4px; border-radius: var(--radius-default); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border-left stays accent (ornament). */
+.item-list li.active { background: var(--surface-0); border-left-color: var(--accent-primary); color: var(--text-0); }
+/* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-0 text on an
+   --accent-primary fill measures 2.08:1 in the default cluster theme.
+   --text-on-accent is the token minted for text directly on an accent
+   fill (theme.css, ledger rows 1018/1144). */
+.active-badge { font-size: var(--text-tiny); background: var(--accent-primary); color: var(--text-on-accent); padding: 1px 4px; border-radius: var(--radius-default); }
 
 .detail-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface-0); }
 .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--border-3); font-size: var(--text-emphasis); }
@@ -265,17 +287,22 @@ function updateHyperparameters(decls: HyperparamDecl[]) {
 
 .detail-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-2); }
 .detail-header h3 { margin: 0; font-size: var(--text-heading); color: var(--text-0); font-weight: normal; }
-/* theme-exception: .del-btn's border (#5a1a1a) is a muted-dark-red
-   tint for the destructive-action affordance — same rationale as
-   PaletteEditor's .del-btn. */
-.del-btn { background: var(--surface-0); color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: var(--radius-default); cursor: pointer; font-size: var(--text-body); }
+/* M25 (audit finding, ledger row 1251): the prior rule's hardcoded
+   #5a1a1a border was a fixed dark-red literal that reads as barely-
+   there chrome against a light theme (e.g. "cluster"'s pale-pink
+   surface), the audit's "no destructive affordance" finding.
+   var(--state-error) is the same idiom ResetAllKeybindingsModal's
+   .btn-destructive already ships (border + hover-fill in the error
+   color, token-only, correct in every theme). */
+.del-btn { background: var(--surface-0); color: var(--state-error); border: 1px solid var(--state-error); padding: var(--space-tight) var(--space-default); border-radius: var(--radius-default); cursor: pointer; font-size: var(--text-body); font-weight: bold; }
+.del-btn:hover { background: var(--state-error); color: var(--surface-1); }
 
 .form-grid { padding: var(--space-medium); display: grid; grid-template-columns: 100px 1fr; gap: var(--space-medium); align-items: center; }
-.form-grid label { font-size: var(--text-emphasis); color: var(--text-2); }
+.form-grid label { font-size: var(--text-emphasis); color: var(--text-0); }
 .dark-input { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none; }
 .dark-input:focus { border-color: var(--accent-primary); }
 
-.editor-wrap { flex: 1; min-height: 150px; overflow: auto; border-top: 1px solid var(--surface-3); transition: border-color var(--duration-default); }
+.editor-wrap { flex: 1; min-height: 150px; overflow: auto; border-top: 1px solid var(--surface-3); }
 .editor-wrap.json-error { border-top: 2px solid var(--state-error); }
 .error-badge { font-size: var(--text-tiny); color: var(--state-error); font-weight: bold; }
 </style>

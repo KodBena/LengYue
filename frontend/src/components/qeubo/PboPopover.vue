@@ -65,14 +65,39 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQeubo } from '../../composables/useQeubo';
 import { useHoverPopover } from '../../composables/chrome/useHoverPopover';
-import { usePopoverEdgeClamp } from '../../composables/chrome/usePopoverEdgeClamp';
+import { useFixedAnchoredPopover } from '../../composables/chrome/useFixedAnchoredPopover';
 import { pushSystemMessage } from '../../store';
+import { useAppDialogs } from '../../composables/useAppDialogs';
 
 const { t } = useI18n();
+const dialogs = useAppDialogs();
 const q = useQeubo();
 const { open, onMouseEnter, onMouseLeave } = useHoverPopover();
-// `right: 0`-anchored — see usePopoverEdgeClamp's behaviour notes.
-const { setPopoverEl, xShift } = usePopoverEdgeClamp(open);
+
+// Clip-ancestor fix (commission lyt-popover-clip-class, ratified
+// program row 1937). This popover mounts inside `App.vue`'s
+// `.lyt-toolbar-strip` (via ToolbarAppCluster -> the `#leaf-A_app`
+// slot), the SAME `overflow-y: auto` clipping ancestor
+// `ToolbarSliderPopover.vue`'s D1 fix escaped — the two are direct
+// DOM siblings under `ToolbarAppCluster.vue`'s second `.toolbar-cluster`
+// (`.claude/dispatch-reports/lyt-sliders-popover-defects.md`). Not
+// visually re-witnessed for THIS component in this commission — see
+// `.claude/dispatch-reports/lyt-popover-clip-class.md`'s per-member
+// disposition for why (this component's own root carries `v-if
+// ="visible"`, gated on `q.calibrationEnabled && q.experimentExists`,
+// which requires a live backend qEUBO experiment — unreachable under
+// this commission's own isolation posture, dead-pinned ports, no
+// live backend) — but the ancestor chain and positioning scheme were
+// identical to ToolbarSliderPopover's pre-fix shape (`position:
+// absolute; top: 100%; right: 0`, same `.lyt-toolbar-strip` ancestor,
+// same z-index tier), so it is routed through the same composable as a
+// same-class structural fix rather than left unfixed pending a live
+// witness this environment cannot produce. `usePopoverEdgeClamp`
+// (horizontal-only, snapshot-once) no longer applies;
+// `useFixedAnchoredPopover` supersedes it here.
+const triggerEl = ref<HTMLElement | null>(null);
+const popoverEl = ref<HTMLElement | null>(null);
+const { style: popoverStyle } = useFixedAnchoredPopover(open, triggerEl, popoverEl, { align: 'right' });
 
 // Render gate: hide entirely when calibration is disabled (503 from
 // the backend) or the user has no experiment configured. Same
@@ -135,8 +160,8 @@ function onApply(): void {
   }
 }
 
-function onPin(): void {
-  const name = window.prompt(t('qeubo.prompt.bookmarkName'));
+async function onPin(): Promise<void> {
+  const name = await dialogs.prompt({ message: t('qeubo.prompt.bookmarkName') });
   if (name === null) return;
   try {
     q.pinCurrent(name);
@@ -151,6 +176,7 @@ function onPin(): void {
 <template>
   <div
     v-if="visible"
+    ref="triggerEl"
     class="metric pbo-metric"
     @mouseenter="onMouseEnter"
     @mouseleave="onMouseLeave"
@@ -161,7 +187,7 @@ function onPin(): void {
     </span>
     <span v-if="q.isBusy.value" class="busy-dot" :aria-label="$t('qeubo.aria.busy')">●</span>
 
-    <div v-if="open" :ref="setPopoverEl" class="pbo-popover" role="tooltip" :style="{ transform: `translateX(${xShift}px)` }">
+    <div v-if="open" ref="popoverEl" class="pbo-popover" role="tooltip" :style="{ top: popoverStyle.top, left: popoverStyle.left }">
       <!-- Audition toggle. v-model on q.toolbarView would also
            work but explicit click handlers give us per-button
            styling and keyboard semantics. -->
@@ -262,16 +288,16 @@ function onPin(): void {
   gap: var(--space-tight);
 }
 .pbo-metric .m-val {
-  color: var(--text-2);
-  transition: color var(--duration-default);
+  color: var(--text-0);
 }
 .pbo-metric:hover .m-val {
-  color: var(--accent-primary);
+  /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+  color: var(--text-0);
 }
 .pbo-phase {
   font-family: monospace;
 }
-.pbo-phase-idle { color: var(--text-2); }
+.pbo-phase-idle { color: var(--text-0); }
 /* Reuses the QeuboToolbar busy-dot pulse exactly — same
    keyframe envelope (0.4 trough → 1.0 peak), same duration
    anchor, same accent colour. magic-literal: 0.4 trough is the
@@ -280,23 +306,31 @@ function onPin(): void {
 .busy-dot { color: var(--accent-primary); font-size: var(--text-body); animation: pulse var(--duration-slow) infinite; }
 @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1.0; } }
 
-/* Floating panel — same shape as the QUEUE / SLIDERS popovers:
-   absolute, flush against the badge (no margin-top gap), capped
-   width, drop shadow. The flush anchor pairs with the
-   composable's 150 ms close-grace timer for gap-free pointer
-   traversal in the common case. */
+/* Floating panel — same shape as the QUEUE / SLIDERS popovers: flush
+   against the badge (no margin-top gap), capped width, bordered (no
+   box-shadow — ledger row 1506 ban). The flush anchor pairs with the
+   hover composable's 150 ms close-grace timer for gap-free pointer
+   traversal in the common case.
+
+   Clip-ancestor fix (commission lyt-popover-clip-class): this rule was
+   previously anchored `top: 100%; right: 0` under CSS's absolute
+   positioning scheme, relative to `.pbo-metric`'s own `position:
+   relative` box. `position: fixed` (below) escapes
+   `.lyt-toolbar-strip`'s `overflow-y: auto` clip the same way
+   `ToolbarSliderPopover.vue`'s D1 fix does (see that file's header,
+   and `useFixedAnchoredPopover.ts`'s own header, for the full
+   diagnosis); `top`/`left` are now script-computed by
+   `useFixedAnchoredPopover` (align: 'right', matching the prior
+   `right: 0` anchor) and bound via `popoverStyle`. */
 .pbo-popover {
-  position: absolute;
-  top: 100%;
-  right: 0;
+  position: fixed;
   background: var(--surface-0);
   border: 1px solid var(--border-3);
   border-radius: var(--radius-default);
   padding: var(--space-default);
   min-width: 340px;
   max-width: 480px;
-  z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  z-index: var(--z-popover-chrome); /* W4 item 3: shared toolbar/corner-chrome popover tier — see theme.css's own doc comment on the token */
   display: flex;
   flex-direction: column;
   gap: var(--space-default);
@@ -306,24 +340,29 @@ function onPin(): void {
   letter-spacing: var(--tracking-tight);
 }
 .seg-toggle { display: flex; border: 1px solid var(--border-3); border-radius: var(--radius-default); overflow: hidden; }
-.seg-btn { background: var(--surface-0); border: none; border-right: 1px solid var(--border-3); color: var(--text-1); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; font-family: inherit; text-transform: inherit; letter-spacing: inherit; }
+.seg-btn { background: var(--surface-0); border: none; border-right: 1px solid var(--border-3); color: var(--text-0); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; font-family: inherit; text-transform: inherit; letter-spacing: inherit; }
 .seg-btn:last-child { border-right: none; }
-.seg-btn.active { background: var(--surface-0); color: var(--accent-primary); }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.seg-btn.active { background: var(--surface-0); color: var(--text-0); }
 .seg-btn:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 .verdict-pair { display: flex; gap: var(--space-tight); }
 .action-row { display: flex; gap: var(--space-tight); align-items: center; }
-.verdict-btn, .apply-btn, .pin-btn { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-1); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: inherit; letter-spacing: inherit; }
+.verdict-btn, .apply-btn, .pin-btn { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-0); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: inherit; letter-spacing: inherit; }
 .verdict-btn:disabled, .apply-btn:disabled, .pin-btn:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 /* theme-exception: .apply-btn border uses #2a5a7a — designer-
    intentional muted-cyan accent matching the legacy QeuboToolbar
    and Toolbar's .highlight-btn vocabulary. */
-.apply-btn { border-color: #2a5a7a; color: var(--accent-primary); }
-.debug-toggle { background: none; border: none; color: var(--text-2); font-size: var(--text-emphasis); cursor: pointer; padding: 0 var(--space-tight); font-family: inherit; line-height: 1; }
-.debug-toggle.active { color: var(--accent-primary); }
+/* wC-contrast (F9): label text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays theme-exception ornament. */
+.apply-btn { border-color: #2a5a7a; color: var(--text-0); }
+.debug-toggle { background: none; border: none; color: var(--text-disabled); font-size: var(--text-emphasis); cursor: pointer; padding: 0 var(--space-tight); font-family: inherit; line-height: 1; }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.debug-toggle.active { color: var(--text-0); }
 /* About-PBO `?` chip — circle outline carrying the long phase
    tooltip. Matches the QeuboToolbar's prior phase-help glyph
    vocabulary; theme-exception border (#2a5a7a) consistent with
-   the muted-cyan accent used by the action buttons. */
-.phase-help { color: var(--accent-primary); border: 1px solid #2a5a7a; border-radius: var(--radius-circle); width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: var(--text-tiny); cursor: help; margin-left: auto; }
-.params-debug { color: var(--text-2); font-size: var(--text-tiny); text-transform: none; letter-spacing: var(--tracking-default); white-space: nowrap; overflow-wrap: anywhere; }
+   the muted-cyan accent used by the action buttons.
+   wC-contrast (F9): the "?" glyph is readable text, so --text-0, not
+   accent-primary — 2.08:1 in the default cluster theme. Border stays. */
+.phase-help { color: var(--text-0); border: 1px solid #2a5a7a; border-radius: var(--radius-circle); width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: var(--text-tiny); cursor: help; margin-left: auto; }
+.params-debug { color: var(--text-0); font-size: var(--text-tiny); text-transform: none; letter-spacing: var(--tracking-default); white-space: nowrap; overflow-wrap: anywhere; }
 </style>

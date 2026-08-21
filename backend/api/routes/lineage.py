@@ -37,6 +37,7 @@ License: Public Domain (The Unlicense)
 from __future__ import annotations
 
 from typing import List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
@@ -67,11 +68,20 @@ class ResolveRootsRequest(BaseModel):
 
 
 class ResolvedRoot(BaseModel):
-    """One game-source root and the input cards that descend from it."""
+    """
+    One game-source root and the input cards that descend from it.
+
+    Browse-leak-fix (ledger rows 417/423): identifies the root by
+    `root_card_public_id` / `game_source_display_ordinal` (per-user
+    display ids) rather than the raw global PKs. `card_ids_in_tree`
+    stays raw — it's the caller's own input cards echoed back, a
+    reference-role field the caller already owns (see
+    `domain/lineage.py`'s module docstring).
+    """
     model_config = ConfigDict(frozen=True)
 
-    root_card_id: int
-    game_source_id: int
+    root_card_public_id: UUID
+    game_source_display_ordinal: int
     card_ids_in_tree: List[int]
 
 
@@ -94,13 +104,22 @@ class TreeByRootRequest(BaseModel):
     """
     Input to /lineage/tree-by-root.
 
+    Browse-leak-fix (ledger rows 417/423): the root is addressed by
+    `root_card_public_id` (the card's `public_id` UUID), not the raw
+    internal PK — per the ruling, "where a client genuinely needs an
+    addressing handle, the per-user id IS the handle." Every response
+    that hands the frontend a root to browse to (`/stats/forests`,
+    `/lineage/resolve-roots`) now surfaces `root_card_public_id`
+    instead of the raw id, so there is no raw id left for the client
+    to round-trip here.
+
     `max_nodes` defaults to 10000 per the spec. The route accepts an
     explicit override if the caller knows it wants a smaller cap (e.g.
     a UI that previews only the top of a tree); the lower bound is
     1, enforced at the Pydantic layer rather than discovered as a
     runtime overflow.
     """
-    root_card_id: int
+    root_card_public_id: UUID
     max_nodes: Optional[int] = Field(default=10000, ge=1)
 
 
@@ -116,13 +135,21 @@ class TreeByRootResponse(BaseModel):
     """
     Response shape for /lineage/tree-by-root.
 
+    Browse-leak-fix (ledger rows 417/423): `root_card_public_id` /
+    `game_source_display_ordinal` replace the raw PKs, mirroring
+    `ResolvedRoot`. `TreeNode.id` (inside `tree`) is unaffected — it's
+    a reference-role addressing value the frontend uses purely to key
+    already-tenancy-scoped card data it fetched elsewhere (the same
+    class as `CardWithRecall.id`'s named schema-walk exception), never
+    painted as a digit anywhere in the UI.
+
     On overflow the route returns 422 with a structured detail body
     (see `_overflow_detail` below) instead of this shape.
     """
     model_config = ConfigDict(frozen=True)
 
-    root_card_id: int
-    game_source_id: int
+    root_card_public_id: UUID
+    game_source_display_ordinal: int
     tree: TreeNode
 
 
@@ -189,8 +216,8 @@ async def resolve_roots(
     return ResolveRootsResponse(
         roots=[
             ResolvedRoot(
-                root_card_id=g.root_card_id,
-                game_source_id=g.game_source_id,
+                root_card_public_id=g.root_card_public_id,
+                game_source_display_ordinal=g.game_source_display_ordinal,
                 card_ids_in_tree=list(g.card_ids_in_tree),
             )
             for g in result.roots
@@ -222,7 +249,7 @@ async def tree_by_root(
     user_id: UserId = Depends(get_current_user_id),  # Item — card-tree (tenancy).
 ):
     """
-    Return the structure-only subtree rooted at `root_card_id`.
+    Return the structure-only subtree rooted at `root_card_public_id`.
 
     Three response shapes:
       - 200: TreeByRootResponse with the recursive `tree` payload.
@@ -237,7 +264,7 @@ async def tree_by_root(
     """
     try:
         rooted = await repo.fetch_tree_by_root(
-            request.root_card_id,
+            request.root_card_public_id,
             user_id=user_id,
             max_nodes=request.max_nodes or 10000,
         )
@@ -247,7 +274,7 @@ async def tree_by_root(
         raise HTTPException(status_code=422, detail=_overflow_detail(e))
 
     return TreeByRootResponse(
-        root_card_id=rooted.root_card_id,
-        game_source_id=rooted.game_source_id,
+        root_card_public_id=rooted.root_card_public_id,
+        game_source_display_ordinal=rooted.game_source_display_ordinal,
         tree=_project_card_tree_to_wire(rooted.tree),
     )

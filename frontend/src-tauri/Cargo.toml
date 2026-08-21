@@ -1,0 +1,52 @@
+[package]
+name = "lengyue"
+version = "0.1.0"
+description = "LengYue desktop shell (Tauri v2) — hosts the SPA and the FastAPI backend sidecar"
+authors = ["LengYue project"]
+license = "Unlicense"
+repository = ""
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "lengyue_lib"
+crate-type = ["staticlib", "cdylib", "lib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Linux-first scaffold; the [target."cfg(target_os = \"windows\")"] table
+# is left absent deliberately — Windows support is config work (an
+# externalBin entry with a `.exe` suffix, an MSI/NSIS bundle target,
+# and a windows-x86_64 sidecar binary), not a Rust source rewrite. See
+# the "What Windows needs later" section of the dispatch report.
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# ureq: small blocking HTTP client used only for the sidecar readiness
+# poll (GET /health). Chosen over reqwest to avoid pulling an async
+# runtime's worth of dependencies into a desktop-shell binary that
+# otherwise has no other HTTP-client need.
+ureq = "2"
+# mdns-sd: pure-Rust mDNS/DNS-SD implementation (no libavahi/libdns_sd FFI,
+# so it needs no system daemon or shared library present on the host —
+# important since mDNS being ENTIRELY ABSENT on a host is a normal,
+# supported case here, not a setup error). `default-features = false`
+# drops its `async`/`logging` features: `ServiceDaemon` already runs its
+# own background thread and exposes a plain `flume::Receiver` with a
+# blocking `recv_timeout`, so the bounded browse in `mdns_discovery.rs`
+# needs neither an async runtime (this crate deliberately has none — see
+# the `ureq` comment above for the same reasoning applied to HTTP) nor
+# the `log` facade (this codebase's sidecar/setup code logs via bare
+# `eprintln!`/`println!`, forwarded to the desktop shell's own log
+# stream — see `lib.rs`'s module docs — so pulling in a second logging
+# convention for one crate would add a seam, not clarity).
+mdns-sd = { version = "0.20.3", default-features = false }
+
+[features]
+# This feature is used for production builds where `devUrl` points to
+# the local CLI server, but the CLI is not always available. See
+# https://tauri.app/develop/#dev-server-vs-embedded-frontend
+custom-protocol = ["tauri/custom-protocol"]

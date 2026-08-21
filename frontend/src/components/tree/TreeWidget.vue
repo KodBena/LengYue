@@ -18,9 +18,13 @@ import { useViewportFollow } from '../../composables/useViewportFollow';
 import { useNavigation }    from '../../composables/useNavigation';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { warmSnapshotAccessor } from '../../composables/cards/usePreviewSnapshot';
+import { useNodePositionHashes } from '../../composables/cards/useNodePositionHashes';
+import { toggleNodeSelection } from '../../composables/cards/mint-selection';
+import { isReviewStartNode } from '../../composables/forest/tree-review-marker';
 import { themeColor }        from '../../utils/theme-color';
 import FloatingThumbnail    from '../chrome/FloatingThumbnail.vue';
 import { boardsById }        from '../../store';
+import { px, type Px }       from '../../state/feasible-layout';
 import type { GameNode, NodeId, BoardId } from '../../types';
 
 /**
@@ -60,6 +64,48 @@ const props = withDefaults(
     // `board.games[*].currentHeadNodeId` upstream; per-session
     // config is opaque here — the tree only needs identity.
     gameHeadIds?: ReadonlySet<NodeId>;
+    // card-position-annotations Stage B: NodeIds whose normalized
+    // position already exists as one of the caller's cards.
+    // Precomputed at the composition layer (App.vue's
+    // `useKnownPositionNodes`, mirroring `gameHeadIds`'s own
+    // `usePlayVsEngine` precedent) — TreeWidget only renders the
+    // membership test, never fetches or derives it itself.
+    knownPositionNodeIds?: ReadonlySet<NodeId>;
+    // The active review session's starting node — "where a card
+    // starts" (wanted-feature 4 / ledger row 524's re-adjudicated
+    // build). At most one per board (a board has at most one active
+    // review session), so a nullable single id rather than a Set —
+    // same zero-I/O shape as `gameHeadIds`, sourced from
+    // `useReviewSession`'s `startingNodeId` projection over
+    // `ReviewSessionData.startingNodeId` (`null` outside a review
+    // session). Renders a marker ring in the game-head-ring family,
+    // distinct color, so a card's start position reads at a glance
+    // the same way a play/match session head does.
+    reviewStartNodeId?: NodeId | null;
+    // Batch card-minting selection (commissioner-designed, ledger rows
+    // 926/957/1008): NodeIds currently marked for the "Mint card(s)"
+    // affordance — either ctrl+clicked directly in this widget (see
+    // the node-circle click handler below) or added live by "Learn
+    // this path" (`useLearnPath.explore()`) as it grows the tree.
+    // Owned by `mint-selection.ts` (module-scope, since `MintCardModal`
+    // / `LearnPathModal` and this widget are siblings under App.vue,
+    // not parent/child); a successful mint clears the minted entries,
+    // a board/game switch clears the whole set. Renders a dashed blue
+    // ring, same colour family as the solid active-node ring but
+    // visually distinct (dashed, outermost radius — see the
+    // ring-radius stack note by known-position-ring in the template
+    // below) so it reads as "selected", not "current" or "game head".
+    selectedForMintIds?: ReadonlySet<NodeId>;
+    // "Learn this path" on-demand analysis progress (commission ledger
+    // row 881, ADR-0002/C6 progress honesty): the single NodeId the
+    // walk is currently awaiting an engine query for, or `null`/
+    // `undefined` when nothing is in flight. Sourced from
+    // `learn-path-progress.ts` (module-scope, same sibling-not-parent
+    // reason as `selectedForMintIds` above). At most one node per board can
+    // be "analyzing" at a time — the walk issues one in-flight query
+    // at a time by construction — so a nullable single id, not a Set,
+    // matching `reviewStartNodeId`'s own shape for the same reason.
+    analyzingNodeId?: NodeId | null;
   }>(),
   { orientation: 'vertical' },
 );
@@ -92,8 +138,53 @@ useScopedScroll(outerRef, deltaY => {
 // for why a synchronous read — or a rAF-deferred one — forces a reflow.
 const viewportFollow = useViewportFollow(outerRef);
 
+// Space-owner cure, dispatch L2b (`.claude/dispatch-reports/
+// lyt-space-owner-spec.md` §3 step 2, ledger rows 2447/2450/2460): the
+// tree's own live content demand along the LYT program's own `tree` leaf
+// axis. Both compiled programs (`lyt-layout.gen.ts`/
+// `lyt-layout-portrait.gen.ts`) place `tree` in an `h`-axis split
+// (`state/feasible-layout.ts`'s own header confirms this against both) —
+// this is the LYT program's OWN axis, independent of this component's own
+// `orientation` prop (which governs which direction VARIATIONS branch,
+// not which axis the leaf's grid track occupies), so `'h'` is fixed here,
+// not derived from `props.orientation`. Exposed (not consumed locally —
+// this widget has no opinion about its own allotment) for a caller to
+// feed into `measuredFromLytProgram`'s runtime overlay; see that
+// function's own header for the full "why an overlay, not a direct
+// clamp" account.
+//
+// Disease repair (`.claude/dispatch-reports/lyt-second-opus-review.md`
+// N3, ledger row 2511): this USED to be `useContentDemand(outerRef, 'h')`
+// — `outerRef.scrollWidth`, per that composable's own disclosed caveat,
+// equals the SVG's true intrinsic content width only while the SVG
+// genuinely overflows the box (`.tree-widget-outer { overflow: auto }`,
+// below). Whenever the tree's real content is NARROWER than whatever
+// width the side-column solve most recently assigned it (the ordinary
+// case for a small game tree), `scrollWidth` degenerates to the BOX's
+// own rendered width instead — the exact contamination the composable's
+// header names as a caveat it assumed no current caller hit. Feeding
+// that back into `resolveSideColumnLiveLayout`'s non-sovereign ceiling
+// (`effectiveTreeMaxUsefulPx`) closed a measure-render-remeasure loop: a
+// presence toggle (e.g. "Preview Board") that momentarily narrows the
+// tree's box gets that narrower box "remembered" as the tree's own
+// content demand, capping the NEXT candidate at the same width even
+// once the toggle reverses and room frees back up — witnessed as an
+// ~31px leak per on/off cycle, never recovering short of a reload
+// (`tests/unit/state/feasible-layout.test.ts`'s own presence-toggle-
+// idempotence case pins the fix at the pure-function layer). `svgWidth`
+// (below) is the tree's OWN intrinsic width —
+// `layout.value.rows/cols * CELL + PAD * 2`, a pure function of the
+// game-tree's shape, never of the box it's rendered into — so reading
+// it directly is a strictly MORE correct content-demand measurement
+// (identical to the old one in the genuine-overflow case, immune to the
+// contamination in the non-overflow case), not a narrower one.
+// `outerRef`/`useContentDemand` accordingly no longer feed this value;
+// `outerRef` remains in use for scroll and viewport-follow, untouched.
+const contentDemandPx = computed<Px>(() => px(svgWidth.value));
+
 const expansion = useTreeExpansion();
 const { variationMarkerLabels } = useThumbnailCache();
+const { requestHashFill } = useNodePositionHashes();
 
 const nodesRef  = toRef(props, 'nodes');
 const { layout } = useTreeLayout(nodesRef, undefined, expansion);
@@ -137,13 +228,65 @@ function onToggleLeave() {
   thumbRef.value?.hide();
 }
 
+// ── Node-circle click: navigate, or ctrl/cmd+click to toggle batch-mint
+//    selection ────────────────────────────────────────────────────────
+//
+// Batch card-minting affordance (commissioner-designed, ledger rows
+// 926/957/1008): a plain click still navigates exactly as today
+// (unchanged `select-node` emit — App.vue's `handleNodeSelect` moves
+// the cursor). Ctrl+click (Cmd+click on macOS, `event.metaKey`) instead
+// toggles the node's membership in `mint-selection.ts`'s per-board Set
+// and does NOT navigate — selection is data, independent of the
+// cursor, per the ratified design. This is the ONLY place selection
+// membership is written from direct user interaction; `useLearnPath`
+// writes the same registry from its own call site (`addToSelection`).
+function onNodeClick(event: MouseEvent, nodeId: NodeId): void {
+  if (event.ctrlKey || event.metaKey) {
+    toggleNodeSelection(props.boardId, nodeId);
+    return;
+  }
+  emit('select-node', nodeId);
+}
+
 // ── Node-circle fill / stroke helpers (chrome via themeColor; B/W
 //    stones stay literal as domain colors per ADR-0003 plan §D). ─────────────
 
 function nodeFill(item: { move?: GameNode['move'] }): string {
   if (!item.move) return themeColor('--border-3');
+  // A pass is a game move played by a specific color (ledger row 759:
+  // "a pass is a game move, not a meta-instruction") — it takes the
+  // SAME B/W stone fill as any other move by that color, not a neutral
+  // chrome tone. Commissioner ruling (ledger row 948, amendment): a
+  // pass node renders EXACTLY like a normal move node — same circle,
+  // same per-color fill, no shape, glyph, or any other distinguishing
+  // mark. There is deliberately no pass-only branch anywhere in this
+  // file; `nodeFill`/`nodeStroke` and the single `<circle>` in the
+  // template below are shared, unconditional code paths for every
+  // move node, pass or not.
+  //
   // Stone colors are domain-meaningful (board pieces); not chrome.
-  return item.move.color === 'B' ? '#111' : '#eee';
+  //
+  // DARK-THEME EXCEPTION (Defect 7 fix, ui-defects-investigation.md):
+  // the literal black-stone fill '#111' against dark theme's
+  // --surface-2 (#1a1a1a, theme.css) computes to a WCAG contrast ratio
+  // of ~1.085:1 (relative-luminance formula (L1+0.05)/(L2+0.05)) --
+  // functionally invisible, well under C19's 3:1 floor for
+  // information-bearing glyphs (law/adr/0019-appendix-ui-proscriptions.md).
+  // '#eee' (white nodes) against the same background is ~15.0:1 --
+  // trivially passes, unaffected by this change.
+  //
+  // var(--tree-node-black-fill, #111) resolves to '#707070' ONLY when
+  // [data-theme="dark"] is active on <html> (see the plain, unscoped
+  // <style> block below) -- #707070 against #1a1a1a computes to
+  // ~3.51:1 (same formula, cross-checked: it reproduces the report's
+  // 1.085 figure for the #111/#1a1a1a pair before being applied to
+  // #707070/#1a1a1a). Every other theme ("cluster", any future theme)
+  // never sets that custom property, so the var() fallback resolves to
+  // the domain-literal '#111' unchanged -- the mechanism cannot leak
+  // into a theme it wasn't written for. This is pure CSS (no
+  // data-theme sniffing in JS), so it adds zero reactive reads to the
+  // render path (ADR-0010 read-locality).
+  return item.move.color === 'B' ? 'var(--tree-node-black-fill, #111)' : '#eee';
 }
 
 function nodeStroke(item: { move?: GameNode['move'] }): string {
@@ -254,6 +397,10 @@ const nodeList = computed(() => {
     move: GameNode['move']; isBranching: boolean; isExpanded: boolean;
     parentIdForToggle: NodeId | '';
     isGameHead: boolean;
+    isKnownPosition: boolean;
+    isReviewStart: boolean;
+    isSelectedForMint: boolean;
+    isAnalyzing: boolean;
   }> = [];
 
   layout.value.positions.forEach((pos, id) => {
@@ -284,10 +431,34 @@ const nodeList = computed(() => {
       isExpanded: isParentExpanded,
       parentIdForToggle, // Pass to template
       isGameHead: !!props.gameHeadIds?.has(id),
+      isKnownPosition: !!props.knownPositionNodeIds?.has(id),
+      isReviewStart: isReviewStartNode(id, props.reviewStartNodeId),
+      isSelectedForMint: !!props.selectedForMintIds?.has(id),
+      isAnalyzing: props.analyzingNodeId != null && props.analyzingNodeId === id,
     });
   });
   return items;
 });
+
+// card-position-annotations Stage B: viewport-driven hash-fill trigger.
+// Reads only `nodeList`'s id set (already bounded to laid-out/expanded
+// nodes — collapsed variations never appear there) and the board state
+// needed to serialize each node's root->node path. This is a `watch`
+// side effect, not a template read, so it does not add to TreeWidget's
+// render cost (ADR-0010) — it fires once per genuine nodeList change
+// (tree structure / expansion change), not per render, and
+// `useNodePositionHashes` itself dedupes against already-cached and
+// already-pending NodeIds so a nav-only nodeList re-identity (same ids,
+// new array) is a cheap no-op past the first pass.
+watch(nodeList, (items) => {
+  const board = boardsById.value[props.boardId];
+  if (!board || items.length === 0) return;
+  requestHashFill(items.map(item => item.id), board);
+}, { immediate: true }); // immediate: the FIRST computed nodeList (e.g. a
+// fresh board's lone root node) is not itself a "change" a bare watch()
+// fires on — without immediate, the root node's hash is never requested
+// until the tree structure changes again (found via the Stage B live
+// witness: the marker never appeared on a fresh board's root).
 
 const edges = computed(() => {
   const result: Array<{ d: string; id: string }> = [];
@@ -307,6 +478,19 @@ const edges = computed(() => {
   });
   return result;
 });
+
+// Dispatch L2b: exposes the tree's own live content demand (see
+// `contentDemandPx`'s own declaration above) — the established
+// `defineExpose` pattern this codebase already uses for a parent to read
+// a child's own imperatively-tracked state (`FloatingThumbnail.vue`'s
+// `show`/`hide`, read via `thumbRef` above). No current caller consumes
+// this yet (threading it into a real `FeasibleLayout.validate()` call is
+// step 3's own scope, spec §3) — a disclosed, deliberate narrowing: this
+// build's own scope is the measurement CAPABILITY, exercised directly by
+// this file's own test suite and by `feasible-layout-geometry-sweep.
+// test.ts`'s overlay-mechanism tests, not live runtime wiring into the
+// renderer (see this dispatch's own build report).
+defineExpose({ contentDemandPx });
 </script>
 
 <template>
@@ -346,8 +530,33 @@ const edges = computed(() => {
         <g
           v-for="item in nodeList"
           :key="item.id"
-          v-memo="[item.isGameHead, item.move?.color, item.isBranching, item.isExpanded, item.px, item.py]"
+          v-memo="[item.isGameHead, item.isKnownPosition, item.isReviewStart, item.isSelectedForMint, item.isAnalyzing, item.move?.color, item.move?.type, item.isBranching, item.isExpanded, item.px, item.py]"
         >
+          <!-- Known-position marker (card-position-annotations Stage B).
+               RADIUS NOTE (review REJECT finding 2,
+               `.claude/dispatch-reports/card-position-highlight-stageB-review.md`):
+               this branch was cut before `review-start-ring` (below)
+               landed in `next`; both were independently authored at
+               NODE_R+7 in `--accent-secondary`, which at merge fully
+               occluded the dashed ring under the solid one on any node
+               that is BOTH a review session's start AND an
+               already-owned card position (an ordinary overlap, not an
+               edge case). Resolved at compose time by moving this ring
+               one radius further OUT — NODE_R + 9, one past
+               review-start-ring — so the two-ring stack (concentric:
+               active +3, game-head +5, review-start +7, known-position
+               +9) is visually distinct even when every marker on a node
+               is lit at once. Still a DASHED ring, not a fill-color
+               change (fill color is already spoken for by nodeFill's
+               B/W stone colors) and not solid (which would read as a
+               fourth instance of the same ring idiom rather than a
+               distinguishable "you already have a card here" marker),
+               per ADR-0019/C18 no-color-only. Membership comes from
+               `knownPositionNodeIds` (App.vue's `useKnownPositionNodes`,
+               cache ∩ known-positions — see that composable's header),
+               not a per-render read: the prop is a precomputed Set, and
+               this v-memo key is what gates the actual DOM patch. -->
+          <circle v-if="item.isKnownPosition" :cx="item.px" :cy="item.py" :r="NODE_R + 9" class="known-position-ring" stroke-width="1.5" stroke-dasharray="2,1.5" />
           <!-- Game-head marker — outermost ring (NODE_R + 5) so it stays
                visible when the active-ring (NODE_R + 3) also applies on the
                current node. Green = "play vs engine session's head — engine
@@ -356,7 +565,73 @@ const edges = computed(() => {
                previously-green nodes no longer render the ring. See
                PlayEngineModal / useEngineResponder for the lifecycle. -->
           <circle v-if="item.isGameHead" :cx="item.px" :cy="item.py" :r="NODE_R + 5" class="game-head-ring" stroke-width="1.5" />
-          <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
+          <!-- Review-start marker — sibling ring to the game-head ring
+               above, one radius further out (NODE_R + 7) so both can
+               render concentrically on the rare node where a play-vs-
+               engine head and a review session's start coincide, rather
+               than one clobbering the other. `--accent-secondary` is
+               already the SR / current-card accent color (theme.css),
+               so "a card starts here" reads as the SR-family color the
+               same way the game-head ring reads as the play-session
+               color. Sourced from `reviewStartNodeId` (zero I/O — see
+               the prop's doc comment above); appears/disappears with
+               the review session the same way `isGameHead` already does
+               with `board.games`. See known-position-ring's comment
+               above for the NODE_R+7 collision this ring's radius was
+               already occupying and how it was resolved at merge. -->
+          <circle v-if="item.isReviewStart" :cx="item.px" :cy="item.py" :r="NODE_R + 7" class="review-start-ring" stroke-width="1.5" />
+          <!-- Batch card-minting selection marker (commissioner-designed,
+               ledger rows 926/957/1008; originally the "Learn this path"
+               pre-mint marker, ledger row 718, radius reconciled per
+               fresh-context review "wf8-learn-this-path-review.md"
+               REQUIRED finding — generalized in place when the marker's
+               registry became `mint-selection.ts`). Dashed, same
+               accent-primary blue as the (solid) active-ring, but colour
+               alone would collide with nothing here (accent-primary is
+               distinct from the known-position/review-start rings'
+               accent-secondary orange) — the actual collision was
+               RADIUS: this ring originally shared NODE_R+7 with
+               review-start-ring, which would fully occlude one under the
+               other on a node that is simultaneously a review-start AND
+               a selected-for-mint candidate. Moved one radius past
+               known-position-ring's own NODE_R+9 (the same "move
+               outward" resolution known-position-ring's own comment
+               above documents for ITS NODE_R+7 collision) so the full
+               concentric stack — active +3, game-head +5, review-start
+               +7, known-position +9, selected-for-mint +11 — stays
+               visually distinct even when every marker on a node is lit
+               at once. "This node is selected for the next Mint card(s)
+               click" — set by ctrl+click (this widget) or live by
+               `useLearnPath.explore()`; cleared on a successful mint or
+               an explicit discard. See `mint-selection.ts`. -->
+          <circle v-if="item.isSelectedForMint" :cx="item.px" :cy="item.py" :r="NODE_R + 11" class="mint-selection-ring" stroke-width="1.5" stroke-dasharray="2,1" />
+          <!-- "Learn this path" on-demand-analysis marker (commission
+               ledger row 881, ADR-0002/C6 progress honesty): this node
+               is the ONE position the walk is currently blocked
+               awaiting an engine query for. One radius further out
+               than mint-selection-ring's NODE_R+11 (same "move outward"
+               resolution the rings above this comment already use for
+               their own collisions), so the full concentric stack —
+               active +3, game-head +5, review-start +7, known-position
+               +9, selected-for-mint +11, analyzing +13 — stays distinct
+               even when every marker on a node is lit at once. Tightest
+               dash of the family (distinguishable from
+               mint-selection-ring's "2,1" by pattern, not colour alone,
+               per ADR-0019/C18) —
+               `--state-attention` (the same "needs your attention /
+               in-progress" accent the modal's error/status boxes use)
+               keeps it visually distinct from both accent colours
+               already in the stack. Cleared the instant the query
+               settles (`learn-path-progress.ts`); at most one node per
+               board carries this ring at a time (the walk issues one
+               in-flight query at a time by construction). -->
+          <circle v-if="item.isAnalyzing" :cx="item.px" :cy="item.py" :r="NODE_R + 13" class="analyzing-ring" stroke-width="1.5" stroke-dasharray="1,1" />
+          <!-- Commissioner ruling (ledger row 948, amendment): a pass
+               node renders EXACTLY like a normal move node — same
+               circle, same per-color fill (`nodeFill`/`nodeStroke`,
+               ledger row 759), no shape/glyph distinction of any kind.
+               No `item.move?.type === 'pass'` branch here by design. -->
+          <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="onNodeClick($event, item.id)" />
 
           <g v-if="item.isBranching" class="toggle-group" @click.stop="expansion.toggle(item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseenter="e => onToggleEnter(e, item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseleave="onToggleLeave">
             <line :x1="item.px" :y1="item.py" :x2="item.ix" :y2="item.iy" class="toggle-leader" stroke-width="1" stroke-dasharray="2,1" />
@@ -375,20 +650,93 @@ const edges = computed(() => {
 </template>
 
 <style scoped>
-.tree-widget-wrapper { position: relative; width: 100%; height: 100%; background: var(--surface-2); }
-.tree-widget-outer { width: 100%; height: 100%; overflow: auto; }
+/* G13 (opus-uiux-geometry-consult.md): `height: 100%` on a plain block
+   child of the tree leaf's flex COLUMN resolves against the CONTAINING
+   BLOCK's full height — the same 100% `#tree-panel-header` (20px,
+   `flex-shrink: 0`) already claimed a slice of — not against the space
+   actually left over after that header. Flex column layout still
+   stacks the header THEN this wrapper, so the wrapper's own box (100%
+   of the full height) rendered 20px TALLER than the room its parent
+   had left for it, and an ancestor's `overflow: hidden` clipped exactly
+   that trailing 20px — landing the current-node marker flush against
+   the clip with no padding.
+   WITNESSED: the tree leaf 167×1048 (bottom 1080), header 20px, yet
+   `.tree-widget-wrapper`/`.tree-widget-outer` both rendered 1048px tall
+   at y=52 (bottom 1100) — the header's own 20px, uncounted.
+   `flex: 1 1 auto` + `min-height: 0` is the fix at the class, not a
+   `calc(100% - 20px)` offset that would silently drift the moment the
+   header's own height changes: it asks flexbox for "whatever's left
+   after my siblings," which is what every other header+body split in
+   this codebase already does (e.g. `TabWidget.vue`'s `.tab-body`,
+   `ForestDirectory.vue`'s `.tree-panel`) — the tree leaf's own
+   container is ALREADY `display: flex; flex-direction: column`, so
+   this makes the wrapper a proper flex item instead of a
+   percentage-sized block that happened to be the second flex child.
+   `min-height: 0` overrides the flex default (`min-height: auto`, i.e.
+   content-based), the same override every flex-fill body in this
+   codebase already carries, so the tree's own (frequently
+   taller-than-its-box) SVG content doesn't push the wrapper back past
+   its allotted share the way `min-height: auto` would. */
+.tree-widget-wrapper { position: relative; width: 100%; flex: 1 1 auto; min-height: 0; background: var(--surface-2); }
+/* Commissioner wiki finding #2 (2026-08-21): a horizontal scrollbar
+   showed at DEFAULT allocation — no user zoom/expand involved. Root
+   cause is the classic scrollbar-collision: `overflow: auto` on both
+   axes let the vertical scrollbar's ~15-17px gutter appear or
+   disappear depending on `svgHeight` (which grows with move count and
+   overflows the leaf's height for almost any real game), and each time
+   it appeared it silently ATE into the width budget the horizontal
+   axis had already fit into — turning a comfortable fit (svgWidth for
+   the collapsed-default, ensureVisible-only cols<=3 budget — see
+   `contentDemandPx`'s own header comment above for the honest,
+   toggle-free bound) into a genuine overflow purely because the
+   vertical scrollbar happened to be showing. `scrollbar-gutter:
+   stable` reserves that gutter UNCONDITIONALLY (whether or not the
+   vertical scrollbar is actually needed), so the width available to
+   `svg` is constant across mount/collapse/expand cycles rather than
+   fluctuating by a scrollbar's width — the collapse-default tree
+   (cols<=3, honest per the toggle-only ensureVisible reveal) now
+   fits consistently rather than flickering into overflow depending on
+   whether the vertical scrollbar happens to be showing. Horizontal
+   `overflow-x: auto` is left in place deliberately: once the user
+   genuinely expands enough variation columns to exceed that budget,
+   the scrollbar is the correct, expected affordance — this only
+   removes the false-positive collision at rest. (No layout-engine
+   change: `contentDemandPx`'s own header notes threading it into
+   `resolveSideColumnLiveLayout`'s live track-width solve is
+   deliberately out of scope for a prior dispatch; this fix stays
+   entirely inside this component's own CSS seam, per the same
+   scoping discipline.) */
+.tree-widget-outer { width: 100%; height: 100%; overflow-x: auto; overflow-y: auto; scrollbar-gutter: stable; }
 .tree-svg { display: block; }
 .tree-edges { fill: none; stroke: var(--border-3); }
 .active-ring { fill: color-mix(in srgb, var(--accent-primary) 15%, transparent); stroke: var(--accent-primary); }
 .game-head-ring { fill: color-mix(in srgb, var(--state-success) 15%, transparent); stroke: var(--state-success); }
-.node-circle { cursor: pointer; transition: filter var(--duration-default); }
+.known-position-ring { fill: none; stroke: var(--accent-secondary); }
+.review-start-ring { fill: color-mix(in srgb, var(--accent-secondary) 15%, transparent); stroke: var(--accent-secondary); }
+.mint-selection-ring { fill: none; stroke: var(--accent-primary); }
+.analyzing-ring { fill: none; stroke: var(--state-attention); }
+.node-circle { cursor: pointer; }
 .node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px var(--accent-primary)); }
 .toggle-group { cursor: pointer; }
-.toggle-group rect { transition: stroke var(--duration-default), fill var(--duration-default); }
 .toggle-leader { stroke: var(--border-3); }
 .toggle-box { fill: var(--surface-2); stroke: var(--border-3); }
-.toggle-mark { stroke: var(--text-2); }
+.toggle-mark { stroke: var(--text-disabled); }
 .toggle-group:hover .toggle-box { stroke: var(--accent-primary); fill: var(--surface-3); }
 .toggle-group:hover .toggle-mark { stroke: var(--text-0); }
 .hit-area { pointer-events: all; }
+</style>
+
+<!--
+  Plain (unscoped) style block, deliberately separate from the scoped
+  block above: `[data-theme="dark"]` lives on <html>, an ancestor
+  outside this component's own scope-id boundary, so a scoped rule
+  cannot key off it. `.tree-widget-wrapper` is unique in the codebase
+  (grep-checked) so the global selector is safely specific. See
+  nodeFill()'s comment (script block above) for the WCAG-ratio
+  derivation and the var()-fallback leak analysis.
+-->
+<style>
+[data-theme="dark"] .tree-widget-wrapper {
+  --tree-node-black-fill: #707070;
+}
 </style>

@@ -127,7 +127,10 @@ const series = computed<EnrichedSeries[]>(() => {
   return [{
     name: 'Stability',
     data: data as unknown as [number, number | null][], // ECharts accepts per-point {value, ...extra} objects but its data type is narrower; the extra fields ride along for the tooltip formatter (the intervening unknown is for the structural mismatch)
-    color: themeColor('--accent-primary'),
+    // Data-series color, not chrome: reads the chart-series-locked
+    // '--accent-primary-canonical' (not '--accent-primary') so the
+    // high-contrast-text override can't silently recolor this line.
+    color: themeColor('--accent-primary-canonical'),
   }];
 });
 
@@ -167,7 +170,7 @@ function formatXTooltip(val: number): string {
 // wording so the user can tell "no signal" from "computation
 // blocked" at a glance.
 //
-// Colors stay on var(--text-1) (the body default per style.css and
+// Colors stay on var(--text-0) (the body default per style.css and
 // the SPA's canonical popover convention; matches EngineQueueTooltip).
 // BaseChart's containerBackgroundColor handles the surrounding
 // surface-0 background; this formatter contributes the body only.
@@ -284,7 +287,7 @@ function tooltipFormatter(params: any[]): string {
   flex: 1;
   min-width: 0;
   background: var(--surface-0);
-  color: var(--text-1);
+  color: var(--text-0);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
   padding: 4px 8px;
@@ -298,7 +301,7 @@ function tooltipFormatter(params: any[]): string {
   height: 20px;
   border-radius: 50%;
   background: var(--surface-0);
-  color: var(--text-1);
+  color: var(--text-0);
   border: 1px solid var(--border-2);
   display: inline-flex;
   align-items: center;

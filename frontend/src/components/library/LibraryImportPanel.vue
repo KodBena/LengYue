@@ -87,9 +87,9 @@ function onDragOver(ev: DragEvent): void {
 .library-import-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-small);
+  gap: var(--space-default);
   padding: var(--space-medium);
-  border: 2px dashed var(--border-subtle);
+  border: 2px dashed var(--border-1);
   border-radius: var(--radius-default);
   background: var(--surface-0);
 }
@@ -103,19 +103,19 @@ function onDragOver(ev: DragEvent): void {
 .import-hint {
   margin: 0;
   font-size: var(--text-body);
-  color: var(--text-muted);
+  color: var(--text-0);
 }
 .import-buttons {
   display: flex;
-  gap: var(--space-small);
+  gap: var(--space-default);
 }
 .import-btn {
-  padding: var(--space-tiny) var(--space-small);
+  padding: var(--space-tight) var(--space-default);
   font-size: var(--text-body);
   background: var(--surface-0);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-1);
   border-radius: var(--radius-default);
-  color: var(--text-default);
+  color: var(--text-0);
   cursor: pointer;
 }
 .import-btn:hover {
@@ -124,10 +124,17 @@ function onDragOver(ev: DragEvent): void {
 .import-progress, .import-done, .import-error {
   display: flex;
   flex-direction: column;
-  gap: var(--space-tiny);
+  gap: var(--space-tight);
 }
-.import-counts { font-size: var(--text-small); color: var(--text-muted); }
-.ok { color: var(--accent-positive, var(--accent-primary)); }
-.err { color: var(--accent-negative, #c75450); }
-.muted { color: var(--text-muted); }
+.import-counts { font-size: var(--text-tiny); color: var(--text-0); }
+/* wC-contrast (F9): --accent-positive is undefined so this resolved to
+   accent-primary — 2.08:1 in the default cluster theme. Readable text
+   is --text-0, not an accent fallback. */
+.ok { color: var(--text-0); }
+/* wC-contrast (F9): --accent-negative is undefined so this resolved to
+   the literal #c75450 fallback — ~3.45:1 against --surface-0 in the
+   default cluster theme (fails the 4.5:1 normal-text floor). Readable
+   text is --text-0, not an accent-family fallback. */
+.err { color: var(--text-0); }
+.muted { color: var(--text-0); }
 </style>

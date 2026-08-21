@@ -14,7 +14,7 @@ export const NIL_UUID = '00000000-0000-0000-0000-000000000000';
 export const defaultSettings = {
   engine: {
     katago: {
-      url: 'ws://127.0.0.1:41948',
+      url: 'ws://127.0.0.1:1242',
       // Proxy replay-cache flags. All three default `false` — preserves
       // the pre-surfacing behaviour where the analyze* call sites either
       // hard-coded these (`analyzeRange`'s `cache: false, lookup_cache:
@@ -196,9 +196,124 @@ export const defaultSettings = {
           // not `moveInfos[0]["visits"]`.
           visit_ratio:      '_uservisits(x[0]) / _maxvisits(x[0])',
           quality_delta:    'visit_ratio(x) ** (decisiveness(x[0]) ** alpha)',
+          // Perspective-naive raw root-eval swing across the move
+          // boundary (spec's own documented design — see
+          // `docs/archive/dispatch/frontend-to-frontend-default-palette-metrics-spec.md`
+          // Part 2, "mandatory inclusion"). Alternates sign by mover
+          // under the spec's assumed SIDETOMOVE framing; under this
+          // profile's ACTUAL seeded framing (`overrideSettings.
+          // reportAnalysisWinratesAs: 'WHITE'`, absolute White-favours-
+          // positive across every packet — see the override's own
+          // comment above and `engine/katago/winrate-framing.ts`'s
+          // file header for the wire-framing contract this depends
+          // on) it alternates sign by mover just the same, only for a
+          // different mechanical reason (absolute framing, not a
+          // per-packet re-origin). Left AS-SPECIFIED and dead (no
+          // palette references it) rather than repointed in place —
+          // see `scoreLead_root_loss` below for the corrected,
+          // stably-signed sibling and its derivation.
           scoreLead_delta:  'x[1]["rootInfo"]["scoreLead"] - x[0]["rootInfo"]["scoreLead"]',
+          // ── scoreLead_root_loss — the commissioner's root-delta loss (ledger rows 1380/1381/1383/1378) ──
+          //
+          // Rationale for existing (row 1380/1381, verbatim): "The
+          // reason it *MUST* use the root deltas, is that often times
+          // (especially with weaker players), the human players move
+          // isn't even in the move list." `scoreLead_loss_topvsuser`
+          // below reads `x[0]["userMoveInfo"]`, which is `None` (→ 0
+          // loss) exactly when the user's move wasn't among the
+          // engine's analysed candidates — the case a weak player's
+          // move most often falls into. This symbol instead diffs the
+          // ROOT eval before vs. after the move actually played, which
+          // is defined for every move regardless of whether the
+          // engine ever ranked it.
+          //
+          // Perspective derivation. `store.profile.settings.engine.
+          // katago.overrideSettings.reportAnalysisWinratesAs` is
+          // seeded `'WHITE'` (this file, above) — the wire framing
+          // `extra.*` palette evaluation actually sees is therefore
+          // ABSOLUTE (positive favours White on every packet,
+          // regardless of who's to move), not the spec's assumed
+          // per-packet SIDETOMOVE re-origin (see
+          // `engine/katago/winrate-framing.ts`'s file-header comment:
+          // "`extra.*`... are computed on the proxy in the wire's
+          // framing before normalisation"). Under that ABSOLUTE
+          // framing, `x[1].rootInfo.scoreLead - x[0].rootInfo.
+          // scoreLead` (`scoreLead_delta` above) is the raw White-
+          // signed swing caused by the move played between the two
+          // packets — a "higher is worse" reading needs it corrected
+          // to be positive whenever the MOVER's own position got
+          // worse, for both colours:
+          //
+          //   - White to move (x[0].rootInfo.currentPlayer == 'W'):
+          //     a bad White move REDUCES White's absolute scoreLead,
+          //     so the raw swing is already negative-when-bad; loss
+          //     = -(raw swing).
+          //     Worked example: root.scoreLead = +5.0 (White ahead by
+          //     5), White blunders, post-move root.scoreLead = +2.0.
+          //     raw swing = 2.0 - 5.0 = -3.0. loss = -(-3.0) = +3.0
+          //     (positive: a 3-point-worse move for White).
+          //   - Black to move (x[0].rootInfo.currentPlayer == 'B'):
+          //     a bad Black move INCREASES White's absolute scoreLead
+          //     (Black gave ground), so the raw swing is already
+          //     positive-when-bad; loss = +(raw swing).
+          //     Worked example: root.scoreLead = +5.0 (White ahead by
+          //     5, i.e. Black is behind and about to move), Black
+          //     blunders further, post-move root.scoreLead = +8.0.
+          //     raw swing = 8.0 - 5.0 = +3.0. loss = +3.0 (positive: a
+          //     3-point-worse move for Black).
+          //
+          //   loss = -(raw swing) when White moves, +(raw swing) when
+          //   Black moves — exactly `player_sign(x[0])` (defined
+          //   above: +1.0 for Black to move, -1.0 for White to move)
+          //   times the raw swing:
+          //
+          //     scoreLead_root_loss(x)
+          //       = player_sign(x[0]) * (x[1].rootInfo.scoreLead - x[0].rootInfo.scoreLead)
+          //
+          // Minted as a NEW sibling rather than rewriting
+          // `scoreLead_delta`'s body in place: `scoreLead_delta` is
+          // documented spec-shipped content (Part 2, "mandatory
+          // inclusion") with an intentionally perspective-naive
+          // definition meant for the BSA pipeline's own per-colour
+          // segregation treatment downstream — overwriting its body
+          // would silently change what that documented, independently
+          // named symbol means for any future consumer that reaches
+          // for it by that name, for zero migration benefit (it's
+          // currently dead — no `delta_fn`/`summary_fn`/`state_fn`
+          // references it). A new name costs nothing (purely
+          // additive seed expansion, migration 71 → 72) and reads
+          // honestly on its own: "root scoreLead loss", paired
+          // naturally with `scoreLead_loss_topvsuser`'s existing
+          // `*_loss` naming idiom.
+          scoreLead_root_loss:
+            'player_sign(x[0]) * (x[1]["rootInfo"]["scoreLead"] - x[0]["rootInfo"]["scoreLead"])',
           winrate_loss_topvsuser:
             '(x[0]["moveInfos"][0]["winrate"] - x[0]["userMoveInfo"]["winrate"]) if x[0]["userMoveInfo"] else 0',
+          // scoreLead_loss_topvsuser — TRUTH-IN-COMMENT (row 1383):
+          // despite the `_topvsuser` name (and despite the spec's own
+          // proposed body, `moveInfos[0].scoreLead - userMoveInfo.
+          // scoreLead`, "top vs user" — see the spec's Part 3 Axis 1),
+          // this shipped body compares the ROOT's scoreLead (the
+          // pre-move position's overall evaluation) against the
+          // user's OWN chosen move's predicted scoreLead
+          // (`userMoveInfo`), sign-corrected by `player_sign(x[0])` —
+          // i.e. "root vs user", not "top vs user". Gated entirely on
+          // `x[0]["userMoveInfo"]` being present.
+          // UNLISTED-MOVE BLIND: when the user's actual move wasn't
+          // among the engine's analysed candidates (`userMoveInfo is
+          // None` — disproportionately the case for weaker players'
+          // moves, commissioner ruling rows 1380/1381), this returns
+          // a flat `0`, i.e. "no loss" — indistinguishable from
+          // having played the engine's own top choice. This is the
+          // blind spot `scoreLead_root_loss` (above) exists to avoid;
+          // the 'score' palette's `delta_fn` now points at
+          // `scoreLead_root_loss` instead (migration 71 → 72). Key
+          // kept as-is rather than renamed: renaming risks stranding
+          // any user profile that hand-authored a palette or
+          // downstream reference against this exact symbol name
+          // (PaletteEditor lets users type arbitrary `delta_fn`
+          // strings referencing any symbol by name); a truthful
+          // comment is the cheaper honest fix and costs no migration.
           scoreLead_loss_topvsuser:
             'player_sign(x[0]) * ((x[0]["rootInfo"]["scoreLead"] - x[0]["userMoveInfo"]["scoreLead"]) if x[0]["userMoveInfo"] else 0)',
           // magic-literal: 999 user_order fallback — the convention for
@@ -233,6 +348,7 @@ export const defaultSettings = {
           // ─────────────────────────────────────────────────────────────────────
           min_summary:      'float(min(x))',
           mean_summary:     'float(mean(x))',
+          median_summary:   'float(median(x))',
         },
         parameters: {
           alpha: 0.25,
@@ -263,21 +379,26 @@ export const defaultSettings = {
             name: 'Quality (Robust-Child Calibrated)',
             delta_fn: 'quality_delta',
             delta_ordering: 'lower_is_worse',
-            summary_fn: 'min_summary',
+            summary_fn: 'median_summary',
             state_fns: {
               'Complexity':      'complexity',
               'Win Probability': 'winrate',
               'Score Advantage': 'score_lead',
             }
           },
-          // Palette B — points-loss alternative. Cleaner semantic
-          // ("points left on the table at the pre-move position"), no
-          // SIDETOMOVE perspective ambiguity. `mean_summary` is the
-          // natural aggregator for a positive-only loss metric.
+          // Palette B — root-delta loss (commissioner ruling, ledger
+          // rows 1380/1381/1383/1378): the ROOT-EVAL swing the move
+          // actually caused, correctly signed for whichever colour
+          // moved (see `scoreLead_root_loss`'s derivation comment
+          // above the symbol definition). Defined for every move,
+          // including ones the engine's search never listed as a
+          // candidate — the case `scoreLead_loss_topvsuser` reads as
+          // a flat, wrong `0`. `mean_summary` is the natural
+          // aggregator for a positive-only loss metric.
           {
             id: 'score',
             name: 'Score Loss',
-            delta_fn: 'scoreLead_loss_topvsuser',
+            delta_fn: 'scoreLead_root_loss',
             delta_ordering: 'higher_is_worse',
             summary_fn: 'mean_summary',
             state_fns: {
@@ -300,7 +421,7 @@ export const defaultSettings = {
             }
           }
         ],
-        activePaletteId: 'quality'
+        activePaletteId: 'score'
       },
     },
   },
@@ -315,6 +436,11 @@ export const defaultSettings = {
   // mirrored onto vue-i18n by useAppBootstrap's watch on this field.
   appearance:  {
     theme: 'cluster',
+    // Opt-in high-contrast text override for the cluster theme. Default
+    // off — OFF state must render identically to today. See
+    // `AppSettings.appearance.highContrastText` in `schema.ts` for the
+    // full rationale. Schema 62 → 63 backfills `false`.
+    highContrastText: false,
     // MiniBoard thumbnail renderer (analysis preview boards + heatmap preview).
     // 'svg' (default) preserves the pre-split declarative SVG; 'canvas' is the
     // ADR-0010 canvas variant (lighter paint/jank). User-selectable in the
@@ -406,12 +532,16 @@ export const defaultSettings = {
       outputs: [{ path: 'profile.settings.appearance.intensityHueShift' }],
       priority: 40,
     },
-    // Animation-duration knobs (promoted from inline magic literals
-    // by the user 2026-05-22). Both surface adjacent in the toolbar
-    // slider popover via the `display` domain ordering. Range [0, …]
-    // permits an explicit "off" position; setting to 0 disables the
-    // corresponding ease transition (the CSS interprets `0ms ease`
-    // as a no-op).
+    // Animation-duration knob (promoted from an inline magic literal
+    // by the user 2026-05-22). Range [0, …] permits an explicit "off"
+    // position; setting to 0 disables the corresponding ease
+    // transition (the CSS interprets `0ms ease` as a no-op).
+    //
+    // The sibling PV-fade knob (`display.pv-fade-ms`, priority 47)
+    // that used to sit here was removed (wiki2-pv-fade-knob): CSS
+    // transitions were banned and purged from `frontend/src`, which
+    // left the knob controlling only inert JS-scheduling padding with
+    // no observable effect. See `use-pv-animation.ts`'s file header.
     'display.move-suggestions-fade-ms': {
       id: 'display.move-suggestions-fade-ms',
       label: 'Move-suggestion fade (ms)',
@@ -427,14 +557,6 @@ export const defaultSettings = {
       inputs: [{ range: [0, 1] as const }],
       outputs: [{ path: 'profile.settings.appearance.mistakeFinderThresholdQuantile' }],
       priority: 46,
-    },
-    'display.pv-fade-ms': {
-      id: 'display.pv-fade-ms',
-      label: 'PV preview fade (ms)',
-      domain: 'display',
-      inputs: [{ range: [0, 500] as const }],
-      outputs: [{ path: 'session.ui.pvAnimation.fadeDurationMs' }],
-      priority: 47,
     },
     'engine.watchdog-animation-ms': {
       id: 'engine.watchdog-animation-ms',
@@ -499,14 +621,28 @@ export const defaultSettings = {
   // Default Analysis-tab layout (see AppSettings.analysisTabs). Four tabs
   // over the panel registry, Basic first (most-used). The Settings editor
   // (Phase 3) lets users re-tab; migration 54 → 55 backfills this shape on
-  // legacy persisted blobs. Tab ids are branded via the trailing
-  // `as unknown as AppSettings` cast; panelIds use the PANEL_ID SSOT.
+  // legacy persisted blobs (migration 61 → 62 adds intervalSummary to an
+  // already-backfilled Basic tab — see that migration's comment). Tab ids
+  // are branded via the trailing `as unknown as AppSettings` cast; panelIds
+  // use the PANEL_ID SSOT.
+  //
+  // intervalSummary leads Basic (wiki Wanted feature #6): the summary
+  // analysis over the set interval is the number a Multiresolution-panel
+  // hover surfaces today, but that panel is a separate tab and may not even
+  // be enabled — this makes the same numbers visible by default without it.
   analysisTabs: [
-    { id: 'basic', label: 'Basic', panelIds: [PANEL_ID.scoreLead, PANEL_ID.mergedDelta] },
+    { id: 'basic', label: 'Basic', panelIds: [PANEL_ID.intervalSummary, PANEL_ID.scoreLead, PANEL_ID.mergedDelta] },
     { id: 'distributions', label: 'Distributions', panelIds: [PANEL_ID.deltaDistribution, PANEL_ID.mistakeGap] },
     { id: 'stability', label: 'Stability', panelIds: [PANEL_ID.stability, PANEL_ID.stabilityCrossCorrelation] },
     { id: 'multiresolution', label: 'Multiresolution', panelIds: [PANEL_ID.multiresolutionInterval] },
   ],
+  // First-run setup wizard's "has this profile been onboarded" flag
+  // (ledger slug swz-setup-wizard). `false` here is the actual trigger:
+  // a fresh profile (never persisted, so this default stands untouched)
+  // shows the wizard on first mount. Migration 69 → 70 backfills `true`
+  // for every pre-existing persisted blob, so the wizard never surprises
+  // a returning user. See `composables/useSetupWizard.ts`.
+  onboarding: { completed: false },
 } as const;
 
 export const defaultThumbnailSettings: ThumbnailSettings = {
@@ -628,16 +764,50 @@ export const defaultKnownTags: string[] = ['$mistake', '$opening', '$joseki', '$
 
 export const defaultSessionUI: UISession = {
   activeTab: 'cards',
-  sidebarExpanded: true,
+  // LYT corner presence-menu defaults (W2). `boardRail`/`previewBoard`
+  // mirror `lyt-layout.gen.ts`'s own `presenceDefaultVisible` for those
+  // two widget ids (both `false` in EVERY registered screen class — see
+  // `composables/chrome/useLytPresenceMenu.ts`'s own `LYT_PRESENCE_DEFAULT`
+  // for the other place this pair is named, the migration 75 -> 76
+  // fallback for a key a legacy blob never wrote at all).
+  //
+  // Presence arc P2b (`.claude/dispatch-reports/lyt-p2b-presence-
+  // realization.md`): `controlPanel` (and the newer `A_setup` target) are
+  // DELIBERATELY ABSENT from this seed, not present-and-false/true.
+  // `session.ui.lytPresence`'s own schema.ts doc already establishes "a
+  // key's ABSENCE is not a distinct state: every reader falls back to
+  // that widget's own [class-scoped] default" — seeding `controlPanel:
+  // true` here (the pre-P2b shape) baked a LANDSCAPE-only fact into every
+  // brand-new session regardless of screen class, permanently shadowing
+  // portrait's own genuinely-different compiled default (`false`, P2a's
+  // own contract fix) the instant the key existed at all. Leaving the key
+  // out lets every reader (`LytNode.vue`'s `isPresent`,
+  // `useLytPresenceMenu.ts`'s `isVisible`, App.vue's own
+  // `controlPanelIsPresent`) fall through to the ACTIVE class's own
+  // compiled `presenceDefaultVisible` — true in landscape, false in
+  // portrait — until the user makes an explicit choice, at which point
+  // that choice (a real, written boolean) is sovereign per the same
+  // schema.ts fallback rule. See this file's own "no seeded controlPanel/
+  // A_setup key" decision — no schema migration accompanies it (a NEW
+  // session was never migrated in the first place; existing/legacy blobs
+  // are addressed, and their own irreversibility disclosed, in
+  // `migrations.ts`'s 75 -> 76 body's own doc comment, not here).
+  lytPresence: { boardRail: false, previewBoard: false },
+  // 'slot' (style A): the presence-menu checkbox mounts SidebarWidget
+  // into the boardRail LYT leaf. Roadmap §7 ruling 2's own default —
+  // the user flips to 'popover' (style B) from the Session (UI) registry
+  // or the presence-menu's own inline selector.
+  railStyle: 'slot',
   treeExpanded: true,
-  controlsExpanded: true,
-  boardExpanded: true,
   // System-log bar default-hidden — it's a debugging surface, and
   // its 30px vertical footprint eats space the analysis dashboard
   // would rather have. Users can re-enable via the Session (UI)
   // registry.
   systemLogExpanded: false,
-  controlPanelWidth: 340,
+  // controlPanelWidthPx intentionally omitted: undefined is the
+  // documented default (schema.ts) — no drag has happened yet, so
+  // #control-panel renders at its natural flex fill. See
+  // useResizablePanel.ts.
   moveFilterThreshold: 0.05,
   moveFilterExpression: 'move.order === 0 || (move.visits / root.visits) >= ui.threshold',
   analysisLayout: 'horizontal',
@@ -659,7 +829,6 @@ export const defaultSessionUI: UISession = {
     mode: 'instant',
     stepDelayMs: 350,
     windowDurationMs: 600,
-    fadeDurationMs: 0,
     cycle: false,
     pvOpacity: 1,
     annotation: 'from1',
@@ -680,7 +849,14 @@ export const defaultSessionUI: UISession = {
   // → `[3]` so existing users land on whichever value they were last
   // editing.
   cardsContextIds: [3],
+  // macro-public-id-tokens (schema-version 66): no game_source
+  // ordinal tokens pending resolution by default.
+  cardsContextGameSourceOrdinals: [],
   qeuboToolbarView: 'applied',
+  // Delta-analysis panel's view cycle. 'shared' preserves the
+  // pre-feature, only-ever-existed view — see the field's doc comment
+  // in schema.ts. Schema-version 64 introduces the field.
+  deltaViewMode: 'shared',
   // Board-variations overlay rendering posture. Default 'circles' is
   // the common GUI default per the user's framing (Lizzie / Sabaki /
   // KaTrain idiom): variations as stroke-only colored rings (so they
@@ -725,6 +901,23 @@ export const defaultSessionUI: UISession = {
   // field; the migration backfills existing blobs with the same
   // empty default.
   cardTreeNav: {},
+  // Board-overlay delta+visits annotation — off by default, matching
+  // showStoneMoveNumbers' posture: an opt-in overlay a user turns on via
+  // the Session (UI) registry once they know it exists, rather than
+  // surprising every board with new on-stone chrome. Schema-version 69
+  // introduces the field.
+  moveDeltaAnnotation: 'off',
+  // Settings sub-tab strip orientation (ledger rows 1505/1509/1515/1516).
+  // Default 'horizontal' — the commissioner's ruling keeps the vertical
+  // right-rail available as a quiet opt-in rather than the shipped
+  // default; see the field's doc comment on `UISession` in schema.ts.
+  // Schema-version 73 introduces the field.
+  settingsTabsOrientation: 'horizontal',
+  // Ghost-stone hover preview (wiki2-ghost-stone). Default true — see
+  // schema.ts's field comment for the on-by-default rationale and for
+  // why this is registry-only (no StatusBar button). Schema-version 75
+  // introduces the field.
+  showGhostStone: true,
 };
 
 export const DEFAULTS = {

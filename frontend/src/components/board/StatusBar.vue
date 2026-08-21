@@ -1,8 +1,25 @@
 <!--
   src/components/board/StatusBar.vue
   Purely presentational game status bar. Engine info (version,
-  model, telemetry) lives in the Toolbar — this bar is for
-  board-state vocabulary (move number, players, captures, turn).
+  model, telemetry) lives in ToolbarEngineControls/ToolbarEngineMetrics
+  (M2 stage B2b boot-restoration wiring split the retired
+  ToolbarEngineCluster into these — `.claude/dispatch-reports/lyt-boot-
+  restoration.md`) — this bar is for board-state vocabulary (move
+  number, players, captures, turn).
+
+  Move-navigation cluster (LYT toolbar ontology reencode,
+  commissioner-ratified 2026-08-11, ledger rows 1930/1931, item 1
+  "BOARD CONTROLS GO TO THE BOARD"): the |< < > >| cluster
+  (`ToolbarMoveNav.vue`) relocates here from the side-column toolbar —
+  this component is the one mount that already spans BOTH the `.lyt`
+  encoding's `I_board` (24px info) and `A_board` (28px action) bands
+  (`lyt-widget-registry.ts`'s own I_board note: A_board is 'absorbed'
+  into I_board because StatusBar already carries both an info readout
+  and action buttons internally), so board-scoped navigation joins the
+  board-scoped action row it already reserves rather than opening a
+  third band. No new component, no new wiring beyond mounting the
+  existing `ToolbarMoveNav.vue` (unchanged, still wired to the same
+  `useNavigation()` actions the keybindings dispatch).
 
   Player-color indicators. Each player name carries a small
   filled stone-chip (black disc for the SGF `PB` player, white
@@ -19,11 +36,117 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { StoneColor, BoardState, GameNode, NodeId } from '../../types';
-import UserBadge from '../chrome/UserBadge.vue';
+import ToolbarMoveNav from '../chrome/ToolbarMoveNav.vue';
 import { useTransientHint } from '../../composables/useTransientHint';
-import { store } from '../../store';
+import { useSetupTools, SETUP_TOOL_LABEL_KEYS } from '../../composables/board/useSetupTools';
+import { useDeferredContainerBreakpoint } from '../../composables/chrome/useDeferredContainerBreakpoint';
+import { store, touchSession } from '../../store';
+import { getRulesetResolution } from '../../engine/util';
+import { RULESET_NAMES, type RulesetName } from '../../engine/rulesets';
+import { komiDomainStep } from '../../engine/katago/komi-calibration';
+
+// G12 (opus-uiux-geometry-consult.md): the bar had NO overflow policy —
+// below ~1000px the Pass button, capture counts and the user badge fell
+// past the viewport edge with no scroll/wrap/collapse, and `.player-names`
+// wrapped onto three lines (growing `.status-bar`'s own height, which the
+// board derives its square from — see `min-height`'s own doc above).
+// Genre fix (status bars in Sabaki/CGoban3/KaTrain): priority collapse,
+// not scroll — right-side OPTIONAL segments yield first; the primary
+// action (Pass) and core game state (move number, captures) are never
+// removed. `narrow` collapses the three lowest-priority segments in one
+// step — the rules/komi editors (`.game-info`, editable from Settings ▸
+// Session too, so losing this copy loses no unique capability) and the
+// move-numbers toggle (`.move-numbers-btn`, a display preference) — and
+// caps `.player-names` to a single ellipsized line instead of letting it
+// wrap. (A third collapsed segment, the user badge, relocated OUT of this
+// bar entirely — commissioner ruling 2026-08-21: identity chrome belongs
+// in the toolbar strip, not layout-negotiable board-adjacent content; see
+// `ToolbarAppCluster.vue`'s own header. What's left below is two segments, not
+// three, but "the lowest-priority segments" framing is otherwise
+// unchanged.) `.pass-btn`, `.move-badge` and `.caps` are NEVER hidden by this
+// class (see the CSS below): they stay in the DOM and in flow regardless
+// of tier, satisfying "Pass must never be unreachable" by construction
+// rather than by convention.
+//
+// Threshold (assumption, not spec-given): WITNESSED natural (unforced)
+// content width at 1920px — `.status-left` 447px + `.status-right` 256px
+// + the bar's own 16px horizontal padding ≈ 719px (playwright geometry
+// probe, `.claude/dispatch-reports/geo-d-overflow-build.md`). 700px
+// engages narrow mode fractionally BEFORE that natural need is reached,
+// so the collapse lands before any wrap/clip is visible rather than
+// after. `useDeferredContainerBreakpoint` reuses the SAME drag-continuity
+// discipline `useResizablePanel.ts`'s splitter drags already established
+// elsewhere in this app (`isAnyPanelResizing`-gated commit, frozen mid-
+// drag, committed once on release) — the board (and so this bar) resizes
+// live while the outer splitter is dragged, so this bar's own discrete
+// reorganization must not flip superimposed on that gesture either.
+const STATUS_BAR_NARROW_THRESHOLD_PX = 700;
+
+// N1/N4 (LYT finish-pass-2, `.claude/dispatch-reports/lyt-finish-pass-2.md`):
+// narrow mode's own G12 collapse (above) still wasn't enough — a live
+// rig re-measurement (`.claude/dispatch-reports/lyt-n1-statusbar.md`)
+// found TWO compounding causes, both fixed below, both still inside
+// this single `narrow` tier (no second breakpoint added — see that
+// report for why a two-tier design was tried and reverted):
+//
+// 1. `.player-names`' old `max-width: 40%` doesn't resolve against a
+//    small "just enough" basis the way the mental model of "cap the
+//    low-priority segment" suggests. `.status-left` is an auto-width
+//    (shrink-to-fit) flex item, and a percentage `max-width` on ITS
+//    descendant resolved (witnessed, Chromium) against the BAR's own
+//    width — at a witnessed 647px bar width, "capped" `.player-names`
+//    still rendered ~250px wide, alone consuming a third of the
+//    natural width the bar needed. Fixed now at a flat 90px — bounded
+//    regardless of how wide the bar itself is.
+// 2. Even with (1) fixed, spacing/padding sized for the wide (non-
+//    narrow) bar was still too loose for the tightest supported width
+//    (420px). The rules below tighten `.status-left`/`.status-right`
+//    gaps, the move-nav button cluster's own gap/padding (reached via
+//    `:deep()`, the same cross-component idiom the narrow-mode rules
+//    below already use for `ToolbarMoveNav`), and the bar's own
+//    horizontal padding — all reductions of an EXISTING declaration's
+//    value, never a new rule category.
+//
+// `.pass-btn`, `.move-badge` and `.caps` are STILL never hidden, and
+// their own padding is only lightly trimmed (never below a legible
+// floor) — "Pass and the game-state facts are never unreachable"
+// stays a structural property of this stylesheet, not a threshold
+// someone has to keep tuned per viewport.
+const statusBarRef = ref<HTMLElement | null>(null);
+const { committed: statusBarNarrow, observe: observeStatusBarWidth, stop: stopObservingStatusBarWidth } =
+  useDeferredContainerBreakpoint(STATUS_BAR_NARROW_THRESHOLD_PX);
+
+// `typeof ResizeObserver !== 'undefined'` guard: mirrors
+// `useResizablePanel.ts`'s `attachRowObserver` convention — jsdom (this
+// codebase's unit/integration test substrate, `vite.config.ts`) has no
+// ResizeObserver global, and the many existing StatusBar mounts across
+// the test suite (setup-mode-indicator, hint-no-reflow, tool-label-
+// consistency, …) never stubbed one because this bar had no observer
+// before G12. `committed` degrades to its `ref(false)` default (wide/
+// not-narrow) under that guard — the same "no narrow mode" behaviour
+// this bar always had — so unrelated tests asserting on its OTHER
+// markup stay unaffected instead of crashing at mount.
+onMounted(() => {
+  if (statusBarRef.value && typeof ResizeObserver !== 'undefined') {
+    observeStatusBarWidth(statusBarRef.value);
+  }
+});
+onUnmounted(() => {
+  stopObservingStatusBarWidth();
+});
+
+// Toggle the persisted `session.ui.showStoneMoveNumbers` flag and bump
+// the session counter SyncService keys persistence on (it no longer
+// deep-watches `store.session`; see `sessionVersion` in
+// `store/index.ts`). Replaces the inline template write, which the
+// counter would not observe.
+function toggleStoneMoveNumbers(): void {
+  store.session.ui.showStoneMoveNumbers = !store.session.ui.showStoneMoveNumbers;
+  touchSession();
+}
 
 interface StatusMetadata {
   readonly blackName: string;
@@ -42,19 +165,89 @@ interface StatusMetadata {
 // this bar. `metadata` stays a prop — it is board-root-derived
 // (useMetadata) and nav-stable, so App passing it costs no per-nav
 // re-render.
+/**
+ * `canPass` (default `true`): App.vue passes `false` while the review
+ * session is in a state where `handlePass` would silently no-op —
+ * LOADING/ANALYZING/REVIEWED — mirroring `useBoardMoveRouting`'s own
+ * gating so the button's enabled-ness matches what clicking it would
+ * actually do. Per genre convention (acceptance criterion 1: "present
+ * ... whenever it is the local user's turn to move ... disabled/absent
+ * otherwise"), the control stays visible/enabled in ordinary free play.
+ */
 const props = defineProps<{
   board:    BoardState;
   metadata: StatusMetadata | null;
+  canPass?: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: 'update-komi', value: number): void;
+  (e: 'update-rules', value: RulesetName): void;
+  (e: 'pass'): void;
 }>();
 
 const { hint } = useTransientHint();
+// Item 4: sourced for the `.player-names` title tooltip's "vs" text —
+// see that computed's own comment below.
+const { t } = useI18n();
+
+// M8(b) (menus-ui audit row 1291): the setup toolkit's sticky mode
+// (SetupToolPalette.vue's header — a selected tool persists after the
+// palette itself closes) was indicated ONLY by the toolbar trigger's
+// own highlight, invisible once the palette is closed. `activeTool` is
+// the same module-scope ref the palette reads/writes
+// (useSetupTools.ts) — this bar renders a persistent, board-adjacent
+// chip for as long as a tool stays armed, genre precedent (Sabaki/
+// CGoban3: persistent toolbar/status-bar state while an edit mode is
+// live), independent of whether the palette is open.
+const { activeTool } = useSetupTools();
+
+// Sourced from `props.board` directly (not `metadata.rules`, which is
+// `useMetadata`'s display-only `RU` passthrough with its own silent
+// `'Japanese'` default) — the dropdown must reflect the board's
+// *actual* `RU` resolution, including `source: 'defaulted'` when the
+// file's `RU` is missing/unrecognized. `getRulesetResolution` is total
+// (live-testing adjudication, `.claude/dispatch-reports/
+// ruleset-default-wedge-fix.md`): `.name` is always one of the four
+// ruling-mandated names, so the dropdown always has a valid selected
+// value — `source` only changes whether the `.defaulted` hint class
+// applies, never whether a value is selectable.
+const rulesetResolution = computed(() => getRulesetResolution(props.board));
+
+// The komi `<input>`'s native `step` (ledger row 1146): `1` under
+// Tromp-Taylor (its komi domain is integers-only —
+// `engine/katago/komi-calibration.ts`'s `komiDomainStep`), `0.5`
+// otherwise. This only governs the input's up/down-arrow increment and
+// browser validity styling — App.vue's `handleUpdateKomi` is the actual
+// enforcement point (a typed-in value bypasses `step` entirely), but
+// the control should still LOOK like it only accepts the ruleset's
+// domain, not silently disagree with what gets persisted.
+const komiStep = computed(() => komiDomainStep(rulesetResolution.value.name));
+
+function onRulesChange(e: Event): void {
+  const value = (e.target as HTMLSelectElement /* bound on the rules <select> */).value;
+  // The <select>'s options are exactly RULESET_NAMES (plus the
+  // disabled unrecognized-placeholder, which is never a selectable
+  // value), so a change event's value is always a RulesetName.
+  emit('update-rules', value as RulesetName);
+}
 
 const turn = computed<StoneColor>(() => props.board.turn);
 const captures = computed(() => props.board.captures);
+
+// Item 4 (occluded-names regression, mandate addendum): `.player-names`
+// can now genuinely ellipsize (see that rule's own CSS comment), so the
+// untruncated pairing needs a discoverable affordance — a native
+// `title` tooltip on the element, the same "elided value stays
+// reachable on hover" convention `HyperparamPromptModal.vue`'s raw-
+// symbol title already establishes (S9,
+// `.claude/dispatch-reports/component-shoddiness-build.md`). Reads the
+// same `metadata` fields the template already renders, so it can never
+// disagree with what's on screen (short of one being elided and the
+// other not, which the tooltip covers either way).
+const playerNamesTitle = computed(
+  () => `${props.metadata?.blackName ?? ''} ${t('statusBar.versus')} ${props.metadata?.whiteName ?? ''}`,
+);
 
 // Move number = count of 'place' moves from root to the current node.
 // Moved verbatim from App.vue's template-consumed computed (Arc 2).
@@ -68,41 +261,74 @@ const moveNumber = computed((): number => {
   }
   return count;
 });
+
 </script>
 
 <template>
-  <div class="status-bar">
+  <div class="status-bar" ref="statusBarRef" :class="{ 'status-bar--narrow': statusBarNarrow }">
     <div class="status-left">
+      <!-- Move-navigation cluster (item 1, see header comment above) —
+           leftmost, board-adjacent, genre position (Sabaki/KaTrain/
+           Lizzie: |< < > >| sits directly under/beside the board). -->
+      <ToolbarMoveNav />
+      <!-- M8(b): persistent setup-mode indicator. Opaque chip (no
+           translucent overlay — standing ruling), visible for as long
+           as `activeTool` is armed regardless of the palette's own
+           open/closed state. -->
+      <span
+        v-if="activeTool"
+        class="setup-mode-chip"
+        data-testid="setup-mode-chip"
+      >{{ $t('statusBar.setupModeActive', { tool: $t(SETUP_TOOL_LABEL_KEYS[activeTool]) }) }}</span>
       <span class="move-badge">{{ $t('statusBar.move', { n: moveNumber }) }}</span>
-      <span class="player-names">
-        <span class="stone-chip stone-chip--black" :class="{ active: turn === 'B' }" :aria-label="turn === 'B' ? $t('statusBar.blackToPlay') : undefined"></span>
-        {{ metadata?.blackName }}
-        {{ $t('statusBar.versus') }}
-        <span class="stone-chip stone-chip--white" :class="{ active: turn === 'W' }" :aria-label="turn === 'W' ? $t('statusBar.whiteToPlay') : undefined"></span>
-        {{ metadata?.whiteName }}
+      <span class="player-names" :title="playerNamesTitle">
+        <span class="player-name player-name--black">
+          <span class="stone-chip stone-chip--black" :class="{ active: turn === 'B' }" :aria-label="turn === 'B' ? $t('statusBar.blackToPlay') : undefined"></span>{{ metadata?.blackName }}
+        </span>
+        <span class="vs-text">{{ $t('statusBar.versus') }}</span>
+        <span class="player-name player-name--white">
+          <span class="stone-chip stone-chip--white" :class="{ active: turn === 'W' }" :aria-label="turn === 'W' ? $t('statusBar.whiteToPlay') : undefined"></span>{{ metadata?.whiteName }}
+        </span>
       </span>
       <span class="game-info">
-        {{ metadata?.rules }} · {{ $t('statusBar.komi') }}
+        <select
+          class="rules-select"
+          :class="{ defaulted: rulesetResolution.source === 'defaulted' }"
+          :value="rulesetResolution.name"
+          @change="onRulesChange"
+          :title="rulesetResolution.source === 'defaulted' ? $t('statusBar.rulesDefaulted') : $t('statusBar.editRules')"
+        >
+          <option v-for="name in RULESET_NAMES" :key="name" :value="name">{{ name }}</option>
+        </select>
+        · {{ $t('statusBar.komi') }}
         <input
           type="number"
           class="komi-input"
           :value="metadata?.komi"
-          step="0.5"
+          :step="komiStep"
           @change="(e) => emit('update-komi', parseFloat((e.target as HTMLInputElement /* bound on the komi <input> */).value))"
           :title="$t('statusBar.editKomi')"
         />
       </span>
     </div>
+    <!-- Permanently-present in-flow slot (commission row 837): always
+         rendered — never `v-if`-inserted/removed — so its presence in
+         the layout never toggles. Empty text when no hint is active. -->
+    <span class="transient-hint">{{ hint }}</span>
     <div class="status-right">
-      <span v-if="hint" class="transient-hint">{{ hint }}</span>
+      <button
+        class="pass-btn"
+        :disabled="props.canPass === false"
+        :title="$t('statusBar.passTitle')"
+        @click="emit('pass')"
+      >{{ $t('statusBar.pass') }}</button>
       <button
         class="move-numbers-btn"
         :class="{ active: store.session.ui.showStoneMoveNumbers }"
         :title="$t('statusBar.toggleMoveNumbers')"
-        @click="store.session.ui.showStoneMoveNumbers = !store.session.ui.showStoneMoveNumbers"
+        @click="toggleStoneMoveNumbers"
       >#</button>
       <span class="caps">B: {{ captures.B }} · W: {{ captures.W }}</span>
-      <UserBadge />
     </div>
   </div>
 </template>
@@ -126,31 +352,184 @@ const moveNumber = computed((): number => {
   align-items: center;
   padding: 0 var(--space-default);
   font-size: var(--text-emphasis);
-  color: var(--text-1);
+  color: var(--text-0);
   flex-shrink: 0;
 }
 
-.status-left  { display: flex; gap: var(--space-medium); align-items: center; }
-.status-right { display: flex; gap: var(--space-medium); align-items: center; }
+/* S4 (component-shoddiness audit, 2026-08-21): `.status-left` had no
+   `min-width: 0`, so as a flex item of `.status-bar` it refused to
+   shrink below its children's combined min-content width — at 1366×768
+   (a width ABOVE the 700px narrow-mode threshold, so narrow mode never
+   engaged) that combined width exceeded the space actually available,
+   and the browser rendered `.status-left` at its full natural width
+   regardless, overrunning into `.status-right` and physically
+   overlapping the komi input with the Pass button by ~6px. `min-width:
+   0` lets `.status-left` shrink to whatever the bar allocates it;
+   `.player-names` (below) is the one child that actually absorbs that
+   shrink, via its own `flex: 1 1 auto` + ellipsis. `.status-right`
+   gets `flex-shrink: 0` so Pass/caps/the user badge are never
+   themselves compressed or pushed off — only `.player-names` yields.
+
+   Item 1 (occluded-names REOPENED, commissioner-witnessed live — the
+   fix above only cured "ellipsis renders" but left the names STARVED
+   even in a bar with ample free width). Root cause: `.status-left` had
+   no `flex-grow` of its own (the shorthand default is `flex: 0 1 auto`),
+   so as a flex item of `.status-bar` it never claimed a share of the
+   bar's spare width — `.status-bar`'s only `flex-grow` child was
+   `.transient-hint` (`flex: 1 1 0`, below), which absorbed 100% of any
+   surplus regardless of how it was needed elsewhere. `.player-names`'
+   own `flex: 1 1 auto` (below) was consequently INERT: a flex-grow
+   factor can only redistribute genuine positive free space *within its
+   own containing flex context*, and `.status-left` never had any to
+   redistribute — it was never wider than the bare sum of its children's
+   content widths, so `.player-names` could never render past its own
+   unclamped text width no matter how much blank bar remained to its
+   right. `flex: 1 1 auto` here (replacing the bare `display: flex`)
+   lets `.status-left` compete with `.transient-hint` for the bar's
+   surplus on equal footing; whatever share it wins flows straight into
+   `.player-names`, the only `flex-grow` child inside it — so the two
+   names are now genuinely free to render at FULL width whenever the
+   bar has room, not merely whenever their own bare text happens to fit
+   inside a box that was never allowed to grow. */
+.status-left  { display: flex; flex: 1 1 auto; gap: var(--space-medium); align-items: center; min-width: 0; }
+.status-right { display: flex; gap: var(--space-medium); align-items: center; flex-shrink: 0; }
 
 .move-badge {
+  /* wC-contrast (F9 named site — the "MOVE 95" chip): --surface-0 text
+     on an --accent-primary fill measured 2.08:1 in the default cluster
+     theme (surface-0 and accent-primary are the same two colors the
+     CLEAR ALL defect measures, just swapped fill/text). --text-on-accent
+     is the token minted for exactly this "text directly on an accent
+     fill" role (theme.css, ledger rows 1018/1144; ~7.7:1 here) — the
+     same token LibraryTable.vue's .library-row.selected and
+     LibraryPreviewPane.vue's .preview-btn.primary already use. */
   background: var(--accent-primary);
-  color: var(--surface-0);
+  color: var(--text-on-accent);
   padding: 1px 6px;
   font-weight: bold;
   border-radius: var(--radius-default);
   font-family: monospace;
   font-size: var(--text-body);
+  /* S4: the "MOVE" / "0" pair is two space-separated words, so under
+     flexbox's default `min-width: auto` a squeezed `.status-left`
+     could satisfy its min-content constraint by wrapping at the space
+     — "MOVE" over "0" — growing the badge to two lines and, with it,
+     the whole bar's height (witnessed at 1366×768). Never negotiable:
+     this badge is essential game state, always one line. */
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
+/* Setup-mode chip (M8(b)): opaque solid fill (never a translucent
+   overlay, per the standing ruling), `--state-attention` — the same
+   accent the app already uses for "this is an interruptive/board-
+   mutating mode" (see Toolbar.vue's `.btn-stop-match`) — so the color
+   vocabulary for "board edits are live" is consistent app-wide.
+   `--text-on-accent` (theme.css, minted for LibraryTable.vue's
+   `.library-row.selected`) is the established "text directly on a
+   saturated chrome fill" role token in this codebase — reused here
+   rather than adding a new one for the same category of pairing. */
+.setup-mode-chip {
+  background: var(--state-attention);
+  color: var(--text-on-accent);
+  padding: 1px 6px;
+  font-weight: bold;
+  border-radius: var(--radius-default);
+  font-family: monospace;
+  font-size: var(--text-body);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-tight);
+}
+
+/* S4: single-line by construction, not just under narrow mode. This is
+   the segment that ABSORBS `.status-left`'s shrink (`flex: 1 1 auto` +
+   `min-width: 0`) — it was the only child of `.status-left` with no
+   `white-space` rule at all, so a squeezed bar broke it mid-phrase
+   ("Black" / "vs" / "White" across two lines, witnessed at 1366×768)
+   instead of eliding gracefully. `min-width` floors it at a few
+   characters plus a stone chip so it never collapses to nothing; the
+   narrow-mode override below tightens the ceiling further.
+
+   Item 4 (occluded-names regression, mandate addendum): S4's own fix
+   still silently clipped mid-word with NO "…" affordance — witnessed as
+   "Black vs Whi" at a narrow bar width. Root cause: `text-overflow:
+   ellipsis` is only defined (and only reliably implemented) against the
+   overflow of a run of INLINE content in a block/inline box with
+   `overflow: hidden` + `white-space: nowrap` — it is NOT guaranteed to
+   insert the ellipsis glyph when the overflowing box is a FLEX container
+   (`display: inline-flex`, as this rule was) with multiple flex-item
+   children (the two `.stone-chip` spans + the interleaved text runs).
+   Browsers instead hard-clip the last partially-visible flex item with
+   no ellipsis inserted — exactly the "cut off mid-word, no affordance"
+   symptom. Fix: drop the flex display so `.player-names` is a plain
+   inline box whose children (`.stone-chip` is already `display:
+   inline-block`) participate in normal inline flow — the shape
+   `text-overflow: ellipsis` is actually specified for. Inter-child
+   spacing, previously from `gap`, now comes from `.stone-chip`'s own
+   `margin-right` (below) plus the template's own literal whitespace
+   between the name/"vs" text runs. `:title` on the element (template)
+   carries the untruncated "Black vs White" pairing on hover/focus, so
+   an elided pairing is never DISCOVERABLE only, per the mandate's
+   "ellipsis + affordance" requirement — mirroring the rest of this
+   codebase's elided-chrome-label convention (`.claude/dispatch-reports/
+   component-shoddiness-build.md` S9, `HyperparamPromptModal.vue`'s own
+   hover-title pattern for a value elided from permanent display).
+
+   Item 1 (occluded-names REOPENED, mandate addendum): the single
+   `.player-names` blob applied ONE `text-overflow: ellipsis` to the
+   whole "Black vs White" run — under narrowing, the ellipsis always
+   lands at the TAIL of that run, so Black's name (first) stayed
+   perpetually intact while White's name (last) was the only one ever
+   eaten, all the way down to nothing. That is first-takes-all tail
+   elision, never a symmetric degradation — the defect the mandate
+   names explicitly. Fix: `.player-names` is now a flex ROW (not the
+   ellipsizing box itself); each name gets its OWN `.player-name` child
+   with `flex: 1 1 0` (equal basis, equal growth) and its own
+   `overflow: hidden` + `text-overflow: ellipsis` + `white-space:
+   nowrap` — so whatever width `.player-names` is given (ample or
+   narrow, see `.status-left`'s own comment above) is split EVENLY
+   between the two names, and both abbreviate/elide together as that
+   width shrinks. Neither player is privileged by DOM position. The
+   `:title` tooltip (below, unchanged) still carries the full
+   untruncated pairing regardless of which (or both) names are elided. */
 .player-names {
-  color: var(--text-0);
-  font-weight: 600;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: var(--space-tight);
+  flex: 1 1 auto;
+  min-width: 32px;
 }
-.game-info    { color: var(--border-3); font-size: var(--text-body); display: flex; align-items: center; gap: var(--space-tight); }
+.player-name {
+  color: var(--text-0);
+  font-weight: 600;
+  /* `display: inline-block`, NOT `inline-flex` — this is a flex ITEM
+     of `.player-names` (the `flex: 1 1 0`/`min-width: 0` below), but
+     its OWN inner display must stay plain inline flow: `text-overflow:
+     ellipsis` is only reliably inserted against inline-flow content
+     (the same reasoning as the original S4→item-4 fix on the old
+     unified `.player-names` rule, now applied per-name). A flex
+     display here, even `inline-flex`, would silently hard-clip the
+     name (chip + text as two flex-item children) with no "…" glyph —
+     exactly the defect that fix closed, reopened one level down. */
+  display: inline-block;
+  vertical-align: middle;
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vs-text {
+  color: var(--text-0);
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+/* S4: fixed-content segment (ruleset + komi) — never wraps, never
+   shrinks below its own legible size. `.player-names` above is the
+   segment that yields when the bar is tight, so this one holds its
+   shape instead of being squeezed into the overlap the audit found. */
+.game-info    { color: var(--border-3); font-size: var(--text-body); display: flex; align-items: center; gap: var(--space-tight); flex-shrink: 0; white-space: nowrap; }
 
 /* Stone-chip indicators preceding each player name. Sized to the
    ambient font (0.85em) so they scale with the status-bar
@@ -163,16 +542,29 @@ const moveNumber = computed((): number => {
   height: 0.85em;
   border-radius: var(--radius-circle);
   flex-shrink: 0;
+  /* Item 4 / item 1 (mandate addendum): each `.player-name` is a plain
+     inline-block, not a flex container (see its own rule's comment —
+     ellipsis needs inline flow), so the chip-to-name spacing comes from
+     a plain right-margin on the chip rather than `gap`. The name-to-
+     "vs" spacing is `.player-names`' own `gap` (it IS a flex row, one
+     level up — see that rule's comment) between `.player-name` and
+     `.vs-text`. `vertical-align: middle` keeps the circle centered on
+     the text's line box in normal inline flow, matching flex
+     `align-items: center`'s visual effect without needing to BE flex. */
+  vertical-align: middle;
+  margin-right: var(--space-tight);
 }
 .stone-chip--black { background: #000; }
 .stone-chip--white { background: #fff; border: 1px solid var(--border-3); }
 
 /* Active-turn ring (iter-23). Replaces the prior text turn-indicator
    ("Black to play" / "White to play") which forced the status bar to
-   wrap at 1024×768 and resize the board. `box-shadow` here paints an
+   wrap at 1024×768 and resize the board. `outline` here paints an
    outer ring that takes no layout space — the chip's position
    doesn't shift, so the surrounding text and the bar's height stay
-   put. The orange (--accent-secondary, the CTA/SR colour) carries
+   put (box-shadow banned per ledger row 1506; outline is the
+   layout-neutral substitute — border would grow the chip's box).
+   The orange (--accent-secondary, the CTA/SR colour) carries
    the "this player acts next" signal in the chrome's already-
    established colour vocabulary. No transition: the swap is
    instantaneous to match the discrete nature of a move.
@@ -181,25 +573,87 @@ const moveNumber = computed((): number => {
    the ring doesn't visually merge with the chip's own border on the
    white side. */
 .stone-chip.active {
-  box-shadow: 0 0 0 2px var(--accent-secondary);
+  outline: 2px solid var(--accent-secondary);
+  outline-offset: 1px;
 }
 
-.komi-input {
-  width: 42px;
+/* Rules dropdown — same low-contrast register as the komi input
+   (transparent, dashed underline, accent-primary on focus/hover).
+   `.defaulted` is a subtle informational hint (italic), not a warning
+   accent — this is a represented fact about provenance, not a refused
+   or error state (live-testing adjudication superseded the prior
+   fail-loud 'unrecognized — choose' UI state; see
+   `.claude/dispatch-reports/ruleset-default-wedge-fix.md`). Query
+   construction proceeds either way, so the styling shouldn't read as
+   "something is broken." */
+.rules-select {
   background: transparent;
   border: none;
   border-bottom: 1px dashed var(--border-3);
-  color: var(--text-1);
+  color: var(--text-0);
   font-size: var(--text-body);
   font-family: inherit;
   padding: 0;
   outline: none;
-  text-align: center;
-  transition: color var(--duration-default), border-color var(--duration-default);
 }
-.komi-input:focus, .komi-input:hover {
-  color: var(--accent-primary);
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament). */
+.rules-select:focus, .rules-select:hover {
+  color: var(--text-0);
   border-bottom: 1px solid var(--accent-primary);
+}
+/* G29 (audit finding, opus-uiux-geometry-consult.md): the base rule's
+   `outline: none` applied at every focus, including keyboard focus,
+   leaving this tab stop with no visible indicator. Restores the
+   app's existing :focus-visible outline idiom (TabWidget.vue's
+   `.tab-header li:focus-visible`) — accent outline — on top of, not
+   instead of, the existing focus/hover colour change above.
+   Visibility only: tabindex and tab order are unchanged. */
+.rules-select:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+.rules-select.defaulted {
+  font-style: italic;
+  color: var(--text-0);
+}
+
+/* S4 (component-shoddiness audit, 2026-08-21): a bare `border-bottom:
+   dashed` on a 12px-tall unpadded box reads, at zoom, as a rendering
+   fault rather than a control — no box, no click affordance beyond
+   `cursor: text`, and far below any usable pointer target. A full
+   border + padding gives it an honest field outline and a ~20px hit
+   target (matching `.status-bar`'s own min-height) without departing
+   from the bar's low-contrast register — `border-3` is the same
+   token the dashed underline already used. */
+.komi-input {
+  width: 42px;
+  min-height: 20px;
+  box-sizing: border-box;
+  background: transparent;
+  border: 1px solid var(--border-3);
+  border-radius: var(--radius-default);
+  color: var(--text-0);
+  font-size: var(--text-body);
+  font-family: inherit;
+  padding: 2px 4px;
+  outline: none;
+  text-align: center;
+}
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament).
+   S4: the border is now a full box (see the base rule above), so the
+   focus/hover highlight recolors all four sides, not just the bottom
+   edge, to match. */
+.komi-input:focus, .komi-input:hover {
+  color: var(--text-0);
+  border-color: var(--accent-primary);
+}
+/* G29 (audit finding, opus-uiux-geometry-consult.md): same defect and
+   same fix as `.rules-select:focus-visible` above — the base rule's
+   `outline: none` left this tab stop with no visible keyboard-focus
+   indicator. Visibility only: tabindex and tab order are unchanged. */
+.komi-input:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
 }
 
 /* Hide number arrows for a cleaner look */
@@ -212,35 +666,220 @@ const moveNumber = computed((): number => {
   -moz-appearance: textfield;
 }
 
-.caps { font-family: monospace; color: var(--text-2); font-size: var(--text-body); }
+/* `white-space: nowrap`: the permanent `.transient-hint` slot (below)
+   already absorbs the bar's free space via `flex: 1 1 0`, so `.caps`
+   should never need to wrap — but pin it explicitly so a future long
+   capture count (or a narrower viewport) can't wrap this block onto a
+   second line and grow the bar's `min-height` (the original ledger
+   row 811 reflow mechanism). */
+.caps { font-family: monospace; color: var(--text-0); font-size: var(--text-body); white-space: nowrap; }
 
-/* Move-number toggle. Inactive: muted text-2, no background.
-   Active: accent-primary, hinting "on" without a separate
-   indicator (the board itself is the indicator). Borderless to
-   match the chrome's low-contrast register; the same tonal scale
-   as `.caps` for the resting state so the button doesn't draw
-   the eye when off. */
+/* G12 narrow-mode collapse (see the `statusBarNarrow` doc in <script>):
+   the lowest-priority segments are removed from flow entirely (not
+   just visually hidden) so their claimed width goes back to
+   `.pass-btn`/`.caps`/`.player-names`, and `.player-names` — never
+   hidden, only truncated — gets a single-line ellipsis instead of the
+   wrap that used to grow the bar's own height (and so the board's
+   square, which derives its size from the bar's remaining height
+   budget — see this file's `min-height` comment). `.move-badge`,
+   `.pass-btn` and `.caps` carry NO rule in this block: they are never
+   touched by narrow mode, which is what makes "Pass never unreachable"
+   a structural property of this stylesheet rather than a threshold
+   someone has to keep tuned. (The user badge was a third collapsed
+   segment here — `:deep(.user-badge)` — until it relocated to the
+   toolbar strip, commissioner ruling 2026-08-21: identity chrome must
+   stay visible at every width, not be layout-negotiable board-adjacent
+   content that a resize could hide entirely.) */
+.status-bar--narrow .move-numbers-btn,
+.status-bar--narrow .game-info {
+  display: none;
+}
+/* N1/N4 fix (rig witness, `.claude/dispatch-reports/lyt-n1-statusbar.md`):
+   `max-width` changed from `40%` to a fixed 90px, and several
+   already-present spacing/padding declarations tightened alongside it
+   — see below. Two compounding causes, both witnessed live:
+   1. A percentage `max-width` on a flex-item descendant of an
+      auto-width (shrink-to-fit) `.status-left` does not resolve
+      against a small "just enough" basis the way a mental model of
+      "cap the low-priority segment" suggests — Chromium resolved it
+      against the BAR's own width, so at a witnessed 647px bar width
+      the "capped" element still rendered ~250px wide, alone
+      accounting for a third of a 759px natural need against a 647px
+      track. A fixed px ceiling is deterministic regardless of the
+      bar's own width, which is the property this rule needs.
+   2. Even with (1) fixed, the remaining segments' spacing/padding —
+      sized comfortably for the wide (non-narrow) bar — still didn't
+      leave room at the tightest supported width (420px, with a
+      realistic long-game move badge + capture count). The gap/
+      padding reductions below (all of an EXISTING declaration's
+      value, never a new rule) close that remainder.
+   90px still shows a stone chip and a character or two of EACH name
+   before eliding; the full pairing remains one hover/selection away,
+   same as any other ellipsized chrome label in this codebase —
+   `.pass-btn`, `.move-badge` and `.caps` are the segments this bar's
+   own header ranks above `.player-names`, and none of the three is
+   touched below beyond a light padding trim that stays well over the
+   G30 pointer-target floor.
+
+   Item 1 (occluded-names REOPENED, mandate addendum, contract (b)):
+   this `max-width` still constrains the OUTER `.player-names` row, not
+   either name directly — `.player-names` is now `display: flex` with
+   two `flex: 1 1 0` children (`.player-name--black` / `--white`, see
+   the base rule's own comment), so squeezing this ceiling squeezes
+   BOTH names by an equal share automatically. Neither player's name is
+   privileged: both abbreviate and elide together as the ceiling
+   tightens, never one first-takes-all tail elision at the other's
+   expense — the symmetric-degradation half of the mandate's contract. */
+.status-bar--narrow .player-names {
+  max-width: 90px;
+}
+.status-bar--narrow.status-bar {
+  padding: 0 var(--space-tight);
+}
+.status-bar--narrow .status-left,
+.status-bar--narrow .status-right {
+  gap: var(--space-tight);
+}
+/* `:deep()` reaches `ToolbarMoveNav`'s own root/children from this
+   scoped stylesheet — this bar owns the overflow policy, the move-nav
+   component has no narrow-mode concept of its own. Padding/gap only:
+   the |</>| glyphs' own font-size and the 24px pointer-target floor
+   (G30, `ToolbarMoveNav.vue`'s own `min-height`/`min-width`) are
+   untouched — only the horizontal padding around the already-legible
+   glyph, and the gap between the four buttons, shrink. */
+.status-bar--narrow :deep(.toolbar-move-nav) {
+  gap: 2px;
+}
+.status-bar--narrow :deep(.toolbar-move-nav .toolbar-btn) {
+  padding: 1px 3px;
+}
+.status-bar--narrow .move-badge {
+  padding: 1px 4px;
+}
+.status-bar--narrow .pass-btn {
+  padding: 1px 6px;
+}
+
+/* Pass affordance — always-visible board-chrome control per genre
+   convention (Sabaki/KaTrain/OGS survey, design-engine-features.md
+   PASS SUPPORT §"Genre convention"): a labeled button, not a
+   hidden/modifier-only hotkey, disabled (not hidden) when a pass
+   would be a no-op (review session mid-transition). Text label
+   ("Pass") rather than a glyph — this is the one control in the bar
+   whose meaning must never be color- or icon-only (ADR-0019 appendix
+   C18), and "Pass" has no established single-glyph convention the
+   way move-numbers' "#" does. */
+.pass-btn {
+  background: transparent;
+  border: 1px solid var(--border-3);
+  border-radius: var(--radius-default);
+  color: var(--text-0);
+  font-size: var(--text-body);
+  font-family: inherit;
+  cursor: pointer;
+  padding: 1px 8px;
+  line-height: 1.4;
+}
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament). */
+.pass-btn:hover:not(:disabled) {
+  color: var(--text-0);
+  border-color: var(--accent-primary);
+}
+.pass-btn:disabled {
+  color: var(--text-disabled);
+  border-color: var(--border-2);
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* Move-number toggle. Inactive: --text-disabled (rows 1478/1479/
+   1481/1497 — an on/off toggle affordance, not readable prose; the
+   commissioner's disabled-control exception), no background.
+   Active: --text-0 (wC-contrast, F9 — accent-primary measured 2.08:1
+   in the default cluster theme; "active" is not a disabled state, so
+   the disabled-control exception doesn't cover it), hinting "on"
+   without a separate indicator (the board itself is the indicator).
+   Borderless to match the chrome's low-contrast register; `.caps`
+   nearby is now --text-0 (readable capture-count text, rows
+   1478/1479/1481), so this button's resting state is deliberately
+   dimmer than its neighbor — the toggle-off signal, not a shared
+   tonal scale. */
+/* G30 (WCAG 2.5.8): witnessed at 14x10 — under the 24x24 pointer-target
+   floor. min-width/min-height is the same transparent-expansion floor
+   KeybindingRow's .row-btn already carries (M16 era) — background stays
+   transparent and border stays none, so the "#" glyph's visual size is
+   unchanged; flex-centering keeps it centred in the taller/wider box. */
 .move-numbers-btn {
   background: transparent;
   border: none;
-  color: var(--text-2);
+  color: var(--text-disabled);
   font-family: monospace;
   font-size: var(--text-body);
   font-weight: bold;
   cursor: pointer;
   padding: 0 var(--space-tight);
   line-height: 1;
-  transition: color var(--duration-default);
+  min-width: 24px;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .move-numbers-btn:hover { color: var(--text-0); }
-.move-numbers-btn.active { color: var(--accent-primary); }
+.move-numbers-btn.active { color: var(--text-0); }
 
 /* Transient hint surface — populated by `useTransientHint` from
-   hover-driven affordances (e.g. the PV-paste discoverability
-   text on move-suggestion hover). Distinct anchor from the
-   permanent status vocabulary so it reads as ephemeral. */
+   hover-driven affordances (e.g. the PV-paste discoverability text on
+   move-suggestion hover). Distinct styling (italic, muted) from the
+   permanent status vocabulary so it reads as ephemeral. Empty text
+   when no hint is active, not `v-if`-removed — see the template.
+
+   Commission row 837, third mechanism, superseding two defective
+   priors: (1) an ordinary `v-if`-inserted flex sibling in
+   `.status-right` widened the row on mount, squeezed `.caps` (no
+   `white-space: nowrap` at the time) into wrapping onto two lines,
+   and grew the bar's `min-height` — because the board square derives
+   its size from the bar's remaining height budget, the ENTIRE BOARD
+   resized on every hover-enter/leave (ledger row 811, first pass).
+   (2) `position: absolute; bottom: 100%` took the hint out of flow to
+   stop the reflow, but then floated it OVER the board's bottom-right
+   corner (occluding edge coordinates) and let an ancestor clip long
+   text mid-word into an illegible "Ctrl+cli…" box (ledger row 811,
+   second pass; screenshots ~/occluded.png, ~/occluded2.png).
+
+   This slot is a PERMANENT in-flow flex child, always present in the
+   layout regardless of hint state, occupying the bar's existing dead
+   gap between the komi field (`.status-left`) and the Pass button
+   (`.status-right`). Because it never mounts/unmounts, the bar's
+   geometry is byte-for-byte identical whether a hint is active or
+   not — reflow is impossible by construction, not by an out-of-flow
+   escape hatch. Being in-flow (not `position: absolute`) also makes
+   occlusion of board content impossible: it can only ever displace
+   its own flex siblings within the bar, never overlay the board.
+   `flex: 1 1 0` lets it claim exactly the bar's spare width; `min-
+   width: 0` overrides the flexbox default `min-width: auto`, which
+   would otherwise refuse to shrink the item below its text's natural
+   width and force the row to overflow instead of the text eliding;
+   `overflow: hidden` + `text-overflow: ellipsis` + `white-space:
+   nowrap` clip an over-long hint to a trailing ellipsis at a whole-
+   line boundary — never mid-word, and never by wrapping. */
 .transient-hint {
-  color: var(--text-2);
+  /* Longhand, not the `flex: 1 1 0` shorthand: jsdom's CSSOM (the
+     substrate the geometry regression test in
+     `status-bar-hint-no-reflow.test.ts` reads via `getComputedStyle`)
+     does not expand that shorthand into its longhand computed values
+     the way a real browser does — `flex-grow` read back as `0`
+     despite the shorthand setting it to `1`. Real browsers apply the
+     shorthand identically either way; longhand is the form that is
+     legible to both. */
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-0);
   font-style: italic;
   font-size: var(--text-body);
 }

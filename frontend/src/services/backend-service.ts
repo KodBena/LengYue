@@ -7,10 +7,15 @@
 import { api, ApiError } from './api-client';
 import type {
   CardId,
+  CardDisplayOrdinal,
+  CardPublicId,
   CardMetadataPatch,
-  GameSourceId,
+  ContentHash,
+  GameDisplayOrdinal,
   ReviewCard,
   CardCreatePayload,
+  CardBatchCreateRequestPayload,
+  CardBatchCreateResponsePayload,
   ForestStat,
   TagStat,
   ResolveRootsResult,
@@ -22,6 +27,7 @@ import type {
 import { CardTreeOverflowError } from '../types';
 import type { components } from '../types/backend';
 import { rewriteGradingParameterAnalysisConfig } from '../engine/analysis-config-curation';
+import { recordKnownPosition } from '../state/known-positions';
 
 // ─── Wire-type aliases (the ACL boundary) ────────────────────────────────────
 // These names describe what the backend sends, not what the app speaks in.
@@ -39,6 +45,27 @@ type TreeByRootResponseWire = components['schemas']['TreeByRootResponse'];
 type TreeNodeWire = components['schemas']['TreeNode'];
 type ForestStatWire = components['schemas']['ForestStat'];
 type TagStatWire = components['schemas']['TagStat'];
+type PositionHashResponseWire = components['schemas']['PositionHashResponse'];
+type PositionHashBatchResponseWire = components['schemas']['PositionHashBatchResponse'];
+
+// TEMPORARY hand-written wire type, not a `components['schemas'][...]`
+// alias like its siblings above. `npm run gen:api` could not be run in
+// this environment to regenerate `src/types/backend.ts` against the new
+// backend endpoint (`GET /cards/hashes` — see
+// `.claude/dispatch-reports/known-positions-boot-hydrate.md`'s report
+// for the reproduced blocker: the local throwaway backend's Alembic
+// bootstrap hangs against a fresh SQLite file, unrelated to this
+// change). This shape is hand-verified against `backend/schemas/
+// card.py::CardHashEntry` field-for-field. Replace with
+// `components['schemas']['CardHashEntry']` (deleting this alias) the
+// next time `gen:api` runs successfully — per `frontend/CLAUDE.md`,
+// the generated file itself is never hand-edited; this is the
+// explicitly-sanctioned fallback of adding the wire type alongside the
+// other hand-written aliases instead.
+type CardHashEntryWire = {
+  content_hash: string;
+  card_id: number;
+};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -129,11 +156,24 @@ export class BackendService {
       rewriteGradingParameterAnalysisConfig(raw.grading_parameter)
         .gradingParameter as CardFromWire['grading_parameter'];
 
+    // card-position-annotations Stage A: ACL Band-2 brand mints, then feed
+    // the known-positions state module. Every mapToReviewCard call is an
+    // opportunity to learn "this caller owns a card at this position" —
+    // see src/state/known-positions.ts's file header for why this is the
+    // module's sole population path (no dedicated bulk-fetch endpoint).
+    const cardId = raw.id as CardId; // ACL Band-2 brand mint (wire number -> CardId)
+    const contentHash = raw.content_hash as ContentHash; // ACL Band-2 brand mint (wire hex string -> ContentHash)
+    recordKnownPosition(contentHash, cardId);
+
     return {
-      // ACL Band-2 brand mint: the wire `id` (number) becomes the domain
-      // `CardId` at this single re-brand boundary (mapToReviewCard).
-      id: raw.id as CardId,
+      id: cardId,
+      // Per-user-id-enumeration design: ACL Band-2 brand mints for
+      // the display-role and reference-role fields added alongside
+      // the raw PK (`id` stays the exception per Decision 4).
+      displayOrdinal: raw.display_ordinal as CardDisplayOrdinal, // ACL Band-2 brand mint
+      publicId: raw.public_id as CardPublicId, // ACL Band-2 brand mint
       canonicalContent: raw.canonical_content,
+      contentHash,
       numMoves: raw.num_moves,
       // `card_source_id` is `number | null | undefined` on the wire;
       // coalesce null → undefined so the domain type stays
@@ -164,9 +204,19 @@ export class BackendService {
     };
   }
 
-  public async queryForest(contextIds: number[], pipeline: PipelineStage[]): Promise<ReviewCard[]> {
+  public async queryForest(
+    contextIds: number[],
+    pipeline: PipelineStage[],
+    gameSourceOrdinals: number[] = [],
+  ): Promise<ReviewCard[]> {
+    // macro-public-id-tokens: game_source_ordinals is the widened
+    // /forests/query token vocabulary (ledger rows 498/500) — each
+    // ordinal is resolved server-side, within the caller's tenancy,
+    // to its game_source's root card id(s) before the pipeline runs.
+    // The SPA never resolves this itself; see context-id-macros.ts.
     const payload = {
       context_ids: contextIds,
+      game_source_ordinals: gameSourceOrdinals,
       pipeline
     };
 
@@ -220,6 +270,98 @@ export class BackendService {
     return response.card_id;
   }
 
+  /**
+   * Batch card-minting affordance (commissioner-designed, ledger rows
+   * 926/957/1008). Single transactional call — the whole batch mints
+   * or none of it does (backend's `async with db.begin()` around
+   * `CardService.create_cards_batch`, `backend/api/routes/cards.py`).
+   * `CardBatchCreateRequestPayload`/`CardBatchCreateResponsePayload`
+   * are hand-written wire types (see `types/cards.ts`'s own comment
+   * for why — `gen:api` needs a live backend this build couldn't
+   * reach); response `card_ids` come back in request order, so the
+   * caller maps `card_ids[i]` back to whatever built `cards[i]`
+   * (`batch-mint-core.ts::buildBatchMintPayload`'s `nodeOrder`).
+   */
+  public async createCardsBatch(payload: CardBatchCreateRequestPayload): Promise<number[]> {
+    const response = await api.request<CardBatchCreateResponsePayload>('POST', '/cards/batch', payload);
+    return response.card_ids;
+  }
+
+  /**
+   * card-position-annotations Stage A. Asks the backend "what
+   * content_hash would normalizing this raw content produce" without
+   * minting anything — no `normalized_position` row, no card. Used by
+   * `useMinting.prepareDraft` (mint-dialog duplicate check) and, in
+   * Stage B, the tree-node annotation cache.
+   *
+   * The backend runs the raw content through the exact same
+   * `PositionNormalizerPort` `POST /cards/` does (see
+   * `api/routes/positions.py`'s module docstring), so the returned
+   * hash is guaranteed to equal what minting `rawContent` verbatim
+   * would produce — no parallel client-side normalization (design
+   * §1: "one identity, one home").
+   */
+  public async hashPosition(rawContent: string): Promise<ContentHash> {
+    const raw = await api.request<PositionHashResponseWire>(
+      'POST',
+      '/positions/hash',
+      { raw_content: rawContent },
+    );
+    return raw.content_hash as ContentHash; // ACL Band-2 brand mint
+  }
+
+  /**
+   * card-position-annotations Stage B. Batched sibling of
+   * `hashPosition`: hashes every entry in `rawContents` in one round
+   * trip, returning the results index-aligned. Used by
+   * `useNodePositionHashes` (`src/composables/cards/`) to fill the
+   * tree-node NodeId->ContentHash cache without one request per
+   * rendered node.
+   *
+   * Throws (surfaced via `api.request`'s ApiError) on any backend
+   * failure — 413 over `POSITIONS_HASH_BATCH_MAX`, 422 if any item
+   * fails to normalize. The caller decides how to degrade (absent
+   * highlight + one non-blocking notice, per the design's failure-
+   * honesty posture — never a stale/partial highlight).
+   */
+  public async hashPositionsBatch(rawContents: string[]): Promise<ContentHash[]> {
+    const raw = await api.request<PositionHashBatchResponseWire>(
+      'POST',
+      '/positions/hash-batch',
+      { raw_contents: rawContents },
+    );
+    return raw.content_hashes as ContentHash[]; // ACL Band-2 brand mint
+  }
+
+  /**
+   * Known-positions boot-time hydrate (see
+   * `.claude/dispatch-reports/card-position-annotations-design.md`
+   * §3, "Recommend (b)"). Bulk-fetches every `(content_hash, card_id)`
+   * pair for the caller's own cards via `GET /cards/hashes`, so
+   * `useKnownPositions.hydrateKnownPositions` can populate the
+   * `known-positions` state module's `ContentHash -> CardId` map
+   * completely at auth-readiness, rather than leaving it to fill
+   * only incidentally as `mapToReviewCard` happens to see cards
+   * during ordinary navigation (today's gap: the game-tree
+   * known-position rings and the mint-dialog duplicate warning are
+   * empty after a fresh SPA start until the user browses).
+   *
+   * Does NOT itself write to the known-positions state module —
+   * unlike `mapToReviewCard`'s incidental population, this is a
+   * plain fetch-and-map; the composable decides how the pairs feed
+   * `recordKnownPosition` (first-seen-wins, per that module's file
+   * header).
+   */
+  public async fetchKnownPositionHashes(): Promise<
+    Array<{ contentHash: ContentHash; cardId: CardId }>
+  > {
+    const raw = await api.request<CardHashEntryWire[]>('GET', '/cards/hashes');
+    return raw.map(entry => ({
+      contentHash: entry.content_hash as ContentHash, // ACL Band-2 brand mint
+      cardId: entry.card_id as CardId, // ACL Band-2 brand mint
+    }));
+  }
+
   public async getTags(): Promise<TagStat[]> {
     const raw = await api.request<TagStatWire[]>('GET', '/stats/tags');
     return raw.map(t => this.mapTagStat(t));
@@ -242,13 +384,15 @@ export class BackendService {
   }
 
   // Wire → domain projection: snake_case → camelCase rename, raw
-  // `number` → branded `CardId` / `GameSourceId` at the boundary,
+  // string/number → branded `CardPublicId` / `GameDisplayOrdinal` at
+  // the boundary (browse-leak-fix, ledger rows 417/423 — these were
+  // `CardId`/`GameSourceId`, the raw global PKs, until this pass),
   // nullable metadata strings preserved (consumers handle the
   // "no metadata" case, the ACL does not coerce — see ADR-0002).
   private mapForestStat(raw: ForestStatWire): ForestStat {
     return {
-      rootCardId: raw.root_card_id as CardId, // ACL Band-2 brand mint
-      gameSourceId: raw.game_source_id as GameSourceId, // ACL Band-2 brand mint
+      rootCardPublicId: raw.root_card_public_id as CardPublicId, // ACL Band-2 brand mint
+      gameSourceDisplayOrdinal: raw.game_source_display_ordinal as GameDisplayOrdinal, // ACL Band-2 brand mint
       description: raw.description,
       playerWhite: raw.player_white,
       playerBlack: raw.player_black,
@@ -308,17 +452,24 @@ export class BackendService {
 
   private mapResolvedRoot(raw: ResolvedRootWire): RootGroup {
     return {
-      rootCardId: raw.root_card_id as CardId, // ACL Band-2 brand mint
-      gameSourceId: raw.game_source_id as GameSourceId, // ACL Band-2 brand mint
+      rootCardPublicId: raw.root_card_public_id as CardPublicId, // ACL Band-2 brand mint
+      gameSourceDisplayOrdinal: raw.game_source_display_ordinal as GameDisplayOrdinal, // ACL Band-2 brand mint
       cardIdsInTree: raw.card_ids_in_tree.map(n => n as CardId), // ACL Band-2 brand mint
     };
   }
 
   /**
-   * Fetch the structure-only subtree rooted at `rootCardId`. The wire
-   * shape is `{id, children}` recursive; per-card data is fetched
-   * separately via `fetchCard`. The two read paths are independently
-   * cacheable per the backend dispatch.
+   * Fetch the structure-only subtree rooted at `rootCardPublicId`.
+   * The wire shape is `{id, children}` recursive; per-card data is
+   * fetched separately via `fetchCard`. The two read paths are
+   * independently cacheable per the backend dispatch.
+   *
+   * Browse-leak-fix (ledger rows 417/423): the root is now addressed
+   * by its `public_id` (a `CardPublicId`) rather than the raw
+   * internal `CardId` — the guarantee's "the per-user id IS the
+   * handle" ruling. Every caller sources this value from
+   * `ForestStat.rootCardPublicId` or `RootGroup.rootCardPublicId`,
+   * neither of which carries a raw id anymore.
    *
    * Throws `CardTreeOverflowError` on 422 (`actual_size` exceeds
    * `max_nodes`). Per ADR-0002, no silent truncation; the caller
@@ -329,11 +480,11 @@ export class BackendService {
    * not owned, missing, or not a game-source root).
    */
   public async fetchTreeByRoot(
-    rootCardId: CardId,
+    rootCardPublicId: CardPublicId,
     maxNodes?: number,
   ): Promise<CardLineageTree> {
-    const body: { root_card_id: CardId; max_nodes?: number } = {
-      root_card_id: rootCardId,
+    const body: { root_card_public_id: CardPublicId; max_nodes?: number } = {
+      root_card_public_id: rootCardPublicId,
     };
     if (maxNodes !== undefined) body.max_nodes = maxNodes;
 
@@ -345,8 +496,8 @@ export class BackendService {
         { silentStatuses: [422] },
       );
       return {
-        rootCardId: raw.root_card_id as CardId, // ACL Band-2 brand mint
-        gameSourceId: raw.game_source_id as GameSourceId, // ACL Band-2 brand mint
+        rootCardPublicId: raw.root_card_public_id as CardPublicId, // ACL Band-2 brand mint
+        gameSourceDisplayOrdinal: raw.game_source_display_ordinal as GameDisplayOrdinal, // ACL Band-2 brand mint
         tree: this.mapTreeNode(raw.tree),
       };
     } catch (err) {
@@ -357,7 +508,7 @@ export class BackendService {
         const body422 = parse422Body(err.body);
         if (body422) {
           throw new CardTreeOverflowError(
-            rootCardId,
+            rootCardPublicId,
             body422.actualSize,
             body422.maxNodes,
           );

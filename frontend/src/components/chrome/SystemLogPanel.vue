@@ -1,15 +1,62 @@
-<!-- 
+<!--
   src/components/chrome/SystemLogPanel.vue
-  Always-visible system log bar. Renders messages pushed via
-  pushSystemMessage() in the store, plus an idle row when the queue
-  is empty so the bar is present as a stable UI surface.
+  System log panel. Renders messages pushed via pushSystemMessage() in
+  the store, plus an idle row when the queue is empty so the panel is
+  present as a stable UI surface whenever it's shown. Mounted in
+  App.vue's `#lyt-overlay-stack` (W4 item 1) when
+  `session.ui.systemLogExpanded` (manual toggle, `SystemLogToggle.vue`
+  — D2 fix) OR the transient auto-reveal (`useTransientLogReveal.ts`)
+  is true — no longer unconditionally visible, corrected from this
+  header's own stale "always-visible" claim (D2 fix).
+
+  Disease repair (`.claude/dispatch-reports/lyt-second-opus-review.md`,
+  ledger row 2511): `nextAction` USED to render as the raw machine
+  token verbatim (`open-default-layout-control`) next to a LOCALIZED
+  label (`$t('systemLog.nextAction')`) — a real user saw
+  "次のアクション: open-default-layout-control", English hiding inside an
+  otherwise-Japanese sentence. `nextActionLabel()` below maps the
+  closed set of known tokens to their own locale key (`en.json`'s own
+  `systemLog.nextActionToken.*` entries), so both halves of the line
+  render in the SAME locale. `msg.text`/`msg.remediation` themselves
+  are producer-authored English strings (`state/feasible-layout.ts`)
+  independent of this repair's scope — localizing every system-message
+  producer is a materially larger effort than this one leaking-token
+  fix and is not attempted here.
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { store, dismissSystemMessage, clearSystemMessages } from '../../store';
 
 const hasMessages = computed(() => store.engine.messages.length > 0);
+
+const { t } = useI18n();
+
+// Closed map: every `nextAction` token any producer currently mints
+// (`state/feasible-layout.ts`'s `SovereignOverrideDiagnostic`) to its
+// own locale key. ADR-0002: an unrecognized token is a producer/
+// consumer contract drift — a NEW nextAction value shipped without a
+// matching entry here — surfaced loudly (console, so it's visible to
+// whoever ships the drift) rather than silently leaking the raw
+// identifier into user-facing copy again, which is the exact defect
+// this map exists to close.
+const NEXT_ACTION_LOCALE_KEY: Readonly<Record<string, string>> = {
+  'open-default-layout-control': 'systemLog.nextActionToken.open-default-layout-control',
+};
+
+function nextActionLabel(token: string): string {
+  const localeKey = NEXT_ACTION_LOCALE_KEY[token];
+  if (localeKey === undefined) {
+    console.error(
+      `SystemLogPanel: no locale label registered for nextAction token ${JSON.stringify(token)} — ` +
+        'add an entry to NEXT_ACTION_LOCALE_KEY (and every locale catalog) rather than let the raw ' +
+        'token reach the user (ADR-0002).',
+    );
+    return token;
+  }
+  return t(localeKey);
+}
 </script>
 
 <template>
@@ -34,6 +81,18 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
         <div class="msg-content">
           <span class="msg-time">{{ new Date(msg.timestamp).toLocaleTimeString() }}</span>
           <span class="msg-text">{{ msg.text }}</span>
+          <!-- Dispatch L3 repair (ADR-0019 C8): `remediation`/`nextAction`
+               are structured fields on `SystemMessage`, not flattened into
+               `msg.text` — rendered as their own subordinate lines when a
+               producer supplies them. `nextAction` is a LABEL only: no
+               affordance named `open-default-layout-control` exists on
+               this branch to wire a click handler to (disclosed gap, not
+               a silently-implied control). Disease repair (this file's
+               own header): the token itself is never rendered raw —
+               `nextActionLabel()` resolves it through the SAME locale the
+               "Next" label above it renders in. -->
+          <span v-if="msg.remediation" class="msg-remediation">{{ msg.remediation }}</span>
+          <span v-if="msg.nextAction" class="msg-next-action">{{ $t('systemLog.nextAction') }}: {{ nextActionLabel(msg.nextAction) }}</span>
         </div>
         <button class="dismiss-btn" @click="dismissSystemMessage(msg.id)">×</button>
       </div>
@@ -49,14 +108,25 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 </template>
 
 <style scoped>
+/* W4 item 1: this panel now mounts inside App.vue's `#lyt-overlay-stack`
+   (a `position: fixed` overlay, never an in-flow chrome bar) — see that
+   element's own CSS comment for the full placement/non-occlusion
+   derivation. Restyled from an in-flow bar (border-bottom only,
+   flush against its neighbours) to a floating card (full border +
+   radius, opaque `--surface-0` fill unchanged — the standing
+   "no scrim/translucency" ruling this panel already followed). No
+   box-shadow (the effects-ban sweep, ledger row 1506, bans it outright,
+   no carve-outs) — the border alone reads as "a distinct floating
+   surface" against whatever chrome happens to be underneath. */
 .system-log-panel {
   background: var(--surface-0);
-  border-bottom: 1px solid var(--border-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-default);
   display: flex;
   flex-direction: column;
   max-height: 250px;
   flex-shrink: 0;
-  box-shadow: inset 0 -5px 10px rgba(0,0,0,0.5);
+  overflow: hidden;
 }
 
 .panel-header {
@@ -71,7 +141,7 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 .title {
   font-size: var(--text-body);
   text-transform: uppercase;
-  color: var(--text-2);
+  color: var(--text-0);
   letter-spacing: var(--tracking-default);
   font-weight: bold;
 }
@@ -79,7 +149,10 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 .clear-btn {
   background: none;
   border: none;
-  color: var(--accent-primary);
+  /* wC-contrast (F9 named site — the "CLEAR ALL" control): readable
+     text is --text-0, not accent-primary — 2.08:1 in the default
+     cluster theme. */
+  color: var(--text-0);
   font-size: var(--text-body);
   cursor: pointer;
   text-transform: uppercase;
@@ -120,7 +193,7 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 
 .msg-time {
   font-size: var(--text-tiny);
-  color: var(--text-2);
+  color: var(--text-0);
   font-family: monospace;
 }
 
@@ -132,10 +205,18 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
   line-height: 1.4;
 }
 
+.msg-remediation,
+.msg-next-action {
+  font-size: var(--text-body);
+  color: var(--text-0);
+  font-family: monospace;
+  line-height: 1.4;
+}
+
 .dismiss-btn {
   background: none;
   border: none;
-  color: var(--text-2);
+  color: var(--text-0);
   font-size: var(--text-heading);
   cursor: pointer;
   padding: 0;

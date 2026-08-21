@@ -34,10 +34,32 @@
 /* ── Reset ─────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* G30 pointer-target floor (WCAG 2.5.8): witnessed 15x checkbox
+   `input[type="checkbox"]` at 13x13 app-wide (RegistryEditor,
+   CardMetadataPanel, PaletteEditor, AnalysisControls,
+   WizardStepDemoBoard, LoginModal, MintCardModal, ConfirmLoadModal) —
+   under the 24x24 minimum. One document-wide, element-selector rule is
+   the shared home for the whole family (P1) instead of eight per-site
+   sprinkles. Technique: pin the native widget's own paint size to its
+   current 13x13 via explicit width/height on a content-box (overriding
+   the border-box reset above just for this selector), then add padding
+   so the invisible border-box — the actual click/tap hit-test area —
+   grows to 24x24 while the painted checkbox glyph stays 13x13. Same
+   "visual size preserved, effective hit area >=24" contract as
+   KnobSlider's thumb (M16 era), using padding instead of a transparent
+   border because native checkbox rendering (unlike a custom
+   pseudo-element) does not reliably keep a CSS border unpainted. */
+input[type="checkbox"] {
+  box-sizing: content-box;
+  width: 13px;
+  height: 13px;
+  padding: 5.5px;
+}
+
 html, body {
   height: 100%;
   background:var(--default-bg);
-  color: var(--text-1);
+  color: var(--text-0);
   font-family: 'Courier New', monospace;
   font-size: var(--text-body);
   overflow: hidden;
@@ -55,28 +77,30 @@ body {
   min-height: 0;
 }
 
-/* ── Sidebar children (used by SidebarWidget.vue and BoardTab.vue) ─ */
-.tab-thumb {
-  width: 88px;
-  height: 88px;
-  cursor: pointer;
-  border: 2px solid transparent;
-  border-radius: var(--radius-default);
-  overflow: hidden;
-  flex-shrink: 0;
-  transition: border-color var(--duration-default);
-  background: var(--default-bg);
-}
-
-/* SVG thumbnail via <img>: inherently resolution-independent. */
-.tab-thumb img {
-  display: block;
-  width: 88px;
-  height: 88px;
-}
-
-/* .tab-thumb:hover  { border-color: #3a3a3a; } */
-/* .tab-thumb.active { border-color: #4aaef0; } */
+/* Dead-rule removal (ui-fix-4b-tab-clip, root cause of the still-clipped
+   close button after ui-fix-4-tab-clip.md): this file used to carry a
+   global, unscoped `.tab-thumb` block from BoardTab's pre-rewrite
+   88x88-thumbnail-card design (an `<img>`-based SVG thumbnail, `.tab-thumb
+   img` sibling rule, commented-out :hover/.active variants below it — none
+   of that markup exists in the current `.tab-thumb` at all; `grep -rn
+   "tab-thumb"` under src/ confirms the class is used ONLY by
+   BoardTab.vue's own scoped template). BoardTab.vue's SCOPED `.tab-thumb`
+   rule overrides width/height/border/background/border-radius (its
+   selector wins on specificity via the [data-v-*] attribute), but it never
+   declared `overflow` — CSS cascades per PROPERTY, not per rule, so this
+   dead global's `overflow: hidden` silently applied anyway. `.close-
+   board-btn`'s deliberate `top:-6px; right:-6px` overshoot (BoardTab.vue)
+   was therefore clipped along `.tab-thumb`'s own rectangular box on BOTH
+   the top and right edges, at every board count and scroll position
+   (unrelated to `.thumb-list`'s scroll-container clip that
+   ui-fix-4-tab-clip.md fixed) — the crescent/arc-shaped clip the
+   maintainer's close_unresolved.png screenshot shows on the ACTIVE,
+   non-scrolled "Board 5" tab is a circular 16px button clipped along two
+   straight rectangular edges, leaving only its lower-left arc visible.
+   Removed outright rather than patched around: nothing here is reachable
+   markup, so it's landmine, not living style. See BoardTab.vue's `.tab-
+   thumb`'s own `overflow: visible` declaration (added alongside this
+   removal) for the defense-in-depth half of the fix. */
 
 .tab-add-btn {
   width: 17px;
@@ -84,12 +108,11 @@ body {
   border-radius: var(--radius-circle);
   background: transparent;
   border: 1px solid var(--border-1);
-  color: var(--text-2);
+  color: var(--text-disabled);
   font-size: var(--text-body);
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
-  transition: border-color var(--duration-default), color var(--duration-default);
 }
 
 /* ── Centre column content area (used by App.vue's #content) ─────── */
@@ -115,14 +138,20 @@ body {
   flex-shrink: 1;     /* Allow the SVG itself to shrink */
 }
 
-/* `#control-panel`'s `overflow: auto` and `justify-content: right`
-   here are NOT redundant with App.vue's scoped `#control-panel`
-   (which sets border, background, flex-shrink, display,
-   flex-direction). Keep until a follow-up consolidates control-
-   panel styling onto a single declaration site. */
+/* REALIZATION WAVE (`.claude/dispatch-reports/lyt-realization-wave.md`,
+   item 3 — the overflow-writer retirement table): the ancestor's own
+   `overflow: auto` is RETIRED here — the control-panel Exclusive node's
+   five tabs each now own their overflow individually (LytNode.vue's own
+   per-leaf `scrollAxes` derivation for library/cards/the Other tab's
+   scroll-owned band; TabWidget.vue's own internal `.tab-body` for the
+   still-collapsed Settings/Analysis mounts, unchanged this wave), so the
+   ancestor no longer needs to scroll itself — closes this rule's own
+   long-standing "keep until a follow-up consolidates control-panel
+   styling" note. `justify-content: right` here is NOT redundant with
+   App.vue's scoped `#control-panel` (which sets border, background,
+   flex-shrink, display, flex-direction) and is unaffected. */
 #control-panel {
   flex: 1;
-  overflow: auto;
   display: flex;
   flex-direction: column;
   justify-content: right;
@@ -143,7 +172,7 @@ body {
   padding: 0 var(--space-medium);
   font-size: var(--text-tiny);
   letter-spacing: var(--tracking-wide);
-  color: var(--text-2);
+  color: var(--text-0);
   text-transform: uppercase;
   flex-shrink: 0;
 }

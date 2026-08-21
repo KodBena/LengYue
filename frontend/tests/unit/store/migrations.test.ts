@@ -50,6 +50,7 @@ import {
   migrations,
   migrate,
   witnessedContainer,
+  FutureSchemaVersionError,
 } from '../../../src/store/migrations';
 import type { Migration } from '../../../src/store/archived-migrations';
 
@@ -205,6 +206,45 @@ describe('migrate() — end to end', () => {
     // at defaults; no saves fire.
     const blob = { schemaVersion: CURRENT_SCHEMA_VERSION + 7 };
     expect(() => migrate(blob)).toThrow(/ahead of this app/);
+  });
+
+  it('throws specifically FutureSchemaVersionError on a future-version blob, not a plain Error', () => {
+    // Work item `next-futureblob-recovery` (ratified program row 1937,
+    // incident row 1942): the future-version leg must be a NAMED,
+    // `instanceof`-narrowable subtype — the boot path
+    // (`SyncService.hydrate`) is required to distinguish this from an
+    // ordinary hydration failure without re-parsing the message
+    // string (ADR-0002's error-message-reparse ban). This is the
+    // WITNESS that the typed distinction actually exists at the
+    // source, independent of the boot-path wiring exercised in
+    // `tests/integration/sync-service-future-version.test.ts`.
+    const blob = { schemaVersion: CURRENT_SCHEMA_VERSION + 2 };
+    let caught: unknown;
+    try {
+      migrate(blob);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(FutureSchemaVersionError);
+    expect(caught).toBeInstanceOf(Error);
+  });
+
+  it('FutureSchemaVersionError carries blobVersion/appVersion as typed fields, not just in the message', () => {
+    // Conceptually "a version-77 fixture blob" against today's
+    // CURRENT_SCHEMA_VERSION (75) — CURRENT_SCHEMA_VERSION + 2, kept
+    // relative so this test stays valid across future schema bumps
+    // rather than pinning the literal 77.
+    const futureVersion = CURRENT_SCHEMA_VERSION + 2;
+    const blob = { schemaVersion: futureVersion };
+    try {
+      migrate(blob);
+      expect.unreachable('migrate() should have thrown on a future-version blob');
+    } catch (err) {
+      expect(err).toBeInstanceOf(FutureSchemaVersionError);
+      const typed = err as FutureSchemaVersionError;
+      expect(typed.blobVersion).toBe(futureVersion);
+      expect(typed.appVersion).toBe(CURRENT_SCHEMA_VERSION);
+    }
   });
 
   it('walks a realistic schema-1 blob, picking up known forward transitions', () => {
@@ -2851,5 +2891,925 @@ describe('60 → 61: backfill engine.katago.calibrationVisits', () => {
     const out = migrate(blob);
     expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     expect(out.profile.settings.engine.katago.calibrationVisits).toBe(1000);
+  });
+});
+
+describe('61 → 62: analysisRange → analysisRanges (branch-stem keying, carry-over)', () => {
+  // Design proposal §1 Candidate C; commissioner adjudication (ledger
+  // rows 112/119). A board with a legacy single-slot `analysisRange`
+  // is converted to a single `analysisRanges` entry keyed by the
+  // branch stem computed from the board's CURRENT active-variation
+  // path (root -> leaf via activeChildIndex) at migration time.
+
+  /** A straight mainline (no fork): root -> a -> b, no node has >1 child. */
+  function boardMainlineOnly(range: [number, number] | undefined): any {
+    return {
+      id: 'board-1',
+      rootNodeId: 'root',
+      currentNodeId: 'b',
+      nodes: {
+        root: { id: 'root', parent: null, children: ['a'], activeChildIndex: 0 },
+        a: { id: 'a', parent: 'root', children: ['b'], activeChildIndex: 0 },
+        b: { id: 'b', parent: 'a', children: [], activeChildIndex: 0 },
+      },
+      ...(range !== undefined ? { analysisRange: range } : {}),
+    };
+  }
+
+  /** root -> fork -> {left, right}; activeChildIndex 1 selects "right". */
+  function boardWithForkOnRight(range: [number, number]): any {
+    return {
+      id: 'board-2',
+      rootNodeId: 'root',
+      currentNodeId: 'right',
+      nodes: {
+        root: { id: 'root', parent: null, children: ['fork'], activeChildIndex: 0 },
+        fork: { id: 'fork', parent: 'root', children: ['left', 'right'], activeChildIndex: 1 },
+        left: { id: 'left', parent: 'fork', children: [], activeChildIndex: 0 },
+        right: { id: 'right', parent: 'fork', children: [], activeChildIndex: 0 },
+      },
+      analysisRange: range,
+    };
+  }
+
+  it('converts a mainline-only board\'s legacy analysisRange into a single analysisRanges entry (empty branch key, no fork ever chosen)', () => {
+    const blob: any = { boards: [boardMainlineOnly([0, 2])] };
+    const out = step(61)(blob);
+    const board = out.boards[0];
+    expect(board.analysisRange).toBeUndefined();
+    expect(board.analysisRanges).toEqual({ '': [0, 2] });
+  });
+
+  it('converts a forked board\'s legacy analysisRange into an entry keyed by the branch stem of its CURRENT active path', () => {
+    const blob: any = { boards: [boardWithForkOnRight([1, 2])] };
+    const out = step(61)(blob);
+    const board = out.boards[0];
+    expect(board.analysisRange).toBeUndefined();
+    expect(board.analysisRanges).toEqual({ 'fork:right': [1, 2] });
+  });
+
+  it('is a no-op when analysisRange is absent', () => {
+    const blob: any = { boards: [boardMainlineOnly(undefined)] };
+    const out = step(61)(blob);
+    expect(out.boards[0].analysisRanges).toBeUndefined();
+  });
+
+  it('is idempotent: a board that already carries analysisRanges is left untouched', () => {
+    const board = boardMainlineOnly([0, 2]);
+    board.analysisRanges = { 'already-migrated': [9, 9] };
+    const blob: any = { boards: [board] };
+    const out = step(61)(blob);
+    expect(out.boards[0].analysisRanges).toEqual({ 'already-migrated': [9, 9] });
+    // The legacy field is left alone too — the migration only acts when
+    // analysisRanges is absent.
+    expect(out.boards[0].analysisRange).toEqual([0, 2]);
+  });
+
+  it('is a no-op when boards is absent or non-array', () => {
+    expect(step(61)({}).boards).toBeUndefined();
+    const blob: any = { boards: 'not-an-array' };
+    expect(step(61)(blob).boards).toBe('not-an-array');
+  });
+
+  it('walks end-to-end: a v61 blob reaches CURRENT with the legacy range carried over under the branch key', () => {
+    const blob: any = {
+      schemaVersion: 61,
+      boards: [boardWithForkOnRight([1, 2])],
+      profile: { settings: { engine: { katago: { url: 'ws://x' } } } },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.boards[0].analysisRanges).toEqual({ 'fork:right': [1, 2] });
+  });
+});
+
+describe('63 → 64: backfill session.ui.deltaViewMode (delta-analysis view cycle, ledger row 418)', () => {
+  function blobWithUi(): any {
+    return { session: { ui: { activeTab: 'cards' } } };
+  }
+
+  it("backfills deltaViewMode = 'shared' when the leaf is absent", () => {
+    const out = step(63)(blobWithUi());
+    expect(out.session.ui.deltaViewMode).toBe('shared');
+  });
+
+  it('preserves a pre-existing valid mode (idempotent)', () => {
+    const blob = blobWithUi();
+    blob.session.ui.deltaViewMode = 'black';
+    expect(step(63)(blob).session.ui.deltaViewMode).toBe('black');
+
+    const blobWhite = blobWithUi();
+    blobWhite.session.ui.deltaViewMode = 'white';
+    expect(step(63)(blobWhite).session.ui.deltaViewMode).toBe('white');
+  });
+
+  it('replaces a malformed deltaViewMode with the default', () => {
+    const blob = blobWithUi();
+    blob.session.ui.deltaViewMode = 'both'; // not a valid mode
+    expect(step(63)(blob).session.ui.deltaViewMode).toBe('shared');
+  });
+
+  it('is a no-op when session.ui is absent (very-legacy / partial blob)', () => {
+    const blob: any = { session: {} };
+    expect(step(63)(blob).session.ui).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v63 blob reaches CURRENT with deltaViewMode backfilled to shared', () => {
+    const blob: any = { schemaVersion: 63, session: { ui: { activeTab: 'cards' } } };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.session.ui.deltaViewMode).toBe('shared');
+  });
+});
+
+describe('65 → 66: resizer-rearch — strip the two pre-rearch split-workspace resizer homes', () => {
+  // Strips the two prior homes (session.ui.boardSquareMaxWidthPx,
+  // session.ui.controlPanelWidth — see the migration body's own
+  // comment in migrations.ts for the full ADR-0019 audit S2 / S9
+  // context). No value is carried forward; the current-model fields
+  // this rearch settled on (treePanelWidthPx,
+  // treeControlRegionWidthPx — nested-splitter amendment, ledger rows
+  // 391/414) are left absent, their documented defaults. Neither ever
+  // shipped under this migration's original name
+  // (`controlPanelWidthPx`, superseded within the same development
+  // arc before release), so there is no name to assert absence of
+  // here beyond the two genuinely-legacy fields. Renumbered 61→62 →
+  // 64→65 on merge into `next` (review §1/§2): `next` independently
+  // claimed 61→62 (analysisRange reshape, above) and shipped 62→63 /
+  // 63→64 of its own after this migration was authored.
+  function blobWithUi(extra: Record<string, unknown> = {}): any {
+    return {
+      session: {
+        ui: {
+          activeTab: 'cards',
+          treeExpanded: true,
+          ...extra,
+        },
+      },
+    };
+  }
+
+  it('deletes boardSquareMaxWidthPx when present', () => {
+    const out = step(65)(blobWithUi({ boardSquareMaxWidthPx: 3490 }));
+    expect('boardSquareMaxWidthPx' in out.session.ui).toBe(false);
+    // No value is carried forward to either current-model field.
+    expect('treePanelWidthPx' in out.session.ui).toBe(false);
+    expect('treeControlRegionWidthPx' in out.session.ui).toBe(false);
+  });
+
+  it('deletes the dead controlPanelWidth zombie field when present', () => {
+    const out = step(65)(blobWithUi({ controlPanelWidth: 340 }));
+    expect('controlPanelWidth' in out.session.ui).toBe(false);
+  });
+
+  it('deletes both prior homes at once, preserving sibling leaves', () => {
+    const out = step(65)(blobWithUi({ boardSquareMaxWidthPx: 2228, controlPanelWidth: 340 }));
+    expect('boardSquareMaxWidthPx' in out.session.ui).toBe(false);
+    expect('controlPanelWidth' in out.session.ui).toBe(false);
+    expect(out.session.ui.activeTab).toBe('cards');
+    expect(out.session.ui.treeExpanded).toBe(true);
+  });
+
+  it('is idempotent — a no-op when neither prior field is present', () => {
+    const out = step(65)(blobWithUi());
+    expect('boardSquareMaxWidthPx' in out.session.ui).toBe(false);
+    expect('controlPanelWidth' in out.session.ui).toBe(false);
+    expect(out.session.ui.activeTab).toBe('cards');
+  });
+
+  it('is a no-op when session.ui is absent (very-legacy / partial blob)', () => {
+    const blob: any = { profile: {} };
+    const out = step(65)(blob);
+    expect(out.session).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v64 blob reaches CURRENT with both prior homes gone', () => {
+    const blob: any = {
+      schemaVersion: 65,
+      session: {
+        ui: { activeTab: 'cards', boardSquareMaxWidthPx: 3490, controlPanelWidth: 340 },
+      },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect('boardSquareMaxWidthPx' in out.session.ui).toBe(false);
+    expect('controlPanelWidth' in out.session.ui).toBe(false);
+  });
+});
+
+describe('66 → 67: backfill session.ui.cardsContextGameSourceOrdinals = []', () => {
+  // Additive backfill (macro-public-id-tokens, ledger row 456): a blob
+  // predating the field gains `[]`; an existing array — including a
+  // non-empty one — is preserved unchanged. Block added at the 67 → 68
+  // merge (review finding 2's class): the body shipped without direct
+  // coverage, the exact silent-no-op class step 5 of the recipe warns
+  // about.
+  function blobWithUi(extra: Record<string, unknown> = {}): any {
+    return { session: { ui: { activeTab: 'cards', ...extra } } };
+  }
+
+  it('backfills [] when the field is missing', () => {
+    const out = step(66)(blobWithUi());
+    expect(out.session.ui.cardsContextGameSourceOrdinals).toEqual([]);
+  });
+
+  it('preserves an existing array unchanged (idempotent)', () => {
+    const out = step(66)(blobWithUi({ cardsContextGameSourceOrdinals: [3, 7] }));
+    expect(out.session.ui.cardsContextGameSourceOrdinals).toEqual([3, 7]);
+  });
+
+  it('replaces a wrong-typed leaf with []', () => {
+    const out = step(66)(blobWithUi({ cardsContextGameSourceOrdinals: 'nope' }));
+    expect(out.session.ui.cardsContextGameSourceOrdinals).toEqual([]);
+  });
+
+  it('is a no-op when session.ui is absent (partial / legacy blob)', () => {
+    const out = step(66)({ profile: {} });
+    expect(out.session).toBeUndefined();
+  });
+});
+
+describe("67 → 68: insert 'interval-summary' at the front of the persisted basic tab", () => {
+  // Interval-summary panel on-by-default (wiki Wanted feature #6) must
+  // also reach users with a persisted analysisTabs array from 54 → 55;
+  // scoped to the tab literally id'd 'basic'. Renumbered 61 → 62 →
+  // 67 → 68 on merge into `next` (which had independently shipped
+  // 62 → 63 through 66 → 67). Cases per review finding 2:
+  // insert / idempotent / no-op / scope.
+  function blobWithTabs(tabs: unknown): any {
+    return { profile: { settings: { analysisTabs: tabs } } };
+  }
+
+  it("inserts 'interval-summary' at the FRONT of the basic tab's panelIds", () => {
+    const out = step(67)(blobWithTabs([{ id: 'basic', panelIds: ['winrate', 'score'] }]));
+    expect(out.profile.settings.analysisTabs[0].panelIds).toEqual([
+      'interval-summary', 'winrate', 'score',
+    ]);
+  });
+
+  it('is idempotent — an already-present id is neither moved nor duplicated', () => {
+    const out = step(67)(blobWithTabs([{ id: 'basic', panelIds: ['winrate', 'interval-summary'] }]));
+    expect(out.profile.settings.analysisTabs[0].panelIds).toEqual([
+      'winrate', 'interval-summary',
+    ]);
+  });
+
+  it('is a no-op when analysisTabs is absent (blob predating 54 → 55)', () => {
+    const out = step(67)({ profile: { settings: {} } });
+    expect(out.profile.settings.analysisTabs).toBeUndefined();
+  });
+
+  it("scope: non-'basic' tabs are untouched, and a renamed/deleted basic tab keeps the user's layout", () => {
+    const out = step(67)(blobWithTabs([
+      { id: 'advanced', panelIds: ['winrate'] },
+      { id: 'my-renamed-tab', panelIds: ['score'] },
+    ]));
+    expect(out.profile.settings.analysisTabs[0].panelIds).toEqual(['winrate']);
+    expect(out.profile.settings.analysisTabs[1].panelIds).toEqual(['score']);
+  });
+
+  it('walks end-to-end: a v67 blob reaches CURRENT with the panel inserted', () => {
+    const blob: any = {
+      schemaVersion: 67,
+      profile: { settings: { analysisTabs: [{ id: 'basic', panelIds: ['winrate'] }] } },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.profile.settings.analysisTabs[0].panelIds).toEqual(['interval-summary', 'winrate']);
+  });
+});
+
+describe('68 → 69: backfill session.ui.moveDeltaAnnotation', () => {
+  // Wiki Wanted #7/#7.1's board-overlay annotation-mode toggle. Written
+  // through the witnessed `session.ui` parent container; default 'off'.
+  function blobWithSessionUi(): any {
+    return {
+      session: { ui: { activeTab: 'cards' } },
+    };
+  }
+
+  it("backfills moveDeltaAnnotation = 'off' when the leaf is absent", () => {
+    const out = step(68)(blobWithSessionUi());
+    expect(out.session.ui.moveDeltaAnnotation).toBe('off');
+  });
+
+  it('preserves a pre-existing valid moveDeltaAnnotation (idempotent / hand-edited)', () => {
+    const blob = blobWithSessionUi();
+    blob.session.ui.moveDeltaAnnotation = 'perPlayer';
+    const out = step(68)(blob);
+    expect(out.session.ui.moveDeltaAnnotation).toBe('perPlayer');
+  });
+
+  it('replaces a non-enum moveDeltaAnnotation with the default', () => {
+    const blob = blobWithSessionUi();
+    blob.session.ui.moveDeltaAnnotation = 'garbage';
+    const out = step(68)(blob);
+    expect(out.session.ui.moveDeltaAnnotation).toBe('off');
+  });
+
+  it('is a no-op when the session.ui container is absent (partial blob)', () => {
+    const blob: any = { session: {} };
+    const out = step(68)(blob);
+    expect(out.session.ui).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v67 blob reaches CURRENT with moveDeltaAnnotation backfilled', () => {
+    const blob: any = {
+      schemaVersion: 67,
+      session: { ui: { activeTab: 'cards' } },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.session.ui.moveDeltaAnnotation).toBe('off');
+  });
+});
+
+describe('69 → 70: backfill profile.settings.onboarding.completed = true (setup-wizard first-run flag)', () => {
+  // A blob reaching this migration necessarily predates the wizard —
+  // backfilling `true` is what keeps an EXISTING user from seeing the
+  // wizard pop up. A genuinely fresh profile never walks this
+  // migration; it seeds `completed: false` directly via `defaults.ts`.
+  function blobWithProfileSettings(): any {
+    return { profile: { settings: { appearance: { theme: 'dark' } } } };
+  }
+
+  it('backfills onboarding.completed = true when the leaf is absent', () => {
+    const out = step(69)(blobWithProfileSettings());
+    expect(out.profile.settings.onboarding).toEqual({ completed: true });
+  });
+
+  it('preserves a pre-existing boolean completed value (idempotent, both directions)', () => {
+    const blobTrue = blobWithProfileSettings();
+    blobTrue.profile.settings.onboarding = { completed: true };
+    expect(step(69)(blobTrue).profile.settings.onboarding.completed).toBe(true);
+
+    const blobFalse = blobWithProfileSettings();
+    blobFalse.profile.settings.onboarding = { completed: false };
+    expect(step(69)(blobFalse).profile.settings.onboarding.completed).toBe(false);
+  });
+
+  it('replaces a non-boolean completed value with the default true', () => {
+    const blob = blobWithProfileSettings();
+    blob.profile.settings.onboarding = { completed: 'nope' };
+    const out = step(69)(blob);
+    expect(out.profile.settings.onboarding.completed).toBe(true);
+  });
+
+  it('is a no-op when the profile.settings container is absent (partial blob)', () => {
+    const blob: any = { profile: {} };
+    const out = step(69)(blob);
+    expect(out.profile.settings).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v69 blob reaches CURRENT with onboarding.completed backfilled', () => {
+    const blob: any = {
+      schemaVersion: 69,
+      profile: { settings: { appearance: { theme: 'dark' } } },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.profile.settings.onboarding.completed).toBe(true);
+  });
+});
+
+describe('70 → 71: median-summary symbol (ledger rows 1204/1213/1229)', () => {
+  // (a) seed-expansion of the `median_summary` symbol, add-if-absent.
+  // (b) conditional repoint of the `quality` palette's `summary_fn`
+  // from `min_summary` to `median_summary`, only when uncustomised.
+  function blobWithAnalysisEnv(overrides: { symbols?: any; palettes?: any } = {}): any {
+    return {
+      profile: {
+        settings: {
+          engine: {
+            katago: {
+              analysis_env: {
+                symbols: overrides.symbols ?? {},
+                palettes: overrides.palettes ?? [],
+              },
+            },
+          },
+        },
+      },
+    };
+  }
+
+  it('backfills median_summary when the symbol is absent', () => {
+    const out = step(70)(blobWithAnalysisEnv());
+    expect(out.profile.settings.engine.katago.analysis_env.symbols.median_summary)
+      .toBe('float(median(x))');
+  });
+
+  it('preserves a pre-existing median_summary symbol (idempotent / hand-edited)', () => {
+    const blob = blobWithAnalysisEnv({ symbols: { median_summary: 'float(np.median(x))' } });
+    const out = step(70)(blob);
+    expect(out.profile.settings.engine.katago.analysis_env.symbols.median_summary)
+      .toBe('float(np.median(x))');
+  });
+
+  // Commissioner clarification (ledger row 1235): his real profiles
+  // each carry a HAND-WRITTEN median symbol he authored himself — add-
+  // if-absent is BY KEY, never by inferred intent, so any pre-existing
+  // `median_summary` key (whatever its body) wins outright. These three
+  // fixtures mirror his actual profiles' shapes.
+
+  it("acceptance fixture 1: existing median_summary with a custom body is preserved verbatim", () => {
+    const blob = blobWithAnalysisEnv({
+      symbols: { median_summary: '_myMedian(x) * 1.0' },
+    });
+    const out = step(70)(blob);
+    expect(out.profile.settings.engine.katago.analysis_env.symbols.median_summary)
+      .toBe('_myMedian(x) * 1.0');
+  });
+
+  it("acceptance fixture 2: a hand-written median under a DIFFERENT key coexists with the new median_summary default", () => {
+    const blob = blobWithAnalysisEnv({
+      symbols: { my_median: 'float(median(x)) + 0.001' },
+    });
+    const out = step(70)(blob);
+    const symbols = out.profile.settings.engine.katago.analysis_env.symbols;
+    // The user's own key is untouched...
+    expect(symbols.my_median).toBe('float(median(x)) + 0.001');
+    // ...and the new default key is added alongside it, not merged or
+    // renamed into it.
+    expect(symbols.median_summary).toBe('float(median(x))');
+  });
+
+  it("acceptance fixture 3: a quality palette already repointed at the user's own median-ish symbol is untouched", () => {
+    const blob = blobWithAnalysisEnv({
+      symbols: { my_median: 'float(median(x)) + 0.001' },
+      palettes: [{ id: 'quality', name: 'Quality', summary_fn: 'my_median' }],
+    });
+    const out = step(70)(blob);
+    const quality = out.profile.settings.engine.katago.analysis_env.palettes
+      .find((p: any) => p.id === 'quality');
+    expect(quality.summary_fn).toBe('my_median');
+  });
+
+  it('leaves a quality palette that is already repointed at median_summary untouched (idempotent)', () => {
+    const blob = blobWithAnalysisEnv({
+      palettes: [{ id: 'quality', name: 'Quality', summary_fn: 'median_summary' }],
+    });
+    const out = step(70)(blob);
+    const quality = out.profile.settings.engine.katago.analysis_env.palettes
+      .find((p: any) => p.id === 'quality');
+    expect(quality.summary_fn).toBe('median_summary');
+  });
+
+  it("repoints the 'quality' palette's summary_fn from min_summary to median_summary", () => {
+    const blob = blobWithAnalysisEnv({
+      palettes: [{ id: 'quality', name: 'Quality', summary_fn: 'min_summary' }],
+    });
+    const out = step(70)(blob);
+    const quality = out.profile.settings.engine.katago.analysis_env.palettes
+      .find((p: any) => p.id === 'quality');
+    expect(quality.summary_fn).toBe('median_summary');
+  });
+
+  it("leaves a customised 'quality' palette summary_fn untouched", () => {
+    const blob = blobWithAnalysisEnv({
+      palettes: [{ id: 'quality', name: 'Quality', summary_fn: 'mean_summary' }],
+    });
+    const out = step(70)(blob);
+    const quality = out.profile.settings.engine.katago.analysis_env.palettes
+      .find((p: any) => p.id === 'quality');
+    expect(quality.summary_fn).toBe('mean_summary');
+  });
+
+  it('does not touch activePaletteId', () => {
+    const blob = blobWithAnalysisEnv({
+      palettes: [{ id: 'quality', name: 'Quality', summary_fn: 'min_summary' }],
+    });
+    blob.profile.settings.engine.katago.analysis_env.activePaletteId = 'quality';
+    const out = step(70)(blob);
+    expect(out.profile.settings.engine.katago.analysis_env.activePaletteId).toBe('quality');
+  });
+
+  it('is a no-op when the analysis_env container is absent (partial blob)', () => {
+    const blob: any = { profile: { settings: {} } };
+    const out = step(70)(blob);
+    expect(out.profile.settings.engine).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v70 blob reaches CURRENT with median_summary backfilled and quality repointed', () => {
+    const blob: any = {
+      schemaVersion: 70,
+      profile: {
+        settings: {
+          engine: {
+            katago: {
+              analysis_env: {
+                symbols: {},
+                palettes: [{ id: 'quality', name: 'Quality', summary_fn: 'min_summary' }],
+              },
+            },
+          },
+        },
+      },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    const ae = out.profile.settings.engine.katago.analysis_env;
+    expect(ae.symbols.median_summary).toBe('float(median(x))');
+    expect(ae.palettes.find((p: any) => p.id === 'quality').summary_fn).toBe('median_summary');
+  });
+});
+
+describe('71 → 72: scoreLead_root_loss symbol + score-palette root-delta rewire (ledger rows 1380/1381/1383/1378)', () => {
+  // (a) seed-expansion of the `scoreLead_root_loss` symbol, add-if-absent.
+  // (b) conditional repoint of the `score` palette's `delta_fn` from
+  //     `scoreLead_loss_topvsuser` to `scoreLead_root_loss`, only when
+  //     uncustomised.
+  function blobWithAnalysisEnv(overrides: { symbols?: any; palettes?: any } = {}): any {
+    return {
+      profile: {
+        settings: {
+          engine: {
+            katago: {
+              analysis_env: {
+                symbols: overrides.symbols ?? {},
+                palettes: overrides.palettes ?? [],
+              },
+            },
+          },
+        },
+      },
+    };
+  }
+
+  const EXPECTED_BODY = 'player_sign(x[0]) * (x[1]["rootInfo"]["scoreLead"] - x[0]["rootInfo"]["scoreLead"])';
+
+  it('backfills scoreLead_root_loss when the symbol is absent', () => {
+    const out = step(71)(blobWithAnalysisEnv());
+    expect(out.profile.settings.engine.katago.analysis_env.symbols.scoreLead_root_loss)
+      .toBe(EXPECTED_BODY);
+  });
+
+  it('preserves a pre-existing scoreLead_root_loss symbol (idempotent / hand-edited)', () => {
+    const blob = blobWithAnalysisEnv({ symbols: { scoreLead_root_loss: 'my_custom_body(x)' } });
+    const out = step(71)(blob);
+    expect(out.profile.settings.engine.katago.analysis_env.symbols.scoreLead_root_loss)
+      .toBe('my_custom_body(x)');
+  });
+
+  it('adding the symbol coexists with, and does not disturb, an unrelated hand-written symbol under a different key', () => {
+    const blob = blobWithAnalysisEnv({
+      symbols: { my_root_loss: 'player_sign(x[0]) * (x[1]["rootInfo"]["scoreLead"] - x[0]["rootInfo"]["scoreLead"]) + 0.001' },
+    });
+    const out = step(71)(blob);
+    const symbols = out.profile.settings.engine.katago.analysis_env.symbols;
+    expect(symbols.my_root_loss).toBe('player_sign(x[0]) * (x[1]["rootInfo"]["scoreLead"] - x[0]["rootInfo"]["scoreLead"]) + 0.001');
+    expect(symbols.scoreLead_root_loss).toBe(EXPECTED_BODY);
+  });
+
+  it("repoints the 'score' palette's delta_fn from scoreLead_loss_topvsuser to scoreLead_root_loss", () => {
+    const blob = blobWithAnalysisEnv({
+      palettes: [{ id: 'score', name: 'Score Loss', delta_fn: 'scoreLead_loss_topvsuser', delta_ordering: 'higher_is_worse' }],
+    });
+    const out = step(71)(blob);
+    const score = out.profile.settings.engine.katago.analysis_env.palettes
+      .find((p: any) => p.id === 'score');
+    expect(score.delta_fn).toBe('scoreLead_root_loss');
+  });
+
+  it("leaves a 'score' palette that is already repointed at scoreLead_root_loss untouched (idempotent)", () => {
+    const blob = blobWithAnalysisEnv({
+      palettes: [{ id: 'score', name: 'Score Loss', delta_fn: 'scoreLead_root_loss' }],
+    });
+    const out = step(71)(blob);
+    const score = out.profile.settings.engine.katago.analysis_env.palettes
+      .find((p: any) => p.id === 'score');
+    expect(score.delta_fn).toBe('scoreLead_root_loss');
+  });
+
+  it("leaves a customised 'score' palette delta_fn untouched (PaletteEditor hand-edit)", () => {
+    const blob = blobWithAnalysisEnv({
+      palettes: [{ id: 'score', name: 'Score Loss', delta_fn: 'my_own_score_fn' }],
+    });
+    const out = step(71)(blob);
+    const score = out.profile.settings.engine.katago.analysis_env.palettes
+      .find((p: any) => p.id === 'score');
+    expect(score.delta_fn).toBe('my_own_score_fn');
+  });
+
+  it('does not touch delta_ordering', () => {
+    const blob = blobWithAnalysisEnv({
+      palettes: [{ id: 'score', name: 'Score Loss', delta_fn: 'scoreLead_loss_topvsuser', delta_ordering: 'higher_is_worse' }],
+    });
+    const out = step(71)(blob);
+    const score = out.profile.settings.engine.katago.analysis_env.palettes
+      .find((p: any) => p.id === 'score');
+    expect(score.delta_ordering).toBe('higher_is_worse');
+  });
+
+  it('is a no-op when the analysis_env container is absent (partial blob)', () => {
+    const blob: any = { profile: { settings: {} } };
+    const out = step(71)(blob);
+    expect(out.profile.settings.engine).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v71 blob reaches CURRENT with scoreLead_root_loss backfilled and score repointed', () => {
+    const blob: any = {
+      schemaVersion: 71,
+      profile: {
+        settings: {
+          engine: {
+            katago: {
+              analysis_env: {
+                symbols: {},
+                palettes: [{ id: 'score', name: 'Score Loss', delta_fn: 'scoreLead_loss_topvsuser', delta_ordering: 'higher_is_worse' }],
+              },
+            },
+          },
+        },
+      },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    const ae = out.profile.settings.engine.katago.analysis_env;
+    expect(ae.symbols.scoreLead_root_loss).toBe(EXPECTED_BODY);
+    expect(ae.palettes.find((p: any) => p.id === 'score').delta_fn).toBe('scoreLead_root_loss');
+  });
+});
+
+describe('73 → 74: strip the dead PV-fade knob (wiki2-pv-fade-knob)', () => {
+  function blobWithKnobsAndPv(overrides: { knobs?: any; pvAnimation?: any } = {}): any {
+    return {
+      profile: {
+        settings: {
+          knobs: overrides.knobs ?? {},
+        },
+      },
+      session: {
+        ui: {
+          pvAnimation: overrides.pvAnimation ?? {},
+        },
+      },
+    };
+  }
+
+  it('deletes the registered display.pv-fade-ms knob decl', () => {
+    const blob = blobWithKnobsAndPv({
+      knobs: {
+        'display.pv-fade-ms': {
+          id: 'display.pv-fade-ms',
+          label: 'PV preview fade (ms)',
+          domain: 'display',
+          inputs: [{ range: [0, 500] }],
+          outputs: [{ path: 'session.ui.pvAnimation.fadeDurationMs' }],
+          priority: 47,
+        },
+        'display.move-filter-threshold': { id: 'display.move-filter-threshold' },
+      },
+    });
+    const out = step(73)(blob);
+    expect(out.profile.settings.knobs['display.pv-fade-ms']).toBeUndefined();
+    // A sibling decl is untouched — the strip is by-key, not a wipe.
+    expect(out.profile.settings.knobs['display.move-filter-threshold']).toEqual({ id: 'display.move-filter-threshold' });
+  });
+
+  it('deletes the persisted session.ui.pvAnimation.fadeDurationMs leaf', () => {
+    const blob = blobWithKnobsAndPv({
+      pvAnimation: { mode: 'window', stepDelayMs: 350, windowDurationMs: 600, fadeDurationMs: 250, cycle: false, pvOpacity: 1, annotation: 'from1' },
+    });
+    const out = step(73)(blob);
+    expect(out.session.ui.pvAnimation.fadeDurationMs).toBeUndefined();
+    // Sibling pvAnimation fields survive the strip untouched.
+    expect(out.session.ui.pvAnimation.mode).toBe('window');
+    expect(out.session.ui.pvAnimation.windowDurationMs).toBe(600);
+  });
+
+  it('is idempotent — a blob that never had either key passes through unchanged', () => {
+    const blob = blobWithKnobsAndPv();
+    const out = step(73)(blob);
+    expect(out.profile.settings.knobs['display.pv-fade-ms']).toBeUndefined();
+    expect(out.session.ui.pvAnimation.fadeDurationMs).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v73 blob reaches CURRENT with both dead keys stripped', () => {
+    const blob: any = {
+      schemaVersion: 73,
+      profile: {
+        settings: {
+          knobs: {
+            'display.pv-fade-ms': { id: 'display.pv-fade-ms', outputs: [{ path: 'session.ui.pvAnimation.fadeDurationMs' }] },
+          },
+        },
+      },
+      session: {
+        ui: {
+          pvAnimation: { mode: 'instant', fadeDurationMs: 0 },
+        },
+      },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.profile.settings.knobs['display.pv-fade-ms']).toBeUndefined();
+    expect(out.session.ui.pvAnimation.fadeDurationMs).toBeUndefined();
+  });
+});
+
+describe('74 → 75: backfill session.ui.showGhostStone (wiki2-ghost-stone)', () => {
+  // The new ghost-stone hover-preview toggle. Written through the
+  // witnessed `session.ui` parent container; default true.
+  function blobWithSessionUi(): any {
+    return {
+      session: { ui: { activeTab: 'cards' } },
+    };
+  }
+
+  it('backfills showGhostStone = true when the leaf is absent', () => {
+    const out = step(74)(blobWithSessionUi());
+    expect(out.session.ui.showGhostStone).toBe(true);
+  });
+
+  it('preserves a pre-existing boolean showGhostStone (idempotent / hand-edited)', () => {
+    const blob = blobWithSessionUi();
+    blob.session.ui.showGhostStone = false;
+    const out = step(74)(blob);
+    expect(out.session.ui.showGhostStone).toBe(false);
+  });
+
+  it('replaces a non-boolean showGhostStone with the default', () => {
+    const blob = blobWithSessionUi();
+    blob.session.ui.showGhostStone = 'yes';
+    const out = step(74)(blob);
+    expect(out.session.ui.showGhostStone).toBe(true);
+  });
+
+  it('is a no-op when the session.ui container is absent (partial blob)', () => {
+    const blob: any = { session: {} };
+    const out = step(74)(blob);
+    expect(out.session.ui).toBeUndefined();
+  });
+
+  it('is a no-op when session is absent (very-legacy blob)', () => {
+    const blob: any = { profile: {} };
+    const out = step(74)(blob);
+    expect(out.session).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v74 blob reaches CURRENT with showGhostStone backfilled', () => {
+    const blob: any = {
+      schemaVersion: 74,
+      session: { ui: { activeTab: 'cards' } },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.session.ui.showGhostStone).toBe(true);
+  });
+});
+
+describe('75 → 76: LYT corner presence-menu state migration (lyt-w2-presence)', () => {
+  // sidebarExpanded -> lytPresence.boardRail, controlsExpanded ->
+  // lytPresence.controlPanel, boardExpanded retires with no successor,
+  // lytPresence.previewBoard + railStyle are fresh backfills. See
+  // migrations.ts's own comment for the full mapping table and why
+  // treeExpanded/systemLogExpanded are untouched.
+  function legacyBlobWithUi(extra: Record<string, unknown> = {}): any {
+    return {
+      session: {
+        ui: {
+          activeTab: 'cards',
+          sidebarExpanded: true,
+          treeExpanded: true,
+          controlsExpanded: true,
+          boardExpanded: true,
+          systemLogExpanded: false,
+          ...extra,
+        },
+      },
+    };
+  }
+
+  it('carries sidebarExpanded forward into lytPresence.boardRail', () => {
+    const out = step(75)(legacyBlobWithUi({ sidebarExpanded: true }));
+    expect(out.session.ui.lytPresence.boardRail).toBe(true);
+    const out2 = step(75)(legacyBlobWithUi({ sidebarExpanded: false }));
+    expect(out2.session.ui.lytPresence.boardRail).toBe(false);
+  });
+
+  it('carries controlsExpanded forward into lytPresence.controlPanel', () => {
+    const out = step(75)(legacyBlobWithUi({ controlsExpanded: false }));
+    expect(out.session.ui.lytPresence.controlPanel).toBe(false);
+  });
+
+  it('backfills lytPresence.boardRail=false / controlPanel=true (LYT registration defaults) when the legacy fields are absent or non-boolean', () => {
+    const blob: any = { session: { ui: { activeTab: 'cards' } } };
+    const out = step(75)(blob);
+    expect(out.session.ui.lytPresence.boardRail).toBe(false);
+    expect(out.session.ui.lytPresence.controlPanel).toBe(true);
+  });
+
+  it('backfills lytPresence.previewBoard=false (no legacy predecessor) and railStyle=\'slot\'', () => {
+    const out = step(75)(legacyBlobWithUi());
+    expect(out.session.ui.lytPresence.previewBoard).toBe(false);
+    expect(out.session.ui.railStyle).toBe('slot');
+  });
+
+  it('deletes sidebarExpanded / controlsExpanded / boardExpanded', () => {
+    const out = step(75)(legacyBlobWithUi());
+    expect('sidebarExpanded' in out.session.ui).toBe(false);
+    expect('controlsExpanded' in out.session.ui).toBe(false);
+    expect('boardExpanded' in out.session.ui).toBe(false);
+  });
+
+  it('leaves treeExpanded and systemLogExpanded untouched', () => {
+    const out = step(75)(legacyBlobWithUi({ treeExpanded: false, systemLogExpanded: true }));
+    expect(out.session.ui.treeExpanded).toBe(false);
+    expect(out.session.ui.systemLogExpanded).toBe(true);
+  });
+
+  it('is idempotent — re-running against an already-migrated blob leaves lytPresence/railStyle unchanged', () => {
+    const once = step(75)(legacyBlobWithUi());
+    const twice = step(75)(once);
+    expect(twice.session.ui.lytPresence).toEqual(once.session.ui.lytPresence);
+    expect(twice.session.ui.railStyle).toBe(once.session.ui.railStyle);
+  });
+
+  it('preserves a pre-existing lytPresence entry rather than clobbering it with the legacy-field carry-forward', () => {
+    const blob = legacyBlobWithUi({ sidebarExpanded: true });
+    blob.session.ui.lytPresence = { boardRail: false };
+    const out = step(75)(blob);
+    // The explicit lytPresence.boardRail (false) wins over the legacy
+    // sidebarExpanded carry-forward (true) — a blob that already has the
+    // new shape is never re-derived from the old one.
+    expect(out.session.ui.lytPresence.boardRail).toBe(false);
+  });
+
+  it('is a no-op when session.ui is absent (very-legacy / partial blob)', () => {
+    const blob: any = { session: {} };
+    expect(step(75)(blob).session.ui).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v75 blob reaches CURRENT with the presence map + railStyle backfilled', () => {
+    const blob: any = {
+      schemaVersion: 75,
+      session: { ui: { activeTab: 'cards', sidebarExpanded: false, controlsExpanded: true } },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    // controlsExpanded: true carries forward into 75 → 76's own
+    // `lytPresence.controlPanel: true` — but the FULL walk also runs
+    // 76 → 77 (this blob starts below it), which deletes an
+    // (indistinguishable-from-fabricated) `controlPanel: true` — see
+    // that migration's own doc comment in migrations.ts and the
+    // dedicated '76 → 77' describe block below for the full account.
+    // The end-to-end-reachable shape is therefore the ABSENT key, not
+    // a literal `true`.
+    expect(out.session.ui.lytPresence).toEqual({ boardRail: false, previewBoard: false });
+    expect(out.session.ui.railStyle).toBe('slot');
+    expect('sidebarExpanded' in out.session.ui).toBe(false);
+  });
+});
+
+describe('76 → 77: controlPanel-fabrication compensation (lyt-p2b-presence-realization)', () => {
+  // See migrations.ts's own doc comment on this step for the full
+  // diagnosis — 75 → 76 wrote a literal `controlPanel: true` for every
+  // blob whose legacy `controlsExpanded` was absent/non-boolean,
+  // indistinguishable from here on from a genuine user choice. This step
+  // deletes the key when (and only when) it is exactly `true`, restoring
+  // the "never chose" absent-key state so the widget's own class-aware
+  // compiled default (P2a) can be reached again; `false` (an unambiguous
+  // real signal — no migration or default path ever fabricates `false`)
+  // is left completely untouched.
+
+  it('deletes lytPresence.controlPanel when it is true', () => {
+    const blob: any = { session: { ui: { lytPresence: { boardRail: false, controlPanel: true, previewBoard: false } } } };
+    const out = step(76)(blob);
+    expect('controlPanel' in out.session.ui.lytPresence).toBe(false);
+    // Siblings are untouched.
+    expect(out.session.ui.lytPresence.boardRail).toBe(false);
+    expect(out.session.ui.lytPresence.previewBoard).toBe(false);
+  });
+
+  it('leaves lytPresence.controlPanel untouched when it is false (an unambiguous real signal)', () => {
+    const blob: any = { session: { ui: { lytPresence: { controlPanel: false } } } };
+    const out = step(76)(blob);
+    expect(out.session.ui.lytPresence.controlPanel).toBe(false);
+  });
+
+  it('leaves lytPresence untouched when controlPanel is already absent', () => {
+    const blob: any = { session: { ui: { lytPresence: { boardRail: true } } } };
+    const out = step(76)(blob);
+    expect(out.session.ui.lytPresence).toEqual({ boardRail: true });
+  });
+
+  it('is a no-op when lytPresence itself is absent (very-legacy / partial blob)', () => {
+    const blob: any = { session: { ui: { activeTab: 'cards' } } };
+    const out = step(76)(blob);
+    expect(out.session.ui.lytPresence).toBeUndefined();
+  });
+
+  it('is a no-op when session.ui is absent', () => {
+    const blob: any = { session: {} };
+    const out = step(76)(blob);
+    expect(out.session.ui).toBeUndefined();
+  });
+
+  it('is idempotent — re-running against an already-compensated blob leaves it unchanged', () => {
+    const blob: any = { session: { ui: { lytPresence: { controlPanel: true } } } };
+    const once = step(76)(blob);
+    const twice = step(76)(once);
+    expect(twice.session.ui.lytPresence).toEqual(once.session.ui.lytPresence);
   });
 });

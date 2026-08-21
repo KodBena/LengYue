@@ -130,7 +130,7 @@ const samples = computed(() => {
   justify-content: space-between;
   align-items: center;
   font-size: var(--text-tiny);
-  color: var(--text-2);
+  color: var(--text-0);
   font-family: monospace;
   padding-top: var(--space-tight);
   border-top: 1px solid var(--surface-2);

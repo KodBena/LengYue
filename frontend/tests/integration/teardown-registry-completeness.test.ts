@@ -53,9 +53,14 @@ describe('teardown registry — production completeness (the real load-guarantee
       'analysis-ledger:purge',
       'stability-trajectory:purge',
       'analysis-persistence:discard',
+      'analysis-service:mid-tree-setup-warning',
       'review:abort',
+      'review:visit-snapshots',
       'thumbnails:purge-board',
       'board-card-trees:remove',
+      'nav:clear-toggle-memory',
+      'node-position-hashes:purge-board',
+      'node-position-hash-fill:cancel-pending',
     ]);
   });
 
@@ -70,10 +75,16 @@ describe('teardown registry — production completeness (the real load-guarantee
       'analysis-ledger',
       'stability-trajectories',
       'analysis-bundle-summaries',
+      'analysis-service:mid-tree-setup-warnings-all',
+      'known-positions:purge',
       'review:abort-all',
+      'review:visit-snapshots-clear-all',
       'board-thumbnails',
       'card-thumbnails',
       'board-card-trees',
+      'nav:clear-toggle-memory-all',
+      'node-position-hashes',
+      'setup-tools:close-palette',
     ]);
   });
 

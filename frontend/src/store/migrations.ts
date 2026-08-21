@@ -66,19 +66,37 @@
  * Migration failures throw rather than silently coerce. Two
  * specific failure modes:
  *
- *   - Future-version blob (rolled-back code, or schema bump that
- *     hasn't propagated): throws. Calling code (typically
- *     SyncService.hydrate via store.updateFromRemote) catches
- *     and surfaces a user-visible error message; the blob is not
- *     applied; the workspace stays at defaults; no saves fire.
- *     The user knows their workspace did not load and the
- *     too-new data on the backend is preserved unchanged.
+ *   - Future-version blob (rolled-back code, a schema bump that
+ *     hasn't propagated, or — the recurring case in practice —
+ *     two branches sharing one backend where the OTHER branch's
+ *     app already forward-migrated the shared document): throws
+ *     `FutureSchemaVersionError`, a NAMED subtype of `Error`
+ *     carrying `blobVersion` / `appVersion` as typed fields (not
+ *     embedded only in the message string — ADR-0002's
+ *     error-message-reparse ban applies to callers just as much
+ *     as to the walker itself). This is a distinct, expected,
+ *     typed boot outcome, not an undifferentiated throw: calling
+ *     code (`SyncService.hydrate` via `updateFromRemote`)
+ *     `instanceof`-narrows on it and enters a typed recovery mode
+ *     (`WorkspaceLoadState.kind === 'future-version'`,
+ *     `src/types/app.ts`) rather than the generic
+ *     `{ kind: 'error' }` leg. See that type's doc comment for the
+ *     recovery-mode contract; see `sync-service.ts`'s `hydrate()`
+ *     for the catch site. The blob is not applied; the workspace
+ *     stays at defaults; no saves fire until the user resolves the
+ *     recovery prompt (continue on suppressed-persistence defaults,
+ *     or explicitly reset the server workspace).
  *
- *   - Missing migration for a required step: throws. This
- *     shouldn't happen given the append-only discipline above;
- *     the throw is a defensive check for the case where someone
- *     bumps CURRENT_SCHEMA_VERSION without registering the
- *     migration.
+ *   - Missing migration for a required step: throws a plain
+ *     `Error`. This shouldn't happen given the append-only
+ *     discipline above; the throw is a defensive check for the
+ *     case where someone bumps CURRENT_SCHEMA_VERSION without
+ *     registering the migration. Deliberately NOT typed as
+ *     `FutureSchemaVersionError` — it is a programming-error
+ *     assertion (a broken append-only invariant), not the
+ *     ordinary cross-branch skew `FutureSchemaVersionError` names;
+ *     conflating the two would route a real bug into the
+ *     recovery-mode UI as if it were an expected condition.
  *
  * ── Dev-only hazard: HMR + version bump ───────────────────────────
  * In `npm run dev`, Vite hot-reloads modules in-process without
@@ -123,18 +141,53 @@ export { witnessedContainer };
 if (import.meta.hot) import.meta.hot.accept(() => location.reload());
 
 /**
+ * Typed failure for the future-version leg of `migrate()`'s failure
+ * contract (see the file header). `blobVersion` / `appVersion` are
+ * declared as explicit instance fields, not parameter-property
+ * shorthand — the project's tsconfig has `erasableSyntaxOnly`
+ * enabled, which forbids parameter properties (they emit runtime
+ * code, not pure type-level syntax); same shape as
+ * `AnalysisWaitError` (`composables/analysis/wait-for-analysis.ts`).
+ *
+ * Why a named class rather than a generic `Error` the caller
+ * string-matches: ADR-0002's error-message-reparse ban (RCA guard
+ * G1) forbids recovering structured facts by parsing a message
+ * string. `blobVersion` / `appVersion` are the two facts the
+ * recovery-mode UI needs (`WorkspaceLoadState`'s `future-version`
+ * leg, `src/types/app.ts`); carrying them as typed fields means the
+ * catch site narrows with `instanceof` and reads them directly, with
+ * no string parsing and no possibility of the UI silently falling
+ * through to the generic `{ kind: 'error' }` leg because a message
+ * format drifted.
+ */
+export class FutureSchemaVersionError extends Error {
+  readonly blobVersion: number;
+  readonly appVersion: number;
+
+  constructor(blobVersion: number, appVersion: number) {
+    super(
+      `Persisted blob is at schemaVersion ${blobVersion}, ahead of this app's ` +
+      `${appVersion}. App code may be older than the data.`,
+    );
+    this.name = 'FutureSchemaVersionError';
+    this.blobVersion = blobVersion;
+    this.appVersion = appVersion;
+  }
+}
+
+/**
  * The current schema version. Bump only when the GlobalStore
  * persistence shape changes in a way that prior blobs need
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 61;
+export const CURRENT_SCHEMA_VERSION = 77;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 58 → 59) are
+ * The first `N` entries (currently 1 → 2 through 74 → 75) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -156,87 +209,149 @@ export const CURRENT_SCHEMA_VERSION = 61;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 59 → 60: re-apply the two backfills the archived 45 → 46 and
-  // 46 → 47 bodies were meant to perform but silently no-oped on. Both
-  // walked `out.settings?.…` instead of `out.profile?.settings?.…` —
-  // the exact 47 → 48 wrong-path class, but never themselves corrected
-  // — so `adaptiveReevaluate.valueBinding` (string, default '') and
-  // `appearance.moveSuggestionsFadeMs` (number, default 60) were never
-  // written onto persisted blobs. The defect was masked at runtime by
-  // `updateFromRemote`'s deepMerge against defaults (which is why no
-  // user-visible symptom surfaced); the composition test
-  // (`tests/integration/migration-store-roundtrip.test.ts`) surfaced
-  // both as `[silent-no-op]` defaults-only keys on 2026-06-10. Found by
-  // PR #370 (item `migration-leaf-assertion-and-composition-test`);
-  // corrective item `archived-migration-wrong-path-corrective`.
+  // 75 → 76: LYT corner presence-menu state migration (W2,
+  // `.claude/dispatch-reports/lyt-vue-realization-roadmap.md` §5 +
+  // ledger row 1743). Introduces `session.ui.lytPresence` (per-widget-id
+  // boolean map) and `session.ui.railStyle` ('slot' | 'popover'),
+  // superseding three of the five pre-LYT-rework `*Expanded` toggles:
   //
-  // Archived bodies are frozen (append-only invariant), so the fix is a
-  // NEW migration with the CORRECT paths via `witnessedContainer` — a
-  // typo here fails loudly at the runtime-shape witness instead of
-  // no-oping and stamping the version. Both containers are witnessed
-  // (`profile.settings.engine.katago.adaptiveReevaluate` exists from the
-  // 29 → 30 seed; `profile.settings.appearance` is present from v1), and
-  // the blob-side resolution keeps the prior bodies' inline
-  // non-null-object tolerance: a partial / legacy blob whose container is
-  // absent no-ops exactly as the broken bodies intended.
+  //   - `sidebarExpanded`  -> `lytPresence.boardRail`   (value carried
+  //     forward when boolean; the boardRail LYT leaf's own registration
+  //     default, `false`, otherwise — see schema.ts's own doc comment).
+  //   - `controlsExpanded` -> `lytPresence.controlPanel` (same carry-
+  //     forward rule; registration default `true`).
+  //   - `boardExpanded` retires outright, no successor — the board
+  //     composite is architecturally always-mounted (roadmap §5); no
+  //     value is carried forward anywhere, matching the 65 → 66 archived
+  //     body's own "strip with no successor" precedent for a dead field.
+  //   - `lytPresence.previewBoard` is a genuinely NEW target (no
+  //     pre-LYT-rework predecessor) — backfilled straight to its own
+  //     registration default, `false`.
+  //   - `railStyle` is likewise new — backfilled to `'slot'` (roadmap §7
+  //     ruling 2's own default; the user flips it explicitly).
   //
-  // Idempotent: a pre-existing string `valueBinding` / numeric
-  // `moveSuggestionsFadeMs` is preserved unchanged (a hand-edited or
-  // forward-compat blob keeps its value); only a missing / wrong-typed
-  // leaf is backfilled to the default. The two new display-domain
-  // animation KnobDecls the 46 → 47 body deliberately declined to inject
-  // are NOT re-applied here — that body's choice to defer to the
-  // defaults-side seed for fresh profiles is correct and remains the
-  // `[no-backfill]` posture pinned in the composition test.
+  // `sidebarExpanded` / `controlsExpanded` / `boardExpanded` are then
+  // deleted — the runtime `UISession` type (schema.ts) no longer
+  // describes them, so leaving any of the three in a migrated blob
+  // would be a stray key.
+  //
+  // DELIBERATELY NOT migrated: `treeExpanded` (untouched, still a real
+  // schema field — see schema.ts's own doc comment on why: blind-
+  // review-mode's unrelated, load-bearing reuse of that field name,
+  // outside W2's scope to touch) and `systemLogExpanded` (W4's overlay-
+  // stratum ruling owns that field's eventual home, per the roadmap's
+  // own commission text — untouched here).
+  //
+  // Container access goes through `witnessedContainer` (step 3 of the
+  // add-a-migration recipe): `session.ui` is witnessed against the
+  // runtime shape, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version. The blob-side resolution keeps
+  // the sibling bodies' non-null-object tolerance: a partial / legacy
+  // blob whose container is absent no-ops (both new fields stay
+  // unset — `updateFromRemote`'s deepMerge against `defaultSessionUI`
+  // supplies them on the next hydrate, same fallback every other
+  // additive field in this file relies on).
+  //
+  // Idempotent: re-running against an already-migrated blob (no
+  // `sidebarExpanded`/`controlsExpanded`/`boardExpanded` keys present,
+  // `lytPresence`/`railStyle` already set) leaves both new fields
+  // untouched — the boolean/string-typed guards below only backfill a
+  // MISSING or wrong-typed leaf, never overwrite a valid one.
   (blob: any) => {
     const out = structuredClone(blob);
-    const adaptive = witnessedContainer(
-      out,
-      'profile.settings.engine.katago.adaptiveReevaluate',
-    );
-    if (adaptive) {
-      const a = adaptive as { valueBinding?: unknown };
-      if (typeof a.valueBinding !== 'string') {
-        a.valueBinding = '';
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as {
+        sidebarExpanded?: unknown;
+        controlsExpanded?: unknown;
+        boardExpanded?: unknown;
+        lytPresence?: unknown;
+        railStyle?: unknown;
+      };
+      const presence: Record<string, boolean> =
+        typeof u.lytPresence === 'object' && u.lytPresence !== null
+          ? { ...(u.lytPresence as Record<string, unknown>) } as Record<string, boolean>
+          : {};
+      if (typeof presence.boardRail !== 'boolean') {
+        presence.boardRail = typeof u.sidebarExpanded === 'boolean' ? u.sidebarExpanded : false;
       }
-    }
-    const appearance = witnessedContainer(out, 'profile.settings.appearance');
-    if (appearance) {
-      const ap = appearance as { moveSuggestionsFadeMs?: unknown };
-      if (typeof ap.moveSuggestionsFadeMs !== 'number') {
-        ap.moveSuggestionsFadeMs = 60;
+      if (typeof presence.controlPanel !== 'boolean') {
+        presence.controlPanel = typeof u.controlsExpanded === 'boolean' ? u.controlsExpanded : true;
       }
+      if (typeof presence.previewBoard !== 'boolean') {
+        presence.previewBoard = false;
+      }
+      u.lytPresence = presence;
+      if (u.railStyle !== 'slot' && u.railStyle !== 'popover') {
+        u.railStyle = 'slot';
+      }
+      delete u.sidebarExpanded;
+      delete u.controlsExpanded;
+      delete u.boardExpanded;
     }
     return out;
   },
-  // 60 → 61: backfill `profile.settings.engine.katago.calibrationVisits`
-  // (number, default 1000) — the new default visit budget for the opt-in
-  // mint-time komi-calibration feature. The leaf is read by
-  // `MintCardModal` (prefills the per-mint visits input when the
-  // "calibrate komi" checkbox is shown) and seeded in `defaults.ts`; a
-  // persisted blob predating this field would otherwise carry no value
-  // and rely on `updateFromRemote`'s deepMerge to surface the default.
-  // Backfilling explicitly keeps the persisted shape honest (the
-  // composition test pins it) rather than leaning on the merge.
+  // 76 → 77: compensating fix for a bug the 75 → 76 body above shipped
+  // with (LYT presence arc P2b, `.claude/dispatch-reports/lyt-p2b-
+  // presence-realization.md` — "the schema decision, and why"). Per this
+  // file's own header ("bugs in a shipped migration are addressed by
+  // adding a NEW migration later that compensates"), NOT by editing the
+  // frozen 75 → 76 body above.
   //
-  // Container witnessed against the runtime shape (`witnessedContainer`,
-  // per step 3 of the add-a-migration recipe): the
-  // `profile.settings.engine.katago` container exists from the original
-  // settings seed, so a typo'd path fails loudly here rather than
-  // no-oping and stamping the version. The blob-side resolution keeps the
-  // sibling bodies' non-null-object tolerance: a partial / legacy blob
-  // whose container is absent no-ops.
+  // THE BUG: 75 → 76's own `presence.controlPanel = typeof
+  // u.controlsExpanded === 'boolean' ? u.controlsExpanded : true` wrote a
+  // LITERAL `true` for every blob whose legacy `controlsExpanded` was
+  // absent/non-boolean — indistinguishable, from that point forward, from
+  // a genuine user choice (`session.ui.lytPresence`'s own schema.ts doc:
+  // "a key's ABSENCE is not a distinct state... every reader falls back
+  // to that widget's own default" — but `controlPanel` was never left
+  // absent post-76, so that fallback path was dead for every migrated
+  // blob). This only mattered once the control panel's own compiled
+  // default became SCREEN-CLASS-DEPENDENT (P2a: portrait's own
+  // `presenceDefaultVisible` flipped to `false` — the whole reason
+  // repetition-first portrait needs the panel absent by default) — every
+  // already-migrated blob's explicit `true` permanently shadows that
+  // class-aware default, on EVERY screen class, regardless of the user
+  // ever having expressed a preference.
   //
-  // Idempotent: a pre-existing numeric `calibrationVisits` is preserved
-  // unchanged (a hand-edited or forward-compat blob keeps its value);
-  // only a missing / wrong-typed leaf is backfilled to the default.
+  // THE COMPENSATION, disclosed and bounded (per this arc's own "the
+  // migration must not fabricate a user-chose state from an old
+  // default" instruction): `presence.controlPanel === false` is an
+  // UNAMBIGUOUS real signal — no migration or default path ever writes
+  // `false` here except a genuine legacy `controlsExpanded === false`
+  // (itself carried forward from a real pre-LYT-rework toggle) or an
+  // explicit post-76 presence-menu uncheck — so a `false` value is left
+  // completely untouched, sovereign as always. `presence.controlPanel
+  // === true`, by contrast, is IRRECOVERABLY AMBIGUOUS (see "THE BUG"
+  // above — it is written identically whether the user actively wanted
+  // it or never touched the setting at all); this migration cannot
+  // recover which case a given blob is, so it does not try — it DELETES
+  // the key when true, restoring the "never chose" absent-key state, and
+  // accepts the small, disclosed cost that a genuine minority who had
+  // explicitly re-toggled the panel back ON now needs one more toggle in
+  // portrait to get it in-grid again (a mild regression for that
+  // minority, in exchange for the class-aware default reaching the
+  // overwhelming common case — the many users who never touched this
+  // control at all). `A_setup` needs no parallel treatment: it was never
+  // seeded by ANY migration or `defaults.ts` version (its own always-on
+  // App.vue-level force-override — M2 stage boot-restoration, `.claude/
+  // dispatch-reports/lyt-boot-restoration.md` — lived entirely OUTSIDE
+  // `session.ui.lytPresence`), so no persisted blob anywhere carries a
+  // fabricated `A_setup` key to compensate for.
+  //
+  // Idempotent: re-running finds no `true` to delete (either already
+  // deleted, or a real `false` untouched either way) and no-ops on a
+  // second pass.
   (blob: any) => {
     const out = structuredClone(blob);
-    const katago = witnessedContainer(out, 'profile.settings.engine.katago');
-    if (katago) {
-      const k = katago as { calibrationVisits?: unknown };
-      if (typeof k.calibrationVisits !== 'number') {
-        k.calibrationVisits = 1000;
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { lytPresence?: unknown };
+      if (typeof u.lytPresence === 'object' && u.lytPresence !== null) {
+        const presence = u.lytPresence as Record<string, unknown>;
+        if (presence.controlPanel === true) {
+          delete presence.controlPanel;
+        }
       }
     }
     return out;
@@ -253,10 +368,7 @@ export function migrate(blob: any): any {
   let version = typeof blob?.schemaVersion === 'number' ? blob.schemaVersion : 1;
 
   if (version > CURRENT_SCHEMA_VERSION) {
-    throw new Error(
-      `Persisted blob is at schemaVersion ${version}, ahead of this app's ` +
-      `${CURRENT_SCHEMA_VERSION}. App code may be older than the data.`,
-    );
+    throw new FutureSchemaVersionError(version, CURRENT_SCHEMA_VERSION);
   }
 
   let current = blob;

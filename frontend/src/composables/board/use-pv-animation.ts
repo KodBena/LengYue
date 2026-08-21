@@ -4,13 +4,23 @@
  *
  * ── Rendering invariant ────────────────────────────────────────────────────
  * Every move in `pvMoves.value` is rendered as a circle in the DOM with
- * opacity driven by the `visible` reactive set. CSS sets a uniform
- * `opacity ${fadeDurationMs}ms ease` transition (in the rendering layer)
- * — so this composable's only job is to schedule setVisible calls at the
- * right moments for the chosen mode. The previous implementation
- * mixed slice-based reveal (sequential) with opacity-based reveal
- * (window) and gated the CSS transition on mode === 'window', which left
- * sequential and instant modes snapping stones in/out without animation.
+ * opacity driven by the `visible` reactive set. CSS `transition` is
+ * banned (ledger row 1506, no carve-outs) — the opacity swap between 0
+ * and 1 snaps instantly, so this composable's only job is to schedule
+ * setVisible calls at the right moments for the chosen mode. The
+ * previous implementation mixed slice-based reveal (sequential) with
+ * opacity-based reveal (window) and gated a (since-purged) CSS
+ * transition on mode === 'window', which left sequential and instant
+ * modes snapping stones in/out without animation.
+ *
+ * The `display.pv-fade-ms` knob (`fadeDurationMs`) that used to pad
+ * the window mode's fade-out timing and the stopPv-to-DOM-release
+ * delay is removed (wiki2-pv-fade-knob): it existed to give the CSS
+ * transition above time to interpolate, and became inert dead time
+ * once that transition was purged. Window mode now flips a stone
+ * invisible immediately at `windowDurationMs` past its fade-in, and
+ * `stopPv` releases `pvMoves` synchronously — there is nothing left
+ * to wait for.
  *
  * ── Modes ──────────────────────────────────────────────────────────────────
  *   'instant'    — all PV stones fade in together when startPv is called.
@@ -25,22 +35,21 @@
  *   'window'     — sliding-window reveal: each stone fades in, holds for
  *                  `windowDurationMs`, fades out. With `cycle: true` the
  *                  pattern repeats. Note that with stepDelayMs <
- *                  fadeDurationMs * 2 + windowDurationMs, multiple stones
- *                  are visible simultaneously by design (the "window" is
+ *                  windowDurationMs, multiple stones are visible
+ *                  simultaneously by design (the "window" is
  *                  windowDurationMs wide, sliding across the line).
  *
  * ── Graceful exit ──────────────────────────────────────────────────────────
- * `stopPv` empties `visible` (CSS fades all stones to 0), then clears
- * `pvMoves` after `fadeDurationMs` so Vue can release the DOM elements
- * only once the fade has completed. Re-entry via `startPv` cancels the
- * pending clear.
+ * `stopPv` empties `visible` (the opacity swap to 0 is instant — no CSS
+ * transition to wait for) and clears `pvMoves` synchronously so Vue
+ * releases the DOM elements right away.
  *
  * License: Public Domain (The Unlicense)
  */
 
 import { computed, onUnmounted, reactive, ref, watchEffect } from 'vue';
-import type { StoneColor } from '../../types';
 import { NEXT_TICK_DEFER_MS } from '../../lib/timing';
+import type { PvVariationMove } from '../../engine/board-geometry';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -57,7 +66,6 @@ export interface PvConfig {
   mode: PvMode;
   stepDelayMs?: number;
   windowDurationMs?: number;
-  fadeDurationMs?: number;
   cycle?: boolean;
   pvOpacity?: number;
   annotation?: PvAnnotation;
@@ -70,16 +78,18 @@ export interface PvConfig {
  */
 export type PvAnimationSettings = Required<PvConfig>;
 
-/** A single move in a PV sequence, ready for rendering. */
-export interface PvMove {
-  x: number;
-  y: number;
-  color: StoneColor;
-  /** 1-indexed position in the PV; used as the displayed move number AND
-   *  as the Vue v-for key. Stable across packet updates of the same PV
-   *  line so element reuse works for in-place position updates. */
-  moveNumber: number;
-}
+/**
+ * A single move in a PV sequence, ready for rendering. Re-exported from
+ * the engine layer (`board-geometry.ts::PvVariationMove`) rather than
+ * declared here — `BoardSnapshot.pv` (the thumbnail-family field this
+ * type also now serves) lives in `engine/`, below `composables/` in this
+ * codebase's layering, so the shared shape must be engine-owned. Kept
+ * under this module's own established name (`PvMove`) so every existing
+ * call site (`MoveSuggestions.vue`, `use-move-suggestions.ts`, `App.vue`)
+ * is untouched. Used as the displayed move number AND as the Vue v-for
+ * key; stable across packet updates of the same PV line so element reuse
+ * works for in-place position updates. */
+export type PvMove = PvVariationMove;
 
 /** A PvMove augmented with a resolved opacity in [0, 1] for the current frame. */
 export interface PvStoneDisplay extends PvMove {
@@ -95,7 +105,6 @@ export const PV_DEFAULTS: PvAnimationSettings = {
   mode: 'instant',
   stepDelayMs: 350,
   windowDurationMs: 600,
-  fadeDurationMs: 0,
   cycle: false,
   pvOpacity: 1,
   annotation: 'from1',
@@ -108,7 +117,7 @@ export const PV_DEFAULTS: PvAnimationSettings = {
  * underlying source — typically `props.pvConfig` reading from
  * `UISession.pvAnimation` — propagate live without remounting the
  * component. The returned `cfg` is a reactive object: consumers read
- * `cfg.mode`, `cfg.fadeDurationMs`, etc. directly, and Vue tracks
+ * `cfg.mode`, `cfg.windowDurationMs`, etc. directly, and Vue tracks
  * dependencies through the proxy. Previously the composable accepted
  * a static `PvConfig` and snapshotted it once at call time, which
  * meant a registry change required closing/re-opening the board for
@@ -119,7 +128,7 @@ export function usePvAnimation(getConfig: () => PvConfig | undefined = () => und
   // every time the getter's reactive dependencies change. We use
   // `reactive` (not `computed`) so consumers can read fields directly
   // without `.value` — the existing template and script call sites
-  // (`pvCfg.fadeDurationMs`, `pvCfg.mode`, ...) keep working.
+  // (`pvCfg.mode`, `pvCfg.windowDurationMs`, ...) keep working.
   const cfg: PvAnimationSettings = reactive({ ...PV_DEFAULTS });
   watchEffect(() => {
     Object.assign(cfg, PV_DEFAULTS, getConfig() ?? {});
@@ -128,8 +137,8 @@ export function usePvAnimation(getConfig: () => PvConfig | undefined = () => und
   // ── State ──────────────────────────────────────────────────────────────────
 
   const pvMoves = ref<PvMove[]>([]);
-  // moveNumber → "should render at opacity 1"; CSS transitions handle
-  // the visual fade between 0 and 1.
+  // moveNumber → "should render at opacity 1"; the opacity swap between
+  // 0 and 1 is instant (CSS `transition` is banned, ledger row 1506).
   const visible = ref<Set<number>>(new Set());
   const timers: ReturnType<typeof setTimeout>[] = [];
 
@@ -149,19 +158,19 @@ export function usePvAnimation(getConfig: () => PvConfig | undefined = () => und
   function scheduleWindow(moves: PvMove[]): void {
     moves.forEach((m, i) => {
       // +1ms epsilon: ensures the initial opacity-0 render commits
-      // before the flip to opacity-1 on first stone of the cycle, so
-      // CSS has a starting point to interpolate from.
+      // before the flip to opacity-1 on first stone of the cycle —
+      // a same-tick 0→1 flip could otherwise coalesce into a single
+      // Vue render pass with no intervening opacity-0 frame.
       const fadeInAt = cfg.stepDelayMs * i + 1;
       timers.push(setTimeout(() => setVisible(m.moveNumber, true), fadeInAt));
 
-      const fadeOutAt = fadeInAt + cfg.fadeDurationMs + cfg.windowDurationMs;
+      const fadeOutAt = fadeInAt + cfg.windowDurationMs;
       timers.push(setTimeout(() => setVisible(m.moveNumber, false), fadeOutAt));
     });
 
     if (cfg.cycle) {
       const cycleDuration =
         (moves.length - 1) * cfg.stepDelayMs +
-        cfg.fadeDurationMs +
         cfg.windowDurationMs;
       if (cycleDuration > 0) {
         // Replace the timer list at the cycle boundary so it doesn't
@@ -231,19 +240,11 @@ export function usePvAnimation(getConfig: () => PvConfig | undefined = () => und
 
   function stopPv(): void {
     clearTimers();
-
-    if (visible.value.size === 0) {
-      pvMoves.value = [];
-      return;
-    }
-
-    // Empty visible set; CSS transitions interpolate stones to opacity 0.
-    // After fadeDurationMs, clear pvMoves so Vue unmounts the DOM only
-    // once the fade has finished.
+    // Opacity swap to 0 is instant (no CSS transition to wait for), so
+    // both the visibility clear and the DOM release happen in the same
+    // tick — nothing left to stage across.
     visible.value = new Set();
-    timers.push(
-      setTimeout(() => { pvMoves.value = []; }, cfg.fadeDurationMs)
-    );
+    pvMoves.value = [];
   }
 
   // ── Derived state ──────────────────────────────────────────────────────────

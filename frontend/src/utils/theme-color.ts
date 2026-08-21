@@ -16,8 +16,12 @@
  *
  * `ChromeAnchor` mirrors the **color** anchors declared in
  * theme.css's `:root` — base color anchors, chart-derived color
- * helpers, and color role aliases. theme.css also declares
- * non-color anchors (the z-index ladder added 2026-05-03 as the
+ * helpers, and color role aliases. Rows 1478/1479/1481/1497 retired
+ * `--text-1`/`--text-2` as text-emphasis tiers (see theme.css's
+ * header docstring, "Text tier retirement") in favor of `--text-0`
+ * (the sole readable-text tier) and `--text-disabled` (disabled-
+ * control de-emphasis only) — this union follows suit. theme.css also
+ * declares non-color anchors (the z-index ladder added 2026-05-03 as the
  * magic-literals-audit Pass 2 Tier-1 #1 substrate); those are
  * CSS-only and intentionally outside this union's scope. A
  * runtime accessor for z-index would be useful only if a TS-side
@@ -68,9 +72,11 @@
  * The vocabulary of **color** anchors declared in theme.css.
  * Mirrors the color subset of `:root` rules in
  * `src/assets/css/theme.css` — 16 base anchors (4 surface + 3
- * border + 3 text + 2 accent + 4 semantic state) plus 6
- * chart-derived helpers plus 5 role aliases (decouple-via-alias
- * for implicit handles).
+ * border + 2 text + 2 accent + 1 text-on-accent + 4 semantic state)
+ * plus 6 chart-derived helpers plus 5 role aliases (decouple-via-alias
+ * for implicit handles) plus 1 chart-series-locked mirror
+ * (`--accent-primary-canonical`, declared per-theme alongside
+ * `--accent-primary` in `theme.css`).
  *
  * Non-color anchors in theme.css (the z-index ladder) are
  * intentionally excluded — they're CSS-only, no runtime accessor
@@ -85,10 +91,21 @@ export type ChromeAnchor =
   | '--surface-0' | '--surface-1' | '--surface-2' | '--surface-3'
   // Border (3)
   | '--border-1' | '--border-2' | '--border-3'
-  // Text (3)
-  | '--text-0' | '--text-1' | '--text-2'
+  // Text (2) — rows 1478/1479/1481/1497: --text-1/--text-2 retired
+  // (see theme.css's "Text tier retirement" docstring). --text-0 is
+  // the sole readable-text tier; --text-disabled is the disabled/
+  // inactive-control tone (functional de-emphasis ONLY, never for
+  // readable text, however secondary it looks).
+  | '--text-0' | '--text-disabled'
   // Accent (2)
   | '--accent-primary' | '--accent-secondary'
+  // Chart-series-locked mirror of --accent-primary (decouple-via-alias;
+  // see theme.css's per-theme docstring on this anchor). Data-series /
+  // chart-marker / node-role JS consumers read this instead of
+  // '--accent-primary' so the high-contrast-text override (which darkens
+  // '--accent-primary' for its TEXT/CTA role) can't silently recolor a
+  // chart. tests/unit/chart-accent-primary-lock.test.ts is the guard.
+  | '--accent-primary-canonical'
   // Semantic state (4)
   | '--state-success' | '--state-warning' | '--state-error' | '--state-attention'
   // Chart-derived helpers (aliases of the anchors above; named

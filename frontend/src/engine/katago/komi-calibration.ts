@@ -39,11 +39,57 @@
  * komi was out of range rather than silently substituting an endpoint
  * (ADR-0002).
  *
+ * ── The per-ruleset komi DOMAIN (ledger row 1146) ──────────────────────
+ * The wire constraint above (integer-or-half-integer in [-150, 150]) is
+ * KataGo's own acceptance rule and applies uniformly regardless of which
+ * of the four ruling-mandated rulesets (`engine/rulesets.ts`) a board is
+ * playing under — `roundToHalf`/`clampKomi` model exactly that, and nothing
+ * ruleset-specific. Separately, Tromp-Taylor carries its OWN, narrower
+ * convention: komi under Tromp-Taylor is customarily an INTEGER (the
+ * area-scoring rule set already avoids most drawn-game ties that
+ * half-integer komi exists to rule out under other rulesets), so a
+ * Tromp-Taylor board's komi should never be representable as a
+ * non-integer half-point value. `KOMI_DOMAINS`/`komiDomainStep`/
+ * `normalizeKomiForRuleset` below are the single per-ruleset domain
+ * table this fact lives in — every site that WRITES a board's komi
+ * (fresh-board creation, the StatusBar komi-edit affordance, a ruleset
+ * switch) normalizes through it, so an invalid (non-integer,
+ * Tromp-Taylor) komi is unrepresentable in persisted board state by
+ * construction (ADR-0000), rather than scattering
+ * `ruleset === 'Tromp-Taylor'` checks at each call site. This is
+ * deliberately NOT applied to the wire-safety `roundToHalf`/
+ * `clampKomi` pair above, and not retroactively applied to a komi value
+ * already read off a loaded SGF's `KM` property — same posture as
+ * `normalizeRuleset`'s own defaulting (`engine/rulesets.ts` header): a
+ * file's literal data is never silently rewritten by a read, only an
+ * explicit write goes through the domain function.
+ *
+ * ── The per-ruleset HANDICAP komi convention (ledger rows 1339/1340) ────
+ * A handicap game's seeded default komi is a SECOND per-ruleset fact —
+ * distinct from the wire-rounding step above, but living in the same
+ * domain table: the value is always the smallest komi in that
+ * ruleset's own domain that still rules out a drawn game. For the
+ * three half-integer-domain rulesets (AGA, Chinese, Japanese) that is
+ * 0.5, the long-standing convention this codebase used uniformly
+ * before this table existed. Tromp-Taylor's own domain is
+ * integer-only (`komiDomainStep` above), and area-scoring already
+ * avoids most drawn-game ties without a fractional nudge, so its
+ * member of the SAME convention is simply 0 — not a special case
+ * carved out for Tromp-Taylor, but what "smallest tie-breaking value
+ * in this ruleset's domain" already evaluates to once Tromp-Taylor is
+ * an ordinary row in the table rather than an if/else at the call
+ * site (commissioner ruling, ledger rows 1339/1340: "I hope that
+ * these configurations are instances under a properly abstracted
+ * schema, so that TT doesn't look like a sore thumb in the code").
+ * `handicapKomiForRuleset` below is the sole read site; no caller
+ * string-compares against `'Tromp-Taylor'` to pick a handicap komi.
+ *
  * License: Public Domain (The Unlicense)
  */
 
 import { resolveWinrateFraming } from './winrate-framing';
 import type { Player } from './types';
+import type { RulesetName } from '../rulesets';
 
 /** KataGo's accepted komi range — integer or half-integer within these bounds. */
 export const KOMI_MIN = -150;
@@ -130,6 +176,79 @@ export function clampKomi(value: number): number {
   if (value < KOMI_MIN) return KOMI_MIN;
   if (value > KOMI_MAX) return KOMI_MAX;
   return value;
+}
+
+/**
+ * A ruleset's komi domain: the wire-rounding `step` (see
+ * `komiDomainStep`) and the seeded `handicapKomi` default (see
+ * `handicapKomiForRuleset`), both documented in the file header's
+ * "per-ruleset komi DOMAIN" / "HANDICAP komi convention" sections.
+ * Declared together because both facts are keyed by the same
+ * `RulesetName` and both readers must draw from a single declared
+ * table rather than parallel per-function conditionals that could
+ * silently drift apart.
+ */
+interface KomiDomain {
+  readonly step: number;
+  readonly handicapKomi: number;
+}
+
+/**
+ * The single declared per-ruleset komi-domain table — Tromp-Taylor is
+ * an ordinary row here, not a branch at any call site (commissioner
+ * ruling, ledger rows 1339/1340).
+ */
+const KOMI_DOMAINS: Readonly<Record<RulesetName, KomiDomain>> = {
+  'Tromp-Taylor': { step: 1, handicapKomi: 0 },
+  AGA: { step: 0.5, handicapKomi: 0.5 },
+  Chinese: { step: 0.5, handicapKomi: 0.5 },
+  Japanese: { step: 0.5, handicapKomi: 0.5 },
+};
+
+/**
+ * The komi rounding step for `ruleset`'s domain: `1` (integer-only)
+ * under Tromp-Taylor, `0.5` (half-integer) for the other three
+ * ruling-mandated rulesets. Backed by `KOMI_DOMAINS` — see the file
+ * header's "per-ruleset komi DOMAIN" section.
+ */
+export function komiDomainStep(ruleset: RulesetName): number {
+  return KOMI_DOMAINS[ruleset].step;
+}
+
+/**
+ * The seeded handicap-game komi for `ruleset`: `0` under Tromp-Taylor,
+ * `0.5` for the other three ruling-mandated rulesets — the smallest
+ * tie-breaking value in each ruleset's own komi domain. Backed by the
+ * same `KOMI_DOMAINS` table `komiDomainStep` reads; see the file
+ * header's "per-ruleset HANDICAP komi convention" section. The sole
+ * read site `applyHandicap` (`engine/handicap.ts`) should use — no
+ * caller branches on `ruleset === 'Tromp-Taylor'` directly.
+ */
+export function handicapKomiForRuleset(ruleset: RulesetName): number {
+  return KOMI_DOMAINS[ruleset].handicapKomi;
+}
+
+/**
+ * Rounds `value` to the nearest multiple of `step` (half-up on ties,
+ * matching `roundToHalf`'s tie behaviour — `Math.round`'s own
+ * half-up-toward-+Infinity rule, generalised from the fixed 0.5 step
+ * to an arbitrary one).
+ */
+export function roundToStep(value: number, step: number): number {
+  return Math.round(value / step) * step;
+}
+
+/**
+ * Normalizes a raw komi value into `ruleset`'s valid domain: rounded to
+ * `komiDomainStep(ruleset)` (integer under Tromp-Taylor, half-integer
+ * otherwise) and clamped to [KOMI_MIN, KOMI_MAX]. This is the write-time
+ * enforcement point named in the file header — every site that persists
+ * an explicit komi value (fresh-board creation, a user komi edit, a
+ * ruleset switch) should route the new value through this function so a
+ * Tromp-Taylor board can never end up holding a non-integer komi.
+ */
+export function normalizeKomiForRuleset(value: number, ruleset: RulesetName): number {
+  return clampKomi(roundToStep(value, komiDomainStep(ruleset)));
 }
 
 /**

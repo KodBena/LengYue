@@ -42,8 +42,10 @@ import { useI18n } from 'vue-i18n';
 import type { ReviewCard, CardMetadataPatch } from '../types';
 import { store } from '../store';
 import { INTERACTION_DISMISS_DELAY_MS } from '../lib/timing';
+import { useAppDialogs } from '../composables/useAppDialogs';
 
 const { t } = useI18n();
+const dialogs = useAppDialogs();
 
 const props = defineProps<{
   card: ReviewCard;
@@ -203,11 +205,12 @@ function toggleSuspended(): void {
   emit('patch', { suspended: !props.card.suspended });
 }
 
-function resetPriorStandalone(): void {
-  // window.confirm() is the minimal-touch destructive-confirm
-  // affordance; if the panel grows enough to warrant a custom
-  // modal, that's a follow-up.
-  if (!window.confirm(t('cardMetadata.resetPriorStandaloneConfirm'))) return;
+async function resetPriorStandalone(): Promise<void> {
+  const ok = await dialogs.confirm({
+    message: t('cardMetadata.resetPriorStandaloneConfirm'),
+    danger: true,
+  });
+  if (!ok) return;
   emit('patch', { resetPrior: true });
 }
 </script>
@@ -288,9 +291,11 @@ function resetPriorStandalone(): void {
         <p class="hint">{{ $t('cardMetadata.resetPriorInlineHint') }}</p>
       </div>
 
-      <!-- Gamma ─────────────────────────────────────────── -->
+      <!-- Gamma (M21, audit finding, ledger row 1292): plain domain
+           name in the label; the γ symbol/formula demoted to a
+           `title` tooltip (app's existing tooltip convention). ── -->
       <div class="field">
-        <label>{{ $t('cardMetadata.gammaLabel') }}</label>
+        <label :title="$t('cardMetadata.gammaHint')">{{ $t('cardMetadata.gammaLabel') }}</label>
         <input
           v-model.number="localGamma"
           type="number"
@@ -299,6 +304,7 @@ function resetPriorStandalone(): void {
           step="0.01"
           class="num-input"
           :disabled="disabled"
+          :title="$t('cardMetadata.gammaHint')"
           @blur="commitGamma"
           @keydown.enter="commitGamma"
         />
@@ -364,7 +370,7 @@ function resetPriorStandalone(): void {
   border-radius: var(--radius-default);
   background: var(--surface-0);
   font-size: var(--text-body);
-  color: var(--text-1);
+  color: var(--text-0);
   margin-top: var(--space-medium);
 }
 .card-metadata-panel.disabled { opacity: 0.6; pointer-events: none; }
@@ -386,7 +392,7 @@ function resetPriorStandalone(): void {
   letter-spacing: var(--tracking-default);
   font-size: var(--text-emphasis);
 }
-.chevron { color: var(--text-2); font-size: var(--text-tiny); }
+.chevron { color: var(--text-disabled); font-size: var(--text-tiny); }
 
 .panel-body {
   padding: var(--space-default);
@@ -402,7 +408,7 @@ function resetPriorStandalone(): void {
   gap: var(--space-default);
 }
 .field label {
-  color: var(--text-2);
+  color: var(--text-0);
   font-size: var(--text-emphasis);
   text-transform: uppercase;
   letter-spacing: var(--tracking-default);
@@ -425,7 +431,7 @@ function resetPriorStandalone(): void {
   display: flex;
   align-items: center;
   gap: var(--space-tight);
-  color: var(--text-1);
+  color: var(--text-0);
   text-transform: none;
   letter-spacing: normal;
   font-size: var(--text-body);
@@ -450,8 +456,12 @@ function resetPriorStandalone(): void {
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  /* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-0 text on
+     an --accent-primary fill measures 2.08:1 in the default cluster
+     theme. --text-on-accent is the token minted for text directly on
+     an accent fill (theme.css, ledger rows 1018/1144). */
   background: var(--accent-primary);
-  color: var(--surface-0);
+  color: var(--text-on-accent);
   padding: 0 var(--space-tight);
   border-radius: var(--radius-default);
   font-size: var(--text-tiny);
@@ -492,12 +502,11 @@ function resetPriorStandalone(): void {
   padding: 0;
   max-height: 160px;
   overflow-y: auto;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 .tag-suggestions li {
   padding: var(--space-tight) var(--space-default);
   cursor: pointer;
-  color: var(--text-1);
+  color: var(--text-0);
 }
 .tag-suggestions li:hover { background: var(--surface-2); color: var(--text-0); }
 
@@ -524,10 +533,10 @@ function resetPriorStandalone(): void {
   cursor: pointer;
 }
 .reset-prompt-text { font-weight: normal; }
-.hint { margin: var(--space-tight) 0 0 0; font-size: var(--text-tiny); color: var(--text-2); }
+.hint { margin: var(--space-tight) 0 0 0; font-size: var(--text-tiny); color: var(--text-0); }
 
-.readonly-field { color: var(--text-2); cursor: help; }
-.readonly-value { color: var(--text-2); font-style: italic; }
+.readonly-field { color: var(--text-0); cursor: help; }
+.readonly-value { color: var(--text-0); font-style: italic; }
 
 .actions {
   display: flex;
@@ -537,13 +546,12 @@ function resetPriorStandalone(): void {
 .action-btn {
   background: transparent;
   border: 1px solid var(--border-3);
-  color: var(--text-2);
+  color: var(--text-0);
   padding: var(--space-tight) var(--space-default);
   border-radius: var(--radius-default);
   cursor: pointer;
   font-family: inherit;
   font-size: var(--text-body);
-  transition: color var(--duration-default), border-color var(--duration-default);
 }
 .action-btn:hover { color: var(--state-attention); border-color: var(--state-attention); }
 .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }

@@ -1,0 +1,256 @@
+-- Repaired transcription of layout-language-consult.md §5.1 (lines
+-- 451-519), "current LengYue, row axis, as-is". The RAW as-written §5.1
+-- text is NOT loadable in LYT by design — it deliberately contains the
+-- two typed-prohibition violations (CONTENT sizing, system+release
+-- presence) and the one L2 violation the document itself marks with ⚠.
+-- Small standalone fragments demonstrating the loader's REFUSAL of each
+-- (verbatim, unrepaired) live in current_row_wart_*.lyt.
+--
+-- AMENDMENT 6 (ledger row 1937, .claude/dispatch-reports/lyt-tab-region-
+-- consult.md §6.3): mechanical re-homing. The five CP-* leaves' domain was
+-- `blackbox` (a domain literal now retired -- see lyt_ast.py's module
+-- docstring); each now carries its true domain (`common`, the census's own
+-- catch-all for non-go/non-board content) plus the new `boundary`
+-- sizing-bag flag ("an unmodeled subtree stands here"). Geometry-inert:
+-- `boundary` carries no sizing weight of its own, and `common` was already
+-- the loader's own fallback domain for unclassifiable content elsewhere in
+-- this file (see the `A_top`/`I[info]` disclosure in q5go.lyt/ogs.lyt).
+--
+-- This file is the same tree with exactly those warts repaired, so it can
+-- be solved and rendered — every repair is one of the fixes the document
+-- itself names as the available remedy (§4.1 line 303-306's preserve
+-- semantics; §4.1 line 369-370's "under LYT they become preserve slots";
+-- L2's own "ride the already-reserved nav bar", line 380).
+--
+-- Repairs applied (cross-referenced to the document's own ⚠ tags):
+--   ⚠L2 sidebarToggle (line 456-458): folded into the nav-bar's chrome
+--     toggle cluster (alongside boardToggle/treeToggle/ctrlToggle, which
+--     already conforms because `locale` is a bare non-chrome sibling in
+--     the same H) instead of standing alone as a dedicated top-level
+--     column. The outer H now has 2 children instead of 3. [SUPERSEDED —
+--     see the AMENDMENT 2 note below: the toggle cluster's own dedicated
+--     H wrapper was later unwrapped entirely; the four toggles now ride
+--     the nav-bar row directly, not a segregated sub-band.]
+--   ⚠L1 top-nav-bar `max CONTENT` (line 467): given an explicit envelope
+--     over the row's two observed height states instead of a
+--     content-driven max.
+--   ⚠L1 engineMetrics `@toggle(SYSTEM, RELEASE)` (line 471): repaired to
+--     `@fixed` — the metrics strip's rectangle is now permanently
+--     reserved regardless of connection state (L1's requirement: a
+--     system-driven appearance may only fill space already reserved for
+--     it; making it @fixed is the strongest such reservation).
+--   ⚠L3 engineMetrics "latency has NO envelope" (line 473): given an
+--     explicit envelope over digit-count states.
+--   ⚠L1 setupChip `@toggle(system, release)` (line 492): repaired to
+--     `@toggle(system, preserve)`.
+--   ⚠L1 captureBanner / saveBanner / systemLog `@toggle(system, release)`
+--     (or `@toggle(user|system, release)` for systemLog, itself not valid
+--     concrete syntax — 'by' is single-valued; we pick 'system' as the
+--     dominant trigger, disclosed) (lines 484-487): all three repaired to
+--     `@toggle(system, preserve)`, matching the document's own suggested
+--     fix verbatim ("they become preserve slots of banner height", line
+--     369-370). OPEN QUESTION, NOW RESOLVED (cold review observation,
+--     adjudicated as AMENDMENT 1, ledger row 1670 — see
+--     `SPEC-AMENDMENTS.md`): these three (and setupChip below) were
+--     declared `min 0px` rather than `min == pref`, so nothing stopped
+--     the solver from squeezing them to zero height whenever a
+--     higher-priority stage wanted the room — which is what happened at
+--     every landscape size this file was run against pre-amendment.
+--     `loader.py`'s `_apply_preserve_reservation` now raises a preserve
+--     slot's declared `min` to `max(min, pref)` at LOAD TIME, so
+--     captureBanner/saveBanner/systemLog/setupChip are now genuinely
+--     fixed reservations (their own `max == pref` already, so the raised
+--     `min` makes all three equal — a true fixed-height band, not a
+--     squeezable one). CONSEQUENCE, DISCLOSED RATHER THAN DODGED (per
+--     the amendment's own instruction): this makes the combined 314px
+--     (32+32+250) banner floor a HARD constraint the solver can no
+--     longer route around by starving it — at screen sizes where the
+--     board-maximize stage previously consumed that exact 314px of
+--     vertical budget (1920x1080 among them, per the cold review's own
+--     arithmetic), the program now either finds a SMALLER board to make
+--     room, or goes INFEASIBLE if no board size leaves the mandatory
+--     314px. This is the real "afford it or overlay it" decision L1's
+--     preserve semantics was always supposed to force — a preserve
+--     slot's geometry is a genuine promise now, so a screen that can't
+--     honor it must either shrink something else or refuse to solve,
+--     not silently pretend the banner was never there. See
+--     `SPEC-AMENDMENTS.md` and the runner output for the resulting
+--     per-size feasibility table.
+--
+-- Additional disclosed transcription choices (not warts, just elisions in
+-- the original "…"-shorthand lines): loadSave/addBoard/jankTest get
+-- fixed sizes matching their sibling `preview` (150px) pattern scaled to
+-- their own stated px width; the eight toolbar action buttons
+-- (mint/learn/play/match/clearCache/autoNav/popStress/connect) are given
+-- a uniform 32px width, since the document elides their individual
+-- widths entirely.
+--
+-- COLD-REVIEW ADDENDA (lyt-compiler-fix2-build,
+-- .claude/dispatch-reports/lyt-compiler-cold-review.md finding 2): the
+-- above list was incomplete. Five more leaf occurrences below carry
+-- fully invented sizing not previously named here:
+--   - engineUri (line 99): spec line 470 gives only `{max 220px}` (no
+--     pref, no min); `pref 220px` is invented to satisfy Sizing's
+--     required-pref constructor.
+--   - sliders (line 102): spec line 474 elides sizing entirely (`{…}`);
+--     `{min 24px, pref 24px, max 24px}` is invented.
+--   - setup (line 103): spec line 475 gives only the `preserve` tag
+--     (`{…preserve — conformer}`), no numbers; `{min 24px, pref 24px,
+--     max 24px}` is invented (only the `preserve` presence was disclosed
+--     above, not this size).
+--   - moveNav (line 104): spec line 476 elides sizing entirely (`{…}`);
+--     `{min 96px, pref 96px, max 96px}` is invented.
+--   - boardToggle/treeToggle/ctrlToggle/locale (lines 117-120): spec
+--     lines 481-482 give this whole H(...) cluster with no sizing braces
+--     on any of the four children; `24px` uniform is invented for all
+--     four.
+-- Every one of these is a defensible completion (matching sibling
+-- patterns already present in the tree), but none was previously listed
+-- here — this addendum brings the disclosure up to the completeness the
+-- file's own stated discipline claims.
+--
+-- F4 CORRECTIONS (review row 1609,
+-- .claude/dispatch-reports/lyt-compiler-prototype-review.md finding F4):
+-- an earlier version of this file silently dropped several semantic
+-- details present in the document's own §5.1 text. Restored here rather
+-- than added to a disclosure list, since restoring is the cheaper and
+-- more faithful path (the review's own recommendation):
+--   - Seven leaves had their `action` facet stripped (`info+action` ->
+--     `info`): boardRail (line 461), engineUri (470), sliders (474),
+--     saveBanner (485), systemLog (486-487), rulesKomi (494), userBadge
+--     (497). Restored to `info+action`. Facets are law-relevant (L1
+--     quantifies over action-faceted occurrences), so this was a
+--     semantic narrowing, not mere formatting.
+--   - Four user-toggle presences were dropped (`@toggle(user, release)`
+--     silently became implicit `@fixed`): the sidebar V() (line 458), the
+--     board-column V() (489), tree (501), and the control-panel T (504).
+--     All four restored to `@toggle(user, release)`. Geometrically inert
+--     under this prototype's all-present-valuation-only solve (disclosed
+--     invention 28 — presence never feeds the CP-SAT model), so this
+--     restoration changes no solved rectangle; it is a semantic-fidelity
+--     fix to the transcription.
+--   - setup's `preserve` annotation (line 475, "...preserve —
+--     conformer") was dropped entirely. Restored as
+--     `@toggle(user, preserve)` — 'user' because arming/disarming setup
+--     mode is a user action (SetupToolPalette.vue:277-298's
+--     visibility:hidden box-preserving mechanism the spec cites), matching
+--     the pattern already used for setupChip below.
+--   - tree's `pref` was invented as 220px with no disclosure (the
+--     document's own text, line 502, gives only `min 140px,
+--     drag-persisted` — no pref at all, and LYT's Sizing requires one).
+--     Changed to `pref 140px` (== its own declared min) as the least
+--     invented completion available — matching this file's own
+--     already-disclosed "least constraining choice" convention for
+--     omitted min/max (see file-level disclosure above) applied to pref:
+--     no additional target is invented beyond the declared floor. This
+--     DOES change tree's stage-2 reach-preferred target from 220px to
+--     140px; see the F1/F4 fix report for the resulting solved-rectangle
+--     delta.
+--
+-- AMENDMENT 2 RESTRUCTURING (ledger row 1671, commissioner-delegated —
+-- see `SPEC-AMENDMENTS.md` and `wellformed.py`'s module docstring for
+-- the full L2-dominance derivation): the nav-bar's chrome toggle cluster
+-- (sidebarToggle/boardToggle/treeToggle/ctrlToggle + locale) was
+-- previously wrapped in its own dedicated `H{pref 120px}` sub-band. Under
+-- the new L2 dominance semantics, that wrapper — checked as its OWN band
+-- — is `96px` (4 * 24px chrome) against a `120px` total: a genuine,
+-- unambiguous MAJORITY violation (96*2=192 > 120), not the ambiguous-fr
+-- case. Per L2's own prescribed remedy ("ride the already-reserved nav
+-- bar", consult-doc line 380), the wrapper is UNWRAPPED here: the five
+-- leaves are now DIRECT children of the nav-bar row H, alongside its
+-- other substantial (non-chrome) groups. This changes NO solved
+-- geometry — the wrapper's own declared `pref` (120px) exactly equaled
+-- the sum of its children's `pref` (96+24), so H's partition equality
+-- produces identical widths whether or not the intermediate node exists
+-- — it only changes which node the L2 check evaluates the cluster
+-- against: at the nav-bar row's own level, the same 96px of chrome
+-- content sits against a total around 900px (title+engineUri, engine
+-- metrics, sliders, setup, moveNav, the mint-cluster, and locale) — a
+-- comfortable minority, CONFORMS. This is a structural fix implementing
+-- L2's own textual remedy more faithfully, not a sizing weakened to
+-- dodge the new check (the amendment's own "do NOT silently weaken
+-- sizings to dodge it" instruction is about AMENDMENT 1's infeasibility
+-- consequence specifically, but the same non-dodging discipline is
+-- honored here: nothing shrank, something un-nested).
+layout current-row-repaired =
+  {min 0px, pref 1fr, max inf} H(
+    @toggle(user, release) {min 168px, pref 168px, max 168px} V(
+      {min 44px, pref 44px, max 44px} loadSave[common, action],
+      {min 0px, pref 1fr, max inf} boardRail[common, info+action],
+      {min 20px, pref 20px, max 20px} addBoard[common, action],
+      @dev {min 18px, pref 18px, max 18px} jankTest[debug, action],
+      {min 150px, pref 150px, max 150px} preview[common, info]
+    ),
+    {min 0px, pref 1fr, max inf} V(
+      {min 32px, pref 32px, max 64px, envelope: {single_line, wrapped_two_line}} H(
+        {min 0px, pref 220px, max inf} H(
+          {min 0px, pref 0px, max inf} title[chrome, info],
+          {min 0px, pref 220px, max 220px} engineUri[common, info+action]
+        ),
+        {min 96px, pref 160px, max 220px, envelope: {disconnected, latency_1digit, latency_2digit, latency_3digit, latency_4digit, latency_5digit}} engineMetrics[common, info],
+        {min 24px, pref 24px, max 24px} sliders[common, info+action],
+        @toggle(user, preserve) {min 24px, pref 24px, max 24px} setup[go, action],
+        {min 96px, pref 96px, max 96px} moveNav[board, action],
+        {min 0px, pref 256px, max inf} H(
+          {32px} mint[go, action],
+          {32px} learn[go, action],
+          {32px} play[go, action],
+          {32px} match[go, action],
+          @dev {32px} clearCache[common, action],
+          @dev {32px} autoNav[debug, action],
+          @dev {32px} popStress[debug, action],
+          {32px} connect[common, action]
+        ),
+        {24px} sidebarToggle[chrome, action],
+        {24px} boardToggle[chrome, action],
+        {24px} treeToggle[chrome, action],
+        {24px} ctrlToggle[chrome, action],
+        {min 24px, pref 24px, max 24px} locale[common, action]
+      ),
+      @toggle(system, preserve) {min 0px, pref 32px, max 32px} captureBanner[common, info],
+      @toggle(system, preserve) {min 0px, pref 32px, max 32px} saveBanner[common, info+action],
+      @toggle(system, preserve) {min 0px, pref 250px, max 250px} systemLog[common, info+action],
+      {min 0px, pref 1fr, max inf} H(
+        @toggle(user, release) {pref 1fr, aspect-coupled} V(
+          {pref maximize, aspect 1} B[board],
+          {min 24px, pref 24px, max 24px} H(
+            @toggle(system, preserve) {min 0px, pref 90px, max 90px} setupChip[go, info],
+            {min 0px, pref 60px, max inf} moveBadge[board, info],
+            {min 0px, pref 120px, max inf} players[board, info],
+            {min 0px, pref 160px, max inf} rulesKomi[board, info+action],
+            {min 0px, pref 1fr, max inf} hintSlot[common, info],
+            {28px} pass[board, action],
+            {28px} moveNumbers[board, action],
+            {min 0px, pref 60px, max inf} caps[board, info],
+            {min 0px, pref 90px, max inf} userBadge[common, info+action]
+          )
+        ),
+        -- FINDING (see build report): §5.1's own worked encoding tags
+        -- resizerOuter/resizerInner `[chrome, action]` (line 499, 503),
+        -- but our L2 checker's literal reading of the law's stated
+        -- criterion ("domain: 'chrome', facets {action}", line 372) then
+        -- flags them as L2 violations too — they sit alone between two
+        -- big composite siblings, same shape as the sidebar rail. The
+        -- document never marks resizers with ⚠L2, and its own §2 census
+        -- classifies resizer bars under domain B/'common' ("drag
+        -- affordances", not toggle affordances) — so we defer to the
+        -- census domain here rather than §5.1's own worked-encoding tag,
+        -- which resolves the false positive and also demonstrates a
+        -- genuine underspecification: L2's (domain,facets) test doesn't
+        -- distinguish "toggles a slot's presence" from "drags a slot's
+        -- extent", even though only the former is what L2 is about.
+        {4px} resizerOuter[common, action],
+        {min WRAPPER_MIN, pref 1fr, max inf} H(
+          @toggle(user, release) {min 140px, pref 140px, max inf, drag-persisted} tree[board, info+action],
+          {4px} resizerInner[common, action],
+          @toggle(user, release) {min WRAPPER_MIN, pref 1fr, max inf} T(
+            {min WRAPPER_MIN, pref 1fr, max inf, boundary} CP-library[common],
+            {min WRAPPER_MIN, pref 1fr, max inf, boundary} CP-cards[common],
+            {min WRAPPER_MIN, pref 1fr, max inf, boundary} CP-settings[common],
+            {min WRAPPER_MIN, pref 1fr, max inf, boundary} CP-analysis[common],
+            {min WRAPPER_MIN, pref 1fr, max inf, boundary} CP-other[common]
+          )[BLACK BOX]
+        )
+      )
+    )
+  )

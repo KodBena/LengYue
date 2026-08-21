@@ -22,15 +22,91 @@ from pathlib import Path  # noqa: E402
 
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
 from sqlalchemy.engine.url import make_url  # noqa: E402
+from starlette.requests import Request  # noqa: E402
+from starlette.types import ASGIApp, Message, Receive, Scope, Send  # noqa: E402
 
-from api.routes import analysis_bundles, auth, cards, documents, forests, library, lineage, qeubo, resources, stats  # noqa: E402
+from api.routes import analysis_bundles, auth, cards, documents, forests, library, lineage, positions, qeubo, resources, stats  # noqa: E402
 from core.config import config  # noqa: E402
 from core.database import Database  # noqa: E402
 from db.alembic_bootstrap import bootstrap_alembic  # noqa: E402
 from db.schema import metadata  # noqa: E402
 
 logger = logging.getLogger(__name__)
+
+
+class CatchAllExceptionMiddleware:
+    """
+    Ledger row 1342 (error-path CORS legibility).
+
+    Sends a legible 500 JSONResponse for any exception that escapes a
+    route handler unhandled — and, because this is a plain ASGI
+    middleware added BEFORE CORSMiddleware (see the ordering comment
+    at the `app.add_middleware` call sites below), CORSMiddleware
+    wraps it and gets a normal chance to inject
+    `access-control-allow-origin` into the response this middleware
+    sends.
+
+    Why not `@app.exception_handler(Exception)` (the first-instinct
+    fix, and wrong): Starlette's `Starlette.build_middleware_stack`
+    special-cases a handler registered under the key `Exception` (or
+    `500`) — it is pulled OUT of the handler dict passed to
+    `ExceptionMiddleware` and installed as `ServerErrorMiddleware`'s
+    `handler` instead. `ServerErrorMiddleware` is unconditionally the
+    OUTERMOST layer (`[ServerErrorMiddleware] + user_middleware +
+    [ExceptionMiddleware]`), constructed outside of every
+    `app.add_middleware(...)` call including CORSMiddleware. A
+    handler wired that way sends its response on the RAW ASGI `send`
+    the test/server gave the whole stack, never passing through
+    CORSMiddleware's response-header injection — which is exactly the
+    1342 symptom (browsers report a genuine 500 as an opaque CORS
+    failure). A plain middleware that catches the exception ITSELF,
+    positioned inside CORSMiddleware, is the correct form; see
+    `tests/integration/routes/test_error_cors_legibility.py` for the
+    two-sided (positive + negative-control) pin of this exact ordering
+    claim.
+
+    The response-started guard mirrors Starlette's own
+    `ServerErrorMiddleware` implementation: if the failing handler had
+    already started streaming a response before raising, sending a
+    second `http.response.start` would be invalid, so this middleware
+    only sends its own 500 when nothing had gone out yet. Re-raises
+    after sending (matching `ServerErrorMiddleware`'s own convention)
+    so the exception is still visible to whatever wraps this app for
+    server-level logging (uvicorn) — the response bytes are already on
+    the wire by then; the re-raise doesn't touch what the client saw.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        response_started = False
+
+        async def _send(message: Message) -> None:
+            nonlocal response_started
+            if message["type"] == "http.response.start":
+                response_started = True
+            await send(message)
+
+        try:
+            await self.app(scope, receive, _send)
+        except Exception as exc:
+            request = Request(scope)
+            logger.exception(
+                "Unhandled exception on %s %s", request.method, request.url.path
+            )
+            if not response_started:
+                response = JSONResponse(
+                    status_code=500, content={"detail": "Internal server error"}
+                )
+                await response(scope, receive, send)
+            raise exc
 
 
 def _apply_legacy_db_rename_compat(uri: str) -> None:
@@ -160,6 +236,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Middleware order matters here (Starlette wraps in add-order such that
+# the LAST-added `app.add_middleware` call ends up OUTERMOST among user
+# middleware): CatchAllExceptionMiddleware is added FIRST so
+# CORSMiddleware — added second — wraps it. That makes CORSMiddleware
+# see (and add headers to) the 500 response CatchAllExceptionMiddleware
+# builds for a genuinely unhandled exception. See
+# CatchAllExceptionMiddleware's docstring above for why the more
+# obvious `@app.exception_handler(Exception)` form does NOT achieve
+# this (ledger row 1342).
+app.add_middleware(CatchAllExceptionMiddleware)
+
 # CORS: the JWT bearer token is NOT a CORS credential (cookies are), so
 # allow_credentials=False is correct, and the wildcard origin is then
 # spec-compliant. Operators with stricter policies override
@@ -179,6 +266,7 @@ app.include_router(forests.router)
 app.include_router(documents.router)
 app.include_router(library.router)
 app.include_router(lineage.router)
+app.include_router(positions.router)
 app.include_router(qeubo.router)
 app.include_router(resources.router)
 app.include_router(stats.router)
@@ -190,4 +278,22 @@ async def health_check():
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="127.0.0.1", port=8764, reload=True)
+    # This is the frozen-executable / Tauri-sidecar entry point (the local
+    # dev workflow runs `fastapi dev main.py` instead — see
+    # backend/README.md — which doesn't go through this branch).
+    # `reload=False`: a PyInstaller-frozen onefile executable has no
+    # source tree to watch, and uvicorn's reloader spawns a subprocess
+    # that assumes a `python`-invocable script, which a frozen binary
+    # isn't. HOST/PORT are read from config so the Tauri desktop shell can
+    # bind the sidecar to the OS-assigned free port it picked at app start
+    # (see frontend/src-tauri/src/lib.rs).
+    # The app OBJECT is passed directly rather than the "main:app" import
+    # string: the string form re-imports the module by name for
+    # reload/multi-worker support, which assumes a `main` module is
+    # importable by that name — true for `python main.py` from source, but
+    # not guaranteed for a PyInstaller-frozen entry script (frozen builds
+    # commonly expose the entry script as `__main__`, not `main`). Passing
+    # `app` directly skips that re-import path entirely; since reload=False
+    # and no `workers` argument is given (single process), nothing here
+    # needs the import-string form.
+    uvicorn.run(app, host=config.HOST, port=config.PORT, reload=False)

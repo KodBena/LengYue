@@ -5,10 +5,10 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-06-12: migrations 1 → 2 through 58 → 59 (58
- * entries). The first eight covered pre-v1.0.0 schema evolution;
- * the rest are the v1.0.x – v1.1.x active cycle, archived in
- * per-PR rolling fashion under the same archive contract.
+ * Scope as of 2026-08-11 (lyt-w2-presence): migrations 1 → 2
+ * through 73 → 74 (73 entries). The first eight covered pre-v1.0.0
+ * schema evolution; the rest are the v1.0.x – v1.1.x active cycle,
+ * archived in per-PR rolling fashion under the same archive contract.
  *
  * Note: the most recently archived bodies (57 → 58 onward) were
  * authored against the `witnessedContainer` helper and keep that call
@@ -2470,6 +2470,709 @@ export const archivedMigrations: Migration[] = [
         typeof sel === 'object' && sel !== null && !('kind' in (sel as object));
       if (!alreadyPerBoard) {
         (nav as { selection: unknown }).selection = {};
+      }
+    }
+    return out;
+  },
+  // 59 → 60: re-apply the two backfills the archived 45 → 46 and
+  // 46 → 47 bodies were meant to perform but silently no-oped on. Both
+  // walked `out.settings?.…` instead of `out.profile?.settings?.…` —
+  // the exact 47 → 48 wrong-path class, but never themselves corrected
+  // — so `adaptiveReevaluate.valueBinding` (string, default '') and
+  // `appearance.moveSuggestionsFadeMs` (number, default 60) were never
+  // written onto persisted blobs. The defect was masked at runtime by
+  // `updateFromRemote`'s deepMerge against defaults (which is why no
+  // user-visible symptom surfaced); the composition test
+  // (`tests/integration/migration-store-roundtrip.test.ts`) surfaced
+  // both as `[silent-no-op]` defaults-only keys on 2026-06-10. Found by
+  // PR #370 (item `migration-leaf-assertion-and-composition-test`);
+  // corrective item `archived-migration-wrong-path-corrective`.
+  //
+  // Archived bodies are frozen (append-only invariant), so the fix is a
+  // NEW migration with the CORRECT paths via `witnessedContainer` — a
+  // typo here fails loudly at the runtime-shape witness instead of
+  // no-oping and stamping the version. Both containers are witnessed
+  // (`profile.settings.engine.katago.adaptiveReevaluate` exists from the
+  // 29 → 30 seed; `profile.settings.appearance` is present from v1), and
+  // the blob-side resolution keeps the prior bodies' inline
+  // non-null-object tolerance: a partial / legacy blob whose container is
+  // absent no-ops exactly as the broken bodies intended.
+  //
+  // Idempotent: a pre-existing string `valueBinding` / numeric
+  // `moveSuggestionsFadeMs` is preserved unchanged (a hand-edited or
+  // forward-compat blob keeps its value); only a missing / wrong-typed
+  // leaf is backfilled to the default. The two new display-domain
+  // animation KnobDecls the 46 → 47 body deliberately declined to inject
+  // are NOT re-applied here — that body's choice to defer to the
+  // defaults-side seed for fresh profiles is correct and remains the
+  // `[no-backfill]` posture pinned in the composition test.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const adaptive = witnessedContainer(
+      out,
+      'profile.settings.engine.katago.adaptiveReevaluate',
+    );
+    if (adaptive) {
+      const a = adaptive as { valueBinding?: unknown };
+      if (typeof a.valueBinding !== 'string') {
+        a.valueBinding = '';
+      }
+    }
+    const appearance = witnessedContainer(out, 'profile.settings.appearance');
+    if (appearance) {
+      const ap = appearance as { moveSuggestionsFadeMs?: unknown };
+      if (typeof ap.moveSuggestionsFadeMs !== 'number') {
+        ap.moveSuggestionsFadeMs = 60;
+      }
+    }
+    return out;
+  },
+  // 60 → 61: backfill `profile.settings.engine.katago.calibrationVisits`
+  // (number, default 1000) — the new default visit budget for the opt-in
+  // mint-time komi-calibration feature. The leaf is read by
+  // `MintCardModal` (prefills the per-mint visits input when the
+  // "calibrate komi" checkbox is shown) and seeded in `defaults.ts`; a
+  // persisted blob predating this field would otherwise carry no value
+  // and rely on `updateFromRemote`'s deepMerge to surface the default.
+  // Backfilling explicitly keeps the persisted shape honest (the
+  // composition test pins it) rather than leaning on the merge.
+  //
+  // Container witnessed against the runtime shape (`witnessedContainer`,
+  // per step 3 of the add-a-migration recipe): the
+  // `profile.settings.engine.katago` container exists from the original
+  // settings seed, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version. The blob-side resolution keeps the
+  // sibling bodies' non-null-object tolerance: a partial / legacy blob
+  // whose container is absent no-ops.
+  //
+  // Idempotent: a pre-existing numeric `calibrationVisits` is preserved
+  // unchanged (a hand-edited or forward-compat blob keeps its value);
+  // only a missing / wrong-typed leaf is backfilled to the default.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const katago = witnessedContainer(out, 'profile.settings.engine.katago');
+    if (katago) {
+      const k = katago as { calibrationVisits?: unknown };
+      if (typeof k.calibrationVisits !== 'number') {
+        k.calibrationVisits = 1000;
+      }
+    }
+    return out;
+  },
+  // 61 → 62: reshape `boards[*].analysisRange` (single per-board slot,
+  // `[startPly, endPly]`) into `boards[*].analysisRanges` (keyed per
+  // branch-stem `BranchRangeKey` — `composables/analysis/branch-range-
+  // key.ts`). Design proposal §1 Candidate C; commissioner adjudication
+  // (ledger rows 112/119) also overrules the design's proposed 32-entry
+  // LRU eviction — the new map is deliberately UNCAPPED (see the field's
+  // doc comment on `BoardState.analysisRanges` in `types/game.ts`).
+  //
+  // Carry-over, not drop (commissioner-adjudicated, same rows: a real
+  // user-visible behavior difference — "my range survives the upgrade"
+  // vs "my range resets once" — decided in favor of survives). A
+  // pre-existing `analysisRange` is converted into a single entry under
+  // the branch key computed from the board's CURRENT active-variation
+  // path at migration time — the only key computable from a frozen
+  // blob; a board visited on a *different* branch after this migration
+  // runs seeds its own fresh default the normal way
+  // (`useAnalysisTimeline`'s reseed-on-key-change path), same as any
+  // other never-before-visited branch.
+  //
+  // The active-path walk (root → leaf via `activeChildIndex`) and the
+  // branch-key derivation are INLINED here rather than imported from
+  // `getActiveVariationPath` / `deriveBranchRangeKey` — deliberately, so
+  // this migration body stays self-contained and frozen (append-only
+  // invariant) independent of those modules' future evolution. The
+  // algorithm mirrors both exactly: walk from `rootNodeId`, following
+  // `children[activeChildIndex]` until a childless node; a node
+  // contributes `${nodeId}:${chosenChildId}` to the key iff it has more
+  // than one child.
+  //
+  // Idempotent: a board that already carries `analysisRanges` (re-run,
+  // or a forward-compat blob) is left untouched. A board with neither
+  // field, or a malformed `analysisRange` (not a 2-tuple), is a no-op —
+  // no reason to synthesize a range nothing asked for. `boards`
+  // absent/non-array is a no-op (very-legacy or partial blob).
+  (blob: any) => {
+    const out = structuredClone(blob);
+    if (Array.isArray(out.boards)) {
+      for (const board of out.boards) {
+        if (!board || typeof board !== 'object') continue;
+        if (board.analysisRanges !== undefined) continue;
+        const legacyRange = board.analysisRange;
+        if (!Array.isArray(legacyRange) || legacyRange.length !== 2) continue;
+
+        const nodes = board.nodes && typeof board.nodes === 'object' ? board.nodes : {};
+        const path: string[] = [];
+        let cur = board.rootNodeId;
+        const seen = new Set<string>();
+        while (typeof cur === 'string' && nodes[cur] && !seen.has(cur)) {
+          seen.add(cur);
+          path.push(cur);
+          const node = nodes[cur];
+          const children = Array.isArray(node.children) ? node.children : [];
+          if (children.length === 0) break;
+          const idx = typeof node.activeChildIndex === 'number' ? node.activeChildIndex : 0;
+          cur = children[idx] ?? children[0];
+        }
+
+        const legs: string[] = [];
+        for (let i = 0; i < path.length - 1; i++) {
+          const node = nodes[path[i]];
+          if (node && Array.isArray(node.children) && node.children.length > 1) {
+            legs.push(`${path[i]}:${path[i + 1]}`);
+          }
+        }
+        const branchKey = legs.join('|');
+
+        board.analysisRanges = { [branchKey]: legacyRange };
+        delete board.analysisRange;
+      }
+    }
+    return out;
+  },
+  // 62 → 63: backfill `profile.settings.appearance.highContrastText`
+  // (boolean, default false) — the opt-in text/glyph-contrast override
+  // for the `cluster` theme (ADR-0019 audit §S4 corrective; see the
+  // field's doc comment on `AppSettings.appearance.highContrastText` in
+  // `schema.ts` for the full rationale). A persisted blob predating this
+  // field would otherwise carry no value and rely on
+  // `updateFromRemote`'s deepMerge to surface the default; backfilling
+  // explicitly keeps the persisted shape honest (the composition test
+  // pins it) rather than leaning on the merge. Default `false` also
+  // preserves the OFF-by-default / byte-identical-to-today contract for
+  // every pre-existing workspace blob, the same guarantee a fresh
+  // install gets from `defaults.ts`.
+  //
+  // Container witnessed against the runtime shape (`witnessedContainer`,
+  // per step 3 of the add-a-migration recipe): `profile.settings.
+  // appearance` is present from v1, so a typo'd path fails loudly here
+  // rather than no-oping and stamping the version. The blob-side
+  // resolution keeps the sibling bodies' non-null-object tolerance: a
+  // partial / legacy blob whose container is absent no-ops.
+  //
+  // Idempotent: a pre-existing boolean `highContrastText` is preserved
+  // unchanged (a hand-edited or forward-compat blob keeps its value);
+  // only a missing / wrong-typed leaf is backfilled to the default.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const appearance = witnessedContainer(out, 'profile.settings.appearance');
+    if (appearance) {
+      const ap = appearance as { highContrastText?: unknown };
+      if (typeof ap.highContrastText !== 'boolean') {
+        ap.highContrastText = false;
+      }
+    }
+    return out;
+  },
+  // 63 → 64: backfill `session.ui.deltaViewMode` ('shared' | 'black' |
+  // 'white', default 'shared') — the delta-analysis panel's three-mode
+  // view cycle (ledger row 418; see the field's doc comment on
+  // `UISession.deltaViewMode` in `schema.ts`, and
+  // `composables/analysis/useDeltaViewMode.ts` for the full rationale).
+  // A persisted blob predating this field would otherwise carry no
+  // value; `defaultSessionUI` already seeds fresh installs, and the
+  // panel's own read site falls back to `?? 'shared'`, so this backfill
+  // is belt-and-suspenders (matches the `qeuboToolbarView` / 5 → 6
+  // precedent in `archived-migrations.ts`) rather than load-bearing —
+  // it keeps the persisted shape honest instead of leaning on the
+  // read-site fallback. 'shared' is the only sensible default: it is
+  // the view every pre-existing workspace already had (the feature
+  // introduces two ADDITIONAL views, not a replacement one), so this
+  // migration is a pure additive seed with no behavior change.
+  //
+  // Container witnessed against the runtime shape: `session.ui` is
+  // present from v1, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version.
+  //
+  // Idempotent: a pre-existing valid mode value is preserved unchanged
+  // (a hand-edited or forward-compat blob keeps its value); only a
+  // missing / malformed value is backfilled to 'shared'.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { deltaViewMode?: unknown };
+      if (u.deltaViewMode !== 'shared' && u.deltaViewMode !== 'black' && u.deltaViewMode !== 'white') {
+        u.deltaViewMode = 'shared';
+      }
+    }
+    return out;
+  },
+  // 64 → 65: clear `session.ui.forestNav.selection` for every board
+  // (browse-leak-fix, ledger rows 417/423). `NavSelection`'s two
+  // variants both changed brand/semantics on this pass:
+  //   - `{ kind: 'root', rootCardId }` — was the raw internal card PK
+  //     (`CardId`, a number); now `CardPublicId` (a UUID string). A
+  //     persisted numeric value is simply the wrong shape.
+  //   - `{ kind: 'game', gameSourceId }` — was the raw internal
+  //     game_source PK (`GameSourceId`); now `GameDisplayOrdinal`, the
+  //     per-user display ordinal. Still a `number`, so a stale
+  //     persisted value would NOT fail loudly at the type level — it
+  //     would silently select whichever game/root happens to carry
+  //     that number under the NEW per-user-ordinal numbering, which
+  //     is almost certainly not what the user last had selected. Per
+  //     ADR-0002, a silent wrong-selection is worse than a cleared
+  //     one, so both variants are cleared uniformly rather than only
+  //     the type-incompatible one.
+  //
+  // This mirrors the reset-a-stale-slot posture `useCardTreeData::
+  // reset`'s own doc comment describes for the sibling case (a
+  // forest reload whose card set no longer matches the persisted
+  // manual-expand keys) — the safe response to a meaning change is
+  // to drop the now-untrustworthy persisted value, not attempt to
+  // reinterpret it.
+  //
+  // Container witnessed against the runtime shape: `session.ui.
+  // forestNav` is present from schema-version 21, so a typo'd path
+  // fails loudly here rather than no-oping and stamping the version.
+  //
+  // Idempotent: a blob with no `forestNav.selection` entries, or a
+  // `forestNav.selection` that's already `{}`, is a no-op.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const forestNav = witnessedContainer(out, 'session.ui.forestNav');
+    if (forestNav) {
+      (forestNav as { selection?: unknown }).selection = {};
+    }
+    return out;
+  },
+  // 65 → 66: resizer-rearch — strip the two pre-rearch split-workspace
+  // resizer homes. The current-model fields this rearch settled on
+  // (`session.ui.treePanelWidthPx`, `session.ui.treeControlRegionWidthPx`
+  // — nested-splitter amendment, ledger rows 391/414; see schema.ts)
+  // are both purely additive/optional and never shipped under a prior
+  // name, so this migration only needs to strip, never rename. Strips:
+  //
+  //   - `session.ui.boardSquareMaxWidthPx` — the pre-rearch board-
+  //     width cap the resizer drag used to write (ADR-0019 audit
+  //     `.claude/dispatch-reports/adr19-audit.md` S2: two writers for
+  //     one conceptual fact, a discontinuous drag-start clobber, and
+  //     — because it has no reliable visible effect past the board's
+  //     own aspect-ratio saturation point — the persisted slot with
+  //     no visible effect on reload).
+  //   - `session.ui.controlPanelWidth` — a dead, never-read zombie
+  //     field (ADR-0019 audit S9: "a control wired to nothing";
+  //     `grep -rn "controlPanelWidth\b" src/` before this migration
+  //     returned exactly the schema declaration and the default).
+  //     Removed in the same migration as the board-width cap so
+  //     neither pre-rearch field survives into a freshly-migrated
+  //     blob, which would otherwise recreate the exact "one fact, two
+  //     homes" defect class (Rule 3 / C1) this rearch exists to close.
+  //
+  // No value is carried forward to either current-model field.
+  // `boardSquareMaxWidthPx` (a board-width cap) has no principled
+  // conversion to either `treePanelWidthPx` or
+  // `treeControlRegionWidthPx` without live viewport geometry — the
+  // row's actual pixel width, the tree panel's current visibility,
+  // the board's current height — none of which a migration body (a
+  // pure function over the persisted blob, no DOM) has access to.
+  // Backfilling a guessed value would be exactly the silent-narrowing
+  // this codebase's ADR-0002 posture forbids; leaving both new fields
+  // `undefined` (their documented default: no drag yet, natural
+  // layout) is the honest choice — the user re-drags once, same as
+  // any migration that resets a runtime/session-shaped preference
+  // rather than fabricating a translation for it.
+  //
+  // Idempotent: deleting an already-absent key is a no-op.
+  //
+  // Container access goes through `witnessedContainer` (per step 3 of
+  // the add-a-migration recipe): `session.ui` is witnessed against the
+  // runtime shape, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version. The blob-side resolution keeps
+  // the sibling bodies' non-null-object tolerance: a partial / legacy
+  // blob whose container is absent no-ops.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { boardSquareMaxWidthPx?: unknown; controlPanelWidth?: unknown };
+      delete u.boardSquareMaxWidthPx;
+      delete u.controlPanelWidth;
+    }
+    return out;
+  },
+  // 66 → 67: backfill `session.ui.cardsContextGameSourceOrdinals = []`
+  // (macro-public-id-tokens, ledger row 456 — restoring the Cards-tab
+  // `${gameSourceId}` macro after browse-leak-fix broke it). New
+  // field, additive: a persisted blob predating it simply lacks the
+  // key. `defaultSessionUI` already seeds `[]` for fresh installs;
+  // this backfill keeps the persisted shape honest for existing
+  // workspaces rather than leaning on `updateFromRemote`'s deepMerge
+  // to paper over the missing key (matches the `deltaViewMode` /
+  // 63 → 64 and `highContrastText` precedents' belt-and-suspenders
+  // posture — see the archived body's comment).
+  //
+  // Container witnessed against the runtime shape: `session.ui` is
+  // present from v1, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version.
+  //
+  // Idempotent: a pre-existing array value (of any length, including
+  // empty) is preserved unchanged; only a missing / wrong-typed leaf
+  // is backfilled to `[]`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { cardsContextGameSourceOrdinals?: unknown };
+      if (!Array.isArray(u.cardsContextGameSourceOrdinals)) {
+        u.cardsContextGameSourceOrdinals = [];
+      }
+    }
+    return out;
+  },
+  // 67 → 68: insert the `interval-summary` panel id (wiki Wanted feature
+  // #6, `PANEL_ID.intervalSummary`) at the front of the persisted 'basic'
+  // analysisTab's `panelIds`, so the on-by-default placement in
+  // `defaults.ts` also reaches users who already have a persisted
+  // `analysisTabs` array from migration 54 → 55 (a fresh-install default
+  // change alone does not reach an existing blob — the same reason 55 → 56
+  // through 61 stayed additive per-leaf backfills rather than re-defaulting
+  // whole containers).
+  //
+  // Scoped to the tab literally id'd 'basic' — a user who renamed or
+  // deleted that tab in the Phase-3 Settings editor keeps their layout
+  // untouched; this migration only ever adds a panel id, never removes or
+  // reorders the others in that tab.
+  //
+  // Idempotent: a 'basic' tab whose panelIds already contains
+  // 'interval-summary' is left unchanged (guards a blob that was already
+  // migrated, or one a forward-compat client already wrote the id onto).
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = out.profile?.settings;
+    if (settings && typeof settings === 'object' && Array.isArray(settings.analysisTabs)) {
+      for (const tab of settings.analysisTabs) {
+        if (!tab || typeof tab !== 'object' || tab.id !== 'basic') continue;
+        if (!Array.isArray(tab.panelIds)) continue;
+        if (!tab.panelIds.includes('interval-summary')) {
+          tab.panelIds = ['interval-summary', ...tab.panelIds];
+        }
+      }
+    }
+    return out;
+  },
+  // 68 → 69: backfill `session.ui.moveDeltaAnnotation` (string enum
+  // 'off' | 'deltaVisits' | 'perPlayer', default 'off') — the new
+  // board-overlay toggle for the just-played move's delta + visit-count
+  // annotation (wiki Wanted #7 / #7.1; see the field's doc comment on
+  // `UISession` in `schema.ts` and `composables/board/useMoveDeltaAnnotation.ts`
+  // for the derivation). The leaf is read by `BoardWidget` (gates whether
+  // `BoardDeltaAnnotation` mounts) and by `RegistryEditor`'s `PATH_ENUMS`
+  // table (renders the three-way dropdown); a persisted blob predating
+  // this field would otherwise carry no value and rely on
+  // `updateFromRemote`'s deepMerge to surface the default. Backfilling
+  // explicitly keeps the persisted shape honest (the composition test
+  // pins it) rather than leaning on the merge.
+  //
+  // Container witnessed against the runtime shape (`witnessedContainer`,
+  // per step 3 of the add-a-migration recipe): `session.ui` exists from
+  // the framework's introduction, so a typo'd path fails loudly here
+  // rather than no-oping and stamping the version. The blob-side
+  // resolution keeps the sibling bodies' non-null-object tolerance: a
+  // partial / legacy blob whose container is absent no-ops.
+  //
+  // Idempotent: a pre-existing valid `moveDeltaAnnotation` is preserved
+  // unchanged (a hand-edited or forward-compat blob keeps its value);
+  // only a missing / wrong-typed / out-of-enum leaf is backfilled to the
+  // default.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { moveDeltaAnnotation?: unknown };
+      const valid = ['off', 'deltaVisits', 'perPlayer'];
+      if (typeof u.moveDeltaAnnotation !== 'string' || !valid.includes(u.moveDeltaAnnotation)) {
+        u.moveDeltaAnnotation = 'off';
+      }
+    }
+    return out;
+  },
+  // 69 → 70: backfill `profile.settings.onboarding.completed = true`
+  // (ledger slug swz-setup-wizard) — the first-run setup wizard's
+  // "has this profile already been onboarded" flag. A blob reaching
+  // this migration necessarily existed before the wizard shipped, so
+  // it is by definition not a fresh profile; backfilling `true` here
+  // is what keeps an existing user from seeing the wizard pop up
+  // unbidden on their next load. A genuinely fresh profile never
+  // walks this migration — `defaultAppSettings()` seeds
+  // `onboarding.completed: false` directly (see `defaults.ts`), which
+  // is the wizard's actual trigger condition (`useSetupWizard.ts`).
+  //
+  // Container witnessed against the runtime shape: `profile.settings`
+  // exists from v1, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version.
+  //
+  // Idempotent: a pre-existing boolean `completed` value (true or
+  // false) is preserved unchanged; only a missing / wrong-typed leaf
+  // is backfilled to `true`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = witnessedContainer(out, 'profile.settings');
+    if (settings) {
+      const s = settings as { onboarding?: unknown };
+      const existing = s.onboarding && typeof s.onboarding === 'object'
+        ? (s.onboarding as { completed?: unknown })
+        : undefined;
+      if (!existing || typeof existing.completed !== 'boolean') {
+        s.onboarding = { completed: true };
+      }
+    }
+    return out;
+  },
+  // 70 → 71: median-summary symbol (ledger rows 1204/1213/1229,
+  // commissioner-defined) — two concerns under the discipline "add the
+  // new capability, repoint only what nobody has customised away."
+  //
+  //  (a) Seed expansion: add the `median_summary` symbol
+  //      (`float(median(x))`) to `analysis_env.symbols` only when
+  //      absent — same add-if-absent shape as the 6 → 7 archived
+  //      body's `mean_summary` seed-expansion precedent
+  //      (`archived-migrations.ts`'s `NEW_SYMBOLS` table). `median` is
+  //      curated stdlib on both sides of the bit-equivalence contract
+  //      (see the doc comment above `defaults.ts`'s summary-functions
+  //      block; verified against `engine/analysis-config-curation.ts`'s
+  //      curated-name list), so the body is a direct `min_summary` /
+  //      `mean_summary` sibling, not a bespoke formula. Add-if-absent is
+  //      BY KEY, never by inferred intent (commissioner clarification,
+  //      ledger row 1235): a profile that already carries a
+  //      `median_summary` key — even a hand-authored one with a
+  //      different body — keeps that body verbatim; a hand-written
+  //      median under any OTHER key (e.g. `my_median`) simply coexists
+  //      with the newly-seeded `median_summary` default, untouched and
+  //      unmerged.
+  //
+  //  (b) Conditional repoint: the `quality` palette's `summary_fn`
+  //      moves from `min_summary` to `median_summary` ONLY when it
+  //      still reads exactly `min_summary` — a user who customised
+  //      that palette's summary function keeps their choice untouched.
+  //      Same by-id-lookup-then-conditional-field shape as the 6 → 7
+  //      archived body's broken-seed detection
+  //      (`archived-migrations.ts`'s `defaultPalette.summary_fn ===
+  //      'min_summary'` check), scoped here to the `quality` id instead
+  //      of `default`.
+  //
+  //  `activePaletteId` is deliberately NOT touched here: existing users
+  //  keep whatever palette they're on. The default-for-fresh-profiles
+  //  change (`quality` → `score`) lives only in `defaults.ts` and reaches
+  //  new profiles through `defaultAppSettings()`, per the "wizard binds
+  //  this cell for fresh profiles only" ratified design.
+  //
+  // Container witnessed against the runtime shape:
+  // `profile.settings.engine.katago.analysis_env` exists from the
+  // framework's introduction, so a typo'd path fails loudly here rather
+  // than no-oping and stamping the version.
+  //
+  // Idempotent: a pre-existing `median_summary` symbol is preserved
+  // unchanged; a `quality` palette whose `summary_fn` is anything other
+  // than the exact string `min_summary` (including an already-repointed
+  // `median_summary`, or a user's own customisation such as
+  // `mean_summary`) is left untouched.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ae = witnessedContainer(out, 'profile.settings.engine.katago.analysis_env');
+    if (ae) {
+      const a = ae as { symbols?: unknown; palettes?: unknown };
+
+      // (a) Seed expansion — add only if absent.
+      if (a.symbols && typeof a.symbols === 'object') {
+        const symbols = a.symbols as Record<string, unknown>;
+        if (symbols.median_summary === undefined) {
+          symbols.median_summary = 'float(median(x))';
+        }
+      }
+
+      // (b) Conditional repoint of the `quality` palette's `summary_fn`.
+      if (Array.isArray(a.palettes)) {
+        const qualityPalette = a.palettes.find(
+          (p: any) => p && typeof p === 'object' && p.id === 'quality',
+        );
+        if (qualityPalette && qualityPalette.summary_fn === 'min_summary') {
+          qualityPalette.summary_fn = 'median_summary';
+        }
+      }
+    }
+    return out;
+  },
+  // 71 → 72: root-delta score loss (ledger rows 1380/1381/1383/1378,
+  // commissioner-defined) — the same two-concern shape as 70 → 71
+  // immediately above: "add the new capability, repoint only what
+  // nobody has customised away."
+  //
+  //  (a) Seed expansion: add the `scoreLead_root_loss` symbol
+  //      (`store/defaults.ts`'s derivation comment on the symbol has
+  //      the full perspective derivation) to `analysis_env.symbols`
+  //      only when absent — same add-if-absent-BY-KEY shape as
+  //      70 → 71's `median_summary` seed (commissioner clarification,
+  //      ledger row 1235, applies identically here): a profile that
+  //      already carries a `scoreLead_root_loss` key — even a
+  //      hand-authored one with a different body — keeps that body
+  //      verbatim.
+  //
+  //  (b) Conditional repoint: the `score` palette's `delta_fn` moves
+  //      from `scoreLead_loss_topvsuser` to `scoreLead_root_loss`
+  //      ONLY when it still reads exactly `scoreLead_loss_topvsuser`
+  //      — a user who repointed that palette's `delta_fn` elsewhere
+  //      (via PaletteEditor) keeps their choice untouched. Same
+  //      by-id-lookup-then-conditional-field shape as 70 → 71's
+  //      `quality`/`summary_fn` repoint, scoped here to the `score`
+  //      id and the `delta_fn` field.
+  //
+  //  `delta_ordering` is deliberately NOT touched: `scoreLead_root_loss`
+  //  is a higher-is-worse loss form exactly like the symbol it
+  //  replaces (see the derivation comment), so the `score` palette's
+  //  existing `delta_ordering: 'higher_is_worse'` stays correct
+  //  as-is — no migration action needed for that field.
+  //
+  // Container witnessed against the runtime shape:
+  // `profile.settings.engine.katago.analysis_env` exists from the
+  // framework's introduction, so a typo'd path fails loudly here rather
+  // than no-oping and stamping the version.
+  //
+  // Idempotent: a pre-existing `scoreLead_root_loss` symbol is
+  // preserved unchanged; a `score` palette whose `delta_fn` is
+  // anything other than the exact string `scoreLead_loss_topvsuser`
+  // (including an already-repointed `scoreLead_root_loss`, or a
+  // user's own customisation) is left untouched.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ae = witnessedContainer(out, 'profile.settings.engine.katago.analysis_env');
+    if (ae) {
+      const a = ae as { symbols?: unknown; palettes?: unknown };
+
+      // (a) Seed expansion — add only if absent.
+      if (a.symbols && typeof a.symbols === 'object') {
+        const symbols = a.symbols as Record<string, unknown>;
+        if (symbols.scoreLead_root_loss === undefined) {
+          symbols.scoreLead_root_loss =
+            'player_sign(x[0]) * (x[1]["rootInfo"]["scoreLead"] - x[0]["rootInfo"]["scoreLead"])';
+        }
+      }
+
+      // (b) Conditional repoint of the `score` palette's `delta_fn`.
+      if (Array.isArray(a.palettes)) {
+        const scorePalette = a.palettes.find(
+          (p: any) => p && typeof p === 'object' && p.id === 'score',
+        );
+        if (scorePalette && scorePalette.delta_fn === 'scoreLead_loss_topvsuser') {
+          scorePalette.delta_fn = 'scoreLead_root_loss';
+        }
+      }
+    }
+    return out;
+  },
+  // 72 → 73: backfill `session.ui.settingsTabsOrientation` (string enum
+  // 'horizontal' | 'vertical', default 'horizontal') — ledger rows
+  // 1505/1509/1515/1516. The Settings sub-tab strip's vertical
+  // right-rail (TabWidget.vue orientation="vertical") was first
+  // shipped hardcoded on; the commissioner's ruling keeps it as a
+  // quiet opt-in instead, defaulting existing and fresh users alike
+  // back to the horizontal strip until they flip the Session (UI)
+  // pane's "Settings tabs layout" select. Same shape as the 68 → 69
+  // archived body's `moveDeltaAnnotation` backfill (`session.ui`
+  // string-enum leaf, default on absence or bad type) — see that
+  // migration's comment for the identical rationale ("a persisted
+  // blob predating this field would otherwise carry no value and
+  // rely on `updateFromRemote`'s deepMerge to surface the default;
+  // backfilling explicitly keeps the persisted shape honest").
+  //
+  // Container witnessed against the runtime shape: `session.ui`
+  // exists from the framework's introduction, so a typo'd path fails
+  // loudly here rather than no-oping and stamping the version.
+  //
+  // Idempotent: a pre-existing valid `settingsTabsOrientation` is
+  // preserved unchanged; only a missing / wrong-typed / out-of-enum
+  // leaf is backfilled to `'horizontal'`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { settingsTabsOrientation?: unknown };
+      const valid = ['horizontal', 'vertical'];
+      if (typeof u.settingsTabsOrientation !== 'string' || !valid.includes(u.settingsTabsOrientation)) {
+        u.settingsTabsOrientation = 'horizontal';
+      }
+    }
+    return out;
+  },
+  // 73 → 74: strip the dead PV-fade knob (wiki2-pv-fade-knob). CSS
+  // transitions were banned and purged from `frontend/src`, which left
+  // `display.pv-fade-ms` — a `KnobDecl` registered under
+  // `profile.settings.knobs` targeting `session.ui.pvAnimation.fadeDurationMs`
+  // — controlling only inert JS-scheduling padding with no observable
+  // effect (see `use-pv-animation.ts`'s file header for the full
+  // account). Both the knob's registered decl and the field it wrote
+  // are removed from the persisted blob:
+  //
+  //   (a) `profile.settings.knobs['display.pv-fade-ms']` — the
+  //       registered decl. Without this strip, a pre-existing blob's
+  //       decl would survive `updateFromRemote`'s deepMerge as a stray
+  //       runtime key (defaults.ts no longer seeds it), and keep
+  //       getting re-persisted forever — the same "half-defeating the
+  //       move" failure the 57 → 58 archived body's `knownTags` strip
+  //       named for a different field.
+  //
+  //   (b) `session.ui.pvAnimation.fadeDurationMs` — the persisted
+  //       value the knob used to write. `defaults.ts`'s `pvAnimation`
+  //       default object no longer carries this leaf either, so
+  //       leaving it in old blobs would be a stray key the runtime
+  //       type (`PvAnimationSettings`, now without `fadeDurationMs`)
+  //       doesn't describe.
+  //
+  // No value is carried forward from either field — there is nothing
+  // downstream to migrate a fadeDurationMs number INTO now that the
+  // knob and the field are both gone; we just delete the dead keys.
+  //
+  // Idempotent: `delete` is a no-op when a key is already absent.
+  //
+  // Container access goes through `witnessedContainer`: both
+  // `profile.settings.knobs` and `session.ui.pvAnimation` exist from
+  // well before this migration (the former seeded at the framework's
+  // knob-registry introduction, the latter backfilled by the archived
+  // 9 → 10 body), so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const knobs = witnessedContainer(out, 'profile.settings.knobs');
+    if (knobs) {
+      delete (knobs as Record<string, unknown>)['display.pv-fade-ms'];
+    }
+    const pvAnimation = witnessedContainer(out, 'session.ui.pvAnimation');
+    if (pvAnimation) {
+      delete (pvAnimation as { fadeDurationMs?: unknown }).fadeDurationMs;
+    }
+    return out;
+  },
+  // 74 → 75: backfill `session.ui.showGhostStone` (boolean, default
+  // true) — the new toggle for the ghost-stone hover preview
+  // (wiki2-ghost-stone). The leaf is read by `BoardWidget` (threaded
+  // into `BoardDisplay`'s `ghost-stone-enabled` prop) and seeded in
+  // `defaults.ts`; a persisted blob predating this field would
+  // otherwise carry no value and rely on `updateFromRemote`'s
+  // deepMerge to surface the default. Backfilling explicitly keeps
+  // the persisted shape honest (the composition test pins it) rather
+  // than leaning on the merge. Exposed only through the Session (UI)
+  // `RegistryEditor` — see the field's doc comment on `UISession` in
+  // `schema.ts` for why this toggle has no dedicated StatusBar button.
+  //
+  // Container witnessed against the runtime shape (`witnessedContainer`,
+  // per step 3 of the add-a-migration recipe): `session.ui` exists
+  // from the original UISession seed (v1), so a typo'd path fails
+  // loudly here rather than no-oping and stamping the version. The
+  // blob-side resolution keeps the sibling bodies' non-null-object
+  // tolerance: a partial / legacy blob whose container is absent
+  // no-ops.
+  //
+  // Idempotent: a pre-existing boolean `showGhostStone` is preserved
+  // unchanged (a hand-edited or forward-compat blob keeps its value);
+  // only a missing / wrong-typed leaf is backfilled to the default.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { showGhostStone?: unknown };
+      if (typeof u.showGhostStone !== 'boolean') {
+        u.showGhostStone = true;
       }
     }
     return out;

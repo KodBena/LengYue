@@ -9,6 +9,8 @@
  * License: Public Domain (The Unlicense)
  */
 
+import type { EngineCacheContext } from './cache-context';
+
 export type Player = 'B' | 'W';
 export type KataCoord = string;
 
@@ -410,7 +412,60 @@ export interface KataGoAnalysisQuery extends BaseQuery {
   //   - Upstream LEAF down mid-session → same disposition (loud
   //     abort, no failover to a different model).
   readonly model?: string;
+
+  // ─── NN-cache-context attribution (persisted-cache feature) ────────────────
+  //
+  // Which ATTACHED cache context (`cache_attach`, below) this query's
+  // new cache entries are earned by, resolved against the model this
+  // query selected (`model`, above) — per Analysis_Engine.md
+  // "Attributing what a query earns in the cache". A `cacheContext`
+  // naming a context that is NOT attached to that model is an ERROR
+  // for the whole query (nothing is analyzed); the engine will not
+  // attribute the work to some other context, and will not fall back
+  // silently.
+  //
+  // Stamped by the SAME choke point as `model`
+  // (`query-routing.ts::finalizeAnalysisRouting`, reading
+  // `state/nncache-context.ts`'s reactive attached-context slot) —
+  // never set by a builder directly; `UnroutedAnalysisQuery` fences
+  // it exactly like `model`.
+  //
+  // Deliberately excluded from the analysis ledger's RawKey/EnrichedKey
+  // derivation (`deriveAnalysisKeys`, `state/analysis-config.ts`): it
+  // changes which context on disk EARNS a query's cache entries, not
+  // what content KataGo returns for the query — two queries that are
+  // otherwise identical produce byte-identical analysis whether or not
+  // `cacheContext` is set, so it must not fork the ledger bucket.
+  readonly cacheContext?: EngineCacheContext;
 }
+
+// ─── NN-cache action vocabulary (persisted-cache feature) ────────────────────
+//
+// The four cache_* actions from Analysis_Engine.md's "Special Action
+// Queries" section, read/driven by `services/nncache-session.ts`.
+// Typed fields are exactly what that driver (and the console-log
+// diagnostics it emits) consume — not an exhaustive mirror of every
+// response field the doc lists, per this file's "type what the SPA
+// consumes" discipline elsewhere (`CapabilityAdvertisement` etc.).
+
+/**
+ * How much of a context's persisted content `cache_attach` admits
+ * into the frozen level 0. Omitted on the wire means "every persisted
+ * position" — this driver always omits it (a bare attach), so no
+ * query call site currently constructs this type, but it is typed
+ * for wire-shape completeness and any future caller.
+ */
+export type CacheLevel0Admission =
+  | { readonly minObservations: number }
+  | { readonly maxEntries: number }
+  | { readonly maxBytes: number };
+
+/** `cache_dump`'s admission bound — what a dump writes to disk. Omitted means `{minObservations: 2}` (the engine's own default). */
+export type CacheDumpAdmission =
+  | { readonly minObservations: number }
+  | { readonly all: true };
+
+export type CacheDumpWhat = 'counts' | 'evaluations' | 'both';
 
 /**
  * Special Action Queries (Non-analysis tasks).
@@ -424,6 +479,35 @@ export type KataGoActionQuery =
       readonly action: 'terminate';
       readonly terminateId: string;
       readonly turnNumbers?: readonly number[];
+    }
+  | {
+      readonly id: string;
+      readonly action: 'cache_attach';
+      readonly context: EngineCacheContext;
+      readonly model?: string;
+      readonly level0?: CacheLevel0Admission;
+      readonly level1Fill?: false | { readonly maxBytes: number };
+      readonly foreignModelSources?: readonly string[];
+    }
+  | {
+      readonly id: string;
+      readonly action: 'cache_detach';
+      readonly context: EngineCacheContext;
+      readonly model?: string;
+      readonly discardUndumped?: boolean;
+    }
+  | {
+      readonly id: string;
+      readonly action: 'cache_dump';
+      readonly context: EngineCacheContext;
+      readonly model?: string;
+      readonly what: CacheDumpWhat;
+      readonly admission?: CacheDumpAdmission;
+    }
+  | {
+      readonly id: string;
+      readonly action: 'cache_stats';
+      readonly model?: string;
     };
 
 export type KataGoQuery = KataGoAnalysisQuery | KataGoActionQuery;
@@ -596,6 +680,42 @@ export interface KataActionResponse {
   // fields once at the trust boundary and degrades a mismatched
   // known capability loudly, so downstream reads are cast-free.
   readonly capabilities?: CapabilityAdvertisement;
+
+  // ─── NN-cache action responses (persisted-cache feature) ──────────────────
+  //
+  // Fields the four cache_* actions add to their echoed response
+  // (Analysis_Engine.md's per-action "The response echoes the query
+  // and adds:" sections). Typed as the subset `services/nncache-session.ts`
+  // actually reads/logs, per this interface's existing "type what the
+  // SPA consumes" discipline — not every field the doc enumerates.
+  /** cache_attach / cache_detach / cache_dump echo the context they acted on. */
+  readonly context?: string;
+  /** cache_attach: positions now in the frozen level 0. */
+  readonly entriesInLevelZero?: number;
+  /** cache_detach: files released. */
+  readonly sourcesDetached?: number;
+  /** cache_detach: whether the memory was actually observed to be reclaimed. */
+  readonly storageReleased?: boolean;
+  /** cache_detach with `discardUndumped: true`: how many earned-but-undumped entries were thrown away. */
+  readonly discardedUndumpedEntries?: number;
+  /** cache_dump: how many analysis requests were open in the engine at dump time (informational; a dump is legal while requests are open). */
+  readonly openRequestsAtDump?: number;
+  /** cache_dump with `what: 'counts' | 'both'`. */
+  readonly counts?: {
+    readonly bytesAppended: number;
+    readonly rowsInLog: number;
+    readonly unattributedObservations: number;
+  };
+  /** cache_dump with `what: 'evaluations' | 'both'`. */
+  readonly evaluations?: {
+    readonly entriesWritten: number;
+    readonly bytesAppended: number;
+    readonly alreadyPersisted: number;
+    readonly belowThreshold: number;
+    readonly notResident: number;
+  };
+  /** cache_stats: entries currently resident in the ordinary (non-level-0) cache. */
+  readonly residentEntries?: number;
 }
 
 export interface KataErrorResponse {

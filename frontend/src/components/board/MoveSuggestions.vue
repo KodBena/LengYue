@@ -221,22 +221,14 @@ function toSvg(x: number, y: number): { x: number; y: number } {
   };
 }
 
-// Uniform opacity transition across all modes. Previously this was
-// gated on window mode, leaving instant / sequential to snap stones
-// in/out — see the composable's header comment for the rationale.
-const pvTransition = computed(() => `opacity ${pvCfg.fadeDurationMs}ms ease`);
-
-// Suggestion-ring outline + suggestion-disk fade. Driven by the
-// `appearance.moveSuggestionsFadeMs` knob (default 60). Setting to 0
-// makes the ring/disk snap; the CSS `0ms ease` shape is the right
-// no-op (browser produces no intermediate frames). Previously
-// hardcoded as `opacity 60ms ease` literals on the two `:style`
-// bindings below — see the pv-overlay-typography-calibration
-// work-status item for the original calibration concern (now
-// satisfied here: the user chooses the value).
-const suggestionTransition = computed(
-  () => `opacity ${props.moveSuggestionsFadeMs ?? 60}ms ease`,
-);
+// CSS `transition` is banned (ledger row 1506, no carve-outs): the
+// opacity fade this module drives is no longer painted via a CSS
+// transition on the `opacity` style — it snaps instantly to its
+// target value. The `moveSuggestionsFadeMs` prop above is unrelated
+// to this comment's original subject (`pvCfg.fadeDurationMs`, the
+// PV-fade knob) and is left as-is here. The PV-fade knob itself was
+// removed outright (wiki2-pv-fade-knob) rather than kept as inert
+// timing logic — see `use-pv-animation.ts`'s file header.
 </script>
 
 <template>
@@ -272,12 +264,9 @@ const suggestionTransition = computed(
       @mousedown="(e) => onSuggestionMousedown(e, s.moveIndex)"
       :style="{ pointerEvents: (hoveredIndex !== null && s.moveIndex !== hoveredIndex) ? 'none' : 'all' }"
     >
-      <!-- Suggestion-ring/disk fade is now user-controllable via the
-           `display.move-suggestions-fade-ms` knob. The transition string
-           is computed once above as `suggestionTransition` (default 60ms
-           ease, configurable to 0 for "snap" or up to 200ms). Both the
-           ring and disk read from the same computed so they stay in
-           lockstep when the user adjusts the knob. -->
+      <!-- Suggestion-ring/disk opacity swap is instant (CSS transition
+           banned, ledger row 1506) — no fade, snaps to the target
+           opacity on hover change. -->
       <circle
         v-if="s.clusterColor && (showTranspositionRings ?? true)"
         :cx="toSvg(s.x, s.y).x"
@@ -288,7 +277,6 @@ const suggestionTransition = computed(
         stroke-width="2.5"
         :style="{
           opacity: (hoveredIndex === null || s.moveIndex === hoveredIndex || (s.clusterId !== undefined && s.clusterId === hoveredClusterId)) ? 0.8 : 0,
-          transition: suggestionTransition,
         }"
       />
 
@@ -300,7 +288,6 @@ const suggestionTransition = computed(
         class="suggestion-disk"
         :style="{
           opacity: hoveredIndex !== null ? 0 : 1,
-          transition: suggestionTransition,
         }"
       />
       <!--
@@ -344,7 +331,7 @@ const suggestionTransition = computed(
         :fill="stone.color === 'B' ? `url(#gb-${safeUid})` : `url(#gw-${safeUid})`"
         :stroke="stone.color === 'B' ? '#000' : '#aaa'"
         stroke-width="0.5"
-        :style="{ opacity: stone.opacity, transition: pvTransition }"
+        :style="{ opacity: stone.opacity }"
       />
       <text
         v-if="pvCfg.annotation !== 'none'"
@@ -354,7 +341,7 @@ const suggestionTransition = computed(
         :font-size="stoneR * 0.82"
         dominant-baseline="middle"
         :fill="stone.color === 'B' ? '#e8e8e8' : '#1a1a1a'"
-        :style="{ opacity: stone.opacity, transition: pvTransition }"
+        :style="{ opacity: stone.opacity }"
       >{{ stone.moveNumber }}</text>
     </g>
 

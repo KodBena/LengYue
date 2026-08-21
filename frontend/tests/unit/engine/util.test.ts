@@ -25,9 +25,12 @@ import {
   getKomi,
   getInitialStones,
   resolveGameName,
+  getRulesetResolution,
+  pathHasMidTreeSetup,
 } from '../../../src/engine/util';
+import { applySetup } from '../../../src/logic';
 import { createInitialBoard } from '../../../src/store/board-factory';
-import type { BoardState } from '../../../src/types';
+import type { BoardState, NodeId } from '../../../src/types';
 
 describe('sgfToMove', () => {
   it('decodes "pd" on 19×19 to (15, 15) (y inverts to bottom-origin)', () => {
@@ -153,6 +156,12 @@ describe('getKomi', () => {
 
   it('defaults to 6.5 when KM is missing', () => {
     const board = createInitialBoard();
+    // `createInitialBoard` now authors its OWN KM (ledger row 1146 —
+    // see `tests/unit/store/board-factory-komi.test.ts`), so KM is
+    // deleted here to isolate `getKomi`'s bare-fallback contract from
+    // the factory's authored default, same pattern `getBoardSize`'s
+    // "defaults to 19 when SZ is missing" test above uses for SZ.
+    delete board.nodes[board.rootNodeId].properties['KM'];
     expect(getKomi(board)).toBe(6.5);
   });
 
@@ -160,6 +169,47 @@ describe('getKomi', () => {
     const board = createInitialBoard();
     board.nodes[board.rootNodeId].properties['KM'] = ['unparseable'];
     expect(getKomi(board)).toBe(6.5);
+  });
+});
+
+describe('getRulesetResolution', () => {
+  it('reads and normalizes the RU property from the root node', () => {
+    const board = createInitialBoard();
+    board.nodes[board.rootNodeId].properties['RU'] = ['japanese'];
+    expect(getRulesetResolution(board)).toEqual({ name: 'Japanese', source: 'ru' });
+  });
+
+  it('is case-insensitive over the RU property', () => {
+    const board = createInitialBoard();
+    board.nodes[board.rootNodeId].properties['RU'] = ['AGA'];
+    expect(getRulesetResolution(board)).toEqual({ name: 'AGA', source: 'ru' });
+  });
+
+  // RED against the vetoed shipped behaviour (the fail-loud
+  // 'unknown' arm): live-testing adjudication
+  // (`.claude/dispatch-reports/ruleset-default-wedge-fix.md`)
+  // supersedes it — a missing/unrecognized RU now defaults to
+  // Tromp-Taylor with `source: 'defaulted'`, a represented fact
+  // rather than a refusal.
+  it('defaults to Tromp-Taylor (source: defaulted) when RU is missing', () => {
+    const board = createInitialBoard();
+    delete board.nodes[board.rootNodeId].properties['RU'];
+    expect(getRulesetResolution(board)).toEqual({ name: 'Tromp-Taylor', source: 'defaulted' });
+  });
+
+  it('defaults to Tromp-Taylor (source: defaulted) when RU does not match one of the four names', () => {
+    const board = createInitialBoard();
+    board.nodes[board.rootNodeId].properties['RU'] = ['New Zealand'];
+    expect(getRulesetResolution(board)).toEqual({ name: 'Tromp-Taylor', source: 'defaulted' });
+  });
+
+  // A fresh board minted by createInitialBoard carries commissioner-
+  // adjudicated RU[Tromp-Taylor] (board-factory.ts) authored at
+  // construction time, so it resolves with `source: 'ru'` — distinct
+  // from the defaulted case above, which never touches the file's RU.
+  it('resolves a fresh createInitialBoard board to Tromp-Taylor with source "ru" (authored, not defaulted)', () => {
+    const board = createInitialBoard();
+    expect(getRulesetResolution(board)).toEqual({ name: 'Tromp-Taylor', source: 'ru' });
   });
 });
 
@@ -258,3 +308,61 @@ describe('resolveGameName', () => {
     expect(resolveGameName(board, FROZEN)).toBe('Tournament 2026');
   });
 });
+
+describe('pathHasMidTreeSetup', () => {
+  it('is false for a path with no setup properties at all', () => {
+    const board = createInitialBoard();
+    const path: NodeId[] = [board.rootNodeId];
+    expect(pathHasMidTreeSetup(board.nodes, path)).toBe(false);
+  });
+
+  it('is false when only the ROOT carries AB/AW (the wire-correct, already-handled case)', () => {
+    const board = createInitialBoard();
+    const withRootSetup = applySetup(board, 3, 3, 'B');
+    const path: NodeId[] = [withRootSetup.rootNodeId];
+    expect(pathHasMidTreeSetup(withRootSetup.nodes, path)).toBe(false);
+  });
+
+  it('is true when a NON-ROOT node on the path carries AW', () => {
+    const board = createInitialBoard();
+    // A one-node child under root, with a setup edit applied to IT
+    // (not root) — the exact shape the setup toolkit produces when
+    // the user is anywhere but the tree's first position.
+    const childId = ('node-child' as NodeId);
+    board.nodes[childId] = {
+      id: childId,
+      parent: board.rootNodeId,
+      children: [],
+      activeChildIndex: 0,
+      properties: {},
+      move: null,
+    };
+    board.nodes[board.rootNodeId].children.push(childId);
+    const withMidTreeSetup = applySetup({ ...board, currentNodeId: childId }, 5, 5, 'W');
+
+    const path: NodeId[] = [board.rootNodeId, childId];
+    expect(pathHasMidTreeSetup(withMidTreeSetup.nodes, path)).toBe(true);
+  });
+
+  it('ignores a node past the end of the queried path (only scans path[1..])', () => {
+    const board = createInitialBoard();
+    const childId = ('node-child' as NodeId);
+    board.nodes[childId] = {
+      id: childId,
+      parent: board.rootNodeId,
+      children: [],
+      activeChildIndex: 0,
+      properties: {},
+      move: null,
+    };
+    board.nodes[board.rootNodeId].children.push(childId);
+    const withMidTreeSetup = applySetup({ ...board, currentNodeId: childId }, 5, 5, 'W');
+
+    // Path stops AT root — the child (and its setup edit) is out of
+    // range for THIS query, so it must not be flagged.
+    const rootOnlyPath: NodeId[] = [board.rootNodeId];
+    expect(pathHasMidTreeSetup(withMidTreeSetup.nodes, rootOnlyPath)).toBe(false);
+  });
+});
+
+

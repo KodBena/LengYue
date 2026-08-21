@@ -113,6 +113,10 @@ export type {
   AnalysisTabId,
   CardId,
   GameSourceId,
+  CardDisplayOrdinal,
+  GameDisplayOrdinal,
+  CardPublicId,
+  ContentHash,
 } from './types/ids';
 
 // ── Game domain (Go value objects, game-tree state, game-coupled brands) ──────
@@ -206,6 +210,12 @@ export type {
   ReviewFeedback,
   CardCreatePayload,
   GameMetadataPayload,
+  CardBatchParentRefCardId,
+  CardBatchParentRefIndex,
+  CardBatchParentRef,
+  BatchCardItemPayload,
+  CardBatchCreateRequestPayload,
+  CardBatchCreateResponsePayload,
 } from './types/cards';
 
 // ── Card-tree / forest-stats browse domain ────────────────────────────────────
@@ -230,10 +240,11 @@ export type {
   LibraryFilter,
   LibraryImportInput,
   LibraryImportOutcome,
+  StagedImportFile,
 } from './types/library';
 
 // ── Application-shell value objects ───────────────────────────────────────────
-export type { AuthState, SystemMessage } from './types/app';
+export type { AuthState, SystemMessage, WorkspaceLoadState } from './types/app';
 
 // ── Persisted store schema (colocated with store/defaults.ts) ─────────────────
 export type {

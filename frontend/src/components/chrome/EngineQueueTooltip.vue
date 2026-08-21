@@ -31,7 +31,7 @@ import { computed, ref, watch, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQueryTelemetry, type InFlightQuery } from '../../composables/useQueryTelemetry';
 import { useHoverPopover } from '../../composables/chrome/useHoverPopover';
-import { usePopoverEdgeClamp } from '../../composables/chrome/usePopoverEdgeClamp';
+import { useFixedAnchoredPopover } from '../../composables/chrome/useFixedAnchoredPopover';
 import { createTrailingThrottle } from '../../composables/useThrottledSnapshot';
 import { QUEUE_TOOLTIP_REDRAW_THROTTLE_MS } from '../../lib/timing';
 import type { QueryId } from '../../types';
@@ -39,10 +39,33 @@ import type { QueryId } from '../../types';
 const { t } = useI18n();
 const { inFlight, cancelQuery } = useQueryTelemetry();
 const { open, onMouseEnter, onMouseLeave } = useHoverPopover({ devId: 'queue' });
-// `left: 0`-anchored — the composable handles both anchor
-// directions symmetrically (clamps the offending edge whichever
-// it is); no per-popover direction config needed.
-const { setPopoverEl, xShift } = usePopoverEdgeClamp(open);
+
+// Clip-ancestor fix (commission lyt-popover-clip-class, ratified
+// program row 1937). This popover mounts inside `App.vue`'s
+// `.lyt-toolbar-strip` (M2 stage B2b boot-restoration wiring,
+// `.claude/dispatch-reports/lyt-boot-restoration.md`: directly at the
+// `#leaf-A_engine_queue` slot now — this component no longer mounts as
+// ToolbarEngineMetrics's child via the retired ToolbarEngineCluster.vue,
+// see `lyt-widget-registry.ts`'s own header), the SAME `overflow-y: auto`
+// clipping ancestor `ToolbarSliderPopover.vue`'s D1 fix escaped
+// (`.claude/dispatch-reports/lyt-sliders-popover-defects.md`). Not
+// visually re-witnessed for THIS component in this commission — see
+// `.claude/dispatch-reports/lyt-popover-clip-class.md`'s per-member
+// disposition for why (the badge mounts only while
+// `useEngineControls().isConnected` is true, which this commission's
+// own isolation posture — dead-pinned ports, no live engine — cannot
+// provide) — but the ancestor chain and positioning scheme were
+// identical to ToolbarSliderPopover's pre-fix shape (`position:
+// absolute; top: 100%; left: 0`, same `.lyt-toolbar-strip` ancestor,
+// same z-index tier), so it is routed through the same composable as a
+// same-class structural fix rather than left unfixed pending a live
+// witness that this environment cannot produce. `usePopoverEdgeClamp`
+// (horizontal-only, snapshot-once — no scroll/resize tracking, see
+// that composable's own "Snapshot semantics" note) no longer applies;
+// `useFixedAnchoredPopover` supersedes it here.
+const triggerEl = ref<HTMLElement | null>(null);
+const popoverEl = ref<HTMLElement | null>(null);
+const { style: popoverStyle } = useFixedAnchoredPopover(open, triggerEl, popoverEl, { align: 'left' });
 
 const count = computed(() => inFlight.value.length);
 
@@ -143,6 +166,7 @@ onUnmounted(rowsThrottle.cancel);
 
 <template>
   <div
+    ref="triggerEl"
     class="metric queue-metric"
     :class="{ 'queue-active': count > 0 }"
     @mouseenter="onMouseEnter"
@@ -151,7 +175,7 @@ onUnmounted(rowsThrottle.cancel);
     <span class="m-lbl">{{ $t('toolbar.metric.queue') }}</span>
     <span class="m-val queue-count">{{ count }}</span>
 
-    <div v-if="open" :ref="setPopoverEl" class="queue-popover" role="tooltip" :style="{ transform: `translateX(${xShift}px)` }">
+    <div v-if="open" ref="popoverEl" class="queue-popover" role="tooltip" :style="{ top: popoverStyle.top, left: popoverStyle.left }">
       <div v-if="displayRows.length === 0" class="popover-empty">
         {{ $t('toolbar.queue.empty') }}
       </div>
@@ -200,37 +224,61 @@ onUnmounted(rowsThrottle.cancel);
 </template>
 
 <style scoped>
+/* W4 item 2 fix: same root cause as ToolbarSliderPopover.vue's own
+   "SLIDERS11" defect (see that file's header comment for the full
+   diagnosis) — `.metric`'s flex/gap rule lives in
+   ToolbarEngineMetrics.vue's SCOPED style and never reaches this
+   different SFC despite the shared class name, so QUEUE and its count
+   rendered concatenated with no gap. This component now declares its
+   OWN layout rather than relying on the borrowed name. */
 .queue-metric {
   position: relative;
   cursor: default;
+  display: flex;
+  align-items: center;
+  gap: var(--space-tight);
 }
 .queue-metric .m-val {
   /* Dim when idle (count = 0); brighten when work is in flight.
      The active class transitions both colour and weight so the
      badge reads as a passive indicator until the engine has
-     something to do. */
-  color: var(--text-2);
-  transition: color var(--duration-default);
+     something to do. Envelope-reserved width (item 2's "envelope-
+     reserved cells" requirement) so a growing queue count never
+     reflows this badge's neighbours — 3ch covers realistic in-flight
+     counts (the proxy's own MAX_SESSIONS-scale queue depth never
+     reaches 4 digits per session). */
+  display: inline-block;
+  min-width: 3ch;
+  text-align: right;
+  color: var(--text-0);
 }
 .queue-metric.queue-active .m-val {
-  color: var(--accent-primary);
+  /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+  color: var(--text-0);
   font-weight: bold;
 }
 
 .queue-popover {
-  position: absolute;
-  /* Anchor below the badge flush (no gap). Zero-gap pairs with
-     the grace-period close timer in <script> to make pointer-
-     traverse from badge to popover gap-free in the common case
-     while still tolerating overshoot. Left-aligned so the table
-     reads from the badge's left edge outward. */
-  top: 100%;
-  left: 0;
+  /* Clip-ancestor fix (commission lyt-popover-clip-class): this rule
+     was previously anchored `top: 100%; left: 0` under CSS's absolute
+     positioning scheme, relative to `.queue-metric`'s own `position:
+     relative` box. `position: fixed` (below) escapes `.lyt-toolbar-
+     strip`'s `overflow-y: auto` clip the same
+     way `ToolbarSliderPopover.vue`'s D1 fix does (see that file's
+     header, and `useFixedAnchoredPopover.ts`'s own header, for the
+     full diagnosis); `top`/`left` are now script-computed by
+     `useFixedAnchoredPopover` (align: 'left', matching the prior
+     `left: 0` anchor) and bound via `popoverStyle`. Anchor stays
+     flush against the badge (no gap) — the zero-gap layout still
+     pairs with the grace-period close timer in <script> to make
+     pointer-traverse from badge to popover gap-free in the common
+     case while still tolerating overshoot. */
+  position: fixed;
   background: var(--surface-0);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
   padding: var(--space-tight);
-  z-index: 100;
+  z-index: var(--z-popover-chrome); /* W4 item 3: was a hardcoded 100 — LOWER than its sibling toolbar popovers' hardcoded 1000, the concrete occlusion bug a commissioner screenshot review caught. Shared token now — see theme.css's own doc comment. */
   white-space: nowrap;
   /* Cap the panel width so a long model name or label doesn't
      stretch it across the entire toolbar. The min ensures the
@@ -239,14 +287,11 @@ onUnmounted(rowsThrottle.cancel);
   max-width: 480px;
   font-family: monospace;
   font-size: var(--text-body);
-  color: var(--text-1);
-  /* Subtle elevation to lift the panel above the chart background
-     it may overlap on small viewports. */
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  color: var(--text-0);
 }
 
 .popover-empty {
-  color: var(--text-2);
+  color: var(--text-0);
   padding: var(--space-tight);
   font-style: italic;
 }
@@ -265,7 +310,7 @@ table {
 }
 th {
   text-align: left;
-  color: var(--text-2);
+  color: var(--text-0);
   font-weight: normal;
   font-size: var(--text-tiny);
   letter-spacing: var(--tracking-default);
@@ -273,7 +318,7 @@ th {
 }
 td {
   padding: 1px var(--space-default) 1px 0;
-  color: var(--text-1);
+  color: var(--text-0);
 }
 .eta-col {
   text-align: right;
@@ -284,7 +329,7 @@ td {
 }
 .kind-suffix {
   margin-left: var(--space-tight);
-  color: var(--text-2);
+  color: var(--text-0);
 }
 
 .cancel-col {
@@ -295,13 +340,12 @@ td {
 .cancel-btn {
   background: transparent;
   border: none;
-  color: var(--text-2);
+  color: var(--text-0);
   font-family: monospace;
   font-size: var(--text-body);
   cursor: pointer;
   padding: 0 var(--space-tight);
   line-height: 1;
-  transition: color var(--duration-default);
 }
 .cancel-btn:hover {
   color: var(--state-attention);

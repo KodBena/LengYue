@@ -1,0 +1,154 @@
+<!--
+  src/components/ProxyUpstreamSettingField.vue
+  License: Public Domain (The Unlicense)
+-->
+<script setup lang="ts">
+/**
+ * The desktop-only proxy-upstream field, extracted as ONE shared leaf
+ * so `WizardStepEngineUri.vue` and `SettingsTab.vue`'s Session sub-tab
+ * render IDENTICAL markup/behavior instead of two hand-duplicated
+ * copies (ADR-0012 one-cell-one-home, extended here to "one RENDERING,
+ * one home" — the two call sites had drifted: the wizard's error-state
+ * ref was a plain non-reactive `let` that never re-rendered on a failed
+ * save, fresh-context review blocker 2, while Settings' copy already
+ * used `ref('')` correctly. Single source now removes the class of bug,
+ * not just this instance of it.
+ *
+ * `fieldId` lets each caller keep its own stable DOM id (existing tests
+ * select `#wizard-proxy-upstream` / `#settings-proxy-upstream`) even
+ * though both mounts are TWO INSTANCES of this one component (Settings'
+ * `TabWidget` uses `keep-mounted`, so both this component's mounts and
+ * the wizard's can coexist in the DOM at once — duplicate ids would be
+ * invalid HTML without the prop).
+ *
+ * `v-if="proxyUpstream.isTauri"` lives INSIDE this component (not left
+ * to each caller) so there is exactly one place the Tauri gate is
+ * decided for this field, matching `useProxyUpstreamSetting`'s own
+ * "inert, not just hidden" contract — a caller cannot forget the gate.
+ *
+ * mDNS discovery (ledger row 944): `load()` (called on mount, below)
+ * auto-runs a one-shot discovery browse when neither the env override
+ * nor a stored setting exists; this component only renders whatever
+ * `proxyUpstream.discoveryState` reports (`discoveringUpstreams` etc.
+ * below are just narrowed views of that one ref for template
+ * type-safety — vue-tsc doesn't reliably narrow a discriminated union
+ * across repeated `.value.kind` accesses in a template). "Scan again"
+ * (`rescan()`) re-runs it unconditionally — plain genre-convention
+ * refresh affordance (ADR-0019), not a novel control.
+ */
+import { ref, computed, onMounted } from 'vue';
+import { useProxyUpstreamSetting } from '../composables/useProxyUpstreamSetting';
+
+defineProps<{
+  /** Stable DOM id for the `<input>`/`<label for>` pair — callers pass
+   *  their own so two simultaneously-mounted instances never collide. */
+  fieldId: string;
+}>();
+
+const proxyUpstream = useProxyUpstreamSetting();
+onMounted(() => proxyUpstream.load());
+
+const errorKey = ref('');
+// True right after a successful save, until the user edits the draft
+// again — surfaces `proxyUpstream.restartNotice` (previously a DEAD
+// key: defined in en.json but never rendered anywhere; fresh-context
+// review flagged it). The field's persistent `.hint` already carries
+// the general "not live until restart" caveat; this is the in-the-
+// moment "your save actually went through" confirmation.
+const justSaved = ref(false);
+
+const isDiscovering = computed(() => proxyUpstream.discoveryState.value.kind === 'discovering');
+const discoveredSingle = computed(() => {
+  const s = proxyUpstream.discoveryState.value;
+  return s.kind === 'single' ? s.upstream : null;
+});
+const discoveredMultiple = computed(() => {
+  const s = proxyUpstream.discoveryState.value;
+  return s.kind === 'multiple' ? s.upstreams : null;
+});
+
+async function commit(): Promise<void> {
+  const result = await proxyUpstream.save();
+  errorKey.value = result.ok ? '' : result.errorKey;
+  justSaved.value = result.ok;
+}
+function onDraftInput(): void {
+  justSaved.value = false; // editing again supersedes the last save's confirmation
+  // Typing over a discovered prefill/picker supersedes it the same way.
+  proxyUpstream.discoveryState.value = { kind: 'idle' };
+}
+function rescan(): void {
+  void proxyUpstream.discover();
+}
+async function choosePicked(event: Event): Promise<void> {
+  // DOM cast: bound as the `change` handler on the discovered-upstreams
+  // <select>, so `event.target` is always that element.
+  const url = (event.target as HTMLSelectElement).value;
+  if (!url) return; // the disabled placeholder option
+  proxyUpstream.discoveryState.value = { kind: 'idle' };
+  proxyUpstream.draft.value = url;
+  await commit();
+}
+</script>
+
+<template>
+  <div v-if="proxyUpstream.isTauri" class="proxy-upstream-field">
+    <label class="proxy-upstream-field-label" :for="fieldId">{{ $t('proxyUpstream.label') }}</label>
+    <input
+      :id="fieldId"
+      v-model="proxyUpstream.draft.value"
+      type="text"
+      spellcheck="false"
+      :placeholder="$t('proxyUpstream.placeholder')"
+      @input="onDraftInput()"
+      @keydown.enter="commit()"
+      @blur="commit()"
+    />
+    <div v-if="discoveredMultiple" class="proxy-upstream-field-picker">
+      <label class="proxy-upstream-field-label" :for="`${fieldId}-discovered`">{{ $t('proxyUpstream.discovery.multipleLabel') }}</label>
+      <select :id="`${fieldId}-discovered`" class="dark-select" @change="choosePicked($event)">
+        <option value="" selected disabled>{{ $t('proxyUpstream.discovery.multiplePlaceholder') }}</option>
+        <option v-for="u in discoveredMultiple" :key="u.url" :value="u.url">{{ u.instanceName }} ({{ u.url }})</option>
+      </select>
+    </div>
+    <p v-if="errorKey" class="proxy-upstream-field-msg proxy-upstream-field-error" role="alert">{{ $t(errorKey) }}</p>
+    <p v-else-if="justSaved" class="proxy-upstream-field-msg" role="status">{{ $t('proxyUpstream.restartNotice') }}</p>
+    <p v-else-if="isDiscovering" class="proxy-upstream-field-msg">{{ $t('proxyUpstream.discovery.scanning') }}</p>
+    <p v-else-if="discoveredSingle" class="proxy-upstream-field-msg">
+      {{ $t('proxyUpstream.discovery.foundOne', { instanceName: discoveredSingle.instanceName }) }}
+    </p>
+    <p v-else-if="proxyUpstream.info.value?.envOverrideActive" class="proxy-upstream-field-msg">
+      {{ $t('proxyUpstream.envOverrideNotice', { value: proxyUpstream.info.value.effective }) }}
+    </p>
+    <p v-else class="proxy-upstream-field-msg">{{ $t('proxyUpstream.hint') }}</p>
+    <button type="button" class="proxy-upstream-field-rescan" :disabled="isDiscovering" @click="rescan()">
+      {{ $t('proxyUpstream.discovery.scanLabel') }}
+    </button>
+  </div>
+</template>
+
+<style scoped>
+.proxy-upstream-field { display: flex; flex-direction: column; gap: var(--space-tight); }
+.proxy-upstream-field-label { color: var(--text-0); font-size: var(--text-emphasis); }
+.proxy-upstream-field input {
+  background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
+  padding: var(--space-default); font-size: var(--text-emphasis); font-family: monospace;
+  border-radius: var(--radius-default); outline: none; width: 100%; box-sizing: border-box;
+}
+.proxy-upstream-field input:focus { border-color: var(--accent-primary); }
+.proxy-upstream-field-picker { display: flex; flex-direction: column; gap: var(--space-tight); }
+.dark-select {
+  background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
+  padding: var(--space-default); font-size: var(--text-emphasis); font-family: inherit;
+  border-radius: var(--radius-default); outline: none; width: 100%; box-sizing: border-box;
+}
+.proxy-upstream-field-msg { color: var(--text-0); font-size: var(--text-emphasis); margin: 0; }
+.proxy-upstream-field-msg.proxy-upstream-field-error { color: var(--state-error); }
+.proxy-upstream-field-rescan {
+  align-self: flex-start; background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
+  padding: var(--space-tight) var(--space-default); font-size: var(--text-emphasis);
+  border-radius: var(--radius-default); cursor: pointer;
+}
+.proxy-upstream-field-rescan:hover:not(:disabled) { border-color: var(--accent-primary); }
+.proxy-upstream-field-rescan:disabled { opacity: 0.6; cursor: default; }
+</style>

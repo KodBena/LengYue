@@ -69,6 +69,15 @@ export const STONE_RADIUS_RATIO = 0.46;
 export const MARKER_INNER_RATIO = 0.4;
 
 /**
+ * Triangle-mark (SGF `TR`) half-width as a fraction of stone radius —
+ * the setup toolkit's markup renderer (BoardDisplay). Sized to read
+ * clearly whether the marked point is empty or carries a stone
+ * (Lizzie / Sabaki / KaTrain convention: an outlined triangle
+ * slightly smaller than a full stone). One consumer site today.
+ */
+export const TRIANGLE_MARK_RATIO = 0.55;
+
+/**
  * Maximum number of roots whose lineage trees the Forest Directory
  * navigator will auto-load into the right pane on a game-node
  * selection. Past this cap, selecting a game shows a guidance

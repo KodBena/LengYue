@@ -48,6 +48,94 @@ npm run build
 npm run preview   # local smoke test of the built bundle
 ```
 
+### Desktop app (Tauri v2)
+
+`src-tauri/` scaffolds a Tauri v2 desktop shell: the built SPA
+(`npm run build`'s `dist/`) inside a native webview, with the FastAPI
+backend AND KataProxy each running as a **sidecar** — a frozen
+executable the desktop shell spawns, waits for, and kills alongside
+itself. See the wf11 dispatch report
+(`.claude/dispatch-reports/wf11-tauri-build.md`) for the backend
+sidecar's full zero-context orientation (what Tauri is, the sidecar
+lifecycle, the per-user data directory), and
+`.claude/dispatch-reports/kataproxy-tauri.md` for the proxy sidecar
+added on top of it (ledger rows 820/822). The short version:
+
+```sh
+# 1a. Freeze the backend into src-tauri/binaries/ (PyInstaller; needs
+#    python3.13 and network access to install deps into a throwaway venv)
+npm run sidecar:build
+
+# 1b. Freeze KataProxy (fable-branch, cloned fresh — never this repo's
+#    proxy/ submodule) into src-tauri/binaries/ alongside it. Also
+#    builds the optional compiled transposition-detector native
+#    extension (go_transposition) into the freeze venv first, so it's
+#    bundled and enabled by default — see build-proxy-sidecar.sh and
+#    packaging/lengyue-proxy.spec for the mechanism. Needs meson, ninja,
+#    and a C++20 compiler on PATH in addition to python3.13.
+npm run proxy-sidecar:build
+
+# 2. Linux webview deps (once per machine) — Tauri's webview is
+#    webkit2gtk on Linux, not bundled Chromium:
+#    webkit2gtk-4.1, gtk+-3.0, libsoup-3.0 (dev packages) via your
+#    distro's package manager.
+
+# 3. Dev loop (hot-reloads the SPA; both sidecars still run frozen —
+#    there's no hot-reload for backend Python or proxy changes in this
+#    mode)
+npm run tauri:dev
+
+# 4. Production bundle (AppImage + .deb on Linux)
+npm run tauri:build
+```
+
+**The proxy sidecar's engine (KataGo) stays external**, the same
+docker+CUDA rationale the umbrella's Docker packaging applies: the
+analysis engine is GPU/machine-specific and the proxy is designed to
+chain to it (or to another proxy) arbitrarily, so it is never bundled.
+The desktop shell runs the sidecar in KataProxy's `RELAY` role and
+points it at an upstream WebSocket location the user provides
+**in-app** (ledger rows 860-862) — the Engine connection wizard step
+and Settings → Session both carry an "Analysis engine upstream" field
+(`useProxyUpstreamSetting.ts`; persisted Rust-side as a plain JSON file
+by `src-tauri/src/proxy_settings.rs`, since the sidecar spawns before
+any window or webview exists and there's no IPC path yet at that point
+for Rust to ask the SPA for a stored value — the file is the
+authoritative home both sides read). Precedence: the `ENGINE_WS_URL` OS
+environment variable (a power-user override, the SAME name Docker's
+compose-level upstream knob already uses) beats the stored in-app
+value, which beats the zero-config default `ws://127.0.0.1:1242` — the
+websocket-leaf shim's own default port
+(`backend/scripts/katago_ws_shim.py`), so a user running the shim
+exactly as documented needs to change nothing. **A saved in-app value
+takes effect on the next app launch, not live** — Settings/the wizard
+say so plainly rather than implying an immediate reconnect; see
+`set_proxy_upstream_setting`'s doc comment in `proxy_settings.rs` for
+why a live sidecar respawn was rejected. Required defaults per the
+commission (ledger rows 820/822), both wired at spawn time in
+`src-tauri/src/lib.rs` and requiring no user action: an 8192-entry
+analysis replay cache (`PROXY_HUB_CACHE_MAX`; KataProxy's own hard
+default is 1024) and the transposition detector enabled (no config
+flag for this — it engages automatically whenever the bundled native
+`go_transposition` extension is importable, which the freeze step
+guarantees).
+
+The SPA's engine-URI setting (`settings.engine.katago.url`) is
+unchanged in shape; only its *unconfigured-default* resolution changes
+under Tauri — `src/config/env.ts`'s `KATAGO_WS_URL` now points at the
+LOCAL bundled proxy's sidecar-assigned port rather than
+`ws://127.0.0.1:41948` directly, mirroring how `API_BASE_URL` already
+resolves to the backend sidecar's port. A user who explicitly sets
+`settings.engine.katago.url` still overrides this, same as before.
+
+Linux-first: `src-tauri/tauri.conf.json`'s `bundle.targets` lists only
+`appimage`/`deb`. Windows is deferred but the scaffold is
+target-agnostic — see the wf11 dispatch report's "What Windows needs
+later" section for the concrete remaining steps (an `.exe`-suffixed
+sidecar binary, an NSIS/MSI bundle target, no Rust source changes);
+the proxy sidecar's `build-proxy-sidecar.sh` would need the same
+target-triple-suffixed Windows build as the backend's.
+
 ---
 
 ## Backend type generation — `npm run gen:api`

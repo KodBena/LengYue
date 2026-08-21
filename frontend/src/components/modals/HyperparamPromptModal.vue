@@ -11,10 +11,12 @@
  */
 import { ref, computed } from 'vue';
 import type { HyperparamDecl } from '../../types';
+import { useModalKeyboard } from '../../composables/useModalKeyboard';
 
 export type HyperparamValues = Record<string, number | string>;
 
 const isOpen = ref(false);
+const modalContentRef = ref<HTMLElement | null>(null);
 const declarations = ref<HyperparamDecl[]>([]);
 // Per-name raw input strings; numbers are parsed at submit time so
 // the user can type freely. Pre-populated from `default` on open.
@@ -80,73 +82,114 @@ function cancel() {
   resolvePromise?.(null);
   resolvePromise = null;
 }
+
+// Escape → same close path as the Cancel button (ADR-0019 S5);
+// Tab focus trap + initial focus + focus restoration — all one
+// shared mechanism, see useModalKeyboard.ts.
+useModalKeyboard(modalContentRef, isOpen, cancel);
 </script>
 
 <template>
-  <div v-if="isOpen" class="modal-backdrop" @mousedown.self="cancel">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>{{ $t('harnessPrompt.title') }}</h2>
-      </div>
-      <div class="modal-body">
-        <p class="lede">{{ $t('harnessPrompt.lede') }}</p>
-        <div v-for="d in declarations" :key="d.name" class="field-row">
-          <label :for="`hpv-${d.name}`">
-            <span class="field-label">{{ labelFor(d) }}</span>
-            <span class="field-name">{{ d.name }}</span>
-          </label>
-          <select
-            v-if="d.type === 'enum'"
-            :id="`hpv-${d.name}`"
-            class="dark-input"
-            v-model="inputs[d.name]"
-          >
-            <option v-for="opt in d.options" :key="opt" :value="opt">{{ opt }}</option>
-          </select>
-          <input
-            v-else
-            :id="`hpv-${d.name}`"
-            type="text"
-            class="dark-input"
-            :class="{ 'invalid': fieldError(d, inputs[d.name] ?? '') !== null }"
-            v-model="inputs[d.name]"
-          />
-          <span v-if="fieldError(d, inputs[d.name] ?? '')" class="field-error">
-            {{ fieldError(d, inputs[d.name] ?? '') }}
-          </span>
+  <!-- Rider (commissioner live finding, screenshot
+       5f94_cards_occluded_modal.png): this modal used to mount
+       in-place, deep inside ForestDirectory's own LYT leaf subtree
+       (`.forest-container` > `.forest-cq-wrapper` > the LytNode leaf
+       cell chain) — unlike every sibling modal (MintCardModal,
+       LearnPathModal, ConfirmLoadModal, …), which all mount directly
+       off App.vue's own template root, right under `#main-area`. The
+       `.modal-backdrop` below is `position: fixed`, which is SUPPOSED
+       to size/center against the viewport regardless of DOM depth —
+       but a `position: fixed` element's containing block silently
+       becomes its nearest ancestor that establishes one (`transform`,
+       `filter`, `contain: paint/layout/strict/content`, `will-change`
+       naming one of those, …), and the live-witnessed symptom (a
+       ~420px `.modal-content` rendering pinned to the control panel's
+       own box, partially past the true viewport's right edge) is
+       exactly that failure mode. Rather than chase which specific
+       ancestor in this deep, LYT-grid-nested subtree quietly
+       qualifies (a fragile thing to pin down and easy to reintroduce
+       the next time an ancestor gains one of those properties for an
+       unrelated reason), `<Teleport to="body">` gives this modal the
+       SAME guarantee every sibling modal gets implicitly from being
+       mounted near the true document root: its backdrop is always a
+       DIRECT CHILD of `<body>`, so `position: fixed` always resolves
+       against the real viewport no matter how deep the *trigger*
+       (ForestDirectory, now reachable from the relocated Cards
+       toolbar entry — see App.vue) is nested. See
+       `tests/integration/HyperparamPromptModal-teleport.test.ts` for
+       the regression coverage. -->
+  <Teleport to="body">
+    <div v-if="isOpen" class="modal-backdrop" @mousedown.self="cancel">
+      <div ref="modalContentRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="harness-prompt-title" tabindex="-1">
+        <div class="modal-header">
+          <h2 id="harness-prompt-title">{{ $t('harnessPrompt.title') }}</h2>
+        </div>
+        <div class="modal-body">
+          <p class="lede">{{ $t('harnessPrompt.lede') }}</p>
+          <div v-for="d in declarations" :key="d.name" class="field-row">
+            <!-- S9 (component-shoddiness audit, 2026-08-21): the raw wire
+                 symbol (`deck_size`) used to render permanently beside its
+                 human label — clutter for a dialog whose whole point is to
+                 present the deck's declared hyperparameters in plain
+                 language. It's still discoverable (a technical user who
+                 wants the exact symbol for a pipeline script can hover),
+                 just not shouting alongside the label it duplicates in
+                 spirit. -->
+            <label :for="`hpv-${d.name}`" :title="d.name">
+              <span class="field-label">{{ labelFor(d) }}</span>
+            </label>
+            <select
+              v-if="d.type === 'enum'"
+              :id="`hpv-${d.name}`"
+              class="dark-input"
+              v-model="inputs[d.name]"
+            >
+              <option v-for="opt in d.options" :key="opt" :value="opt">{{ opt }}</option>
+            </select>
+            <input
+              v-else
+              :id="`hpv-${d.name}`"
+              type="text"
+              class="dark-input"
+              :class="{ 'invalid': fieldError(d, inputs[d.name] ?? '') !== null }"
+              v-model="inputs[d.name]"
+            />
+            <span v-if="fieldError(d, inputs[d.name] ?? '')" class="field-error">
+              {{ fieldError(d, inputs[d.name] ?? '') }}
+            </span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="cancel">{{ $t('harnessPrompt.button.cancel') }}</button>
+          <button class="btn-submit" :disabled="!allValid" @click="submit">
+            {{ $t('harnessPrompt.button.run') }}
+          </button>
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn-cancel" @click="cancel">{{ $t('harnessPrompt.button.cancel') }}</button>
-        <button class="btn-submit" :disabled="!allValid" @click="submit">
-          {{ $t('harnessPrompt.button.run') }}
-        </button>
-      </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <style scoped>
 .modal-backdrop {
   position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-  background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.7);
   display: flex; align-items: center; justify-content: center; z-index: var(--z-modal);
 }
 /* 420px modal width — design decision shared with the other modals; see
    ConfirmLoadModal.vue for the rationale. */
 .modal-content {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
-  width: 420px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+  width: 420px;
   display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 .modal-header { padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); }
 .modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); text-transform: uppercase; }
-.modal-body { padding: var(--space-medium); color: var(--text-1); font-size: var(--text-emphasis); display: flex; flex-direction: column; gap: var(--space-default); }
-.lede { margin: 0 0 var(--space-default); color: var(--text-2); font-size: var(--text-body); }
+.modal-body { padding: var(--space-medium); color: var(--text-0); font-size: var(--text-emphasis); display: flex; flex-direction: column; gap: var(--space-default); }
+.lede { margin: 0 0 var(--space-default); color: var(--text-0); font-size: var(--text-body); }
 .field-row { display: flex; flex-direction: column; gap: var(--space-tight); }
 .field-row label { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-default); }
-.field-label { color: var(--text-1); font-size: var(--text-emphasis); }
-.field-name { color: var(--text-2); font-family: monospace; font-size: var(--text-tiny); }
+.field-label { color: var(--text-0); font-size: var(--text-emphasis); }
 .dark-input {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
   padding: var(--space-default); border-radius: var(--radius-default);
@@ -159,7 +202,11 @@ function cancel() {
   display: flex; justify-content: flex-end; gap: var(--space-medium); padding: var(--space-medium) var(--space-medium);
   border-top: 1px solid var(--surface-3); background: var(--surface-2);
 }
-.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
-.btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-0); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+/* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-1 text on
+   an --accent-primary fill measures ~1.84:1 in the default cluster
+   theme. --text-on-accent is the token minted for text directly on
+   an accent fill (theme.css, ledger rows 1018/1144). */
+.btn-submit { background: var(--accent-primary); border: none; color: var(--text-on-accent); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

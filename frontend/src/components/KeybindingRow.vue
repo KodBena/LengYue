@@ -205,7 +205,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <tr class="keybinding-row">
+  <tr class="keybinding-row" :class="{ 'row-capturing': state.kind === 'capturing' }">
     <td class="action-label" :title="t(action.descriptionKey)">
       {{ t(action.labelKey) }}
     </td>
@@ -247,9 +247,52 @@ onUnmounted(() => {
 
 <style scoped>
 .keybinding-row td {
-  padding: var(--space-tiny) var(--space-small);
-  border-bottom: 1px solid var(--surface-1);
+  padding: var(--space-tight) var(--space-default);
+  /* M5 (audit row 1251): the prior rule referenced --surface-1,
+     which is near-invisible against the panel background in more
+     than one theme. --border-1 is the Library table's own row-rule
+     token (LibraryTable.vue's .library-row), used here for the same
+     "in-repo precedent" reason the task cites. */
+  border-bottom: 1px solid var(--border-1);
   vertical-align: middle;
+}
+
+/* M5: row-hover, matching LibraryTable.vue's .library-row:hover —
+   same scanning aid the in-repo precedent already uses. */
+.keybinding-row:hover td {
+  background: var(--surface-2);
+}
+
+/* M8(c) (menus-ui audit row 1291): a row mid-capture swallows every
+   keypress in the app (keybindings-capture.ts's window-level listener),
+   a fact the prior rendering signalled only via 11px italic prompt
+   text — no different from any other row at a glance. An opaque
+   (never translucent — standing ruling) fill on the whole row gives
+   the state weight proportionate to what it's actually doing; the
+   accompanying app-level banner (App.vue, gated on the same
+   `captureMode` this row sets) covers the case where the user's
+   attention isn't on this row/tab at all. */
+.keybinding-row.row-capturing td {
+  background: var(--state-attention);
+  /* Same established "text on a saturated chrome fill" token as
+     StatusBar.vue's `.setup-mode-chip` (theme.css's --text-on-accent,
+     minted for LibraryTable.vue's `.library-row.selected`) — reused
+     rather than adding a new role for the same pairing. */
+  color: var(--text-on-accent);
+}
+/* The row's own child elements (`.action-label`, `.capture-prompt`,
+   `.row-btn`, …) each set their own explicit `color`, which wins over
+   inheriting the `td` rule above — restate legibility against the
+   attention fill explicitly for each, rather than rely on
+   inheritance. */
+.keybinding-row.row-capturing .action-label,
+.keybinding-row.row-capturing .capture-prompt,
+.keybinding-row.row-capturing .reserved-notice {
+  color: var(--text-on-accent);
+}
+.keybinding-row.row-capturing .row-btn {
+  border-color: var(--text-on-accent);
+  color: var(--text-on-accent);
 }
 
 .action-label {
@@ -258,25 +301,43 @@ onUnmounted(() => {
 }
 
 .action-key {
-  text-align: right;
-  color: var(--text-1);
+  /* M5 (audit finding, ledger row 1251): the chord column was
+     centred per-row by the surrounding per-section <table>s each
+     computing independent column widths from their own content, so
+     the same visual "column" landed at a different x-position per
+     section. .keybindings-table below now sets a fixed, identical
+     column width for every section's table (table-layout: fixed +
+     explicit widths), so left-alignment here is a genuine shared
+     column, not a per-row centering artifact. */
+  text-align: left;
+  color: var(--text-0);
   font-family: monospace;
   white-space: nowrap;
-  min-width: 6ch;
+  /* Fixed, identical-across-sections column width — see
+     .keybindings-table's table-layout: fixed comment. 100px fits
+     the longest default chord ("ArrowRight"/"ArrowDown", 10 chars
+     monospace) plus the unbound-label string. */
+  width: 100px;
 }
 
 .capture-prompt {
-  color: var(--accent-primary);
+  /* wC-contrast (F9): readable text is always --text-0; accent-primary
+     measures 2.08:1 against --surface-0 in the default cluster theme.
+     Not a disabled control, so no exception applies. */
+  color: var(--text-0);
   font-style: italic;
 }
 
 .reserved-notice {
   display: block;
   color: var(--state-attention);
-  font-size: var(--text-small);
+  /* Ghost-token fix (same class as M5's): --text-small/--space-tiny
+     are not defined in theme.css; --text-body/--space-tight are the
+     nearest real tokens. */
+  font-size: var(--text-body);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   font-style: normal;
-  margin-top: var(--space-tiny);
+  margin-top: var(--space-tight);
 }
 
 .conflict-text {
@@ -287,20 +348,39 @@ onUnmounted(() => {
 .action-buttons {
   text-align: right;
   white-space: nowrap;
+  /* Fixed, identical-across-sections column width — see
+     .keybindings-table's table-layout: fixed comment. Wide enough
+     for the largest button pair (Edit + Reset) at the new >=24px
+     padded size. */
+  width: 150px;
 }
 
+/* M5: --space-small was never a defined token (see theme.css) — the
+   custom property failed to resolve, so this margin computed to 0
+   and Edit/Reset abutted with zero gap next to a destructive
+   action. --space-default is a real token and gives the genuine gap
+   the finding asked for. */
 .action-buttons .row-btn + .row-btn {
-  margin-left: var(--space-small);
+  margin-left: var(--space-default);
 }
 
 .row-btn {
   background: transparent;
   border: 1px solid var(--border-3);
-  color: var(--text-1);
-  padding: var(--space-tiny) var(--space-small);
+  color: var(--text-0);
+  /* M16 (>=24x24 pointer targets) + M5 (ghost-token fix): the prior
+     padding referenced --space-tiny/--space-small, neither a
+     defined token (theme.css has --space-tight/--space-default/
+     --space-medium/--space-loose only), so the shorthand was invalid
+     at computed-value time and padding collapsed to 0 — the audited
+     ~22x11px buttons. Real tokens plus an explicit min-height floor
+     bring both dimensions to >=24px regardless of font metrics. */
+  padding: var(--space-default) var(--space-medium);
+  min-height: 24px;
+  min-width: 24px;
   border-radius: var(--radius-default);
   cursor: pointer;
-  font-size: var(--text-small);
+  font-size: var(--text-body);
 }
 
 .row-btn:hover:not(:disabled) {

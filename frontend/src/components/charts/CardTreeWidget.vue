@@ -26,6 +26,7 @@ import { ref, computed, watch, nextTick, toRef } from 'vue';
 import type {
   CardId,
   CardLineageTree,
+  CardPublicId,
   ForestStat,
   ReviewCard,
   CardTreeExpandKey,
@@ -51,7 +52,8 @@ const props = withDefaults(
     forest: CardLineageTree[];
     activeSet: ReadonlySet<CardId>;
     cards: ReadonlyMap<CardId, ReviewCard>;
-    forestStats: ReadonlyMap<CardId, ForestStat>;
+    // Browse-leak-fix (ledger rows 417/423): keyed by CardPublicId.
+    forestStats: ReadonlyMap<CardPublicId, ForestStat>;
     // Manual-expand axis the widget projects against. Owned by the
     // parent (via `useCardTreeData::manualExpand`, which reads from
     // `store.session.ui.cardTreeNav[boardId]` — schema-version 45);
@@ -96,7 +98,7 @@ const emit = defineEmits<{
   // manual-expand key belonging to that tree, leaving other trees'
   // expansion entries (under the same board's persisted slot)
   // intact.
-  (e: 'collapse-tree', rootCardId: CardId): void;
+  (e: 'collapse-tree', rootCardId: CardPublicId): void;
 }>();
 
 // Per-mount accordion-expand (per-tree section). manualExpand is a
@@ -104,7 +106,7 @@ const emit = defineEmits<{
 // `useCardTreeData::reset` clears it when forest / activeSet are
 // replaced, so the widget no longer needs to mirror that reset.
 
-const expandedRootId = ref<CardId | null>(null);
+const expandedRootId = ref<CardPublicId | null>(null);
 
 // Composable expects `Ref<Set<CardId>>` / `Ref<Set<string>>`;
 // widening from the `ReadonlySet`-typed props is safe here because
@@ -133,7 +135,7 @@ watch(renderForest, forest => {
   if (!stillThere) expandedRootId.value = forest[0].rootCardId;
 }, { immediate: true });
 
-function toggleExpand(rootCardId: CardId): void {
+function toggleExpand(rootCardId: CardPublicId): void {
   expandedRootId.value = expandedRootId.value === rootCardId ? null : rootCardId;
 }
 
@@ -307,16 +309,18 @@ watch(
   user-select: none;
 }
 .tree-section.expanded .tree-header { border-bottom: 1px solid var(--surface-2); }
-.tree-header .chevron { font-size: var(--text-tiny); color: var(--text-2); width: 10px; flex-shrink: 0; }
+.tree-header .chevron { font-size: var(--text-tiny); color: var(--text-disabled); width: 10px; flex-shrink: 0; }
 .tree-header .title { font-size: var(--text-emphasis); color: var(--text-0); font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tree-header .meta { font-size: var(--text-body); color: var(--text-2); white-space: nowrap; }
-.tree-header .counts { margin-left: auto; font-size: var(--text-body); color: var(--accent-primary); white-space: nowrap; }
+.tree-header .meta { font-size: var(--text-body); color: var(--text-0); white-space: nowrap; }
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
+.tree-header .counts { margin-left: auto; font-size: var(--text-body); color: var(--text-0); white-space: nowrap; }
 /* "Collapse all" button on the expanded tree-section's header.
-   Matches the toolbar-btn aesthetic (compact, monospace, accent
-   colour) so it reads as a chrome action rather than a content
-   element. Visible only on the expanded tree; renders flush to
-   the right edge of the header beside `counts`. */
-.collapse-all-btn { background: var(--surface-2); color: var(--accent-primary); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: 1px 6px; font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-tight); cursor: pointer; font-family: 'Courier New', monospace; flex-shrink: 0; }
+   Matches the toolbar-btn aesthetic (compact, monospace) so it reads
+   as a chrome action rather than a content element. Visible only on
+   the expanded tree; renders flush to the right edge of the header
+   beside `counts`. wC-contrast (F9): label text is --text-0, not
+   accent-primary — 2.08:1 in the default cluster theme. */
+.collapse-all-btn { background: var(--surface-2); color: var(--text-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: 1px 6px; font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-tight); cursor: pointer; font-family: 'Courier New', monospace; flex-shrink: 0; }
 .tree-canvas { flex: 1; min-height: 0; width: 100%; cursor: crosshair; }
 .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--border-3); font-size: var(--text-emphasis); }
 </style>

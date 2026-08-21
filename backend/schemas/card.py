@@ -25,7 +25,7 @@ separate — submissions tighten, emissions stay permissive until
 commit-3b.
 """
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -117,9 +117,120 @@ class CardCreateResponse(BaseModel):
     Dict[str, Any], which provided no information to OpenAPI consumers
     (and therefore no information to any code-generated TypeScript
     client downstream — see item 30). Item 4.
+
+    Per-user-id-enumeration design: ``card_id`` (the raw PK) is kept
+    — allowlisted alongside the ``GET /cards/{card_id}`` path param,
+    which the frontend addresses with this same value immediately
+    after creation (`.claude/dispatch-reports/
+    per-user-id-enumeration-design.md`, Decision 4). ``public_id``
+    (the opaque reference handle) and ``display_ordinal`` (the
+    per-user display value) are added alongside so a caller that
+    wants to *display* "card N" doesn't need a follow-up round trip.
     """
     status: Literal["created"]
     card_id: int
+    public_id: UUID
+    display_ordinal: int
+
+
+class ParentRefCardId(BaseModel):
+    """
+    One shape of ``POST /cards/batch``'s ``parent_ref``: the new
+    card is a branch off an EXISTING card the caller owns (or is
+    minting into for the first time via this same batch's tenancy
+    boundary — an existing card by definition already belongs to
+    some tenant).
+
+    Tenancy: ``card_id`` is resolved against the same tenant-aware
+    read Port ``CardService.create_card``'s parent-ownership
+    precheck uses (item 14). A ``card_id`` that doesn't exist, or
+    belongs to a different tenant, surfaces as the same
+    ``CardNotFoundError`` -> 404 collapse (docs/notes/tenancy.md).
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    card_id: int
+
+
+class ParentRefBatchIndex(BaseModel):
+    """
+    The other shape of ``POST /cards/batch``'s ``parent_ref``: the
+    new card is a branch off an EARLIER member of this same batch.
+
+    ``batch_index`` must satisfy ``0 <= batch_index < <this item's
+    own index>`` — a forward reference (including the self-reference
+    ``batch_index == own index``) is rejected with 422
+    (``BatchIndexReferenceError``) naming both indices, per the
+    ratified contract (ledger rows 884/885/886): a card cannot be a
+    child of a card that hasn't been minted yet by this same
+    request.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    batch_index: int = Field(ge=0)
+
+
+ParentRef = Union[ParentRefCardId, ParentRefBatchIndex]
+
+
+class BatchCardItem(CardBase):
+    """
+    One member of a ``POST /cards/batch`` request. Same field shape
+    as ``CardCreate`` except ``parent_card_id`` is replaced by
+    ``parent_ref`` — a discriminated-by-shape union of "an existing
+    card" (``{"card_id": ...}``) or "an earlier batch member"
+    (``{"batch_index": ...}``) — so one wire shape covers both
+    lineage sources the batch needs to express. ``parent_ref: null``
+    together with ``game_metadata`` set mints a root, exactly as
+    ``CardCreate``'s ``parent_card_id: null`` + ``game_metadata``
+    does for the single-item endpoint.
+    """
+    raw_content: str = Field(
+        description=(
+            "The raw domain content (SGF for Go, PGN for Chess, etc.). "
+            "Normalized canonically by the configured PositionNormalizer "
+            "before storage."
+        ),
+    )
+    tags: List[str] = []
+
+    parent_ref: Optional[ParentRef] = None
+    game_metadata: Optional[GameSourceCreate] = None
+
+    @model_validator(mode="after")
+    def check_source_mutually_exclusive(self) -> "BatchCardItem":
+        has_parent = self.parent_ref is not None
+        has_game = bool(self.game_metadata)
+        if has_parent == has_game:
+            raise ValueError(
+                "Lineage violation: Must provide exactly one of "
+                "'parent_ref' (for branches) or 'game_metadata' (for roots)."
+            )
+        return self
+
+
+class CardBatchCreateRequest(BaseModel):
+    """
+    Request body shape for ``POST /cards/batch``. ``cards`` is an
+    ordered list; each member's ``parent_ref.batch_index`` (when
+    present) refers to this list's own indices.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    cards: List[BatchCardItem]
+
+
+class CardBatchCreateResponse(BaseModel):
+    """
+    Response body shape for ``POST /cards/batch``: the minted
+    ``card_id``s, in request order. Per the ratified contract, this
+    is deliberately the thin ``{"card_ids": [...]}`` shape — no
+    per-member ``public_id`` / ``display_ordinal`` widening (unlike
+    ``CardCreateResponse``); a caller that needs those follows up
+    with ``GET /cards/{card_id}`` per id, same as any other
+    already-known card id.
+    """
+    card_ids: List[int]
 
 
 class GradingParameterData(BaseModel):
@@ -206,6 +317,42 @@ class CardPatch(BaseModel):
     suspended: Optional[bool] = None
     grading_parameter: Optional[GradingParameterPatch] = None
     reset_prior: bool = False
+
+
+class CardHashEntry(BaseModel):
+    """
+    One row of ``GET /cards/hashes``'s response: the pairing between
+    a position's content hash and the caller's card id at that
+    position.
+
+    Card-position-annotations boot-time hydrate (see
+    ``.claude/dispatch-reports/card-position-annotations-design.md``
+    §3, "Recommend (b)"): the SPA's `known-positions` state module
+    fills incidentally today, via `mapToReviewCard` on every card
+    fetch (`content_hash` alone, widened onto `CardWithRecall` in
+    Stage A). This DTO adds the ``card_id`` leg so a single bulk
+    fetch at boot/login can populate the full
+    `ContentHash -> CardId` map without waiting on incidental
+    navigation — the completeness guarantee §3 calls out as
+    ``GET /cards/hashes``'s reason to exist over relying on what's
+    already loaded.
+
+    ``content_hash`` is the lowercase-hex SHA-256 digest, same
+    representation and equality contract as
+    `PositionHashResponse.content_hash` (schemas/positions.py) and
+    `CardWithRecall.content_hash` — a client can compare all three
+    with plain string equality. ``card_id`` is the raw PK, matching
+    `CardCreateResponse.card_id` and every other route that
+    addresses a card by its internal id (per-user-id-enumeration
+    Decision 4 allowlists this value).
+    """
+
+    content_hash: str = Field(
+        description="Lowercase-hex SHA-256 digest of the position's normalized content.",
+    )
+    card_id: int = Field(
+        description="The internal id of the caller's card at this position.",
+    )
 
 
 class ReviewRequest(BaseModel):

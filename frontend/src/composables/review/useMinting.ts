@@ -5,215 +5,298 @@
  */
 
 import { store } from '../../store';
-import { backendService } from '../../services/backend-service';
-import { serializeActivePath, setSgfRootKomi } from '../../engine/sgf-writer';
-import { resolveGameName } from '../../engine/util';
+import { setSgfRootKomi } from '../../engine/sgf-writer';
+import { resolveGameName, getRulesetResolution } from '../../engine/util';
 import { compileAnalysisConfig, compileEngineOverrides } from '../../state/analysis-config';
-import { useMetadata } from '../auth-app/useMetadata';
 import { learnTags } from '../cards/useTags';
 import { useKomiCalibration } from './useKomiCalibration';
-import type { KomiCalibrationResult } from '../../engine/katago/komi-calibration';
-import { computed } from 'vue';
-import type { BoardId, CardCreatePayload, GameMetadataPayload } from '../../types';
+import { useKnownPositions } from '../cards/useKnownPositions';
+import { backendService } from '../../services/backend-service';
+import { normalizeKomiForRuleset, type KomiCalibrationResult } from '../../engine/katago/komi-calibration';
+import type { BuildBatchMintPayloadResult } from '../cards/batch-mint-core';
+import { ref } from 'vue';
+import type {
+  BoardId,
+  BoardState,
+  CardBatchParentRef,
+  CardId,
+  GameMetadataPayload,
+  NodeId,
+} from '../../types';
 
-export function useMinting() {
-  
-  /**
-   * Reads the current board state and user settings, and constructs 
-   * a Draft Payload for the Minting Modal. Enforces the XOR rule.
-   */
-  async function prepareDraft(boardId: BoardId): Promise<CardCreatePayload | null> {
-    const board = store.boards.find(b => b.id === boardId);
-    if (!board) return null;
+/** `duplicateCheckStatus` states for the mint-dialog duplicate warning
+ * (card-position-annotations Stage A, C6 posture: a lookup in flight
+ * renders as "checking", never as a silent "no duplicate"). */
+export type DuplicateCheckStatus = 'idle' | 'checking' | 'checked';
 
-    // Extract SGF metadata
-    // We use a temporary computed to leverage the existing useMetadata logic
-    const boardRef = computed(() => board);
-    const metadata = useMetadata(boardRef).value;
+/**
+ * Compiles the `grading_parameter` blob shared by every card-create
+ * payload: the palette snapshot (active, or a user-pinned specific
+ * palette per `minting.defaultPaletteId`), the engine-override
+ * snapshot, `default_visits`, and `gamma`. Pure function of the
+ * current profile settings — no board dependency — so both
+ * `MintCardModal.vue`'s "Mint card(s)" batch draft and `useLearnPath`
+ * (mint-from-synthesized-position, pre-batch-affordance history) can
+ * call it without needing a live board. Originally extracted from the
+ * single-mint `prepareDraft` (retired — batch card-minting affordance,
+ * ledger rows 926/957/1008: the single mint is now the degenerate
+ * one-item case of the SAME batch draft construction, not a separate
+ * function).
+ */
+export function compileMintGradingParameter(): Record<string, any> {
+  const mintingPrefs = store.profile.settings.minting;
+  const env = store.profile.settings.engine.katago.analysis_env;
 
-    // 1. Serialize only the active path (omits sidelines)
-    const sgf = serializeActivePath(board);
+  const overrideSettingsSnapshot = compileEngineOverrides();
+  let grading_parameter: Record<string, any> = {
+    data: {
+      analysis_config: compileAnalysisConfig(),
+      ...(overrideSettingsSnapshot ? { overrideSettings: overrideSettingsSnapshot } : {}),
+    },
+  };
 
-    // 2. Resolve Lineage (Heredity XOR Rule).
-    // The board's `sourceCardId` is the single source of truth for
-    // "this board was derived from card X" — set by the card-load
-    // paths (database tab via useDirtyBoardGuard, SR queue via
-    // useReviewSession.loadCard); absent on fresh boards from
-    // createInitialBoard and on SGF file uploads via useSgfLoader.
-    // Per the wire contract the two fields are mutually exclusive:
-    // supply game_metadata only when there is no upstream card.
-    // The `as unknown as number` cast strips the CardId brand at the
-    // wire boundary (CardId = Brand<number, 'CardId'>); the brand
-    // erases at runtime, so this is the standard ADR-0002-justified
-    // brand-erasure cast on the way to a snake_case wire payload.
-    let parent_card_id: number | undefined = undefined;
-    let game_metadata: GameMetadataPayload | undefined = undefined;
-
-    if (board.sourceCardId !== undefined) {
-      parent_card_id = board.sourceCardId as unknown as number; // CardId brand-strip to the wire's raw number (see comment above; IDENTIFIERS.md erosion (b))
-    }
-
-    // If there is no parent card, it is a Root. We must provide game_metadata.
-    //
-    // `description` runs through `resolveGameName` directly rather than the
-    // `metadata?.gameName` projection so this codepath doesn't depend on the
-    // composable surface for a value the wire requires; the four-rung
-    // ladder (GN → EV → sourceFileName → date-stamped catch-all) is the
-    // SSOT for "user-friendly game name" and `useMetadata` reads from
-    // the same helper for display.
-    //
-    // `client_game_id` is the dedup key per
-    // `docs/dispatch/backend-to-frontend-game-source-dedup-status.md`.
-    // Sent unconditionally on every root-mint from this board's lifetime;
-    // backend's get-or-create on `(user_id, client_game_id)` resolves
-    // subsequent mints to the same game_source row, so two mints from
-    // positions A and B of one loaded SGF surface as a single forest
-    // entry with two roots underneath. First-mint-wins on metadata —
-    // the description / player names from the second mint are ignored
-    // backend-side, which matches the user intent of editing SGF root
-    // properties between mints not retroactively rewriting the recorded
-    // game name.
-    if (!parent_card_id) {
-      game_metadata = {
-        description: resolveGameName(board),
-        player_white: metadata?.whiteName,
-        player_black: metadata?.blackName,
-        client_game_id: board.clientGameId,
+  // If the user specified a specific default palette, compile just that one
+  if (mintingPrefs.defaultPaletteId !== 'active') {
+    const specificPalette = env.palettes.find(p => p.id === mintingPrefs.defaultPaletteId);
+    if (specificPalette) {
+      grading_parameter = {
+        data: {
+          analysis_config: {
+            bindings: {
+              delta_fn: specificPalette.delta_fn,
+              state_fns: specificPalette.state_fns,
+              summary_fn: specificPalette.summary_fn
+            },
+            parameters: env.parameters,
+            symbols: env.symbols
+          },
+          ...(overrideSettingsSnapshot ? { overrideSettings: overrideSettingsSnapshot } : {}),
+        }
       };
     }
+  }
 
-    // 3. Resolve Palette (Grading Parameter)
-    const mintingPrefs = store.profile.settings.minting;
-    const env = store.profile.settings.engine.katago.analysis_env;
+  grading_parameter.data.default_visits = mintingPrefs.defaultVisits;
+  grading_parameter.data.gamma = mintingPrefs.defaultGamma;
 
-    // 34b: `grading_parameter` is declared with a widening annotation
-    // (`Record<string, any>`) because we mutate it below to add
-    // `default_visits`. Without this, TypeScript would infer the narrower
-    // object-literal type from the initializer and reject the mutation.
-    //
-    // The mint-time snapshot has two legs: `analysis_config` (palette)
-    // determines how the proxy enriches the response; `overrideSettings`
-    // (KataGo runtime overrides) determines what packets KataGo emits
-    // in the first place — winrate sign convention, symmetry sampling,
-    // root noise. Both are part of the stable analysis identity for
-    // this card; both are read back at review time by `useReviewSession`
-    // and threaded through `analyzeRange` so the replay matches the
-    // mint-time analysis posture exactly. The hash that buckets ledger
-    // entries combines both via `compileAnalysisDescriptorFromParts`.
-    //
-    // `compileEngineOverrides()` returns `undefined` when the user has
-    // no overrides configured; we conditionally include the field so a
-    // legacy card's snapshot shape (no `overrideSettings` key) is
-    // reachable as a deliberate "no overrides" semantic for future
-    // mints from a registry-cleared profile.
-    const overrideSettingsSnapshot = compileEngineOverrides();
-    let grading_parameter: Record<string, any> = {
-      data: {
-        analysis_config: compileAnalysisConfig(),
-        ...(overrideSettingsSnapshot ? { overrideSettings: overrideSettingsSnapshot } : {}),
-      },
-    };
+  return grading_parameter;
+}
 
-    // If the user specified a specific default palette, compile just that one
-    if (mintingPrefs.defaultPaletteId !== 'active') {
-      const specificPalette = env.palettes.find(p => p.id === mintingPrefs.defaultPaletteId);
-      if (specificPalette) {
-        grading_parameter = {
-          data: {
-            analysis_config: {
-              bindings: {
-                delta_fn: specificPalette.delta_fn,
-                state_fns: specificPalette.state_fns,
-                summary_fn: specificPalette.summary_fn
-              },
-              parameters: env.parameters,
-              symbols: env.symbols
-            },
-            ...(overrideSettingsSnapshot ? { overrideSettings: overrideSettingsSnapshot } : {}),
-          }
-        };
-      }
+/**
+ * Resolves a board's XOR lineage — `parent_card_id` (a branch off the
+ * card this board was loaded from) or `game_metadata` (a fresh root).
+ * The SOLE resolution rule the batch card-minting affordance's
+ * fallback parent resolution uses (ledger rows 926/957/1008):
+ * `MintCardModal.vue`'s "Mint card(s)" batch draft builds its
+ * `fallbackParentRef`/`fallbackGameMetadata` from this — the
+ * resolution `batch-mint-core.ts::buildBatchMintPayload` falls back to
+ * for any selected node whose nearest ancestor ISN'T also in the
+ * batch (spec point 3: "the same parent resolution the single mint
+ * uses today" — a single mint is now just a batch of one, so "today"
+ * and "the batch's own fallback" are the same rule by construction,
+ * not two rules kept in sync).
+ *
+ * `metadata` is the caller's already-computed `useMetadata(boardRef)`
+ * projection (player names) — threaded in rather than recomputed here
+ * so this stays a pure function of its arguments, no composable
+ * instantiation of its own.
+ */
+export function resolveBoardLineage(
+  board: BoardState,
+  metadata: { whiteName?: string; blackName?: string } | null | undefined,
+): { parent_card_id?: number; game_metadata?: GameMetadataPayload } {
+  // Heredity XOR rule: the board's `sourceCardId` is the single
+  // source of truth for "this board was derived from card X" — set by
+  // the card-load paths (database tab via useDirtyBoardGuard, SR queue
+  // via useReviewSession.loadCard); absent on fresh boards from
+  // createInitialBoard and on SGF file uploads via useSgfLoader. Per
+  // the wire contract the two fields are mutually exclusive: supply
+  // game_metadata only when there is no upstream card. The
+  // `as unknown as number` cast strips the CardId brand at the wire
+  // boundary (CardId = Brand<number, 'CardId'>); the brand erases at
+  // runtime, so this is the standard ADR-0002-justified brand-erasure
+  // cast on the way to a snake_case wire payload.
+  if (board.sourceCardId !== undefined) {
+    return { parent_card_id: board.sourceCardId as unknown as number }; // brand-erasure cast, see docstring above
+  }
+  return {
+    game_metadata: {
+      description: resolveGameName(board),
+      player_white: metadata?.whiteName,
+      player_black: metadata?.blackName,
+      client_game_id: board.clientGameId,
+    },
+  };
+}
+
+/**
+ * `resolveBoardLineage`'s `parent_card_id`/`game_metadata` shape,
+ * translated to the batch wire's `parent_ref` shape
+ * (`{card_id}` | `null`) for `buildBatchMintPayload`'s
+ * `fallbackParentRef` parameter.
+ */
+export function resolveBoardLineageAsBatchFallback(
+  board: BoardState,
+  metadata: { whiteName?: string; blackName?: string } | null | undefined,
+): { fallbackParentRef: CardBatchParentRef | null; fallbackGameMetadata?: GameMetadataPayload } {
+  const lineage = resolveBoardLineage(board, metadata);
+  if (lineage.parent_card_id !== undefined) {
+    return { fallbackParentRef: { card_id: lineage.parent_card_id } };
+  }
+  return { fallbackParentRef: null, fallbackGameMetadata: lineage.game_metadata };
+}
+
+export function useMinting() {
+  const { checkForDuplicate, rememberMintedCard } = useKnownPositions();
+
+  // Duplicate-check state for the currently-open draft. Reset by the
+  // caller (`MintCardModal.open`) on each new draft; `checkDuplicate`
+  // below is the sole writer.
+  const duplicateCheckStatus = ref<DuplicateCheckStatus>('idle');
+  const duplicateCardId = ref<CardId | null>(null);
+
+  /**
+   * Resolve `rawContent`'s content_hash via the stateless backend
+   * endpoint and look it up against the caller's known positions.
+   * Fire-and-await from the modal AFTER it has already opened with the
+   * draft — the check must never block the draft from appearing (design
+   * §4: "not a hard block", the user may proceed deliberately while the
+   * check is still in flight or has found nothing).
+   */
+  async function checkDuplicate(rawContent: string): Promise<void> {
+    duplicateCheckStatus.value = 'checking';
+    duplicateCardId.value = null;
+    try {
+      duplicateCardId.value = await checkForDuplicate(rawContent);
+    } finally {
+      duplicateCheckStatus.value = 'checked';
     }
+  }
 
-    // 34b: `default_visits` now lives inside `grading_parameter.data`
-    // instead of at the top level of the payload. Merged in after
-    // palette resolution so both the "active" and "specific palette"
-    // branches pick it up uniformly.
-    grading_parameter.data.default_visits = mintingPrefs.defaultVisits;
-
-    // Recall-discount γ rides in the same opaque blob — the wire is
-    // OpenAPI-honest about the shape (`{[key: string]: unknown} |
-    // null`); the backend reads it back via the same `data.gamma`
-    // path on grading. The MintCardModal surfaces it as editable so
-    // the per-card override is set at mint time; this seeds the
-    // user's profile-default value. Read-side counterpart in
-    // `backend-service.ts::mapToReviewCard`'s `?? 0.9` fallback.
-    grading_parameter.data.gamma = mintingPrefs.defaultGamma;
-
-    return {
-      raw_content: sgf,
-      num_moves: mintingPrefs.defaultNumMoves,
-      grading_parameter,
-      tags: [],
-      parent_card_id,
-      game_metadata
-    };
+  /** Reset duplicate-check state — called when a fresh draft opens. */
+  function resetDuplicateCheck(): void {
+    duplicateCheckStatus.value = 'idle';
+    duplicateCardId.value = null;
   }
 
   /**
    * Mint-time komi calibration (opt-in, pedagogical). Runs a FRESH
-   * bounded evaluation for the board's current position at `visits`,
-   * computes the komi that makes the position even, and writes it onto
-   * the draft's serialized SGF (`raw_content`) so the minted card stores
-   * the even-game komi.
+   * bounded evaluation for `boardId`'s position at `targetNodeId`
+   * (defaults to the board's current node) at `visits`, computes the
+   * komi that makes THAT position even, and writes it onto `target`'s
+   * serialized SGF (`raw_content`) so the minted card stores the
+   * even-game komi.
+   *
+   * `target` is structurally typed (`{raw_content: string}`) rather
+   * than pinned to `CardCreatePayload` — batch card-minting affordance
+   * (ledger rows 926/957/1008): `MintCardModal.vue`'s single caller
+   * passes one `BatchCardItemPayload` entry from a built batch, and
+   * (ledger row 1063) calls this ONCE PER CARD in the batch — each
+   * card calibrated to its OWN position, `targetNodeId` set to the
+   * NodeId that card was built from (not necessarily the board's
+   * current cursor). Both payload shapes carry a plain mutable
+   * `raw_content: string` field, and this function reads/writes
+   * nothing else.
    *
    * Komi travels in the SGF `KM` root property — the card's only komi
    * carrier (there is no separate komi wire field) — so adjusting it is
-   * a frontend-only rewrite of `raw_content`. The draft is mutated in
+   * a frontend-only rewrite of `raw_content`. `target` is mutated in
    * place; the live board is untouched (calibration reads the board but
-   * does not write to it, and the SGF rewrite operates on the draft's
-   * own string).
+   * does not write to it, and the SGF rewrite operates on `target`'s
+   * own string, not the board's).
    *
    * Failure (engine disconnect, wire error packet, timeout) REJECTS
    * (ADR-0002) — `calibrate` throws and the caller aborts the mint
    * loudly. There is no silent fallback to an uncalibrated mint.
    *
    * Returns the calibration result so the caller can report the komi set
-   * (and whether it was clamped) in the system log.
+   * (and whether it was clamped) in the system log. `calibrate`'s own
+   * `evenKomi` is rounded to the nearest half-integer and clamped to
+   * KataGo's accepted [-150, 150] wire range
+   * (`engine/katago/komi-calibration.ts`) — that leg is the general
+   * wire-safety constraint, uniform across rulesets, and is untouched
+   * here.
+   *
+   * **Ledger row 1146 (review correction):** the value actually WRITTEN
+   * to `target.raw_content` is that `evenKomi` normalized ONE MORE step
+   * through `normalizeKomiForRuleset` against `board`'s own ruleset —
+   * `target`'s SGF is `serializeActivePath(board, targetNodeId)`'s
+   * output (root→target path off THIS SAME board's single root), so
+   * the card's ruleset is by construction identical to `board`'s; no
+   * separate per-card RU exists to read. Without this leg, a
+   * Tromp-Taylor card could be minted with a half-integer komi (e.g.
+   * `KM[10.5]`) straight off the wire-safety rounding, reintroducing
+   * exactly the invalid state `board-factory.ts`/`App.vue`'s write-time
+   * normalization exists to keep unrepresentable elsewhere. The
+   * returned result's `evenKomi` is the value actually written (so a
+   * caller reading it back never sees a stale pre-ruleset-round
+   * number); `clamped` still reports the ORIGINAL wire-range clamp only
+   * — a ruleset-domain rounding is not a range clamp.
    */
   async function calibrateKomiOnDraft(
     boardId: BoardId,
-    draft: CardCreatePayload,
+    target: { raw_content: string },
     visits: number,
+    targetNodeId?: NodeId,
   ): Promise<KomiCalibrationResult> {
     const board = store.boards.find(b => b.id === boardId);
     if (!board) {
       throw new Error(`calibrateKomiOnDraft: board ${boardId} not found in store`);
     }
     const { calibrate } = useKomiCalibration();
-    const result = await calibrate({ board, maxVisits: visits });
-    draft.raw_content = setSgfRootKomi(draft.raw_content, result.evenKomi);
-    return result;
+    const result = await calibrate({ board, maxVisits: visits, targetNodeId });
+    const ruleset = getRulesetResolution(board).name;
+    const cardKomi = normalizeKomiForRuleset(result.evenKomi, ruleset);
+    target.raw_content = setSgfRootKomi(target.raw_content, cardKomi);
+    return { ...result, evenKomi: cardKomi };
   }
 
   /**
-   * Submits the finalized payload to the API.
-   * Automatically adds any newly introduced tags to the user's knownTags list.
+   * Submits one `POST /cards/batch` request — the SOLE mint call site
+   * `MintCardModal.vue`'s "Mint card(s)" uses (spec: "the single mint
+   * is the degenerate case of the batch, one code path, not two" — an
+   * empty selection resolves to a one-element batch of the board's
+   * current node before this is ever called; there is no separate
+   * single-item `POST /cards/` path through this affordance any more).
+   * `items` is `batch-mint-core.ts::buildBatchMintPayload`'s output;
+   * the returned `card_ids` are in the SAME order as `items.nodeOrder`,
+   * so the caller can map each minted id back to the tree node it came
+   * from.
+   *
+   * Two best-effort side effects per card (tag-dictionary learning,
+   * known-positions recording) — a batch of N cards is N mints from
+   * the app's own point of view, just wire-batched into one HTTP round
+   * trip.
    */
-  async function commitMint(payload: CardCreatePayload): Promise<number> {
-    const newCardId = await backendService.createCard(payload);
+  async function commitMintBatch(
+    items: Pick<BuildBatchMintPayloadResult, 'cards' | 'nodeOrder'>,
+  ): Promise<number[]> {
+    const cardIds = await backendService.createCardsBatch({ cards: [...items.cards] });
 
-    // Route the just-minted tags through the tag-dictionary chokepoint
-    // so autocomplete remembers them this session (the metadata-edit
-    // path does the same via useCardMetadata — see useTags.ts).
-    learnTags(payload.tags);
+    for (let i = 0; i < items.cards.length; i++) {
+      const card = items.cards[i];
+      const cardId = cardIds[i];
+      learnTags(card.tags);
+      try {
+        // Brand mint: `cardIds` are wire numbers straight off the batch
+        // response (`backendService.createCardsBatch`); this is the ACL
+        // handoff re-branding the freshly-minted id into the domain
+        // CardId used by known-positions recording.
+        await rememberMintedCard(card.raw_content, cardId as unknown as CardId);
+      } catch (err) {
+        console.warn('[useMinting] rememberMintedCard failed for batch item (non-fatal):', err);
+      }
+    }
 
-    return newCardId;
+    return cardIds;
   }
 
   return {
-    prepareDraft,
     calibrateKomiOnDraft,
-    commitMint
+    commitMintBatch,
+    checkDuplicate,
+    resetDuplicateCheck,
+    duplicateCheckStatus,
+    duplicateCardId,
   };
 }
