@@ -1343,6 +1343,27 @@ const activeTab = computed<string>({
   },
 });
 
+// library-cards-promotion: which right-side surface is showing —
+// derived from the SAME `activeTab` cell above, not a second piece of
+// persisted state (ADR-0012 P1). 'library'/'cards' select the toolbar-
+// launched overlay (`#exclusive-controlPanel` slot, template below);
+// every other value (including the three REMAINING control-panel tab
+// ids — 'settings'/'analysis'/'other' — and any stale/legacy value a
+// pre-relocation session might still carry) falls through to
+// 'controlPanel', so the Exclusive's own TabWidget renders normally
+// underneath. Toggling between the three is automatic: activating
+// Settings/Analysis/Other writes `activeTab` to one of THOSE ids via
+// `handleLytExclusiveActiveChange` (unchanged, above), which this
+// computed re-derives as 'controlPanel' on the very next read — one
+// writer (whichever of the toolbar buttons or the tab strip fired
+// last), one reader per consumer, never two surfaces active at once.
+const rightPanelMode = computed<'library' | 'cards' | 'controlPanel'>(() => {
+  const v = activeTab.value;
+  return v === 'library' || v === 'cards' ? v : 'controlPanel';
+});
+function openLibrarySurface(): void { activeTab.value = 'library'; }
+function openCardsSurface(): void { activeTab.value = 'cards'; }
+
 </script>
 
 <template>
@@ -1495,12 +1516,15 @@ const activeTab = computed<string>({
             <div class="lyt-toolbar-strip">
               <ToolbarEngineControls
                 :is-match-running="matchControls.isRunning.value"
+                :active-surface="rightPanelMode"
                 @toggle-engine="engineControls.toggle"
                 @mint-card="triggerMint"
                 @open-match="triggerMatch"
                 @stop-match="handleStopMatch"
                 @open-play="triggerPlay"
                 @open-learn-path="triggerLearnPath"
+                @open-library="openLibrarySurface"
+                @open-cards="openCardsSurface"
               />
             </div>
           </template>
@@ -1598,11 +1622,38 @@ const activeTab = computed<string>({
           <!-- The now-OPENED control-panel Exclusive node (lyt-layout.gen.ts
                header, "REALIZATION WAVE") — LytNode.vue's own Exclusive case
                drives a live TabWidget instance itself; App.vue fills the
-               per-TAB leaf slots below (library/cards, plus the two
-               still-collapsed synthetic leaves CP-settings/CP-analysis, plus
-               the Other tab's own two newly-opened leaves) instead of one
-               single #leaf-controlPanel slot around an App-authored
-               TabWidget. -->
+               per-TAB leaf slots below (the still-collapsed synthetic
+               leaves CP-settings/CP-analysis, plus the Other tab's own two
+               newly-opened leaves) instead of one single #leaf-controlPanel
+               slot around an App-authored TabWidget.
+
+               library-cards-promotion (mandate): Library and Cards are NO
+               LONGER children of this Exclusive — item 1 ("the control
+               panel's tab strip loses the Library and Cards tabs") is
+               realized by REMOVING their `LytExclusiveChild` entries from
+               the compiled program (`lyt-layout.gen.ts` /
+               `lyt-layout-portrait.gen.ts`, both hand-edited — see those
+               files' own headers for the disclosed bypass: the LYT DSL
+               models "which tabs share a strip," not "a toolbar-launched
+               surface that still borrows a Split's grid track," so per the
+               standing ruling (ledger row 2511) this is realized as plain,
+               honest Vue code in this ONE slot rather than forcing a new
+               DSL concept). Item 3 ("the main right-side region at FULL
+               available width") is realized here: `rightPanelMode`
+               (script, derived from the SAME `activeTab` cell the
+               remaining three tabs' own TabWidget instance still
+               reads/writes below — one persisted fact, two views, ADR-0012
+               P1) selects an OPAQUE overlay `position: absolute; inset: 0`
+               within this Exclusive's own wrapper div (LytNode.vue's
+               `position: relative` cell) — the EXACT SAME box the tab
+               strip's body used to give Library/Cards when they were
+               `TabWidget` panes, so neither surface is narrower than
+               before; `z-index: 5` paints it above the (unaffected,
+               z-index: 10) resizer-inner bar's own draggable priority is
+               preserved by staying BELOW that, and above the TabWidget
+               (implicit z-index 0) so it genuinely occludes rather than
+               merely coexisting with the Settings/Analysis/Other strip
+               underneath. -->
           <template #exclusive-controlPanel>
             <!-- INNER resizer bar (W3, both screen classes — see
                  useResizablePanel.ts's own header for the drag math).
@@ -1620,23 +1671,25 @@ const activeTab = computed<string>({
               :aria-label="$t('app.chrome.resizerInnerLabel')"
               @mousedown="startResizeInner"
             ></div>
+
+            <div
+              v-if="rightPanelMode !== 'controlPanel'"
+              :key="controlPanelIdentityKey"
+              class="right-panel-surface-overlay"
+            >
+              <LibraryTab
+                v-if="rightPanelMode === 'library'"
+                :two-column-reflow="panelContentPolicy.twoColumnReflow"
+                @open-library-game="handleLoadLibraryGame"
+                @open-library-game-new-tab="handleLoadLibraryGameInNewBoard"
+              />
+              <ForestDirectory
+                v-else-if="rightPanelMode === 'cards'"
+                :two-column-reflow="panelContentPolicy.twoColumnReflow"
+                @load-card="handleLoadCard"
+              />
+            </div>
           </template>
-
-              <template #leaf-CP-library>
-                <div :key="controlPanelIdentityKey" style="flex: 1; display: flex; min-height: 0; width: 100%;">
-                  <LibraryTab
-                    :two-column-reflow="panelContentPolicy.twoColumnReflow"
-                    @open-library-game="handleLoadLibraryGame"
-                    @open-library-game-new-tab="handleLoadLibraryGameInNewBoard"
-                  />
-                </div>
-              </template>
-
-              <template #leaf-CP-cards>
-                <div :key="controlPanelIdentityKey" style="flex: 1; display: flex; min-height: 0; width: 100%;">
-                  <ForestDirectory :two-column-reflow="panelContentPolicy.twoColumnReflow" @load-card="handleLoadCard" />
-                </div>
-              </template>
 
               <!-- settingsSubstrip / SP_session (formerly settingsPane):
                    OPENED LIVE (work item `lyt-settings-live-opening`,
@@ -1691,9 +1744,26 @@ const activeTab = computed<string>({
                    LytNode.vue's leaf-cell rendering. -->
               <template #leaf-otherColorDebug>
                 <div :key="controlPanelIdentityKey" class="tab-padding">
-                  <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.gradientCalibration') }}</h3>
-                  <p class="hue-slider-hint">{{ $t('other.label.gradientCalibrationNotice') }}</p>
-                  <ColorDebugStrip :steps="500" />
+                  <!-- Rider (commissioner live finding, screenshot
+                       5f94_gradient_takes_up_inordinate_amount_of_space):
+                       this band used to render unconditionally expanded,
+                       consuming the whole otherColorDebug track on every
+                       Other-tab visit. Wrapped in the SAME native
+                       <details class="settings-section"> disclosure idiom
+                       RegistryEditor.vue's branch sections already use
+                       (shared-chrome.css) — collapsed by default (no
+                       `open` attribute: an uncontrolled `<details>`
+                       defaults closed). Per RegistryEditor.vue's own
+                       `isInitiallyOpen` header comment there is no
+                       existing persisted-disclosure precedent in this
+                       codebase to diverge from — the user's own toggle
+                       persists for the remainder of the mount, same as
+                       every other native-`<details>` disclosure here. -->
+                  <details class="settings-section">
+                    <summary><h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.gradientCalibration') }}</h3></summary>
+                    <p class="hue-slider-hint">{{ $t('other.label.gradientCalibrationNotice') }}</p>
+                    <ColorDebugStrip :steps="500" />
+                  </details>
                 </div>
               </template>
 
@@ -2217,6 +2287,31 @@ const activeTab = computed<string>({
   left: 0;
   width: 4px;
   height: 100%;
+}
+
+/* library-cards-promotion: the toolbar-launched Library/Cards surface,
+   rendered inside the SAME `position: relative` wrapper LytNode.vue
+   gives the control-panel Exclusive (see the `#exclusive-controlPanel`
+   template comment above for the full derivation). `inset: 0` — the
+   EXACT box the tab strip's own body used to give these two panes, so
+   neither is narrower than before ("FULL available width" of the main
+   right-side region, mandate item 3). Opaque `--surface-0` (the same
+   standing occlusion law `LytPresenceMenu.vue`'s own header names for
+   this codebase's other summon/overlay surfaces) so the Settings/
+   Analysis/Other TabWidget underneath is fully hidden, not merely
+   under it in paint order. `z-index: 5`: above the TabWidget's own
+   implicit stacking (0), below `.lyt-resizer`'s `10` — the tree/
+   control-panel drag handle stays grabbable while either surface is
+   showing. No box-shadow/transition/blur per the toolbar idiom this
+   surface is a peer of. */
+.right-panel-surface-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: var(--surface-0);
+  display: flex;
+  min-width: 0;
+  min-height: 0;
 }
 
 /* Each of the two cluster leaves' own mounting div (LYT toolbar ontology

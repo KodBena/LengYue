@@ -14,6 +14,24 @@
   (`lyt-layout.gen.ts` path "2.0") — LytNode.vue's grid does the row
   layout the retired `ToolbarEngineCluster.vue`'s own flex wrapper used to.
 
+  ── library-cards-promotion (mandate: Library/Cards out of the control
+  panel) ── Two more capabilities, `open-library`/`open-cards`
+  (`lyt-capability-registry.ts`), join the five below in the SAME
+  cluster — the commissioner's own words: "there is much space around
+  where MINT CARD(S), PLAY, MATCH etc live," and Library/Cards are "a
+  primary feature ... should not sort under control." They are plain
+  siblings of the five action buttons (same `.toolbar-btn` idiom, same
+  `button-cluster`/`menu-path` responsive realization via
+  `useEngineControlsRealization` — a wider cluster or a narrower column
+  changes nothing about HOW that composable decides, only how many
+  shadow-measured children it sums), NOT engine actions — no
+  `requiredActivityState` precondition, distinguished visually by an
+  "active" state (`activeSurface` prop) instead of a highlight/connected
+  variant. App.vue derives `activeSurface` from the SAME
+  `store.session.ui.activeTab` cell the control-panel Exclusive's own
+  tab strip already reads/writes (see App.vue's `rightPanelMode`
+  computed) — one persisted fact, two views, not a second copy.
+
   ── Finish-pass wave B2 (F2 + W-B1's adjacent 420px finding) ──────────
   Realizes `lyt-capability-registry.ts`'s ratified IR: these five
   capabilities are DATA with per-class-point realizations —
@@ -94,6 +112,15 @@ const props = defineProps<{
   // `useEngineControlsRealization` decide", byte-identical to every
   // consumer that doesn't know this prop exists.
   forceForm?: 'button-cluster' | 'menu-path';
+  // library-cards-promotion: which right-side surface is currently
+  // showing — 'library'/'cards' when App.vue's `rightPanelMode` says so
+  // (the Library/Cards overlay covers the control panel), 'controlPanel'
+  // otherwise (including when it's genuinely absent). Drives ONLY the
+  // two new buttons' own active-state styling below; every other button
+  // is unaffected. Optional/defaulted so a standalone mount (e.g. a
+  // future story/test that doesn't care about this axis) degrades to
+  // "neither button reads as active" rather than requiring the prop.
+  activeSurface?: 'library' | 'cards' | 'controlPanel';
 }>();
 
 const emit = defineEmits<{
@@ -103,6 +130,8 @@ const emit = defineEmits<{
   (e: 'stop-match'):   void;
   (e: 'open-play'):    void;
   (e: 'open-learn-path'): void;
+  (e: 'open-library'): void;
+  (e: 'open-cards'):   void;
 }>();
 
 const engineBtnLabel = computed(() => isConnected.value ? t('toolbar.disconnect') : t('toolbar.connect'));
@@ -146,6 +175,8 @@ function onMenuLearnPath(): void { emit('open-learn-path'); closeMenu(); }
 function onMenuPlay(): void { emit('open-play'); closeMenu(); }
 function onMenuMatch(): void { onMatchClick(); closeMenu(); }
 function onMenuToggleEngine(): void { emit('toggle-engine'); closeMenu(); }
+function onMenuOpenLibrary(): void { emit('open-library'); closeMenu(); }
+function onMenuOpenCards(): void { emit('open-cards'); closeMenu(); }
 
 // Single function-ref: this component's root serves TWO independent
 // purposes (`useDismissiblePopover`'s own outside-click boundary, and
@@ -176,6 +207,18 @@ const menuId = 'engine-controls-menu';
         :class="{ 'btn-connected': isConnected }"
         @click="emit('toggle-engine')"
       >{{ engineBtnLabel }}</button>
+      <button
+        class="toolbar-btn"
+        :class="{ 'btn-surface-active': activeSurface === 'library' }"
+        :aria-pressed="activeSurface === 'library'"
+        @click="emit('open-library')"
+      >{{ $t('app.tabs.library') }}</button>
+      <button
+        class="toolbar-btn"
+        :class="{ 'btn-surface-active': activeSurface === 'cards' }"
+        :aria-pressed="activeSurface === 'cards'"
+        @click="emit('open-cards')"
+      >{{ $t('app.tabs.cards') }}</button>
     </template>
 
     <template v-else>
@@ -216,6 +259,20 @@ const menuId = 'engine-controls-menu';
           :class="{ 'btn-connected': isConnected }"
           @click="onMenuToggleEngine"
         >{{ engineBtnLabel }}</button>
+        <button
+          class="toolbar-btn"
+          role="menuitem"
+          :class="{ 'btn-surface-active': activeSurface === 'library' }"
+          :aria-pressed="activeSurface === 'library'"
+          @click="onMenuOpenLibrary"
+        >{{ $t('app.tabs.library') }}</button>
+        <button
+          class="toolbar-btn"
+          role="menuitem"
+          :class="{ 'btn-surface-active': activeSurface === 'cards' }"
+          :aria-pressed="activeSurface === 'cards'"
+          @click="onMenuOpenCards"
+        >{{ $t('app.tabs.cards') }}</button>
       </div>
     </template>
 
@@ -238,6 +295,8 @@ const menuId = 'engine-controls-menu';
       <button class="toolbar-btn" tabindex="-1" data-slot="match">{{ $t('toolbar.stopMatch') }}</button>
       <button class="toolbar-btn" tabindex="-1" data-slot="engine">{{ $t('toolbar.connect') }}</button>
       <button class="toolbar-btn" tabindex="-1" data-slot="engine">{{ $t('toolbar.disconnect') }}</button>
+      <button class="toolbar-btn" tabindex="-1" data-slot="library">{{ $t('app.tabs.library') }}</button>
+      <button class="toolbar-btn" tabindex="-1" data-slot="cards">{{ $t('app.tabs.cards') }}</button>
     </div>
   </div>
 </template>
@@ -252,6 +311,13 @@ const menuId = 'engine-controls-menu';
 .toolbar-btn { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-0); padding: 1px 5px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: var(--tracking-tight); min-height: 24px; display: inline-flex; align-items: center; justify-content: center; }
 .btn-connected { border-color: var(--state-success) !important; color: var(--state-success) !important; }
 .btn-stop-match { border-color: var(--state-attention) !important; color: var(--state-attention) !important; }
+/* library-cards-promotion: "the active state visible on the toolbar
+   entries" (mandate item 3) — same --surface-0/--text-0/no-box-shadow
+   idiom as every other toolbar-btn variant here, an accent-bordered
+   fill (matching TabWidget.vue's own `.tab-header li.active` accent
+   treatment, same family of "this is the current selection" affordance)
+   rather than a NEW visual language for the same concept. */
+.btn-surface-active { background: var(--surface-3); border-color: var(--accent-primary); color: var(--text-0); }
 /* wC-contrast (F9): label text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays theme-exception ornament. */
 .highlight-btn { border-color: #2a5a7a; color: var(--text-0); }
 

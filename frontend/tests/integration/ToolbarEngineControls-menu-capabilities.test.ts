@@ -66,7 +66,9 @@ describe('ToolbarEngineControls.vue — menu-path form, all capabilities reachab
     // connect/disconnect) unconditionally, instead of one current-state
     // label each — 3 static + 2×2 state-varying = 7. See
     // `useEngineControlsRealization`'s own header.
-    expect(wrapper.findAll('.toolbar-btn:not(.engine-controls-trigger)').length).toBe(7); // shadow clone only, not yet open
+    // library-cards-promotion: +2 more (Library, Cards — single-variant,
+    // not state-varying) — 7 + 2 = 9.
+    expect(wrapper.findAll('.toolbar-btn:not(.engine-controls-trigger)').length).toBe(9); // shadow clone only, not yet open
     wrapper.unmount();
   });
 
@@ -80,7 +82,8 @@ describe('ToolbarEngineControls.vue — menu-path form, all capabilities reachab
     expect(menu.attributes('role')).toBe('menu');
 
     const items = menu.findAll('[role="menuitem"]');
-    expect(items).toHaveLength(5);
+    // library-cards-promotion: +2 more (Library, Cards) — 5 + 2 = 7.
+    expect(items).toHaveLength(7);
 
     wrapper.unmount();
   });
@@ -125,7 +128,11 @@ describe('ToolbarEngineControls.vue — menu-path form, all capabilities reachab
     await wrapper.vm.$nextTick();
 
     const items = wrapper.find('.engine-controls-menu').findAll('[role="menuitem"]');
-    const connectItem = items[items.length - 1]; // last item, matching the cluster form's own DOM order
+    // library-cards-promotion: Connect is no longer the LAST item — Library/
+    // Cards were appended after it (App.vue's own toolbar mandate: "the
+    // free space right of CONNECT"). Index 4, matching the cluster form's
+    // own DOM order (mint/learn/play/match/connect/library/cards).
+    const connectItem = items[4];
     expect(connectItem.exists()).toBe(true);
     expect((connectItem.element as HTMLButtonElement).disabled).toBe(false);
     // Default engine state is disconnected — the label reads "Connect".
@@ -162,8 +169,10 @@ describe('ToolbarEngineControls.vue — menu-path form, all capabilities reachab
     expect(wrapper.find('.engine-controls-menu').exists()).toBe(false);
     // Five visible cluster buttons + seven hidden shadow buttons (both
     // label variants for the two state-varying slots — see the count
-    // justification on the first test in this file).
-    expect(wrapper.findAll('.toolbar-btn').length).toBe(12);
+    // justification on the first test in this file). library-cards-
+    // promotion: +2 visible (Library, Cards) +2 shadow (same) — (5+2) +
+    // (7+2) = 16.
+    expect(wrapper.findAll('.toolbar-btn').length).toBe(16);
     wrapper.unmount();
   });
 });

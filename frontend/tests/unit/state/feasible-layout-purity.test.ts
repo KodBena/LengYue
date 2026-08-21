@@ -730,7 +730,20 @@ describe('purity §G: region-owned presence is a genuine RELATION — equal real
     }).sideColumnPx;
   }
 
+  // library-cards-promotion (merge fix, ledger row 2532's presence-core
+  // landed independently of this narrowing): CONTROL_PANEL_MIN_WIDTH_PX
+  // dropped from 300 to 188 (five control-panel tabs -> three) — every
+  // ORIGINAL probe point below (300 and up) was chosen to straddle the
+  // OLD 300px floor and now sits comfortably ABOVE the new 188px one,
+  // so the sweep stopped exercising an `absent` verdict at all (the
+  // non-vacuity sanity check two tests below went red). Every original
+  // probe point is preserved verbatim (none of their meaning — the
+  // demote-threshold/root-split composition points especially — is
+  // specific to the old floor); three new, genuinely-starved probe
+  // points (0, 60, 120 — all comfortably below 188) are prepended so
+  // the sweep straddles the CURRENT floor instead.
   const OUTER_WRAPPER_WIDTHS_PX: readonly number[] = [
+    0, 60, 120,
     300, 345, 400, 414, 450, 500, 578, 600, 700, 778, 820,
     rootSplitSideColumnPx(0), // boardRail ABSENT, composed end-to-end through the root split
     rootSplitSideColumnPx(180), // boardRail PRESENT, composed end-to-end through the root split

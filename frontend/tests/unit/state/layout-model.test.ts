@@ -164,8 +164,8 @@ describe('CONTROL_PANEL_TAB_IDS -> CONTROL_PANEL_MIN_WIDTH_PX — audit finding 
     );
   });
 
-  it('the registry has five tabs today (R2: the old hand literal was computed for four)', () => {
-    expect(CONTROL_PANEL_TAB_IDS.length).toBe(5);
+  it('the registry has three tabs today (library-cards-promotion narrowed it from five — R2\'s own hand literal was computed for four)', () => {
+    expect(CONTROL_PANEL_TAB_IDS.length).toBe(3);
   });
 
   it('computeControlPanelMinWidthPx grows monotonically with tab count — a sixth tab moves the floor by construction', () => {
@@ -175,9 +175,9 @@ describe('CONTROL_PANEL_TAB_IDS -> CONTROL_PANEL_MIN_WIDTH_PX — audit finding 
     expect(sixTabsPx - fiveTabsPx).toBe(TAB_STRIP_PER_TAB_WIDTH_PX);
   });
 
-  it('G10 fix (opus-uiux-geometry-consult.md): the floor for the CURRENT 5-tab strip clears the WITNESSED natural content need (271.8px, geo-d-overflow-build.md geometry probe) with margin — the old 270px floor sat fractionally BELOW that need, which is exactly what let the last tab clip before TabWidget.vue\'s own overflow-x:auto (R2) ever got a chance to engage', () => {
-    const WITNESSED_FIVE_TAB_NATURAL_CONTENT_WIDTH_PX = 271.8;
-    expect(CONTROL_PANEL_MIN_WIDTH_PX).toBeGreaterThan(WITNESSED_FIVE_TAB_NATURAL_CONTENT_WIDTH_PX);
+  it('G10 fix (opus-uiux-geometry-consult.md): the floor for the CURRENT 3-tab strip (library-cards-promotion narrowed it from five) clears the WITNESSED natural content need of the three SURVIVING tabs (Settings 60.4 + Analysis 61.7 + Other 47.0 = 169.1px, geo-d-overflow-build.md geometry probe, subset sum) with margin — the same reasoning R2/G10 established for the old five-tab strip, re-verified against the smaller set rather than re-witnessed live (see layout-model.ts\'s own HISTORICAL comment on this derivation)', () => {
+    const WITNESSED_THREE_SURVIVING_TAB_NATURAL_CONTENT_WIDTH_PX = 169.1;
+    expect(CONTROL_PANEL_MIN_WIDTH_PX).toBeGreaterThan(WITNESSED_THREE_SURVIVING_TAB_NATURAL_CONTENT_WIDTH_PX);
   });
 
   it('computeControlPanelMinWidthPx(4) now exceeds the OLD hand literal (220) — G10 raised the per-tab/gap constants, so the pre-fix reverse-derivation no longer reproduces verbatim (by design: 220 was already shown too tight for real rendered labels)', () => {
