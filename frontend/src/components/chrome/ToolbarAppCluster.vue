@@ -51,6 +51,7 @@ import ToolbarEngineUri from './ToolbarEngineUri.vue';
 import ToolbarSliderPopover from './ToolbarSliderPopover.vue';
 import PboPopover from '../qeubo/PboPopover.vue';
 import LocalePicker from './LocalePicker.vue';
+import UserBadge from './UserBadge.vue';
 import { useSgfLoader } from '../../composables/sgf/useSgfLoader';
 import { useSgfDownload } from '../../composables/sgf/useSgfDownload';
 
@@ -76,6 +77,17 @@ const { downloadActiveBoard } = useSgfDownload();
       <PboPopover />
     </div>
     <LocalePicker />
+    <!-- Signed-in identity badge — relocated from StatusBar (commissioner
+         ruling, 2026-08-21, wiki finding: StatusBar's own overflow policy
+         could resize the badge fully out of view — see StatusBar.vue's
+         own narrow-mode collapse comment). Identity chrome, not
+         layout-negotiable board content, so it belongs beside this
+         cluster's other identity-adjacent control (LocalePicker) in the
+         toolbar strip rather than the board-scoped status bar. This
+         cluster's own `flex-wrap: wrap` (never `display: none`) is what
+         keeps it visible at every tested width — narrow allocations wrap
+         it onto a new row instead of hiding it. -->
+    <UserBadge />
   </div>
 </template>
 

@@ -39,7 +39,6 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { StoneColor, BoardState, GameNode, NodeId } from '../../types';
-import UserBadge from '../chrome/UserBadge.vue';
 import ToolbarMoveNav from '../chrome/ToolbarMoveNav.vue';
 import { useTransientHint } from '../../composables/useTransientHint';
 import { useSetupTools, SETUP_TOOL_LABEL_KEYS } from '../../composables/board/useSetupTools';
@@ -59,11 +58,15 @@ import { komiDomainStep } from '../../engine/katago/komi-calibration';
 // action (Pass) and core game state (move number, captures) are never
 // removed. `narrow` collapses the three lowest-priority segments in one
 // step — the rules/komi editors (`.game-info`, editable from Settings ▸
-// Session too, so losing this copy loses no unique capability), the
-// move-numbers toggle (`.move-numbers-btn`, a display preference), and
-// the user badge (`UserBadge`, identity chrome, not game state) — and
+// Session too, so losing this copy loses no unique capability) and the
+// move-numbers toggle (`.move-numbers-btn`, a display preference) — and
 // caps `.player-names` to a single ellipsized line instead of letting it
-// wrap. `.pass-btn`, `.move-badge` and `.caps` are NEVER hidden by this
+// wrap. (A third collapsed segment, the user badge, relocated OUT of this
+// bar entirely — commissioner ruling 2026-08-21: identity chrome belongs
+// in the toolbar strip, not layout-negotiable board-adjacent content; see
+// `ToolbarAppCluster.vue`'s own header. What's left below is two segments, not
+// three, but "the lowest-priority segments" framing is otherwise
+// unchanged.) `.pass-btn`, `.move-badge` and `.caps` are NEVER hidden by this
 // class (see the CSS below): they stay in the DOM and in flow regardless
 // of tier, satisfying "Pass must never be unreachable" by construction
 // rather than by convention.
@@ -102,8 +105,8 @@ const STATUS_BAR_NARROW_THRESHOLD_PX = 700;
 //    narrow) bar was still too loose for the tightest supported width
 //    (420px). The rules below tighten `.status-left`/`.status-right`
 //    gaps, the move-nav button cluster's own gap/padding (reached via
-//    `:deep()`, the same cross-component idiom
-//    `:deep(.user-badge)` above already uses), and the bar's own
+//    `:deep()`, the same cross-component idiom the narrow-mode rules
+//    below already use for `ToolbarMoveNav`), and the bar's own
 //    horizontal padding — all reductions of an EXISTING declaration's
 //    value, never a new rule category.
 //
@@ -326,7 +329,6 @@ const moveNumber = computed((): number => {
         @click="toggleStoneMoveNumbers"
       >#</button>
       <span class="caps">B: {{ captures.B }} · W: {{ captures.W }}</span>
-      <UserBadge />
     </div>
   </div>
 </template>
@@ -673,8 +675,8 @@ const moveNumber = computed((): number => {
 .caps { font-family: monospace; color: var(--text-0); font-size: var(--text-body); white-space: nowrap; }
 
 /* G12 narrow-mode collapse (see the `statusBarNarrow` doc in <script>):
-   the three lowest-priority segments are removed from flow entirely
-   (not just visually hidden) so their claimed width goes back to
+   the lowest-priority segments are removed from flow entirely (not
+   just visually hidden) so their claimed width goes back to
    `.pass-btn`/`.caps`/`.player-names`, and `.player-names` — never
    hidden, only truncated — gets a single-line ellipsis instead of the
    wrap that used to grow the bar's own height (and so the board's
@@ -683,13 +685,13 @@ const moveNumber = computed((): number => {
    `.pass-btn` and `.caps` carry NO rule in this block: they are never
    touched by narrow mode, which is what makes "Pass never unreachable"
    a structural property of this stylesheet rather than a threshold
-   someone has to keep tuned. `:deep()` reaches `UserBadge`'s own root
-   class from this scoped stylesheet — the component has no narrow-mode
-   concept of its own, this bar's overflow policy owns the decision to
-   drop it. */
-.status-bar--narrow .game-info,
+   someone has to keep tuned. (The user badge was a third collapsed
+   segment here — `:deep(.user-badge)` — until it relocated to the
+   toolbar strip, commissioner ruling 2026-08-21: identity chrome must
+   stay visible at every width, not be layout-negotiable board-adjacent
+   content that a resize could hide entirely.) */
 .status-bar--narrow .move-numbers-btn,
-.status-bar--narrow :deep(.user-badge) {
+.status-bar--narrow .game-info {
   display: none;
 }
 /* N1/N4 fix (rig witness, `.claude/dispatch-reports/lyt-n1-statusbar.md`):
@@ -738,9 +740,8 @@ const moveNumber = computed((): number => {
 .status-bar--narrow .status-right {
   gap: var(--space-tight);
 }
-/* `:deep()` reaches `ToolbarMoveNav`'s own root/children the same way
-   `.status-bar--narrow :deep(.user-badge)` above already crosses into
-   `UserBadge` — this bar owns the overflow policy, the move-nav
+/* `:deep()` reaches `ToolbarMoveNav`'s own root/children from this
+   scoped stylesheet — this bar owns the overflow policy, the move-nav
    component has no narrow-mode concept of its own. Padding/gap only:
    the |</>| glyphs' own font-size and the 24px pointer-target floor
    (G30, `ToolbarMoveNav.vue`'s own `min-height`/`min-width`) are
