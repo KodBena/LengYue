@@ -245,6 +245,38 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
     expect(playerNames.minWidth).toBe('32px');
   });
 
+  it('reserves left-edge clip headroom matching the active-turn ring\'s own bleed (occluded-highlighter regression)', () => {
+    const { board, metadata } = boardWithMetadata('Black', 'White');
+    wrapper = mount(StatusBar, {
+      props: { board, metadata, canPass: true },
+      global: { plugins: [i18n] },
+    });
+
+    // `.stone-chip.active`'s ring bleeds `outline-offset` (1px) +
+    // `outline-width` (2px) = 3px beyond the chip's own border box. The
+    // chip is `.player-name`'s first inline child, flush against ITS
+    // left edge — without matching left padding, `.player-name`'s own
+    // `overflow: hidden` (asserted above, required for the ellipsis
+    // affordance) clips that ring's leading arc, witnessed live as a
+    // "C" instead of an "O" around the active player's chip.
+    const styleText = readStatusBarStyleBlock();
+    const activeRingMatch = styleText.match(/\.stone-chip\.active\s*{([^}]*)}/);
+    expect(activeRingMatch).toBeTruthy();
+    const outlineWidthMatch = activeRingMatch![1].match(/outline:\s*(\d+)px/);
+    const outlineOffsetMatch = activeRingMatch![1].match(/outline-offset:\s*(\d+)px/);
+    expect(outlineWidthMatch).toBeTruthy();
+    expect(outlineOffsetMatch).toBeTruthy();
+    const ringBleedPx = Number(outlineWidthMatch![1]) + Number(outlineOffsetMatch![1]);
+
+    const blackComputed = getComputedStyle(wrapper.find('.player-name--black').element);
+    const whiteComputed = getComputedStyle(wrapper.find('.player-name--white').element);
+    expect(blackComputed.paddingLeft).toBe(`${ringBleedPx}px`);
+    // Symmetric: both names carry the same clip headroom, mirroring the
+    // rest of this suite's "neither player is structurally privileged"
+    // invariant — whichever one is on turn, its ring gets the same room.
+    expect(whiteComputed.paddingLeft).toBe(blackComputed.paddingLeft);
+  });
+
   it('narrow mode: symmetric degradation — a single shared ceiling on `.player-names` squeezes both names equally, not one first — contract (b)', () => {
     const { board, metadata } = boardWithMetadata('Black', 'White');
     wrapper = mount(StatusBar, {

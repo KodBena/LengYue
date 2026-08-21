@@ -206,12 +206,51 @@ export const store = reactive<GlobalStore>({
 // dependents) out of the store/services import cycle. `pushSystemMessage` is
 // re-exported below so the existing store-importers keep working unchanged.
 registerSystemMessageSink({
+  // Show-once dedup (commissioner's second complaint about the "geometry
+  // changed from default" diagnostic spamming the panel): several
+  // producers (`useSideColumnLiveLayout.ts`, `App.vue`'s sibling
+  // watchers) recompute their own diagnostic on every reactive tick and
+  // already carry AD HOC per-producer "lastPushedKey" latches to avoid
+  // flooding — but `useLytFitAssertion.ts`'s `ResizeObserver` callback has
+  // no such latch, and any FUTURE producer that omits one reintroduces the
+  // same spam. Collapsing at the sink closes the class rather than the
+  // instance: quantified over every producer, not opt-in per call site.
+  //
+  // The key is exact identity with the CURRENT NEWEST entry only
+  // (`store.engine.messages[0]`) — not "any prior message with this
+  // text." That is what keeps a genuine re-notification alive: a producer
+  // that pushes the SAME text again after its own latch/episode reset (no
+  // sink-level signal distinguishes "recomputed the same diagnostic" from
+  // "a fresh episode with identical wording") is indistinguishable from a
+  // flood UNLESS something else was logged in between — so this dedup
+  // only merges truly back-to-back identical pushes, never a repeat that
+  // arrives after a different message (or a dismiss/clear) changed the
+  // head. `tests/unit/services/system-message-sink.test.ts` pins both
+  // halves: 5 identical consecutive pushes collapse to 1 (with `count`);
+  // an interleaved different message, or a push arriving after the head
+  // changed for any other reason, always starts a fresh row.
   push(type: SystemMessage['type'], text: string, details) {
+    const head = store.engine.messages[0] as (SystemMessage & { count?: number }) | undefined;
+    const sameAsHead =
+      head !== undefined &&
+      head.type === type &&
+      head.text === text &&
+      head.remediation === details?.remediation &&
+      head.nextAction === details?.nextAction;
+    if (sameAsHead) {
+      // Widen the reactive entry in place: bump the show-once count and
+      // refresh the timestamp so the row reflects the latest occurrence
+      // time, without unshifting a second near-duplicate row.
+      head.count = (head.count ?? 1) + 1;
+      (head as { timestamp: number }).timestamp = Date.now();
+      return;
+    }
     const msg: SystemMessage = {
       id: Math.random().toString(36).substring(2, 9),
       type,
       text,
       timestamp: Date.now(),
+      count: 1,
       // Optional structured fields (dispatch L3 repair) — `undefined` for
       // every existing two-argument caller, so `msg` stays byte-identical
       // to before whenever a producer doesn't supply them.

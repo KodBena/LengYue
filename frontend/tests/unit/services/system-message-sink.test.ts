@@ -99,4 +99,81 @@ describe('system-message-sink', () => {
     // unshift order: newest first.
     expect(store.store.engine.messages[0].text).toBe('m59');
   });
+
+  // Show-once dedup (commissioner's second complaint — the "geometry
+  // changed from default" diagnostic spamming the system-diagnostics
+  // panel). Collapses IDENTICAL CONSECUTIVE pushes (same type/text/
+  // remediation/nextAction as the current newest entry) into one row with
+  // a bumped `count`, while a genuinely new occurrence — different
+  // content, or one that arrives after a different message intervened —
+  // always starts a fresh row. A prior attempt at this broke legitimate
+  // re-notification tests (e.g. a producer's own latch resetting and
+  // re-pushing identical wording after an unrelated intervening event);
+  // the key here only ever compares against the immediate head, so it
+  // does not reach back across the log.
+  describe('show-once dedup', () => {
+    it('the same message pushed 5x consecutively renders once, with count 5', async () => {
+      const sink = await import('../../../src/services/system-message-sink');
+      const store = await import('../../../src/store');
+
+      store.clearSystemMessages();
+      for (let i = 0; i < 5; i++) sink.pushSystemMessage('warning', 'geometry changed from default');
+
+      expect(store.store.engine.messages).toHaveLength(1);
+      expect(store.store.engine.messages[0]).toMatchObject({
+        text: 'geometry changed from default',
+        count: 5,
+      });
+    });
+
+    it('interleaved different messages all render, each starting its own count at 1', async () => {
+      const sink = await import('../../../src/services/system-message-sink');
+      const store = await import('../../../src/store');
+
+      store.clearSystemMessages();
+      sink.pushSystemMessage('warning', 'a');
+      sink.pushSystemMessage('warning', 'b');
+      sink.pushSystemMessage('warning', 'a'); // same text as the FIRST push, but a different message (b) intervened
+
+      expect(store.store.engine.messages).toHaveLength(3);
+      expect(store.store.engine.messages.map((m) => m.text)).toEqual(['a', 'b', 'a']);
+      expect(store.store.engine.messages.every((m) => (m.count ?? 1) === 1)).toBe(true);
+    });
+
+    it('a different type with the same text does not collapse', async () => {
+      const sink = await import('../../../src/services/system-message-sink');
+      const store = await import('../../../src/store');
+
+      store.clearSystemMessages();
+      sink.pushSystemMessage('info', 'same text');
+      sink.pushSystemMessage('warning', 'same text');
+
+      expect(store.store.engine.messages).toHaveLength(2);
+    });
+
+    it('differing remediation/nextAction details do not collapse', async () => {
+      const sink = await import('../../../src/services/system-message-sink');
+      const store = await import('../../../src/store');
+
+      store.clearSystemMessages();
+      sink.pushSystemMessage('warning', 'same text', { remediation: 'do X' });
+      sink.pushSystemMessage('warning', 'same text', { remediation: 'do Y' });
+
+      expect(store.store.engine.messages).toHaveLength(2);
+    });
+
+    it('a repeat that arrives after the head was dismissed starts a fresh row, not a collapse', async () => {
+      const sink = await import('../../../src/services/system-message-sink');
+      const store = await import('../../../src/store');
+
+      store.clearSystemMessages();
+      sink.pushSystemMessage('warning', 'repeat me');
+      const firstId = store.store.engine.messages[0].id;
+      store.dismissSystemMessage(firstId);
+      sink.pushSystemMessage('warning', 'repeat me');
+
+      expect(store.store.engine.messages).toHaveLength(1);
+      expect(store.store.engine.messages[0].count ?? 1).toBe(1);
+    });
+  });
 });
