@@ -605,20 +605,56 @@ def test_cli_registration_portrait_writes_matching_content(tmp_path):
 
 
 def test_f1_port_leaf_fields_default_empty_for_a_plain_leaf():
-    """`tree` declares none of the eight fields -- every one reads its
-    byte-identical-to-pre-port default (empty list / 'v' / null)."""
+    """`I_board` declares none of the eight fields -- every one reads its
+    byte-identical-to-pre-port default (empty list / 'v' / null).
+
+    RETARGETED, dispatch C4 (ledger rows 2425/2461's own lyt-side rider):
+    this test originally used `tree` (path `2.3.0`) as its "genuinely
+    plain leaf" example -- true when this test was written, false since
+    C4's own `tree` reclassification (`content unbounded, scroll v,
+    edge v item`, honest per `TreeWidget.vue:654`'s own `overflow: auto`
+    and the component's genuinely unbounded game-tree content). `I_board`
+    (path `1.1`, `{24px} I_board[board, info]`) still declares none of
+    the eight fields this test checks, so it is the still-honest "plain
+    leaf" example now -- see `test_tree_leaf_carries_its_own_content_
+    and_scroll_and_edge_fields` below for `tree`'s own new, non-default
+    values, pinned as its own regression rather than silently dropped
+    from coverage."""
+    program = elt.build_program()
+    board_col = _find(program["root"]["children"], "1")["node"]["children"]
+    i_board = _find(board_col, "1.1")["node"]
+    assert i_board["widget"] == "I_board"
+    assert i_board["elasticAxes"] == []
+    assert i_board["ceilingAxes"] == []
+    assert i_board["floorAxes"] == []
+    assert i_board["edgeAxes"] == []
+    assert i_board["orientation"] == "v"
+    assert i_board["activity"] is None
+    assert i_board["demote"] is None
+    assert i_board["envelopeStates"] is None
+    assert i_board["content"] is None
+    assert i_board["scrollAxes"] == []
+
+
+def test_tree_leaf_carries_its_own_content_and_scroll_and_edge_fields():
+    """C4's own reclassification (rider, ledger rows 2425/2461): `tree`
+    is an unbounded-content scrolling widget, honest against
+    `TreeWidget.vue:654`'s own `.tree-widget-outer { overflow: auto; }`
+    rule and the component's genuinely unbounded game-tree content (no
+    cap on node/edge count -- see this dispatch's own report for the
+    full citation). `edge v item` (not `unit`): the tree's own node
+    positions have no declared constant vertical pitch in this
+    substrate, so `item` (indivisible content, no constant pitch) is the
+    honest disposition, matching the SAME choice `SP_advancedRegistry`/
+    `SP_keybindings` already make for their own un-pitched lists."""
     program = elt.build_program()
     side = _find(program["root"]["children"], "2")["node"]["children"]
     tree_row = _find(side, "2.3")["node"]["children"]
     tree = _find(tree_row, "2.3.0")["node"]
-    assert tree["elasticAxes"] == []
-    assert tree["ceilingAxes"] == []
-    assert tree["floorAxes"] == []
-    assert tree["edgeAxes"] == []
-    assert tree["orientation"] == "v"
-    assert tree["activity"] is None
-    assert tree["demote"] is None
-    assert tree["envelopeStates"] is None
+    assert tree["widget"] == "tree"
+    assert tree["content"] == "unbounded"
+    assert tree["scrollAxes"] == ["v"]
+    assert tree["edgeAxes"] == [{"axis": "v", "disposition": "item"}]
 
 
 def test_f1_port_a_app_activity_and_demote():
@@ -666,18 +702,30 @@ def test_f1_port_cp_library_elastic_floor_edge():
     assert library["orientation"] == "v"
 
 
-def test_f1_port_envelope_states_null_for_every_leaf_this_wave():
-    """Mainline's ONE `envelope: {disconnected, connected}` declaration
-    wraps the `A_engine` composite's own containing Split slot, not a bare
-    leaf -- so this leaf-only field is `null` everywhere in the compiled
-    landscape program this wave (see the module docstring / LytLeafNode's
-    own doc-comment on `envelopeStates` for the full disclosure). A_engine
-    itself is not a leaf (kind 'split'), so it is not iterated here."""
+def test_f1_port_envelope_states_null_for_every_leaf_except_the_i_engine_pair():
+    """Mainline's row-level `envelope: {disconnected, connected}`
+    declaration wraps the `A_engine` composite's own containing Split slot,
+    not a bare leaf -- so this leaf-only field stays `null` for every leaf
+    EXCEPT two (see the module docstring / LytLeafNode's own doc-comment on
+    `envelopeStates` for the full disclosure). A_engine itself is not a
+    leaf (kind 'split'), so it is not iterated here.
+
+    UPDATED (LYT relations-first amendment, dispatch C3, ledger row 2419's
+    "I_engine envelope" rewiring): `A_engine_eval`/`A_engine_health` are now
+    the two leaves genuinely carrying a dict-relation `envelope` (five
+    connected-latency states, each resolving via `width-of` against C1's
+    engine-connected facts) -- the pre-C3 assumption that EVERY leaf's
+    envelopeStates is null no longer holds for these two, by design, not
+    by regression."""
     program = elt.build_program_for(elt.REGISTRATIONS["landscape"])
+    widgets_with_envelope = {"A_engine_eval", "A_engine_health"}
 
     def _walk(node):
         if node["kind"] == "leaf":
-            assert node["envelopeStates"] is None, node["widget"]
+            if node["widget"] in widgets_with_envelope:
+                assert node["envelopeStates"] is not None, node["widget"]
+            else:
+                assert node["envelopeStates"] is None, node["widget"]
         elif node["kind"] == "split":
             for c in node["children"]:
                 _walk(c["node"])
@@ -860,16 +908,30 @@ def test_p2d_landscape_tree_orientation_matches_independent_derivation():
 
 
 def test_p2d_portrait_tree_orientation_matches_independent_derivation():
-    """Portrait's `tree` derives `'h'` unanimously across all five of its
+    """Portrait's `tree` derives `'h'` unanimously across its solvable
     representative sizes -- DIFFERENT from the pre-P2d load-time placeholder
     (`'v'`), the one observable diff this stage produces (P2c's own
     portrait-row-floor fix is what makes every representative size solvable
     here; see `.claude/dispatch-reports/lyt-p2c-portrait-row-floor.md`).
     Independently re-derived (own solve, own walk), then compared against
-    what `build_program` actually emits."""
+    what `build_program` actually emits.
+
+    UPDATED (LYT relations-first amendment, dispatch C3): 420x880 under
+    `default` valuation flips OPTIMAL -> INFEASIBLE now that the I_engine
+    envelope rewiring (ledger row 2419) gives the eval/health engine-metrics
+    leaves each a genuine ~139px width floor for the first time (previously
+    both were bare `pref 1fr` with NO min at all). Engine controls' own
+    185px floor plus the eval/health pair's 139px each plus three 4px gaps
+    sums past 420x880's own available row width -- a real, disclosed
+    model-change consequence (see `test_generated_pages_embed_valid_
+    overlay_json_matching_overlay_sizes`'s own updated
+    `known_infeasible_by_valuation` entry for the twin of this finding),
+    not a bug in this test or in orientation derivation. Four solvable
+    sizes still agree unanimously, so `_derive_tree_orientation`'s own
+    consensus requirement is unaffected."""
     votes = _independent_tree_orientation_votes("portrait", PORTRAIT_SIZES)
     assert votes == {
-        "h": ["1080x1920", "1200x1600", "768x1024", "540x960", "420x880"],
+        "h": ["1080x1920", "1200x1600", "768x1024", "540x960"],
     }
 
     program = elt.build_program_for(elt.REGISTRATIONS["portrait"])

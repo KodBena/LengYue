@@ -32,18 +32,16 @@ describe('App.vue — SystemLogToggle mounted in #lyt-corner-chrome (D2 fix)', (
     expect(app).toMatch(/import SystemLogToggle from '\.\/components\/chrome\/SystemLogToggle\.vue';/);
   });
 
-  it('mounts <SystemLogToggle /> inside the #lyt-corner-chrome cluster, alongside its siblings', () => {
-    // Presence arc P2b item 3 (`.claude/dispatch-reports/lyt-p2b-
-    // presence-realization.md`) added the control-panel popover summon
-    // trigger (and its own nested popover-mount `<div>`) INSIDE
-    // `#lyt-corner-chrome` — a lazy match to the FIRST `</div>` (the
-    // pre-P2b shape, when no nested div existed inside this one) would
-    // now stop at one of those nested divs' own close instead of the
-    // cluster's own. Anchored on the known LAST element this cluster
-    // mounts (`<SystemLogToggle />`) instead, robust to whatever nested
-    // markup precedes it — see App.vue's own template for the current
-    // order.
-    const block = /<div id="lyt-corner-chrome">([\s\S]*?<SystemLogToggle\s*\/>)/.exec(app);
+  it('mounts <SystemLogToggle /> inside the corner trigger row, alongside its siblings (re-pinned, dispatch L5)', () => {
+    // Space-owner cure, dispatch L5 (`.claude/dispatch-reports/
+    // lyt-space-owner-spec.md` §1.4/§3 step 5): `#lyt-corner-chrome`
+    // (a plain `position: fixed` div) is RETIRED — the same cluster now
+    // lives inside `<CornerStackHost>`'s own `triggers` named slot (see
+    // that component's own header). Anchored on the known LAST element
+    // this cluster mounts (`<SystemLogToggle />`) instead, robust to
+    // whatever nested markup precedes it — see App.vue's own template
+    // for the current order.
+    const block = /<template #triggers>([\s\S]*?<SystemLogToggle\s*\/>)/.exec(app);
     expect(block).not.toBeNull();
     const inner = block![1];
     expect(inner).toMatch(/<DebugMenu\s*\/>/);

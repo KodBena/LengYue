@@ -47,13 +47,29 @@
   label logic can ever produce, whether the cluster fits; when it
   doesn't, the five capabilities realize as the ratified SMALL-CLASS
   `menu-path` form instead — a compact trigger opening a menu carrying
-  all five, via `useClickTogglePopover` (click/outside-click/Escape +
-  fixed-anchor, generalized from `LocalePicker.vue`/`LytPresenceMenu.vue`'s
-  own inline versions — see that composable's header; no new styling
-  idiom, every button reuses `.toolbar-btn`). Every capability stays
-  reachable in EITHER form — the same five `emit(...)` calls this
-  component always had, wired from two alternative templates instead of
-  one.
+  all five. No new styling idiom, every button reuses `.toolbar-btn`.
+  Every capability stays reachable in EITHER form — the same five
+  `emit(...)` calls this component always had, wired from two
+  alternative templates instead of one.
+
+  Space-owner cure, dispatch L5 discharge (`.claude/dispatch-reports/
+  lyt-space-owner-l5-review.md`; `.claude/dispatch-reports/
+  lyt-space-owner-spec.md` §1.5/§3 step 5): this menu's dismissal was
+  the one bespoke click/outside-click/Escape survivor the L5 review's
+  own grep sweep found — `useClickTogglePopover.ts` (this component's
+  sole consumer, generalized from `LocalePicker.vue`/`LytPresenceMenu.vue`'s
+  OWN pre-dispatch inline versions, but never itself migrated onto the
+  overlay primitive those two were). Dismissal now goes through
+  `useDismissiblePopover()` — the same shared composable
+  `LytPresenceMenu.vue`/`BoardRailPopoverTrigger.vue`/`LocalePicker.vue`/
+  `DebugMenu.vue`/App.vue's control-panel-summon popover already use —
+  with `useFixedAnchoredPopover` composed alongside it for the
+  fixed-anchor position math, the SAME split `LocalePicker.vue`'s own
+  post-L5 shape already established (dismissal and position are two
+  independent concerns; `useDismissiblePopover` owns the first,
+  `useFixedAnchoredPopover` the second). `useClickTogglePopover.ts` had
+  no other consumer (confirmed by a repo-wide grep) and is DELETED, not
+  left as a second, now-dead near-duplicate of the primitive.
 
   ── State-invariance correction (W-B2 review MAJOR finding, 2026-08-13) ──
   The shadow clone (template, below) used to render the SAME reactive
@@ -73,11 +89,12 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed, type ComponentPublicInstance } from 'vue';
+import { computed, ref, type ComponentPublicInstance } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useEngineControls } from '../../composables/useEngineControls';
 import { useEngineControlsRealization } from '../../composables/chrome/useEngineControlsRealization';
-import { useClickTogglePopover } from '../../composables/chrome/useClickTogglePopover';
+import { useDismissiblePopover } from '../../composables/chrome/useDismissiblePopover';
+import { useFixedAnchoredPopover } from '../../composables/chrome/useFixedAnchoredPopover';
 
 const { t, locale } = useI18n();
 
@@ -135,17 +152,14 @@ const labelsKey = computed(() => locale.value);
 const { form: measuredForm, setRegionEl, setShadowEl } = useEngineControlsRealization(labelsKey);
 const form = computed(() => props.forceForm ?? measuredForm.value);
 
-// Menu-path open/close + fixed-anchor position (see `useClickTogglePopover`'s
-// own header). `align: 'right'` mirrors `ToolbarSliderPopover`/`PboPopover`.
-const {
-  open: menuOpen,
-  rootRef: menuRootRef,
-  triggerEl: menuTriggerEl,
-  popoverEl: menuPopoverEl,
-  popoverStyle: menuPopoverStyle,
-  toggle: toggleMenu,
-  close: closeMenu,
-} = useClickTogglePopover({ align: 'right' });
+// Menu-path dismissal (dispatch L5 discharge) + fixed-anchor position —
+// two independent composables now, matching `LocalePicker.vue`'s own
+// post-L5 split (see this file's own header). `align: 'right'` mirrors
+// `ToolbarSliderPopover`/`PboPopover`.
+const { open: menuOpen, rootRef: menuRootRef, toggle: toggleMenu, close: closeMenu } = useDismissiblePopover();
+const menuTriggerEl = ref<HTMLElement | null>(null);
+const menuPopoverEl = ref<HTMLElement | null>(null);
+const { style: menuPopoverStyle } = useFixedAnchoredPopover(menuOpen, menuTriggerEl, menuPopoverEl, { align: 'right' });
 // Function-ref setters (not plain `ref="menuTriggerEl"`): these refs are
 // DESTRUCTURED from the composable's return, and vue-tsc's `noUnusedLocals`
 // pass loses template-ref tracking through destructuring — the same gap
@@ -165,7 +179,7 @@ function onMenuOpenLibrary(): void { emit('open-library'); closeMenu(); }
 function onMenuOpenCards(): void { emit('open-cards'); closeMenu(); }
 
 // Single function-ref: this component's root serves TWO independent
-// purposes (`useClickTogglePopover`'s own outside-click boundary, and
+// purposes (`useDismissiblePopover`'s own outside-click boundary, and
 // the column-width measurement `useEngineControlsRealization` needs) —
 // Vue permits only one `ref`/`:ref` binding per element, so both are
 // combined here rather than fighting over the template's one ref slot.
@@ -313,10 +327,11 @@ const menuId = 'engine-controls-menu';
 .engine-controls-trigger { gap: var(--space-tight); }
 .engine-controls-trigger .caret { color: var(--text-disabled); font-size: var(--text-tiny); margin-left: 1px; }
 
-/* `position: fixed` (see `useFixedAnchoredPopover`, reached via
-   `useClickTogglePopover`): escapes `.lyt-toolbar-strip`'s
-   `overflow-y: auto` clip — the exact class of defect F2 names, which
-   this menu-path realization exists to foreclose, not reintroduce. */
+/* `position: fixed` (`useFixedAnchoredPopover`, composed directly —
+   see this file's own header, "Space-owner cure, dispatch L5
+   discharge"): escapes `.lyt-toolbar-strip`'s `overflow-y: auto` clip
+   — the exact class of defect F2 names, which this menu-path
+   realization exists to foreclose, not reintroduce. */
 .engine-controls-menu {
   position: fixed;
   display: flex;

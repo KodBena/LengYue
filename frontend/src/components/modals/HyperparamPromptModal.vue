@@ -127,9 +127,16 @@ useModalKeyboard(modalContentRef, isOpen, cancel);
         <div class="modal-body">
           <p class="lede">{{ $t('harnessPrompt.lede') }}</p>
           <div v-for="d in declarations" :key="d.name" class="field-row">
-            <label :for="`hpv-${d.name}`">
+            <!-- S9 (component-shoddiness audit, 2026-08-21): the raw wire
+                 symbol (`deck_size`) used to render permanently beside its
+                 human label — clutter for a dialog whose whole point is to
+                 present the deck's declared hyperparameters in plain
+                 language. It's still discoverable (a technical user who
+                 wants the exact symbol for a pipeline script can hover),
+                 just not shouting alongside the label it duplicates in
+                 spirit. -->
+            <label :for="`hpv-${d.name}`" :title="d.name">
               <span class="field-label">{{ labelFor(d) }}</span>
-              <span class="field-name">{{ d.name }}</span>
             </label>
             <select
               v-if="d.type === 'enum'"
@@ -183,7 +190,6 @@ useModalKeyboard(modalContentRef, isOpen, cancel);
 .field-row { display: flex; flex-direction: column; gap: var(--space-tight); }
 .field-row label { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-default); }
 .field-label { color: var(--text-0); font-size: var(--text-emphasis); }
-.field-name { color: var(--text-0); font-family: monospace; font-size: var(--text-tiny); }
 .dark-input {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
   padding: var(--space-default); border-radius: var(--radius-default);

@@ -86,10 +86,11 @@ formedness laws (`wellformed.py`):
     (unlike `_load_gap_px`) this function performs no node-kind refusal
     of its own; it only refuses an axis token that isn't `h`/`v`.
   - `_load_content_class` resolves the `content <class>` sizing-bag key
-    into `Leaf.content` — legal ONLY on a leaf (refused loudly on a
-    Split or Exclusive node, since "content" describes what a LEAF
-    renders, not a container's own structure), and refuses any value
-    outside `{bounded, designed, unbounded}`.
+    into `Slot.content` — legal on a leaf, and refuses any value outside
+    `{bounded, designed, unbounded}`. **Widened by AMENDMENT 10 below**
+    to two further positions; this bullet's original "legal ONLY on a
+    leaf" text is superseded, kept as the historical record of what
+    Amendment 5 itself shipped.
 
 Both keep the same "parser permissive, loader refuses" division of
 labor as `_load_gap_px` and the bare-`envelope` refusal — the parser
@@ -132,17 +133,80 @@ existing `.lyt` file declares any of them, so no verdict this program
 already proves changes; see the dispatch report above for the
 before/after dormancy proof.
 
+LYT RELATIONS-FIRST AMENDMENT, dispatch B (ledger rows 2396/2397/2400/2401;
+governing spec `.claude/dispatch-reports/lyt-relations-amendment-spec.md`
+§2/§3/§4): a bound (`min`/`pref`/`max`/the bare `{extent}` shorthand/the
+new `pinned <extent>` key/an envelope state's own extent/`@demote`'s
+threshold) may now ALSO be a RELATION EXPRESSION — see `relations.py`'s
+own module docstring for the nine primitives and their resolution
+semantics. This module's job, per its established "parser permissive,
+loader refuses" architecture, is threading a `relations.RelationContext`
+through `load_slot`'s recursive descent so a relation can resolve against
+the right facts (a widget's own probed extent), the right siblings (a
+`widget.min` reference into the SAME enclosing split, accumulated LEFT TO
+RIGHT as `load_slot`'s Split branch walks its children in order — a
+disclosed scoping choice: a relation may reference an earlier sibling,
+never a later one), and the right children (`max-over(children.min)`,
+legal only while resolving a T node's OWN sizing, after its children are
+already loaded).
+
+Backward compat (task 4): a px/ch LITERAL bound still parses and loads —
+the two clean-room encodings still carry them until dispatch C's own
+encoding rewrite — but now emits a non-fatal
+`errors.RelationsFirstDeprecationWarning` each time `_resolve_extent_like`
+resolves one under a live `RelationContext` (i.e. every ordinary
+`load_layouts` call; a caller that constructs `ast.Sizing` directly, or
+calls `_resolve_extent_like` with no `ctx`, sees no warning — the
+diagnostic is scoped to the concrete-syntax loading path this amendment
+actually governs). `pytest -W error::errors.RelationsFirstDeprecationWarning`
+flips this from "recorded" to "refused" with no code change here — the
+channel dispatch C's own encoding rewrite is expected to flip.
+
+Disclosed scope narrowing: relation expressions are wired into `min`/
+`pref`/`max`/the bare shorthand/`pinned`/envelope per-state extents/
+`@demote`'s threshold this wave — the positions the governing spec's own
+§3 worked fragments actually exercise. The Amendment-7/8 axis-taking keys
+(`min <axis>`, `floor <axis>`, `unit <axis>`, `ceiling <axis>`, `gap`
+itself) are NOT relation-aware this wave — a relation expression in one of
+those positions is refused the same way a `WRAPPER_MIN`/`CONTENT` sentinel
+already is there (an unresolvable symbolic extent), not silently accepted
+and mishandled. Widening relation support to those positions is a genuine
+follow-on, not attempted here without a fresh ruling.
+
+AMENDMENT 10 (ledger rows 2447/2450, L2a of the space-owner cure —
+`.claude/dispatch-reports/lyt-space-owner-spec.md` §0's third bullet and
+§3 step 2): `content` widens from "leaf only" to three legal positions —
+a leaf (unchanged), an Exclusive (T) node's own wrapping slot, and a slot
+that is a direct child of an Exclusive regardless of its own underlying
+node kind. `_load_content_class` (below) carries both refusals in one
+place, gated by a new `is_exclusive_child` parameter `load_slot`'s own
+Exclusive branch threads to its immediate children only (never inherited
+further down — see `load_slot`'s own docstring). The field itself
+RELOCATES from `Leaf.content` to `Slot.content` (`lyt_ast.py`'s own
+Amendment 10 entry), the same generalization `scroll_axes` made under
+Amendment 5 — a Split or Exclusive standing as a T-child now has
+somewhere to put its own content-class declaration, which `Leaf`-only
+storage could never carry regardless of the loader's own node-kind gate.
+`wellformed.py`'s L5/L5a/L5c are UNTOUCHED in what they check (still
+`isinstance(node, ast.Leaf)`-gated) — only WHERE they read the value from
+changes (`slot.content` instead of the now-nonexistent `leaf.content`), so
+a declaration at either of the two new positions is exactly as dormant to
+those three laws as an unclassified leaf always was.
+
 License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
 license line and the umbrella's ADR-0006 per-file convention.
 """
 from __future__ import annotations
 
 import dataclasses
+import hashlib
+import warnings
 from typing import Dict, FrozenSet, List, Optional, Tuple
 
 import lyt_ast as ast
 import parser as lytparser
-from errors import LytLoadError
+import relations
+from errors import LytLoadError, RelationsFirstDeprecationWarning
 
 PX_PER_CH = 8.0
 WRAPPER_MIN_PX = 300.0
@@ -188,6 +252,119 @@ VALID_ACTIVITY_LEVELS = {"sustained", "occasional"}
 VALID_EDGE_DISPOSITIONS = {"unit", "item", "continuous"}
 
 
+_FACTS_TABLE_CACHE: Optional["relations.FactsTable"] = None
+_RATIFIED_MANIFEST_CACHE: Optional["relations.RatifiedManifest"] = None
+
+
+def _get_ratified_manifest() -> "relations.RatifiedManifest":
+    """RATCHET FORM, dispatch C4 (ledger rows 2396/2445): mirrors
+    `_get_facts_table`'s own lazy-load-once-per-process-and-cache
+    posture. `reset_ratified_manifest_cache` (below) is the matching test
+    seam."""
+    global _RATIFIED_MANIFEST_CACHE
+    if _RATIFIED_MANIFEST_CACHE is None:
+        _RATIFIED_MANIFEST_CACHE = relations.RatifiedManifest.load()
+    return _RATIFIED_MANIFEST_CACHE
+
+
+def reset_ratified_manifest_cache(
+    manifest: Optional["relations.RatifiedManifest"] = None,
+) -> None:
+    """Test seam mirroring `reset_facts_table_cache`: install `manifest`
+    as the process-wide ratified-literals manifest (or clear the cache
+    back to lazy-reload-from-disk when `manifest is None`)."""
+    global _RATIFIED_MANIFEST_CACHE
+    _RATIFIED_MANIFEST_CACHE = manifest
+
+
+def _raw_content_signature(node: object) -> str:
+    """RATCHET FORM, dispatch C4 (ledger rows 2396/2445): a canonical,
+    content-derived, POSITION-INDEPENDENT string identifying a raw tree
+    node — the fallback half of `_site_id_for_node` (below), for an
+    untagged Split/Exclusive with no author-declared name of its own. A
+    leaf's own signature is just its widget id; a Split's/an untagged
+    Exclusive's is `"{H|V|T}[" + its own children's signatures, SORTED,
+    joined by commas + "]"`. SORTED is the load-bearing choice: two
+    siblings changing order (an edit this ratchet must not react to)
+    never changes this string, since the string never encodes WHICH
+    position a child held, only WHICH children exist and what THEY
+    themselves (recursively) contain. Two structurally-identical
+    subtrees legitimately collide (the same ratification correctly
+    applies to both — not a bug); two subtrees differing in ANY
+    descendant's identity or composition never collide, by construction,
+    without needing a single line number or sibling index anywhere in
+    the computation."""
+    if isinstance(node, lytparser.RawLeaf):
+        return node.widget
+    if isinstance(node, lytparser.RawSplit):
+        inner = ",".join(sorted(_raw_content_signature(c.node) for c in node.children))
+        return f"{node.axis.upper()}[{inner}]"
+    if isinstance(node, lytparser.RawExclusive):
+        if node.tag:
+            return f"T:{node.tag}"
+        inner = ",".join(sorted(_raw_content_signature(c.node) for c in node.children))
+        return f"T[{inner}]"
+    raise LytLoadError(
+        "unknown raw node kind while deriving a content signature",
+        {"node": repr(node)},
+    )
+
+
+def _site_id_for_node(node: object) -> str:
+    """RATCHET FORM, dispatch C4 (ledger rows 2396/2445): the STABLE site
+    identity `RatifiedManifest` keys on for whichever node's OWN sizing
+    is about to resolve — NEVER a file:line or a sibling/child ORDINAL
+    position (the commissioner's own explicit instruction; see
+    `RatifiedManifest`'s own docstring in relations.py for the anti-
+    pattern this guards against). Three forms, in priority order:
+
+      1. A leaf: its own `widget` id — already the stable, author-chosen
+         identity every other part of this substrate keys on.
+      2. A TAGGED Exclusive (`T(...)[TAG]`): `f"tag:{tag}"` — the SAME
+         author-declared annotation `emit_layout_tree.py`'s own blackbox
+         blocks already read, reused rather than re-invented.
+      3. Anything else (an untagged Split or an untagged Exclusive): the
+         content-derived signature `_raw_content_signature` computes,
+         hashed to a short, stable, collision-resistant handle (the full
+         signature can be long for an outer container — the hash keeps
+         the manifest's own JSON legible while the signature itself is
+         still stored alongside it, per entry, for a commissioner's own
+         audit — see `RatifiedManifest`'s own `content_signature` field).
+    """
+    if isinstance(node, lytparser.RawLeaf):
+        return node.widget
+    if isinstance(node, lytparser.RawExclusive) and node.tag:
+        return f"tag:{node.tag}"
+    signature = _raw_content_signature(node)
+    digest = hashlib.sha256(signature.encode("utf-8")).hexdigest()[:10]
+    return f"anon-{digest}"
+
+
+def _get_facts_table() -> "relations.FactsTable":
+    """LYT relations-first amendment, dispatch B: the facts/theme-token
+    table is loaded from disk once per process (small, cheap files — a
+    handful of KB of JSON plus a CSS regex scan) and cached, rather than
+    re-read on every `load_layouts` call — dozens of loads happen in a
+    single `pytest` run. `reset_facts_table_cache` (below) exists for
+    tests that need to load a synthetic facts table instead of the real
+    committed one."""
+    global _FACTS_TABLE_CACHE
+    if _FACTS_TABLE_CACHE is None:
+        _FACTS_TABLE_CACHE = relations.FactsTable.load()
+    return _FACTS_TABLE_CACHE
+
+
+def reset_facts_table_cache(table: Optional["relations.FactsTable"] = None) -> None:
+    """Test seam: install `table` as the process-wide facts table (or
+    clear the cache back to lazy-reload-from-disk when `table is None`).
+    Never called by ordinary load paths — only by tests that need a
+    synthetic `FactsTable` (a facts entry that doesn't exist in the real
+    committed `facts.generated.json`, to test a primitive the real
+    encodings don't exercise yet)."""
+    global _FACTS_TABLE_CACHE
+    _FACTS_TABLE_CACHE = table
+
+
 def _resolve_axis_token(
     token: str, *, orientation: Optional[str], where: str, key: str, law: str
 ) -> str:
@@ -229,17 +406,29 @@ def _resolve_axis_token(
 
 
 def _resolve_extent_like(
-    e: Optional[lytparser.RawExtentLike], *, where: str
+    e: Optional[lytparser.RawExtentLike],
+    *,
+    where: str,
+    ctx: Optional["relations.RelationContext"] = None,
 ) -> ast.Extent:
     if e is None:
         raise LytLoadError(
             f"sizing at {where} is missing a required min/pref/max term",
             {"where": where},
         )
+    # LYT relations-first amendment, dispatch B: a relation call resolves
+    # against `ctx` (the facts table + sibling/children scope threaded in
+    # by `load_slot`) — see `relations.py`'s own module docstring for the
+    # nine primitives. Checked before the RawExtentSum/RawExtent branches
+    # below, since a relation is neither.
+    if isinstance(e, lytparser.RawRelation):
+        return relations.resolve_relation(
+            e, where=where, ctx=ctx, resolve_extent_like=_resolve_extent_like
+        )
     if isinstance(e, lytparser.RawExtentSum):
         total_px = 0.0
         for part in e.parts:
-            resolved = _resolve_extent_like(part, where=where)
+            resolved = _resolve_extent_like(part, where=where, ctx=ctx)
             if resolved.unit == "fr":
                 raise LytLoadError(
                     "an extent sum may not include an 'fr' component "
@@ -251,6 +440,105 @@ def _resolve_extent_like(
         return ast.Extent(unit="px", v=total_px)
     assert isinstance(e, lytparser.RawExtent)
     if e.kind == "numunit":
+        # LYT relations-first amendment, dispatch B, task 4 (backward
+        # compat): a literal px/ch bound is still perfectly legal this
+        # wave, but is now DEPRECATED once a relation-aware `ctx` is in
+        # play (i.e. every ordinary `load_layouts` call) — see
+        # `errors.RelationsFirstDeprecationWarning`'s own docstring for
+        # the flip-to-refusal channel this diagnostic is for. Silent when
+        # `ctx is None` (a caller resolving an extent outside the
+        # relations-aware loading path, e.g. a direct unit test of this
+        # function) — the diagnostic is scoped to the concrete-syntax
+        # loading path this amendment actually governs, not every call
+        # site in this module.
+        if ctx is not None:
+            # RATCHET FORM, dispatch C4 (ledger rows 2396/2445): a px/ch
+            # literal under a STRICT context (`ctx.refuse_literal_bounds`)
+            # is no longer an unconditional refusal — it is checked
+            # against `ctx.ratified` (a `RatifiedManifest`) FIRST, keyed
+            # on `(ctx.source_file, ctx.current_site_id, ctx.current_
+            # construct, e.unit)`. A RATIFIED site loads exactly like a
+            # pre-C4 literal (no warning either — it is sanctioned, not
+            # merely tolerated); an UNLISTED site refuses, naming all four
+            # key components and the manifest path so a reader knows
+            # exactly what to add and where. `fr` is never checked against
+            # the manifest at all (structurally exempt regardless of
+            # `refuse_literal_bounds` — see `RelationContext.refuse_
+            # literal_bounds`'s own docstring for why).
+            if ctx.refuse_literal_bounds and e.unit in ("px", "ch"):
+                manifest = ctx.ratified
+                is_ratified = manifest is not None and manifest.is_ratified(
+                    file=ctx.source_file or "",
+                    site_id=ctx.current_site_id or "",
+                    construct=ctx.current_construct or "",
+                    unit=e.unit,
+                    value=e.v,
+                )
+                if is_ratified:
+                    if e.unit == "ch":
+                        return ast.Extent(unit="px", v=e.v * PX_PER_CH)
+                    return ast.Extent(unit=e.unit, v=e.v)
+                raise LytLoadError(
+                    f"px/ch literal bound at {where} ({e.v:g}{e.unit}) is "
+                    "refused — RELATIONS-FIRST RATCHET (ledger rows "
+                    "2396/2445, dispatch C4): this exact site is not in the "
+                    "ratified-literals manifest "
+                    f"({relations.DEFAULT_RATIFIED_LITERALS_PATH.name}) — "
+                    "either spell this bound as a relation expression "
+                    "instead (relations.py's nine-primitive vocabulary), or "
+                    "have the commissioner ratify this site by adding "
+                    f"{{\"file\": {ctx.source_file!r}, \"site_id\": "
+                    f"{ctx.current_site_id!r}, \"construct\": "
+                    f"{ctx.current_construct!r}, \"unit\": {e.unit!r}, "
+                    f"\"ratified_values\": [{e.v!r}]}} to the manifest",
+                    {
+                        "where": where,
+                        "law": "relations-first",
+                        "prohibition": "unratified-literal-in-governed-encoding",
+                        "unit": e.unit,
+                        "v": e.v,
+                        "source_file": ctx.source_file,
+                        "site_id": ctx.current_site_id,
+                        "construct": ctx.current_construct,
+                        "manifest_path": str(relations.DEFAULT_RATIFIED_LITERALS_PATH),
+                    },
+                )
+            ctx.deprecated_literals.append(
+                {
+                    "where": where,
+                    "unit": e.unit,
+                    "v": e.v,
+                    # RATCHET FORM, dispatch C4: the site identity this
+                    # SAME literal would be checked against under strict
+                    # mode — recorded here too (not only inside the
+                    # strict-mode branch) so a non-strict, ordinary
+                    # WARNING-mode load can still enumerate candidate
+                    # manifest entries (`tools/dump_ratifiable_sites.py`
+                    # reads exactly this field), without needing a second,
+                    # strict-mode pass.
+                    "site_id": ctx.current_site_id,
+                    "construct": ctx.current_construct,
+                }
+            )
+            warnings.warn(
+                f"px/ch literal bound at {where} ({e.v:g}{e.unit}) — "
+                "RELATIONS-FIRST (ledger rows 2396/2397): a literal extent "
+                "here is deprecated, not yet refused, pending the dispatch C "
+                "encoding rewrite that replaces it with a relation "
+                "expression (governing spec, dispatch B) "
+                # RATCHET FORM, dispatch C4: site_id/construct appended
+                # here too (in addition to `ctx.deprecated_literals`,
+                # which only reliably accumulates the OUTERMOST context's
+                # own direct literals, not a descendant's — each Split/
+                # Exclusive branch builds a FRESH child context with its
+                # own empty list) so `tools/dump_ratifiable_sites.py` can
+                # recover site_id/construct from the warning stream alone,
+                # the same way `tools/count_deprecations.py` already reads
+                # `where`/unit/value from it.
+                f"[site_id={ctx.current_site_id!r} construct={ctx.current_construct!r}]",
+                category=RelationsFirstDeprecationWarning,
+                stacklevel=3,
+            )
         if e.unit == "ch":
             return ast.Extent(unit="px", v=e.v * PX_PER_CH)
         return ast.Extent(unit=e.unit, v=e.v)
@@ -292,13 +580,16 @@ def _resolve_extent_like(
 
 
 def _resolve_max(
-    e: Optional[lytparser.RawExtentLike], *, where: str
+    e: Optional[lytparser.RawExtentLike],
+    *,
+    where: str,
+    ctx: Optional["relations.RelationContext"] = None,
 ) -> "ast.Extent | str":
     if e is None:
         raise LytLoadError(f"sizing at {where} is missing 'max'", {"where": where})
     if isinstance(e, lytparser.RawExtent) and e.kind == "symbol" and e.symbol == "inf":
         return "inf"
-    return _resolve_extent_like(e, where=where)
+    return _resolve_extent_like(e, where=where, ctx=ctx)
 
 
 def _refuse_bare_envelope(*, where: str) -> None:
@@ -353,7 +644,11 @@ def _refuse_empty_envelope_states(*, where: str) -> None:
 
 
 def _resolve_envelope_state_extents(
-    rs: lytparser.RawSizing, *, where: str, pref_extent: ast.Extent
+    rs: lytparser.RawSizing,
+    *,
+    where: str,
+    pref_extent: ast.Extent,
+    ctx: Optional["relations.RelationContext"] = None,
 ) -> Optional[Dict[str, ast.Extent]]:
     """METAMODEL WAVE, item 2 (ledger row 2157/2173-2176). `rs.
     envelope_entries` is the per-state `(name, extent_or_None)` list the
@@ -381,6 +676,39 @@ def _resolve_envelope_state_extents(
           COMPUTE something (SPEC.md §4.2's own disclosed gap: "the code
           does not compute a max over anything"): the reservation the
           author wrote must equal what their own declared states justify.
+
+    LYT RELATIONS-FIRST AMENDMENT, dispatch B, task 3 (L3 envelope repair,
+    ruling 2400(4)): each `(state, extent)` entry's extent may now ALSO be
+    a RELATION — `envelope: {disconnected: width-of(I_engine,
+    disconnected), connected_5digit_latency: width-of(I_engine,
+    connected_5digit_latency)}` — resolved via `_resolve_extent_like`
+    exactly like every other extent position, `ctx` threaded through. This
+    is the genuine fix for SPEC.md §4.2's own disclosed gap ("the code
+    does not compute a max over anything; it stores a fixed extent and a
+    state list side by side"): once an entry's extent is a `width-of(...)`
+    relation, its value is a FACTS-DERIVED number, not an author-typed
+    literal, and the existing consistency check two paragraphs below
+    (clause (c)) is what makes the slot's own `pref` a genuine `max-over`
+    the declared states' own facts — refused loudly (via the relation's
+    own "no matching facts entry" refusal, `relations.py`) if any declared
+    state lacks a facts entry, exactly the task's own wording. The LEGACY
+    bare-name spelling (an envelope declared with no per-state extents at
+    all, e.g. `{28px, envelope: {disconnected, connected}}` — what both
+    committed clean-room encodings still carry) is UNCHANGED and remains
+    fully legal this wave (task 4, backward compat): it returns `None`
+    below exactly as it always has, and the slot's `pref` stays whatever
+    literal the author typed (now flagged via the ordinary literal-bound
+    deprecation channel, since it resolves through `_resolve_extent_like`
+    like any other literal). This dispatch does NOT retrofit every
+    existing bare-name envelope into a forced facts-derivation — no facts
+    entries exist yet for `I_engine`'s own states, and doing so
+    automatically would make both mainline encodings start refusing to
+    load, which task 4 explicitly forbids ("the roundtrip tests must stay
+    green"). The repair is the CAPABILITY (relations now flow through
+    envelope per-state extents, checked exactly as `max-over` would check
+    them), exercised end-to-end by this dispatch's own synthetic test
+    fixture, not a retroactive rewrite of the two real encodings (that is
+    dispatch C's job).
     """
     entries = rs.envelope_entries
     if not entries:
@@ -405,7 +733,18 @@ def _resolve_envelope_state_extents(
         )
     resolved: Dict[str, ast.Extent] = {}
     for name, raw_ext in named:
-        resolved[name] = _resolve_extent_like(raw_ext, where=f"{where} (envelope state {name!r})")
+        # RATCHET FORM, dispatch C4: each declared state is its own
+        # construct (`envelope-state:<name>`) — two states at the same
+        # site are two different literals, ratified (or not)
+        # independently.
+        state_ctx = (
+            dataclasses.replace(ctx, current_construct=f"envelope-state:{name}")
+            if ctx is not None
+            else None
+        )
+        resolved[name] = _resolve_extent_like(
+            raw_ext, where=f"{where} (envelope state {name!r})", ctx=state_ctx
+        )
     units = {e.unit for e in resolved.values()}
     if len(units) > 1:
         raise LytLoadError(
@@ -548,6 +887,7 @@ def _load_sizing(
     where: str,
     node_kind: str,
     orientation: Optional[str] = None,
+    relctx: Optional["relations.RelationContext"] = None,
 ) -> ast.Sizing:
     if rs is None:
         raise LytLoadError(f"slot at {where} has no sizing block", {"where": where})
@@ -559,6 +899,25 @@ def _load_sizing(
     # LEAF's axis-keyed `min` may name its floor in the leaf's own frame
     # (`min across 60px`). It is `None` for every non-leaf call site, which
     # is precisely how `_resolve_axis_token` refuses a role name there.
+    #
+    # LYT relations-first amendment, dispatch B (disclosed scope
+    # narrowing, see this module's own docstring): `min <axis>` is NOT
+    # relation-aware this wave — `_load_axis_mins` resolves its extent
+    # with no `relctx`. In practice a relation call never even REACHES
+    # that resolution: `parser.parse_sizing`'s own axis-min lookahead
+    # (`RawSizing.axis_mins`'s docstring) recognizes `min <axis>
+    # <extent>` only when the token immediately after the axis name is
+    # NUMBER/NUMUNIT, so `min h width-of(...)` does not parse as an
+    # axis-min at all — it falls through to the ordinary sizing-bag loop,
+    # which then fails on the stray `width-of` token with an ordinary
+    # `LytParseError` ("expected COMMA, got IDENT 'width-of'"), not a
+    # load-time `LytLoadError` about a missing resolution context.
+    # [Corrected 2026-08-13, review row (lyt-relations-b-review.md,
+    # minor finding 2) — this comment previously described a
+    # load-time-refusal shape a probe never actually reaches.] Same
+    # safety outcome either way (a loud, structured refusal, never a
+    # silent extent), just at the PARSE layer rather than the LOAD layer
+    # for this one position.
     axis_mins = _load_axis_mins(rs, where=where, orientation=orientation)
 
     if rs.aspect_coupled:
@@ -571,15 +930,38 @@ def _load_sizing(
             max="inf",
         )
 
-    if rs.fixed is not None:
-        # `{28px}` shorthand (§5.4/§5.5): min=pref=max=that extent. May be
-        # combined with an `envelope: {...}` clause in the same braces
-        # (§5.4 line 569's I_engine) — the reserved extent along the
-        # parent's partition axis stays fixed regardless of which
-        # declared content state is active; envelope_states is then purely
-        # documentation for this slot, since Sizing has no second axis to
-        # reserve variably (see build report).
-        fixed_extent = _resolve_extent_like(rs.fixed, where=where)
+    # LYT relations-first amendment, dispatch B: `pinned <extent>` is the
+    # explicit-keyword spelling of the bare `{extent}` shorthand below —
+    # see `parser.RawSizing.pinned`'s own docstring for why a second
+    # spelling was needed (a bare relation call cannot trigger the
+    # NUMUNIT/NUMBER-peeking shorthand detection `parse_sizing` uses).
+    # The two are mutually exclusive: a block declaring BOTH is refused
+    # loudly rather than one silently winning.
+    if rs.fixed is not None and rs.pinned is not None:
+        raise LytLoadError(
+            f"sizing at {where} declares BOTH the bare '{{extent}}' "
+            "shorthand and 'pinned <extent>' — both mean 'min=pref=max=this "
+            "value'; declaring two conflicting spellings of the same fact "
+            "is refused rather than one silently winning (LYT "
+            "relations-first amendment, dispatch B)",
+            {"where": where, "law": "relation", "prohibition": "fixed-and-pinned"},
+        )
+    fixed_like = rs.fixed if rs.fixed is not None else rs.pinned
+    if fixed_like is not None:
+        # `{28px}` shorthand (§5.4/§5.5), or its `pinned <extent>` keyword
+        # spelling: min=pref=max=that extent. May be combined with an
+        # `envelope: {...}` clause in the same braces (§5.4 line 569's
+        # I_engine) — the reserved extent along the parent's partition
+        # axis stays fixed regardless of which declared content state is
+        # active; envelope_states is then purely documentation for this
+        # slot, since Sizing has no second axis to reserve variably (see
+        # build report).
+        # RATCHET FORM, dispatch C4: "fixed" covers BOTH the bare
+        # `{Npx}` shorthand and the `pinned <extent>` keyword spelling —
+        # they mean the same thing (min=pref=max), so ratifying one
+        # spelling at a site covers an author switching to the other.
+        fixed_ctx = dataclasses.replace(relctx, current_construct="fixed") if relctx is not None else None
+        fixed_extent = _resolve_extent_like(fixed_like, where=where, ctx=fixed_ctx)
         basis = "reserved"
         envelope_states = None
         if rs.envelope_states is not None:
@@ -597,12 +979,13 @@ def _load_sizing(
         envelope_state_extents = None
         if basis == "envelope":
             envelope_state_extents = _resolve_envelope_state_extents(
-                rs, where=where, pref_extent=fixed_extent
+                rs, where=where, pref_extent=fixed_extent, ctx=relctx
             )
         return ast.Sizing(
             min=fixed_extent,
             pref=fixed_extent,
             max=fixed_extent,
+            aspect=rs.aspect,
             basis=basis,
             envelope_states=envelope_states,
             envelope_state_extents=envelope_state_extents,
@@ -620,17 +1003,23 @@ def _load_sizing(
         # constraining choice, never a silently-invented larger floor.
         min_extent = zero
     else:
-        min_extent = _resolve_extent_like(rs.min, where=where)
+        # RATCHET FORM, dispatch C4: min/pref/max are three DISTINCT
+        # constructs at the SAME site — an author ratified for `min`
+        # is not thereby ratified for `pref`/`max` at the same widget.
+        min_ctx = dataclasses.replace(relctx, current_construct="min") if relctx is not None else None
+        min_extent = _resolve_extent_like(rs.min, where=where, ctx=min_ctx)
 
     if rs.pref is None:
         raise LytLoadError(f"sizing at {where} is missing 'pref'", {"where": where})
-    pref_extent = _resolve_extent_like(rs.pref, where=where)
+    pref_ctx = dataclasses.replace(relctx, current_construct="pref") if relctx is not None else None
+    pref_extent = _resolve_extent_like(rs.pref, where=where, ctx=pref_ctx)
     if rs.max is None:
         # Same disclosed completion rule, mirrored for 'max': omitted ->
         # 'inf' (the least constraining choice).
         max_val: "ast.Extent | str" = "inf"
     else:
-        max_val = _resolve_max(rs.max, where=where)
+        max_ctx = dataclasses.replace(relctx, current_construct="max") if relctx is not None else None
+        max_val = _resolve_max(rs.max, where=where, ctx=max_ctx)
 
     basis = "reserved"
     envelope_states = None
@@ -647,7 +1036,7 @@ def _load_sizing(
     envelope_state_extents = None
     if basis == "envelope":
         envelope_state_extents = _resolve_envelope_state_extents(
-            rs, where=where, pref_extent=pref_extent
+            rs, where=where, pref_extent=pref_extent, ctx=relctx
         )
 
     return ast.Sizing(
@@ -670,6 +1059,7 @@ def _load_demote_presence(
     activity: Optional[str],
     content: Optional[str],
     tag: Optional[str] = None,
+    relctx: Optional["relations.RelationContext"] = None,
 ) -> ast.Presence:
     """LOOP ITERATION 11 / arc 4 round 4 (model-iteration loop EXPERIMENT,
     ledger rows 2037/2066/2107/2157/2241; branch lyt-model-loop-experiment,
@@ -807,7 +1197,19 @@ def _load_demote_presence(
                     "prohibition": "demote-exclusive-without-tag",
                 },
             )
-        return _load_demote_axis_and_threshold(axis, ext, where=where)
+        # RATCHET FORM, dispatch C4: a relation-valued @demote threshold
+        # is its own construct — currently dormant in both real
+        # encodings (every @demote threshold there is a relation, never
+        # a bare literal, so this branch's own literal-shape check below
+        # never reaches `_resolve_extent_like` at all today), tagged here
+        # for correctness against a future encoding that does combine
+        # the two.
+        demote_ctx = (
+            dataclasses.replace(relctx, current_construct="demote-threshold")
+            if relctx is not None
+            else None
+        )
+        return _load_demote_axis_and_threshold(axis, ext, where=where, relctx=demote_ctx)
     if activity != "occasional":
         raise LytLoadError(
             f"@demote declared at {where} but this leaf's declared activity "
@@ -843,14 +1245,56 @@ def _load_demote_presence(
 
 
 def _load_demote_axis_and_threshold(
-    axis: Optional[str], ext: object, *, where: str
+    axis: Optional[str],
+    ext: object,
+    *,
+    where: str,
+    relctx: Optional["relations.RelationContext"] = None,
 ) -> ast.Presence:
     """Clauses (d)/(e) of `_load_demote_presence`'s own docstring — the
     axis-vocabulary and threshold-unit refusals, shared verbatim by both
     the leaf and the Exclusive branches (LYT presence arc P1, row 2333:
     factored out of `_load_demote_presence` so the Exclusive branch can
     reach it without duplicating the leaf branch's own clauses (b)/(c),
-    which do not apply to a composite)."""
+    which do not apply to a composite).
+
+    LYT RELATIONS-FIRST AMENDMENT, dispatch B (governing spec §3(b)'s own
+    worked fragment, `@demote(h sum-of(max-over(children.min), tree.min,
+    gap))`): a RELATION call in threshold position is resolved via
+    `_resolve_extent_like` (threading `relctx`) BEFORE the literal-shape
+    check below runs — the constant-px-only rule still applies to the
+    RESOLVED result (a relation that resolves to anything but a plain px
+    extent is refused the same way a literal 'fr'/'ch' threshold already
+    is), it is just applied one step later than for a bare literal.
+    """
+    if isinstance(ext, lytparser.RawRelation):
+        resolved = _resolve_extent_like(ext, where=where, ctx=relctx)
+        if resolved.unit != "px":
+            raise LytLoadError(
+                f"@demote threshold at {where} resolved (via relation) to a "
+                f"non-px extent ({resolved.unit}) — a demotion threshold "
+                "must be a constant px measurement (L15 — LOOP ITERATION 11, "
+                "ledger row 2241; LYT relations-first amendment, dispatch B)",
+                {
+                    "where": where, "law": "L15",
+                    "prohibition": "non-px-demote-threshold", "unit": resolved.unit,
+                },
+            )
+        if axis not in VALID_SCROLL_AXES:
+            raise LytLoadError(
+                f"@demote axis {axis!r} at {where} is not one of "
+                f"{sorted(VALID_SCROLL_AXES)} — and note the `along`/`across` "
+                "ROLE names L14 introduced are deliberately NOT accepted here: "
+                "a role resolves against the LEAF's own orientation, but the "
+                "axis a demotion measures is the one its BAND is under pressure "
+                "on, which is a different fact (L15 — LOOP ITERATION 11, ledger "
+                "row 2241)",
+                {
+                    "where": where, "law": "L15", "prohibition": "invalid-demote-axis",
+                    "got": axis, "valid": sorted(VALID_SCROLL_AXES),
+                },
+            )
+        return ast.demote(axis=axis, below_px=float(resolved.v))
     if axis not in VALID_SCROLL_AXES:
         raise LytLoadError(
             f"@demote axis {axis!r} at {where} is not one of "
@@ -968,6 +1412,7 @@ def _load_presence(
     activity: Optional[str] = None,
     content: Optional[str] = None,
     tag: Optional[str] = None,
+    relctx: Optional["relations.RelationContext"] = None,
 ) -> ast.Presence:
     if rp is None:
         return ast.FIXED
@@ -977,7 +1422,8 @@ def _load_presence(
         return ast.DEV
     if rp.kind == "demote":
         return _load_demote_presence(
-            rp, where=where, node_kind=node_kind, activity=activity, content=content, tag=tag
+            rp, where=where, node_kind=node_kind, activity=activity, content=content,
+            tag=tag, relctx=relctx,
         )
     assert rp.kind == "toggle"
     by = rp.by
@@ -1178,29 +1624,48 @@ def _load_scroll_axes(
 
 
 def _load_content_class(
-    rs: Optional[lytparser.RawSizing], *, where: str, node_kind: str
+    rs: Optional[lytparser.RawSizing],
+    *,
+    where: str,
+    node_kind: str,
+    is_exclusive_child: bool = False,
 ) -> Optional[str]:
     """AMENDMENT 5 (ledger row 1937): resolves the `content <class>`
-    sizing-bag key into `Leaf.content`, or `None` when undeclared (the
+    sizing-bag key into `Slot.content`, or `None` when undeclared (the
     pre-Amendment-5 default, dormant for every existing leaf — see
     `wellformed.py`'s L5/L5a/L5c, which only fire when `content` is
-    genuinely declared). Legal ONLY on a leaf: `content` describes what
-    a LEAF renders (the axis the consult report's §9.2 deliberately
-    keeps orthogonal to `domain`/`facets`), so a declaration surviving to
-    this call on a Split or Exclusive node is refused loudly rather than
-    silently ignored — the same "refuse, never drop the author's
-    declared intent" discipline `_load_gap_px`'s node-kind check already
-    applies to `gap` on a leaf/T node.
+    genuinely declared).
+
+    AMENDMENT 10 (ledger rows 2447/2450, L2a of the space-owner cure):
+    widens the legal positions from "leaf only" to three — a leaf
+    (unchanged), an Exclusive (T) node's own wrapping slot (`node_kind ==
+    "exclusive"`, a genuine new position: the collapsed group's own
+    declared content class), and a slot that is a DIRECT CHILD of an
+    Exclusive regardless of its own underlying node kind
+    (`is_exclusive_child=True`, threaded by `load_slot`'s Exclusive
+    branch only for its own immediate children — see that function's own
+    docstring). A declaration surviving to this call at neither position
+    is refused loudly rather than silently ignored — the same "refuse,
+    never drop the author's declared intent" discipline `_load_gap_px`'s
+    node-kind check already applies to `gap` on a leaf/T node. `content`
+    still describes what the declaring slot's own content IS (the axis
+    the consult report's §9.2 deliberately keeps orthogonal to
+    `domain`/`facets`) — an ordinary Split standing in the tree for its
+    own sake (not as a T-child) still has no content of its own, only its
+    children's partition, and stays refused.
     """
     if rs is None or rs.content is None:
         return None
-    if node_kind != "leaf":
+    if node_kind != "leaf" and node_kind != "exclusive" and not is_exclusive_child:
         raise LytLoadError(
-            f"content declared at {where} but 'content' is a LEAF-only "
-            "axis (it names what a leaf renders, orthogonal to "
-            "domain/facets — .claude/dispatch-reports/lyt-tab-region-"
-            f"consult.md §9.2) — a {node_kind} node may not declare it "
-            "(AMENDMENT 5, ledger row 1937)",
+            f"content declared at {where} but 'content' is legal only on "
+            "a leaf, an Exclusive's own wrapping slot, or a slot that is "
+            "a direct child of an Exclusive (it names what the declaring "
+            "slot's own content IS, orthogonal to domain/facets — "
+            ".claude/dispatch-reports/lyt-tab-region-consult.md §9.2) — "
+            f"a {node_kind} node standing elsewhere in the tree may not "
+            "declare it (AMENDMENT 5, ledger row 1937; AMENDMENT 10, "
+            "ledger rows 2447/2450)",
             {
                 "where": where,
                 "law": "content-class-declaration",
@@ -2163,7 +2628,6 @@ def _load_leaf(
     rl: lytparser.RawLeaf,
     *,
     where: str,
-    content: Optional[str] = None,
     boundary: bool = False,
     unit_axes: FrozenSet[Tuple[str, float]] = frozenset(),
     elastic_axes: FrozenSet[str] = frozenset(),
@@ -2208,7 +2672,6 @@ def _load_leaf(
         facets=frozenset(facets),
         domain=domain,
         flagged=rl.flagged,
-        content=content,  # AMENDMENT 5, ledger row 1937
         boundary=boundary,  # AMENDMENT 6, ledger row 1937
         unit_axes=unit_axes,  # AMENDMENT 7 (L10), ledger rows 2107/2108
         floor_axes=floor_axes,  # LOOP ITERATION 12 (L16), ledger rows 2268-2270
@@ -2226,8 +2689,42 @@ def load_slot(
     *,
     path: str = "root",
     orientation_overrides: Optional[Dict[str, str]] = None,
+    relctx: Optional["relations.RelationContext"] = None,
+    is_exclusive_child: bool = False,
+    refuse_literal_bounds: bool = False,
+    source_file: Optional[str] = None,
 ) -> ast.Slot:
-    """`orientation_overrides` (AMENDMENT 9, ledger row 2310; re-scoped
+    """`is_exclusive_child` (AMENDMENT 10, ledger rows 2447/2450, L2a of the
+    space-owner cure): `True` only for the exact call this function's own
+    Exclusive branch makes for EACH of its immediate children — never
+    inherited any further down. This is the fact `_load_content_class`
+    needs to permit `content` on a T-child whose own underlying node kind
+    is a Split or a nested Exclusive (previously refused regardless,
+    since `content` was leaf-only) — a grandchild reached through an
+    intervening Split (e.g. a T-child's own children) is an ORDINARY
+    Split-child, not itself an Exclusive-child, so every other recursive
+    call in this function passes `False` (the default), including the
+    Split branch's own children loop.
+
+    `relctx` (LYT relations-first amendment, dispatch B, ledger rows
+    2396/2397/2400/2401): the relation-resolution context for THIS slot's
+    OWN sizing/presence — i.e. the facts table, the already-loaded
+    siblings in the ENCLOSING split (accumulated left to right by the
+    Split branch below before it recurses into each child), and the
+    enclosing split's own `gap_px`. `None` (the default, every call site
+    outside this module's own recursion) means "build a fresh context
+    seeded from the process-wide facts table and no siblings/gap" — the
+    correct context for the ROOT slot, and the only sane default for a
+    caller that invokes `load_slot` directly rather than through
+    `load_layouts`. Each branch below builds a DIFFERENT context for its
+    own CHILDREN than the one it received for itself — see the Split and
+    Exclusive branches' own comments for exactly how (a T node's own
+    sizing additionally needs its just-loaded children's Sizing, for
+    `max-over(children.min)`; a Split's children each need the SIBLINGS
+    loaded so far in the SAME split, for `widget.min`-style lateral
+    references, per the governing spec's own §3(b) worked example).
+
+    `orientation_overrides` (AMENDMENT 9, ledger row 2310; re-scoped
     2026-08-12, see the dated note below): an optional `widget id ->
     physical axis` map, empty/`None` (the default) for every
     pre-Amendment-9 call site and byte-identical to this function's prior
@@ -2266,6 +2763,34 @@ def load_slot(
     NAME = ...` fragments in one text silently received an override
     computed for the OTHER fragment's solve."""
     orientation_overrides = orientation_overrides or {}
+    if relctx is None:
+        # LYT relations-first amendment, dispatch C4: `refuse_literal_
+        # bounds`/`source_file` seed the ROOT context here, from this
+        # call's own parameters — every recursive call below either
+        # passes an explicit `relctx` (never hits this branch) or is a
+        # child/own context built FROM `relctx` (see the Split/Exclusive
+        # branches below, which now carry both fields forward), so a
+        # strict root load stays strict all the way down, never silently
+        # downgraded partway through the tree.
+        relctx = relations.RelationContext(
+            facts=_get_facts_table(),
+            refuse_literal_bounds=refuse_literal_bounds,
+            source_file=source_file,
+            # RATCHET FORM, dispatch C4: loaded unconditionally (cheap,
+            # cached, mirrors `facts` immediately above) — an empty/absent
+            # manifest is harmless when `refuse_literal_bounds` is False
+            # (never consulted) and is the correct "refuse everything"
+            # default when it is True.
+            ratified=_get_ratified_manifest(),
+        )
+    # RATCHET FORM, dispatch C4: this node's OWN site identity, computed
+    # once here (before any of its own sizing/envelope/operand literals
+    # resolve) and threaded into every context this function builds FOR
+    # this node's own `_load_sizing`/`_load_presence` calls below, via
+    # `dataclasses.replace(relctx, current_site_id=...)` at each such call
+    # site — see `_site_id_for_node`'s own docstring for the three forms
+    # this can take and why none of them is positional.
+    own_site_id = _site_id_for_node(rs.node)
     node = rs.node
     if isinstance(node, lytparser.RawLeaf):
         # AMENDMENT 5 (ledger row 1937): resolved before `_load_leaf` so
@@ -2382,7 +2907,6 @@ def load_slot(
         leaf = _load_leaf(
             node,
             where=f"{path}:{node.widget}",
-            content=content,
             boundary=boundary,
             unit_axes=unit_axes,
             elastic_axes=elastic_axes,
@@ -2398,6 +2922,10 @@ def load_slot(
             where=f"{path}:{node.widget}",
             node_kind="leaf",
             orientation=orientation,
+            # RATCHET FORM, dispatch C4: this leaf's own site identity
+            # (its `widget` id) for every literal its own sizing block
+            # resolves.
+            relctx=dataclasses.replace(relctx, current_site_id=own_site_id),
         )
         # AMENDMENT 7 (L9, see `_load_ceiling_flag`): resolved AFTER
         # `_load_sizing` and folded in with `dataclasses.replace` rather
@@ -2427,28 +2955,69 @@ def load_slot(
             node_kind="leaf",
             activity=activity,
             content=content,
+            relctx=relctx,
         )
         sizing = _apply_preserve_reservation(sizing, presence, where=f"{path}:{node.widget}")
         return ast.Slot(
             node=leaf, presence=presence, sizing=sizing,
             violates=frozenset(rs.warns), scroll_axes=scroll_axes,
-            wrap_policy=wrap_policy,
+            wrap_policy=wrap_policy, content=content,  # AMENDMENT 10, ledger rows 2447/2450
         )
     if isinstance(node, lytparser.RawSplit):
-        children = [
-            load_slot(c, path=f"{path}/{node.axis.upper()}{i}", orientation_overrides=orientation_overrides)
-            for i, c in enumerate(node.children)
-        ]
         # AMENDMENT 3 (ledger row 1715): `gap_px` is now resolved from an
         # optional `gap <extent>` sizing term instead of being hardcoded
         # to 0.0 (the F10-era disclosure this replaces — see the module
         # docstring's AMENDMENT 3 paragraph and `_load_gap_px`'s own
         # docstring for the full law). No `gap` term still resolves to
         # 0.0, so an un-amended `.lyt` file's geometry is unchanged.
+        #
+        # LYT relations-first amendment, dispatch B: resolved BEFORE the
+        # children are loaded (moved up from its prior position after the
+        # children list comprehension) — every child's own relation
+        # context needs this split's `gap_px` for a bare `gap` reference
+        # inside `sum-of` (governing spec §3(b)'s worked example).
         gap_px = _load_gap_px(rs.sizing, where=path, node_kind="split")
-        # AMENDMENT 5: `content` is leaf-only -- a Split declaring it is
-        # refused loudly here, same call shape as the leaf branch above.
-        _load_content_class(rs.sizing, where=path, node_kind="split")
+        # LYT relations-first amendment, dispatch B: children are loaded
+        # in an explicit LEFT-TO-RIGHT loop (not the prior list
+        # comprehension) so each child's own relation context can see the
+        # PRIOR siblings' already-resolved Sizing — `sibling_sizings` is
+        # a fresh snapshot per child, not shared mutable state, so a
+        # child's own recursion can never observe a LATER sibling (the
+        # disclosed "left to right only" scoping `relations._resolve_ref`
+        # documents and refuses against otherwise).
+        children: List[ast.Slot] = []
+        sibling_sizings: Dict[str, ast.Sizing] = {}
+        for i, c in enumerate(node.children):
+            child_relctx = relations.RelationContext(
+                facts=relctx.facts,
+                sibling_sizings=dict(sibling_sizings),
+                children_sizings=None,
+                enclosing_gap_px=gap_px,
+                # dispatch C4: carried forward from the received context,
+                # same posture `facts` already takes — a child of a strict
+                # load is itself strict.
+                refuse_literal_bounds=relctx.refuse_literal_bounds,
+                source_file=relctx.source_file,
+                ratified=relctx.ratified,
+            )
+            child_slot = load_slot(
+                c,
+                path=f"{path}/{node.axis.upper()}{i}",
+                orientation_overrides=orientation_overrides,
+                relctx=child_relctx,
+            )
+            children.append(child_slot)
+            if isinstance(child_slot.node, ast.Leaf):
+                sibling_sizings[child_slot.node.widget] = child_slot.sizing
+        # AMENDMENT 5 / AMENDMENT 10 (ledger rows 2447/2450): `content` is
+        # legal on a Split ONLY when this Split is itself a direct child
+        # of an Exclusive (`is_exclusive_child`, received above) -- an
+        # ordinary Split standing in the tree for its own sake still has
+        # no content of its own, only its children's partition, and stays
+        # refused here exactly as before.
+        content = _load_content_class(
+            rs.sizing, where=path, node_kind="split", is_exclusive_child=is_exclusive_child
+        )
         # AMENDMENT 6: `boundary` is leaf-only too, same reason.
         _load_boundary_marker(rs.sizing, where=path, node_kind="split")
         # METAMODEL WAVE item 1: `orient` is leaf-only too, same reason.
@@ -2483,7 +3052,20 @@ def load_slot(
         _load_edge_axes(rs.sizing, where=path, node_kind="split")
         scroll_axes = _load_scroll_axes(rs.sizing, where=path)
         split = ast.Split(axis=node.axis, gap_px=gap_px, children=children)
-        sizing = _load_sizing(rs.sizing, where=path, node_kind="split")
+        # LYT relations-first amendment, dispatch B: a Split's OWN sizing
+        # resolves against `relctx` as RECEIVED (this split's position
+        # among ITS OWN siblings, in ITS OWN enclosing split) — never the
+        # `child_relctx` built above, which is scoped to this split's
+        # children, not to the split itself.
+        sizing = _load_sizing(
+            rs.sizing,
+            where=path,
+            node_kind="split",
+            # RATCHET FORM, dispatch C4: this Split's own site identity
+            # (widget-less, so `own_site_id` is the content-signature
+            # hash — see `_site_id_for_node`).
+            relctx=dataclasses.replace(relctx, current_site_id=own_site_id),
+        )
         # AMENDMENT 7 (L11): a Split IS the shape a board composite may
         # declare `measure-bound` on, so this branch resolves it rather
         # than refusing it.
@@ -2492,23 +3074,60 @@ def load_slot(
         # LOOP ITERATION 11 (L15): `node_kind` threaded so `@demote`'s own
         # leaf-only refusal can fire here rather than silently loading a
         # subtree-wide demotion no descendant declared.
-        presence = _load_presence(rs.presence, where=path, node_kind="split")
+        presence = _load_presence(rs.presence, where=path, node_kind="split", relctx=relctx)
         sizing = _apply_preserve_reservation(sizing, presence, where=path)
         return ast.Slot(
             node=split, presence=presence, sizing=sizing,
             violates=frozenset(rs.warns), scroll_axes=scroll_axes,
+            content=content,  # AMENDMENT 10, ledger rows 2447/2450
         )
     if isinstance(node, lytparser.RawExclusive):
-        children = [
-            load_slot(c, path=f"{path}/T{i}", orientation_overrides=orientation_overrides)
-            for i, c in enumerate(node.children)
-        ]
+        # LYT relations-first amendment, dispatch B: each T-child gets its
+        # OWN fresh, empty sibling scope (a T's children are alternatives,
+        # not siblings partitioning a shared axis — `widget.min`-style
+        # lateral references between two tabs of the SAME T are not a
+        # shape the governing spec's census exercises, so this dispatch
+        # does not wire it; each child sees no gap either, since a T
+        # declares none, §9.4). `children_sizings` stays `None` while
+        # loading a T's OWN children — `max-over(children.*)` is only
+        # meaningful once resolving the T's OWN sizing, below.
+        children: List[ast.Slot] = []
+        for i, c in enumerate(node.children):
+            child_relctx = relations.RelationContext(
+                facts=relctx.facts,
+                sibling_sizings={},
+                children_sizings=None,
+                enclosing_gap_px=None,
+                # dispatch C4: carried forward, same posture as the Split
+                # branch's own child_relctx above.
+                refuse_literal_bounds=relctx.refuse_literal_bounds,
+                source_file=relctx.source_file,
+                ratified=relctx.ratified,
+            )
+            children.append(
+                load_slot(
+                    c,
+                    path=f"{path}/T{i}",
+                    orientation_overrides=orientation_overrides,
+                    relctx=child_relctx,
+                    # AMENDMENT 10 (ledger rows 2447/2450): each of THIS
+                    # Exclusive's own immediate children may declare
+                    # `content` on itself regardless of its own underlying
+                    # node kind — see `load_slot`'s own docstring for why
+                    # this is never inherited any further down.
+                    is_exclusive_child=True,
+                )
+            )
         # AMENDMENT 3: a T node takes no gap — refused loudly (not
         # silently ignored) if the author declared one, same as any other
         # law this loader enforces.
         _load_gap_px(rs.sizing, where=path, node_kind="exclusive")
-        # AMENDMENT 5: `content` is leaf-only -- refused here too.
-        _load_content_class(rs.sizing, where=path, node_kind="exclusive")
+        # AMENDMENT 5 / AMENDMENT 10 (ledger rows 2447/2450): `content` is
+        # now legal on an Exclusive's own wrapping slot — the collapsed
+        # group's own declared content class (`node_kind == "exclusive"`
+        # already permits this in `_load_content_class`, regardless of
+        # whether this T is itself an Exclusive-child of an outer T).
+        content = _load_content_class(rs.sizing, where=path, node_kind="exclusive")
         # AMENDMENT 6: `boundary` is leaf-only too, same reason.
         _load_boundary_marker(rs.sizing, where=path, node_kind="exclusive")
         # METAMODEL WAVE item 1: `orient` is leaf-only too, same reason.
@@ -2546,17 +3165,40 @@ def load_slot(
         )
         scroll_axes = _load_scroll_axes(rs.sizing, where=path)
         excl = ast.Exclusive(children=children, tag=node.tag)
-        sizing = _load_sizing(rs.sizing, where=path, node_kind="exclusive")
+        # LYT relations-first amendment, dispatch B: the T node's OWN
+        # sizing/presence resolve against a context that combines its
+        # RECEIVED siblings/gap (from ITS OWN enclosing split — needed for
+        # `tree.min`/`gap` in the governing spec §3(b) worked example's
+        # `@demote` threshold) with its own just-loaded CHILDREN's Sizing
+        # (needed for `max-over(children.min)`, the T-floor derivation).
+        own_relctx = relations.RelationContext(
+            facts=relctx.facts,
+            sibling_sizings=relctx.sibling_sizings,
+            children_sizings=[c.sizing for c in children],
+            enclosing_gap_px=relctx.enclosing_gap_px,
+            # dispatch C4: carried forward, same posture as every other
+            # derived context in this function.
+            refuse_literal_bounds=relctx.refuse_literal_bounds,
+            source_file=relctx.source_file,
+            ratified=relctx.ratified,
+            # RATCHET FORM, dispatch C4: this Exclusive's own site
+            # identity — its own `[TAG]` if present, else a content hash
+            # (see `_site_id_for_node`).
+            current_site_id=own_site_id,
+        )
+        sizing = _load_sizing(rs.sizing, where=path, node_kind="exclusive", relctx=own_relctx)
         # LOOP ITERATION 11 (L15): same threading as the Split branch.
         # LYT presence arc P1 (row 2333): `tag` is threaded through too --
         # an Exclusive declaring `@demote` needs its own [TAG] as its
         # presence-pruning identity (`_load_demote_presence` clause (f)).
-        presence = _load_presence(rs.presence, where=path, node_kind="exclusive", tag=node.tag)
+        presence = _load_presence(
+            rs.presence, where=path, node_kind="exclusive", tag=node.tag, relctx=own_relctx
+        )
         sizing = _apply_preserve_reservation(sizing, presence, where=path)
         return ast.Slot(
             node=excl, presence=presence, sizing=sizing,
             violates=frozenset(rs.warns), scroll_axes=scroll_axes,
-            wrap_policy=wrap_policy,
+            wrap_policy=wrap_policy, content=content,  # AMENDMENT 10, ledger rows 2447/2450
         )
     raise LytLoadError("unknown raw node kind", {"path": path, "node": repr(node)})
 
@@ -2566,6 +3208,8 @@ def load_layouts(
     *,
     waivers: Optional["Dict[str, List[object]]"] = None,
     orientation_overrides: Optional[Dict[str, Dict[str, str]]] = None,
+    refuse_literal_bounds: bool = False,
+    source_file: Optional[str] = None,
 ) -> "dict[str, ast.Slot]":
     """Parse + type-check every `layout NAME = ...` fragment in `text`.
     Runs the L1/L2 well-formedness pass on each before returning (see
@@ -2608,6 +3252,19 @@ def load_layouts(
     caller that ever passes a non-`None` value here) was updated in the
     same change to address its single derived map to the one layout it
     computed the derivation for.
+
+    `refuse_literal_bounds`/`source_file` (LYT relations-first amendment,
+    dispatch C4, ledger rows 2396/2397/2400/2419/2425/2436/2445): opt a
+    load into STRICT mode — every px/ch literal bound this call resolves
+    raises a structured `LytLoadError` instead of the ordinary
+    `RelationsFirstDeprecationWarning` (an `fr`/`inf` structural sizing
+    keyword is unaffected either way — see
+    `relations.RelationContext.refuse_literal_bounds`'s own docstring for
+    why). Both default to `False`/`None`, byte-identical to every
+    pre-C4 call site. `source_file`, when given, is threaded into every
+    strict refusal's own `detail["source_file"]` purely for a reader's
+    benefit — it names nothing to the loader itself, which never opens a
+    file (this function only ever sees `text`).
     """
     from wellformed import check_wellformed
 
@@ -2620,6 +3277,8 @@ def load_layouts(
             raw.slot,
             path=raw.name,
             orientation_overrides=orientation_overrides.get(raw.name),
+            refuse_literal_bounds=refuse_literal_bounds,
+            source_file=source_file,
         )
         check_wellformed(slot, layout_name=raw.name, waivers=waivers.get(raw.name))
         out[raw.name] = slot

@@ -158,4 +158,18 @@ export interface SystemMessage {
   readonly type: 'error' | 'warning' | 'info';
   readonly text: string;
   readonly timestamp: number;
+  /** Optional structured fields (dispatch L3 repair,
+   *  `.claude/dispatch-reports/lyt-space-owner-l3-review.md` §3 condition
+   *  3 / ADR-0019 C8): "what would make this valid" and "a reachable next
+   *  action," carried as their OWN fields rather than flattened into
+   *  `text` — a producer (e.g. `SovereignOverrideDiagnostic`) that has
+   *  these facts supplies them; every other producer omits them and
+   *  renders exactly as before (additive, not a shape change for the
+   *  ~18 existing plain `pushSystemMessage(type, text)` call sites).
+   *  `nextAction` is presentational-only here: `SystemLogPanel.vue`
+   *  displays it as a label, not a clickable control — no affordance
+   *  named `'open-default-layout-control'` exists on this branch to
+   *  wire a click handler to (disclosed, not silently implied). */
+  readonly remediation?: string;
+  readonly nextAction?: string;
 }

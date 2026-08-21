@@ -227,13 +227,11 @@ import {
   TREE_PANEL_MIN_WIDTH_PX,
   WRAPPER_MIN_WIDTH_PX,
   RESIZER_WIDTH_PX,
-  PANEL_CONTENT_READING_MEASURE_CH,
   computeTreePanelDefaultWidthPx,
-  computeUnsetWrapperMaxWidthCss,
   computeTreeControlRegionDefaultWidthPx,
   computeTreePanelBoundWidth,
-  computeTreePanelClampedWidthPx,
 } from '../../state/layout-model';
+import { measured, px, resolveSovereignOverrides, type RegionAllotment } from '../../state/feasible-layout';
 
 // Phase 0 (resolution roadmap, audit finding R2): these five floors
 // used to be hand-picked literals living HERE, independently of each
@@ -325,70 +323,31 @@ export function computeTreeControlRegionWidthPx(
   return computePaneWidthPx(dragOriginPx, totalDeltaPx, WRAPPER_MIN_WIDTH_PX, maxRegionWidthPx, -1);
 }
 
-/**
- * ui-5-3 restore-time clamp: re-derives `startResizeOuter`'s own
- * `regionMaxWidthPx` bound (`rowWidthPx - MIN_BOARD_PX -
- * RESIZER_WIDTH_PX`, floored at `WRAPPER_MIN_WIDTH_PX`) from the row's
- * CURRENT live width, and clamps a persisted `rawWidthPx` against it
- * via `computeTreeControlRegionWidthPx` at zero displacement (`next =
- * dragOriginPx`, i.e. the raw value itself, then clamped) — so a
- * hydrated width that was saved against a DIFFERENT (usually wider)
- * viewport, or is otherwise stale/migrated/garbage, can never leave
- * `#board-area` narrower than `MIN_BOARD_PX`. `undefined` in ⇒
- * `undefined` out: a workspace whose OUTER bar has never been dragged
- * keeps its `flex: 1 1 0` default (App.vue) unchanged — fresh installs
- * are unaffected by this clamp.
- */
-/**
- * Fresh-profile / never-dragged floor for `#tree-control-wrapper`
- * (App.vue's `flex: '1 1 0'` branch — `effectiveTreeControlRegionWidthPx
- * === undefined`, i.e. `session.ui.treeControlRegionWidthPx` has never
- * been set by a drag or a restored save). That branch previously carried
- * NO width floor of its own: the wrapper's CSS `min-width: 0` (needed so
- * the drag/restore branches above can shrink it to an explicit px width
- * smaller than its content) also applies here, where there is no
- * explicit width — so on a first paint whose available row space (after
- * `#board-area`'s flex-fill share) is narrower than the wrapper's
- * actual content floor, `#control-panel` overflows past the wrapper's
- * own box and off the viewport's right edge. Witnessed live at a
- * 1366×768 first paint: `#control-panel`'s rendered right edge sat
- * ~53px past the 1366px viewport (commissioner-witnessed clipped Cards
- * tab header + half-offscreen action buttons at ~1920 window widths
- * that weren't fully maximized/full-1920, ledger row 802).
- *
- * The floor mirrors exactly what IS visible inside the wrapper on this
- * paint — `WRAPPER_MIN_WIDTH_PX` (tree + inner resizer + control) when
- * the tree panel is also expanded, or just `CONTROL_PANEL_MIN_WIDTH_PX`
- * when the tree is collapsed and the wrapper holds only the control
- * panel — so a tree-collapsed first paint doesn't reserve room for a
- * tree panel that isn't rendered (over-clamping regression). This is a
- * DEFAULT/floor fix only: once the user drags either bar, or a saved
- * width restores, `effectiveTreeControlRegionWidthPx` takes over via the
- * explicit-width branch above (already floored at `WRAPPER_MIN_WIDTH_PX`
- * by `computeTreeControlRegionWidthPx` / `sanitizeTreeControlRegionWidthPx`),
- * and this floor no longer applies.
- */
-export function freshTreeControlWrapperFloorPx(treeExpanded: boolean): number {
-  return treeExpanded ? WRAPPER_MIN_WIDTH_PX : CONTROL_PANEL_MIN_WIDTH_PX;
-}
-
-export function sanitizeTreeControlRegionWidthPx(
-  rawWidthPx: number | undefined,
-  rowWidthPx: number,
-): number | undefined {
-  // Non-finite (NaN/±Infinity) persisted values — reachable via
-  // updateFromRemote's unvalidated deepMerge — would NaN-poison the
-  // Math.min/max clamp below and reach App.vue's :style as an invalid
-  // CSS length: the exact minimized-board symptom this clamp exists to
-  // close (review BLOCKER, ui-5-3-restore-clamp-review.md finding 1).
-  // Treated as never-dragged: the flex default is the safe layout.
-  if (rawWidthPx === undefined || !Number.isFinite(rawWidthPx)) return undefined;
-  const maxRegionWidthPx = Math.max(
-    WRAPPER_MIN_WIDTH_PX,
-    Math.round(rowWidthPx - MIN_BOARD_PX - RESIZER_WIDTH_PX),
-  );
-  return computeTreeControlRegionWidthPx(rawWidthPx, 0, maxRegionWidthPx);
-}
+// HISTORICAL, deleted by dispatch L3 (`.claude/dispatch-reports/
+// lyt-space-owner-spec.md` §3 step 3, ledger rows 2447/2450/2460/2461):
+// `sanitizeTreeControlRegionWidthPx` (the ui-5-3 restore-time clamp,
+// reserving `MIN_BOARD_PX` against a hydrated `treeControlRegionWidthPx`)
+// and `freshTreeControlWrapperFloorPx` (the flex-era first-paint floor,
+// already unconsumed by App.vue since the W3 CSS-Grid rewire — confirmed:
+// `useResizablePanel()`'s own `freshTreeControlWrapperMinWidthPx` return
+// value had no App.vue reader) used to live here. Both are transcribed in
+// full in `.claude/dispatch-reports/lyt-space-owner-l3-build.md`'s
+// "Transcribed disclosures" section, per ADR-0002 Rule 6.
+// `sanitizeTreeControlRegionWidthPx`'s protective intent (never leave
+// `#board-area` starved) is NOW discharged by `outerRowSovereignDiagnostic`
+// below — sovereignty (SCOPE item 3): the stored value wins VERBATIM at
+// the STORE layer (this composable's own `effectiveTreeControlRegionWidthPx`
+// still passes it through unclamped), a starved board is DIAGNOSED. Stale
+// doctrine correction (ledger row 2511, `.claude/dispatch-reports/
+// lyt-disease-repair-review.md`, cross-cutting finding): "never resisted"
+// stopped being true the moment `resolveRootSplitLiveLayout`
+// (`state/feasible-layout.ts`) shipped — the RENDER layer (what App.vue's
+// landscape path actually writes into the grid track) now DOES clamp a
+// stored override down to the board-floor-reserving ceiling at the
+// current geometry, and `startResizeOuter`'s own drag-time ceiling below
+// was harmonized to the same bound (row 2511 review condition 2). "Never
+// resisted" is accurate only for THIS composable's own store-layer
+// pass-through, not for what the user ultimately sees rendered.
 
 /**
  * "Default layout" (commission, ledger row 2379): clears BOTH persisted
@@ -435,28 +394,12 @@ export function resetLayoutOverrides(): void {
   touchSession();
 }
 
-/**
- * Board-area width cap (see this file's header, "Board-area width
- * cap"). `#board-square`'s width is derived from its own HEIGHT
- * (`aspect-ratio: 1/1`); that height is `#board-area`'s own height
- * (`#split-workspace`'s — the row's — live height) MINUS whatever
- * height the status bar sibling claims (`#board-square`'s `flex: 1 1
- * auto`, since wiki2-status-bar-reparent — see App.vue's CSS). This
- * function deliberately does NOT perform that subtraction: it returns
- * the raw row height, a deliberately LOOSE (over-estimating) ceiling —
- * safe for a max-cap, since the true square width is strictly smaller.
- * Threading the status bar's live height here would couple this pure
- * function to a measured sibling; do that only if the loose cap is
- * ever observed binding. `rowHeightPx <= 0` (not yet measured)
- * returns `undefined` — the "don't cap before we know" default that
- * mirrors `sanitizeTreeControlRegionWidthPx`'s own not-yet-measured
- * branch in `effectiveTreeControlRegionWidthPx`, so a pre-measurement
- * render doesn't spuriously squeeze `#board-area` to its floor.
- */
-export function computeBoardAreaMaxWidthPx(rowHeightPx: number): number | undefined {
-  if (!Number.isFinite(rowHeightPx) || rowHeightPx <= 0) return undefined;
-  return Math.max(MIN_BOARD_PX, Math.round(rowHeightPx));
-}
+// HISTORICAL, deleted by dispatch L3: `computeBoardAreaMaxWidthPx` (the
+// flex-era `#board-area` max-width cap) used to live here — already
+// unconsumed by App.vue since the W3 CSS-Grid rewire (confirmed:
+// `useResizablePanel()`'s own `boardAreaMaxWidthPx` return value had no
+// App.vue reader). Transcribed in full in `.claude/dispatch-reports/
+// lyt-space-owner-l3-build.md`'s "Transcribed disclosures" section.
 
 export function useResizablePanel() {
   // ── INNER bar: tree panel (inside #tree-control-wrapper) ─────────
@@ -482,10 +425,16 @@ export function useResizablePanel() {
 
     if (wrapper) {
       const wrapperWidthPx = wrapper.getBoundingClientRect().width;
-      treeMaxWidthPx = Math.max(
-        TREE_PANEL_MIN_WIDTH_PX,
-        Math.round(wrapperWidthPx - CONTROL_PANEL_MIN_WIDTH_PX - RESIZER_WIDTH_PX),
-      );
+      // Sovereignty (dispatch L3, SCOPE item 3): the ceiling reserves
+      // ONLY the resizer's own physical width — NOT `controlPanel`'s
+      // demand. Reserving `CONTROL_PANEL_MIN_WIDTH_PX` here (pre-L3) was
+      // the exact mechanism behind the commissioner's own "~640px
+      // control-panel drag floor" complaint: it capped the tree's drag
+      // range so `controlPanel` could never be squeezed below its own
+      // floor. `resolveSideColumnLiveLayout` (`state/feasible-layout.ts`)
+      // now diagnoses a starved `controlPanel`/`previewBoard` instead —
+      // never resists the drag itself.
+      treeMaxWidthPx = Math.max(0, Math.round(wrapperWidthPx - RESIZER_WIDTH_PX));
     } else {
       treeMaxWidthPx = treeDragOriginPx;
     }
@@ -538,10 +487,30 @@ export function useResizablePanel() {
 
     if (row) {
       const rowWidthPx = row.getBoundingClientRect().width;
-      regionMaxWidthPx = Math.max(
-        WRAPPER_MIN_WIDTH_PX,
-        Math.round(rowWidthPx - MIN_BOARD_PX - RESIZER_WIDTH_PX),
-      );
+      // Ledger row 2511 review condition 2 (`.claude/dispatch-reports/
+      // lyt-disease-repair-review.md`, defect 4): this ceiling USED to
+      // reserve ONLY the resizer's own physical width, leaving it far
+      // LOOSER than `resolveRootSplitLiveLayout`'s render-time ceiling
+      // (`state/feasible-layout.ts`, which additionally reserves
+      // `MIN_BOARD_PX` for the board) — two homes for what should be one
+      // fact (ADR-0012). A single drag gesture could accept mouse deltas
+      // past the point the RENDER stops moving, decoupling the cursor
+      // from the divider mid-gesture — a close cousin of the N4 "stuck,
+      // no visible movement" symptom, just relocated from across-drags to
+      // within-a-drag. Now reserves `MIN_BOARD_PX` here too, the same
+      // floor the render-time ceiling reserves, so the drag can never
+      // accept a delta the render would then refuse to honor. This is a
+      // disclosed NARROWER unification, not byte-identical: the render
+      // ceiling also reserves `boardRailReservedPx` and the LYT root
+      // `gapPx` (both unavailable to this composable without threading
+      // boardRail's own presence in — out of scope for this repair), so
+      // the two ceilings can still diverge by that small margin when
+      // boardRail is visible. A starved board is still DIAGNOSED
+      // (`outerRowSovereignDiagnostic` below), never silently resisted —
+      // this ceiling only stops the CURSOR from promising more than the
+      // render can ever grant, it does not resist a stored/restored
+      // value arriving some other way.
+      regionMaxWidthPx = Math.max(0, Math.round(rowWidthPx - RESIZER_WIDTH_PX - MIN_BOARD_PX));
     } else {
       regionMaxWidthPx = regionDragOriginPx;
     }
@@ -599,6 +568,13 @@ export function useResizablePanel() {
   const rowWidthPx = ref(0);
   const rowHeightPx = ref(0);
   let rowObserver: ResizeObserver | null = null;
+  // Row 2502/2503 review repair, finding 2 (`.claude/dispatch-reports/
+  // lyt-cure-final-repair-review.md` §5, "SCREEN-CLASS FREEZE"): tracks
+  // WHICH element is currently observed, so a re-attach can detect the
+  // element identity changed (see `attachRowObserver`'s own doc below)
+  // rather than trusting `rowObserver !== null` alone to mean "still
+  // watching the live element."
+  let observedRowEl: Element | null = null;
 
   function measureRowDims() {
     const row = document.getElementById('split-workspace');
@@ -616,14 +592,37 @@ export function useResizablePanel() {
   // never observed, rowWidthPx stayed 0, and the clamp pinned the
   // region to its minimum ("divider stopped dragging", commissioner
   // report 2026-08-07).
+  //
+  // Row 2502/2503 review repair, finding 2: RE-ENTRANT, not attach-once.
+  // `document.getElementById('split-workspace')` by id is stable across
+  // a landscape/portrait screen-class swap for THIS element specifically
+  // (App.vue's own `activeLytDomIdByPath` maps the compiled program's
+  // OWN root path — `''` — to this id in BOTH classes, and `<LytNode>`'s
+  // root template element is the SAME component instance across a prop
+  // change, never remounted) — but `attachWrapperObserver` (below)
+  // observes a DIFFERENT element (`#tree-control-wrapper`) that sits
+  // several levels deep inside the RECURSIVE `<LytNode>` structure,
+  // where a screen-class swap genuinely CAN replace the underlying DOM
+  // node (landscape's and portrait's own tree-row splits live at
+  // completely different tree depths/shapes, so Vue's own `v-for`/`:key`
+  // diffing tears down and recreates the nested `<LytNode>` instances
+  // along that path). An observer left attached to a DETACHED element
+  // never fires again — `sideColumnWidthPx` would freeze at whatever it
+  // last measured. Both functions below now re-check the CURRENTLY LIVE
+  // element on every call (not only the first successful one) and
+  // re-observe when identity changed, so `reattachObservers()` (exposed
+  // below, called by App.vue on every screen-class transition) is a
+  // genuine no-op when nothing moved and a real fix when it did.
   function attachRowObserver(): boolean {
     const row = document.getElementById('split-workspace');
     if (!row) return false;
     measureRowDims();
-    if (typeof ResizeObserver !== 'undefined' && rowObserver === null) {
-      rowObserver = new ResizeObserver(measureRowDims);
-      rowObserver.observe(row);
-    }
+    if (typeof ResizeObserver === 'undefined') return true;
+    if (rowObserver !== null && observedRowEl === row) return true; // already observing the live element
+    rowObserver?.disconnect();
+    rowObserver = new ResizeObserver(measureRowDims);
+    rowObserver.observe(row);
+    observedRowEl = row;
     return true;
   }
 
@@ -650,6 +649,10 @@ export function useResizablePanel() {
   // exists to avoid for the sibling case.
   const sideColumnWidthPx = ref(0);
   let wrapperObserver: ResizeObserver | null = null;
+  // Row 2502/2503 review repair, finding 2 — see `attachRowObserver`'s
+  // own doc above for why THIS element specifically is the one at real
+  // risk of identity change across a screen-class swap.
+  let observedWrapperEl: Element | null = null;
 
   function measureWrapperWidth() {
     const wrapper = document.getElementById('tree-control-wrapper');
@@ -661,16 +664,60 @@ export function useResizablePanel() {
     const wrapper = document.getElementById('tree-control-wrapper');
     if (!wrapper) return false;
     measureWrapperWidth();
-    if (typeof ResizeObserver !== 'undefined' && wrapperObserver === null) {
-      wrapperObserver = new ResizeObserver(measureWrapperWidth);
-      wrapperObserver.observe(wrapper);
-    }
+    if (typeof ResizeObserver === 'undefined') return true;
+    if (wrapperObserver !== null && observedWrapperEl === wrapper) return true; // already observing the live element
+    wrapperObserver?.disconnect();
+    wrapperObserver = new ResizeObserver(measureWrapperWidth);
+    wrapperObserver.observe(wrapper);
+    observedWrapperEl = wrapper;
     return true;
+  }
+
+  // Dispatch row 2504's A2b finding (`.claude/dispatch-reports/
+  // lyt-cure-final-repair.md`'s "FINAL re-witness discharge", finding 2,
+  // and the two live-rig re-witnesses that followed): the RE-ENTRANT
+  // `attachRowObserver`/`reattachObservers()` fix above is correct as far
+  // as it goes but is chained AFTER `activeScreenClassId`'s own watch
+  // (App.vue) — a signal that can only fire once `rowWidthPx` has
+  // already been correctly re-measured. If the ResizeObserver instance
+  // itself simply stops delivering callbacks for a live, still-attached,
+  // still-correctly-identified element (witnessed live, three
+  // reproductions: a `MutationObserver` proof of zero style mutations
+  // for 3+ seconds post-resize; a raw-callback trace showing the
+  // production `rowObserver`'s own callback fires twice during initial
+  // settle and never again despite the element's real, later
+  // `getBoundingClientRect().width` genuinely changing 1920→480; and a
+  // FRESH `ResizeObserver` attached to the SAME live element moments
+  // before the same resize DOES fire) — nothing downstream can ever
+  // recover, because the recovery mechanism depends on the very delivery
+  // that stopped. This is a structural catch-22 independent of whatever
+  // causes the specific browser/engine's ResizeObserver instance to stop
+  // delivering (not root-caused further here — a live-rig, real-browser-
+  // only mechanism, not reproducible in jsdom, which never runs real
+  // ResizeObserver box-size delivery at all).
+  //
+  // Fix: a plain `window` `resize` listener, decoupled from
+  // ResizeObserver entirely, force-remeasures BOTH dimensions directly
+  // whenever the browser tells us the VIEWPORT itself changed — the
+  // exact trigger category the live-rig regression is about. `window`
+  // 'resize' is dispatched by the browser unconditionally on a real
+  // viewport change (confirmed live, independent of the ResizeObserver
+  // question entirely), so this path never depends on ResizeObserver's
+  // own health to recover a live resize. It is a SUPPLEMENT, not a
+  // replacement: ResizeObserver remains the primary, finer-grained path
+  // for layout changes that are NOT a window resize (a resizer drag,
+  // presence toggles, a sidebar reflow) — this listener only closes the
+  // one gap where the window itself resizes and the observer chain
+  // doesn't recover.
+  function handleWindowResize(): void {
+    measureRowDims();
+    measureWrapperWidth();
   }
 
   onMounted(() => {
     const rowAttached = attachRowObserver();
     const wrapperAttached = attachWrapperObserver();
+    window.addEventListener('resize', handleWindowResize);
     if (rowAttached && wrapperAttached) return;
     // Either element not in the DOM yet (cold-load gate): attach one
     // tick after the workspace actually renders, same as the row
@@ -692,90 +739,98 @@ export function useResizablePanel() {
   onUnmounted(() => {
     rowObserver?.disconnect();
     rowObserver = null;
+    observedRowEl = null;
     wrapperObserver?.disconnect();
     wrapperObserver = null;
+    observedWrapperEl = null;
+    window.removeEventListener('resize', handleWindowResize);
   });
+
+  // Row 2502/2503 review repair, finding 2: the caller-facing re-attach
+  // hook — `App.vue` calls this after `nextTick()` on every
+  // `activeScreenClassId` transition (the one signal that CAN replace
+  // `#tree-control-wrapper`'s own DOM identity, per `attachRowObserver`'s
+  // own doc above). A plain re-invocation of both attach functions:
+  // idempotent when nothing moved (the `observed*El === live element`
+  // check above short-circuits to a no-op), corrective when it did
+  // (disconnects the stale observer, attaches a fresh one, and
+  // immediately re-measures via each attach function's own synchronous
+  // `measure*()` call — no waiting for the new observer's first async
+  // callback to recover a correct reading).
+  function reattachObservers(): void {
+    attachRowObserver();
+    attachWrapperObserver();
+  }
 
   const effectiveTreeControlRegionWidthPx = computed(() => {
     const raw = store.session.ui.treeControlRegionWidthPx;
     // Geometry not yet known (observer not attached — pre-load, or the
-    // one tick between load and attach): clamping against a fantasy
-    // width of 0 would pin the region to its minimum. Pass the value
-    // through with only the non-finite guard; the real clamp/default
-    // engages as soon as the row is measured.
+    // one tick between load and attach): pass the value through with
+    // only the non-finite guard; the real default engages as soon as
+    // the row is measured.
     if (rowWidthPx.value <= 0) {
       return raw !== undefined && Number.isFinite(raw) ? raw : undefined;
     }
-    // Stored (dragged or restored) value: reconcile against the row's
-    // CURRENT live width and win verbatim if it already fits —
-    // stored-drag-precedence, unchanged.
-    const sanitized = sanitizeTreeControlRegionWidthPx(raw, rowWidthPx.value);
-    if (sanitized !== undefined) return sanitized;
-    // Never dragged, nothing restored: the init-vs-drag divergence fix
-    // (ledger rows 1505/1510) — an EXPLICIT default width, not
-    // `undefined`, so this resolves through the SAME `:style` branch
-    // (App.vue) a drag settles into, and `#board-area`'s own cap
-    // self-disables via its existing `!== undefined` guard, absorbing
-    // the true remainder instead of leaving it as dead row space. See
-    // `computeTreeControlRegionDefaultWidthPx`'s own doc
-    // (state/layout-model.ts) for the full diagnosis.
-    return computeTreeControlRegionDefaultWidthPx(rowWidthPx.value);
+    if (raw === undefined || !Number.isFinite(raw)) {
+      // Never dragged, nothing restored: the init-vs-drag divergence fix
+      // (ledger rows 1505/1510) — an EXPLICIT default width, not
+      // `undefined`. See `computeTreeControlRegionDefaultWidthPx`'s own
+      // doc (state/layout-model.ts) for the full diagnosis.
+      return computeTreeControlRegionDefaultWidthPx(rowWidthPx.value);
+    }
+    // Sovereignty (dispatch L3, SCOPE item 3): the stored (dragged or
+    // restored) value wins VERBATIM — no clamp against `#board-area`'s
+    // own `MIN_BOARD_PX` floor (the ui-5-3 restore-time clamp,
+    // `sanitizeTreeControlRegionWidthPx`, is deleted; see this file's own
+    // HISTORICAL note above). `outerRowSovereignDiagnostic` below
+    // diagnoses a starved board instead of resisting the value here.
+    return Math.max(0, Math.round(raw));
   });
 
-  // Fresh-profile floor for the flex-fill branch (see
-  // `freshTreeControlWrapperFloorPx`'s doc above) — recomputed off
-  // `treeExpanded` so a tree-collapsed first paint doesn't over-reserve.
+  // Sovereignty diagnostic for the OUTER bar (dispatch L3): `board` vs
+  // `wrapper` re-expressed as a `FeasibleLayout` region pair — `board`'s
+  // own demand is `MIN_BOARD_PX`, uncapped above (an elastic region with
+  // no declared `maxUseful`); `wrapper`'s stored-or-restored width is the
+  // `SovereignOverride`. Empty until the row is measured and a stored
+  // value exists (mirrors `effectiveTreeControlRegionWidthPx`'s own
+  // not-yet-measured / never-dragged guards — no diagnostic is possible
+  // in either case, since there's nothing sovereign to check yet).
   //
-  // NARROWED SCOPE (init-vs-drag divergence fix, ledger rows
-  // 1505/1510): `effectiveTreeControlRegionWidthPx` above now supplies
-  // an EXPLICIT default the instant the row is measured
-  // (`computeTreeControlRegionDefaultWidthPx`), so App.vue's flex-fill
-  // `:style` branch this floor governs is only ever reached for the
-  // single frame before that first measurement lands (`rowWidthPx.value
-  // <= 0`) — same transient window the bare CSS 140px tree-panel
-  // fallback already covers. Left in place for that frame; not a
-  // second "steady-state" fit mechanism.
-  // W3: the chrome-side `treeExpanded` read is removed (see this file's
-  // header, "The treeExpanded scope note") — the LYT skeleton's `tree`
-  // leaf is unconditionally `@fixed`-present in both screen classes, so
-  // this floor is always the tree-expanded branch now.
-  const freshTreeControlWrapperMinWidthPx = computed(() => freshTreeControlWrapperFloorPx(true));
-
-  // Board-area width cap (see this file's header, "Board-area
-  // width cap", commission row 848). Governs ONLY the NO-EXPLICIT-
-  // WIDTH flex-fill branch — `controlsExpanded` false means there is
-  // no competing `#tree-control-wrapper` flex-grow party to hand slack
-  // to (the wrapper isn't rendered), and
-  // `effectiveTreeControlRegionWidthPx !== undefined` means the OUTER
-  // bar's own drag/restore already gives the wrapper an explicit
-  // width, leaving `#board-area` with exactly the row's remaining
-  // share — nothing left to cap. `undefined` in either case means "no
-  // max-width style", i.e. App.vue falls back to the pre-existing
-  // uncapped `flex: 1 1 auto` behaviour.
-  //
-  // NARROWED SCOPE (init-vs-drag divergence fix, ledger rows
-  // 1505/1510): this cap and `unsetWrapperMaxWidthCss` below used to
-  // BOTH apply simultaneously in the never-dragged case — two
-  // independently-computed caps on the row's only two flex-grow
-  // parties, each written assuming the OTHER stayed unbounded and
-  // absorbed the surplus. When both saturated below the row's actual
-  // width, neither did, and the remainder rendered as dead space to
-  // the right of the control panel (the reported defect). Now that
-  // `effectiveTreeControlRegionWidthPx` is non-`undefined` the instant
-  // the row is measured (see its own comment above), this cap's second
-  // guard is true on every steady-state render — it only still applies
-  // for the one pre-measurement frame described above, same as
-  // `freshTreeControlWrapperMinWidthPx`.
-  const boardAreaMaxWidthPx = computed(() => {
-    // Renamed from `controlsExpanded` (lyt-w2-presence, migration
-    // 75 -> 76): the LYT presence menu's controlPanel checkbox is the
-    // current home for "is the control-panel region shown at all" —
-    // `?? true` mirrors the old field's `defaults.ts` default (a blob
-    // that never set this key, or a partial blob missing the
-    // `lytPresence` container entirely, reads as shown).
-    if (!(store.session.ui.lytPresence?.controlPanel ?? true)) return undefined;
-    if (effectiveTreeControlRegionWidthPx.value !== undefined) return undefined;
-    return computeBoardAreaMaxWidthPx(rowHeightPx.value);
+  // A PLAIN computed, deliberately with NO internal push watcher: the
+  // OUTER bar's own width fact is LANDSCAPE-ONLY (this file's own header,
+  // "W3 rewire" / App.vue's own "DISCLOSED NARROWING" — portrait has no
+  // side-column concept for `treeControlRegionWidthPx` to mean anything
+  // against). `rowWidthPx` measures `#split-workspace`'s FULL width in
+  // EITHER class, so this diagnostic's own arithmetic stays well-defined
+  // regardless of class, but a value carried over from an earlier
+  // LANDSCAPE session (persisted, never cleared on a portrait resize —
+  // see this file's own header, "treeControlRegionWidthPx itself is
+  // untouched by a portrait session") would produce a SPURIOUS
+  // "board starved" push in portrait if pushed unconditionally here — a
+  // real regression an early build of this composable caught via a
+  // layout-audit `viewport-escape`/target-size finding cascade (extra
+  // system-log-panel rows shifting other chrome). `App.vue` — the only
+  // module that actually knows the active screen class — owns the
+  // landscape-gated push instead (see its own `outerRowSovereignPushGate`
+  // note).
+  const outerRowSovereignDiagnostic = computed(() => {
+    const raw = store.session.ui.treeControlRegionWidthPx;
+    if (rowWidthPx.value <= 0 || raw === undefined || !Number.isFinite(raw)) return [];
+    const wrapperPx = Math.max(0, Math.round(raw));
+    const boardPx = Math.max(0, Math.round(rowWidthPx.value - wrapperPx - RESIZER_WIDTH_PX));
+    const demands = [
+      measured({ region: 'board', axis: 'h' as const, min: px(MIN_BOARD_PX), preferred: px(MIN_BOARD_PX), maxUseful: null }),
+    ];
+    const solved = new Map<string, RegionAllotment<string>>([
+      ['board', { region: 'board', axis: 'h', px: px(boardPx) }],
+    ]);
+    return resolveSovereignOverrides(
+      demands,
+      solved,
+      [{ region: 'wrapper', axis: 'h' as const, px: px(wrapperPx), source: 'user-drag' as const }],
+      'landscape',
+      { widthPx: px(rowWidthPx.value), heightPx: px(0) },
+    ).diagnostics;
   });
 
   // Phase 3 (resolution roadmap, audit finding R5): the tree panel's
@@ -786,15 +841,6 @@ export function useResizablePanel() {
   // `session.ui.treePanelWidthPx`, once dragged, is the sole write
   // channel and this value is never consulted again for that pane.
   const treePanelDefaultWidthPx = computed(() => computeTreePanelDefaultWidthPx(rowWidthPx.value));
-
-  // Phase 3 (audit finding R3): the wrapper's own max-width in its
-  // flex-fill (never-dragged OUTER bar) branch — see
-  // `computeUnsetWrapperMaxWidthCss`'s doc for the "freeze it, let
-  // flexbox redistribute past it" argument this reuses from
-  // `boardAreaMaxWidthPx` above.
-  const unsetWrapperMaxWidthCss = computed(() =>
-    computeUnsetWrapperMaxWidthCss(treePanelDefaultWidthPx.value, RESIZER_WIDTH_PX, PANEL_CONTENT_READING_MEASURE_CH),
-  );
 
   // W3: the INNER bar's own "effective width" — the SAME
   // stored-value-wins-verbatim-else-default precedence
@@ -810,26 +856,22 @@ export function useResizablePanel() {
   // function's own contract is preserved unchanged (import, not
   // reimplementation) rather than hand-inlining a narrower copy.
   //
-  // W3-fix (review corrective, `.claude/dispatch-reports/
-  // lyt-w3-resizers-review.md` §2): the natural (stored-or-default)
-  // width above is then passed through `computeTreePanelClampedWidthPx`
-  // — the INNER bar's own render-time reconciliation against the
-  // OUTER region's CURRENT live width, mirroring
-  // `effectiveTreeControlRegionWidthPx`'s own sanitize discipline
-  // below. A tree width dragged wide at a large viewport and carried
-  // verbatim (by design — the stored fact itself is untouched) into a
-  // much narrower one could otherwise push `#control-panel` past
-  // `#main-area`'s right edge (900x600, the reviewed clipping
-  // regression) — see that function's own doc for the reserved-space
-  // accounting and its disclosed previewBoard-visible narrowing.
+  // Sovereignty (dispatch L3): the render-time reconciliation against the
+  // OUTER region's live width (`computeTreePanelClampedWidthPx`, the
+  // W3-fix corrective for the 900x600 clipping regression) is DELETED —
+  // `App.vue`'s own `sideColumnLayout` (`useSideColumnLiveLayout`) is now
+  // the sole owner of `tree`'s own REALIZED width (it reads
+  // `store.session.ui.treePanelWidthPx` directly, not through this
+  // composed value); this fact is retained for callers that only need the
+  // stored-or-default precedence without the side-column-row reservation
+  // App.vue's own solve additionally applies.
   const effectiveTreePanelWidthPx = computed<number>(() => {
     const bound = computeTreePanelBoundWidth({
       axisColumn: false,
       storedWidthPx: store.session.ui.treePanelWidthPx,
       workspaceWidthPx: rowWidthPx.value,
     });
-    const naturalWidthPx = bound.mode === 'fixed' ? bound.widthPx : treePanelDefaultWidthPx.value;
-    return computeTreePanelClampedWidthPx(naturalWidthPx, effectiveTreeControlRegionWidthPx.value);
+    return bound.mode === 'fixed' ? bound.widthPx : treePanelDefaultWidthPx.value;
   });
 
   return {
@@ -837,10 +879,15 @@ export function useResizablePanel() {
     startResizeOuter,
     effectiveTreeControlRegionWidthPx,
     effectiveTreePanelWidthPx,
-    freshTreeControlWrapperMinWidthPx,
-    boardAreaMaxWidthPx,
     treePanelDefaultWidthPx,
-    unsetWrapperMaxWidthCss,
+    // Sovereignty (dispatch L3): the OUTER bar's own starvation
+    // diagnostic — non-empty exactly when the stored/restored
+    // `treeControlRegionWidthPx` starves `#board-area` below
+    // `MIN_BOARD_PX`. Exposed (not just pushed as a side effect) so a
+    // caller — a test, or a future UI surface — can read the CURRENT
+    // diagnostic state directly rather than only observing the one-shot
+    // system-message push.
+    outerRowSovereignDiagnostic,
     // #split-workspace's own live width/height (Phase 1, resolution
     // roadmap): the SAME ResizeObserver-cached geometry the clamps
     // above already read — exposed so `state/layout-model.ts`'s
@@ -854,5 +901,8 @@ export function useResizablePanel() {
     // this file's header comment at its own ResizeObserver above for the
     // full derivation.
     sideColumnWidthPx,
+    // Row 2502/2503 review repair, finding 2 ("SCREEN-CLASS FREEZE") —
+    // see `reattachObservers`'s own doc above.
+    reattachObservers,
   };
 }

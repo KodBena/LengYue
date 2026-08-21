@@ -427,11 +427,14 @@ function formatXTooltip(val: number): string {
   overflow: hidden;
   margin-bottom: var(--space-medium);
 }
+/* S6 (component-shoddiness audit, 2026-08-21): same pattern as
+   AnalysisChartPanel's `.header` — `justify-content: space-between`
+   pinned the mode-cycle affordance to the panel's far right edge, ~600px
+   from the "Delta View" heading it acts on. Moved adjacent instead. */
 .mode-header {
   padding: var(--space-default) var(--space-medium);
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-medium);
   background: var(--surface-3);
   border-bottom: 1px solid var(--surface-3);

@@ -126,7 +126,7 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { computed, watch, onBeforeUnmount } from 'vue';
+import { computed, nextTick, watch } from 'vue';
 import { ref as vueRef, type ComponentPublicInstance } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -137,12 +137,15 @@ import { useAuth }           from './composables/auth-app/useAuth';
 import { workspaceIdentityKey } from './composables/auth-app/workspace-identity-key';
 import {
   getPanelContentPolicy,
-  resolveWidthConditionalPresence,
   useDeferredLayoutClass,
-  resolveTreeRowWidthPx,
+  computeTreePanelDefaultWidthPx,
   TREE_CONTROL_WRAPPER_ROW_GAP_PX,
 } from './state/layout-model';
 import type { LytTrackShape } from './state/lyt-layout-types';
+import { useSideColumnLiveLayout } from './composables/chrome/useSideColumnLiveLayout';
+import { resolveRootSplitLiveLayout } from './state/feasible-layout';
+import type { Px, SideColumnFixedRegion } from './state/feasible-layout';
+import { MIN_BOARD_PX, CONTROL_PANEL_MIN_WIDTH_PX } from './state/layout-model';
 import { useDirtyBoardGuard } from './composables/board/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
 import { useWorkspaceRecovery } from './composables/auth-app/useWorkspaceRecovery';
@@ -178,6 +181,7 @@ import { LYT_PORTRAIT }   from './state/lyt-layout-portrait.gen';
 import { useResizablePanel } from './composables/chrome/useResizablePanel';
 import { buildLytProgramIndex, lytParentPath, lytOrientationToProp } from './composables/chrome/useLytProgramIndex';
 import { usePopoverEdgeClamp } from './composables/chrome/usePopoverEdgeClamp';
+import { useDismissiblePopover } from './composables/chrome/useDismissiblePopover';
 import type { LytPresenceTargetId } from './composables/chrome/useLytPresenceMenu';
 import BoardWidget      from './components/board/BoardWidget.vue';
 import TreeWidget       from './components/tree/TreeWidget.vue';
@@ -209,6 +213,7 @@ import LytPresenceMenu   from './components/chrome/LytPresenceMenu.vue';
 import BoardRailPopoverTrigger from './components/chrome/BoardRailPopoverTrigger.vue';
 import DebugMenu from './components/chrome/DebugMenu.vue';
 import SystemLogToggle from './components/chrome/SystemLogToggle.vue';
+import CornerStackHost from './components/chrome/CornerStackHost.vue';
 import PreviewBoardPanel from './components/board/PreviewBoardPanel.vue';
 import WorkspaceRecoveryGate from './components/chrome/WorkspaceRecoveryGate.vue';
 
@@ -468,14 +473,22 @@ const {
 // reused here directly (`rowWidthPx`/`rowHeightPx` below are its own
 // return values) rather than duplicated (ADR-0010 imperative-escape
 // discipline: one observer per measured element).
+// GAP A (`.claude/dispatch-reports/lyt-cure-final-repair.md`): the
+// composable's own `effectiveTreeControlRegionWidthPx` is no longer
+// destructured here — App.vue's own `rootSplitLayout` (below) now owns
+// the side column's track override, including its own byte-identical
+// reproduction of the sovereign (dragged) branch. The composable's
+// export itself is UNCHANGED (`useResizablePanel.test.ts`/
+// `resizer-restore-clamp.test.ts`/`lyt-default-layout.test.ts` all drive
+// it directly, unaffected by this file's own consumption change).
 const {
   startResizeInner,
   startResizeOuter,
-  effectiveTreeControlRegionWidthPx,
-  effectiveTreePanelWidthPx,
+  outerRowSovereignDiagnostic,
   rowWidthPx,
   rowHeightPx,
   sideColumnWidthPx,
+  reattachObservers,
 } = useResizablePanel();
 
 const layoutClass = useDeferredLayoutClass(rowWidthPx, rowHeightPx);
@@ -498,6 +511,24 @@ const layoutClass = useDeferredLayoutClass(rowWidthPx, rowHeightPx);
 // it (see that file's own header for the simplification).
 const activeScreenClassId = computed(() => layoutClass.value.screenClassId);
 const activeLytProgram = computed(() => (activeScreenClassId.value === 'portrait' ? LYT_PORTRAIT : LYT_LANDSCAPE));
+
+// Row 2502/2503 review repair, finding 2 ("SCREEN-CLASS FREEZE",
+// `.claude/dispatch-reports/lyt-cure-live-witness.md`'s FINAL
+// re-witness, item A2b): a live resize (no reload) crossing the
+// landscape/portrait threshold left `#split-workspace`'s own rendered
+// grid frozen at the PRIOR class's shape. `useResizablePanel.ts`'s own
+// `reattachObservers` (this file's own destructure above) is the fix's
+// mechanism — see that function's own doc for why `#tree-control-wrapper`
+// specifically is at risk of a stale, orphaned `ResizeObserver` across a
+// class swap (the RECURSIVE `<LytNode>` structure along that path is
+// torn down and rebuilt with a completely different shape, unlike
+// `#split-workspace` itself, which persists as the SAME root element).
+// `nextTick()` waits for the CLASS-swapped template to actually finish
+// patching the DOM before re-attaching — attaching mid-patch would risk
+// observing an element that's about to be replaced anyway.
+watch(activeScreenClassId, () => {
+  void nextTick(() => reattachObservers());
+});
 
 // LYT R1 PART 2 (`.claude/dispatch-reports/lyt-r1-orientation-pathmap.md`,
 // ADR-0011 Rule 2 trigger, row 2345): every path-keyed fact below this
@@ -631,75 +662,357 @@ const activeLytDomIdByPath = computed<Record<string, string>>(() => {
 // below); `treeControlRegionWidthPx` itself is untouched by a portrait
 // session (never written there), so returning to landscape restores
 // the user's own prior drag exactly.
-// Finish-pass wave A completion pass (2026-08-13 dated section,
-// `.claude/dispatch-reports/lyt-wA-width-demotion.md`): STOP-and-report
-// item 1, the 2560x1440 clip. `effectiveTreePanelWidthPx` (above, from
-// `useResizablePanel.ts`) is the stored-or-viewport-scaled-default tree
-// width, already clamped once against the OUTER bar's own DESIRED region
-// width — but that clamp (`computeTreePanelClampedWidthPx`'s existing
-// small-viewport corrective) reserves `CONTROL_PANEL_MIN_WIDTH_PX`, a
-// model-layer estimate (300px) unrelated to THIS row's real content: the
-// compiled `controlPanel` Exclusive's own track is a FIXED 664px
-// (`lyt-layout*.gen.ts`), not derived from the tab registry at all. A
-// second clamp pass, `resolveTreeRowWidthPx` (`state/layout-model.ts`,
-// which delegates its shrink half to `clampTreeWidthForSideColumn`),
-// reads the REAL compiled facts off `activeLytProgramIndex.trackByWidget`
-// and the row's own REAL rendered width (`sideColumnWidthPx`,
-// `useResizablePanel.ts`'s second ResizeObserver) — see that function's
-// own header for the full derivation and why it composes with, rather
-// than forks, the existing clamp discipline. Gated by
-// `controlPanelIsPresent` (defined below, forward-referenced the same
-// way `lytPresenceOverrides` already forward-references
-// `controlPanelDemote` in this file): when the panel is width-demoted
-// (or otherwise absent), its 664px track renders 0px regardless of its
-// own declaration, so nothing is reserved against it.
+// HISTORICAL (superseded by dispatch L3, below): the finish-pass wave A
+// completion pass and its two 2026-08-13 dated addenda, plus finish-
+// pass-2 finding N2, hand-rolled the side column's own tree-vs-siblings
+// reservation across four separate `layout-model.ts` functions
+// (`clampTreeWidthForSideColumn`, `resolveTreeRowWidthPx`,
+// `sumFixedRowSiblingReservationPx`, `resolveWidthConditionalPresence`,
+// plus `computeTreePanelClampedWidthPx`) — the full worked diagnoses
+// (the 2560x1440 clip, the generalized-reservation addendum, the N2
+// un-dragged widen fix) are preserved in those functions' own deleted
+// headers, transcribed in full in `.claude/dispatch-reports/
+// lyt-space-owner-l3-build.md`'s "Transcribed disclosures" section per
+// ADR-0002 Rule 6 (a disclosed narrowing never dies with its function).
+// All four are DELETED by dispatch L3; the mechanism they hand-rolled is
+// now the one live solve below.
+// Dispatch L3 (`.claude/dispatch-reports/lyt-space-owner-spec.md` §3 step
+// 3, ledger rows 2447/2450/2460/2461): the side-column row (`tree`,
+// `controlPanel`, `previewBoard`) is now solved LIVE by
+// `resolveSideColumnLiveLayout` (`state/feasible-layout.ts`) — the four
+// `layout-model.ts` clamp functions the paragraphs above described
+// (`clampTreeWidthForSideColumn`, `resolveTreeRowWidthPx`,
+// `sumFixedRowSiblingReservationPx`, `resolveWidthConditionalPresence`)
+// are DELETED by this dispatch; every computed below reads THIS one
+// solve's own output instead of re-deriving its own slice of the row.
+// `treeWidgetRef` closes dispatch L2b's own residual item — that build's
+// own report named `contentDemandPx` as wired into `TreeWidget.vue` but
+// never consumed by the live rendering path; it is consumed here, as the
+// `tree` region's own `maxUsefulPx` ceiling — THE decisive fact behind
+// the flagship fix (§3 step 3's own "the control panel must be PRESENT
+// with the tree capped at its content demand").
 //
-// 2026-08-13 dated addendum (`.claude/dispatch-reports/
-// lyt-wA-width-demotion-review.md`, "New finding"): the reservation
-// generalizes from `controlPanel` alone to every currently-present
-// fixed-demand row sibling — `previewBoard` (`{ kind: 'fixed', px: 160
-// }`, `demote: null`, toggled independent of `controlPanel`'s own width
-// gate) is the second and, per the compiled program, only other member
-// today. `previewBoardIsPresent` (defined below, same forward-reference
-// shape as `controlPanelIsPresent`) supplies its own presence fact; see
-// `clampTreeWidthForSideColumn`'s own header for the summation.
-//
-// 2026-08-13 dated addendum (finish-pass-2 finding N2,
-// `.claude/dispatch-reports/lyt-n2-column-rail.md`): the row's un-dragged
-// tree default now WIDENS into a row its structurally-absent siblings
-// freed, in BOTH classes, not portrait alone — `resolveTreeRowWidthPx`
-// (renamed from `resolvePortraitTreeRowWidthPx`, itself always
-// class-agnostic) is called unconditionally below instead of branching
-// on `activeScreenClassId`. See that function's own header for the full
-// diagnosis, scope history, and the ledger-row-414 reading that makes
-// this a safe extension rather than a relaxation: a user's own drag
-// (`session.ui.treePanelWidthPx !== undefined`) still wins verbatim in
-// EITHER class — this only widens the UN-DRAGGED default, and only when
-// every fixed-demand sibling the row could carry (`controlPanel`,
-// `previewBoard`) is currently absent.
+// Presence arc P2b item 1: the active screen class's own compiled
+// `presenceDefaultVisible`, per presence-menu target — derived ONCE off
+// `activeLytProgramIndex` (ADR-0012 P1) and threaded into
+// `<LytPresenceMenu>`'s own `classDefaults` prop, which forwards it into
+// `useLytPresenceMenu.ts`. MOVED above `sideColumnOtherRegions`/
+// `sideColumnLayout` below (dispatch L3) — see the ordering note further
+// down, at this declaration's ORIGINAL location, for why the reorder is
+// load-bearing (a real jsdom-witnessed TDZ `ReferenceError`, not a style
+// preference).
+const lytPresenceClassDefaults = computed<Partial<Record<LytPresenceTargetId, boolean>>>(() => {
+  const d = activeLytProgramIndex.value.widgetDefaultVisible;
+  return {
+    boardRail: d.boardRail,
+    previewBoard: d.previewBoard,
+    controlPanel: d.controlPanel,
+    A_setup: d.A_setup,
+  };
+});
+
+// Ledger row 2532 (region-owned presence, `.claude/dispatch-reports/
+// control-panel-demotion-rca.md` Remedy 1): the root split's own
+// "board yields honestly if needed" floor-raise (`sideColumnDesiredMinPx`
+// below) used to read the compiled CONTAINER-composite `@demote.belowPx`
+// threshold (778px landscape — `tree.min + gap + controlPanel.min`, an
+// assumption about the TREE's own claim baked into a threshold that is
+// then evaluated regardless of what the tree is actually claiming — the
+// RCA's own diagnosed path-dependence root cause). `controlPanelViability
+// ThresholdPx` replaces it with the SAME region-owned quantity
+// `sideColumnOtherRegions` below now threads into the interior solve as
+// `viabilityFloorPx` (`CONTROL_PANEL_MIN_WIDTH_PX`), composed here with
+// `tree`'s own compiled floor and one row gap — the smallest container
+// width the interior solve could possibly dock the panel at, given
+// `tree` sitting at ITS OWN floor. A smaller ask than the old composite
+// (300 vs. 664 for the panel's own term), so the board now yields less
+// to satisfy it — the RCA's own "the witnessed dead-space case largely
+// disappears" prediction for Remedy 1.
+const controlPanelViabilityThresholdPx = computed<number>(() => {
+  const treeTrack = requireTrack('tree');
+  const treeFloorPx = treeTrack.kind === 'elastic' ? treeTrack.minPx : 0;
+  return treeFloorPx + TREE_CONTROL_WRAPPER_ROW_GAP_PX + CONTROL_PANEL_MIN_WIDTH_PX;
+});
+
+// GAP A (`.claude/dispatch-reports/lyt-cure-final-repair.md`, ledger
+// rows 2502/2503): `boardRail`'s own live reserved width — mirrors
+// `LytNode.vue`'s own internal `boardRailReservedPx` computed (that
+// file's own header, "boardRail reservation generalization"). Reads
+// `store.session.ui.railStyle`/`lytPresence.boardRail` DIRECTLY rather
+// than through `lytPresenceOverrides` (declared much later in this file,
+// and itself dependent on `sideColumnLayout`'s own output) — going
+// through that computed here would close a genuine circular Vue
+// dependency once `sideColumnLayout` is wired to consume THIS value's
+// own descendant, `rootSplitLayout` (below): `lytPresenceOverrides` ->
+// `sideColumnLayout` -> `rootSplitLayout` -> `boardRailReservedPx` ->
+// `lytPresenceOverrides`. `boardRail`'s own resolved presence never
+// actually needed anything from `sideColumnLayout` in the first place
+// (only `controlPanel`'s width-conditional presence does) — reading the
+// two raw facts directly is a strictly NARROWER, equally-correct
+// dependency, not a second derivation of a fact this file states once.
+const boardRailIsPresent = computed<boolean>(() => {
+  if (store.session.ui.railStyle === 'popover') return false;
+  return store.session.ui.lytPresence.boardRail ?? lytPresenceClassDefaults.value.boardRail ?? false;
+});
+const boardRailReservedPx = computed<number>(() => {
+  if (!boardRailIsPresent.value) return 0;
+  const track = requireTrack('boardRail');
+  return track.kind === 'fixed' ? track.px + activeLytProgram.value.root.gapPx : 0;
+});
+
+// GAP A: the root split (board composite vs. side column, root children
+// "1"/"2") brought under `FeasibleLayout`'s live-measurement authority —
+// see `resolveRootSplitLiveLayout`'s own header (`state/feasible-
+// layout.ts`) for the full derivation. LANDSCAPE-ONLY, mirroring the
+// OUTER bar's own existing disclosed narrowing (this file's own header,
+// "W3 resizer drag overrides" / "DISCLOSED NARROWING") — portrait's
+// board composite is a separate ROW, not a width-contested sibling of
+// any side column, so this solve has nothing to replace there. MOVED
+// above `sideColumnLayout`'s own declaration (row 2502/2503 review
+// repair, finding 1): `effectiveSideColumnWidthPx` below feeds this
+// computed's own OUTPUT into `sideColumnLayout`'s `wrapperWidthPx`
+// input, so `rootSplitLayout` must exist before that call, not after.
+const rootSplitLayout = computed(() => {
+  if (activeScreenClassId.value !== 'landscape') return null;
+  const treePanelPath = requireWidgetPath('tree');
+  const sideColumnPath = lytParentPath(lytParentPath(treePanelPath));
+  const sideColumnTrack = activeLytProgram.value.root.children.find((c) => c.path === sideColumnPath)?.track;
+  if (sideColumnTrack === undefined || sideColumnTrack.kind !== 'board-priority-clamp') {
+    throw new Error(
+      `App.vue: side column's own compiled root-split track at path ${JSON.stringify(sideColumnPath)} is ` +
+        `${JSON.stringify(sideColumnTrack?.kind ?? null)}, not "board-priority-clamp" (ADR-0002) — ` +
+        'resolveRootSplitLiveLayout has nothing to read.',
+    );
+  }
+  return resolveRootSplitLiveLayout({
+    rowWidthPx: rowWidthPx.value,
+    rowHeightPx: rowHeightPx.value,
+    gapPx: activeLytProgram.value.root.gapPx,
+    boardRailReservedPx: boardRailReservedPx.value,
+    board: {
+      fixedSiblingSumPx: sideColumnTrack.fixedSiblingSumPx,
+      naturalBoardCrossUnit: sideColumnTrack.naturalBoardCrossUnit,
+    },
+    sideColumn: { minPx: sideColumnTrack.minPx, maxPx: sideColumnTrack.maxPx },
+    boardFloorPx: MIN_BOARD_PX,
+    sovereignWrapperPx: store.session.ui.treeControlRegionWidthPx,
+    // Ledger row 2511 pragmatic repair (S1), region-owned per row 2532:
+    // when the user wants `controlPanel` visible, `controlPanelViability
+    // ThresholdPx` (declared above) is the genuine width the side
+    // column's interior needs to dock it AT ITS OWN FLOOR — read here,
+    // before the interior solve runs, for the same reason the pre-row-
+    // 2532 version did (this earlier ROOT-split solve needs the fact
+    // before `resolveSideColumnLiveLayout` itself runs). `desiredControlPanel`
+    // mirrors `sideColumnOtherRegions`' own identical expression below
+    // (duplicated per that computed's own disclosed circularity note, not
+    // a second, driftable derivation of a DIFFERENT fact).
+    sideColumnDesiredMinPx:
+      (store.session.ui.lytPresence.controlPanel ?? lytPresenceClassDefaults.value.controlPanel ?? true)
+        ? controlPanelViabilityThresholdPx.value
+        : 0,
+  });
+});
+
+// Row 2502/2503 review repair, finding 1 (`.claude/dispatch-reports/
+// lyt-cure-final-repair-review.md` §5, condition C1's own sibling
+// finding — the "resolved-vs-rendered gap"): `sideColumnLayout` (the
+// INTERIOR tree/controlPanel/previewBoard solve) used to read its own
+// `wrapperWidthPx` EXCLUSIVELY from `sideColumnWidthPx` — a SEPARATE,
+// ResizeObserver-measured fact about `#tree-control-wrapper`'s live DOM
+// rect, asynchronous and CAPABLE OF DISAGREEING with whatever
+// `rootSplitLayout` (above) just resolved and wrote into the OUTER grid
+// track (a genuine, live-witnessed divergence: `rootSplitLayout` resolved
+// 820px at 1920x1080 in one real-browser session while
+// `sideColumnLayout` computed against a STALE wrapper reading, letting
+// `controlPanel` render un-demoted at 664px inside a narrower box —
+// `.claude/dispatch-reports/lyt-cure-live-witness.md`'s FINAL re-witness,
+// item A1). Now that `rootSplitLayout` computes the side column's own
+// width SYNCHRONOUSLY and REACTIVELY as a pure function of already-known
+// facts (no DOM round-trip needed), it is the single, authoritative
+// source for that width in the LANDSCAPE case — consulting a SEPARATE,
+// asynchronously-measured fact for the SAME quantity can only introduce
+// a staleness window, never correct it. `effectiveSideColumnWidthPx`
+// therefore reads `rootSplitLayout.value.sideColumnPx` DIRECTLY when it
+// applies (landscape), and falls back to the live-measured
+// `sideColumnWidthPx` only for portrait (where no root-split concept
+// exists — this file's own "DISCLOSED NARROWING"). This makes
+// "resolved == rendered" true BY CONSTRUCTION for the landscape case:
+// the SAME value drives both the outer grid track (`lytTrackStyleOverrides`,
+// below) and the interior solve's own presence/width resolution, so the
+// two can never again independently disagree.
+const effectiveSideColumnWidthPx = computed<number>(() =>
+  rootSplitLayout.value !== null ? rootSplitLayout.value.sideColumnPx : sideColumnWidthPx.value,
+);
+
+const treeWidgetRef = vueRef<InstanceType<typeof TreeWidget> | null>(null);
+const treeContentDemandPx = computed<Px | null>(() => treeWidgetRef.value?.contentDemandPx ?? null);
+const treeDefaultPx = computed<number>(() => computeTreePanelDefaultWidthPx(rowWidthPx.value));
+
+// `others`, in row order — every OTHER fixed-demand sibling the side
+// column can carry. `desiredControlPanel`/`desiredPreviewBoard` read
+// straight off the persisted-or-class-default chain, deliberately NOT
+// through `lytPresenceOverrides` below (itself DERIVED from this solve's
+// own output, `sideColumnLayout` — a forward read INTO this computed
+// would be circular).
+const sideColumnOtherRegions = computed<readonly SideColumnFixedRegion[]>(() => {
+  const presence = store.session.ui.lytPresence;
+  const desiredControlPanel = presence.controlPanel ?? lytPresenceClassDefaults.value.controlPanel ?? true;
+  const desiredPreviewBoard = presence.previewBoard ?? lytPresenceClassDefaults.value.previewBoard ?? false;
+  return [
+    {
+      widgetId: 'controlPanel',
+      track: requireTrack('controlPanel'),
+      desiredVisible: desiredControlPanel,
+      // Ledger row 2532 (region-owned presence): the panel's own minimum
+      // renderable demand, projected from the tab registry
+      // (`CONTROL_PANEL_MIN_WIDTH_PX`, `state/layout-model.ts`) — replaces
+      // the container-composite `controlPanelDemote.belowPx` (the RCA's
+      // diagnosed root cause: a threshold declared about the ROW,
+      // evaluated against the row, but meant to decide something about
+      // the PANEL). See `SideColumnFixedRegion`'s own header
+      // (`state/feasible-layout.ts`) for the full derivation.
+      viabilityFloorPx: CONTROL_PANEL_MIN_WIDTH_PX,
+    },
+    {
+      widgetId: 'previewBoard',
+      track: requireTrack('previewBoard'),
+      desiredVisible: desiredPreviewBoard,
+      viabilityFloorPx: null,
+    },
+  ];
+});
+
+const sideColumnLayout = useSideColumnLiveLayout({
+  wrapperWidthPx: effectiveSideColumnWidthPx,
+  gapPx: TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+  treeTrack: computed(() => requireTrack('tree')),
+  treeMaxUsefulPx: treeContentDemandPx,
+  treeSovereignPx: computed(() => store.session.ui.treePanelWidthPx),
+  treeDefaultPx,
+  others: sideColumnOtherRegions,
+  screenClassId: activeScreenClassId,
+});
+
+// outerRowSovereignPushGate (dispatch L3): `outerRowSovereignDiagnostic`
+// (`useResizablePanel.ts`) is a PLAIN computed with no push side effect
+// of its own — see that computed's own header for why. Only App.vue
+// knows the active screen class, and the OUTER bar's own width fact
+// (`treeControlRegionWidthPx`) is LANDSCAPE-ONLY (this file's own
+// header, "W3 resizer drag overrides" / "DISCLOSED NARROWING") — a
+// value carried over from an earlier landscape session must not push a
+// spurious "board starved" diagnostic while the SPA is rendering
+// portrait, where that stored fact means nothing (WITNESSED: an early
+// build pushed exactly this spurious diagnostic in the layout-audit's
+// own portrait geometries, inflating the system-log-panel and
+// cascading into unrelated `viewport-escape`/`target-size` findings —
+// caught by the audit's own before/after baseline comparison, not
+// silently shipped). Dedup mirrors `useSideColumnLiveLayout.ts`'s own
+// convention: push only when the starved-region SET changes.
+let lastPushedOuterRowDiagnosticKey = '';
+watch(
+  () => (activeScreenClassId.value === 'landscape' ? outerRowSovereignDiagnostic.value : []),
+  (diagnostics) => {
+    if (diagnostics.length === 0) {
+      lastPushedOuterRowDiagnosticKey = '';
+      return;
+    }
+    const key = diagnostics.map((d) => `${d.location}:${d.starved.map((s) => s.region).join(',')}`).join('|');
+    if (key === lastPushedOuterRowDiagnosticKey) return;
+    lastPushedOuterRowDiagnosticKey = key;
+    // Dispatch L3 repair (`.claude/dispatch-reports/
+    // lyt-space-owner-l3-review.md` §3 condition 3, residual): mirrors
+    // `useSideColumnLiveLayout.ts`'s own inner-bar wiring exactly — the
+    // outer bar's own `SovereignOverrideDiagnostic` carries the SAME
+    // `remediation`/`nextAction` fields, so it threads them through the
+    // same sink `details` parameter rather than diverging between the
+    // two symmetric bars.
+    for (const d of diagnostics) {
+      pushSystemMessage('warning', d.message, { remediation: d.remediation, nextAction: d.nextAction });
+    }
+  },
+);
+
+// Disease repair (`.claude/dispatch-reports/lyt-second-opus-review.md`
+// N4, ledger row 2511): `rootSplitLayout`'s own `sovereignClampedFromPx`
+// (`resolveRootSplitLiveLayout`'s own header, "Sovereign (revised)")
+// fires whenever the CATASTROPHIC-1 clamp above actually reduced a
+// stored/dragged override below what it asked for. Since the row 2511
+// allocation repair (`.claude/dispatch-reports/lyt-allocation-repair-
+// build.md`) dropped the compiled `sideColumn.maxPx` ceiling from
+// `maxRegionWidthPx`, the ONLY thing this clamp can now bind against is
+// the board's own `boardFloorPx` — the exact same fact
+// `outerRowSovereignDiagnostic` (`useResizablePanel.ts`) already
+// diagnoses independently. Without this push at all, a drag that
+// overshoots the board's floor renders visibly "stuck" with no
+// explanation — the exact silent-refusal shape N4 named ("the same
+// bar... changed nothing at all, with no system message") — so the
+// push itself stays. Dedup mirrors the sibling watcher immediately
+// above (push only when the clamped-from value changes), PLUS a second
+// condition closing the review's own condition-3 finding: the
+// CATASTROPHIC-1 repro satisfies BOTH this clamp and
+// `outerRowSovereignDiagnostic` simultaneously, which used to log two
+// near-duplicate warning rows for one event from two undeduplicated
+// watchers. `outerRowSovereignDiagnostic.value.length > 0` means the
+// OTHER watcher already told the user their geometry no longer permits
+// the board to render — the more specific, more actionable message for
+// this exact case — so this watcher stays silent rather than adding a
+// second, less specific row for the same event.
+// Review repair (`.claude/dispatch-reports/lyt-allocation-repair-
+// review.md` Probe 5, ledger row 2533 addendum item 1): the dedup key
+// used to latch BEFORE the suppression guard below — so a tick where
+// `outerRowSovereignDiagnostic` ALSO covers the event (suppressing this
+// watcher's own push) still marked `clampedFromPx` as "already handled."
+// If a LATER tick then cleared the other diagnostic while
+// `sovereignClampedFromPx` stayed pinned at the SAME raw value (the raw
+// stored override does not change on its own), the outer `===
+// lastPushedRootSplitClampFromPx` check short-circuited before the
+// (now-satisfied) suppression guard was even re-evaluated — the message
+// that should fire ALONE, because the other diagnostic no longer covers
+// the event, never fired. The key now latches ONLY on an actual push
+// (moved past the suppression `return`), so a suppressed attempt cannot
+// poison a later legitimate one.
+let lastPushedRootSplitClampFromPx: number | null = null;
+watch(
+  () => rootSplitLayout.value?.sovereignClampedFromPx ?? null,
+  (clampedFromPx) => {
+    if (clampedFromPx === null) {
+      lastPushedRootSplitClampFromPx = null;
+      return;
+    }
+    if (clampedFromPx === lastPushedRootSplitClampFromPx) return;
+    if (outerRowSovereignDiagnostic.value.length > 0) return;
+    lastPushedRootSplitClampFromPx = clampedFromPx;
+    pushSystemMessage('warning', 'Your geometry modification no longer fits within the available space.', {
+      remediation: 'reduce this region\'s width, or use Default Layout to reset',
+      nextAction: 'open-default-layout-control',
+    });
+  },
+);
+
 const lytTrackStyleOverrides = computed<Record<string, string>>(() => {
   const treePanelPath = requireWidgetPath('tree');
-  const controlPanelTrack = requireTrack('controlPanel');
-  const previewBoardTrack = requireTrack('previewBoard');
-  const treeTrack = requireTrack('tree');
-  const fixedRowSiblings = [
-    { track: controlPanelTrack, present: controlPanelIsPresent.value },
-    { track: previewBoardTrack, present: previewBoardIsPresent.value },
-  ];
-  const clampedTreePanelWidthPx = resolveTreeRowWidthPx(
-    effectiveTreePanelWidthPx.value,
-    sideColumnWidthPx.value,
-    fixedRowSiblings,
-    treeTrack,
-    TREE_CONTROL_WRAPPER_ROW_GAP_PX,
-    store.session.ui.treePanelWidthPx === undefined,
-  );
   const overrides: Record<string, string> = {
-    [treePanelPath]: `${clampedTreePanelWidthPx}px`,
+    [treePanelPath]: `${sideColumnLayout.value.treePx}px`,
   };
-  if (activeScreenClassId.value === 'landscape' && effectiveTreeControlRegionWidthPx.value !== undefined) {
+  // Sovereignty completion (SCOPE item 3): controlPanel's own track is
+  // ALSO overridden with the live-solved candidate — which can fall
+  // below its compiled fixed 664px once `tree` is sovereign (dragged),
+  // genuinely shrinking the panel below its floor rather than the
+  // compiled fixed track silently overflowing the wrapper's own box.
+  const controlPanelOutcome = sideColumnLayout.value.others.find((o) => o.widgetId === 'controlPanel');
+  if (controlPanelOutcome?.present) {
+    overrides[requireWidgetPath('controlPanel')] = `${controlPanelOutcome.candidatePx}px`;
+  }
+  // GAP A: the root split's own live solve REPLACES
+  // `effectiveTreeControlRegionWidthPx` as the side column's track
+  // override — that computed's own sovereign branch and this one's
+  // agree byte-for-byte (both read `store.session.ui.
+  // treeControlRegionWidthPx` verbatim when dragged); only the
+  // UN-DRAGGED default's derivation differs (see `rootSplitLayout`'s own
+  // header above).
+  if (rootSplitLayout.value !== null) {
     const sideColumnPath = lytParentPath(lytParentPath(treePanelPath));
-    overrides[sideColumnPath] = `${effectiveTreeControlRegionWidthPx.value}px`;
+    overrides[sideColumnPath] = `${rootSplitLayout.value.sideColumnPx}px`;
   }
   return overrides;
 });
@@ -766,80 +1079,43 @@ function handleLytExclusiveActiveChange(path: string, tabId: string): void {
 // own "PALETTE ADOPTION" `@toggle(user, release)` intent, finally wired
 // rather than left permanently forced on.
 //
-// Finish-pass wave A (`.claude/dispatch-reports/lyt-wA-width-demotion.md`,
-// F1/F2-partial): `controlPanel`'s own resolved presence is now ALSO
-// width-conditional — the compiled Exclusive's `@demote(h ...)`
-// threshold (`controlPanelDemote` below, read off `activeLytProgramIndex.
-// demoteByWidget`), evaluated against `sideColumnWidthPx`'s own live
-// measurement (`useResizablePanel.ts`'s ResizeObserver on
-// `#tree-control-wrapper`), via the pure `resolveWidthConditionalPresence`
-// (`state/layout-model.ts`). USER SOVEREIGNTY: the "desired" value fed in
-// is still the ordinary persisted-choice-then-class-default chain — width
-// only ever narrows `true` down to `false` when the granted band
-// genuinely cannot hold the panel (F1's own defect: the track was
-// narrower than the panel's own structural floor at every landscape size
-// the finish pass exercised); it never turns a `false` into a `true`. An
-// explicit user 'visible' choice that width cannot currently grant is NOT
-// silently dropped — LytNode.vue's own P2b summon-popover machinery keeps
-// the panel reachable (Teleport into the corner trigger's popover), and
-// `controlPanelForcedAbsent` below (consumed by `<LytPresenceMenu>`)
-// discloses the "wants visible, currently can't" state in the presence
-// menu rather than presenting the checkbox as a silent no-op.
+// HISTORICAL (superseded by dispatch L3): `controlPanel`'s own resolved
+// presence used to be evaluated by the now-deleted, standalone
+// `resolveWidthConditionalPresence` (`state/layout-model.ts`) — the width-
+// conditional `@demote` evaluation, the user-sovereignty framing ("width
+// only ever narrows `true` down to `false`, never `false` to `true`"),
+// and the `previewBoard`-reservation addendum this paragraph used to
+// describe are ALL preserved, unchanged in effect, inside
+// `resolveSideColumnLiveLayout`'s own presence resolution (`state/
+// feasible-layout.ts`, `sideColumnLayout` above) — see that function's
+// own header. `controlPanelForcedAbsent` below (consumed by
+// `<LytPresenceMenu>`) still discloses the "wants visible, currently
+// can't" state in the presence menu, unchanged.
 //
-// 2026-08-13 dated addendum (`.claude/dispatch-reports/
-// lyt-wA-width-demotion-review.md`, "New finding"): the REALIZED fit
-// test must also account for `previewBoard` when it's independently
-// toggled on — `previewBoardPresent` below is computed inline (from
-// `base.previewBoard`, untouched by this function — `previewBoard` has
-// no `@demote` of its own, so nothing in this computed ever reassigns
-// it) rather than reading the `previewBoardIsPresent` computed defined
-// further down, which reads `lytPresenceOverrides.value.previewBoard`
-// itself — a forward read INTO this computed's own output would be
-// circular. Both derivations compute the identical formula
-// (`base.previewBoard ?? lytPresenceClassDefaults.value.previewBoard ??
-// false`) against the same untouched `base.previewBoard`, so the two
-// stay byte-identical without one depending on the other.
 const lytPresenceOverrides = computed<Record<string, boolean>>(() => {
   const presence = store.session.ui.lytPresence;
   const base: Record<string, boolean> =
     store.session.ui.railStyle === 'popover' ? { ...presence, boardRail: false } : { ...presence };
   const desiredControlPanel = base.controlPanel ?? lytPresenceClassDefaults.value.controlPanel ?? true;
-  const previewBoardPresent = base.previewBoard ?? lytPresenceClassDefaults.value.previewBoard ?? false;
-  base.controlPanel = resolveWidthConditionalPresence(
-    sideColumnWidthPx.value,
-    controlPanelDemote.value,
-    desiredControlPanel,
-    [{ track: requireTrack('previewBoard'), present: previewBoardPresent }],
-    TREE_CONTROL_WRAPPER_ROW_GAP_PX,
-  );
+  const controlPanelOutcome = sideColumnLayout.value.others.find((o) => o.widgetId === 'controlPanel');
+  base.controlPanel = controlPanelOutcome?.present ?? desiredControlPanel;
   return base;
 });
 
-// Presence arc P2b item 1: the active screen class's own compiled
-// `presenceDefaultVisible`, per presence-menu target — derived ONCE off
-// `activeLytProgramIndex` (ADR-0012 P1, the same index
-// `activeLytDomIdByPath`/`controlPanelLytPath` above already resolve
-// through, not a second per-class derivation) and threaded into
-// `<LytPresenceMenu>`'s own `classDefaults` prop, which forwards it into
-// `useLytPresenceMenu.ts` (see that composable's own "Presence arc P2b"
-// header section for the resolution order: persisted user choice, then
-// this class default, then the composable's own static fallback).
-const lytPresenceClassDefaults = computed<Partial<Record<LytPresenceTargetId, boolean>>>(() => {
-  const d = activeLytProgramIndex.value.widgetDefaultVisible;
-  return {
-    boardRail: d.boardRail,
-    previewBoard: d.previewBoard,
-    controlPanel: d.controlPanel,
-    A_setup: d.A_setup,
-  };
-});
-
-// Finish-pass wave A: the `controlPanel` Exclusive's own compiled
-// `@demote` declaration (778px landscape / 808px portrait — P1's derived
-// thresholds), read off the SAME `activeLytProgramIndex` walk every other
-// per-class fact above already reads (ADR-0012 P1) rather than a second,
-// hand-typed literal per class.
-const controlPanelDemote = computed(() => activeLytProgramIndex.value.demoteByWidget.controlPanel ?? null);
+// `lytPresenceClassDefaults`/`controlPanelViabilityThresholdPx` moved
+// ABOVE (dispatch L3; ledger row 2532 renamed the latter from
+// `controlPanelDemote`): `sideColumnOtherRegions`/`sideColumnLayout`
+// reference them, and `useSideColumnLiveLayout`'s own internal `watch()`
+// forces an EAGER evaluation during `setup()` (Vue's `watch` always runs
+// its getter once synchronously to collect dependencies, `immediate` or
+// not) — a forward reference to a `const` declared LATER in this
+// `<script setup>` body throws a real TDZ `ReferenceError` the instant
+// that eager evaluation runs, unlike a lazily-evaluated plain `computed`
+// (which the pre-L3 `lytPresenceOverrides`'s own forward-reference to
+// the old `controlPanelDemote` relied on safely). WITNESSED:
+// `tests/integration/App-boot.test.ts` caught this exact
+// `ReferenceError: Cannot access 'lytPresenceClassDefaults' before
+// initialization` before the reorder.
 
 // Presence arc P2b item 3 (control-panel popover summon). Whether the
 // control-panel Exclusive resolves PRESENT right now — the SAME formula
@@ -859,19 +1135,13 @@ const controlPanelIsPresent = computed<boolean>(
 );
 
 // 2026-08-13 dated addendum (`.claude/dispatch-reports/
-// lyt-wA-width-demotion-review.md`, "New finding"): `previewBoard`'s own
-// resolved presence, same formula/shape as `controlPanelIsPresent` above
-// (LytNode.vue's own `presenceOverrides[id] ?? child.presenceDefaultVisible`)
-// — consumed by `lytTrackStyleOverrides`'s generalized reservation
-// (`clampTreeWidthForSideColumn`) so the tree clamp knows whether
-// `previewBoard`'s own 160px fixed track is currently standing beside
-// it. `previewBoard` has no `@demote` of its own (module header,
-// `lytPresenceOverrides`'s own dated addendum), so
-// `lytPresenceOverrides.value.previewBoard` is always the raw
-// persisted-or-default choice, never width-narrowed.
-const previewBoardIsPresent = computed<boolean>(
-  () => lytPresenceOverrides.value.previewBoard ?? lytPresenceClassDefaults.value.previewBoard ?? false,
-);
+// HISTORICAL (superseded by dispatch L3): `previewBoardIsPresent` used to
+// be consumed by the now-deleted `lytTrackStyleOverrides`'s own
+// generalized reservation (`clampTreeWidthForSideColumn`) — `previewBoard`
+// has no `@demote` of its own, so its resolved presence is always the raw
+// persisted-or-default choice; `sideColumnOtherRegions` above reads that
+// same fact directly (`desiredPreviewBoard`) rather than through a
+// separately-named computed.
 
 // Finish-pass wave A: disclosed in `<LytPresenceMenu>` (F1's "USER
 // SOVEREIGNTY" clause) — true exactly when the user's own persisted-or-
@@ -914,9 +1184,35 @@ const lytPresenceForcedAbsent = computed<Partial<Record<LytPresenceTargetId, boo
 // (`EngineQueueTooltip.vue`'s own header has the full diagnosis) — a
 // precondition that doesn't hold here either: `#lyt-corner-chrome` is
 // already outside any such ancestor, exactly like its two siblings.
-const controlPanelPopoverOpen = vueRef(false);
+// Space-owner cure, dispatch L5 (`.claude/dispatch-reports/
+// lyt-space-owner-spec.md` §1.5/§3 step 5): dismissal migrated onto
+// `useDismissiblePopover` (`composables/chrome/useDismissiblePopover.ts`)
+// — the ONE click/outside-click/Escape mechanism this file's own former
+// comment (below the composable call) named as "verbatim the same
+// shape" three other components independently re-implemented. The
+// below-extraction-threshold reasoning that comment gave is superseded:
+// this dispatch's own scope is exactly "collapse the repeated idiom
+// into the overlay primitive," so the threshold no longer applies.
+const { open: controlPanelPopoverOpen, rootRef: controlPanelPopoverRootEl, toggle: toggleControlPanelPopoverDismissible } =
+  useDismissiblePopover();
+// `controlPanelPopoverRootEl` is bound to the summon wrapper's own
+// template root (`ref="controlPanelPopoverRootEl"`, below) — see
+// `LytPresenceMenu.vue`'s own identical comment for why `noUnusedLocals`
+// needs this explicit acknowledgment.
+void controlPanelPopoverRootEl;
 const { setPopoverEl: setEdgeClampPopoverEl, xShift: controlPanelPopoverXShift } =
   usePopoverEdgeClamp(controlPanelPopoverOpen);
+// Corner-stack clearance (dispatch L5): the live px every trigger-row
+// popover's own `bottom: 100%` anchor must ALSO clear — whatever
+// `CornerStackHost.vue` currently has stacked above the trigger row
+// (the system log panel, the banner cluster). Read via a template ref +
+// `defineExpose` (see `CornerStackHost.vue`'s own header for why
+// provide/inject does not fit this slot-content shape) and threaded
+// down as an ordinary prop to `LytPresenceMenu`/`BoardRailPopoverTrigger`;
+// the control-panel-summon popover below (this file's own content, not
+// a child component) reads the computed directly.
+const cornerStackHostRef = vueRef<InstanceType<typeof CornerStackHost> | null>(null);
+const cornerStackClearancePx = computed<number>(() => cornerStackHostRef.value?.clearancePx ?? 0);
 // Presence arc P2b: the Teleport target `LytNode.vue`'s own Exclusive
 // branch relocates the control panel's live content into when absent —
 // see that file's header, "Popover summon for an absent Exclusive", and
@@ -940,51 +1236,17 @@ const exclusivePopoverOpenMap = computed<Record<string, boolean>>(() => ({
   controlPanel: controlPanelPopoverOpen.value,
 }));
 
-function toggleControlPanelPopover(): void {
-  controlPanelPopoverOpen.value = !controlPanelPopoverOpen.value;
-}
-function closeControlPanelPopover(): void {
-  controlPanelPopoverOpen.value = false;
-}
-
-// Dismiss idiom (click-outside + Escape) — verbatim the same shape
-// `BoardRailPopoverTrigger.vue`/`LocalePicker.vue`/`LytPresenceMenu.vue`
-// each already use (this codebase's established click-popover pattern;
-// not re-abstracted into a shared composable here for the same
-// below-extraction-threshold reason `SetupToolPalette.vue`'s own header
-// names for its own click-toggle shape — two existing instances plus
-// this one is still below the THIRD-instance threshold
-// `useHoverPopover.ts`'s header documents for ITS OWN, differently-
-// triggered (hover, not click) extraction).
-// The popover panel is a DOM DESCENDANT of `controlPanelPopoverRootEl`
-// (nested inside the trigger's own wrapper — see the template), so its
-// own `.contains()` check alone already covers a click landing in the
-// popover's own content (a tab button, a text field inside Library/
-// Settings/…). The second, explicit `controlPanelPopoverEl` check is
-// belt-and-suspenders (harmless if ever restructured to a sibling again).
-const controlPanelPopoverRootEl = vueRef<HTMLElement | null>(null);
-function onControlPanelPopoverDocumentPointerDown(e: PointerEvent): void {
-  const target = e.target as Node; // DOM: event.target is an EventTarget; Node is contains()'s arg type
-  if (controlPanelPopoverRootEl.value?.contains(target)) return;
-  if (controlPanelPopoverEl.value?.contains(target)) return;
-  closeControlPanelPopover();
-}
-function onControlPanelPopoverKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') closeControlPanelPopover();
-}
-watch(controlPanelPopoverOpen, (isOpen) => {
-  if (isOpen) {
-    document.addEventListener('pointerdown', onControlPanelPopoverDocumentPointerDown, true);
-    document.addEventListener('keydown', onControlPanelPopoverKeydown);
-  } else {
-    document.removeEventListener('pointerdown', onControlPanelPopoverDocumentPointerDown, true);
-    document.removeEventListener('keydown', onControlPanelPopoverKeydown);
-  }
-});
-onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', onControlPanelPopoverDocumentPointerDown, true);
-  document.removeEventListener('keydown', onControlPanelPopoverKeydown);
-});
+// `useDismissiblePopover`'s own `rootRef` (bound to `controlPanelPopoverRootEl`
+// in the template below) already scopes the outside-click check to the
+// wrapper's full subtree — the popover panel (`controlPanelPopoverEl`,
+// the Teleport target) is a DOM DESCENDANT of that same wrapper (see the
+// template), so no second, separately-tracked containment check is
+// needed here any more (the pre-dispatch "belt-and-suspenders" comment
+// this replaced named that redundancy explicitly). `toggleControlPanelPopover`
+// keeps its own pre-dispatch name at this call site (the template's own
+// `@click`) rather than renaming every reference to the composable's
+// generic `toggle`.
+const toggleControlPanelPopover = toggleControlPanelPopoverDismissible;
 
 const { sync } = useAppBootstrap(auth);
 
@@ -1157,57 +1419,14 @@ function openCardsSurface(): void { activeTab.value = 'cards'; }
              judgment call: `systemLogExpanded` still means exactly
              "does the user want the log panel visible" — only WHERE
              it renders changed). -->
-        <div id="lyt-overlay-stack">
-          <div
-            v-if="capturingActionLabel !== null"
-            id="keybinding-capture-banner"
-            role="alert"
-          >
-            {{ $t('app.keybindingCapture.banner', { action: capturingActionLabel }) }}
-          </div>
-
-          <div
-            v-if="store.workspaceSaveState.kind === 'error'"
-            id="workspace-save-banner"
-            role="alert"
-          >
-            <span class="save-banner-text">{{ $t('app.workspace.saveFailed') }}</span>
-            <button class="action-btn-large" style="width: auto; padding-left: var(--space-medium); padding-right: var(--space-medium);" @click="sync.retrySave()">
-              {{ $t('app.workspace.retry') }}
-            </button>
-          </div>
-
-          <!-- Persist-suppression banner (work item
-               `next-futureblob-recovery`, rows 1942/1982; merged into the
-               W4 overlay stack — same zero-standing-space stratum as its
-               sibling banners, same v-if gate as on `next`): the ONGOING
-               reminder after "continue on defaults" from the
-               future-version recovery gate. No Retry affordance — a
-               'suppressed' write is refused structurally by
-               SyncService.sendSync every time (`persistSuppression`),
-               it isn't a failed attempt; the destructive escape hatch
-               rides along in case the user reconsiders. -->
-          <div
-            v-if="suppressedSaveState"
-            id="workspace-suppressed-banner"
-            role="alert"
-          >
-            <span class="save-banner-text">{{ $t('sync.recovery.suppressedBanner', {
-              blobVersion: suppressedSaveState.blobVersion,
-              appVersion: suppressedSaveState.appVersion,
-            }) }}</span>
-            <button
-              class="recovery-banner-reset-btn"
-              @click="recovery.resetServerWorkspace(suppressedSaveState.blobVersion, suppressedSaveState.appVersion)"
-            >
-              {{ $t('sync.recovery.resetButton') }}
-            </button>
-          </div>
-
-          <SystemLogPanel
-            v-if="store.session.ui.systemLogExpanded || transientLogReveal"
-          />
-        </div>
+        <!-- Space-owner cure, dispatch L5: the banner cluster and
+             `SystemLogPanel` moved into `<CornerStackHost>`'s own
+             `banners`/`log` slots below (adjacent to the former
+             `#lyt-corner-chrome` site) — DOM position no longer matters
+             for a `position: fixed` overlay stack whose own offsets
+             `CornerStack.layout()` now computes explicitly per region,
+             so this relocation carries no visual change. See
+             `CornerStackHost.vue`'s own header for the full derivation. -->
 
         <!-- The LYT skeleton (roadmap §3, "layout as data"), now SCREEN-
              CLASS-SWAPPED (W3): `activeLytProgram` is the landscape or
@@ -1387,6 +1606,7 @@ function openCardsSurface(): void { activeTab.value = 'cards'; }
             <div id="tree-panel-header">{{ $t('app.chrome.gameTreePanelHeader') }}</div>
             <TreeWidget
               v-if="activeBoard"
+              ref="treeWidgetRef"
               :nodes="activeBoard.nodes"
               :board-id="activeBoard.id"
               :orientation="activeTreeOrientation"
@@ -1572,94 +1792,151 @@ function openCardsSurface(): void { activeTab.value = 'cards'; }
 
         </LytNode>
 
-        <!-- Corner presence menu + (style-B-only) board-rail popover
-             trigger — W2, roadmap §8 W2 items 1/2. Overlays, NOT LYT
-             tree nodes (SPEC.md §2: "Overlays... contribute no
-             constraints and occupy no standing space"), positioned
-             fixed at the extreme lower-right of the chrome, riding on
-             top of the existing workspace with zero grid-track cost.
-             The button cluster itself never covers #board-square (a
-             small fixed-size corner cluster, not a spreading overlay);
-             each popover opens ABOVE its own trigger (see each
-             component's own `<style>` — `bottom: 100%` anchors), so
-             opening either one still never occludes the board.
-
-             D2 fix (`.claude/dispatch-reports/lyt-w5-parity-build.md`
-             Defect D2): `SystemLogToggle` restores the system log's
-             manual open/close affordance the W1 skeleton replacement
-             lost — see its own header for the placement rationale
-             (why here rather than folded into `DebugMenu`, which is
-             dev-build-only, or `LytPresenceMenu`, whose guard is
-             specific to LYT grid-presence targets the log isn't). -->
-        <div id="lyt-corner-chrome">
-          <DebugMenu />
-          <BoardRailPopoverTrigger v-if="store.session.ui.railStyle === 'popover'" />
-          <!-- Control-panel popover summon (P2b item 3): reachable ONLY
-               while the control panel is absent from the grid (class
-               default demoted it, or the user toggled it off via
-               LytPresenceMenu below) — when present, the grid already
-               shows it, so no summon affordance is needed.
-
-               Positioning: `usePopoverEdgeClamp` + a CSS `bottom: 100%`
-               anchor (opens UPWARD from the trigger), the SAME idiom this
-               element's own `#lyt-corner-chrome` siblings
-               (`BoardRailPopoverTrigger.vue`/`LytPresenceMenu.vue`) use —
-               NOT `useFixedAnchoredPopover` (script header's original
-               plan, per the commission's own naming). Witnessed
-               empirically wrong for THIS trigger's position: that
-               composable's `top: triggerRect.bottom` anchor opens
-               DOWNWARD, and this trigger already sits at the fixed
-               viewport BOTTOM-right corner — the viewport-bottom clamp
-               then pulls the popover back UP over the trigger itself,
-               blocking the very re-click needed to dismiss it (screenshot
-               rig transcript: `page.click('#control-panel-summon-btn')`
-               timed out, `<button>` occluded by its own now-open
-               popover). `useFixedAnchoredPopover`'s own precondition
-               (escaping an `overflow:auto` clipping ancestor) doesn't
-               even apply here either — `#lyt-corner-chrome` is already
-               `position: fixed`, outside every such ancestor, exactly
-               like its two siblings that already use
-               `usePopoverEdgeClamp` for this reason. -->
-          <div v-if="!controlPanelIsPresent" ref="controlPanelPopoverRootEl" class="control-panel-summon-wrap">
-            <button
-              id="control-panel-summon-btn"
-              type="button"
-              class="control-panel-summon-trigger"
-              :title="$t('app.chrome.presence.controlPanelSummon')"
-              :aria-label="$t('app.chrome.presence.controlPanelSummon')"
-              aria-haspopup="true"
-              :aria-expanded="controlPanelPopoverOpen"
-              aria-controls="control-panel-popover-mount"
-              @click="toggleControlPanelPopover"
-            >
-              <span aria-hidden="true">&#9776;</span>
-            </button>
-
-            <!-- The control panel's own Teleport target when absent-but-
-                 summoned — see LytNode.vue's header ("Popover summon for
-                 an absent Exclusive") for what gets relocated in here.
-                 ALWAYS mounted (`v-show`, never `v-if`) WHILE this wrapper
-                 itself is mounted — LytNode's own Teleport only ever
-                 targets this element while `controlPanelIsPresent` is
-                 false, the SAME condition gating this wrapper's own
-                 `v-if`, so the target is guaranteed to exist by the time
-                 a summon can occur (the trigger button that starts a
-                 summon lives inside this same wrapper). Opaque
-                 (--surface-0, the same standing occlusion law
-                 `LytPresenceMenu.vue`'s own header names). -->
+        <!-- Space-owner cure, dispatch L5 (`.claude/dispatch-reports/
+             lyt-space-owner-spec.md` §1.4/§3 step 5): ONE
+             `<CornerStackHost>` replaces the former two independent
+             `position: fixed` containers (`#lyt-corner-chrome` +
+             `#lyt-overlay-stack`) — see that component's own header for
+             the full derivation (the `CornerStack` registration order,
+             the live-measured offsets replacing the hand-guessed
+             `+40px`). The banner cluster and `SystemLogPanel` (formerly
+             `#lyt-overlay-stack`, above the LYT skeleton in this file's
+             own DOM order pre-dispatch) now live in this element's own
+             `banners`/`log` slots; every corner trigger (formerly
+             `#lyt-corner-chrome`) lives in its `triggers` slot. Content
+             and `v-if` gates are UNCHANGED from pre-dispatch — only the
+             stacking/offset MECHANISM moved. -->
+        <CornerStackHost ref="cornerStackHostRef">
+          <template #banners>
             <div
-              id="control-panel-popover-mount"
-              :ref="setControlPanelPopoverEl"
-              v-show="controlPanelPopoverOpen"
-              class="control-panel-popover"
-              role="dialog"
-              :aria-label="$t('app.chrome.presence.controlPanel')"
-              :style="{ transform: `translateX(${controlPanelPopoverXShift}px)` }"
-            ></div>
-          </div>
-          <LytPresenceMenu :class-defaults="lytPresenceClassDefaults" :forced-absent="lytPresenceForcedAbsent" />
-          <SystemLogToggle />
-        </div>
+              v-if="capturingActionLabel !== null"
+              id="keybinding-capture-banner"
+              role="alert"
+            >
+              {{ $t('app.keybindingCapture.banner', { action: capturingActionLabel }) }}
+            </div>
+
+            <div
+              v-if="store.workspaceSaveState.kind === 'error'"
+              id="workspace-save-banner"
+              role="alert"
+            >
+              <span class="save-banner-text">{{ $t('app.workspace.saveFailed') }}</span>
+              <button class="action-btn-large" style="width: auto; padding-left: var(--space-medium); padding-right: var(--space-medium);" @click="sync.retrySave()">
+                {{ $t('app.workspace.retry') }}
+              </button>
+            </div>
+
+            <!-- Persist-suppression banner (work item
+                 `next-futureblob-recovery`, rows 1942/1982): the ONGOING
+                 reminder after "continue on defaults" from the
+                 future-version recovery gate. No Retry affordance — a
+                 'suppressed' write is refused structurally by
+                 SyncService.sendSync every time (`persistSuppression`),
+                 it isn't a failed attempt; the destructive escape hatch
+                 rides along in case the user reconsiders. -->
+            <div
+              v-if="suppressedSaveState"
+              id="workspace-suppressed-banner"
+              role="alert"
+            >
+              <span class="save-banner-text">{{ $t('sync.recovery.suppressedBanner', {
+                blobVersion: suppressedSaveState.blobVersion,
+                appVersion: suppressedSaveState.appVersion,
+              }) }}</span>
+              <button
+                class="recovery-banner-reset-btn"
+                @click="recovery.resetServerWorkspace(suppressedSaveState.blobVersion, suppressedSaveState.appVersion)"
+              >
+                {{ $t('sync.recovery.resetButton') }}
+              </button>
+            </div>
+          </template>
+
+          <template #log>
+            <SystemLogPanel
+              v-if="store.session.ui.systemLogExpanded || transientLogReveal"
+            />
+          </template>
+
+          <template #triggers>
+            <DebugMenu />
+            <BoardRailPopoverTrigger v-if="store.session.ui.railStyle === 'popover'" :clearance-px="cornerStackClearancePx" />
+            <!-- Control-panel popover summon (P2b item 3): reachable ONLY
+                 while the control panel is absent from the grid (class
+                 default demoted it, or the user toggled it off via
+                 LytPresenceMenu below) — when present, the grid already
+                 shows it, so no summon affordance is needed.
+
+                 Positioning: `usePopoverEdgeClamp` + a CSS `bottom: 100%`
+                 anchor (opens UPWARD from the trigger), the SAME idiom
+                 this element's own trigger-row siblings
+                 (`BoardRailPopoverTrigger.vue`/`LytPresenceMenu.vue`)
+                 use — NOT `useFixedAnchoredPopover` (script header's
+                 original plan, per the commission's own naming).
+                 Witnessed empirically wrong for THIS trigger's position:
+                 that composable's `top: triggerRect.bottom` anchor opens
+                 DOWNWARD, and this trigger already sits at the fixed
+                 viewport BOTTOM-right corner — the viewport-bottom clamp
+                 then pulls the popover back UP over the trigger itself,
+                 blocking the very re-click needed to dismiss it
+                 (screenshot rig transcript:
+                 `page.click('#control-panel-summon-btn')` timed out,
+                 `<button>` occluded by its own now-open popover).
+                 Dispatch L5 addendum: `margin-bottom` now ALSO adds
+                 `cornerStackClearancePx` (this file's own computed) so
+                 the popover clears whatever `CornerStackHost` currently
+                 has stacked above the trigger row (the system log panel,
+                 the banner cluster) — the review's own witnessed
+                 collision this dispatch closes. -->
+            <div v-if="!controlPanelIsPresent" ref="controlPanelPopoverRootEl" class="control-panel-summon-wrap">
+              <button
+                id="control-panel-summon-btn"
+                type="button"
+                class="control-panel-summon-trigger"
+                :title="$t('app.chrome.presence.controlPanelSummon')"
+                :aria-label="$t('app.chrome.presence.controlPanelSummon')"
+                aria-haspopup="true"
+                :aria-expanded="controlPanelPopoverOpen"
+                aria-controls="control-panel-popover-mount"
+                @click="toggleControlPanelPopover"
+              >
+                <span aria-hidden="true">&#9776;</span>
+              </button>
+
+              <!-- The control panel's own Teleport target when absent-but-
+                   summoned — see LytNode.vue's header ("Popover summon for
+                   an absent Exclusive") for what gets relocated in here.
+                   ALWAYS mounted (`v-show`, never `v-if`) WHILE this wrapper
+                   itself is mounted — LytNode's own Teleport only ever
+                   targets this element while `controlPanelIsPresent` is
+                   false, the SAME condition gating this wrapper's own
+                   `v-if`, so the target is guaranteed to exist by the time
+                   a summon can occur (the trigger button that starts a
+                   summon lives inside this same wrapper). Opaque
+                   (--surface-0, the same standing occlusion law
+                   `LytPresenceMenu.vue`'s own header names). -->
+              <div
+                id="control-panel-popover-mount"
+                :ref="setControlPanelPopoverEl"
+                v-show="controlPanelPopoverOpen"
+                class="control-panel-popover"
+                role="dialog"
+                :aria-label="$t('app.chrome.presence.controlPanel')"
+                :style="{
+                  transform: `translateX(${controlPanelPopoverXShift}px)`,
+                  marginBottom: `${cornerStackClearancePx}px`,
+                }"
+              ></div>
+            </div>
+            <LytPresenceMenu
+              :class-defaults="lytPresenceClassDefaults"
+              :forced-absent="lytPresenceForcedAbsent"
+              :clearance-px="cornerStackClearancePx"
+            />
+            <SystemLogToggle />
+          </template>
+        </CornerStackHost>
       </template>
 
       <div
@@ -1752,56 +2029,22 @@ function openCardsSurface(): void { activeTab.value = 'cards'; }
   color: var(--text-0); font-size: var(--text-emphasis);
 }
 
-/* W4 item 1 — OVERLAY STRATUM (roadmap §7 ruling). `position: fixed`
-   takes this stack out of `#main-workspace`'s flex column entirely —
-   the SAME mechanism `#lyt-corner-chrome` already uses (that rule's
-   own comment, below, has the fuller SPEC.md §2 citation) — so its
-   appearance/disappearance can NEVER push `#split-workspace` or any
-   toolbar child (the categorical "no layout push" requirement; a
-   mount/unmount test — `tests/integration/overlay-stack-no-push.test.ts`
-   — pins zero `#board-square`/`#split-workspace` rect movement across
-   every v-if toggle this stack carries).
-
-   Non-occlusion argument: anchored bottom-right, STACKED ABOVE
-   `#lyt-corner-chrome` (the `bottom` offset below clears that
-   cluster's own typical height + gap) — the SAME corner
-   `#lyt-corner-chrome`'s own comment already argues is provably
-   outside `#board-square` in BOTH screen classes (the side column /
-   tree-panels row is the page's rightmost-and-bottommost region in
-   landscape; the tree-panels row is the LAST, bottom-most row in
-   portrait too — see `encodings/lengyue_landscape.lyt`'s own
-   previewBoard placement note for the landscape half of this
-   argument). `max-width` is capped well inside the side column's own
-   reserved floor (280px post-W4-floor-softening) so the stack never
-   reaches into the board's own territory even at the narrowest tested
-   viewports. DISCLOSED, not independently re-derived per screen class
-   with a live-measured corner-chrome height the way the W1 REPAIR
-   toolbar reservation was (see that section's own methodology in
-   `research/lyt/encodings/lengyue_landscape.lyt`) — the `bottom`
-   offset below is a conservative estimate (one pill/button row's
-   height plus its own gap) rather than a swept number; a follow-up
-   wave re-measuring it live is the more rigorous confirmation, same
-   disclosure posture the codebase already models elsewhere. */
-#lyt-overlay-stack {
-  position: fixed;
-  right: var(--space-medium);
-  bottom: calc(var(--space-medium) + 40px);
-  z-index: var(--z-chrome-overlay);
-  display: flex;
-  flex-direction: column-reverse;
-  gap: var(--space-tight);
-  max-width: min(320px, 90vw);
-  max-height: 60vh;
-  pointer-events: none;
-}
-/* Each overlay piece opts back INTO pointer events individually — the
-   stack's own container stays click-through where no piece is
-   rendered, so an empty stack (the common case: no banner, log
-   collapsed) never silently steals clicks from whatever chrome sits
-   underneath it. */
-#lyt-overlay-stack > * {
-  pointer-events: auto;
-}
+/* W4 item 1 — OVERLAY STRATUM (roadmap §7 ruling), superseded by
+   dispatch L5 (`.claude/dispatch-reports/lyt-space-owner-spec.md`
+   §1.4/§3 step 5): the banner cluster below (still `#keybinding-
+   capture-banner`/`#workspace-save-banner`/`#workspace-suppressed-
+   banner`, unchanged markup) now mounts inside `<CornerStackHost>`'s
+   own `banners` slot, `App.vue`'s template — that component's own
+   `<style>` block owns the `position: fixed`/stacking-offset mechanics
+   this comment used to describe, including the mount/unmount
+   no-layout-push guarantee `tests/integration/overlay-stack-no-push.
+   test.ts` pins. The hand-guessed `bottom: calc(var(--space-medium) +
+   40px)` this rule used to carry — the review's own witnessed "a
+   conservative estimate... rather than a swept number" — is RETIRED:
+   `CornerStack.layout()` computes every region's own offset from its
+   neighbors' live measured height instead (see `CornerStackHost.vue`'s
+   own header for the full derivation). Individual banner rules below
+   (background/border/padding) are otherwise unchanged from pre-dispatch. */
 #keybinding-capture-banner {
   /* Opaque (--surface-0-backed via --state-attention's own solid
      fill — no scrim/translucency, the standing banner ruling this
@@ -1878,29 +2121,15 @@ function openCardsSurface(): void { activeTab.value = 'cards'; }
   height: 100%;
 }
 
-/* Corner presence-menu / board-rail-popover cluster (W2). `position:
-   fixed` takes it out of #main-workspace's flex column flow entirely —
-   it does not add a row, does not participate in any LYT grid track,
-   and rides ABOVE whatever chrome happens to be underneath it (SPEC.md
-   §2's "overlays contribute no constraints and occupy no standing
-   space", realized literally). Anchored to the viewport's own
-   lower-right corner, matching the encoding's own placement rationale
-   for previewBoard (`encodings/lengyue_landscape.lyt`'s own comment:
-   "the rightmost slot of the new tree/panels row... IS the page's
-   lower-right corner (already home to the corner presence-menu
-   button..."). */
-#lyt-corner-chrome {
-  position: fixed;
-  bottom: var(--space-medium);
-  right: var(--space-medium);
-  z-index: 900;
-  display: flex;
-  align-items: center;
-  gap: var(--space-tight);
-}
+/* Corner trigger row (W2), superseded by dispatch L5: this cluster
+   (DebugMenu / board-rail-popover trigger / control-panel summon /
+   LytPresenceMenu / SystemLogToggle) now mounts inside
+   `<CornerStackHost>`'s own `triggers` slot — `#corner-stack-triggers`
+   in that component's own `<style>` block carries the `position: fixed`
+   mechanics this rule used to own. See `CornerStackHost.vue`'s header. */
 
 /* Presence arc P2b item 3: control-panel popover summon trigger. Same
-   28px pointer-target floor + look as its `#lyt-corner-chrome` siblings
+   28px pointer-target floor + look as its trigger-row siblings
    (`BoardRailPopoverTrigger.vue`'s `.board-rail-trigger`,
    `LytPresenceMenu.vue`'s `.lyt-presence-trigger`) — App.vue's own
    `<style>` block is NOT scoped (see this file's own header), so this

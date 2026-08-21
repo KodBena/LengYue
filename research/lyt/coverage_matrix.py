@@ -57,7 +57,15 @@ import lyt_ast as ast
 import loader
 from compiler import solve_lexicographic
 from presence import ALL_PRESENT, PresenceValuation, resolve_and_validate
-from runner import REGISTRATIONS, _gather_reach_preferred_widgets, nearest_class, valuation_for_class
+from runner import (
+    REGISTRATIONS,
+    _gather_reach_preferred_widgets,
+    is_governed_encoding,
+    nearest_class,
+    resolve_encoding_file,
+    source_file_label,
+    valuation_for_class,
+)
 
 ENCODINGS_DIR = Path(__file__).parent / "encodings"
 
@@ -151,8 +159,18 @@ def run_matrix() -> Tuple[List[dict], bool]:
     reg = next(r for r in REGISTRATIONS if r.name == "lengyue_landscape+portrait")
     layouts_raw: Dict[str, ast.Slot] = {}
     for f in reg.files:
-        text = (ENCODINGS_DIR / f).read_text()
-        layouts_raw.update(loader.load_layouts(text, waivers=reg.waivers))
+        p = resolve_encoding_file(f)
+        text = p.read_text()
+        # RATCHET FORM, dispatch C4 (ledger rows 2396/2445): see
+        # `runner.load_governed_layouts`'s own docstring.
+        layouts_raw.update(
+            loader.load_layouts(
+                text,
+                waivers=reg.waivers,
+                refuse_literal_bounds=is_governed_encoding(p),
+                source_file=source_file_label(p),
+            )
+        )
 
     rows: List[dict] = []
     all_ok = True

@@ -33,6 +33,116 @@ from presence import ALL_PRESENT, PresenceValuation, prune_absent, resolve_and_v
 from render import render_ascii
 
 ENCODINGS_DIR = Path(__file__).parent / "encodings"
+# LYT relations-first amendment, dispatch A (ledger rows 2396/2397/2399/2400,
+# ruling 1): ogs.lyt/q5go.lyt moved out of encodings/ into fixtures/reference/
+# -- they transcribe third-party UIs (OGS's web client, q5go's desktop
+# editor), not LengYue's own frontend, so they are reference/comparison
+# fixtures outside the governed layout-language surface (SPEC.md §6), the
+# same way a golden-file test fixture sits outside a "no magic numbers in
+# application code" lint rule's own reach. `resolve_encoding_file` below is
+# what keeps every `Registration.files` entry (still a bare filename)
+# resolvable after the move, for every consumer that reads a registration's
+# own `.lyt` source text.
+FIXTURES_REFERENCE_DIR = Path(__file__).parent / "fixtures" / "reference"
+# LYT relations-first amendment, dispatch C2 (ledger rows 2426/2427): a
+# second sibling fixture directory, for the opposite reason ogs/q5go moved --
+# current_row_asis.lyt/current_row_repaired.lyt are FIRST-party transcriptions
+# (today's own SPA row-axis layout, measured, not designed) moved out of
+# encodings/ because they are transcriptions of reality rather than designs
+# under governance, distinct from the third-party fixtures/reference/ pair.
+FIXTURES_TRANSCRIPTION_DIR = Path(__file__).parent / "fixtures" / "transcription"
+
+
+def resolve_encoding_file(filename: str) -> Path:
+    """Resolves a `Registration.files` entry to its on-disk path:
+    `encodings/` first (every ordinary encoding, unchanged since before the
+    dispatch A amendment), `fixtures/reference/` next (ogs.lyt/q5go.lyt,
+    third-party transcriptions), `fixtures/transcription/` last
+    (current_row_asis.lyt/current_row_repaired.lyt, first-party
+    transcriptions, post dispatch C2 move). Refused loudly
+    (`FileNotFoundError`, not a silent None) when no location has the file
+    -- a dangling reference after a fixture move is a failure this
+    dispatch's own audit discipline names, not a footnote."""
+    p = ENCODINGS_DIR / filename
+    if p.exists():
+        return p
+    p2 = FIXTURES_REFERENCE_DIR / filename
+    if p2.exists():
+        return p2
+    p3 = FIXTURES_TRANSCRIPTION_DIR / filename
+    if p3.exists():
+        return p3
+    raise FileNotFoundError(
+        f"{filename!r} not found in {ENCODINGS_DIR}, {FIXTURES_REFERENCE_DIR}, "
+        f"or {FIXTURES_TRANSCRIPTION_DIR}"
+    )
+
+
+def is_governed_encoding(path: Path) -> bool:
+    """LYT relations-first amendment, dispatch C4 (ledger rows
+    2396/2397/2400/2419/2425/2436/2445): `True` iff `path` resolves
+    directly inside `encodings/` itself — a governed design encoding,
+    where a px/ch literal bound is subject to strict-mode refusal
+    (`loader.load_layouts(..., refuse_literal_bounds=True)`). `False`
+    for anything under `fixtures/reference/` or `fixtures/transcription/`
+    — a measurement/transcription fixture (row 2426: "transcriptions are
+    measurements ... they stay loadable"), never refused regardless of
+    how many literal bounds it carries. Directory-based (`path.parent ==
+    ENCODINGS_DIR`), not a filename allowlist, so a file moved between
+    `encodings/` and either fixtures/ directory (as ogs.lyt/q5go.lyt and
+    current_row_asis.lyt/current_row_repaired.lyt already were, dispatch
+    A/C2) is scoped correctly with no code change here."""
+    return path.parent == ENCODINGS_DIR
+
+
+def source_file_label(path: Path) -> str:
+    """The `source_file` string threaded into `loader.load_layouts` for a
+    resolved encoding/fixture path — relative to `research/lyt/` itself
+    (e.g. `"encodings/lengyue_landscape.lyt"`), matching `ratified-
+    literals.json`'s own `"file"` field convention exactly, so a strict-
+    mode refusal's own `detail["source_file"]` is directly the string a
+    commissioner would paste into a new manifest entry."""
+    return str(path.relative_to(Path(__file__).resolve().parent))
+
+
+def load_governed_layouts(filename: str, **kwargs) -> "dict[str, ast.Slot]":
+    """The directory-scoped strict-mode entry point dispatch C4 built,
+    and — as of the RATCHET form (ledger rows 2396/2445) — the one every
+    production caller in this module now routes through (`run_all`,
+    `orientation.rebind`'s own re-load, and the mirror call sites in
+    `emit_ts.py`/`emit_mockup.py`/`coverage_matrix.py`/
+    `emit_layout_tree.py`). Resolves `filename` via `resolve_encoding_
+    file`, then loads it through `loader.load_layouts` with `refuse_
+    literal_bounds` set automatically from `is_governed_encoding` (never
+    hand-picked per call) and `source_file` set via `source_file_label`.
+
+    **Why this is now safe to wire in, where dispatch C4's own FIRST
+    pass (before the ratchet) deliberately left it unwired.** C3's own
+    encoding rewrite (`.claude/dispatch-reports/lyt-relations-c3-
+    rewrite.md` §7) reduced the two real clean-room encodings' own
+    residual literal-bound count by 77.5% (528 -> 119) but did not reach
+    zero — ~59 of the 119 are genuine px/ch literals with no facts-table
+    coverage. Ruling 2396 ("px literals... banned") and ruling 2445 (this
+    residue is a QUALIFIED zero, RATIFIED rather than silently
+    tolerated) are reconciled by `ratified-literals.json`
+    (`relations.RatifiedManifest`): every one of those ~59 sites is now
+    an explicit, commissioner-owned manifest entry, so strict mode
+    against either real encoding's own default loading path loads
+    cleanly — a NEW, UNRATIFIED literal (an author's typo, or a genuine
+    new site nobody has reviewed) is what actually refuses now, which is
+    the whole point of a ratchet: residue that already passed review
+    stays loadable; anything new needs the same review before it does."""
+    import loader
+
+    p = resolve_encoding_file(filename)
+    text = p.read_text()
+    return loader.load_layouts(
+        text,
+        refuse_literal_bounds=is_governed_encoding(p),
+        source_file=source_file_label(p),
+        **kwargs,
+    )
+
 
 SCREEN_SIZES: List[Tuple[str, int, int]] = [
     ("1920x1080", 1920, 1080),
@@ -282,13 +392,29 @@ def run_all(*, cols: int = 100, rows: int = 36, time_limit_s: float = 20.0) -> i
         # came from, kept alongside the merged `layouts` dict the same way
         # `reg.layout_by_class` already tracks which layout a class solves.
         layout_text: Dict[str, str] = {}
+        # RATCHET FORM, dispatch C4 (ledger rows 2396/2445): kept
+        # alongside `layout_text` for the exact same reason — `orientation
+        # .rebind`'s own re-load (below) must use the SAME strict-mode
+        # decision and source label the FIRST load used, not silently
+        # fall back to warning-only on the second pass.
+        layout_governed: Dict[str, bool] = {}
+        layout_source_label: Dict[str, str] = {}
         raw_layouts: Dict[str, ast.Slot] = {}
         for f in reg.files:
-            text = (ENCODINGS_DIR / f).read_text()
-            names = loader.load_layouts(text, waivers=reg.waivers)
+            p = resolve_encoding_file(f)
+            text = p.read_text()
+            governed = is_governed_encoding(p)
+            names = loader.load_layouts(
+                text,
+                waivers=reg.waivers,
+                refuse_literal_bounds=governed,
+                source_file=source_file_label(p),
+            )
             raw_layouts.update(names)
             for name in names:
                 layout_text[name] = text
+                layout_governed[name] = governed
+                layout_source_label[name] = source_file_label(p)
         # LYT presence arc P1: one `resolve_and_validate` call PER CLASS,
         # each against that class's own resolved valuation
         # (`valuation_for_class`) — the shared-registration batched call
@@ -349,7 +475,15 @@ def run_all(*, cols: int = 100, rows: int = 36, time_limit_s: float = 20.0) -> i
             # was a no-op, since pruning an already-pruned tree by the same
             # absent set removes nothing further.
             rebound = orientation.rebind(
-                layout_text[layout_name], layout_name, slot, result, waivers=reg.waivers
+                layout_text[layout_name],
+                layout_name,
+                slot,
+                result,
+                waivers=reg.waivers,
+                # RATCHET FORM, dispatch C4: the re-load stays exactly as
+                # strict as the first load of this same layout's text was.
+                refuse_literal_bounds=layout_governed[layout_name],
+                source_file=layout_source_label[layout_name],
             )
             if rebound is not slot:
                 # LYT presence arc P1: re-prune with THIS layout's own

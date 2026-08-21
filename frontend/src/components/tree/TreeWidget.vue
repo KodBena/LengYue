@@ -24,6 +24,7 @@ import { isReviewStartNode } from '../../composables/forest/tree-review-marker';
 import { themeColor }        from '../../utils/theme-color';
 import FloatingThumbnail    from '../chrome/FloatingThumbnail.vue';
 import { boardsById }        from '../../store';
+import { px, type Px }       from '../../state/feasible-layout';
 import type { GameNode, NodeId, BoardId } from '../../types';
 
 /**
@@ -136,6 +137,50 @@ useScopedScroll(outerRef, deltaY => {
 // a passive scroll listener + ResizeObserver). See the composable header
 // for why a synchronous read — or a rAF-deferred one — forces a reflow.
 const viewportFollow = useViewportFollow(outerRef);
+
+// Space-owner cure, dispatch L2b (`.claude/dispatch-reports/
+// lyt-space-owner-spec.md` §3 step 2, ledger rows 2447/2450/2460): the
+// tree's own live content demand along the LYT program's own `tree` leaf
+// axis. Both compiled programs (`lyt-layout.gen.ts`/
+// `lyt-layout-portrait.gen.ts`) place `tree` in an `h`-axis split
+// (`state/feasible-layout.ts`'s own header confirms this against both) —
+// this is the LYT program's OWN axis, independent of this component's own
+// `orientation` prop (which governs which direction VARIATIONS branch,
+// not which axis the leaf's grid track occupies), so `'h'` is fixed here,
+// not derived from `props.orientation`. Exposed (not consumed locally —
+// this widget has no opinion about its own allotment) for a caller to
+// feed into `measuredFromLytProgram`'s runtime overlay; see that
+// function's own header for the full "why an overlay, not a direct
+// clamp" account.
+//
+// Disease repair (`.claude/dispatch-reports/lyt-second-opus-review.md`
+// N3, ledger row 2511): this USED to be `useContentDemand(outerRef, 'h')`
+// — `outerRef.scrollWidth`, per that composable's own disclosed caveat,
+// equals the SVG's true intrinsic content width only while the SVG
+// genuinely overflows the box (`.tree-widget-outer { overflow: auto }`,
+// below). Whenever the tree's real content is NARROWER than whatever
+// width the side-column solve most recently assigned it (the ordinary
+// case for a small game tree), `scrollWidth` degenerates to the BOX's
+// own rendered width instead — the exact contamination the composable's
+// header names as a caveat it assumed no current caller hit. Feeding
+// that back into `resolveSideColumnLiveLayout`'s non-sovereign ceiling
+// (`effectiveTreeMaxUsefulPx`) closed a measure-render-remeasure loop: a
+// presence toggle (e.g. "Preview Board") that momentarily narrows the
+// tree's box gets that narrower box "remembered" as the tree's own
+// content demand, capping the NEXT candidate at the same width even
+// once the toggle reverses and room frees back up — witnessed as an
+// ~31px leak per on/off cycle, never recovering short of a reload
+// (`tests/unit/state/feasible-layout.test.ts`'s own presence-toggle-
+// idempotence case pins the fix at the pure-function layer). `svgWidth`
+// (below) is the tree's OWN intrinsic width —
+// `layout.value.rows/cols * CELL + PAD * 2`, a pure function of the
+// game-tree's shape, never of the box it's rendered into — so reading
+// it directly is a strictly MORE correct content-demand measurement
+// (identical to the old one in the genuine-overflow case, immune to the
+// contamination in the non-overflow case), not a narrower one.
+// `outerRef`/`useContentDemand` accordingly no longer feed this value;
+// `outerRef` remains in use for scroll and viewport-follow, untouched.
+const contentDemandPx = computed<Px>(() => px(svgWidth.value));
 
 const expansion = useTreeExpansion();
 const { variationMarkerLabels } = useThumbnailCache();
@@ -433,6 +478,19 @@ const edges = computed(() => {
   });
   return result;
 });
+
+// Dispatch L2b: exposes the tree's own live content demand (see
+// `contentDemandPx`'s own declaration above) — the established
+// `defineExpose` pattern this codebase already uses for a parent to read
+// a child's own imperatively-tracked state (`FloatingThumbnail.vue`'s
+// `show`/`hide`, read via `thumbRef` above). No current caller consumes
+// this yet (threading it into a real `FeasibleLayout.validate()` call is
+// step 3's own scope, spec §3) — a disclosed, deliberate narrowing: this
+// build's own scope is the measurement CAPABILITY, exercised directly by
+// this file's own test suite and by `feasible-layout-geometry-sweep.
+// test.ts`'s overlay-mechanism tests, not live runtime wiring into the
+// renderer (see this dispatch's own build report).
+defineExpose({ contentDemandPx });
 </script>
 
 <template>

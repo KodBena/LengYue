@@ -47,45 +47,34 @@
   bounded box that never covers #board-square — anchored above the
   trigger, like `LytPresenceMenu.vue`'s own popover).
 
+  Space-owner cure, dispatch L5 (`.claude/dispatch-reports/
+  lyt-space-owner-spec.md` §1.5/§3 step 5): dismissal migrated onto
+  `useDismissiblePopover` (`composables/chrome/useDismissiblePopover.ts`)
+  — this file's own former header named its own idiom "verbatim the
+  same shape `LytPresenceMenu.vue`/`LocalePicker.vue` use"; it is now
+  the ONE shared construction of that idiom. A new `clearancePx` prop
+  (default `0`) adds extra `margin-bottom` — see `CornerStackHost.vue`'s
+  own header for the collision this closes.
+
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue';
 import { usePopoverEdgeClamp } from '../../composables/chrome/usePopoverEdgeClamp';
+import { useDismissiblePopover } from '../../composables/chrome/useDismissiblePopover';
 import SidebarWidget from './SidebarWidget.vue';
 
-const open = ref(false);
-const rootRef = ref<HTMLElement | null>(null);
+const props = defineProps<{
+  /** Extra `margin-bottom` (px) this popover adds above its own
+   *  `bottom: 100%` anchor. Optional, defaults to `0`. */
+  clearancePx?: number;
+}>();
+
+const { open, rootRef, toggle } = useDismissiblePopover();
+// `rootRef` is bound to this file's own template root (`ref="rootRef"`,
+// below) — see `LytPresenceMenu.vue`'s own identical comment for why
+// `noUnusedLocals` needs this explicit acknowledgment.
+void rootRef;
 const { setPopoverEl, xShift } = usePopoverEdgeClamp(open);
-
-function toggle(): void {
-  open.value = !open.value;
-}
-function close(): void {
-  open.value = false;
-}
-
-function onDocumentPointerDown(e: PointerEvent): void {
-  if (!rootRef.value) return;
-  if (rootRef.value.contains(e.target as Node)) return; // DOM: event.target is an EventTarget; Node is contains()'s arg type
-  close();
-}
-function onKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') close();
-}
-watch(open, (isOpen) => {
-  if (isOpen) {
-    document.addEventListener('pointerdown', onDocumentPointerDown, true);
-    document.addEventListener('keydown', onKeydown);
-  } else {
-    document.removeEventListener('pointerdown', onDocumentPointerDown, true);
-    document.removeEventListener('keydown', onKeydown);
-  }
-});
-onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', onDocumentPointerDown, true);
-  document.removeEventListener('keydown', onKeydown);
-});
 
 const popoverId = 'board-rail-popover';
 </script>
@@ -113,7 +102,7 @@ const popoverId = 'board-rail-popover';
       class="board-rail-popover"
       role="dialog"
       :aria-label="$t('app.chrome.presence.boardRail')"
-      :style="{ transform: `translateX(${xShift}px)` }"
+      :style="{ transform: `translateX(${xShift}px)`, marginBottom: `${props.clearancePx ?? 0}px` }"
     >
       <SidebarWidget />
     </div>

@@ -39,6 +39,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { mount } from '@vue/test-utils';
 import RegistryEditor from '../../src/components/editors/RegistryEditor.vue';
+import { i18n } from '../../src/i18n';
 
 const SHARED_CHROME_CSS = readFileSync(resolve(process.cwd(), 'src/assets/css/shared-chrome.css'), 'utf-8');
 // SettingsTab.vue was retired (work item `lyt-settings-live-opening`,
@@ -143,7 +144,13 @@ describe('RegistryEditor.vue — mount: root instance carries registry-root, nes
   it('a root-mounted editor (no path prop) gets the registry-root class', () => {
     const wrapper = mount(RegistryEditor, {
       props: { registry: { leafA: 1, branch: { leafB: 2 } } },
-      global: { stubs: { RegistryEditor: false } },
+      // S9 (component-shoddiness audit, 2026-08-21): leaf/branch labels
+      // now resolve through `$t(labelKey(key))` (RegistryEditor.vue) —
+      // real i18n plugin needed for the mount to render at all, same
+      // `global: { plugins: [i18n] }` shape other component mounts in
+      // this tree already use (e.g. CardSetEditor-name-and-destructive-
+      // style.test.ts).
+      global: { plugins: [i18n], stubs: { RegistryEditor: false } },
     });
     const root = wrapper.find('.registry-editor');
     expect(root.classes()).toContain('registry-root');
@@ -152,6 +159,7 @@ describe('RegistryEditor.vue — mount: root instance carries registry-root, nes
   it('a nested editor (path prop set, as RegistryEditor recurses into its own branches) does not', () => {
     const wrapper = mount(RegistryEditor, {
       props: { registry: { leafA: 1 }, path: ['branch'] },
+      global: { plugins: [i18n] },
     });
     const root = wrapper.find('.registry-editor');
     expect(root.classes()).not.toContain('registry-root');

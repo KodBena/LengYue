@@ -21,7 +21,12 @@ consult document") and has since been implemented, exercised, and
 amended by a Python prototype living in this directory
 (`research/lyt/`). **This file is the current-state specification —
 what LYT means and how it behaves today**, reconciling the consult
-document's original design with nine ledger-adjudicated amendments
+document's original design with ten ledger-adjudicated amendments
+[corrected 2026-08-14, L2a review finding — this count previously
+(and, by the time of Amendment 10, staled to) read "nine"; see
+2026-08-12's own correction below it, preserved verbatim, for the
+same staleness one amendment earlier; §14-§18 below cover Amendments
+6-10 and are themselves proof of the current count]
 [corrected 2026-08-12, M2 stage B2b, the ruling-basket census — this
 count previously (and, by the time of Amendments 6-9, staled to)
 read "five"; §14-§17 below cover Amendments 6-9 and are themselves
@@ -170,10 +175,13 @@ the consult document's own worked examples verbatim (disclosed in
   depth and, unlike every other sizing key, may be declared MORE THAN
   ONCE in the same block to name both axes (`scroll h, scroll v`
   accumulates rather than overwrites). `content <class>` (`class` ∈
-  `bounded`/`designed`/`unbounded`) is a LEAF-only content-class
-  declaration, deliberately placed in the sizing bag rather than the
-  leaf's `[domain, facets]` bracket — see §13 for the full rationale and
-  the L5/L5a/L5b/L5c laws both keys feed.
+  `bounded`/`designed`/`unbounded`) is a content-class declaration,
+  deliberately placed in the sizing bag rather than the leaf's
+  `[domain, facets]` bracket — see §13 for the full rationale and the
+  L5/L5a/L5b/L5c laws both keys feed. **[Corrected 2026-08-14, Amendment
+  10, §18 — `content` was LEAF-only as Amendment 5 originally shipped
+  it; it is legal on three positions today (a leaf, an Exclusive's own
+  wrapping slot, a direct Exclusive-child of any node kind), see §18.]**
 - Three symbolic size sentinels: `CONTENT` (the literal spelling of the
   forbidden content-driven sizing basis, from the consult document —
   refused by the loader, §9.1), `WRAPPER_MIN` (a named-but-undefined
@@ -604,7 +612,7 @@ buttons plus `locale` in a dedicated inner band (96px of chrome inside
 a 120px total) and labels it an "L2-conformer" — under this dominance
 test that inner band is a genuine, unambiguous majority violation
 (`96·2 = 192 > 120`), which **disagrees with the consult document's own
-casual label for that construction**. `encodings/current_row_repaired
+casual label for that construction**. `fixtures/transcription/current_row_repaired
 .lyt` was restructured — the wrapper unwrapped, its five children
 promoted to direct children of the substantial nav-bar row — per L2's
 own textually-prescribed remedy ("ride the already-reserved nav bar"),
@@ -777,7 +785,7 @@ letting a raw `ValueError` escape.
 tree before returning it — this is "load time" for L2's purposes. A
 declared `waivers` map (`wellformed.Waiver`) lets a caller load an
 honestly, disclosedly L2-non-conformant encoding (the as-is baseline,
-`encodings/current_row_asis.lyt`) without either refusing to load it at
+`fixtures/transcription/current_row_asis.lyt`) without either refusing to load it at
 all or silently weakening the checker for every other encoding: each
 `Waiver` names an exact law, an exact tree path, and a citation, and a
 waiver that matches no violation actually present on this load ("stale
@@ -1076,6 +1084,41 @@ legibility discipline this specification is written to —
   adjacent track both clean-room encodings share; any other encoding's
   elastic-and-capped track would carry the same unresolved
   solve-vs-live-CSS disagreement.
+- **A `T`-child's declared `min` applies identically to both its width
+  and height** (§8's `along=None` bound-application branch) — there is
+  no way, in this 1-D-per-slot language, for a composite `T`-child to
+  declare "wide but not correspondingly tall" (or the reverse). Every
+  wrapping composite whose interior demand differs sharply between axes
+  (a wide settings-substrip label row, say, whose own interior height
+  need is far smaller than the width its label vocabulary forces)
+  therefore over-reserves on the axis its interior does not actually
+  need — an honest, disclosed consequence of the same 1-D sizing model
+  named in §4.2's own narrowing paragraph, not a defect discovered per
+  encoding. The consult's own §2 excludes 2-D per-axis `T`-child sizing
+  from this option space as unnecessary surgery for the witnessed
+  defect; this bullet is the general form of a tension every deep
+  composite `T`-child inherits, not a fact specific to any one leaf.
+- **A flex-wrapping leaf's own minimum column width is a genuine
+  breakpoint-search problem, not a single measured constant** — a
+  cluster of fixed-width items (buttons, chips) that wraps onto more
+  rows as its column narrows has an exact width at which its row count
+  changes, found by summing worst-case item widths plus inter-item gaps
+  against the wrapping container's own row-height reservation (greedy
+  sequential flex-wrap, CSS Flexbox's own line-assignment rule) rather
+  than read off any single component measurement. Because this
+  language's compiler declares integer `(w, h)` CP-SAT decision
+  variables (§8), the `min` an encoding should declare is the CEILING
+  of that exact threshold, never its floor or its truncation — a `min`
+  equal to the raw (possibly fractional) breakpoint would let the
+  solver legally choose a width fractionally short of the point where
+  the cluster's own row count would actually grow, silently clipping
+  content the reservation was supposed to cover. This is a property of
+  the language's realization contract (worst-case items, a fixed
+  row-height and inter-item gap, greedy line assignment, integer-px
+  ceiling), not a number any one component's own encoding literal
+  carries — the per-component worst-case label set and the resulting
+  pixel figure are properly the probe harness's own facts (§4's own
+  probe contract), not spec prose.
 
 ## 13. Amendment 5 — overflow as a typed language concept: `scroll`, content-class, and L5/L5a/L5b/L5c
 
@@ -1100,9 +1143,17 @@ key in the existing bag" precedent Amendment 3's `gap` used:
   (two `scroll` terms naming different axes are not repetitions of "the
   same key" in any useful sense).
 - **`content <class>`**, `class` ∈ `{bounded, designed, unbounded}` — a
-  LEAF-only content-class declaration. Refused loudly (`law:
-  "content-class-declaration"`, `prohibition:
-  "content-class-on-non-leaf"`) on a Split or Exclusive node.
+  content-class declaration. **[Corrected 2026-08-14, Amendment 10,
+  §18 — the two sentences immediately below are Amendment 5's own
+  original text, preserved verbatim as the historical record of what
+  this key was when this section was written; they are FALSE about
+  the current grammar and superseded by §18, not merely incomplete.
+  `content` is legal on three positions today (a leaf, an Exclusive's
+  own wrapping slot, a direct Exclusive-child of any node kind), not
+  leaf-only; the refusal below still fires, but only for a node that
+  is none of those three.]** ~~LEAF-only content-class declaration.
+  Refused loudly (`law: "content-class-declaration"`, `prohibition:
+  "content-class-on-non-leaf"`) on a Split or Exclusive node.~~
 
 Both keep the parser permissive (any identifier accepted in axis/class
 position) and the loader as the enforcement point (`loader.py`'s
@@ -1128,6 +1179,11 @@ it (`facets`). Conscripting `content` into either existing axis would
 re-mint the exact category error `blackbox` used to be, one paragraph
 after it was named as a misfit to avoid (ADR-0008) — and §14 retires that
 category error at the root rather than merely avoiding repeating it.
+**[Corrected 2026-08-14, Amendment 10, §18 — this section's own "a
+leaf's content" framing describes the axis's ORIGIN (why it was kept
+off `domain`/`facets`), which is unchanged; §18 widens WHERE the axis
+may be declared (an Exclusive's own wrapping slot; a direct
+Exclusive-child of any node kind), not what it orthogonally means.]**
 
 ### 13.3 The laws L5, L5a, L5b, L5c
 
@@ -1752,6 +1808,99 @@ hold against the committed `.lyt` content — see
 full STOP-and-report on what an encoding edit would need to change, not
 made unilaterally by this stage.
 
+## 18. Amendment 10 — `content` relocates to `Slot`, legal beyond leaves
+
+Adopted per
+[.claude/dispatch-reports/lyt-space-owner-spec.md](../../.claude/dispatch-reports/lyt-space-owner-spec.md)
+§0/§3 step 2 (ledger rows 2447/2450). Where Amendment 5 gave a leaf a
+content-class axis, this amendment gives the SAME axis to two further
+positions a leaf-only field structurally could not reach.
+[SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)'s own Amendment 10 entry is
+the dated ruling/rationale/provenance record, including the DOM-truth
+correction to the CP-analysis encoding site; this section is the
+current-state grammar/semantics, in the same form §14/§15/§16/§17 give
+Amendments 6/7/8/9.
+
+### 18.1 The relocation
+
+`content <class>` (§13.1) no longer lives on `Leaf` — it lives on
+`Slot`, the same placement `scroll_axes` (Amendment 5) already uses and
+for the identical reason: a fact that must be declarable regardless of
+node kind belongs on the type every node kind shares. A leaf's own
+content class is unaffected in meaning or closed vocabulary; only
+where the fact is stored, and therefore where it may be declared,
+changes.
+
+### 18.2 Three legal positions
+
+`content` is legal on:
+
+1. **A leaf** (unchanged from Amendment 5).
+2. **An Exclusive (T) node's own wrapping slot** — a genuinely new
+   position: the collapsed group's own declared content class, e.g.
+   `{..., content unbounded} T(...)`.
+3. **A slot that is a direct child of an Exclusive**, regardless of its
+   own underlying node kind — also new: a Split or a nested Exclusive
+   standing as a T-child may declare its own content class on itself,
+   where before only a bare-leaf T-child could.
+
+Refused everywhere else exactly as before — an ordinary Split standing
+in the tree for its own sake (not itself a T-child) still has no
+content of its own, only its children's partition. The refusal fires
+with the same `law: "content-class-declaration"`, `prohibition:
+"content-class-on-non-leaf"` shape §13.1 already names; only the set of
+positions it fires FOR shrinks by two.
+
+Position 3 does not inherit past the immediate child: a grandchild
+reached through an intervening Split (e.g. a T-child's own children)
+is an ordinary Split-child, not itself an Exclusive-child, and stays
+refused.
+
+### 18.3 Laws L5/L5a/L5c: unchanged in what they check
+
+All three remain gated on `isinstance(node, ast.Leaf)` exactly as
+Amendment 5 shipped them — this amendment does not widen L5a's
+coverage requirement or L5c's chart-exclusion fold to the two new
+positions. A `content` declaration at an Exclusive's own slot or at a
+direct Exclusive-child is therefore dormant to all three laws, the same
+way an unclassified leaf always was — not a new kind of silence, the
+same kind Amendment 5's own dormancy note already describes.
+
+### 18.4 Emitter preservation
+
+The frontend-facing compiled program (`frontend/src/state/
+lyt-layout*.gen.ts`) carries this fact through two shapes that
+previously dropped it entirely at the Exclusive-collapse boundary:
+`LytBlackboxNode` (a collapsed Exclusive) and `LytExclusiveChild` (one
+tab of a genuinely-opened Exclusive) each gain `content`/`scrollAxes`
+fields, populated from the SAME already-loaded slot the rest of that
+node's fields already read from — no new folding or derivation over
+the collapsed interior. See
+[SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)'s Amendment 10 entry for the
+full emitter-site enumeration.
+
+### 18.5 A law-expressiveness limit, named rather than routed around
+
+One encoding site — the control panel's Analysis tab composite —
+surfaced a case this amendment's own machinery cannot fully close: the
+real mounted DOM for that tab (`AnalysisDashboard.vue`'s own
+`.scrollable-content`, `overflow-y: auto`) genuinely scrolls, but its
+modeled interior leaves are each individually, honestly `content
+designed` (fixed-size charts), and L5c correctly refuses a wrapper
+that declares `scroll` over a subtree still containing a `designed`
+leaf. The wrapper's own declaration is `content unbounded` with no
+scroll — the most honest fact expressible given the current leaf
+classifications, not a claim that the law fully captures this
+interior's real overflow behavior. Closing that residual gap means
+either opening the analysis sub-tree to per-leaf DOM mounting (the
+shape Settings' own live-opening already took) or re-deriving the
+leaves' own content nature against whatever DOM shape results — a
+separate, larger work item, not something this amendment resolves as
+a side effect of adding the wrapper-level fields. See
+[SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)'s Amendment 10 entry for the
+full account, including the direct verification that declaring
+`scroll v` at this site does refuse (L5c).
+
 ## Status of the other LYT documents
 
 This file is the **current-state, standalone specification**. The two
@@ -1765,9 +1914,10 @@ different roles:
   divergence; it is not restated or rewritten, and it is not itself
   kept current — this file is.
 - **[SPEC-AMENDMENTS.md](SPEC-AMENDMENTS.md)** is the append-only, dated **amendment
-  record**: the nine ledger-adjudicated rulings [corrected 2026-08-12,
-  M2 stage B2b, same staleness as this file's own opening paragraph
-  above], their rationale as
+  record**: the ten ledger-adjudicated rulings [corrected 2026-08-14,
+  L2a review finding, same staleness class as this file's own opening
+  paragraph above — corrected 2026-08-12, M2 stage B2b, one amendment
+  earlier], their rationale as
   recorded on each ledger row, and each amendment's diff against the
   consult document's original prose. It remains the place to find *why*
   a rule changed and *when*; this specification is the place to find

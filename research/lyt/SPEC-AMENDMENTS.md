@@ -926,8 +926,11 @@ wired into every `load_slot` leaf/split/exclusive branch);
 `emit_layout_tree.py` (`_collect_leaf_widgets`, Exclusive branch
 retirement); `emit_mockup.py` (`_first_leaf_widget`, `render_exclusive`
 retirement, `TAB_LABELS` gains three composite-child entries);
-`encodings/current_row_asis.lyt` / `current_row_repaired.lyt` /
-`lengyue_landscape.lyt` / `lengyue_portrait.lyt` (mechanical re-homing);
+`current_row_asis.lyt` / `current_row_repaired.lyt` /
+`encodings/lengyue_landscape.lyt` / `encodings/lengyue_portrait.lyt`
+(mechanical re-homing; the first two lived in `encodings/` at the time
+this amendment landed and have since moved to `fixtures/transcription/`,
+LYT relations-first amendment dispatch C2, ledger rows 2426/2427);
 `synthesize.py` (same, for constructor-coverage consistency);
 `tests/test_lyt.py` (one pre-existing fixture's own inline `domain=
 'blackbox'` literal updated; regression coverage for the retirement
@@ -1713,6 +1716,456 @@ exactly about what an encoding edit here would need to do, deliberately
 not made in this change); `frontend/` (untouched, out of scope, same
 posture Amendment 8 already took for its own realization-layer
 exclusions).
+
+## Amendment 10 (ledger rows 2447/2450, L2a of the space-owner cure) — `content` relocates to `Slot`, legal on an Exclusive's own wrapping slot and on a direct Exclusive-child of any node kind
+
+**Ruling.** Adopted per
+[.claude/dispatch-reports/lyt-space-owner-spec.md](../../.claude/dispatch-reports/lyt-space-owner-spec.md)
+§0's third bullet and §3 step 2 — the frontend-side "Layout authority"
+spec's own diagnosis that `LytBlackboxNode`/`LytExclusiveChild` (the
+compiled program's collapsed/opened Exclusive representations) carry
+neither a content class nor a scroll disposition of their own, because
+`content` (Amendment 5) was `Leaf`-only, structurally unable to answer
+"what kind of content does a T(...) blackbox's own collapsed interior
+hold" at all. §0's own words: "Every 'collapsed' composite… is
+therefore structurally outside the overflow contract… This is the
+exact mechanism of the review's Settings amputation."
+
+**What this amendment implements.**
+
+1. **`content` relocates from `Leaf.content` to `Slot.content`**
+   (`lyt_ast.py`), the same generalization `scroll_axes` already made
+   under Amendment 5, and for the identical reason stated there
+   verbatim: "since it applies uniformly regardless of node kind." A
+   leaf's own content class is unaffected in meaning or closed
+   vocabulary (`bounded`/`designed`/`unbounded`) — only its storage
+   location moves, from a `Leaf`-only field to a `Slot`-level one every
+   node kind carries.
+2. **Two new legal positions for `content`**, widened in
+   `loader._load_content_class` — a leaf (unchanged), an Exclusive (T)
+   node's own wrapping slot (a genuinely new position: the collapsed
+   group's own declared content class), and a slot that is a DIRECT
+   CHILD of an Exclusive regardless of its own underlying node kind
+   (also new — a Split or nested Exclusive standing as a T-child may
+   now declare its own content class, where before only a bare leaf
+   T-child could). An ordinary Split standing in the tree for its own
+   sake — not itself a T-child — stays refused exactly as before;
+   `content` still describes what the DECLARING SLOT's own content is,
+   never a container's own structure. `load_slot` gains one new
+   parameter, `is_exclusive_child`, threaded `True` at exactly the
+   Exclusive branch's own children-loading call site and never
+   inherited past that immediate child (a grandchild reached through an
+   intervening Split is an ordinary Split-child, not itself an
+   Exclusive-child).
+3. **`wellformed.py`'s L5/L5a/L5c are unchanged in what they check** —
+   all three remain gated on `isinstance(node, ast.Leaf)` exactly as
+   before; only WHERE they read the content value from changes
+   (`slot.content`, since `Leaf` no longer has the field). A `content`
+   declaration at either of the two new positions is therefore
+   dormant to these three laws exactly the way an unclassified leaf
+   always was — not a new kind of silence, the same kind.
+4. **Emitter preservation** (`emit_layout_tree.py`) — `LytBlackboxNode`
+   and `LytExclusiveChild` (`lyt-layout-types.ts`) each gain `content`/
+   `scrollAxes` fields, populated at every blackbox construction site
+   in `_build_node`'s Exclusive branch (all four: the top-level
+   collapse, the nested-within-an-opened-tab collapse, and the
+   per-tab `control_panel_collapse_indices` collapse) and at the
+   genuinely-opened `exclusive` shape's own `ex_children` loop — every
+   site reads `slot.content`/`sorted(slot.scroll_axes)` (or
+   `child.content`/`sorted(child.scroll_axes)` for a T-child) off the
+   ALREADY-LOADED slot, no new derivation or folding over the
+   collapsed interior. This is what makes the fields PRESERVED rather
+   than invented: the Exclusive-collapse boundary previously read
+   `slot.presence`/`slot.sizing`/`childWidgets` and stopped there;
+   it now reads `slot.content`/`slot.scroll_axes` too.
+5. **`presence.py`'s `prune_absent` forwarding fix** — the SAME
+   defect class Amendment 5's own "AMENDMENT 5 fix" (§ this file,
+   Amendment 5's docstring cross-reference) already closed once for
+   `scroll_axes`: `prune_absent`'s Split/Exclusive reconstruction
+   branches forward only an explicit field list from the original
+   slot, and the instant `content` becomes Slot-level (item 1 above),
+   those same two branches inherit the identical forwarding gap
+   `scroll_axes` had before its own fix — a T-child's own declared
+   content class would silently vanish the moment its own subtree was
+   reconstructed by a presence prune. Fixed by forwarding
+   `content=slot.content` at both sites, alongside `scroll_axes`. A
+   third, PRE-EXISTING instance of the same defect class
+   (`wrap_policy`, Amendment 7) was found and disclosed in the same
+   pass but left unfixed — out of this amendment's own scope, named in
+   `presence.py`'s own module docstring so it is not silently
+   rediscovered.
+
+**Encodings — three new declarations, one of them corrected against
+DOM truth after adversarial review.** `lengyue_landscape.lyt`/
+`lengyue_portrait.lyt` each gain three `content` declarations on
+previously-undeclared blackbox interiors: settingsPane's own inner
+six-tab `T(...)` (`content unbounded` — a mix of scroll-owning and
+non-scroll-owning panes, the SAME worst-case-superset conservative
+posture the pre-existing per-leaf declarations in that same group
+already use), and CP-other's own composite wrapper (`content
+unbounded` — wraps `otherBand`, already `content unbounded, scroll v`
+on itself). No new `scroll` declaration was added at either site —
+every leaf that needs scroll ownership already owns it on itself, and
+L5b (single scroll owner per axis per root-to-leaf path) refuses a
+second declaration anywhere upstream of an already-owned one, verified
+directly by hand-inserting `scroll v` at each site and reloading.
+
+CP-analysis's own composite wrapper was FIRST declared `content
+designed` (matching its own pre-existing leaf children, all
+individually `content designed` chart leaves) and then CORRECTED to
+`content unbounded`, no scroll, after independent review
+([.claude/dispatch-reports/lyt-space-owner-l2a-review.md](../../.claude/dispatch-reports/lyt-space-owner-l2a-review.md))
+traced the REAL mount site and found the model's own claim false: the
+control panel's Analysis tab mounts `AnalysisControls.vue`
+(`frontend/src/components/editors/AnalysisControls.vue:385`), which
+embeds `AnalysisDashboard.vue` (`frontend/src/components/charts/
+AnalysisDashboard.vue`) directly; that component's own
+`.scrollable-content` class (`AnalysisDashboard.vue:169-173`) is
+`flex: 1; overflow-y: auto` — the real mounted DOM for this tab
+genuinely scrolls its panel content vertically, the opposite of what
+`content: 'designed'` (L5c: "chart-carrying containers may never
+scroll") claims.
+
+**The law genuinely cannot express the fully honest fact here, and
+this amendment does not pretend otherwise.** The individual leaves
+inside this composite (`AT_basic_interval`, `AT_dist_deltaDist`, etc.)
+are each still, individually, honestly `content designed` — each one,
+mounted on its own, genuinely IS a fixed-size chart with no scroll of
+its own; nothing about this amendment re-litigates those pre-existing,
+individually-accurate classifications, and doing so (re-deriving eight
+leaves' own content nature to make a wrapper-level `scroll v` legal)
+is a materially larger, riskier re-modeling of the whole analysis
+sub-tree this amendment does not attempt unilaterally. Given that, the
+wrapper cannot ALSO honestly declare `scroll v` — L5c refuses it,
+correctly: a slot whose own subtree still contains a `designed`-class
+leaf may not declare scroll, verified directly (hand-inserting
+`content unbounded, scroll v` at this exact site reproduces an L5c
+chart-exclusion refusal naming this precise path). The corrected
+declaration — `content unbounded`, no scroll — is therefore the most
+honest fact expressible within the current leaf classifications: it
+withdraws the false "never scrolls" claim without asserting a scroll
+ownership the law cannot admit given siblings still individually
+`designed`. This is an INHERITED representational gap, not one this
+amendment invented — the analysis tab's fine-grained per-chart `T`
+stays "solver-visible but unopened in the DOM" (a disclosed narrowing
+predating this amendment, `App.vue`'s own comment at the control-panel
+tab-slot template), meaning the model's own leaf-level granularity has
+never matched the DOM's actual one-component mount for this tab. A
+future stage that wants a fully honest, law-satisfying declaration
+here needs to either open the analysis sub-tree's own components to
+per-leaf DOM mounting (matching what Settings' own live-opening
+already did) or re-derive the leaves' own content nature against
+whatever THAT DOM shape turns out to be — not something to improvise
+as a side effect of adding wrapper-level fields.
+
+**Dormancy and verification.** Both encodings load cleanly, no
+waivers, before and after every declaration named above (verified
+directly, not solely through the test suite). `content` remains
+solver-inert (`compiler.py` never reads it, unchanged by this
+amendment) — re-solving both encodings at every representative size
+this file's own Amendment 4 feasibility table and `coverage_matrix.py`
+name is unaffected, since no declaration this amendment adds is
+solver-visible. `research/lyt`'s own suite: 421 tests before this
+amendment, 424 after (net +3 — two existing tests updated for the
+relocation, five new tests replacing two removed ones), `pytest
+tests/ -q` exit 0. Both `frontend/src/state/lyt-layout.gen.ts` /
+`lyt-layout-portrait.gen.ts` were regenerated and diffed against their
+pre-amendment committed versions: every hunk is a pure field addition
+or corrected value, confirmed by direct `git diff`, no other line
+touched.
+
+**Diff vs. the original consult document's prose.** `layout-language-
+consult.md` says nothing about a content-class axis on anything other
+than a leaf — same footing as every prior amendment: a genuine
+language extension, not a reading recovered from existing text.
+
+**Seam choice.** `content`'s new home (`Slot`, not `Leaf`/`Split`/
+`Exclusive`) mirrors `scroll_axes`'s own Amendment 5 placement exactly,
+for the same reason: a fact that must apply uniformly regardless of
+node kind belongs on the type every node kind shares. The two new
+legal-position refusals (Exclusive's own slot; a direct Exclusive-child
+of any kind) are enforced in the SAME single choke point
+(`loader._load_content_class`) the leaf-only refusal always was,
+widened rather than duplicated into a second checking function.
+
+**What it touched.** `lyt_ast.py` (`Leaf.content` removed;
+`Slot.content` added, with its own `__post_init__` closed-vocabulary
+guard, the F3-fix precedent every prior amendment's typed field
+uses); `loader.py` (`_load_content_class` widened with
+`is_exclusive_child`; `load_slot` gains the same parameter, threaded
+at the Exclusive branch's own children loop; the Leaf/Split/Exclusive
+branches' own `ast.Slot(...)` constructions now carry `content=`);
+`wellformed.py` (five read sites — `_subtree_has_designed_leaf`,
+`find_l5_violations`, `find_l13_violations`, `find_l16_violations`,
+`find_l17_violations` — read `slot.content` instead of the
+now-nonexistent `leaf.content`; no check's own firing condition
+changed); `presence.py` (`prune_absent`'s Split/Exclusive
+reconstruction branches forward `content=slot.content`, the
+AMENDMENT 10 fix disclosed in item 5 above, plus a matching module
+docstring section); `emit_layout_tree.py` (`_build_node`'s Exclusive
+branch, all four blackbox construction sites plus the `ex_children`
+loop; `_ts_node`'s "blackbox"/"exclusive" rendering; a new shared
+`_ts_content` helper mirroring the existing `_ts_demote` precedent; a
+new "L2a" module docstring section); `frontend/src/state/
+lyt-layout-types.ts` (`LytBlackboxNode`/`LytExclusiveChild` gain
+`content`/`scrollAxes` fields); `frontend/src/state/lyt-layout.gen.ts`
+/ `lyt-layout-portrait.gen.ts` (regenerated); `encodings/
+lengyue_landscape.lyt` / `lengyue_portrait.lyt` (three `content`
+declarations each, one corrected post-review as described above);
+`tests/test_lyt.py` (relocation regression tests: legality on an
+Exclusive's own slot, legality on a direct Exclusive-child of any
+kind, non-inheritance past the immediate child, `prune_absent`
+forwarding on reconstructed composites); `tests/test_loop_laws.py`
+(one existing test updated for the relocation); this amendment's own
+build/review record,
+[.claude/dispatch-reports/lyt-space-owner-l2a-build.md](../../.claude/dispatch-reports/lyt-space-owner-l2a-build.md)
+and
+[.claude/dispatch-reports/lyt-space-owner-l2a-review.md](../../.claude/dispatch-reports/lyt-space-owner-l2a-review.md).
+
+## Residual items
+
+Filed 2026-08-13, dispatch A of the LYT relations-first amendment
+(ledger rows 2396/2397/2399/2400,
+`.claude/dispatch-reports/lyt-relations-amendment-spec.md` §5). Before
+this dispatch these two STOP-and-report items lived only inside the
+clean-room encodings' own comment blocks — they are not resolved
+anywhere else in the doc graph (neither this file nor SPEC.md named
+them prior to this section), so relocating the comment prose that
+carries them (dispatch A's own purge-accounting duty, per the spec
+above) requires giving them a durable home first. This section is that
+home — an open items list, not a ruling; each item names what's
+missing, why it wasn't authored, and who would need to close it.
+
+### R1 — the side column's `340px` max-cap component has no derivation anywhere
+
+**What's missing.** Both clean-room encodings' landscape side column
+declares a `max 340px+60ch` cap (`encodings/lengyue_landscape.lyt`'s
+own root `H(...)`'s third child). The `60ch` component is a real,
+grounded text-measure term (§4.1's `PX_PER_CH` resolution). The
+`340px` component has no derivation anywhere in this repository, the
+dispatch reports, or the consult document — the landscape encoding's
+own §1.4 census entry (per the governing spec's own audit) calls it an
+"inherited design ceiling from the original consult document's own
+worked example," not a re-derived number. It reads as a genuine
+aesthetic/product ceiling ("how wide may the side column grow on a
+very wide viewport"), not a content-driven floor any live component
+could be probed for.
+
+**Why it wasn't authored.** No relation in this language's current
+primitive inventory (§2 of the governing spec above) expresses "an
+upper bound on how much of a wide viewport one region may claim" —
+every existing primitive resolves a floor from a component's own
+content, never a ceiling from aesthetic judgment about proportion.
+Inventing one for this single site, unmotivated by any second use
+case, would repeat the exact "primitive used once is a smell"
+pattern flagged elsewhere in this dispatch's own primitive inventory.
+
+**Who'd need to close it.** Either (a) a commissioner ratifies `340px`
+as a residue entry (a design ceiling, not a measurement — the honest
+label `facts.residue.json` already uses for this class of number), or
+(b) a future design pass re-derives a principled cap (e.g. "the side
+column may never exceed N% of the viewport width," a relation this
+language could add if a second site ever wants the same shape). Not
+resolved here — this section only gives the open question a durable
+home.
+
+### R2 — three engine-metrics groups' own width floors remain un-authored
+
+**What's missing.** `A_engine_eval`/`A_engine_health`/`A_engine_queue`
+(both encodings' `H(A_engine_controls, A_engine_eval, A_engine_health,
+A_engine_queue)` row) each carry `pref 1fr` with no declared `min` —
+the loader's own `0px` default. `A_engine_controls`, the fourth
+sibling in the same row, HAD this same gap until wave W-B2 (2026-08-13,
+`.claude/dispatch-reports/lyt-wB2-controls-menu.md`) closed it with a
+live-measured `min 185px` (the wrap-breakpoint mechanism SPEC.md §12
+now names in general terms). The other three groups' own share of that
+same frontier item remains open.
+
+**Why it wasn't authored.** A grounded per-group floor IS computable
+by hand from `ToolbarEngineMetrics.vue`'s own cited `min-width` `ch`
+values, the real `en.json` label strings, and `theme.css`'s spacing
+tokens — landscape's own header comment sketches the arithmetic (eval
+≈236px, health ≈276px, queue ≈68px) without asserting it as a
+declared `min`, because summing all three into hard floors on the
+wrapping `H(...)`'s own children would raise the side column's
+effective width floor from ~345px to roughly 580px+gaps, a major,
+unverified feasibility regression this dispatch does not introduce
+unilaterally without a live re-sweep of how the real
+`.engine-metrics-bar` (a CSS flex row, not a fixed four-column grid)
+actually wraps at narrow widths — the same wrapping-row problem
+`settingsSubstrip`'s own `flow.py`-based FLOW-CAPABLE SETTINGS
+SUBSTRIP work item solved, not yet attempted for this cluster.
+
+**Who'd need to close it.** Whoever runs the live measurement pass
+this item names — either a `flow.py`-style packed-row derivation (the
+same mechanism `settingsSubstrip` already uses, if this cluster's own
+content turns out to need row-packing rather than a fixed floor) or a
+straightforward Playwright width-sweep of `.engine-metrics-bar`'s real
+wrap behavior at narrow widths, followed by a feasibility re-solve
+across every representative screen size before landing any of the
+three floors. This dispatch's own probe harness (§4 of the governing
+spec) can supply the live-measured input for whichever mechanism is
+chosen, once a design point is picked — it does not pick one itself.
+
+Filed 2026-08-14, dispatch C4 of the LYT relations-first amendment
+(ledger rows 2396/2397/2400/2419/2425/2436/2445), folding forward
+three findings dispatch C3's own report
+(`.claude/dispatch-reports/lyt-relations-c3-rewrite.md`) recorded as
+its durable home pending a section like this one — R1/R2's own
+"before this dispatch these lived only in comment blocks" precedent,
+applied to a durable *report* rather than a comment block this time.
+
+### R3 — the "both-664s" cascade: `AT_multires`' own 580px height binds BOTH the outer BLACK BOX `T`'s pin AND `CP-analysis`'s own V-wrapper floor, through Exclusive rectangle-sharing
+
+**What's missing.** Dispatch C3 set out to retire the outer `T(...)
+[BLACK BOX]` node's hand-typed `min 664px, pref 664px, max 664px` pin
+in favor of a genuinely computed `{pinned max-over(children.min)}` —
+row 2403's own prediction was that the honest derivation would land
+far below 664, since the T's five children's own flat declared `min`s
+(160/200/443/664/204, `CP-analysis`'s own V-wrapper being the only one
+anywhere near 664) suggested `pack-rows`' own ~443 result would bind.
+Empirical CP-SAT bisection (663px fails, 664px succeeds, 700px
+succeeds) showed the prediction does not survive contact with
+`AT_multires`: `compiler.py`'s `_constrain` gives every Exclusive/T
+child the SAME shared rectangle on BOTH axes, so `AT_multires`' own
+`min 580px` (nested three levels down: inside `ANALYSIS TABS`'s own T,
+inside `CP-analysis`'s own V) propagates through the recursive
+`_constrain` chain all the way up to the OUTER T's own shared height,
+independent of what any INTERMEDIATE node's own declared `min` field
+says. The outer pin's honest floor and `CP-analysis`'s own V-wrapper
+floor (`80px timelineStrip + 4px gap + 580px AT_multires = 664px`)
+turn out to be the SAME number for the SAME underlying reason — not a
+duplication bug, but two independently-computed floors that are
+honestly equal because `CP-analysis` is the binding child at both
+levels simultaneously. The deliverable (retiring the hand-typed
+literal for a computed relation, `{pinned max-over(children.min)}`) is
+fully achieved; the NUMBER does not move, and this is reported rather
+than silently treated as a no-op, per C3's own "even a no-op value
+outcome is a finding worth surfacing" instruction.
+
+**Why it wasn't closed then, and isn't now.** This is not a defect to
+fix — `max-over(children.min)` computed EXACTLY what it was asked to
+compute; the surprise is a fact about `compiler.py`'s own
+Exclusive-sharing semantics (SPEC.md §2's "every T child receives the
+identical rectangle" rule), not about the relations grammar. Nothing
+in the current primitive inventory lets an encoding author query "what
+does the RECURSIVE cascade through an Exclusive's shared rectangle
+actually bind" ahead of a live CP-SAT bisection — the fact is only
+discoverable empirically, the way C3 discovered it, not derivable from
+the tree's own declared `min` fields by inspection.
+
+**Who'd need to close it.** This item's own "closure" is documentary,
+not mechanical: a future language-substrate wave that wants a
+mechanized answer to "which of a T-group's own children is the true
+recursive-cascade binder" would need a NEW analysis pass (not a new
+relation primitive — this is a solver-behavior fact, not a load-time
+resolution) that walks the whole subtree under `_constrain`'s own
+semantics and reports the binding leaf per axis, ahead of any solve.
+Not attempted here or by C3 — both dispatches treat the CP-SAT
+bisection itself as the authoritative, WITNESSED answer for the two
+real encodings' own current shape, re-derivable on demand rather than
+memoized in a new tool.
+
+### R4 — two substrate bugs C3 surfaced by exercising a genuinely new combination
+
+**What's missing (bug 1, FIXED).** `loader._load_sizing`'s
+fixed/pinned-shorthand branch (the `{Npx}`/`pinned <expr>` early
+return) never included `aspect=rs.aspect` in its own `ast.Sizing(...)`
+construction — only the general (non-shorthand) branch did. Any leaf
+combining `pinned`/the bare `{Npx}` shorthand with `aspect N` silently
+lost its aspect declaration. Pre-existing since dispatch B minted
+`pinned`; dormant until C3's own `previewBoard[common, info]{pinned
+read-constant(previewBoard, portrait), aspect 1}` (portrait) became
+the first real encoding site to combine the two. **Fixed** by C3 in
+the same dispatch (`aspect=rs.aspect` added to the shorthand branch's
+own return), confirmed via the loaded `Sizing.aspect` field
+(`None` before, `1.0` after) and the regenerated `.gen.ts` diff. This
+sub-item is recorded here as CLOSED, not open — folded forward for the
+same "durable home, not lost with the comment/report that first named
+it" reason R3 is.
+
+**What's missing (bug 2, OPEN).** The `envelope` mechanism's own
+consistency check (§4.2/L3: a declared `pref` must equal the computed
+`max-over` of the envelope's own per-state extents) is structurally
+INCOMPATIBLE with `emit_layout_tree.py`'s own closed track-shape
+vocabulary (`_track_shape_for_child`) for a "floor-free, capped-growth"
+leaf — a `min`-only reservation (no rigid floor) that can still grow
+via `pref: 1fr`. Discovered while C3 tried to give
+`A_engine_eval`/`A_engine_health` exactly that shape: the envelope
+check refuses `pref: 1fr` outright once any per-state extent is
+declared (`"the declared reservation must equal what the declared
+states justify"`), and the emitter has no track shape for "capped,
+non-fr pref, no floor" either. Neither check is wrong in isolation —
+both are individually correct, load-bearing laws — but TOGETHER they
+leave `pinned` (a full fixed reservation) as the ONLY reachable
+spelling for a leaf-level envelope this wave; C3's own
+`A_engine_eval`/`A_engine_health` rewrite used `pinned` for exactly
+this reason, which is what produced their own new real 139px floor
+(see the model-change table in C3's own report) and the disclosed
+`("default", "portrait", "420x880")` feasibility flip that followed
+from it.
+
+**Why it wasn't fixed.** Closing this genuinely means picking a side —
+either relaxing L3's own consistency check to tolerate an elastic
+`pref` alongside a declared envelope (weakening an ADR-0002-motivated
+honesty check), or widening the emitter's own track-shape vocabulary
+with a new shape neither `emit_layout_tree.py`'s existing four members
+nor SPEC.md's own §10 (CSS Grid realization mapping) currently name —
+both are genuine language/emitter design decisions, not a bug fix, and
+neither was ratified by any ruling this dispatch or C3 could act on
+unilaterally.
+
+**Who'd need to close it.** A commissioner ruling on which of the two
+directions above (or a third this dispatch didn't consider) the
+language should take, followed by the implementation dispatch that
+carries it out — the SAME "ratify, then implement" arc every other
+amendment in this file followed.
+
+### R5 — `CP-analysis`'s own V-wrapper floor has no primitive that reaches a node's own DESCENDANTS (only an enclosing split's siblings, or an Exclusive's own immediate children)
+
+**What's missing.** `CP-analysis`'s own V-wrapper (`{min sum-of(80px,
+4px, read-constant(AT_multires)), ...} V(timelineStrip, T(...)
+[ANALYSIS TABS])`) needs its own floor to be `timelineStrip`'s fixed
+80px height plus its own 4px gap plus `AT_multires`' real 580px height
+— but `AT_multires` sits TWO levels below this V-wrapper (inside
+`ANALYSIS TABS`'s own T, itself a child of this V). No primitive in
+the current nine-primitive inventory lets a plain (non-Exclusive)
+Split reference its own children's real, recursively-derived
+requirement the way `max-over(children.min)` does for an Exclusive —
+the grammar's sibling/child-reference primitives (`sum-of`/`max-over`'s
+general form, `widget.min`-style sibling references) only reach an
+ENCLOSING split's own already-loaded SIBLINGS, never a node's own
+DESCENDANTS more than one level down. C3's own delivered spelling
+(`sum-of(80px, 4px, read-constant(AT_multires))`) works around this by
+naming `AT_multires` directly (a facts-table lookup, not a tree
+reference) rather than genuinely deriving the floor from the tree
+shape — TWO of the three operands (`80px`, `4px`) stay literals
+because `timelineStrip` has no facts entry and the `gap` keyword
+resolves against the ENCLOSING split (here, the outer BLACK BOX T,
+which has no gap — a T takes none, §9.4), not the CURRENT node's own
+declared gap, confirmed by direct refusal
+(`'gap' referenced ... but the enclosing split declares no gap`).
+
+**Why it wasn't authored.** Adding a genuine "descendant reference"
+primitive (something like `descendant-of(path).min`, or widening
+`max-over`'s own children-reference form to an arbitrary depth) is a
+real grammar extension with its own scoping questions (how deep does
+it reach? does it cross an Exclusive boundary, where "children" means
+something different per T-child rather than a flat partition?) that
+this dispatch — scoped to the refusal flip and two lyt-side riders, not
+a new primitive — has no ruling to act on. C3 itself named this as "a
+language-substrate gap for a future wave, not silently worked around,"
+and this item is that gap's durable home in the doc graph rather than
+left to be rediscovered from C3's own report.
+
+**Who'd need to close it.** A commissioner ruling on the shape of a
+genuine descendant-reference primitive (scope, depth, Exclusive-
+boundary behavior), followed by a `relations.py` extension dispatch
+implementing it — at which point `CP-analysis`'s own V-wrapper floor
+(and any future site with the same "my floor depends on a
+non-sibling, non-immediate-child descendant" shape) could re-derive
+itself from the tree rather than naming a specific descendant widget
+by id.
 
 ## License
 

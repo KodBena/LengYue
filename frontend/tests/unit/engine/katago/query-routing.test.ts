@@ -31,10 +31,17 @@ import {
   setMatchPlayerOverridesText,
   _resetMatchPlayerOverridesForTesting,
 } from '../../../../src/state/match-player-overrides';
+import {
+  setAttachedContext,
+  clearAttachedContext,
+  _resetAttachedContextForTesting,
+} from '../../../../src/state/nncache-context';
+import type { EngineCacheContext } from '../../../../src/engine/katago/cache-context';
 
 beforeEach(() => {
   _resetPerQueryOverridesForTesting();
   _resetMatchPlayerOverridesForTesting();
+  _resetAttachedContextForTesting();
 });
 
 const baseQuery: UnroutedAnalysisQuery = {
@@ -108,6 +115,38 @@ describe('finalizeAnalysisRouting — per-query overrides merge', () => {
     setPerQueryOverridesText('{not valid json');
     const routed = finalizeAnalysisRouting(baseQuery, null);
     expect('overrideSettings' in routed).toBe(false);
+  });
+});
+
+describe('finalizeAnalysisRouting — NN-cache-context auto-stamp', () => {
+  it('leaves the query unchanged (no cacheContext key) when nothing is attached', () => {
+    const routed = finalizeAnalysisRouting(baseQuery, null);
+    expect('cacheContext' in routed).toBe(false);
+  });
+
+  it('stamps cacheContext on every routed query once a context is attached', () => {
+    setAttachedContext('alice.card-5' as EngineCacheContext);
+    const routed = finalizeAnalysisRouting(baseQuery, null);
+    expect(routed.cacheContext).toBe('alice.card-5');
+    // The routing (model) leg still applies independently.
+    const routedWithModel = finalizeAnalysisRouting(baseQuery, 'b10c128');
+    expect(routedWithModel.cacheContext).toBe('alice.card-5');
+    expect(routedWithModel.model).toBe('b10c128');
+  });
+
+  it('omits the field again once the context is cleared (detach)', () => {
+    setAttachedContext('alice.card-5' as EngineCacheContext);
+    clearAttachedContext();
+    const routed = finalizeAnalysisRouting(baseQuery, null);
+    expect('cacheContext' in routed).toBe(false);
+  });
+
+  it('does not enter the per-query-overrides / per-player-overrides merge (independent legs)', () => {
+    setAttachedContext('alice.card-5' as EngineCacheContext);
+    setPerQueryOverridesText('{"playoutDoublingAdvantage": 1.5}');
+    const routed = finalizeAnalysisRouting(baseQuery, null);
+    expect(routed.cacheContext).toBe('alice.card-5');
+    expect(routed.overrideSettings).toEqual({ playoutDoublingAdvantage: 1.5 });
   });
 });
 

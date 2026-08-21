@@ -25,11 +25,43 @@ from errors import LytLoadError, LytParseError
 from compiler import solve_lexicographic
 
 ENCODINGS_DIR = Path(__file__).parent.parent / "encodings"
+# LYT relations-first amendment, dispatch A (ledger rows 2396/2397/2399/2400,
+# rulings 1/2): ogs.lyt/q5go.lyt moved to fixtures/reference/ (third-party
+# UI transcriptions, not LengYue's own frontend -- outside the governed
+# layout-language surface); the three current_row_wart_*.lyt negative-test
+# fixtures moved here, alongside this file, since their entire purpose is a
+# pytest assertion this file itself carries (SPEC.md §6, Open Question 2's
+# own "a wart fixture with its comment stripped is an unmarked syntax
+# error... reclassified as test fixtures living under research/lyt/tests/,
+# where a comment-bearing Python test file carries the disclosure" —
+# resolved that way here).
+FIXTURES_REFERENCE_DIR = Path(__file__).parent.parent / "fixtures" / "reference"
+# LYT relations-first amendment, dispatch C2 (ledger rows 2426/2427):
+# current_row_asis.lyt/current_row_repaired.lyt moved out of encodings/ --
+# first-party transcriptions of today's SPA (measured, not designed),
+# distinct from the third-party fixtures/reference/ pair above.
+FIXTURES_TRANSCRIPTION_DIR = Path(__file__).parent.parent / "fixtures" / "transcription"
+TESTS_DIR = Path(__file__).parent
 
 
 def _load(name: str):
-    text = (ENCODINGS_DIR / f"{name}.lyt").read_text()
-    return loader.load_layouts(text)
+    """Resolves `name` (a bare .lyt basename, no directory) against every
+    location a fixture may now live in: encodings/ (ordinary encodings,
+    unchanged), fixtures/reference/ (ogs/q5go, post-move), fixtures/
+    transcription/ (current_row_asis/current_row_repaired, post dispatch-C2
+    move), this directory (the three current_row_wart_*.lyt negative
+    fixtures, post-move). Refused loudly (FileNotFoundError) rather than
+    silently returning nothing when none of the four has the file — the
+    same "a dangling reference is a failure" discipline the move's own
+    audit used."""
+    for directory in (ENCODINGS_DIR, FIXTURES_REFERENCE_DIR, FIXTURES_TRANSCRIPTION_DIR, TESTS_DIR):
+        candidate = directory / f"{name}.lyt"
+        if candidate.exists():
+            return loader.load_layouts(candidate.read_text())
+    raise FileNotFoundError(
+        f"{name}.lyt not found in {ENCODINGS_DIR}, {FIXTURES_REFERENCE_DIR}, "
+        f"{FIXTURES_TRANSCRIPTION_DIR}, or {TESTS_DIR}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -1285,7 +1317,7 @@ def test_emit_ts_main_writes_file_matching_render_ts(tmp_path):
 # =============================================================================
 # --baseline waiver mechanism + current-row-asis (lyt-constants-swap
 # commission, ledger row 1687): the AS-IS conformance baseline
-# (`encodings/current_row_asis.lyt`) is honestly L2-non-conformant at two
+# (`fixtures/transcription/current_row_asis.lyt`) is honestly L2-non-conformant at two
 # disclosed sites -- `wellformed.Waiver` + `check_wellformed`'s waiver
 # arbitration is the mechanism that lets it load anyway, loudly, without
 # weakening the checker for every OTHER encoding. `baseline.py`'s
@@ -1301,7 +1333,7 @@ def test_current_row_asis_fails_strict_load_without_waivers():
     """Loading the as-is baseline with NO waivers (strict mode, the
     default every other encoding uses) must still raise L2 -- confirms
     the fixture genuinely IS non-conformant, not accidentally clean."""
-    text = (ENCODINGS_DIR / "current_row_asis.lyt").read_text()
+    text = (FIXTURES_TRANSCRIPTION_DIR / "current_row_asis.lyt").read_text()
     with pytest.raises(LytLoadError) as exc_info:
         loader.load_layouts(text)
     assert exc_info.value.detail.get("law") == "L2"
@@ -1311,7 +1343,7 @@ def test_current_row_asis_fails_strict_load_without_waivers():
 def test_current_row_asis_loads_via_baseline_waivers():
     """The `--baseline` load mode: the SAME text loads clean once the
     two disclosed L2 sites are waived via `baseline.BASELINE_WAIVERS`."""
-    text = (ENCODINGS_DIR / "current_row_asis.lyt").read_text()
+    text = (FIXTURES_TRANSCRIPTION_DIR / "current_row_asis.lyt").read_text()
     layouts = loader.load_layouts(text, waivers=baseline.BASELINE_WAIVERS)
     assert "current-row-asis" in layouts
 
@@ -1367,7 +1399,7 @@ def test_check_wellformed_unwaived_violation_still_raises_with_waivers_present()
     """A waiver for ONE of two real violations does not silence the
     other -- waivers are matched exactly by `(law, path)`, never
     globally weakening the check once any waiver is present."""
-    text = (ENCODINGS_DIR / "current_row_asis.lyt").read_text()
+    text = (FIXTURES_TRANSCRIPTION_DIR / "current_row_asis.lyt").read_text()
     raws = __import__("parser").parse_layouts(text)
     slot = loader.load_slot(raws[0].slot, path=raws[0].name)
     only_one = [baseline.CURRENT_ROW_ASIS_L2_WAIVERS[0]]
@@ -1723,6 +1755,16 @@ def test_generated_pages_embed_valid_overlay_json_matching_overlay_sizes(mockup_
         ("all-present", "portrait", "540x960"),
         ("all-present", "portrait", "420x880"),
         ("all-present", "portrait", "1920x1080-in-portrait"),
+        # LYT relations-first amendment, dispatch C3 (ledger row 2419's
+        # "I_engine envelope" rewiring): A_engine_eval/A_engine_health each
+        # gain a genuine ~139px width floor for the first time (previously
+        # bare `pref 1fr`, no min at all) -- engine-controls' own 185px
+        # floor plus the eval/health pair's 139px each plus three 4px gaps
+        # now exceeds this narrowest portrait viewport's available row
+        # width even under `default` valuation. Re-solved directly, not
+        # assumed -- a disclosed model-change consequence of wiring the
+        # envelope's real per-state facts, not a regression in this test.
+        ("default", "portrait", "420x880"),
     }
     for class_id, html_text in mockup_pages.items():
         m = re.search(r'<script id="lyt-solved-data" type="application/json">(.*?)</script>', html_text, re.S)
@@ -2266,7 +2308,7 @@ def test_content_class_parses_and_round_trips_on_a_leaf():
             f"layout g = {{min 0px, pref 0px, max 0px, content {cls}"
             f"{extra}}} A[chrome]"
         )
-        assert layouts["g"].node.content == cls
+        assert layouts["g"].content == cls  # AMENDMENT 10, ledger rows 2447/2450
 
 
 def test_content_class_refuses_unknown_value_loudly():
@@ -2277,28 +2319,77 @@ def test_content_class_refuses_unknown_value_loudly():
     assert exc_info.value.detail.get("got") == "chart"
 
 
-@pytest.mark.parametrize("node_shape", ["split", "exclusive"])
-def test_content_class_refuses_on_non_leaf_nodes(node_shape):
-    """`content` is a LEAF-only axis (consult report §9.2: orthogonal to,
-    never conscripted into, domain/facets) -- declaring it on a Split or
-    an Exclusive is refused, not silently dropped."""
-    if node_shape == "split":
-        text = (
-            "layout g = {min 0px, pref 1fr, max inf, content unbounded} H("
-            "{min 0px, pref 1fr, max inf} A[chrome],"
-            "{min 0px, pref 1fr, max inf} B[chrome])"
-        )
-    else:
-        text = (
-            "layout g = {min 0px, pref 1fr, max inf, content unbounded} T("
-            "{min 0px, pref 1fr, max inf} A[chrome],"
-            "{min 0px, pref 1fr, max inf} B[chrome])"
-        )
+def test_content_class_refuses_on_an_ordinary_split():
+    """`content` is legal only on a leaf, an Exclusive's own wrapping
+    slot, or a slot that is a direct child of an Exclusive (AMENDMENT 10,
+    ledger rows 2447/2450) -- an ORDINARY Split declaring it (not itself
+    standing as an Exclusive-child) is refused, not silently dropped."""
+    text = (
+        "layout g = {min 0px, pref 1fr, max inf, content unbounded} H("
+        "{min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome])"
+    )
     with pytest.raises(LytLoadError) as exc_info:
         _l5_load(text)
     assert exc_info.value.detail.get("law") == "content-class-declaration"
     assert exc_info.value.detail.get("prohibition") == "content-class-on-non-leaf"
-    assert exc_info.value.detail.get("node_kind") == node_shape
+    assert exc_info.value.detail.get("node_kind") == "split"
+
+
+def test_content_class_refuses_on_a_split_two_levels_inside_an_exclusive():
+    """`is_exclusive_child` is never inherited past the Exclusive's own
+    IMMEDIATE children (`load_slot`'s own docstring) -- a Split reached
+    through an intervening Split inside a T-child is an ORDINARY
+    Split-child, not itself an Exclusive-child, and stays refused."""
+    text = (
+        "layout g = {min 0px, pref 1fr, max inf} T("
+        "{min 0px, pref 1fr, max inf} H("
+        "{min 0px, pref 1fr, max inf, content unbounded} H("
+        "{min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome]),"
+        "{min 0px, pref 1fr, max inf} C[chrome]),"
+        "{min 0px, pref 1fr, max inf} D[chrome])"
+    )
+    with pytest.raises(LytLoadError) as exc_info:
+        _l5_load(text)
+    assert exc_info.value.detail.get("law") == "content-class-declaration"
+    assert exc_info.value.detail.get("prohibition") == "content-class-on-non-leaf"
+    assert exc_info.value.detail.get("node_kind") == "split"
+
+
+def test_content_class_legal_on_an_exclusives_own_wrapping_slot():
+    """AMENDMENT 10 (ledger rows 2447/2450, L2a of the space-owner cure):
+    an Exclusive (T) node's own wrapping slot may now declare `content`
+    -- the collapsed group's own declared content class, the fact a
+    blackbox-emitting T's own wrapping slot needs so the Exclusive-
+    collapse boundary has something honest to preserve
+    (`.claude/dispatch-reports/lyt-space-owner-spec.md` §0's third
+    bullet)."""
+    layouts = _l5_load(
+        "layout g = {min 0px, pref 1fr, max inf, content unbounded} T("
+        "{min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome])"
+    )
+    assert layouts["g"].content == "unbounded"
+
+
+def test_content_class_legal_on_a_direct_exclusive_child_of_any_kind():
+    """AMENDMENT 10: a slot that is a DIRECT CHILD of an Exclusive may
+    declare `content` regardless of its own underlying node kind -- here
+    a Split standing as a T-child (the CP-analysis/CP-other shape in the
+    real encoding), previously refused outright since `content` was
+    Leaf-only."""
+    layouts = _l5_load(
+        "layout g = {min 0px, pref 1fr, max inf} T("
+        "{min 0px, pref 1fr, max inf, content designed} H("
+        "{min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome]),"
+        "{min 0px, pref 1fr, max inf} C[chrome])"
+    )
+    root = layouts["g"]
+    assert root.node.children[0].content == "designed"
+    # The Split's OWN children stay ordinary Split-children, unaffected.
+    assert root.node.children[0].node.children[0].content is None
 
 
 # --- L5 (overflow honesty): unbounded content may not claim an envelope ----
@@ -2675,13 +2766,18 @@ def test_prune_absent_identity_case_never_drops_scroll_axes():
 
 
 def test_prune_absent_preserves_a_surviving_leafs_content_class():
-    """`content` lives on `Leaf`, and `prune_absent`'s Leaf branch returns
-    a leaf UNCHANGED (`return slot`, no reconstruction) rather than
-    rebuilding it -- so a surviving leaf's `content` classification is
-    dormant-by-construction safe from this bug class. Pinned anyway, per
-    the review's own request to check "content classes, if any
-    reconstruction path touches leaves" -- this test is the evidence that
-    none does."""
+    """`content` lives on `Slot` (AMENDMENT 10, ledger rows 2447/2450 --
+    relocated from `Leaf.content`), and `prune_absent`'s Leaf branch
+    returns a leaf's SLOT UNCHANGED (`return slot`, no reconstruction)
+    rather than rebuilding it -- so a surviving leaf's `content`
+    classification is dormant-by-construction safe from this bug class.
+    Pinned anyway, per the review's own request to check "content
+    classes, if any reconstruction path touches leaves" -- this test is
+    the evidence that none does. The Split/Exclusive reconstruction
+    paths are NOT dormant-safe this way -- see the AMENDMENT 10 fix in
+    `presence.py`'s own module docstring and
+    `test_prune_absent_preserves_content_on_reconstructed_composites`
+    below for the sibling-surface case this test does not cover."""
     layouts = loader.load_layouts(
         "layout g = {min 0px, pref 1fr, max inf, scroll v} H("
         # B's coverage comes from the root H's ancestor scroll declaration
@@ -2694,11 +2790,36 @@ def test_prune_absent_preserves_a_surviving_leafs_content_class():
     pruned = presence_mod.prune_absent(root, frozenset({"A"}))
     surviving = pruned.node.children[0]
     assert surviving.node.widget == "B"
-    assert surviving.node.content == "unbounded"
+    assert surviving.content == "unbounded"
     # B carries no scroll of its OWN (coverage comes from root); this
     # assertion pins that `content` -- the field under test here -- is
     # what survives, not a scroll_axes value B never declared.
     assert surviving.scroll_axes == frozenset()
+
+
+def test_prune_absent_preserves_content_on_reconstructed_composites():
+    """AMENDMENT 10 fix (L2a, ledger rows 2447/2450, presence.py's own
+    module docstring): unlike a Leaf, a Split/Exclusive slot IS
+    reconstructed by `prune_absent` (its own children list changes), so
+    its own `content` declaration must be explicitly forwarded or it
+    silently vanishes -- the same defect class the AMENDMENT 5 fix above
+    already closed for `scroll_axes`. Exercises both reconstruction
+    sites: a Split standing as a T-child (the CP-analysis/CP-other
+    shape), and the T (an Exclusive) itself, each declaring its own
+    `content` -- both must survive a prune that removes an unrelated
+    toggleable leaf elsewhere in the tree."""
+    layouts = loader.load_layouts(
+        "layout g = {min 0px, pref 1fr, max inf, content designed} T("
+        "{min 0px, pref 1fr, max inf, content unbounded} H("
+        "@toggle(user, release) {min 0px, pref 1fr, max inf} A[chrome],"
+        "{min 0px, pref 1fr, max inf} B[chrome]),"
+        "{min 0px, pref 1fr, max inf} C[chrome])"
+    )
+    root = layouts["g"]
+    pruned = presence_mod.prune_absent(root, frozenset({"A"}))
+    assert pruned.content == "designed"
+    surviving_split = pruned.node.children[0]
+    assert surviving_split.content == "unbounded"
 
 
 # --- Per-T-group shortfall advisory (advisory.py) ---------------------------

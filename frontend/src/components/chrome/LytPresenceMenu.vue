@@ -73,13 +73,26 @@
   numeric overrides revert to their live-computed default), matching the
   presence checkboxes' own no-confirmation precedent one row up.
 
+  Space-owner cure, dispatch L5 (`.claude/dispatch-reports/
+  lyt-space-owner-spec.md` §1.5/§3 step 5): the click/outside-click/
+  Escape dismissal this file's own former header called "LocalePicker.vue's
+  own established idiom verbatim" is now `useDismissiblePopover`
+  (`composables/chrome/useDismissiblePopover.ts`), the ONE shared
+  construction of that idiom every corner/toolbar click-popover in this
+  SPA builds through. A new `clearancePx` prop (default `0`) adds extra
+  `margin-bottom` alongside the popover's own `bottom: 100%` anchor —
+  see `CornerStackHost.vue`'s own header for the collision this closes
+  (the review's own witnessed defect: the system log burying this
+  popover's own rail-select and Default-layout button).
+
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useLytPresenceMenu, type LytPresenceTargetId } from '../../composables/chrome/useLytPresenceMenu';
 import { usePopoverEdgeClamp } from '../../composables/chrome/usePopoverEdgeClamp';
+import { useDismissiblePopover } from '../../composables/chrome/useDismissiblePopover';
 
 const props = defineProps<{
   /** Active screen class's own compiled `presenceDefaultVisible`, per
@@ -91,40 +104,29 @@ const props = defineProps<{
    *  file's header, "Finish-pass wave A". Optional, defaults to no
    *  target forced-absent (byte-identical to pre-wave rendering). */
   forcedAbsent?: Partial<Record<LytPresenceTargetId, boolean>>;
+  /** Extra `margin-bottom` (px) this popover adds above its own
+   *  `bottom: 100%` anchor — see this file's header, "Space-owner cure,
+   *  dispatch L5". Optional, defaults to `0` (byte-identical to
+   *  pre-dispatch rendering) for any mount outside `App.vue`'s own
+   *  `CornerStackHost`-threaded call site. */
+  clearancePx?: number;
 }>();
 
 const { t } = useI18n();
 const classDefaultsRef = computed(() => props.classDefaults ?? {});
 const forcedAbsentRef = computed(() => props.forcedAbsent ?? {});
-const { open, toggleMenu, closeMenu, targets, toggle, railStyle, setRailStyle, resetLayout } = useLytPresenceMenu({
+const { targets, toggle, railStyle, setRailStyle, resetLayout } = useLytPresenceMenu({
   classDefaults: classDefaultsRef,
   forcedAbsent: forcedAbsentRef,
 });
+const { open, rootRef, toggle: toggleMenu } = useDismissiblePopover();
+// `rootRef` is bound to this file's own template root (`ref="rootRef"`,
+// below) — Vue writes it at render time (the composable's own
+// outside-click check reads it internally); `noUnusedLocals` cannot see
+// a plain-string `ref="..."` template binding as a "read" of the local,
+// so this `void` is the honest acknowledgment, not dead code.
+void rootRef;
 const { setPopoverEl, xShift } = usePopoverEdgeClamp(open);
-
-const rootRef = ref<HTMLElement | null>(null);
-
-function onDocumentPointerDown(e: PointerEvent): void {
-  if (!rootRef.value) return;
-  if (rootRef.value.contains(e.target as Node)) return; // DOM: event.target is an EventTarget; Node is contains()'s arg type
-  closeMenu();
-}
-function onKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') closeMenu();
-}
-watch(open, (isOpen) => {
-  if (isOpen) {
-    document.addEventListener('pointerdown', onDocumentPointerDown, true);
-    document.addEventListener('keydown', onKeydown);
-  } else {
-    document.removeEventListener('pointerdown', onDocumentPointerDown, true);
-    document.removeEventListener('keydown', onKeydown);
-  }
-});
-onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', onDocumentPointerDown, true);
-  document.removeEventListener('keydown', onKeydown);
-});
 
 function targetTitle(disabled: boolean, forcedAbsent: boolean): string {
   // The last-remaining-panel guard's own disable reason is REMOVED (this
@@ -178,7 +180,7 @@ const popoverId = 'lyt-presence-popover';
       :ref="setPopoverEl"
       class="lyt-presence-popover"
       role="menu"
-      :style="{ transform: `translateX(${xShift}px)` }"
+      :style="{ transform: `translateX(${xShift}px)`, marginBottom: `${props.clearancePx ?? 0}px` }"
     >
       <div class="lyt-presence-title">{{ $t('app.chrome.presence.menuTitle') }}</div>
 

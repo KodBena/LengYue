@@ -35,11 +35,13 @@ as Amendments 1-4):
    (§9.1 of the consult report). One more sizing-bag key, legal on any node
    kind at any depth; empty (the default) is byte-identical to every
    pre-Amendment-5 encoding.
-4. `Leaf.content` — an orthogonal content-class axis (§9.2 of the consult
+4. `Slot.content` — an orthogonal content-class axis (§9.2 of the consult
    report), deliberately NOT folded into `domain` or `facets` (that would
    re-mint the exact ADR-0008 misfit the report's own §6.3 just retired
    `blackbox` from the domain axis to avoid). `None` (the default) means
-   "not classified" — dormant for every existing leaf.
+   "not classified" — dormant for every existing leaf. **RELOCATED to
+   `Slot` by AMENDMENT 10 below** — this list entry is kept for the
+   historical numbering, not for its original "lives on `Leaf`" claim.
 
 Both are enforced as load-time structural walks in `wellformed.py` (laws
 L5/L5a/L5b/L5c), the same enforcement family as L2's dominance test.
@@ -90,6 +92,36 @@ before/after dormancy proof.
    naming correction: this key was called "L8" in the loop's own round-6
    commit message, but that number belonged to `measure-bound`'s
    structural checker; `wrap` never claimed a law number of its own.
+
+AMENDMENT 10 (ledger rows 2447/2450, L2a of the space-owner cure —
+`.claude/dispatch-reports/lyt-space-owner-spec.md` §0's third bullet and
+§3 step 2): closes the gap that spec names — `LytBlackboxNode` and
+`LytExclusiveChild` (the frontend's own collapsed/opened Exclusive
+representations) carried neither `content` nor `scrollAxes`, because
+`content` was `Leaf`-only and a T(...) node's own wrapping slot, or an
+Exclusive-child whose own node is a Split/Exclusive rather than a bare
+Leaf, had no field to declare either fact on.
+
+10. `Slot.content` — `content` RELOCATES off `Leaf` onto `Slot`, the same
+    generalization `scroll_axes` (AMENDMENT 5) already made and for the
+    same reason: legal on a leaf (unchanged meaning and closed
+    vocabulary), on an Exclusive (T) node's own wrapping slot (a new
+    position — the collapsed group's own declared content class), and on
+    a slot that is a DIRECT CHILD of an Exclusive regardless of that
+    child's own underlying node kind (also new — an Exclusive-child that
+    is itself a Split or a nested Exclusive may now declare its own
+    content class, where before only a bare-leaf T-child could). Refused
+    everywhere else exactly as before (an ordinary Split not standing as
+    a T-child, the root slot) — `loader._load_content_class` is the
+    single enforcement point, widened rather than duplicated.
+    `wellformed.py`'s L5/L5a/L5c continue to read this fact off
+    `isinstance(node, ast.Leaf)` sites only (`slot.content`, not
+    `slot.node.content` — `Leaf` has no `content` field left to read); a
+    NEW declaration at one of the two new positions is invisible to
+    those three laws exactly the same way an unclassified leaf always
+    was — dormant, not silently unchecked in some novel way. `None` (the
+    default) is byte-identical to every pre-Amendment-10 slot, leaf or
+    composite.
 
 License: Public Domain (The Unlicense), matching research/lyt/__init__.py's
 license line and the umbrella's ADR-0006 per-file convention.
@@ -461,14 +493,15 @@ class Leaf:
     facets: FrozenSet[Facet] = field(default_factory=frozenset)
     domain: Domain = "chrome"
     flagged: bool = False  # our tag for the census's '?' ambiguity marker (§3)
-    # AMENDMENT 5 (ledger row 1937): the orthogonal content-class axis --
-    # see module docstring's `ContentClass` note. `None` means "not
-    # classified" -- the pre-Amendment-5, dormant state every existing
-    # leaf is in; L5/L5a/L5c (wellformed.py) only fire for a leaf whose
-    # `content` is genuinely declared, so an un-classified leaf is
-    # invisible to every Amendment 5 law, exactly as an un-migrated
-    # encoding must stay legal.
-    content: Optional[ContentClass] = None
+    # AMENDMENT 10 (ledger rows 2447/2450, L2a of the space-owner cure):
+    # `content` RELOCATES off `Leaf` onto `Slot` (see `Slot.content`'s own
+    # doc-comment below) -- the same generalization `scroll_axes` (AMENDMENT
+    # 5) already made, for the same reason: a T(...) blackbox's own
+    # wrapping slot, and an Exclusive-child's own wrapping slot regardless
+    # of its underlying node kind, both need to declare a content class
+    # too, and `Leaf`-only storage cannot carry that. Read a leaf's content
+    # class off `Slot.content` (its own enclosing slot), never off this
+    # class -- there is no `Leaf.content` field to read.
     # AMENDMENT 6 (ledger row 1937, .claude/dispatch-reports/
     # lyt-tab-region-consult.md §6.3): the re-homed boundary marker -- see
     # module docstring point 5. `False` (default) is the pre-Amendment-6
@@ -483,9 +516,10 @@ class Leaf:
     # loader enforces that); empty by default, byte-identical to every
     # pre-Amendment-7 leaf.
     #
-    # A LEAF fact, not a Slot fact, for the same reason `content` is: it
-    # describes what the leaf RENDERS, not how the partition treats it.
-    # Law L10 (unit integrity, `wellformed.find_l10_violations`) is its
+    # A LEAF fact, not a Slot fact -- unlike `content` (AMENDMENT 10, now
+    # Slot-level), a unit describes what the leaf's OWN content is made of,
+    # never a fact a composite wrapping it could meaningfully declare on its
+    # behalf. Law L10 (unit integrity, `wellformed.find_l10_violations`) is its
     # structural checker; `loader._load_unit_axes` carries the load-time
     # refusals (leaf-only, px-only, one entry per axis, and the `content
     # bounded|unbounded` precondition).
@@ -622,23 +656,11 @@ class Leaf:
     edge_axes: FrozenSet[Tuple[str, str]] = frozenset()
 
     def __post_init__(self) -> None:
-        # F3-fix precedent (Extent/Sizing/Presence, this same module):
-        # a `Literal[...]` annotation is a typecheck-only promise: a
-        # caller constructing `Leaf(content="chart")` directly (bypassing
-        # the concrete-syntax loader, which DOES validate this) would
-        # otherwise succeed silently. Enforced here too, for the same
-        # "unrepresentable by construction, not just by convention"
-        # reason.
-        if self.content is not None and self.content not in _VALID_CONTENT_CLASSES:
-            raise ValueError(
-                f"Leaf.content must be one of {sorted(_VALID_CONTENT_CLASSES)} "
-                f"or None, got {self.content!r} (AMENDMENT 5, ledger row 1937, "
-                ".claude/dispatch-reports/lyt-tab-region-consult.md §9.2)"
-            )
         # METAMODEL WAVE, item 1: same "unrepresentable by construction"
-        # posture as `content`'s guard above -- a direct constructor call
-        # bypassing `loader._load_orientation` would otherwise mint an
-        # orientation outside the closed {h, v} vocabulary silently.
+        # posture `Slot.content`'s own guard uses (AMENDMENT 10) -- a direct
+        # constructor call bypassing `loader._load_orientation` would
+        # otherwise mint an orientation outside the closed {h, v} vocabulary
+        # silently.
         if self.orientation not in _VALID_ORIENTATIONS:
             raise ValueError(
                 f"Leaf.orientation must be one of {sorted(_VALID_ORIENTATIONS)}, "
@@ -815,15 +837,40 @@ class Slot:
     # its own partition already places. `None` (the default) is
     # byte-identical to every pre-Amendment-7 slot.
     wrap_policy: Optional[str] = None
+    # AMENDMENT 10 (ledger rows 2447/2450, L2a of the space-owner cure):
+    # `content` -- see module docstring's `ContentClass` note and its own
+    # AMENDMENT 10 entry for the full relocation rationale. RELOCATED off
+    # `Leaf` onto `Slot`, the same generalization `scroll_axes` already
+    # made: legal on a leaf (unchanged closed vocabulary and meaning), on
+    # an Exclusive's own wrapping slot, and on a slot that is a direct
+    # child of an Exclusive regardless of its own node kind --
+    # `loader._load_content_class` is the single enforcement point for
+    # all three positions, refusing everywhere else. `None` (the default)
+    # is byte-identical to every pre-Amendment-10 slot.
+    content: Optional[ContentClass] = None
 
     def __post_init__(self) -> None:
+        # AMENDMENT 10: same "unrepresentable by construction, not just by
+        # convention" posture the F3 fix established for Extent/Sizing/
+        # Presence and AMENDMENT 5 for `scroll_axes` below -- a direct
+        # constructor call bypassing `loader._load_content_class` would
+        # otherwise mint a content class outside the closed vocabulary
+        # silently.
+        if self.content is not None and self.content not in _VALID_CONTENT_CLASSES:
+            raise ValueError(
+                f"Slot.content must be one of {sorted(_VALID_CONTENT_CLASSES)} "
+                f"or None, got {self.content!r} (AMENDMENT 10, ledger rows "
+                "2447/2450 — relocated from Leaf.content, AMENDMENT 5, ledger "
+                "row 1937, .claude/dispatch-reports/lyt-tab-region-consult.md "
+                "§9.2)"
+            )
         if self.wrap_policy is not None and self.wrap_policy not in _VALID_WRAP_POLICIES:
             raise ValueError(
                 f"Slot.wrap_policy must be one of {sorted(_VALID_WRAP_POLICIES)} "
                 f"or None, got {self.wrap_policy!r} (AMENDMENT 7, ledger rows "
                 "2107/2108) — same 'unrepresentable by construction, not just "
                 "by convention' posture the F3 fix established for "
-                "Extent/Sizing/Presence and Amendment 5 for Leaf.content."
+                "Extent/Sizing/Presence and Amendment 10 for Slot.content."
             )
         bad = self.scroll_axes - _VALID_SCROLL_AXES
         if bad:

@@ -281,7 +281,7 @@ unaffected.
 
 `research/lyt/baseline.py`'s `BASELINE_WAIVERS` is the one registry this
 mechanism is populated from today, covering
-`encodings/current_row_asis.lyt` — the LYT shadow-harness's (a
+`fixtures/transcription/current_row_asis.lyt` — the LYT shadow-harness's (a
 "shadow" measurement rig, `frontend/scripts/lyt-conformance.mjs`, that
 measures the LIVE SPA's rendered DOM geometry and diffs it against
 LYT's solved layout, without altering the app) AS-IS
@@ -290,7 +290,7 @@ warts-and-all, unlike `current_row_repaired.lyt`, which structurally
 repairs its L1/L2 warts). `runner.py`'s `Registration.waivers` field and
 `emit_ts.py --registration current_row_asis.lyt` both thread this map
 through, so the CLI runner and the codegen agree on what's waived and
-why. See `encodings/current_row_asis.lyt`'s own header for the two
+why. See `fixtures/transcription/current_row_asis.lyt`'s own header for the two
 disclosed L2 sites and [.claude/dispatch-reports/lyt-constants-swap-build.md](../../.claude/dispatch-reports/lyt-constants-swap-build.md)
 for the divergence-report evidence this baseline produced.
 
@@ -317,3 +317,24 @@ INFEASIBLE finding this wave surfaces (the newly-opened settings pane's
 ch-measured width floor exceeds the side column's own pre-existing hard
 cap at every landscape size) — read that report, not this paragraph, for
 the numbers.
+
+## Solver environment
+
+`compiler.py` needs Google OR-Tools (`ortools`), which is not part of the
+umbrella's own Python environment — every actor exercising this
+directory's own `pytest` suite has, so far, rebuilt a throwaway venv ad
+hoc for it (row 2401 named this as recurring debt). The one-line fix,
+run from this directory (`research/lyt/`):
+
+```
+python3 -m venv /tmp/lyt-venv && /tmp/lyt-venv/bin/pip install ortools pytest && /tmp/lyt-venv/bin/pytest tests/ -q
+```
+
+`ortools` is the only third-party dependency this prototype has beyond
+the standard library and `pytest` itself; nothing here needs a browser
+(the Playwright probe harness under `tools/probe_harness/` is a
+separate, Node-side tool with its own `npm install`, unrelated to this
+Python venv). A venv placed anywhere outside this repository (e.g.
+`/tmp/lyt-venv` above) avoids polluting the umbrella's own
+`frontend`/`backend` dependency trees, which is why no `requirements.txt`
+is committed here — the one-liner above is the durable reference instead.

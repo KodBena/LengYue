@@ -93,14 +93,14 @@ export const LYT_LANDSCAPE: LytProgram = {
                   {
                     path: "2.0.1",
                     presenceDefaultVisible: true,
-                    track: { kind: "elastic", minPx: 0, frWeight: 1 },
-                    node: { kind: "leaf", widget: "A_engine_eval", domain: "go", facets: ["info"], aspect: null, scrollAxes: [], content: "bounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: null, demote: null, envelopeStates: null },
+                    track: { kind: "fixed", px: 139 },
+                    node: { kind: "leaf", widget: "A_engine_eval", domain: "go", facets: ["info"], aspect: null, scrollAxes: [], content: "bounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: null, demote: null, envelopeStates: ["connected-1digit", "connected-2digit", "connected-3digit", "connected-4digit", "connected-5digit", "connected-real"] },
                   },
                   {
                     path: "2.0.2",
                     presenceDefaultVisible: true,
-                    track: { kind: "elastic", minPx: 0, frWeight: 1 },
-                    node: { kind: "leaf", widget: "A_engine_health", domain: "go", facets: ["info"], aspect: null, scrollAxes: [], content: "bounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: null, demote: null, envelopeStates: null },
+                    track: { kind: "fixed", px: 139 },
+                    node: { kind: "leaf", widget: "A_engine_health", domain: "go", facets: ["info"], aspect: null, scrollAxes: [], content: "bounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: null, demote: null, envelopeStates: ["connected-1digit", "connected-2digit", "connected-3digit", "connected-4digit", "connected-5digit", "connected-real"] },
                   },
                   {
                     path: "2.0.3",
@@ -114,7 +114,7 @@ export const LYT_LANDSCAPE: LytProgram = {
             {
               path: "2.1",
               presenceDefaultVisible: true,
-              track: { kind: "fixed", px: 160 },
+              track: { kind: "fixed", px: 28 },
               node: { kind: "leaf", widget: "A_app", domain: "common", facets: ["action"], aspect: null, scrollAxes: [], content: "bounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: "occasional", demote: { axis: "h", belowPx: 616 }, envelopeStates: null },
             },
             {
@@ -134,7 +134,7 @@ export const LYT_LANDSCAPE: LytProgram = {
                     path: "2.3.0",
                     presenceDefaultVisible: true,
                     track: { kind: "elastic", minPx: 110, frWeight: 1 },
-                    node: { kind: "leaf", widget: "tree", domain: "board", facets: ["action", "info"], aspect: null, scrollAxes: [], content: null, elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [], orientation: "v", activity: null, demote: null, envelopeStates: null },
+                    node: { kind: "leaf", widget: "tree", domain: "board", facets: ["action", "info"], aspect: null, scrollAxes: ["v"], content: "unbounded", elasticAxes: [], ceilingAxes: [], floorAxes: [], edgeAxes: [{ axis: "v", disposition: "item" }], orientation: "v", activity: null, demote: null, envelopeStates: null },
                   },
                   {
                     path: "2.3.1",
@@ -163,6 +163,8 @@ export const LYT_LANDSCAPE: LytProgram = {
                           path: "2.3.1.2",
                           tabId: "settings",
                           tabLabelKey: "app.tabs.settings",
+                          content: null,
+                          scrollAxes: [],
                           node: {
                             kind: "split", axis: "v", gapPx: 4,
                             children: [
@@ -176,7 +178,7 @@ export const LYT_LANDSCAPE: LytProgram = {
                                 path: "2.3.1.2.1",
                                 presenceDefaultVisible: true,
                                 track: { kind: "elastic", minPx: 200, frWeight: 1 },
-                                node: { kind: "blackbox", widget: "SP_session", tag: null, childWidgets: ["SP_session", "SP_analysisEnv", "SP_cardSets", "SP_advancedRegistry", "SP_analysis", "SP_keybindings"], demote: null },
+                                node: { kind: "blackbox", widget: "SP_session", tag: null, childWidgets: ["SP_session", "SP_analysisEnv", "SP_cardSets", "SP_advancedRegistry", "SP_analysis", "SP_keybindings"], demote: null, content: "unbounded", scrollAxes: [] },
                               },
                             ],
                           },
@@ -185,12 +187,16 @@ export const LYT_LANDSCAPE: LytProgram = {
                           path: "2.3.1.3",
                           tabId: "analysis",
                           tabLabelKey: "app.tabs.analysis",
-                          node: { kind: "blackbox", widget: "CP-analysis", tag: null, childWidgets: ["timelineStrip", "AT_basic_interval", "AT_basic_scoreLead", "AT_basic_mergedDelta", "AT_dist_deltaDist", "AT_dist_mistakeGap", "AT_stab_stability", "AT_stab_crossCorr", "AT_multires"], demote: null },
+                          content: "unbounded",
+                          scrollAxes: [],
+                          node: { kind: "blackbox", widget: "CP-analysis", tag: null, childWidgets: ["timelineStrip", "AT_basic_interval", "AT_basic_scoreLead", "AT_basic_mergedDelta", "AT_dist_deltaDist", "AT_dist_mistakeGap", "AT_stab_stability", "AT_stab_crossCorr", "AT_multires"], demote: null, content: "unbounded", scrollAxes: [] },
                         },
                         {
                           path: "2.3.1.4",
                           tabId: "other",
                           tabLabelKey: "app.tabs.other",
+                          content: "unbounded",
+                          scrollAxes: [],
                           node: {
                             kind: "split", axis: "v", gapPx: 4,
                             children: [

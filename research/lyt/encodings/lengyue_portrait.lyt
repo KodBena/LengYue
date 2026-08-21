@@ -1,524 +1,59 @@
--- Transcription of layout-language-consult.md §5.5 (lines 588-599),
--- clean-room LengYue, portrait class. Disclosed adjustments beyond the
--- ones already covered in lengyue_landscape.lyt's header comment:
---   - `A_top[*, action]` uses '*' as a domain wildcard (the document's own
---     comment reads "A_go (+) A_common on one reserved strip", i.e. this
---     leaf merges two census domains into one strip). LYT's Domain type
---     has no wildcard/union member; we pick 'common' as the representative
---     domain, consistent with §4.3's own position that domain tagging is
---     advisory, not load-bearing for geometry.
---   - `I_engine[...]{28px, envelope as above}`: "as above" is prose
---     referencing §5.4's envelope states; spelled out explicitly here
---     rather than parsed literally (no such backreference exists in the
---     grammar).
---   - `T( tree, CP-* )[BLACK BOX]{pref 1fr, min 200px}` abbreviates the
---     black box further than §5.4 (bare `tree` with no bracket, and a
---     `CP-*` wildcard standing in for all five tabs). Expanded here to the
---     same six children as the landscape encoding — the census entities
---     are the same, only the prose shorthand differs — with each child's
---     own min set to 200px so the T node's structurally-derived min
---     (componentwise max of children, §4.1 line 298-302) reproduces the
---     document's explicit `min 200px` for the whole group.
---   - AMENDMENT 3 (ledger row 1715, gap-amendment-build): the root V(...)
---     gets `gap 12px`, `--space-medium` (`frontend/src/assets/css/
---     theme.css`'s own words: "section-level gap, content-block
---     separation"). Landscape's OUTER split uses the wider `--space-loose`
---     tier (20px) for its board-vs-side-column split, a clean two-way
---     major-region seam with generous width to spare; portrait's root
---     stacks bands in a narrower viewport, so the next tier down is the
---     disclosed, deliberate choice here, not an infeasibility workaround
---     (this class stayed OPTIMAL at `--space-loose` too when probed — see
---     build report). The new tree/panels/preview row below gets its own
---     `gap 4px` (`--space-tight`), matching landscape's identical row.
---
---   - TREE ALWAYS VISIBLE / boardRail / previewBoard (ledger row ~1735):
---     same three commissioner-driven changes as lengyue_landscape.lyt —
---     read that file's header in full for the shared rationale
---     (grounding citations, presence-menu mechanism disclosure, the
---     aspect-leaf generalization, the boardRail-as-popover open fork).
---     This file's own class-specific choices, not covered there:
---       - boardRail: the as-is app's 168px reservation is a WIDTH (a
---         left-edge rail column); portrait's root V partitions on
---         HEIGHT, so there is no literal "left edge" in a single-column
---         stack. Reinterpreted as a 168px-tall HORIZONTAL strip at the
---         TOP of the page (root V's new first child, before A_top) —
---         "top" being the portrait analog of "leftmost/first" in the
---         root's own child ORDER (matching the ruling's own "left edge
---         as today is the conservative choice": same numeric value,
---         same leading structural position, axis reinterpreted the way
---         every other shared-identity leaf in this pair of files already
---         is between classes). No stronger portrait-specific precedent
---         exists to ground a different number against — flagged as a
---         judgment call, not a re-derivation.
---       - previewBoard: reservation scaled DOWN from landscape's 160px to
---         96px (`min=pref=max=96px, aspect 1`) — "modest... scaled
---         sensibly to the region" (the ruling's own phrasing). Portrait's
---         tree/panels/preview row shares its width budget with the
---         tree's fixed 140px and the T node's 200px floor inside the
---         FULL VIEWPORT WIDTH (no elastic side-column buffer the way
---         landscape has); 96px is the down-scaled choice that keeps this
---         row's fixed+floor total (140+96+200=436px plus two 4px gaps)
---         comfortably under every representative portrait width this
---         prototype's own OVERLAY_SIZES table tests at 768px and up,
---         while genuinely tightening the narrowest two probes (540x960,
---         420x880) — see the build report's before/after feasibility
---         table for the measured outcome at each size, disclosed rather
---         than silently absorbed either way.
---
---   - AMENDMENT 4 (ledger row 1737, per-valuation presence solving,
---     SPEC-AMENDMENTS.md): boardRail and previewBoard below are now
---     genuinely `@toggle(user, release)` in this file's own concrete
---     syntax, same as lengyue_landscape.lyt — see that file's own
---     boardRail header note for the full rationale (the DEFAULT-OFF
---     state itself still lives at the registration layer, `runner.py`'s
---     `Registration.default_valuation`, not in this file's text).
---
---   - LYT TOOLBAR ONTOLOGY REENCODE (commissioner-ratified 2026-08-11,
---     ledger rows 1930/1931; `.claude/dispatch-reports/
---     lyt-toolbar-ontology-reencode.md`) — the commission's four points,
---     applied to THIS class: `A_top` is RENAMED `A_app[common, action]`
---     (same tree position, root child '1' — the widget id changes, the
---     structure doesn't) and `I_engine` is RENAMED `A_engine[go,
---     action+info]` (same tree position, root child '3'), now genuinely
---     `envelope: {disconnected, connected}` and MOUNTED for the first
---     time — portrait's own `I_engine` leaf previously mounted NOTHING
---     (disclosed W3 narrowing, `lyt-widget-registry.ts`'s prior
---     "class-scoped overrides" note: portrait's tree structurally
---     separated `I_engine` from `A_top`, so landscape's merged-Toolbar
---     disposition never carried over here). This reencode closes that
---     gap: portrait now has a REAL, working engine cluster it never had
---     before, not merely a rename. No path shift anywhere in this file
---     (unlike landscape, whose side column genuinely lost a V-child) —
---     portrait's own root V already kept `A_top`/`I_engine` as two
---     SEPARATE, non-adjacent children (the board composite sits between
---     them), so collapsing three leaves into two never applied here to
---     begin with. Reservations: `160px` (A_app) / `60px` (A_engine,
---     envelope-reserved) are a REAL Playwright measurement of the
---     realized components at portrait's own pinned representative
---     widths (420px — `tests/test_lyt.py`'s own
---     `test_lengyue_portrait_default_valuation_solves_optimal_at_420x880`;
---     1080px — `runner.py`'s own SCREEN_SIZES portrait point), taking
---     the worse (narrower, 420px) case per component plus a ~10px
---     margin — see the dispatch report's measurement table. Was `28px`
---     each (bare fixed shorthand) pre-reencode, a reservation this
---     encoding's own real content never actually fit inside even before
---     today (portrait's engine strip mounted nothing at all, and the
---     app strip's own real content already needed to wrap well past one
---     28px row) — this is a genuine, disclosed CORRECTION of an
---     under-measured prior value, not merely a resize for the new split.
---   - OPTION C TAB-SKELETON ENCODING (2026-08-11, ledger row 1937's
---     ratified consult; work item lyt-tab-skeleton-encoding). Same
---     re-homing + one-level-open shape as `lengyue_landscape.lyt`'s own
---     header note (read in full there for the grounding citations,
---     the settings-pane conservative-superset disclosure, the per-panel
---     height groundings/estimates, the CP-other L5c restructure, and the
---     BOTH-AXES TENSION note) — this class differs only in its
---     per-child `min` (200px, matching this file's own pre-existing
---     WRAPPER_MIN-analog convention, vs. landscape's 160px) for the two
---     still-opaque CP-library/CP-cards leaves; every genuinely NEW number
---     (the 838/664/204px composite floors, the per-panel floors) is
---     IDENTICAL across both classes — the underlying components render
---     the same regardless of screen orientation, so there is no honest
---     portrait-specific number to derive differently. Portrait's own
---     narrower available width makes the 838px settings floor and the
---     664px analysis floor considerably more likely to be the binding
---     constraint here than in landscape — reported, not pre-empted, in
---     the delivery report's solver results.
---
---     REPAIR (2026-08-11, `.claude/dispatch-reports/lyt-optionc-review.md`
---     Findings 2/3, corrected in `.claude/dispatch-reports/lyt-optionc-
---     repair.md`): same fixes as `lengyue_landscape.lyt`'s own header note
---     (read there for the full derivation) — the T(...)'s own wrapping
---     slot now carries an explicit `min 200px` (this file's own
---     pre-existing per-child marker reservation), so the emitter's
---     collapsed blackbox leaf reads that declared min directly instead of
---     re-deriving the solver's own componentwise-max floor from the (now
---     much deeper) composite children; and the settings-substrip demand
---     is corrected from the delivered wave's inflated 97ch/880px to the
---     actual 92ch/838px (a systematic +1-per-label ch-count error, five of
---     six labels affected — see the landscape header's Finding 3 note for
---     the full per-label table).
---
---     FLOW-CAPABLE SETTINGS SUBSTRIP (2026-08-11, work item
---     lyt-settings-live-opening, ledger rows 2007/2009): identical
---     derivation to `lengyue_landscape.lyt`'s own header note (read there
---     in full — the six item widths, `research/lyt/flow.py`'s
---     `narrowest_width_for_row_count`/`flow_envelope`, the 2-row/443px/
---     60px design point, the BOTH-AXES-TENSION-driven composite min drop
---     from 838px to 443px). Applied identically here per this file's own
---     established convention (this section's own header line 120-121:
---     "every genuinely NEW number ... is IDENTICAL across both classes —
---     the underlying components render the same regardless of screen
---     orientation, so there is no honest portrait-specific number to
---     derive differently"). Portrait's own narrower available width
---     (line 122-126 above) means this correction is, if anything, MORE
---     load-bearing here than in landscape.
---
---     REPAIR (2026-08-12, independent review Finding 3 — identical
---     correction to `lengyue_landscape.lyt`'s own REPAIR header note,
---     read there in full): `settingsSubstrip` moves `{60px}` -> `{77px}`
---     (the review's own live-measured 67px + this file's established
---     ~10px margin posture). Composite `min` unchanged at 443px (the new
---     281px height floor stays under the 443px width floor).
---
---   - M2 STAGE B2a (2026-08-12, ledger rows 2108/2331) — identical
---     rationale to `lengyue_landscape.lyt`'s own M2 STAGE B2a header note
---     (read there in full for the fork-1 ruling, the L13/L16/L17 cascade
---     reasoning, and the `@demote` measurement basis); this class's own
---     numbers, where they differ:
---       - TREE BECOMES RESIDUAL-HOLDING: `tree` moves from
---         `{min 140px, pref 140px, max 140px}` to
---         `{min 140px, pref 1fr, max inf}` (its own established 140px
---         floor unchanged); `T(...)` is PINNED at `{min 664px, pref
---         664px, max 664px}` — the SAME 664px componentwise-max floor as
---         landscape (this file's own header, line 118-121: "every
---         genuinely NEW number... is IDENTICAL across both classes").
---       - L13/L16: `CP-library`/`CP-cards` gain `elastic h` + `floor v
---         200px` — 200px is this leaf's own already-declared `min` in
---         THIS file (line 116-117's own "200px, matching this file's own
---         pre-existing WRAPPER_MIN-analog convention"), not landscape's
---         160px.
---       - L17: direct load against this file finds `find_l17_violations`
---         fires at the same four sites as landscape (`CP-library`,
---         `CP-cards`, `settingsPane`, `otherBand`) — `boardRail`/`tree`
---         do not trip it here either, same correction as landscape's own
---         header note. `edge v item` (library/cards/settingsPane),
---         `edge v continuous` (otherBand) — same content-nature reasoning
---         as landscape.
---       - `@demote(h 616px)` on `A_app`: the measured threshold is
---         WIDTH-INVARIANT (identical at 1920 and 420 per the experiment
---         branch's own measurement, landscape header note above), so the
---         same 616px applies here. L15's own band-wide clause (b) cascade
---         is WIDER in this class: `A_app`'s own Split parent is the
---         ROOT `V(...)` itself (portrait has no separate side column —
---         `boardRail`, `A_app`, and `A_engine` are all THREE direct leaf
---         children of the same root split; the board composite and the
---         tree/panels row are composites, excluded), so all three need
---         `activity`. `A_engine` gains `activity sustained` (same
---         grounding as landscape). `boardRail` gains `activity
---         occasional` — grounded in its own product nature (an
---         open-boards navigation aid, already a default-OFF user toggle
---         per Amendment 4 — used when switching boards, not continuously
---         read the way the engine metrics are), distinct from landscape
---         where `boardRail` sits alone in the root `H`'s own split (no
---         other direct leaf child there) and so triggers no band-wide
---         cascade at all — an asymmetry between the two files driven
---         purely by tree shape, disclosed here rather than silently
---         matched. Verified directly: `find_l15_violations` returns `[]`
---         for every Split in this file's tree after these three
---         additions, and no other leaf anywhere in this file gains
---         `activity`.
---
---   - M2 STAGE B2b (2026-08-12, ledger rows 2073/2108/2151, the
---     ruling-basket census) -- identical rationale to
---     `lengyue_landscape.lyt`'s own M2 STAGE B2b header note (read there
---     in full for the three-vocabulary decomposition's per-group
---     grounding citations, the palette-adoption rationale/quotes, and
---     the settingsPane per-leaf §8.4 classification table); this
---     class's own differences, where they exist:
---
---     (1) ENGINE STATUS DECOMPOSITION -- identical shape
---     (`H(A_engine_controls, A_engine_eval, A_engine_health,
---     A_engine_queue)` replacing the bare `A_engine[go, action+info]`
---     leaf, SAME `{60px, envelope: {disconnected, connected}}` height
---     reservation on the wrapping `H(...)`, SAME undetermined per-group
---     width floor, filed the same frontier item -- `A_engine_controls`'
---     own share of that frontier item is now closed, see the ENGINE-
---     CONTROLS WIDTH FLOOR item near the end of this header). `activity sustained`
---     is RETIRED from this position the same way -- `A_engine` was the
---     ONE OTHER direct leaf child of the root `V(...)` this file's own
---     header note immediately above names as needing the band-wide
---     cascade; now that it is a composite, excluded, the root `V(...)`'s
---     own remaining direct leaf children needing `activity` are
---     `boardRail`/`A_app`/`A_setup` (item 2 below) -- THREE, not two,
---     the SAME "wider cascade in this class" shape the header note above
---     already documents, just with `A_setup` as the new third member
---     replacing `A_engine`'s own prior membership.
---
---     (2) PALETTE-AS-PRESENCE-SLOT -- identical `A_setup[common,
---     action]` leaf (`@toggle(user, release), {80px, content bounded,
---     activity occasional}`), placed as a direct ROOT `V(...)` child
---     (portrait has no separate side column -- same structural fact this
---     file's own header note above already establishes for `A_app`'s own
---     band-wide reach), positioned directly after `A_app` (the trigger's
---     own tree position, matching the palette's real in-flow docking
---     below its trigger). `runner.py`'s own `default_valuation` gains
---     `"A_setup"` for this class too (the SAME registration entry
---     already names both classes' widgets, since `default_valuation` is
---     declared once at the registration layer, not per-class).
---
---     (3) PANE GRANULARITY -- identical `T(SP_session, SP_analysisEnv,
---     SP_cardSets, SP_advancedRegistry, SP_analysis, SP_keybindings)`
---     shape, using this class's own already-established `200px` per-leaf
---     floor (this file's own OPTION C header note above: "this file's
---     own pre-existing WRAPPER_MIN-analog convention" -- 200px was
---     already this class's number for the analogous CP-library/CP-cards
---     floor, so no cross-class number choice was needed here the way
---     landscape's 160px-vs-200px distinction required its own header
---     note).
---
---     (4) ENGINE-ROW HEIGHT RE-GROUNDING (ledger row 2347, reviewer
---     finding 1) -- identical defect and identical fix to
---     `lengyue_landscape.lyt`'s own dated section of the same name
---     (read there for the full derivation: the retired merged
---     `ToolbarEngineCluster.vue`'s wrapping-H measurement carried
---     forward unexamined into item (1) above's decomposition,
---     `ToolbarEngineControls.vue`'s five buttons -- mint-card /
---     learn-path / play / match / connect-disconnect -- wrap to THREE
---     rows at the real post-decomposition column width, clipping Match
---     and Connect/Disconnect in the stale 60px track). MEASURED on the
---     SAME isolated rig, THIS class's own 768x1024 size (live column
---     width 189px): `.engine-controls` naturally needs **80px** (3
---     rows x 24px + 2 gaps x 4px), matching both the reviewer's own
---     finding and the landscape class's own 1920x1080 measurement
---     (197.5px column width) exactly -- the wrap count, not the column
---     width, is what changed between classes, and both land on the
---     same 3-row/80px shape. The other three groups checked the same
---     way (`.engine-metrics-bar`/`.queue-metric` declare no
---     `flex-wrap`, so neither can wrap regardless of width) and the
---     same STRUCTURAL LIMITATION applies (`H(...)` shares one
---     cross-axis fact across children; per-group heights are not
---     expressible without a tree restructure or new grammar, filed as
---     a frontier item, not undertaken here). Fix: raise the shared row
---     height from `60px` to `80px`, uniformly, same as landscape.
---
---   - MEASUREMENT-GROUNDED ENCODING PASS (2026-08-12) -- identical
---     rationale to `lengyue_landscape.lyt`'s own header note of the same
---     name (read there in full: the isolated-rig methodology, the
---     CP-library/CP-cards unit values, the SP_advancedRegistry/
---     SP_keybindings non-uniform-pitch reasoning for why they stay
---     `item`, the timelineStrip full-grounding, and the A_setup 92px
---     re-grounding with its unattributed 12px delta) -- every number
---     this pass introduces is IDENTICAL across both classes (the same
---     live components render regardless of screen orientation, this
---     file's own established convention, see the OPTION C header note
---     above). This class's own difference: `CP-library`/`CP-cards`'
---     already-declared per-leaf `min` here is `200px` (this file's own
---     convention, not landscape's `160px`), still well over one whole
---     unit on the v axis for both the `32px`/`39px` units, so L10 is
---     satisfied the same way with a different (already-existing) min.
---
---   - LYT PRESENCE ARC P1 (2026-08-12, row 2333, mobile/portrait
---     repetition-first disposition; `.claude/dispatch-reports/
---     lyt-p1-presence-model.md`) -- identical CONTROL-PANEL DEMOTION
---     mechanism to `lengyue_landscape.lyt`'s own header note (read
---     there in full for the loader/presence.py widening this relies
---     on) -- this class's own threshold, re-derived from THIS file's
---     own named facts (identical derivation shape, different tree
---     position -- portrait has no side column, so the row is a direct
---     ROOT `V(...)` child):
---       664px (T's own pinned floor -- SAME 664px as landscape, M2
---         STAGE B2a above: "the SAME 664px componentwise-max floor as
---         landscape")
---     + 140px (tree's own floor, this file's own established
---         `TREE_PANEL_MIN_WIDTH_PX`, unchanged by W4 -- portrait-specific)
---     +   4px (one `--space-tight` row gap, this row's own already-
---         declared `gap 4px`, charged once -- previewBoard already
---         absent by default)
---     = 808px.
---
---     PORTRAIT REPETITION-FIRST DEFAULT (the second part of this arc,
---     distinct from landscape's diagnostic-only "demoted" coverage
---     point above): per the commissioner's own disposition (row 2333,
---     non-prescriptive but reasoned from here) -- mobile/portrait is
---     REPETITION-FIRST, board + match/play (the board composite,
---     `tree` navigation) primary, the control-panel tab group
---     (analysis graphs, browse tables, settings, debug -- every one of
---     `T(...)`'s five tabs) secondary -- `runner.py`'s own
---     `Registration.default_valuation_by_class["portrait"]` names
---     `"BLACK BOX"` (this Exclusive's own `[BLACK BOX]` tag, doubling
---     as its presence identity)
---     ABSENT alongside `boardRail`/`previewBoard`/`A_setup`, for
---     PORTRAIT ONLY (landscape's own `default_valuation` is untouched,
---     per row 2333's "do NOT shrink any desktop demand"). At every
---     portrait width narrower than 808px (768x1024, 540x960, 420x880
---     -- this repository's own three previously-INFEASIBLE `default`
---     representative points), the row's residual demand drops from
---     664+140+4=808px to just `tree`'s own 140px floor once T(...) is
---     pruned, which is what makes those three points genuinely
---     `OPTIMAL` under the new default (verified,
---     `.claude/dispatch-reports/lyt-p1-presence-model.md`'s own
---     before/after coverage-matrix table). `tree` itself is NOT
---     demoted -- it is the row's residual-holding sibling (Amendment 9,
---     M2 STAGE B2a) and the repetition-first disposition's own primary
---     surface (reviewing/replaying a game is match/play, not analysis).
---
---   - PORTRAIT ROW FLOOR, P2c (2026-08-12, ledger rows 2358/2359,
---     `.claude/dispatch-reports/lyt-p2c-portrait-row-floor.md`) -- the
---     defect P1's own item 3 diagnosed and disclosed as a recommendation,
---     not silently patched there: this row's own sizing bag, `{pref 1fr,
---     gap 4px} H(tree, T(...), previewBoard)`, declared no `min` of its
---     own. Since this row is a direct child of the root `V(...)` (portrait
---     has no side column, same structural fact the arc above already
---     names), its `min` is a HEIGHT floor along the root's own partition
---     axis -- and per SPEC.md §1.1's completion rule an undeclared `min`
---     defaults to `0px`, so nothing stopped board-maximize from squeezing
---     this row to a literal, honestly-reported zero once every sibling
---     had claimed its own share of the height budget (witnessed at
---     exactly 768x1024, P1's own item 3: `tree` rect `h=0`).
---
---     THE ARITHMETIC. Neither Amendment-8 key applies to this Split
---     child, so this is not a `floor v`/`min v` decision: `floor <axis>`
---     (L16) is LEAF-only (SPEC.md §16.1) and this row is an `H(...)`
---     Split, not a leaf; `min <axis>` (L12) is legal only at the root or
---     a direct child of an Exclusive/T node (SPEC.md §16.1) and this row
---     is a Split child of the root `V`, neither position. The construct
---     that DOES apply is the plain, un-axis-keyed `min` every node's own
---     sizing bag already carries (SPEC.md §4.1) -- the SAME idiom `tree`
---     itself already uses (`{min 140px, pref 1fr, max inf} tree[...]`,
---     two lines below), not a fresh grammar decision.
---
---     The number itself is `tree`'s OWN already-declared 140px floor
---     (`TREE_PANEL_MIN_WIDTH_PX`, the arc above's own named fact),
---     reused cross-axis rather than freshly invented (row 2047's own "a
---     decision posed in pixels is a defect" discipline): under this
---     row's own `default`/`demoted` valuations, `T(...)` and
---     `previewBoard` are BOTH absent (the repetition-first arc above),
---     so `tree` is the row's SOLE, residual-holding content
---     (Amendment 9, SPEC.md §17) at those points -- there is no OTHER
---     child whose own declared facts could honestly ground this row's
---     height floor instead. Squeezing the row below 140px squeezes
---     `tree` below the SAME number this file already treats as "not
---     usefully visible" on its other axis, so reusing it here (rather
---     than picking an unrelated fresh constant) is the reservation-not-
---     measurement posture SPEC.md §4.2 already commits this language to,
---     applied across axes rather than inventing a second number for the
---     same "meaningfully visible" judgment. Disclosed, not a rigorous
---     componentwise-max derivation the way `T(...)`'s own 664px is (no
---     such rule exists for a Split's along-axis `min` against its
---     children's cross-axis facts) -- the honest anchor available, named
---     as such rather than dressed up as more derived than it is.
---
---     Feasibility checked, not assumed: `coverage_matrix.py` before/after
---     re-solve finds every portrait point that was `OPTIMAL` before this
---     edit stays `OPTIMAL` after (768x1024's own `tree`/row height rises
---     from the degenerate `0px` to a genuine `140px`; the other four
---     portrait representative points were already at or above 140px and
---     are unaffected) -- see the dispatch report for the full before/
---     after table.
---
---   - FINISH-PASS WAVE B1, F3 -- A_app RE-MEASUREMENT, PORTRAIT ONLY
---     (2026-08-13, `.claude/dispatch-reports/lyt-wB1-portrait-priority.md`):
---     this file's own OPTION C / LYT TOOLBAR ONTOLOGY REENCODE header note
---     above (line ~95-108) claims `160px` was "a REAL Playwright
---     measurement... taking the WORSE (narrower, 420px) case... plus a
---     ~10px margin". A fresh measurement on this pass's own isolated rig
---     (real `ToolbarAppCluster.vue`, boardRail correctly absent per this
---     file's own P1 default, `railStyle: 'slot'`) finds the CURRENT
---     component's real wrapped-content height at every one of
---     `coverage_matrix.PORTRAIT_SIZES`' five widths (1080/1200/768/540
---     all measure 28px, ONE row; 420 -- the narrowest, and the worst
---     case among the representative set -- measures 56px, TWO rows) is
---     56px at its own worst point, not ~150px. `.lyt-toolbar-strip`'s
---     `align-items: center` was silently absorbing ~100px of pure
---     centering whitespace inside the declared 160px band at every
---     representative width. Whether this is a genuine regression since
---     the 160px figure was recorded, or that figure was never correct,
---     is not established by this pass (no git-blame/bisection was run) --
---     named as a discrepancy, not attributed. Corrected to the SAME
---     "worst representative width + ~10px margin" convention the
---     original figure claims to follow: `56px + 10px = 66px`. PORTRAIT
---     ONLY -- `lengyue_landscape.lyt`'s own `A_app` reservation (also
---     `160px`, same shared component, different — side-column — context)
---     is UNTOUCHED, per this pass's own "desktop/landscape untouched"
---     scope (the side column's real per-widget wrap behavior at ITS OWN
---     widths was not independently re-measured, and re-deriving it is
---     out of this pass's named scope, F3+F4 portrait-only).
---
---   - ENGINE-CONTROLS WIDTH FLOOR (2026-08-13, frontier item B2b closed,
---     `.claude/dispatch-reports/lyt-wB2-controls-menu.md`). SAME `min
---     185px` this class's own item (1) above flags as now-closed --
---     `ToolbarEngineControls.vue` is the SAME component in both classes,
---     so wave W-B2's live measurement (Playwright, real component,
---     worst-case label variants: Mint Card(s) 105.625px / Learn Path
---     90.015625px / Play 43.21875px / Stop Match 90.015625px /
---     Disconnect 90.015625px, `--space-tight` 4px between, 24px
---     `.toolbar-btn` row height) and its own arithmetic (last-two-items
---     row `90.015625 + 4 + 90.015625 = 184.03125px`, ceiled to the
---     integer-CP-SAT-safe `185px`) are NOT re-derived here -- see
---     `lengyue_landscape.lyt`'s own ENGINE-CONTROLS WIDTH FLOOR item for
---     the full derivation, the L12/L16 legality discussion (both
---     inapplicable at this SAME split-child position; plain `min` is the
---     legal, solver-visible construct), and the feasibility re-solve.
---     FEASIBILITY HERE IS EVEN LESS CONSTRAINED than landscape's own side
---     column: this row's parent is the PORTRAIT ROOT's own `V(...)`,
---     cross-filled to the FULL device width (§2) -- `185px + 3*4px gap =
---     197px` against a narrowest representative width of `420px`
---     (`coverage_matrix.PORTRAIT_SIZES`), comfortable headroom re-solved
---     directly, not merely reasoned about (every point OPTIMAL before
---     this edit stays OPTIMAL after). The other three groups (eval/
---     health/queue) are unaffected, same disclosed stage-3
---     reach-preferred gap named in the landscape item.
 layout lengyue-portrait =
   {min 0px, pref 1fr, max inf, gap 12px} V(
-    @toggle(user, release) {min 168px, pref 168px, max 168px, activity occasional} boardRail[common, info+action],
-    @demote(h 616px) {66px, content bounded, activity occasional} A_app[common, action],
-    @toggle(user, release) {92px, content bounded, activity occasional} A_setup[common, action],
+    @toggle(user, release) {168px, activity occasional} boardRail[common, info+action],
+    @demote(h 616px) {pinned max-over(height-of(A_app, portrait-1080x1920), height-of(A_app, portrait-1200x1600), height-of(A_app, portrait-768x1024), height-of(A_app, portrait-540x960), height-of(A_app, portrait-420x880)), content bounded, activity occasional} A_app[common, action],
+    @toggle(user, release) {pinned height-of(A_setup, authenticated-toggled), content bounded, activity occasional} A_setup[common, action],
     {pref 1fr} V(
       {width 100fr, aspect 1} B[board],
       {24px} I_board[board, info],
       {28px} A_board[board, action]
     ),
     {80px, envelope: {disconnected, connected}, gap 4px} H(
-      {min 185px, pref 1fr, content bounded} A_engine_controls[go, action],
-      {pref 1fr, content bounded} A_engine_eval[go, info],
-      {pref 1fr, content bounded} A_engine_health[go, info],
+      {min width-of(A_engine_controls, disconnected), pref 1fr, content bounded} A_engine_controls[go, action],
+      {pinned max-over(width-of(A_engine_eval, connected-real), width-of(A_engine_eval, connected-1digit), width-of(A_engine_eval, connected-2digit), width-of(A_engine_eval, connected-3digit), width-of(A_engine_eval, connected-4digit), width-of(A_engine_eval, connected-5digit)), envelope: {connected-real: width-of(A_engine_eval, connected-real), connected-1digit: width-of(A_engine_eval, connected-1digit), connected-2digit: width-of(A_engine_eval, connected-2digit), connected-3digit: width-of(A_engine_eval, connected-3digit), connected-4digit: width-of(A_engine_eval, connected-4digit), connected-5digit: width-of(A_engine_eval, connected-5digit)}, content bounded} A_engine_eval[go, info],
+      {pinned max-over(width-of(A_engine_health, connected-real), width-of(A_engine_health, connected-1digit), width-of(A_engine_health, connected-2digit), width-of(A_engine_health, connected-3digit), width-of(A_engine_health, connected-4digit), width-of(A_engine_health, connected-5digit)), envelope: {connected-real: width-of(A_engine_health, connected-real), connected-1digit: width-of(A_engine_health, connected-1digit), connected-2digit: width-of(A_engine_health, connected-2digit), connected-3digit: width-of(A_engine_health, connected-3digit), connected-4digit: width-of(A_engine_health, connected-4digit), connected-5digit: width-of(A_engine_health, connected-5digit)}, content bounded} A_engine_health[go, info],
       {pref 1fr, content bounded} A_engine_queue[go, info]
     ),
     {min 140px, pref 1fr, gap 4px} H(
-      {min 140px, pref 1fr, max inf} tree[board, info+action],
-      @demote(h 808px) {min 664px, pref 664px, max 664px} T(
-        {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v unit, unit v 32px} CP-library[common],
-        {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v unit, unit v 39px} CP-cards[common],
-        {min 443px, pref 1fr, max inf, gap 4px} V(
+      {min read-constant(tree), pref 1fr, max inf, content unbounded, scroll v, edge v item} tree[board, info+action],
+      @demote(h sum-of(max-over(children.min), tree.min, gap)) {pinned max-over(children.min)} T(
+        {min read-constant(CP-library, portrait), pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v unit, unit v 32px} CP-library[common],
+        {min read-constant(CP-cards, portrait), pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v unit, unit v 39px} CP-cards[common],
+        {min pack-rows(items: [113px, 177px, 153px, 153px, 137px, 105px], target-rows: 2, search-ceiling: 838px), pref 1fr, max inf, gap 4px} V(
           {77px, boundary, content bounded} settingsSubstrip[common],
-          {min 200px, pref 1fr, max inf} T(
-            {min 200px, pref 1fr, max inf, boundary, content bounded} SP_session[common],
-            {min 200px, pref 1fr, max inf, boundary, content bounded} SP_analysisEnv[common],
-            {min 200px, pref 1fr, max inf, boundary, content bounded} SP_cardSets[common],
-            {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v item} SP_advancedRegistry[common],
-            {min 200px, pref 1fr, max inf, boundary, content bounded} SP_analysis[common],
-            {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v item} SP_keybindings[common]
+          {min max-over(children.min), pref 1fr, max inf, content unbounded} T(
+            {min read-constant(SP_session, portrait), pref 1fr, max inf, boundary, content bounded} SP_session[common],
+            {min read-constant(SP_analysisEnv, portrait), pref 1fr, max inf, boundary, content bounded} SP_analysisEnv[common],
+            {min read-constant(SP_cardSets, portrait), pref 1fr, max inf, boundary, content bounded} SP_cardSets[common],
+            {min read-constant(SP_advancedRegistry, portrait), pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v item} SP_advancedRegistry[common],
+            {min read-constant(SP_analysis, portrait), pref 1fr, max inf, boundary, content bounded} SP_analysis[common],
+            {min read-constant(SP_keybindings, portrait), pref 1fr, max inf, boundary, content unbounded, scroll v, elastic h, floor v 200px, edge v item} SP_keybindings[common]
           )
         ),
-        {min 664px, pref 1fr, max inf, gap 4px} V(
+        {min sum-of(80px, 4px, read-constant(AT_multires)), pref 1fr, max inf, gap 4px, content unbounded} V(
           {min 80px, pref 80px, max 80px, boundary, content designed} timelineStrip[go],
           {min 200px, pref 1fr, max inf} T(
             {min 200px, pref 1fr, max inf, gap 4px} V(
-              {min 90px, pref 90px, max 90px, boundary, content designed} AT_basic_interval[go],
-              {min 200px, pref 1fr, max inf, boundary, content designed} AT_basic_scoreLead[go],
-              {min 200px, pref 1fr, max inf, boundary, content designed} AT_basic_mergedDelta[go]
+              {pinned read-constant(AT_basic_interval), boundary, content designed} AT_basic_interval[go],
+              {min read-constant(AT_basic_scoreLead), pref 1fr, max inf, boundary, content designed} AT_basic_scoreLead[go],
+              {min read-constant(AT_basic_mergedDelta), pref 1fr, max inf, boundary, content designed} AT_basic_mergedDelta[go]
             ),
             {min 200px, pref 1fr, max inf, gap 4px} V(
-              {min 200px, pref 1fr, max inf, boundary, content designed} AT_dist_deltaDist[go],
-              {min 200px, pref 1fr, max inf, boundary, content designed} AT_dist_mistakeGap[go]
+              {min read-constant(AT_dist_deltaDist), pref 1fr, max inf, boundary, content designed} AT_dist_deltaDist[go],
+              {min read-constant(AT_dist_mistakeGap), pref 1fr, max inf, boundary, content designed} AT_dist_mistakeGap[go]
             ),
             {min 200px, pref 1fr, max inf, gap 4px} V(
-              {min 200px, pref 1fr, max inf, boundary, content designed} AT_stab_stability[go],
-              {min 200px, pref 1fr, max inf, boundary, content designed} AT_stab_crossCorr[go]
+              {min read-constant(AT_stab_stability), pref 1fr, max inf, boundary, content designed} AT_stab_stability[go],
+              {min read-constant(AT_stab_crossCorr), pref 1fr, max inf, boundary, content designed} AT_stab_crossCorr[go]
             ),
-            {min 580px, pref 580px, max inf, boundary, content designed} AT_multires[go]
+            {min read-constant(AT_multires), pref read-constant(AT_multires), max inf, boundary, content designed} AT_multires[go]
           )[ANALYSIS TABS]
         ),
-        {min 204px, pref 1fr, max inf, gap 4px} V(
-          -- REPAIR (2026-08-11, `.claude/dispatch-reports/
-          -- lyt-realization-wave-review.md` Finding 1): 40px -> 264px,
-          -- same corrected measured reservation as `lengyue_landscape.lyt`'s
-          -- own `otherColorDebug` (that file's header carries the full
-          -- measurement derivation: own Playwright rig, 1920x1080/1280x1024/
-          -- 1080x1920-portrait-class, max 254px at 1280x1024 + ~10px margin).
-          -- Not independently re-measured against PORTRAIT's own real
-          -- operating column width specifically (this class's own T-node
-          -- wraps at 200px min, narrower than landscape's 160px, but this
-          -- class's checked 1080x1920 representative point measured a WIDER
-          -- 931px operating column there, giving 232px -- under the
-          -- landscape-derived 264px) -- using landscape's larger, measured
-          -- number here is the conservative, disclosed choice, not a
-          -- from-scratch portrait measurement.
+        {min 204px, pref 1fr, max inf, gap 4px, content unbounded} V(
           {min 264px, pref 264px, max 264px, boundary, content designed} otherColorDebug[debug],
-          {min 200px, pref 1fr, max inf, boundary, content unbounded, scroll v, edge v continuous} otherBand[common]
+          {min read-constant(otherBand, portrait), pref 1fr, max inf, boundary, content unbounded, scroll v, edge v continuous} otherBand[common]
         )
       )[BLACK BOX],
-      @toggle(user, release) {min 96px, pref 96px, max 96px, aspect 1} previewBoard[common, info]
+      @toggle(user, release) {pinned read-constant(previewBoard, portrait), aspect 1} previewBoard[common, info]
     )
   )

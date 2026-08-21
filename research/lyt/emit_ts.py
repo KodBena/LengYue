@@ -1,4 +1,4 @@
-"""Codegen: solve `current-row-repaired` (encodings/current_row_repaired.lyt)
+"""Codegen: solve `current-row-repaired` (fixtures/transcription/current_row_repaired.lyt)
 at every representative screen size and emit the solved rectangles as a
 GENERATED TypeScript data module for the frontend
 (`frontend/src/state/lyt-solved-layout.gen.ts`).
@@ -17,7 +17,7 @@ solves this exact encoding at these exact sizes; this script does not
 duplicate the solving logic, just formats its own copy of the result as
 TypeScript instead of ASCII):
 
-  - the encoding: `encodings/current_row_repaired.lyt`, layout id
+  - the encoding: `fixtures/transcription/current_row_repaired.lyt`, layout id
     `current-row-repaired` (registered in `runner.REGISTRATIONS` as a
     single screen class, id `default` — the encoding has no second class,
     per runner.py's own module docstring).
@@ -65,10 +65,12 @@ import loader
 from compiler import solve_lexicographic, SolveResult
 from presence import ALL_PRESENT, resolve_and_validate
 from runner import (
-    ENCODINGS_DIR,
     REGISTRATIONS,
     SCREEN_SIZES,
     _gather_reach_preferred_widgets,
+    is_governed_encoding,
+    resolve_encoding_file,
+    source_file_label,
     valuation_for_class,
 )
 
@@ -185,8 +187,19 @@ def build_solved_registrations(
     reg = _find_registration(registration_name)
     layouts: Dict[str, ast.Slot] = {}
     for f in reg.files:
-        text = (ENCODINGS_DIR / f).read_text()
-        layouts.update(loader.load_layouts(text, waivers=reg.waivers))
+        p = resolve_encoding_file(f)
+        text = p.read_text()
+        # RATCHET FORM, dispatch C4 (ledger rows 2396/2445): strict mode,
+        # directory-scoped, checked against `ratified-literals.json` —
+        # see `runner.load_governed_layouts`'s own docstring.
+        layouts.update(
+            loader.load_layouts(
+                text,
+                waivers=reg.waivers,
+                refuse_literal_bounds=is_governed_encoding(p),
+                source_file=source_file_label(p),
+            )
+        )
     # LYT presence arc P1 (row 2333): a registration MAY declare a
     # per-class override of its own default valuation
     # (`Registration.default_valuation_by_class`, `runner.
@@ -287,9 +300,18 @@ def render_ts(
     by the emitter's own tests)."""
     reg = _find_registration(registration_name)
     layout_name = next(iter(reg.layout_by_class.values()))
-    source_encoding = (
-        f"research/lyt/encodings/{reg.files[0]} (layout `{layout_name}`)"
-    )
+    # LYT relations-first amendment, dispatch C2 (ledger rows 2426/2427):
+    # this used to hardcode "research/lyt/encodings/" as every source
+    # encoding's directory; that stopped being true once ogs.lyt/q5go.lyt
+    # (dispatch A) and current_row_asis.lyt/current_row_repaired.lyt
+    # (this dispatch) moved to fixtures/reference/ and fixtures/
+    # transcription/ respectively. `resolve_encoding_file` is the one
+    # place every consumer resolves a registration's own .lyt source --
+    # reusing it here keeps this header comment truthful regardless of
+    # which of the three directories the file actually lives in.
+    _REPO_ROOT = Path(__file__).parent.parent.parent
+    source_path = resolve_encoding_file(reg.files[0]).relative_to(_REPO_ROOT)
+    source_encoding = f"{source_path} (layout `{layout_name}`)"
     lines: List[str] = []
     lines.append("/**")
     lines.append(" * GENERATED FILE — do not hand-edit.")

@@ -67,7 +67,7 @@ vi.mock('../../src/composables/cards/board-card-trees', () => ({
 
 import App from '../../src/App.vue';
 import { i18n } from '../../src/i18n';
-import { store, resetWorkspace } from '../../src/store';
+import { store, resetWorkspace, clearSystemMessages } from '../../src/store';
 import { fakeBackendService, resetFakeBackendService } from '../fakes/backend-service';
 import { LYT_LANDSCAPE } from '../../src/state/lyt-layout.gen';
 import { LYT_PORTRAIT } from '../../src/state/lyt-layout-portrait.gen';
@@ -262,5 +262,117 @@ describe('App.vue — LYT presence arc P2b (control-panel class-aware default + 
     expect(mountEl.querySelector('[role="tablist"]')).toBeNull();
     // The demoted state is restored: still absent from the grid.
     expect(wrapper.find('#control-panel [role="tablist"]').exists()).toBe(false);
+  });
+
+  // Row 2501 repair, item 3 (`.claude/dispatch-reports/
+  // lyt-cure-repair-build.md`; live-witness finding
+  // `.claude/dispatch-reports/lyt-cure-live-witness.md`, item 5b-ii): the
+  // L5 build's own Escape-dismissal claim for this exact popover was
+  // UNEXERCISED by any test (only click-to-toggle was covered, above) —
+  // the live rig found it genuinely inert in a real browser. This test
+  // is deliberately STRONGER than the isolated `useDismissiblePopover`
+  // coverage in `ToolbarEngineControls-menu-dismissal.test.ts` (which
+  // mounts ONLY that one component) in two ways the charter's own
+  // diagnosis names: it mounts the FULL `App.vue` tree (so every OTHER
+  // global keydown listener App.vue wires — `useUserIORegistry.ts`,
+  // `SetupToolPalette.vue`, `useModalKeyboard.ts` — is present and could
+  // in principle interfere), and it explicitly puts focus OUTSIDE the
+  // popover's own subtree before dispatching Escape (a plain sibling
+  // `<div>`, focused via `tabIndex`) rather than leaving
+  // `document.activeElement` at whatever the click left it — the exact
+  // shape the charter names as what would have caught a real-browser-only
+  // focus/event-target divergence.
+  it('portrait: Escape closes the summoned popover even with focus OUTSIDE its own subtree, in the FULL App tree (not just the isolated composable)', async () => {
+    stubSplitWorkspaceRect(400, 900);
+    wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
+    await flushPromises();
+
+    await wrapper.find('#control-panel-summon-btn').trigger('click');
+    await flushPromises();
+
+    const mountEl = wrapper.find('#control-panel-popover-mount').element as HTMLElement;
+    expect(mountEl.style.display).not.toBe('none');
+
+    // Focus OUTSIDE the popover's own subtree — a plain sibling element in
+    // document.body, genuinely disjoint from `.control-panel-summon-wrap`
+    // (the `useDismissiblePopover` `rootRef`) and from `#app` itself. This
+    // is the precondition the isolated `ToolbarEngineControls` test never
+    // sets up (it never moves focus at all before dispatching).
+    const outsideEl = document.createElement('button');
+    outsideEl.tabIndex = 0;
+    document.body.appendChild(outsideEl);
+    outsideEl.focus();
+    expect(document.activeElement).toBe(outsideEl);
+    expect(wrapper.find('.control-panel-summon-wrap').element.contains(outsideEl)).toBe(false);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await flushPromises();
+
+    expect(mountEl.style.display).toBe('none');
+    expect(mountEl.querySelector('[role="tablist"]')).toBeNull();
+    expect(wrapper.find('#control-panel [role="tablist"]').exists()).toBe(false);
+
+    outsideEl.remove();
+  });
+});
+
+// Dispatch L3 repair, residual (`.claude/dispatch-reports/
+// lyt-space-owner-l3-review.md` §3 condition 3): the coordinator's delta
+// review caught that App.vue's own OUTER-bar `outerRowSovereignPushGate`
+// watcher still pushed a bare `pushSystemMessage('warning', d.message)`,
+// with no `remediation`/`nextAction` — the inner-bar wiring
+// (`useSideColumnLiveLayout.ts`) was fixed but the symmetric outer-bar one
+// was not, so the "ONE real producer" extent claim in the repair's own
+// report was false. This describe block is the symmetric integration
+// test the inner bar lacks a dedicated one for too (see that report's own
+// "what was NOT done" section) — mounting the FULL `App.vue` (the outer
+// bar's push watcher lives inline in its own `<script setup>`, not in a
+// separately-testable composable) and driving a genuine outer-bar
+// starvation, then asserting the pushed `SystemMessage` carries the SAME
+// structured fields the inner bar's diagnostic does.
+describe('App.vue — outer-bar sovereignty diagnostic pushes remediation/nextAction (dispatch L3 repair residual)', () => {
+  let wrapper: VueWrapper | null = null;
+
+  afterEach(() => {
+    wrapper?.unmount();
+    wrapper = null;
+    document.body.innerHTML = '';
+  });
+
+  it('a sovereign treeControlRegionWidthPx that starves #board-area pushes a warning carrying remediation and nextAction, mirroring the inner bar\'s own shape', async () => {
+    // A wide landscape aspect ratio (deriveAxis resolves this to
+    // 'landscape', same reasoning as the "control panel is present"
+    // test above at 1920x1080) but narrow enough in absolute terms that
+    // a 900px sovereign wrapper leaves #board-area well under its own
+    // 300px floor (MIN_BOARD_PX) once the resizer's own width is
+    // reserved too.
+    stubSplitWorkspaceRect(1024, 700);
+    clearSystemMessages();
+
+    wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
+    await flushPromises();
+    expect(wrapper.find('.reb-overlay').exists()).toBe(false);
+
+    // No stored wrapper width yet -> outerRowSovereignDiagnostic starts
+    // empty (nothing sovereign to check), matching
+    // `useResizablePanel.ts`'s own documented "not-yet-measured /
+    // never-dragged" guard -- no push yet.
+    expect(store.engine.messages.some((m) => m.text.includes('board'))).toBe(false);
+
+    // Simulate the sovereign drag/hydrate fact directly on the store —
+    // the same field `resizer-restore-clamp.test.ts`'s own ui-5-3 suite
+    // drives to reproduce this exact starvation (900px on a 1024px row).
+    store.session.ui.treeControlRegionWidthPx = 900;
+    await flushPromises();
+
+    const pushed = store.engine.messages.find((m) => m.text.includes('board'));
+    expect(pushed).toBeDefined();
+    expect(pushed?.type).toBe('warning');
+    // The SAME structured fields the inner bar's own
+    // SovereignOverrideDiagnostic carries (state/feasible-layout.ts's
+    // `resolveSovereignOverrides`) — no divergence between the two
+    // symmetric bars.
+    expect(pushed?.remediation).toBe('reduce this region\'s width, or use Default Layout to reset');
+    expect(pushed?.nextAction).toBe('open-default-layout-control');
   });
 });

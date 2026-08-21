@@ -55,13 +55,10 @@ import {
   computeTreePanelWidthPx,
   computeTreeControlRegionWidthPx,
   computePaneWidthPx,
-  sanitizeTreeControlRegionWidthPx,
-  computeBoardAreaMaxWidthPx,
   TREE_PANEL_MIN_WIDTH_PX,
   WRAPPER_MIN_WIDTH_PX,
   CONTROL_PANEL_MIN_WIDTH_PX,
   MIN_BOARD_PX,
-  RESIZER_WIDTH_PX,
 } from '../../../../src/composables/chrome/useResizablePanel';
 import {
   CONTROL_PANEL_TAB_IDS,
@@ -264,134 +261,42 @@ describe('computePaneWidthPx — the shared generic both wrappers delegate to', 
   });
 });
 
-describe('sanity: the board floor composes with both bars\' max-clamp derivation', () => {
-  it('MIN_BOARD_PX is the floor the OUTER bar\'s caller (startResizeOuter) reserves for the board', () => {
-    // Documents the contract between this pure function and its
-    // caller: regionMaxWidthPx is derived by the caller as
-    // rowWidth - MIN_BOARD_PX - RESIZER_WIDTH_PX, so the board can
-    // never be squeezed below its own floor by the outer drag. This
-    // test just pins the constant's value so a change is a visible
-    // diff here.
+// Sovereignty (dispatch L3, SCOPE item 3), REVISED by the row 2511 review
+// condition 2 (`.claude/dispatch-reports/lyt-disease-repair-review.md`,
+// defect 4): `startResizeOuter`'s own `regionMaxWidthPx` briefly reserved
+// ONLY the resizer's own physical width against the OUTER bar's drag
+// range (dispatch L3) — that left the drag-time ceiling far LOOSER than
+// `resolveRootSplitLiveLayout`'s render-time ceiling, letting the cursor
+// and the rendered divider decouple mid-drag. `startResizeOuter` now ALSO
+// reserves `MIN_BOARD_PX` against the drag range (unification, not a
+// reintroduction of "resistance": a drag can still ask for more than the
+// board's floor allows and the render still just clamps + diagnoses
+// rather than fighting the cursor — the drag range itself now simply
+// can't promise a delta the render would immediately refuse). This
+// describe block pins `MIN_BOARD_PX`'s own value, still consumed BOTH by
+// `outerRowSovereignDiagnostic` (as the `board` region's `Measured.min`)
+// and now directly by `startResizeOuter`'s own drag-range ceiling too.
+describe('sanity: MIN_BOARD_PX names the board\'s own floor — a diagnostic input AND (row 2511) a drag-range reservation', () => {
+  it('MIN_BOARD_PX is unchanged — consumed by outerRowSovereignDiagnostic as the board region\'s own Measured.min, and by startResizeOuter\'s own drag-range ceiling (row 2511 review condition 2)', () => {
     expect(MIN_BOARD_PX).toBe(300);
   });
 });
 
-// ── ui-5-3: restore-time board-visibility clamp ──────────────────────
-// "The board comes back minimized after upgrading" — a persisted
-// treeControlRegionWidthPx saved against one viewport, hydrated
-// verbatim against a narrower one, used to leave #board-area far
-// below MIN_BOARD_PX because only an in-progress DRAG clamped against
-// live geometry. sanitizeTreeControlRegionWidthPx re-derives that same
-// clamp from the row's CURRENT width at render time — RED against the
-// raw store read (a 3490px region on a 1024px-wide row leaves the
-// board around -2170px, i.e. it doesn't exist), GREEN through this
-// function (the board keeps its full MIN_BOARD_PX floor).
-describe('sanitizeTreeControlRegionWidthPx — ui-5-3 restore-time clamp', () => {
-  it('RED (documents the bug): the raw persisted value alone gives the board no room at all on a narrower viewport', () => {
-    const staleWidePx = 3490; // plausible pre-rearch / wide-screen save
-    const narrowRowWidthPx = 1024;
-    const boardRoomPx = narrowRowWidthPx - staleWidePx - RESIZER_WIDTH_PX;
-    expect(boardRoomPx).toBeLessThan(MIN_BOARD_PX);
-    expect(boardRoomPx).toBeLessThan(0); // the reported symptom: no board at all
-  });
-
-  it('GREEN: sanitizes the same stale/wide value down so the board keeps at least MIN_BOARD_PX', () => {
-    const staleWidePx = 3490;
-    const narrowRowWidthPx = 1024;
-    const sanitized = sanitizeTreeControlRegionWidthPx(staleWidePx, narrowRowWidthPx);
-    expect(sanitized).toBeDefined();
-    const boardRoomPx = narrowRowWidthPx - (sanitized as number) - RESIZER_WIDTH_PX;
-    expect(boardRoomPx).toBeGreaterThanOrEqual(MIN_BOARD_PX);
-  });
-
-  it('a value that already leaves the board plenty of room passes through unchanged (no-op on the common case)', () => {
-    expect(sanitizeTreeControlRegionWidthPx(500, 1600)).toBe(500);
-  });
-
-  it('undefined (never dragged) stays undefined — fresh installs are unaffected', () => {
-    expect(sanitizeTreeControlRegionWidthPx(undefined, 1024)).toBeUndefined();
-    expect(sanitizeTreeControlRegionWidthPx(undefined, 0)).toBeUndefined();
-  });
-
-  it('a garbage negative value is floored at WRAPPER_MIN_WIDTH_PX, same as the drag clamp', () => {
-    expect(sanitizeTreeControlRegionWidthPx(-500, 1600)).toBe(WRAPPER_MIN_WIDTH_PX);
-  });
-
-  it('rowWidthPx = 0 (no live measurement yet, e.g. before the first ResizeObserver callback) clamps to the wrapper floor rather than trusting the raw value', () => {
-    expect(sanitizeTreeControlRegionWidthPx(3490, 0)).toBe(WRAPPER_MIN_WIDTH_PX);
-  });
-
-  it('degrades gracefully on a viewport too narrow for even the wrapper floor (never returns a value below WRAPPER_MIN_WIDTH_PX, never NaN/Infinity)', () => {
-    const sanitized = sanitizeTreeControlRegionWidthPx(3490, 200);
-    expect(sanitized).toBe(WRAPPER_MIN_WIDTH_PX);
-    expect(Number.isFinite(sanitized as number)).toBe(true);
-  });
-
-  it('agrees with a zero-displacement drag through computeTreeControlRegionWidthPx given the same derived max', () => {
-    const rowWidthPx = 1600;
-    const maxRegionWidthPx = Math.max(WRAPPER_MIN_WIDTH_PX, rowWidthPx - MIN_BOARD_PX - RESIZER_WIDTH_PX);
-    expect(sanitizeTreeControlRegionWidthPx(900, rowWidthPx))
-      .toBe(computeTreeControlRegionWidthPx(900, 0, maxRegionWidthPx));
-  });
-});
-
-// ── commission row 848: board-area width cap ────────────────────────
-// "Space should not be wasted" — a HEIGHT-bound #board-area (the
-// square is `height: 100%; aspect-ratio: 1/1`) must not claim row WIDTH
-// past what its own square can render into; the excess used to become
-// dead centered margin around the square while #tree-control-wrapper
-// starved at its floor. computeBoardAreaMaxWidthPx is the pure
-// function behind the App.vue :style cap on #board-area — see
-// useResizablePanel.ts's header, "Board-area width cap", for the full
-// mechanism (native flexbox redistributes past a frozen max-width item,
-// same idiom the rest of this file's OUTER/INNER bars rely on).
-describe('computeBoardAreaMaxWidthPx — the pure function behind the #board-area max-width cap', () => {
-  it('equals the row height, floored at MIN_BOARD_PX (a height-bound board can never render wider than the row is tall)', () => {
-    expect(computeBoardAreaMaxWidthPx(900)).toBe(900);
-    expect(computeBoardAreaMaxWidthPx(1275)).toBe(1275);
-  });
-
-  it('never returns below MIN_BOARD_PX, even for a very short row (the board floor composes with the height derivation)', () => {
-    expect(computeBoardAreaMaxWidthPx(50)).toBe(MIN_BOARD_PX);
-    expect(computeBoardAreaMaxWidthPx(0.1)).toBe(MIN_BOARD_PX);
-  });
-
-  it('rounds to a whole pixel (a fractional getBoundingClientRect height must not reach App.vue\'s :style as a fractional CSS length)', () => {
-    expect(computeBoardAreaMaxWidthPx(900.6)).toBe(901);
-    expect(computeBoardAreaMaxWidthPx(900.4)).toBe(900);
-  });
-
-  it('rowHeightPx <= 0 (not yet measured — pre-ResizeObserver-attach, mirrors sanitizeTreeControlRegionWidthPx\'s own not-yet-measured branch) returns undefined, never a spurious floor clamp', () => {
-    expect(computeBoardAreaMaxWidthPx(0)).toBeUndefined();
-    expect(computeBoardAreaMaxWidthPx(-10)).toBeUndefined();
-  });
-
-  it('non-finite input (NaN/Infinity — the same unvalidated-deepMerge reachability class ui-5-3 guards) falls back to undefined rather than NaN/Infinity-poisoning the :style binding', () => {
-    expect(computeBoardAreaMaxWidthPx(Number.NaN)).toBeUndefined();
-    expect(computeBoardAreaMaxWidthPx(Number.POSITIVE_INFINITY)).toBeUndefined();
-  });
-
-  it('a height-bound scenario (row height well under an even width split) caps #board-area strictly BELOW what an uncapped 50/50 flex-fill split would have given it — the "slack flows to the wrapper" claim at the pure-function level', () => {
-    const rowWidthPx = 2400;
-    const uncappedEvenSharePx = (rowWidthPx - RESIZER_WIDTH_PX) / 2; // ~1198
-    const rowHeightPx = 900; // height-bound: well under the even share
-    const cappedPx = computeBoardAreaMaxWidthPx(rowHeightPx);
-    expect(cappedPx).toBe(900);
-    expect(cappedPx as number).toBeLessThan(uncappedEvenSharePx);
-    // The slack this frees up is large enough that #tree-control-wrapper
-    // can grow well past its own floor once native flexbox redistributes
-    // it — not just squeak over by a few px.
-    const wrapperRoomPx = rowWidthPx - (cappedPx as number) - RESIZER_WIDTH_PX;
-    expect(wrapperRoomPx).toBeGreaterThan(WRAPPER_MIN_WIDTH_PX);
-  });
-
-  it('a width-bound scenario (row height far exceeds the row\'s own width) yields a cap that exceeds the entire row — non-binding, the un-height-bound case is unchanged by construction', () => {
-    const rowWidthPx = 1200;
-    const rowHeightPx = 5000; // taller than the row is wide
-    const cappedPx = computeBoardAreaMaxWidthPx(rowHeightPx);
-    // A max-width larger than the row itself can never be the tighter
-    // constraint — native flexbox still allocates #board-area its full
-    // natural share, exactly as before this cap existed.
-    expect(cappedPx as number).toBeGreaterThan(rowWidthPx);
-  });
-});
+// HISTORICAL, deleted by dispatch L3 (`.claude/dispatch-reports/
+// lyt-space-owner-spec.md` §3 step 3, ledger rows 2447/2450/2460/2461):
+// `sanitizeTreeControlRegionWidthPx` (the ui-5-3 restore-time clamp) and
+// `computeBoardAreaMaxWidthPx` (the flex-era `#board-area` max-width cap,
+// already unconsumed by App.vue since the W3 CSS-Grid rewire) used to be
+// pinned by two `describe` blocks here. Both functions are DELETED —
+// `sanitizeTreeControlRegionWidthPx`'s protective intent (never leave
+// `#board-area` starved by a stale/wide hydrated width) is now discharged
+// by sovereignty: `useResizablePanel.ts`'s own `outerRowSovereignDiagnostic`
+// diagnoses a starved board via `resolveSovereignOverrides`
+// (`state/feasible-layout.ts`) instead of resisting the stored value —
+// see `tests/unit/state/feasible-layout.test.ts` (dispatch L1/L3) for
+// `resolveSovereignOverrides`'s own pinned contract, and
+// `tests/integration/resizer-restore-clamp.test.ts`'s own updated ui-5-3
+// suite for the new mechanism's integration-level coverage (both updated
+// in the SAME dispatch, per SCOPE item 5's "update with justification"
+// requirement — the old assertions embodied exactly the "resist, don't
+// diagnose" shape sovereignty exists to close).

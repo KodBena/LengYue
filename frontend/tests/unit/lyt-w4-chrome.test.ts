@@ -25,34 +25,53 @@ function src(relPath: string): string {
 }
 
 // ── Item 1: overlay stratum ─────────────────────────────────────────
-describe('App.vue — banners + system log overlay stratum (W4 item 1)', () => {
+// Space-owner cure, dispatch L5 (`.claude/dispatch-reports/
+// lyt-space-owner-spec.md` §1.4/§3 step 5): `#lyt-overlay-stack` and
+// `#lyt-corner-chrome` (two independent `position: fixed` containers)
+// are RETIRED — `<CornerStackHost>` (`src/components/chrome/
+// CornerStackHost.vue`) is the one owner now, with `App.vue` supplying
+// the SAME banner/SystemLogPanel/trigger markup through that
+// component's own `banners`/`log`/`triggers` named slots. This block
+// is re-pinned against the new structure; the underlying invariant
+// (banners/log genuinely position: fixed, genuinely outside the
+// in-flow column, genuinely all co-located) is unchanged.
+describe('App.vue + CornerStackHost.vue — banners + system log overlay stratum (W4 item 1, re-pinned dispatch L5)', () => {
   const app = src('src/App.vue');
+  const host = src('src/components/chrome/CornerStackHost.vue');
 
-  it('#lyt-overlay-stack is position: fixed (never an in-flow flex-column sibling)', () => {
-    const rule = /#lyt-overlay-stack\s*\{[^}]*\}/.exec(app);
+  it('CornerStackHost\'s #corner-stack-banners/#corner-stack-log regions are position: fixed (never in-flow flex-column siblings)', () => {
+    const rule = /#corner-stack-banners,\s*\n#corner-stack-log\s*\{[^}]*\}/.exec(host);
     expect(rule).not.toBeNull();
     expect(rule![0]).toMatch(/position:\s*fixed/);
   });
 
-  it('#lyt-overlay-stack uses the --z-chrome-overlay token, not a raw literal', () => {
-    const rule = /#lyt-overlay-stack\s*\{[^}]*\}/.exec(app)![0];
+  it('CornerStackHost\'s banner/log regions use the --z-chrome-overlay token, not a raw literal', () => {
+    const rule = /#corner-stack-banners,\s*\n#corner-stack-log\s*\{[^}]*\}/.exec(host)![0];
     expect(rule).toMatch(/z-index:\s*var\(--z-chrome-overlay\)/);
   });
 
-  it('the capture banner, save banner, and SystemLogPanel are all direct descendants of the SAME #lyt-overlay-stack wrapper', () => {
-    const block = /<div id="lyt-overlay-stack">([\s\S]*?)<\/div>\s*\n\s*<!-- The LYT skeleton/.exec(app);
+  it('App.vue supplies the capture banner, save banner, and suppressed banner all through <CornerStackHost>\'s own #banners slot', () => {
+    const block = /<template #banners>([\s\S]*?)<\/template>/.exec(app);
     expect(block).not.toBeNull();
     const inner = block![1];
     expect(inner).toMatch(/id="keybinding-capture-banner"/);
     expect(inner).toMatch(/id="workspace-save-banner"/);
-    expect(inner).toMatch(/<SystemLogPanel/);
+    expect(inner).toMatch(/id="workspace-suppressed-banner"/);
   });
 
-  it('no banner/log markup remains OUTSIDE #lyt-overlay-stack (a stray in-flow copy would defeat the no-push guarantee)', () => {
-    const beforeStack = app.split('<div id="lyt-overlay-stack">')[0];
-    expect(beforeStack).not.toMatch(/id="keybinding-capture-banner"/);
-    expect(beforeStack).not.toMatch(/id="workspace-save-banner"/);
-    expect(beforeStack).not.toMatch(/<SystemLogPanel/);
+  it('App.vue supplies SystemLogPanel through <CornerStackHost>\'s own #log slot', () => {
+    const block = /<template #log>([\s\S]*?)<\/template>/.exec(app);
+    expect(block).not.toBeNull();
+    expect(block![1]).toMatch(/<SystemLogPanel/);
+  });
+
+  it('no banner/log markup remains OUTSIDE <CornerStackHost> (a stray in-flow copy would defeat the no-push guarantee)', () => {
+    const hostBlock = /<CornerStackHost[\s\S]*?<\/CornerStackHost>/.exec(app);
+    expect(hostBlock).not.toBeNull();
+    const outside = app.replace(hostBlock![0], '');
+    expect(outside).not.toMatch(/id="keybinding-capture-banner"/);
+    expect(outside).not.toMatch(/id="workspace-save-banner"/);
+    expect(outside).not.toMatch(/<SystemLogPanel/);
   });
 });
 

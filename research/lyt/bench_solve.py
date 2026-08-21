@@ -11,7 +11,7 @@ roughly (budget_seconds / N) candidate trees, full stop.
 Two workloads:
 
 1. **The real encodings** (`encodings/lengyue_landscape.lyt`,
-   `encodings/lengyue_portrait.lyt`, `encodings/current_row_asis.lyt`) —
+   `encodings/lengyue_portrait.lyt`, `fixtures/transcription/current_row_asis.lyt`) —
    solved via the SAME entry point `runner.py` uses
    (`loader.load_layouts` + `presence.resolve_and_validate` +
    `compiler.solve_lexicographic`), at each registration's own
@@ -47,15 +47,13 @@ import platform
 import statistics
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Callable, List, Optional
 
 import lyt_ast as ast
 import loader
 from compiler import solve_lexicographic
 from presence import ALL_PRESENT, resolve_and_validate
-
-ENCODINGS_DIR = Path(__file__).parent / "encodings"
+from runner import is_governed_encoding, resolve_encoding_file, source_file_label
 
 
 @dataclass
@@ -171,8 +169,26 @@ def bench_real_encodings(*, n: int, time_limit_s: float = 20.0) -> List[BenchRes
     results: List[BenchResult] = []
     for spec in REAL_SPECS:
         waivers = BASELINE_WAIVERS if "asis" in spec.name else {}
-        text = "\n".join((ENCODINGS_DIR / f).read_text() for f in spec.files)
-        layouts = loader.load_layouts(text, waivers=waivers)
+        # LYT relations-first amendment, dispatch C2 (ledger rows 2426/2427):
+        # current_row_asis.lyt moved out of encodings/ to fixtures/
+        # transcription/ -- resolve_encoding_file (runner.py's own fixture
+        # resolver, same one every other consumer of Registration.files
+        # uses) keeps this benchmark's file lookup working after the move,
+        # rather than hardcoding ENCODINGS_DIR for a file that may no
+        # longer live there.
+        # RATCHET FORM, dispatch C4 (ledger rows 2396/2445): every
+        # `RealBenchSpec.files` entry this workload declares is a SINGLE
+        # file (confirmed directly, not assumed) — the strict-mode
+        # decision is unambiguous per spec, computed from that one file's
+        # own resolved path.
+        resolved_paths = [resolve_encoding_file(f) for f in spec.files]
+        text = "\n".join(p.read_text() for p in resolved_paths)
+        layouts = loader.load_layouts(
+            text,
+            waivers=waivers,
+            refuse_literal_bounds=is_governed_encoding(resolved_paths[0]),
+            source_file=source_file_label(resolved_paths[0]),
+        )
         valuation = ALL_PRESENT
         if spec.absent_widgets:
             from presence import PresenceValuation

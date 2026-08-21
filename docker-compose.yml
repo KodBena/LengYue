@@ -24,7 +24,6 @@ services:
   backend:
     build:
       context: ./backend
-    container_name: lengyue-backend
     restart: unless-stopped
     environment:
       # Both already-supported Settings fields (backend/core/config.py) —
@@ -69,7 +68,6 @@ services:
         # (container-only) would be the WRONG value here regardless.
         VITE_API_BASE_URL: http://localhost:${BACKEND_PORT:-19081}
         VITE_KATAGO_WS_URL: ws://localhost:${KATAPROXY_PORT:-19082}
-    container_name: lengyue-frontend
     restart: unless-stopped
     ports:
       - "${FRONTEND_PORT:-19080}:8080"
@@ -88,7 +86,6 @@ services:
         # built, not a runtime behavior.
         KATAPROXY_REPO: ${KATAPROXY_REPO:-https://github.com/KodBena/KataProxy.git}
         KATAPROXY_REF: ${KATAPROXY_REF:-fable-branch}
-    container_name: lengyue-proxy
     restart: unless-stopped
     environment:
       # The upstream KataGo-speaking engine. NOT containerized (see the

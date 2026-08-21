@@ -115,3 +115,67 @@ jobs:
         run: node tools/cycle-check/check.mjs --self-test
       - name: Cycle-check (no-new-cycles ratchet)
         run: node tools/cycle-check/check.mjs --check
+
+  # ── ADR-0019 layout-audit: DOM-mechanized C17/C19/C21 + Class 2/4 gate ──
+  # Commission: `.claude/dispatch-reports/lyt-final-opus-review.md` §3 Rule
+  # 2(b) finding -- ADR-0019's own roll-up claims a CI gate for
+  # C17/C19/C21/C22 on the Vue substrate that was NOT actually in force; the
+  # review ran this exact audit by hand in ~100 lines and found every one of
+  # its Classes 2, 4, and 7 without human judgment. `scripts/layout-audit.mjs`
+  # builds the SPA, serves `dist/` on a scratch port (>= 19000, never
+  # 8764/4173/5173/5174), and drives ONE chromium instance through the seven
+  # geometry classes named in the commission, auditing the COLD-BOOT SPA only
+  # (no backend/proxy -- see the script's own "Scope" section for what that
+  # excludes). `--check` gates on the NO-NEW-FINDINGS ratchet against the
+  # committed `frontend/layout-audit-baseline.json`, keyed on STABLE
+  # selector+rule identities (never file:line/coordinates -- see the script
+  # header and `tests/unit/layout-audit-key-stability.test.ts`, which proves
+  # the property mechanically).
+  #
+  # `npx playwright install --with-deps chromium` uses playwright-core's own
+  # bundled CLI (already a devDependency; no need for the full `playwright`
+  # package) to fetch a browser build + its OS deps, since ubuntu-latest has
+  # no system chromium at /usr/bin/chromium the way local dev machines do
+  # (layout-audit.mjs falls back to playwright-core's bundled browser
+  # automatically when that path is absent).
+  layout-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Install chromium (playwright-core bundled browser + OS deps)
+        run: npx playwright install --with-deps chromium
+      - name: Layout audit (build + 7-geometry DOM audit vs. ratchet baseline)
+        run: npm run layout-audit
+
+  # ── ADR-0019 C22 style-tokens-audit: raw-hex / raw-native-control gate ──
+  # Commission: same Rule 2(b) finding as layout-audit above, for C22
+  # ("visual constants come from the sanctioned design-token/component set").
+  # `scripts/style-tokens-audit.mjs` is a zero-dependency static scanner (the
+  # project's own tools/band-conformance/tools/cycle-check idiom) standing in
+  # for stylelint until the sanctioned AppSelect/AppButton/AppInput component
+  # set exists (a later dispatch) -- see the script's own header for why a
+  # real devDependency wasn't added for a mechanical-gates-only build. WARN-
+  # level report (ADR-0011 Rule 5: judgment-shaped DETAIL stays advisory) +
+  # a no-new-findings ratchet against `frontend/style-tokens-audit-baseline.json`,
+  # keyed on file + rule + CONTENT-derived identity (never a line number --
+  # see `tests/unit/style-tokens-audit-key-stability.test.ts`). No browser
+  # needed: pure static analysis over `frontend/src`.
+  style-tokens-audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Style-tokens audit (C22 ratchet)
+        run: node scripts/style-tokens-audit.mjs --check
