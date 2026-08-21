@@ -432,3 +432,12 @@ scaling/restart of the two tiers for no offsetting benefit here.
   KataProxy on `:41949`) is using 19080, 19081, or 19082. Set
   `FRONTEND_PORT` / `BACKEND_PORT` / `KATAPROXY_PORT` to something
   else.
+- **"container name ... already in use"**: an older checkout of this
+  repository pinned literal container names (`lengyue-backend` etc.),
+  so its stopped containers block a fresh `docker compose up` from a
+  second checkout. Current compose files let Compose derive
+  project-scoped names, which cannot collide; remove the stale
+  containers (`docker rm lengyue-backend lengyue-frontend
+  lengyue-proxy`) once, and note that Compose may have left a
+  half-created network/volume behind on the failed attempt
+  (`docker compose down -v` in the failing checkout cleans it).
