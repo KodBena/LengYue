@@ -126,7 +126,7 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { computed, nextTick, watch } from 'vue';
+import { computed, nextTick, onUnmounted, watch } from 'vue';
 import { ref as vueRef, type ComponentPublicInstance } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -140,6 +140,8 @@ import {
   useDeferredLayoutClass,
   computeTreePanelDefaultWidthPx,
   TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+  CONTROL_PANEL_TAB_IDS,
+  type ControlPanelTabId,
 } from './state/layout-model';
 import type { LytTrackShape } from './state/lyt-layout-types';
 import { useSideColumnLiveLayout } from './composables/chrome/useSideColumnLiveLayout';
@@ -1361,8 +1363,82 @@ const rightPanelMode = computed<'library' | 'cards' | 'controlPanel'>(() => {
   const v = activeTab.value;
   return v === 'library' || v === 'cards' ? v : 'controlPanel';
 });
-function openLibrarySurface(): void { activeTab.value = 'library'; }
-function openCardsSurface(): void { activeTab.value = 'cards'; }
+
+// Coordinator addendum (aff8 defect 2, commissioner shot
+// `9440_no_access_to_analysis.png`): Settings/Analysis/Other must stay
+// DIRECTLY reachable while a promoted surface is showing — not merely
+// closeable first. Drives `LytNode.vue`'s own `exclusiveHeaderOnlyByPath`
+// (that file's own header, "Split composition, `part`") so the
+// controlPanel Exclusive's tab STRIP renders (and, per
+// `TabWidget.vue`'s own `.vue-tabs--header-only .tab-header` rule,
+// stacks above `.right-panel-surface-overlay`) even while the overlay
+// covers the body — one boolean, keyed by the SAME `controlPanelLytPath`
+// every other Exclusive-scoped fact in this file already uses.
+const exclusiveHeaderOnlyByPath = computed<Record<string, boolean>>(() => ({
+  [controlPanelLytPath.value]: rightPanelMode.value !== 'controlPanel',
+}));
+
+function isControlPanelTabId(v: string): v is ControlPanelTabId {
+  return (CONTROL_PANEL_TAB_IDS as readonly string[]).includes(v);
+}
+
+// aff8 defect 2 repair ("enable-never-disable trap" — live-tested,
+// `.claude/dispatch-reports/library-cards-repair-build.md`): the
+// toolbar-launched Library/Cards surface used to have no way back —
+// `openLibrarySurface`/`openCardsSurface` only ever WROTE 'library'/
+// 'cards', never read the CURRENT value, so the control panel became
+// permanently unreachable once either surface opened.
+// `priorControlPanelTab` is the one remembered fact this needs:
+// the last REAL control-panel tab id (`settings`/`analysis`/`other`)
+// `activeTab` held, kept current by the watcher below every time
+// `activeTab` genuinely holds one (which includes every click on the
+// Settings/Analysis/Other strip, via `handleLytExclusiveActiveChange`
+// above) — read only when a surface closes, so closing restores
+// EXACTLY the tab that was showing before, not a fixed default.
+const priorControlPanelTab = vueRef<ControlPanelTabId>(
+  isControlPanelTabId(activeTab.value) ? (activeTab.value as ControlPanelTabId) : 'settings',
+);
+watch(activeTab, (v) => {
+  if (isControlPanelTabId(v)) priorControlPanelTab.value = v;
+});
+
+function closeRightPanelSurface(): void {
+  activeTab.value = priorControlPanelTab.value;
+}
+// Toggle: clicking the ALREADY-ACTIVE toolbar entry closes its own
+// surface (round-trips back to `priorControlPanelTab`); clicking the
+// other one swaps directly, matching the pre-existing Settings/
+// Analysis/Other swap behavior one cell up.
+function openLibrarySurface(): void {
+  activeTab.value = activeTab.value === 'library' ? priorControlPanelTab.value : 'library';
+}
+function openCardsSurface(): void {
+  activeTab.value = activeTab.value === 'cards' ? priorControlPanelTab.value : 'cards';
+}
+
+// Escape closes the surface (aff8 defect 2, mandate item 2). A single
+// window-level listener, owned for this component's whole lifetime
+// (App.vue mounts once, for the app's lifetime) and released
+// `onUnmounted` per the resource-ownership-at-mutation-sites
+// discipline (frontend/CLAUDE.md) — the resource is the listener
+// itself, the failure mode a leaked handler if App.vue ever unmounts
+// while still registered. NOT gated on `anyModalOpen`: a real modal's
+// own `useModalKeyboard` wiring calls `e.preventDefault()` but never
+// `stopPropagation()` (confirmed by reading every modal in
+// `src/components/modals/`), so both handlers seeing the same Escape
+// keydown is the existing, unproblematic shape every other
+// window/document-level keydown listener in this file already
+// tolerates — gating here would have made this surface's own Escape
+// silently inert whenever an UNRELATED modal happens to be open
+// (live-witnessed in this repair's own test harness: SetupWizardModal/
+// LoginModal are both mounted during a fresh, auth-less boot).
+function handleRightPanelSurfaceKeydown(e: KeyboardEvent): void {
+  if (e.key !== 'Escape') return;
+  if (rightPanelMode.value === 'controlPanel') return;
+  closeRightPanelSurface();
+}
+window.addEventListener('keydown', handleRightPanelSurfaceKeydown);
+onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceKeydown));
 
 </script>
 
@@ -1450,6 +1526,7 @@ function openCardsSurface(): void { activeTab.value = 'cards'; }
           :translate-label="t"
           :exclusive-popover-open="exclusivePopoverOpenMap"
           :exclusive-popover-target="controlPanelPopoverEl ?? undefined"
+          :exclusive-header-only-by-path="exclusiveHeaderOnlyByPath"
         >
 
           <!-- W2: style A only (railStyle === 'slot') actually shows this

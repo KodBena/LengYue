@@ -226,13 +226,13 @@ const menuId = 'engine-controls-menu';
         :ref="setTriggerEl"
         type="button"
         class="toolbar-btn engine-controls-trigger"
-        :title="$t('toolbar.engineControlsMenuTooltip')"
+        :title="$t('toolbar.moreMenuTooltip')"
         aria-haspopup="true"
         :aria-expanded="menuOpen"
         :aria-controls="menuId"
         @click="toggleMenu"
       >
-        <span>{{ $t('toolbar.engineControlsMenu') }}</span>
+        <span>{{ $t('toolbar.moreMenu') }}</span>
         <span class="caret" aria-hidden="true">▾</span>
       </button>
 

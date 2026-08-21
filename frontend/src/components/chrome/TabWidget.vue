@@ -345,6 +345,25 @@ function selectTab(id: string) {
 .vue-tabs--header-only .tab-header {
   align-self: flex-start;
   max-width: 100%;
+  /* aff8 defect 2 addendum (`.claude/dispatch-reports/
+     library-cards-repair-build.md`): App.vue's promoted-surface overlay
+     (`.right-panel-surface-overlay`, `position: absolute; inset: 0;
+     z-index: 5`) is a DOM sibling of this Exclusive's own TabWidget, and
+     without an explicit stacking context here it would paint OVER this
+     header (plain DOM/paint order, no `position` set) — exactly the
+     "Settings/Analysis/Other unreachable while Library/Cards is open"
+     defect. `position: relative` lifts the header into its OWN stacking
+     context so `z-index` takes effect; `6` sits strictly between the
+     overlay's `5` and `.lyt-resizer`'s `10` (App.vue's own template
+     comment on the overlay cites both bounds), so the strip stays
+     visible and clickable ABOVE the overlay while the resizer bar keeps
+     its own higher priority. Scoped to header-only mode only (the same
+     scoping the stray-tab-cell rider above already established) —
+     every `part="both"` consumer (Settings sub-strip, Analysis
+     dashboard, ForestDirectory Decks/Browse) is unaffected, since none
+     of them ever sits beside a z-indexed overlay sibling. */
+  position: relative;
+  z-index: 6;
 }
 
 /* Hover: text brightening only — the previous background:
