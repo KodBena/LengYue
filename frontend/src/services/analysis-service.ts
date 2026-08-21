@@ -1562,10 +1562,16 @@ export class AnalysisService {
    * is the only path that empties `activeQueries` back to zero (via
    * `stopQuery`'s synchronous bookkeeping release — see that method's
    * doc comment); natural packet completion does not remove the entry.
-   * Used by `services/nncache-session.ts`'s quiesce step as the
-   * SPA-side "no queries in flight" postcondition before attempting a
-   * cache_attach/cache_detach action, which the engine itself refuses
-   * while any request is open.
+   * NOT currently called by `services/nncache-session.ts` — that
+   * driver's `quiesce()` step calls `stopAllBoardAnalyses()` directly,
+   * which synchronously empties `activeQueries` as a side effect, so
+   * the same "no queries in flight" postcondition holds without a
+   * separate check here. (That postcondition only covers THIS
+   * service's own tracked queries, not every open request the engine
+   * counts — see `nncache-session.ts`'s module header for the
+   * `connectFresh`-based paths it can't see.) Exposed as a
+   * general-purpose observer of the in-flight count for any future
+   * caller that needs to check it without stopping anything.
    */
   public hasActiveQueries(): boolean {
     return this.activeQueries.size > 0;

@@ -23,18 +23,30 @@
  * `cache_attach` / `cache_detach` are refused by the engine while ANY
  * analysis request is open, across the WHOLE engine (Analysis_Engine.md:
  * "The engine keeps one set of open requests across every hosted
- * model"). This driver can only quiesce the SPA's OWN tracked queries
- * (`analysisService.stopAllBoardAnalyses()`, which stops pondering and
- * terminates every range/analyze query on every board) — it has no
- * visibility into other clients of a shared proxy/leaf. That release
- * is synchronous (`AnalysisService.stopQuery`'s bookkeeping clear is
- * not itself a wire round-trip; see `hasActiveQueries`'s doc comment),
- * so there is nothing to poll or sleep for: quiesce-then-send is one
- * synchronous step followed by one wire round-trip. Any residual race
- * (the engine still finishing a just-terminated query when the attach
- * lands) surfaces as an ordinary structured refusal, handled the same
- * fail-loud way as every other refusal below — never retried
- * automatically.
+ * model"). This driver can only quiesce the SPA's OWN
+ * `analysisService`-tracked queries (`stopAllBoardAnalyses()`, which
+ * stops pondering and terminates every range/analyze query on every
+ * board) — it has no visibility into any other holder of an open
+ * request. That includes genuine external clients of a shared
+ * proxy/leaf, but ALSO — honestly, this is not just an "other
+ * clients" gap — this SPA's OWN `connectFresh`-based connections
+ * (`usePlayFromPosition.ts`'s match-player queries,
+ * `useKomiCalibration.ts`'s mint-time calibration), which open an
+ * independent `KataGoClient` entirely outside `analysisService`'s
+ * `activeQueries`/`boardToQueries` bookkeeping. A request open on
+ * either path correctly causes the engine to refuse a concurrent
+ * attach/detach — loud and structured, handled by the ordinary
+ * no-retry refusal path below, never silent — this driver simply
+ * cannot pre-empt it by quiescing first, and does not attempt to
+ * (no new quiesce machinery is owed here; the refusal path already
+ * covers it). That release is synchronous (`AnalysisService.stopQuery`'s
+ * bookkeeping clear is not itself a wire round-trip; see
+ * `hasActiveQueries`'s doc comment), so there is nothing to poll or
+ * sleep for: quiesce-then-send is one synchronous step followed by
+ * one wire round-trip. Any residual race (the engine still finishing
+ * a just-terminated query when the attach lands) surfaces as an
+ * ordinary structured refusal, handled the same fail-loud way as
+ * every other refusal below — never retried automatically.
  *
  * ── No retry loops (ADR-0002) ──────────────────────────────────────
  * Every wire refusal here ends the attempted transition, reverts the
@@ -186,6 +198,20 @@ export async function enable(rawContext: string): Promise<void> {
  * user opt-out: a card the user unticked persists NOTHING from this
  * session. Visible in the console log per that same ratification.
  * No-op if nothing is attached.
+ *
+ * On a REFUSED `cache_detach`, the engine is STILL attached to `ctx`
+ * (Analysis_Engine.md, "Attributing what a query earns in the
+ * cache": with exactly one context attached, an untagged query is
+ * silently attributed to it). Clearing local state on that refusal —
+ * the bug this function used to have — would leave the SPA believing
+ * it had detached while the engine kept attributing every subsequent
+ * untagged query to the card the user just tried to disable. So a
+ * refusal here reverts to the settled `attached` state instead:
+ * `enabled` stays true (the checkbox re-ticks), `status` returns to
+ * `'attached'` rather than `'idle'`, and `activeAttachedContext` is
+ * left untouched so `query-routing.ts` keeps stamping `cacheContext`
+ * on outgoing queries. No automatic retry (ADR-0002) — the user
+ * re-ticks the checkbox to try again.
  */
 export async function disable(): Promise<void> {
   if (!_state.enabled) return;
@@ -207,14 +233,15 @@ export async function disable(): Promise<void> {
     discardUndumped: true,
   });
 
-  clearAttachedContext();
-  _state.enabled = false;
-  _state.status = 'idle';
-
   if (!result.ok) {
+    _state.status = 'attached';
     pushSystemMessage('warning', i18n.global.t('nncache.detachRefused', { detail: result.message }));
     return;
   }
+
+  clearAttachedContext();
+  _state.enabled = false;
+  _state.status = 'idle';
   console.info(
     '[nncache-session] detached (discarded undumped work)',
     ctx,
@@ -226,11 +253,21 @@ export async function disable(): Promise<void> {
  * Dump {what:'both'} the currently attached context and detach it
  * WITHOUT discarding — the dump-first semantics shared by
  * `transition`, `endSession`, and the best-effort disconnect hook.
- * Clears `state/nncache-context.ts` and `enabled`/`status`
- * unconditionally on return (success or refusal): a refused dump or
- * detach still means this driver no longer BELIEVES a context is
- * attached, since either refusal leaves the engine's own attachment
- * state ambiguous from here — never left half-tracked (ADR-0002).
+ *
+ * Clears `state/nncache-context.ts` and `enabled`/`status` ONLY when
+ * the detach leg actually SUCCEEDS. A refused `cache_dump` never
+ * touches attach state at all (it's a distinct wire action from
+ * `cache_attach`/`cache_detach`), so the engine remains attached to
+ * `ctx` regardless of whether the dump lands — clearing local state
+ * on a dump refusal would be exactly the same misattribution hazard
+ * as clearing it on a detach refusal, just one step earlier. A
+ * refused `cache_detach` leaves the engine attached too (per
+ * Analysis_Engine.md's sole-context implicit-attribution rule). In
+ * both refusal cases this function reverts to the settled `attached`
+ * state — `enabled` stays true, `status` returns to `'attached'`,
+ * and `activeAttachedContext` is left untouched so `query-routing.ts`
+ * keeps stamping `cacheContext` — never left half-tracked (ADR-0002),
+ * and never silently believed detached when the engine still isn't.
  * Returns `true` only when both legs actually succeeded.
  */
 async function dumpAndDetach(ctx: EngineCacheContext): Promise<boolean> {
@@ -244,10 +281,8 @@ async function dumpAndDetach(ctx: EngineCacheContext): Promise<boolean> {
     what: 'both',
   });
   if (!dumpResult.ok) {
+    _state.status = 'attached';
     pushSystemMessage('warning', i18n.global.t('nncache.dumpRefused', { detail: dumpResult.message }));
-    clearAttachedContext();
-    _state.enabled = false;
-    _state.status = 'idle';
     return false;
   }
 
@@ -257,13 +292,15 @@ async function dumpAndDetach(ctx: EngineCacheContext): Promise<boolean> {
     context: ctx,
     model: currentModel(),
   });
-  clearAttachedContext();
-  _state.enabled = false;
-  _state.status = 'idle';
   if (!detachResult.ok) {
+    _state.status = 'attached';
     pushSystemMessage('warning', i18n.global.t('nncache.detachRefused', { detail: detachResult.message }));
     return false;
   }
+
+  clearAttachedContext();
+  _state.enabled = false;
+  _state.status = 'idle';
   console.info('[nncache-session] dumped + detached', ctx);
   return true;
 }
@@ -274,10 +311,13 @@ async function dumpAndDetach(ctx: EngineCacheContext): Promise<boolean> {
  * advance / context edit while enabled, and for a model/label switch
  * while enabled (same context string, different `model` leg).
  *
- * On any leg's refusal: surfaces the refusal, clears local attachment
- * state (so the SPA doesn't believe a context is attached when the
- * engine may disagree), and leaves `enabled` false — the caller
- * (review session / model-switch watcher) does not retry
+ * On any leg's refusal: surfaces the refusal and leaves local state
+ * exactly as `dumpAndDetach` reverted it — `enabled` stays true,
+ * `status` back to `'attached'`, `activeAttachedContext` still `ctx`
+ * — so the SPA's belief matches the engine's (still attached to the
+ * OLD context) rather than drifting into a silent untagged-but-
+ * attached gap. The new context is never attached in that case. The
+ * caller (review session / model-switch watcher) does not retry
  * automatically; the next card advance or model pick tries again.
  */
 export async function transition(newRawContext: string): Promise<void> {
@@ -351,19 +391,40 @@ watch(
 // calls for. A response that DOES arrive before the socket closes is
 // still logged; one that doesn't is silently lost, same as any other
 // best-effort teardown message in this codebase.
-analysisService.registerDisconnectHook(() => {
-  if (!_state.enabled) return;
-  const ctx = readAttachedOrBail();
-  if (ctx === null) {
-    clearAttachedContext();
-    _state.enabled = false;
-    _state.status = 'idle';
-    return;
-  }
-  void dumpAndDetach(ctx).catch((err) => {
-    console.error('[nncache-session] best-effort disconnect dump+detach failed:', err);
+//
+// HMR guard: `disconnectHooks` is an array owned by the
+// `analysisService` singleton, which is NOT torn down by Vite HMR —
+// only this module is re-executed when it's edited in dev. Without a
+// guard, every hot reload of this file would push a second (stale-
+// closure) hook into that array, so a later disconnect would run
+// N accumulated hooks instead of one. `import.meta.hot.data` is the
+// one piece of state Vite preserves across a module's own hot
+// reloads, so it's the natural place to remember "already registered
+// this session." No-op in production — `import.meta.hot` is
+// undefined there, so this degrades to the original unconditional
+// registration.
+if (!import.meta.hot?.data?.nncacheDisconnectHookRegistered) {
+  analysisService.registerDisconnectHook(() => {
+    if (!_state.enabled) return;
+    const ctx = readAttachedOrBail();
+    if (ctx === null) {
+      clearAttachedContext();
+      _state.enabled = false;
+      _state.status = 'idle';
+      return;
+    }
+    void dumpAndDetach(ctx).catch((err) => {
+      console.error('[nncache-session] best-effort disconnect dump+detach failed:', err);
+    });
   });
-});
+  // Vite's own HotContext always carries a (mutable, but
+  // non-reassignable) `.data` object; a test runner's partial
+  // `import.meta.hot` stand-in may omit it, so guard the write the
+  // same way the read above does rather than assuming the shape.
+  if (import.meta.hot?.data) {
+    import.meta.hot.data.nncacheDisconnectHookRegistered = true;
+  }
+}
 
 // ── Test-only reset ────────────────────────────────────────────────────────
 export function _resetNncacheSessionForTesting(): void {

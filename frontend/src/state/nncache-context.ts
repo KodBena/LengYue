@@ -55,8 +55,20 @@ export function setAttachedContext(ctx: EngineCacheContext): void {
 
 /**
  * Owner-only write. `services/nncache-session.ts` calls this after a
- * successful `cache_detach`, after a refused `cache_attach` (nothing
- * to route queries against), and on best-effort disconnect teardown.
+ * SUCCESSFUL `cache_detach`, after a refused `cache_attach` (nothing
+ * to route queries against), and when its own bookkeeping already
+ * finds nothing attached (`disable()` / `endSession()` / the
+ * disconnect hook's `ctx === null` branches).
+ *
+ * It is deliberately NEVER called on a refused `cache_detach` (or a
+ * refused `cache_dump` ahead of one). Per Analysis_Engine.md's
+ * sole-context implicit-attribution rule, the engine is still
+ * attached in that case — clearing here would leave this SPA
+ * believing it had detached while the engine kept silently
+ * attributing every subsequent untagged query to the context the
+ * user just tried to leave. See `nncache-session.ts`'s `disable()`
+ * and `dumpAndDetach()` for the full rationale; both revert to the
+ * settled attached state on a refusal instead of clearing here.
  */
 export function clearAttachedContext(): void {
   _attached.value = null;

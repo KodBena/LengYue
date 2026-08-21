@@ -126,7 +126,7 @@ describe('nncache-session: disable', () => {
     expect(fakeAnalysisService.sendActionCommand).not.toHaveBeenCalled();
   });
 
-  it('sends cache_detach with discardUndumped:true, and clears attachment locally regardless of the wire result', async () => {
+  it('sends cache_detach with discardUndumped:true, and clears attachment locally on a SUCCESSFUL detach', async () => {
     fakeAnalysisService.sendActionCommand.mockResolvedValue(okActionResponse());
     await enable('card-5');
     fakeAnalysisService.sendActionCommand.mockClear();
@@ -138,7 +138,29 @@ describe('nncache-session: disable', () => {
     expect(sent.action).toBe('cache_detach');
     expect(sent.discardUndumped).toBe(true);
     expect(nncacheEnabled.value).toBe(false);
+    expect(nncacheStatus.value).toBe('idle');
     expect(activeAttachedContext.value).toBeNull();
+  });
+
+  it('a REFUSED cache_detach leaves the context attached (engine truth mirrored), keeps stamping outgoing queries, and surfaces the refusal — never silently believed detached', async () => {
+    fakeAnalysisService.sendActionCommand.mockResolvedValue(okActionResponse());
+    await enable('card-5');
+    fakeAnalysisService.sendActionCommand.mockClear();
+    fakeAnalysisService.sendActionCommand.mockResolvedValue(errorResponse('1 request open', 'action'));
+
+    await disable();
+
+    // The engine refused to detach, so it is still attached to
+    // 'alice.card-5' — the SPA's belief must not silently diverge
+    // from that in the dangerous direction (untagged-but-attached).
+    expect(nncacheEnabled.value).toBe(true);
+    expect(nncacheStatus.value).toBe('attached');
+    expect(activeAttachedContext.value).toBe('alice.card-5');
+    const warning = store.engine.messages.find(m => m.type === 'warning');
+    expect(warning?.text).toContain('1 request open');
+    // No automatic retry (ADR-0002) — a second disable() call is a
+    // fresh user-initiated attempt, not something this call schedules.
+    expect(fakeAnalysisService.sendActionCommand).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -175,7 +197,7 @@ describe('nncache-session: transition', () => {
     expect(activeAttachedContext.value).toBe('alice.card-6');
   });
 
-  it('a refused dump aborts the transition, surfaces the refusal, and leaves nothing attached (no attach attempted)', async () => {
+  it('a refused dump aborts the transition, surfaces the refusal, and leaves the OLD context attached (no attach attempted, never left half-tracked)', async () => {
     fakeAnalysisService.sendActionCommand.mockResolvedValue(okActionResponse());
     await enable('card-5');
     fakeAnalysisService.sendActionCommand.mockClear();
@@ -183,13 +205,17 @@ describe('nncache-session: transition', () => {
 
     await transition('card-6');
 
-    expect(fakeAnalysisService.sendActionCommand).toHaveBeenCalledTimes(1); // dump only — detach/attach never sent
-    expect(nncacheEnabled.value).toBe(false);
-    expect(activeAttachedContext.value).toBeNull();
+    // dump only — detach/attach never sent, and the dump leg never
+    // touches attach state, so the engine is still attached to
+    // 'alice.card-5' exactly as it was before this call.
+    expect(fakeAnalysisService.sendActionCommand).toHaveBeenCalledTimes(1);
+    expect(nncacheEnabled.value).toBe(true);
+    expect(nncacheStatus.value).toBe('attached');
+    expect(activeAttachedContext.value).toBe('alice.card-5');
     expect(store.engine.messages.some(m => m.type === 'warning')).toBe(true);
   });
 
-  it('a refused detach still clears local attachment state (never left half-tracked) and does not attempt the new attach', async () => {
+  it('a refused detach leaves the OLD context attached (engine truth mirrored) and does not attempt the new attach', async () => {
     fakeAnalysisService.sendActionCommand.mockResolvedValue(okActionResponse());
     await enable('card-5');
     fakeAnalysisService.sendActionCommand.mockClear();
@@ -199,9 +225,14 @@ describe('nncache-session: transition', () => {
 
     await transition('card-6');
 
+    // dump + detach only — the new cache_attach for 'card-6' is never
+    // sent, because the old context is still attached at the engine.
     expect(fakeAnalysisService.sendActionCommand).toHaveBeenCalledTimes(2);
-    expect(activeAttachedContext.value).toBeNull();
-    expect(nncacheEnabled.value).toBe(false);
+    expect(activeAttachedContext.value).toBe('alice.card-5');
+    expect(nncacheEnabled.value).toBe(true);
+    expect(nncacheStatus.value).toBe('attached');
+    const warning = store.engine.messages.find(m => m.type === 'warning');
+    expect(warning?.text).toContain('open requests');
   });
 });
 
