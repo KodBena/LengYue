@@ -651,16 +651,16 @@ defineExpose({ contentDemandPx });
 
 <style scoped>
 /* G13 (opus-uiux-geometry-consult.md): `height: 100%` on a plain block
-   child of `#vue-tree-panel`'s flex COLUMN (App.vue) resolves against
-   the CONTAINING BLOCK's full height — the same 100% `#tree-panel-header`
-   (20px, `flex-shrink: 0`) already claimed a slice of — not against the
-   space actually left over after that header. Flex column layout still
+   child of the tree leaf's flex COLUMN resolves against the CONTAINING
+   BLOCK's full height — the same 100% `#tree-panel-header` (20px,
+   `flex-shrink: 0`) already claimed a slice of — not against the space
+   actually left over after that header. Flex column layout still
    stacks the header THEN this wrapper, so the wrapper's own box (100%
    of the full height) rendered 20px TALLER than the room its parent
-   had left for it, and `#main-area`'s `overflow: hidden` (an ancestor
-   several levels up) clipped exactly that trailing 20px — landing the
-   current-node marker flush against the clip with no padding.
-   WITNESSED: `#vue-tree-panel` 167×1048 (bottom 1080), header 20px, yet
+   had left for it, and an ancestor's `overflow: hidden` clipped exactly
+   that trailing 20px — landing the current-node marker flush against
+   the clip with no padding.
+   WITNESSED: the tree leaf 167×1048 (bottom 1080), header 20px, yet
    `.tree-widget-wrapper`/`.tree-widget-outer` both rendered 1048px tall
    at y=52 (bottom 1100) — the header's own 20px, uncounted.
    `flex: 1 1 auto` + `min-height: 0` is the fix at the class, not a
@@ -668,16 +668,45 @@ defineExpose({ contentDemandPx });
    header's own height changes: it asks flexbox for "whatever's left
    after my siblings," which is what every other header+body split in
    this codebase already does (e.g. `TabWidget.vue`'s `.tab-body`,
-   `ForestDirectory.vue`'s `.tree-panel`) — `#vue-tree-panel` was ALREADY
-   `display: flex; flex-direction: column`, so this makes the wrapper a
-   proper flex item instead of a percentage-sized block that happened to
-   be the second flex child. `min-height: 0` overrides the flex default
-   (`min-height: auto`, i.e. content-based), the same override every
-   flex-fill body in this codebase already carries, so the tree's own
-   (frequently taller-than-its-box) SVG content doesn't push the wrapper
-   back past its allotted share the way `min-height: auto` would. */
+   `ForestDirectory.vue`'s `.tree-panel`) — the tree leaf's own
+   container is ALREADY `display: flex; flex-direction: column`, so
+   this makes the wrapper a proper flex item instead of a
+   percentage-sized block that happened to be the second flex child.
+   `min-height: 0` overrides the flex default (`min-height: auto`, i.e.
+   content-based), the same override every flex-fill body in this
+   codebase already carries, so the tree's own (frequently
+   taller-than-its-box) SVG content doesn't push the wrapper back past
+   its allotted share the way `min-height: auto` would. */
 .tree-widget-wrapper { position: relative; width: 100%; flex: 1 1 auto; min-height: 0; background: var(--surface-2); }
-.tree-widget-outer { width: 100%; height: 100%; overflow: auto; }
+/* Commissioner wiki finding #2 (2026-08-21): a horizontal scrollbar
+   showed at DEFAULT allocation — no user zoom/expand involved. Root
+   cause is the classic scrollbar-collision: `overflow: auto` on both
+   axes let the vertical scrollbar's ~15-17px gutter appear or
+   disappear depending on `svgHeight` (which grows with move count and
+   overflows the leaf's height for almost any real game), and each time
+   it appeared it silently ATE into the width budget the horizontal
+   axis had already fit into — turning a comfortable fit (svgWidth for
+   the collapsed-default, ensureVisible-only cols<=3 budget — see
+   `contentDemandPx`'s own header comment above for the honest,
+   toggle-free bound) into a genuine overflow purely because the
+   vertical scrollbar happened to be showing. `scrollbar-gutter:
+   stable` reserves that gutter UNCONDITIONALLY (whether or not the
+   vertical scrollbar is actually needed), so the width available to
+   `svg` is constant across mount/collapse/expand cycles rather than
+   fluctuating by a scrollbar's width — the collapse-default tree
+   (cols<=3, honest per the toggle-only ensureVisible reveal) now
+   fits consistently rather than flickering into overflow depending on
+   whether the vertical scrollbar happens to be showing. Horizontal
+   `overflow-x: auto` is left in place deliberately: once the user
+   genuinely expands enough variation columns to exceed that budget,
+   the scrollbar is the correct, expected affordance — this only
+   removes the false-positive collision at rest. (No layout-engine
+   change: `contentDemandPx`'s own header notes threading it into
+   `resolveSideColumnLiveLayout`'s live track-width solve is
+   deliberately out of scope for a prior dispatch; this fix stays
+   entirely inside this component's own CSS seam, per the same
+   scoping discipline.) */
+.tree-widget-outer { width: 100%; height: 100%; overflow-x: auto; overflow-y: auto; scrollbar-gutter: stable; }
 .tree-svg { display: block; }
 .tree-edges { fill: none; stroke: var(--border-3); }
 .active-ring { fill: color-mix(in srgb, var(--accent-primary) 15%, transparent); stroke: var(--accent-primary); }
