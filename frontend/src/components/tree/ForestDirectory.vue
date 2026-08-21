@@ -16,6 +16,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { store, activeBoard, pushSystemMessage, touchSession } from '../../store';
 import { useDeferredContainerBreakpoint } from '../../composables/chrome/useDeferredContainerBreakpoint';
+import { useContainerAspectOrientation } from '../../composables/chrome/useContainerAspectOrientation';
 import type { BoardId, CardId, CardMetadataPatch, ForestStat, ReviewCard } from '../../types';
 import { useCardTreeData } from '../../composables/cards/useCardTreeData';
 import { useCardMetadata } from '../../composables/cards/useCardMetadata';
@@ -83,7 +84,31 @@ const auth = useAuth();
 const cardMetadata = useCardMetadata();
 const reviewSession = useReviewSession(boardIdRef);
 const selectedDeckId = ref<string>(store.session.ui.activeCardSetId);
-const orientation = ref<'horizontal' | 'vertical'>('vertical');
+
+// Item 1 (allocation-family closing arc, maintainer's own remedy): the
+// card-tree's orientation auto-derives from `.tree-panel`'s own
+// aspect ratio via `useContainerAspectOrientation` — a wide container
+// gets 'horizontal', a tall one 'vertical' — so the tree no longer
+// squishes into a narrow strip inside a wide-but-short container
+// (fd2a_cardtree_poorly_utilized_space_when_selecting_card.png). The
+// panel-header button becomes an OVERRIDE of that derived value,
+// persisted at `store.session.ui.cardTreeOrientationOverride`
+// ('horizontal' | 'vertical' | null — schema-version 78); `null` means
+// "no override, use the derived value." `effectiveOrientation` is what
+// actually reaches `CardTreeWidget`.
+const treePanelEl = ref<HTMLElement | null>(null);
+const {
+  derivedOrientation,
+  observe: observeTreePanelAspect,
+  stop: stopTreePanelAspectObserver,
+} = useContainerAspectOrientation();
+
+const orientationOverride = computed<'horizontal' | 'vertical' | null>(
+  () => store.session.ui.cardTreeOrientationOverride,
+);
+const orientation = computed<'horizontal' | 'vertical'>(
+  () => orientationOverride.value ?? derivedOrientation.value,
+);
 
 // Phase 3 (audit finding R3) — the metadata panel's own width when
 // reflowed beside the chart (`.panel-content-two-col`, style block
@@ -113,8 +138,15 @@ const currentCardId = computed<CardId | null>(() => {
   return card ? card.id : null;
 });
 
-function toggleOrientation(): void {
-  orientation.value = orientation.value === 'horizontal' ? 'vertical' : 'horizontal';
+// Cycles the persisted override: auto (null) -> horizontal -> vertical
+// -> auto. Three states because the field now expresses three real
+// choices (let it derive vs. force either orientation), not two.
+function cycleOrientation(): void {
+  const cur = orientationOverride.value;
+  const next: 'horizontal' | 'vertical' | null =
+    cur === null ? 'horizontal' : cur === 'horizontal' ? 'vertical' : null;
+  store.session.ui.cardTreeOrientationOverride = next;
+  touchSession();
 }
 
 // Load the forest roots once authenticated — NOT on a bare onMounted.
@@ -441,12 +473,14 @@ const {
 
 onMounted(() => {
   if (forestCqWrapperEl.value) observeForestWidth(forestCqWrapperEl.value);
+  if (treePanelEl.value) observeTreePanelAspect(treePanelEl.value);
 });
-// ADR-0010 imperative-escape step 4: the ResizeObserver lives outside
+// ADR-0010 imperative-escape step 4: both ResizeObservers live outside
 // Vue's reactivity graph and must be released, or every mounted
 // ForestDirectory leaks an observer for the component's lifetime.
 onUnmounted(() => {
   stopForestWidthObserver();
+  stopTreePanelAspectObserver();
 });
 </script>
 
@@ -525,17 +559,31 @@ onUnmounted(() => {
       </TabWidget>
     </div>
 
-    <!-- RIGHT PANEL: Card-tree widget -->
-    <div class="tree-panel">
+    <!-- RIGHT PANEL: Card-tree widget. `ref="treePanelEl"` is the
+         ResizeObserver target for auto-derived orientation (item 1) —
+         observing this container (not `.chart-wrapper` alone) means
+         the derivation reacts to the same space the metadata panel's
+         side-by-side reflow (`.panel-content-two-col`) also competes
+         for, so the tree's orientation and its available room stay
+         consistent. -->
+    <div class="tree-panel" ref="treePanelEl">
       <div class="panel-header">
         <span>{{ $t('cards.lineage.header') }}</span>
         <div class="header-controls">
           <button
             class="orient-btn"
-            :title="orientation === 'horizontal' ? $t('cards.lineage.switchToVertical') : $t('cards.lineage.switchToHorizontal')"
-            @click="toggleOrientation"
+            :title="orientationOverride === null
+              ? $t('cards.lineage.switchToHorizontal')
+              : orientationOverride === 'horizontal'
+                ? $t('cards.lineage.switchToVertical')
+                : $t('cards.lineage.switchToAuto')"
+            @click="cycleOrientation"
           >
-            {{ orientation === 'horizontal' ? `⇥ ${$t('cards.lineage.orientationHorizontal')}` : `⇩ ${$t('cards.lineage.orientationVertical')}` }}
+            {{ orientationOverride === null
+              ? `⇆ ${$t('cards.lineage.orientationAuto')}`
+              : orientationOverride === 'horizontal'
+                ? `⇥ ${$t('cards.lineage.orientationHorizontal')}`
+                : `⇩ ${$t('cards.lineage.orientationVertical')}` }}
           </button>
           <span class="tree-meta" v-if="tree.forest.value.length">
             {{ $t('cards.lineage.treeCount', tree.forest.value.length) }} ·

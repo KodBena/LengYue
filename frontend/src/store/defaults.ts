@@ -918,6 +918,10 @@ export const defaultSessionUI: UISession = {
   // why this is registry-only (no StatusBar button). Schema-version 75
   // introduces the field.
   showGhostStone: true,
+  // Card-tree orientation override. Default `null` — auto-derive from
+  // the container's aspect ratio; see schema.ts's field comment.
+  // Schema-version 78 introduces the field.
+  cardTreeOrientationOverride: null,
 };
 
 export const DEFAULTS = {

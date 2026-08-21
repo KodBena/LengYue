@@ -3813,3 +3813,56 @@ describe('76 → 77: controlPanel-fabrication compensation (lyt-p2b-presence-rea
     expect(twice.session.ui.lytPresence).toEqual(once.session.ui.lytPresence);
   });
 });
+
+describe('77 → 78: backfill session.ui.cardTreeOrientationOverride (allocation-family closing arc, item 1)', () => {
+  // New field, no legacy predecessor (the pre-78 orientation toggle was
+  // component-local, never persisted) — every existing blob backfills
+  // to `null` ("auto"), matching the field's own registration default.
+  function blobWithSessionUi(): any {
+    return {
+      session: { ui: { activeTab: 'cards' } },
+    };
+  }
+
+  it('backfills cardTreeOrientationOverride = null when the leaf is absent', () => {
+    const out = step(77)(blobWithSessionUi());
+    expect(out.session.ui.cardTreeOrientationOverride).toBeNull();
+  });
+
+  it('preserves a pre-existing "horizontal" override (idempotent / hand-edited)', () => {
+    const blob = blobWithSessionUi();
+    blob.session.ui.cardTreeOrientationOverride = 'horizontal';
+    const out = step(77)(blob);
+    expect(out.session.ui.cardTreeOrientationOverride).toBe('horizontal');
+  });
+
+  it('preserves a pre-existing "vertical" override', () => {
+    const blob = blobWithSessionUi();
+    blob.session.ui.cardTreeOrientationOverride = 'vertical';
+    const out = step(77)(blob);
+    expect(out.session.ui.cardTreeOrientationOverride).toBe('vertical');
+  });
+
+  it('replaces an invalid cardTreeOrientationOverride with null', () => {
+    const blob = blobWithSessionUi();
+    blob.session.ui.cardTreeOrientationOverride = 'diagonal';
+    const out = step(77)(blob);
+    expect(out.session.ui.cardTreeOrientationOverride).toBeNull();
+  });
+
+  it('is a no-op when the session.ui container is absent (partial blob)', () => {
+    const blob: any = { session: {} };
+    const out = step(77)(blob);
+    expect(out.session.ui).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v77 blob reaches CURRENT with cardTreeOrientationOverride backfilled', () => {
+    const blob: any = {
+      schemaVersion: 77,
+      session: { ui: { activeTab: 'cards' } },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.session.ui.cardTreeOrientationOverride).toBeNull();
+  });
+});
