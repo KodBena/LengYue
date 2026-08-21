@@ -302,6 +302,19 @@ const props = withDefaults(
      *  no caller has wired popover summon — an absent Exclusive then never
      *  renders at all (matches every other release-toggled leaf). */
     exclusivePopoverTarget?: HTMLElement | string;
+    /** aff8 defect 2 addendum ("Settings/Analysis/Other unreachable while
+     *  a promoted surface is open" — `.claude/dispatch-reports/
+     *  library-cards-repair-build.md`): Exclusive node path -> render its
+     *  own `TabWidget` as `part: 'header'` instead of `'both'` — the SAME
+     *  header/body split `SettingsSubstrip.vue`/`SettingsPane.vue` already
+     *  use (`TabWidget.vue`'s own header, "Split composition, `part`"),
+     *  applied here so a caller (App.vue) can keep the tab STRIP reachable
+     *  and clickable while substituting its own content for the body (a
+     *  full-width overlay, in this case) — forwarded verbatim like every
+     *  other cross-cutting Exclusive prop above. An Exclusive whose path is
+     *  absent (or `false`) renders `part: 'both'`, byte-identical to every
+     *  pre-existing caller that never supplies this prop. */
+    exclusiveHeaderOnlyByPath?: Record<string, boolean>;
   }>(),
   {
     path: '',
@@ -314,6 +327,7 @@ const props = withDefaults(
     translateLabel: (key: string) => key,
     exclusivePopoverOpen: () => ({}),
     exclusivePopoverTarget: undefined,
+    exclusiveHeaderOnlyByPath: () => ({}),
   },
 );
 
@@ -613,6 +627,7 @@ const slotNames = computed(() => Object.keys(slots));
           :translate-label="translateLabel"
           :exclusive-popover-open="exclusivePopoverOpen"
           :exclusive-popover-target="exclusivePopoverTarget"
+          :exclusive-header-only-by-path="exclusiveHeaderOnlyByPath"
         >
           <!-- Forward every named slot App.vue supplied at the top of the
                recursion. None of LytNode's leaf slots are SCOPED (App.vue
@@ -654,6 +669,7 @@ const slotNames = computed(() => Object.keys(slots));
               :tabs="exclusiveTabs(group.rep.node)"
               :model-value="exclusiveActiveTabId(group.rep.node, group.rep.path)"
               :owns-scroll="false"
+              :part="exclusiveHeaderOnlyByPath[group.rep.path] ? 'header' : 'both'"
               @update:model-value="(v: string) => onExclusiveTabModelUpdate(group.rep.path, v)"
             >
               <template v-for="child in group.rep.node.children" #[child.tabId] :key="child.tabId">
@@ -678,6 +694,7 @@ const slotNames = computed(() => Object.keys(slots));
                   :translate-label="translateLabel"
                   :exclusive-popover-open="exclusivePopoverOpen"
                   :exclusive-popover-target="exclusivePopoverTarget"
+                  :exclusive-header-only-by-path="exclusiveHeaderOnlyByPath"
                 >
                   <template v-for="name in slotNames" #[name] :key="name">
                     <slot :name="name" />
