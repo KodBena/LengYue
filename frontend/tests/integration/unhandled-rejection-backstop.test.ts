@@ -148,10 +148,16 @@ describe('unhandled-rejection backstop', () => {
     expect(store.engine.messages).toHaveLength(1);
 
     // ...until the latch is reset (the analog of the enrichment-merge
-    // latch's purgeAll clearing with the workspace).
+    // latch's purgeAll clearing with the workspace). Show-once dedup at the
+    // sink (system-message-sink's `push`): the re-surfaced text is
+    // byte-identical to the still-present prior entry and nothing else was
+    // logged in between, so it collapses into that SAME row (count bumped)
+    // rather than adding a second near-duplicate row — the reason still
+    // reaches the user, without a duplicate line.
     backstop.reset();
     backstop.handle(new Error('transient'));
-    expect(store.engine.messages).toHaveLength(2);
+    expect(store.engine.messages).toHaveLength(1);
+    expect(store.engine.messages[0].count).toBe(2);
   });
 
   it('a pushSystemMessage failure does not escape the handler (no compounding rejection)', () => {

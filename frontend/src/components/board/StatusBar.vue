@@ -518,6 +518,26 @@ const moveNumber = computed((): number => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* Occluded-highlighter fix (component-shoddiness follow-up, live
+     screenshot ~/xs/fd2a_occluded_move_highlighter_in_status_bar_
+     default_tree_still_horizontal_scroll.png): `.stone-chip.active`'s
+     turn-indicator ring is an `outline` (2px solid, 1px offset — 3px
+     total bleed beyond the chip's own border box, see that rule's own
+     comment) painted OUTSIDE the chip. The chip is this element's
+     FIRST inline child, flush against `.player-name`'s own left edge,
+     so `overflow: hidden` above (required for the ellipsis affordance)
+     clipped the ring's left arc against that edge — witnessed live as
+     a "C", not an "O", around the active player's chip. `box-sizing:
+     border-box` (global reset) means this padding does NOT change
+     `.player-name`'s own flex-computed width (border-box holds, only
+     the content box shrinks by 3px) — it opens 3px of clip headroom
+     INSIDE the same border box the ring's bleed now fits inside,
+     without shifting `.player-names`' overall geometry or reopening
+     the S4/item-1/item-4 overlap-vs-clip history above. Left-only:
+     the ring's top/bottom/right arcs already had vertical line-height
+     slack and trailing content to bleed into; only the leading edge,
+     flush against this box's own boundary, needed the room. */
+  padding-left: 3px;
 }
 .vs-text {
   color: var(--text-0);

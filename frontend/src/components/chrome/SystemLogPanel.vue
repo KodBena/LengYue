@@ -80,7 +80,7 @@ function nextActionLabel(token: string): string {
         <span class="msg-icon">{{ msg.type === 'error' ? '❌' : (msg.type === 'warning' ? '⚠️' : 'ℹ️') }}</span>
         <div class="msg-content">
           <span class="msg-time">{{ new Date(msg.timestamp).toLocaleTimeString() }}</span>
-          <span class="msg-text">{{ msg.text }}</span>
+          <span class="msg-text">{{ msg.text }}<span v-if="(msg.count ?? 1) > 1" class="msg-count"> ×{{ msg.count }}</span></span>
           <!-- Dispatch L3 repair (ADR-0019 C8): `remediation`/`nextAction`
                are structured fields on `SystemMessage`, not flattened into
                `msg.text` — rendered as their own subordinate lines when a
@@ -203,6 +203,11 @@ function nextActionLabel(token: string): string {
   font-family: monospace;
   white-space: pre-wrap; /* Preserve stack traces if sent by Python */
   line-height: 1.4;
+}
+
+.msg-count {
+  font-weight: bold;
+  color: var(--text-0);
 }
 
 .msg-remediation,

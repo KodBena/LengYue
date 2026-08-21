@@ -180,12 +180,18 @@ describe('useNodePositionHashes — failure honesty (ADR-0002)', () => {
     expect(store.engine.messages.length).toBe(1); // unchanged — this window succeeded
     expect(getCachedNodeHash(board.rootNodeId)).toBe(HASH_ROOT);
 
-    // A fresh failure after the recovery notifies again.
+    // A fresh failure after the recovery notifies again. Show-once dedup at
+    // the sink (system-message-sink's `push`): the notice text is a fixed
+    // i18n string (not the raw Error's own message), so this re-notification
+    // is byte-identical to the still-present prior entry — with nothing else
+    // logged in between, it collapses into that SAME row (count bumped)
+    // rather than adding a second near-duplicate row.
     purgeAllNodeHashes();
     fakeBackendService.hashPositionsBatch.mockRejectedValue(new Error('down again'));
     requestHashFill([board.rootNodeId], board);
     await vi.advanceTimersByTimeAsync(150);
-    expect(store.engine.messages.length).toBe(2);
+    expect(store.engine.messages.length).toBe(1);
+    expect(store.engine.messages[0].count).toBe(2);
   });
 });
 
