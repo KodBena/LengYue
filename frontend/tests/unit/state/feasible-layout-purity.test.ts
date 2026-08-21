@@ -82,6 +82,7 @@ import {
   type SideColumnLiveLayoutResult,
   type RootSplitLiveLayoutResult,
 } from '../../../src/state/feasible-layout';
+import { CONTROL_PANEL_MIN_WIDTH_PX } from '../../../src/state/layout-model';
 import { LYT_LANDSCAPE } from '../../../src/state/lyt-layout.gen';
 import { LYT_PORTRAIT } from '../../../src/state/lyt-layout-portrait.gen';
 import {
@@ -286,8 +287,8 @@ describe('purity §A: FeasibleLayout.validate() — path-independence given FIXE
 function landscapeSideColumnFixtures() {
   const facts = extractLandscapeSideColumnRowFacts();
   const others: readonly SideColumnFixedRegion[] = [
-    { widgetId: 'controlPanel', track: facts.controlPanelTrack, desiredVisible: true, demote: facts.controlPanelDemote },
-    { widgetId: 'previewBoard', track: facts.previewBoardTrack, desiredVisible: false, demote: null },
+    { widgetId: 'controlPanel', track: facts.controlPanelTrack, desiredVisible: true, viabilityFloorPx: CONTROL_PANEL_MIN_WIDTH_PX },
+    { widgetId: 'previewBoard', track: facts.previewBoardTrack, desiredVisible: false, viabilityFloorPx: null },
   ];
   // Row 2501 repair: `resolveSideColumnLiveLayout` now computes the
   // effective floor/ceiling relationship ITSELF (`effectiveDemandFloorPx`,
@@ -355,17 +356,26 @@ describe('purity §B: resolveSideColumnLiveLayout() — non-sovereign, path-inde
 //    override IS an input like any other — this dispatch's own SCOPE
 //    item 3). ──────────────────────────────────────────────────────────
 
-// Chosen (not arbitrary) so the traversal's own wrapperWidthPx values —
-// 820 (1920x1080/2560x1440), 638 (1366x768), 345 (480x900/1024x768/
-// 1080x1920/900x600), per `computeLandscapeSideColumnWidthPx`'s own
-// deterministic output for this geometry set — span all THREE outcome
-// shapes at once: 820 yields a genuine SIBLING starvation (controlPanel
-// present but under-granted); 345 yields a genuine WRAPPER-capacity
-// starvation (dispatch L4's own new mechanism, no sibling present to
-// diagnose against); 638 yields a genuinely CLEAN fit (controlPanel
-// absent by demote, tree's own 500px comfortably inside 638px) — so the
-// sanity check below is not vacuous over a single shape.
-const PERSISTED_SOVEREIGN_OVERRIDE_PX = 500;
+// MIGRATED per ledger row 2532 (region-owned presence). The old 500px
+// override was chosen against the RETIRED mechanism, where a floor-
+// bearing sibling could be "starved while present" (any candidate below
+// its own compiled fixed track counted) — that outcome shape no longer
+// exists: `allot()`'s own sovereign floor-reservation cap
+// (`state/feasible-layout.ts`) guarantees a floor-bearing sibling that
+// stays present NEVER falls below its own floor, so the row's total
+// claim, with ONLY `controlPanel` present, now balances EXACTLY to
+// `wrapperWidthPx` at every geometry (never a diagnosable overflow) — a
+// direct, verifiable consequence of the cap's own arithmetic. The only
+// REMAINING overflow source is a NON-floor-bearing sibling's own
+// unconditional reservation (`previewBoard`, never shrunk) stacking on
+// top of the floor guarantee — so this describe block's own `others`
+// now includes `previewBoard` present too (a local override of the
+// shared fixture, which defaults it absent), and the override is
+// dropped to 100px so the cap only BINDS (and therefore only
+// OVERFLOWS) at this traversal's narrower `wrapperWidthPx` values (345),
+// staying clean at the wider ones (638, 820) — genuinely mixed, per this
+// describe block's own non-vacuous sanity check below.
+const PERSISTED_SOVEREIGN_OVERRIDE_PX = 100;
 
 describe('purity §C: resolveSideColumnLiveLayout() — SOVEREIGN override present, path-independence given a FIXED persisted override', () => {
   // Purity claim, stated explicitly (this dispatch's own SCOPE item 3):
@@ -380,7 +390,14 @@ describe('purity §C: resolveSideColumnLiveLayout() — SOVEREIGN override prese
   // the resolved `treePx`/`others`/`diagnostics` triple (INCLUDING the
   // dispatch L4 wrapper-capacity diagnostic, §1.6/this module's own
   // `wrapperCapacityStarvation`) is path-independent too.
-  const { facts, others, treeMaxUsefulPx } = landscapeSideColumnFixtures();
+  const { facts, treeMaxUsefulPx } = landscapeSideColumnFixtures();
+  // previewBoard PRESENT here (unlike §B's shared fixture) — see this
+  // block's own header comment above for why its unconditional
+  // reservation is now load-bearing for exercising the capacity path.
+  const others: readonly SideColumnFixedRegion[] = [
+    { widgetId: 'controlPanel', track: facts.controlPanelTrack, desiredVisible: true, viabilityFloorPx: CONTROL_PANEL_MIN_WIDTH_PX },
+    { widgetId: 'previewBoard', track: facts.previewBoardTrack, desiredVisible: true, viabilityFloorPx: null },
+  ];
 
   function computeLiveSovereignAt(g: NamedGeometry): unknown {
     const wrapperWidthPx = computeLandscapeSideColumnWidthPx(g);
@@ -642,5 +659,143 @@ describe('purity §F: resolveRootSplitLiveLayout() — explicit screen-class-swa
       return sovereignAt(LANDSCAPE_1920);
     })();
     expect(afterPortraitShapedCall).toEqual(canonical);
+  });
+});
+
+// ── §G: the region-owned presence RELATION — ledger row 2532's own item
+//    4 requirement ("a purity test sweeping width AND sovereignty
+//    together over both divider orders"). §B/§C above each prove ONE
+//    path is a path-INDEPENDENT pure function of its own inputs; neither
+//    can express the property that actually failed in the RCA
+//    (`.claude/dispatch-reports/control-panel-demotion-rca.md` §6,
+//    "the suite structurally cannot express the invariant that fails"):
+//    a relation BETWEEN two different divider paths that happen to
+//    arrive at the SAME realized `controlPanel` width. This block
+//    builds that relation directly. ─────────────────────────────────────
+describe('purity §G: region-owned presence is a genuine RELATION — equal realized controlPanel width implies equal presence verdict, across BOTH divider paths and boardRail presence', () => {
+  const facts = extractLandscapeSideColumnRowFacts();
+  const treeMaxUsefulPx: Px = px(60);
+
+  function othersFor(previewBoardDesired: boolean): readonly SideColumnFixedRegion[] {
+    return [
+      { widgetId: 'controlPanel', track: facts.controlPanelTrack, desiredVisible: true, viabilityFloorPx: CONTROL_PANEL_MIN_WIDTH_PX },
+      { widgetId: 'previewBoard', track: facts.previewBoardTrack, desiredVisible: previewBoardDesired, viabilityFloorPx: null },
+    ];
+  }
+
+  interface Outcome {
+    readonly source: string;
+    readonly wrapperWidthPx: number;
+    readonly candidatePx: number;
+    readonly present: boolean;
+  }
+
+  function controlPanelOutcome(source: string, wrapperWidthPx: number, treeSovereignPx: number | undefined): Outcome {
+    const result = resolveSideColumnLiveLayout({
+      wrapperWidthPx,
+      gapPx: facts.gapPx,
+      tree: { track: facts.treeTrack, maxUsefulPx: treeMaxUsefulPx },
+      treeSovereignPx,
+      treeDefaultPx: 0,
+      others: othersFor(false),
+      screenClassId: 'landscape',
+    });
+    const cp = result.others.find((o) => o.widgetId === 'controlPanel')!;
+    return { source, wrapperWidthPx, candidatePx: cp.candidatePx, present: cp.present };
+  }
+
+  // OUTER-divider path: `wrapperWidthPx` varies (as the root split /
+  // window resize / boardRail toggle would drive it in the live app),
+  // `tree` stays NON-SOVEREIGN throughout — this is the container-driven
+  // path the RCA's own §5 identifies as "the outer bar."
+  //
+  // The wrapperWidthPx sweep is composed THROUGH `resolveRootSplitLiveLayout`
+  // at a fixed 1920x1080 row, varying `boardRailReservedPx` between its
+  // two real values (0 = boardRail absent, 180 = boardRail's own fixed
+  // 168px track + one gap present) — the coordinator's own live-witness
+  // addendum ("the presence verdict must be region-owned in rail-present
+  // and rail-absent states alike") is swept here as a genuine INPUT
+  // dimension, not asserted only by inference.
+  const rootFacts = rootSplitFactsFromLandscape();
+  function rootSplitSideColumnPx(boardRailReservedPx: number): number {
+    return resolveRootSplitLiveLayout({
+      rowWidthPx: 1920,
+      rowHeightPx: 1080,
+      gapPx: rootFacts.gapPx,
+      boardRailReservedPx,
+      board: { fixedSiblingSumPx: rootFacts.fixedSiblingSumPx, naturalBoardCrossUnit: rootFacts.naturalBoardCrossUnit },
+      sideColumn: { minPx: rootFacts.minPx, maxPx: rootFacts.maxPx },
+      boardFloorPx: ROOT_SPLIT_BOARD_FLOOR_PX,
+      sovereignWrapperPx: undefined,
+    }).sideColumnPx;
+  }
+
+  const OUTER_WRAPPER_WIDTHS_PX: readonly number[] = [
+    300, 345, 400, 414, 450, 500, 578, 600, 700, 778, 820,
+    rootSplitSideColumnPx(0), // boardRail ABSENT, composed end-to-end through the root split
+    rootSplitSideColumnPx(180), // boardRail PRESENT, composed end-to-end through the root split
+  ];
+
+  // INNER-divider path: `wrapperWidthPx` stays FIXED at a wide container
+  // (820, the 1920x1080 witness figure), `tree` is SOVEREIGN throughout,
+  // dragged across a wide sweep — the RCA's own "inner bar."
+  const INNER_FIXED_WRAPPER_PX = 820;
+  const INNER_TREE_SOVEREIGN_SWEEP_PX: readonly number[] = [0, 40, 100, 200, 300, 400, 450, 500, 516, 600, 700, 800, 1200, 2000];
+
+  function buildOuterOutcomes(order: readonly number[]): readonly Outcome[] {
+    return order.map((w) => controlPanelOutcome('outer', w, undefined));
+  }
+  function buildInnerOutcomes(order: readonly number[]): readonly Outcome[] {
+    return order.map((s) => controlPanelOutcome('inner', INNER_FIXED_WRAPPER_PX, s));
+  }
+
+  it('sanity: both sweeps genuinely exercise BOTH present and absent verdicts (not a vacuous relation over one shape)', () => {
+    const outer = buildOuterOutcomes(OUTER_WRAPPER_WIDTHS_PX);
+    const inner = buildInnerOutcomes(INNER_TREE_SOVEREIGN_SWEEP_PX);
+    expect(outer.some((o) => o.present)).toBe(true);
+    expect(outer.some((o) => !o.present)).toBe(true);
+    // Inner never demotes to absent (ledger row 2532's own "drags floor,
+    // never demote to absent" ruling) — its OWN non-vacuity bar is
+    // therefore "genuinely floored at least once," not "absent at least
+    // once."
+    expect(inner.every((o) => o.present)).toBe(true);
+    expect(inner.some((o) => o.candidatePx === CONTROL_PANEL_MIN_WIDTH_PX)).toBe(true); // genuinely floored somewhere in the sweep
+    expect(inner.some((o) => o.candidatePx > CONTROL_PANEL_MIN_WIDTH_PX)).toBe(true); // and genuinely NOT floored somewhere else
+  });
+
+  it('the RELATION itself: for every pair of outer/inner outcomes with the SAME realized controlPanel candidatePx, the presence verdict agrees — the exact invariant the RCA found unrepresentable', () => {
+    const outer = buildOuterOutcomes(OUTER_WRAPPER_WIDTHS_PX);
+    const inner = buildInnerOutcomes(INNER_TREE_SOVEREIGN_SWEEP_PX);
+    let comparedPairs = 0;
+    for (const o of outer) {
+      for (const i of inner) {
+        if (o.candidatePx !== i.candidatePx) continue;
+        comparedPairs += 1;
+        expect(
+          o.present,
+          `outer wrapperWidthPx=${o.wrapperWidthPx} and inner treeSovereignPx-driven candidatePx=${i.candidatePx} agree in WIDTH ` +
+            `but disagree in PRESENCE (outer=${o.present}, inner=${i.present}) — the exact path-dependence ledger row 2532 closes`,
+        ).toBe(i.present);
+      }
+    }
+    // Non-vacuity: the two sweeps' own candidatePx ranges must actually
+    // OVERLAP somewhere, or the relation above would hold trivially
+    // (zero pairs compared).
+    expect(comparedPairs).toBeGreaterThan(0);
+  });
+
+  it('both divider ORDERS: reversing each sweep\'s own traversal order changes nothing about the relation above — order-independence composed with the relation itself', () => {
+    const outerForward = buildOuterOutcomes(OUTER_WRAPPER_WIDTHS_PX);
+    const outerReversed = buildOuterOutcomes([...OUTER_WRAPPER_WIDTHS_PX].reverse());
+    const innerForward = buildInnerOutcomes(INNER_TREE_SOVEREIGN_SWEEP_PX);
+    const innerReversed = buildInnerOutcomes([...INNER_TREE_SOVEREIGN_SWEEP_PX].reverse());
+    // Order-independence of each PATH's own outcomes (byte-identical
+    // once re-sorted back to a canonical key) — the pure-function half.
+    const byWidth = (a: Outcome, b: Outcome) => a.wrapperWidthPx - b.wrapperWidthPx;
+    expect([...outerReversed].sort(byWidth)).toEqual([...outerForward].sort(byWidth));
+    const bySovereign = (a: Outcome, b: Outcome) => a.candidatePx - b.candidatePx;
+    expect([...innerReversed].sort(bySovereign).map((o) => o.present)).toEqual(
+      [...innerForward].sort(bySovereign).map((o) => o.present),
+    );
   });
 });

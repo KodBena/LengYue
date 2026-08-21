@@ -145,7 +145,7 @@ import type { LytTrackShape } from './state/lyt-layout-types';
 import { useSideColumnLiveLayout } from './composables/chrome/useSideColumnLiveLayout';
 import { resolveRootSplitLiveLayout } from './state/feasible-layout';
 import type { Px, SideColumnFixedRegion } from './state/feasible-layout';
-import { MIN_BOARD_PX } from './state/layout-model';
+import { MIN_BOARD_PX, CONTROL_PANEL_MIN_WIDTH_PX } from './state/layout-model';
 import { useDirtyBoardGuard } from './composables/board/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
 import { useWorkspaceRecovery } from './composables/auth-app/useWorkspaceRecovery';
@@ -711,13 +711,28 @@ const lytPresenceClassDefaults = computed<Partial<Record<LytPresenceTargetId, bo
   };
 });
 
-// Finish-pass wave A: the `controlPanel` Exclusive's own compiled
-// `@demote` declaration (778px landscape / 808px portrait — P1's derived
-// thresholds), read off the SAME `activeLytProgramIndex` walk every other
-// per-class fact above already reads (ADR-0012 P1) rather than a second,
-// hand-typed literal per class. MOVED above `sideColumnOtherRegions`
-// alongside `lytPresenceClassDefaults` — same reorder, same reason.
-const controlPanelDemote = computed(() => activeLytProgramIndex.value.demoteByWidget.controlPanel ?? null);
+// Ledger row 2532 (region-owned presence, `.claude/dispatch-reports/
+// control-panel-demotion-rca.md` Remedy 1): the root split's own
+// "board yields honestly if needed" floor-raise (`sideColumnDesiredMinPx`
+// below) used to read the compiled CONTAINER-composite `@demote.belowPx`
+// threshold (778px landscape — `tree.min + gap + controlPanel.min`, an
+// assumption about the TREE's own claim baked into a threshold that is
+// then evaluated regardless of what the tree is actually claiming — the
+// RCA's own diagnosed path-dependence root cause). `controlPanelViability
+// ThresholdPx` replaces it with the SAME region-owned quantity
+// `sideColumnOtherRegions` below now threads into the interior solve as
+// `viabilityFloorPx` (`CONTROL_PANEL_MIN_WIDTH_PX`), composed here with
+// `tree`'s own compiled floor and one row gap — the smallest container
+// width the interior solve could possibly dock the panel at, given
+// `tree` sitting at ITS OWN floor. A smaller ask than the old composite
+// (300 vs. 664 for the panel's own term), so the board now yields less
+// to satisfy it — the RCA's own "the witnessed dead-space case largely
+// disappears" prediction for Remedy 1.
+const controlPanelViabilityThresholdPx = computed<number>(() => {
+  const treeTrack = requireTrack('tree');
+  const treeFloorPx = treeTrack.kind === 'elastic' ? treeTrack.minPx : 0;
+  return treeFloorPx + TREE_CONTROL_WRAPPER_ROW_GAP_PX + CONTROL_PANEL_MIN_WIDTH_PX;
+});
 
 // GAP A (`.claude/dispatch-reports/lyt-cure-final-repair.md`, ledger
 // rows 2502/2503): `boardRail`'s own live reserved width — mirrors
@@ -781,23 +796,19 @@ const rootSplitLayout = computed(() => {
     sideColumn: { minPx: sideColumnTrack.minPx, maxPx: sideColumnTrack.maxPx },
     boardFloorPx: MIN_BOARD_PX,
     sovereignWrapperPx: store.session.ui.treeControlRegionWidthPx,
-    // Ledger row 2511 pragmatic repair (S1, the audit's own central
-    // case): when the user wants `controlPanel` visible, its compiled
-    // `@demote.belowPx` threshold (`controlPanelDemote`, declared above)
-    // is the genuine width the side column's interior needs to dock it —
-    // the SAME fact `resolveSideColumnLiveLayout`'s own presence check
-    // reads (`state/feasible-layout.ts`), read here a second time only
-    // because this earlier, ROOT-split solve needs it BEFORE the
-    // interior solve runs, not because it's independently derived.
-    // `desiredControlPanel` mirrors `sideColumnOtherRegions`' own
-    // identical expression below (that computed can't be reused here —
-    // it depends on this computed's own output transitively via
-    // `effectiveSideColumnWidthPx`, so reading it here would be
-    // circular; duplicated per that disclosed ordering constraint, not a
-    // second, driftable derivation of a DIFFERENT fact).
+    // Ledger row 2511 pragmatic repair (S1), region-owned per row 2532:
+    // when the user wants `controlPanel` visible, `controlPanelViability
+    // ThresholdPx` (declared above) is the genuine width the side
+    // column's interior needs to dock it AT ITS OWN FLOOR — read here,
+    // before the interior solve runs, for the same reason the pre-row-
+    // 2532 version did (this earlier ROOT-split solve needs the fact
+    // before `resolveSideColumnLiveLayout` itself runs). `desiredControlPanel`
+    // mirrors `sideColumnOtherRegions`' own identical expression below
+    // (duplicated per that computed's own disclosed circularity note, not
+    // a second, driftable derivation of a DIFFERENT fact).
     sideColumnDesiredMinPx:
-      (store.session.ui.lytPresence.controlPanel ?? lytPresenceClassDefaults.value.controlPanel ?? true) && controlPanelDemote.value !== null
-        ? controlPanelDemote.value.belowPx
+      (store.session.ui.lytPresence.controlPanel ?? lytPresenceClassDefaults.value.controlPanel ?? true)
+        ? controlPanelViabilityThresholdPx.value
         : 0,
   });
 });
@@ -852,13 +863,21 @@ const sideColumnOtherRegions = computed<readonly SideColumnFixedRegion[]>(() => 
       widgetId: 'controlPanel',
       track: requireTrack('controlPanel'),
       desiredVisible: desiredControlPanel,
-      demote: controlPanelDemote.value,
+      // Ledger row 2532 (region-owned presence): the panel's own minimum
+      // renderable demand, projected from the tab registry
+      // (`CONTROL_PANEL_MIN_WIDTH_PX`, `state/layout-model.ts`) — replaces
+      // the container-composite `controlPanelDemote.belowPx` (the RCA's
+      // diagnosed root cause: a threshold declared about the ROW,
+      // evaluated against the row, but meant to decide something about
+      // the PANEL). See `SideColumnFixedRegion`'s own header
+      // (`state/feasible-layout.ts`) for the full derivation.
+      viabilityFloorPx: CONTROL_PANEL_MIN_WIDTH_PX,
     },
     {
       widgetId: 'previewBoard',
       track: requireTrack('previewBoard'),
       desiredVisible: desiredPreviewBoard,
-      demote: null,
+      viabilityFloorPx: null,
     },
   ];
 });
@@ -938,6 +957,20 @@ watch(
 // the board to render — the more specific, more actionable message for
 // this exact case — so this watcher stays silent rather than adding a
 // second, less specific row for the same event.
+// Review repair (`.claude/dispatch-reports/lyt-allocation-repair-
+// review.md` Probe 5, ledger row 2533 addendum item 1): the dedup key
+// used to latch BEFORE the suppression guard below — so a tick where
+// `outerRowSovereignDiagnostic` ALSO covers the event (suppressing this
+// watcher's own push) still marked `clampedFromPx` as "already handled."
+// If a LATER tick then cleared the other diagnostic while
+// `sovereignClampedFromPx` stayed pinned at the SAME raw value (the raw
+// stored override does not change on its own), the outer `===
+// lastPushedRootSplitClampFromPx` check short-circuited before the
+// (now-satisfied) suppression guard was even re-evaluated — the message
+// that should fire ALONE, because the other diagnostic no longer covers
+// the event, never fired. The key now latches ONLY on an actual push
+// (moved past the suppression `return`), so a suppressed attempt cannot
+// poison a later legitimate one.
 let lastPushedRootSplitClampFromPx: number | null = null;
 watch(
   () => rootSplitLayout.value?.sovereignClampedFromPx ?? null,
@@ -947,8 +980,8 @@ watch(
       return;
     }
     if (clampedFromPx === lastPushedRootSplitClampFromPx) return;
-    lastPushedRootSplitClampFromPx = clampedFromPx;
     if (outerRowSovereignDiagnostic.value.length > 0) return;
+    lastPushedRootSplitClampFromPx = clampedFromPx;
     pushSystemMessage('warning', 'Your geometry modification no longer fits within the available space.', {
       remediation: 'reduce this region\'s width, or use Default Layout to reset',
       nextAction: 'open-default-layout-control',
@@ -1069,16 +1102,17 @@ const lytPresenceOverrides = computed<Record<string, boolean>>(() => {
   return base;
 });
 
-// `lytPresenceClassDefaults`/`controlPanelDemote` moved ABOVE
-// (dispatch L3): `sideColumnOtherRegions`/`sideColumnLayout` reference
-// them, and `useSideColumnLiveLayout`'s own internal `watch()` forces an
-// EAGER evaluation during `setup()` (Vue's `watch` always runs its
-// getter once synchronously to collect dependencies, `immediate` or
+// `lytPresenceClassDefaults`/`controlPanelViabilityThresholdPx` moved
+// ABOVE (dispatch L3; ledger row 2532 renamed the latter from
+// `controlPanelDemote`): `sideColumnOtherRegions`/`sideColumnLayout`
+// reference them, and `useSideColumnLiveLayout`'s own internal `watch()`
+// forces an EAGER evaluation during `setup()` (Vue's `watch` always runs
+// its getter once synchronously to collect dependencies, `immediate` or
 // not) — a forward reference to a `const` declared LATER in this
 // `<script setup>` body throws a real TDZ `ReferenceError` the instant
 // that eager evaluation runs, unlike a lazily-evaluated plain `computed`
 // (which the pre-L3 `lytPresenceOverrides`'s own forward-reference to
-// `controlPanelDemote` relied on safely). WITNESSED:
+// the old `controlPanelDemote` relied on safely). WITNESSED:
 // `tests/integration/App-boot.test.ts` caught this exact
 // `ReferenceError: Cannot access 'lytPresenceClassDefaults' before
 // initialization` before the reorder.

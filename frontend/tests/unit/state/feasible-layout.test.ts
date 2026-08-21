@@ -35,7 +35,8 @@ import {
   type SideColumnLiveLayoutInput,
   type Px,
 } from '../../../src/state/feasible-layout';
-import type { LytDemotion, LytTrackShape } from '../../../src/state/lyt-layout-types';
+import { CONTROL_PANEL_MIN_WIDTH_PX } from '../../../src/state/layout-model';
+import type { LytTrackShape } from '../../../src/state/lyt-layout-types';
 
 describe('px()', () => {
   it('mints a Px for a finite, non-negative number', () => {
@@ -293,7 +294,14 @@ describe('resolveSideColumnLiveLayout()', () => {
   const PORTRAIT_TREE_TRACK: LytTrackShape = { kind: 'elastic', minPx: 140, frWeight: 1 };
   const CONTROL_PANEL_TRACK: LytTrackShape = { kind: 'fixed', px: 664 };
   const PREVIEW_BOARD_TRACK: LytTrackShape = { kind: 'fixed', px: 160 };
-  const CONTROL_PANEL_DEMOTE: LytDemotion = { axis: 'h', belowPx: 778 };
+  // Ledger row 2532 (region-owned presence): replaces the retired
+  // container-composite `CONTROL_PANEL_DEMOTE` (778px — `tree.min + gap +
+  // controlPanel.min`) with the panel's own minimum renderable demand,
+  // the REAL `CONTROL_PANEL_MIN_WIDTH_PX` constant (not re-derived here —
+  // importing it keeps this suite from drifting against the production
+  // constant the way the old hand-typed 778 literal never could drift
+  // detectably from the compiled composite it mirrored).
+  const CONTROL_PANEL_VIABILITY_FLOOR_PX = CONTROL_PANEL_MIN_WIDTH_PX;
 
   function baseInput(overrides: Partial<SideColumnLiveLayoutInput> = {}): SideColumnLiveLayoutInput {
     return {
@@ -317,15 +325,17 @@ describe('resolveSideColumnLiveLayout()', () => {
       ).toThrow(/tree's own compiled track is "fixed"/);
     });
 
-    it('a demote axis other than "h" on an `others` entry throws loudly — the SAME guard the deleted resolveWidthConditionalPresence carried, now folded into this function\'s own presence loop', () => {
-      const verticalDemote: LytDemotion = { axis: 'v', belowPx: 500 };
-      const others: readonly SideColumnFixedRegion[] = [
-        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: verticalDemote },
-      ];
-      expect(() =>
-        resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 900, others })),
-      ).toThrow(/unsupported demote axis/);
-    });
+    // REMOVED (ledger row 2532, region-owned presence): this test pinned
+    // the retired `demote.axis !== 'h'` ADR-0002 guard — `SideColumnFixedRegion`
+    // no longer carries an `axis` field at all (`viabilityFloorPx` is a
+    // bare `number | null`, the region's own minimum renderable demand,
+    // with no axis of its own to validate against). There is no
+    // replacement guard: a caller cannot construct an off-axis
+    // `viabilityFloorPx` the way the old `LytDemotion` shape allowed, so
+    // the class of caller-contract violation this guard existed to catch
+    // is now unrepresentable in the type, not merely unchecked at
+    // runtime — the stronger of the two outcomes ADR-0002 prefers
+    // (a refusal that cannot fire beats one that reliably does).
   });
 
   // ── Branch 3: the "not yet measured" pass-through ──────────────────
@@ -349,8 +359,8 @@ describe('resolveSideColumnLiveLayout()', () => {
 
     it('every `others` entry passes through per its own desiredVisible — present grants its full compiled px, absent grants 0, no demote/reservation math runs at all', () => {
       const others: readonly SideColumnFixedRegion[] = [
-        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
-        { widgetId: 'previewBoard', track: PREVIEW_BOARD_TRACK, desiredVisible: false, demote: null },
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, viabilityFloorPx: CONTROL_PANEL_VIABILITY_FLOOR_PX },
+        { widgetId: 'previewBoard', track: PREVIEW_BOARD_TRACK, desiredVisible: false, viabilityFloorPx: null },
       ];
       const result = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: -1, others }));
       const byId = new Map(result.others.map((o) => [o.widgetId, o]));
@@ -360,27 +370,54 @@ describe('resolveSideColumnLiveLayout()', () => {
   });
 
   // ── Branch 4: exact demote-boundary inclusivity ─────────────────────
-  describe('demote-boundary inclusivity — >= wins, matching the compiled program\'s own >= semantics', () => {
-    it('exactly AT the compiled 778px threshold: controlPanel resolves present, and tree\'s own candidate lands at exactly its compiled floor (110) — the SAME 778/110 pair the deleted clampTreeWidthForSideColumn pinned at its own "right at the compiled demote boundary" case', () => {
+  // MIGRATED per ledger row 2532 (region-owned presence). The compiled
+  // 778px threshold (`tree.min 110 + gap 4 + controlPanel.min 664`) was
+  // the CONTAINER-composite the RCA diagnosed as the root cause — its
+  // panel-floor term (664) was the panel's own compiled FIXED TRACK, not
+  // its viability floor. The region-owned threshold uses the SAME tree
+  // floor and gap but the panel's own SMALLER minimum renderable demand
+  // (`CONTROL_PANEL_VIABILITY_FLOOR_PX`, 300px landscape):
+  // `110 + 4 + 300 = 414`. Below it, `tree` is pinned at its own compiled
+  // floor (110, non-sovereign — it cannot shrink further without a live
+  // content-demand reading, absent in this fixture) and controlPanel's
+  // own remaining share falls under its floor; at or above it, the panel
+  // fits. The boundary itself moved (414, not 778) — a real behavioral
+  // change (the panel now docks at a much narrower container, mandate
+  // item 1's own S1-adjacent goal), not a cosmetic rename.
+  describe('viability-floor-boundary inclusivity — >= wins, matching the region-owned floor\'s own >= semantics', () => {
+    it('exactly AT the region-owned 414px threshold: controlPanel resolves present at exactly its own floor (300), tree at its own compiled floor (110)', () => {
       const others: readonly SideColumnFixedRegion[] = [
-        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, viabilityFloorPx: CONTROL_PANEL_VIABILITY_FLOOR_PX },
       ];
-      const result = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 778, others }));
+      const threshold = 110 + 4 + CONTROL_PANEL_VIABILITY_FLOOR_PX; // 414
+      const result = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: threshold, others }));
       const controlPanel = result.others.find((o) => o.widgetId === 'controlPanel')!;
       expect(controlPanel.present).toBe(true);
-      expect(controlPanel.candidatePx).toBe(664);
-      expect(result.treePx).toBe(110); // 778 - (664 + 4) = 110, exactly the tree's own compiled minPx
+      expect(controlPanel.candidatePx).toBe(CONTROL_PANEL_VIABILITY_FLOOR_PX); // 300, not its full 664 — the row-owned floor, not the compiled fixed track
+      expect(result.treePx).toBe(110);
     });
 
-    it('one px below (777): controlPanel demotes to absent, and tree\'s own un-reserved candidate claims the whole (unmeasured-against) row — 777, not 778', () => {
+    it('one px below the region-owned threshold (413): controlPanel demotes to absent, and tree\'s own un-reserved candidate claims the whole row — 413, not 414', () => {
       const others: readonly SideColumnFixedRegion[] = [
-        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, viabilityFloorPx: CONTROL_PANEL_VIABILITY_FLOOR_PX },
       ];
-      const result = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 777, others }));
+      const threshold = 110 + 4 + CONTROL_PANEL_VIABILITY_FLOOR_PX; // 414
+      const result = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: threshold - 1, others }));
       const controlPanel = result.others.find((o) => o.widgetId === 'controlPanel')!;
       expect(controlPanel.present).toBe(false);
       expect(controlPanel.candidatePx).toBe(0);
-      expect(result.treePx).toBe(777); // no reservation at all once controlPanel demotes
+      expect(result.treePx).toBe(threshold - 1); // no reservation at all once controlPanel demotes
+      // The presence-derived diagnostic (ledger row 2532 Remedy 3) now
+      // fires for this NON-sovereign demotion too — closing the RCA's own
+      // §4 "outer path emits no diagnostic at all" bug, where the old
+      // mechanism (sovereign-only diagnosing) left a genuine, desired-but-
+      // absent panel completely silent.
+      expect(result.diagnostics).toHaveLength(1);
+      expect(result.diagnostics[0]).toMatchObject({
+        location: 'controlPanel',
+        starved: [{ kind: 'starved', region: 'controlPanel', axis: 'h', demandPx: CONTROL_PANEL_VIABILITY_FLOOR_PX, grantedPx: threshold - 1 - 110 - 4 }],
+        message: 'Your geometry modification no longer permits controlPanel to render.',
+      });
     });
   });
 
@@ -402,8 +439,8 @@ describe('resolveSideColumnLiveLayout()', () => {
 
     it('landscape, both fixed siblings absent, 614px wrapper: widens to 614 — byte-identical to the deleted N2 landscape "widens all the way to the measured 614px side column" figure (the finding\'s own reported 1920x1080 measurement)', () => {
       const others: readonly SideColumnFixedRegion[] = [
-        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: false, demote: CONTROL_PANEL_DEMOTE },
-        { widgetId: 'previewBoard', track: PREVIEW_BOARD_TRACK, desiredVisible: false, demote: null },
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: false, viabilityFloorPx: CONTROL_PANEL_VIABILITY_FLOOR_PX },
+        { widgetId: 'previewBoard', track: PREVIEW_BOARD_TRACK, desiredVisible: false, viabilityFloorPx: null },
       ];
       const result = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 614, others }));
       expect(result.treePx).toBe(614);
@@ -414,8 +451,8 @@ describe('resolveSideColumnLiveLayout()', () => {
   describe('previewBoard-present reservation arithmetic', () => {
     it('previewBoard present alone (controlPanel not desired), 614px wrapper: tree clamps to exactly 450 (614 - (160+4)) — byte-identical to the deleted N2 "previewBoard PRESENT" figure, and the row sums to exactly the wrapper width', () => {
       const others: readonly SideColumnFixedRegion[] = [
-        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: false, demote: CONTROL_PANEL_DEMOTE },
-        { widgetId: 'previewBoard', track: PREVIEW_BOARD_TRACK, desiredVisible: true, demote: null },
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: false, viabilityFloorPx: CONTROL_PANEL_VIABILITY_FLOOR_PX },
+        { widgetId: 'previewBoard', track: PREVIEW_BOARD_TRACK, desiredVisible: true, viabilityFloorPx: null },
       ];
       const result = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 614, others }));
       expect(result.treePx).toBe(450);
@@ -424,21 +461,47 @@ describe('resolveSideColumnLiveLayout()', () => {
       expect(result.treePx + GAP_PX + previewBoard.candidatePx).toBe(614); // no overflow, no slack
     });
 
-    it('previewBoard present RAISES the effective demote threshold past what a full 819px column can hold (778+164=942 > 819): controlPanel is forced absent even though it is DESIRED, and its own former 664px reservation is freed to the tree — 819/164/942/655, recovered from the deleted "generalized reservation... end-to-end composition at 2560x1440" scenario, whose own clampedTreeWidthPx (never asserted as a literal number there, only via the row-sum identity) is the same 655 derived here directly', () => {
+    // MIGRATED per ledger row 2532 (region-owned presence). The old
+    // 819px repro relied on the RETIRED container-composite threshold
+    // (778 + previewBoard's own 164px reservation = 942 > 819). Under
+    // the region-owned floor, the combined threshold is smaller —
+    // `tree.min (110) + gap (4) + previewBoard's reservation (164) +
+    // controlPanel's own floor (300) = 578` — so 819 comfortably clears
+    // it (controlPanel resolves PRESENT there now, at 541px, well above
+    // its floor: not a case this describe block can use to demonstrate a
+    // genuine demotion any more). The SAME shape (previewBoard's own
+    // reservation raising what controlPanel needs to stay viable) is
+    // reproduced at the NEW, smaller threshold instead — 577, one px
+    // below 578, still demotes; 578 itself docks.
+    it('previewBoard present RAISES the region-owned viability threshold controlPanel needs to stay docked: 578 = tree.min(110) + gap(4) + previewBoard reservation(164) + controlPanel floor(300) — one px below still demotes, despite desiredVisible: true', () => {
       const others: readonly SideColumnFixedRegion[] = [
-        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
-        { widgetId: 'previewBoard', track: PREVIEW_BOARD_TRACK, desiredVisible: true, demote: null },
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, viabilityFloorPx: CONTROL_PANEL_VIABILITY_FLOOR_PX },
+        { widgetId: 'previewBoard', track: PREVIEW_BOARD_TRACK, desiredVisible: true, viabilityFloorPx: null },
       ];
-      const result = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 819, others }));
+      const threshold = 110 + GAP_PX + 164 + CONTROL_PANEL_VIABILITY_FLOOR_PX; // 578
+      const result = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: threshold - 1, others }));
       const controlPanel = result.others.find((o) => o.widgetId === 'controlPanel')!;
       const previewBoard = result.others.find((o) => o.widgetId === 'previewBoard')!;
-      // controlPanel: 778 + previewBoard's own 164px reservation = 942,
-      // which 819 does not clear — demoted absent despite desiredVisible: true.
       expect(controlPanel).toMatchObject({ present: false, candidatePx: 0 });
+      expect(previewBoard).toMatchObject({ present: true, candidatePx: 160 }); // previewBoard's own reservation is unconditional — never shrunk
+      // tree absorbs everything but previewBoard's own reservation once controlPanel demotes.
+      expect(result.treePx).toBe(threshold - 1 - 164);
+      expect(result.treePx + GAP_PX + previewBoard.candidatePx).toBe(threshold - 1); // exact, no overflow
+    });
+
+    it('exactly AT the 578px threshold: controlPanel docks at its own floor (300), previewBoard keeps its full reservation, the row closes exactly', () => {
+      const others: readonly SideColumnFixedRegion[] = [
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, viabilityFloorPx: CONTROL_PANEL_VIABILITY_FLOOR_PX },
+        { widgetId: 'previewBoard', track: PREVIEW_BOARD_TRACK, desiredVisible: true, viabilityFloorPx: null },
+      ];
+      const threshold = 110 + GAP_PX + 164 + CONTROL_PANEL_VIABILITY_FLOOR_PX; // 578
+      const result = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: threshold, others }));
+      const controlPanel = result.others.find((o) => o.widgetId === 'controlPanel')!;
+      const previewBoard = result.others.find((o) => o.widgetId === 'previewBoard')!;
+      expect(controlPanel).toMatchObject({ present: true, candidatePx: CONTROL_PANEL_VIABILITY_FLOOR_PX });
       expect(previewBoard).toMatchObject({ present: true, candidatePx: 160 });
-      // tree absorbs everything but previewBoard's own reservation: 819 - 164 = 655.
-      expect(result.treePx).toBe(655);
-      expect(result.treePx + GAP_PX + previewBoard.candidatePx).toBe(819); // exact, no overflow
+      expect(result.treePx).toBe(110);
+      expect(result.treePx + GAP_PX + controlPanel.candidatePx + GAP_PX + previewBoard.candidatePx).toBe(threshold);
     });
   });
 
@@ -466,7 +529,7 @@ describe('resolveSideColumnLiveLayout()', () => {
       widgetId: 'previewBoard',
       track: PREVIEW_BOARD_TRACK,
       desiredVisible: true,
-      demote: null,
+      viabilityFloorPx: null,
     };
     const previewBoardOff: SideColumnFixedRegion = { ...previewBoardOn, desiredVisible: false };
     // A STABLE content demand — the fixed's whole point: this value never
@@ -561,32 +624,55 @@ describe('resolveSideColumnLiveLayout()', () => {
       expect(diagnostic.nextAction).toBe('open-default-layout-control');
     });
 
-    it('a sibling starvation AND a side-column-capacity overflow are BOTH real at once — merged into the SAME location:\'tree\' diagnostic\'s own starved array, never two competing diagnostics', () => {
+    // MIGRATED per ledger row 2532. The old "sibling starvation AND
+    // capacity overflow both real at once" scenario is UNREPRESENTABLE
+    // now: a floor-bearing sibling (`controlPanel`) can no longer be
+    // "starved while present" at all — under the region-owned model,
+    // presence itself IS the floor check (§ presence-derived diagnostics
+    // above), so a sibling that stays present, by construction, never
+    // fell below its own floor. What survives from the old scenario is
+    // the OTHER half: a NON-floor-bearing sibling (`previewBoard`, whose
+    // reservation is unconditional and never shrinks) can still push the
+    // row's own TOTAL claim past `wrapperWidthPx` even once `controlPanel`
+    // is safely floored — this is now the ONLY way a sovereign drag with
+    // desired siblings present produces a diagnostic, and it is the
+    // side-column-capacity diagnostic alone (never merged with a sibling
+    // starvation, because none is possible).
+    it('a side-column-capacity overflow survives even once the floor guarantee protects every floor-bearing sibling — previewBoard\'s own unconditional reservation is what overflows the row now, not a sibling starvation', () => {
       const others: readonly SideColumnFixedRegion[] = [
-        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, viabilityFloorPx: CONTROL_PANEL_VIABILITY_FLOOR_PX },
+        { widgetId: 'previewBoard', track: PREVIEW_BOARD_TRACK, desiredVisible: true, viabilityFloorPx: null },
       ];
-      // wrapperWidthPx=820 (the review's own 1920x1080 witness figure, per
-      // the sovereignty describe block above); treeSovereignPx=1000 is a
-      // drag that claims MORE than the entire wrapper — controlPanel's own
-      // remainingPx-floored candidate is genuinely starved (0 < its own
-      // 664 min) AND the row's own total claim genuinely overflows 820.
+      // wrapperWidthPx=820 (the review's own 1920x1080 witness figure);
+      // treeSovereignPx=1000 is a drag that claims more than the wrapper
+      // can afford even after the floor-reservation cap (304px for
+      // controlPanel's own floor+gap) brings tree down to 516.
       const result = resolveSideColumnLiveLayout(
         baseInput({ wrapperWidthPx: 820, others, treeSovereignPx: 1000 }),
       );
-      expect(result.treePx).toBe(1000);
+      const floorReservationPx = CONTROL_PANEL_VIABILITY_FLOOR_PX + GAP_PX; // 304
+      expect(result.treePx).toBe(820 - floorReservationPx); // 516 — capped, never the raw 1000
       const controlPanel = result.others.find((o) => o.widgetId === 'controlPanel')!;
-      expect(controlPanel).toMatchObject({ present: true, candidatePx: 0 });
+      const previewBoard = result.others.find((o) => o.widgetId === 'previewBoard')!;
+      // controlPanel is FLOORED, not starved — present at exactly its own
+      // minimum, never demoted (the ruled demotion remedy).
+      expect(controlPanel).toMatchObject({ present: true, candidatePx: CONTROL_PANEL_VIABILITY_FLOOR_PX });
+      // previewBoard keeps its own full, unconditional reservation.
+      expect(previewBoard).toMatchObject({ present: true, candidatePx: 160 });
 
-      expect(result.diagnostics).toHaveLength(1); // ONE diagnostic, not two
+      // Row's own total claim: 516 + 4 + 300 + 4 + 160 = 984, past the
+      // 820px wrapper — a genuine overflow, ONLY diagnosable via the
+      // side-column-capacity mechanism (dispatch L4), since neither
+      // sibling itself is starved.
+      const totalRowClaimPx = result.treePx + GAP_PX + controlPanel.candidatePx + GAP_PX + previewBoard.candidatePx;
+      expect(totalRowClaimPx).toBe(984);
+      expect(result.diagnostics).toHaveLength(1);
       const [diagnostic] = result.diagnostics;
       expect(diagnostic.location).toBe('tree');
       expect(diagnostic.starved).toEqual([
-        { kind: 'starved', region: 'controlPanel', axis: 'h', demandPx: 664, grantedPx: 0 },
-        { kind: 'starved', region: 'side-column-capacity', axis: 'h', demandPx: 1004, grantedPx: 820 },
+        { kind: 'starved', region: 'side-column-capacity', axis: 'h', demandPx: 984, grantedPx: 820 },
       ]);
-      expect(diagnostic.message).toBe(
-        'Your geometry modification no longer permits controlPanel to render, and no longer fits within the available space.',
-      );
+      expect(diagnostic.message).toBe('Your geometry modification no longer fits within the available space.');
     });
 
     it('no side-column-capacity diagnostic when the sovereign claim genuinely fits, even with NO sibling to check against — no spurious noise', () => {
@@ -611,7 +697,7 @@ describe('resolveSideColumnLiveLayout()', () => {
   describe('row 2501: a live content demand below the compiled floor (the live-witness 109-vs-110 repro)', () => {
     it('non-sovereign (fresh boot, FAIL 1\'s own shape): tree caps at the live 109px demand itself — not artificially floored to 110 — and controlPanel is PRESENT, not demoted', () => {
       const others: readonly SideColumnFixedRegion[] = [
-        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, viabilityFloorPx: CONTROL_PANEL_VIABILITY_FLOOR_PX },
       ];
       const result = resolveSideColumnLiveLayout(
         baseInput({ wrapperWidthPx: 1000, others, tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: px(109) } }),
@@ -624,7 +710,7 @@ describe('resolveSideColumnLiveLayout()', () => {
 
     it('sovereign (an interactive drag in progress, FAIL 2\'s own shape): the SAME 109-vs-110 gap no longer throws — the drag renders verbatim, controlPanel stays comfortably satisfied', () => {
       const others: readonly SideColumnFixedRegion[] = [
-        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, viabilityFloorPx: CONTROL_PANEL_VIABILITY_FLOOR_PX },
       ];
       const result = resolveSideColumnLiveLayout(
         baseInput({
@@ -660,7 +746,7 @@ describe('resolveSideColumnLiveLayout()', () => {
     describe('demand of 0 (review obligation 2): a present-but-genuinely-empty tree renders at its compiled floor, never at 0px', () => {
       it('non-sovereign: tree renders at the compiled floor (110), not 0 — controlPanel stays PRESENT with its full 664px', () => {
         const others: readonly SideColumnFixedRegion[] = [
-          { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
+          { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, viabilityFloorPx: CONTROL_PANEL_VIABILITY_FLOOR_PX },
         ];
         const result = resolveSideColumnLiveLayout(
           baseInput({ wrapperWidthPx: 1000, others, tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: px(0) } }),
@@ -673,7 +759,7 @@ describe('resolveSideColumnLiveLayout()', () => {
 
       it('sovereign: an in-progress drag still renders verbatim (sovereignty is unaffected by this rule — it exempts tree from its own floor/ceiling entirely)', () => {
         const others: readonly SideColumnFixedRegion[] = [
-          { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
+          { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, viabilityFloorPx: CONTROL_PANEL_VIABILITY_FLOOR_PX },
         ];
         const result = resolveSideColumnLiveLayout(
           baseInput({
@@ -714,7 +800,7 @@ describe('resolveSideColumnLiveLayout()', () => {
       // own thrown `Error` (not a `MeasurementRefusalError`) must reach
       // the caller directly.
       const undefinedTrackOthers: readonly SideColumnFixedRegion[] = [
-        { widgetId: 'controlPanel', track: undefined as unknown as LytTrackShape, desiredVisible: true, demote: null },
+        { widgetId: 'controlPanel', track: undefined as unknown as LytTrackShape, desiredVisible: true, viabilityFloorPx: null },
       ];
 
       it('sovereign', () => {
@@ -739,7 +825,7 @@ describe('resolveSideColumnLiveLayout()', () => {
       // honestly"; it does not, by design, after this repair.
       const brokenTrack: LytTrackShape = { kind: 'elastic', minPx: 50, frWeight: 1 };
       const brokenOthers: readonly SideColumnFixedRegion[] = [
-        { widgetId: 'controlPanel', track: brokenTrack, desiredVisible: true, demote: null },
+        { widgetId: 'controlPanel', track: brokenTrack, desiredVisible: true, viabilityFloorPx: null },
       ];
       expect(() =>
         resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 1000, others: brokenOthers, treeSovereignPx: 300 })),
@@ -757,8 +843,23 @@ describe('resolveSideColumnLiveLayout()', () => {
       // eventual `px(treePx)` call inside the guarded region throws
       // `MeasurementRefusalError` (`px()`'s own non-finite guard) — a
       // genuine measurement-shaped refusal, deterministically.
+      //
+      // MIGRATED per ledger row 2532: `others` here is deliberately
+      // NON-floor-bearing (`viabilityFloorPx: null`) rather than
+      // `controlPanel`'s usual floor. This is a genuinely NEW disclosure,
+      // not a cosmetic rename — `allot()`'s own sovereign floor-reservation
+      // cap (`state/feasible-layout.ts`, this ticket's own mechanism) now
+      // makes a corrupted `Infinity` override SAFE by construction
+      // whenever a FLOOR-BEARING sibling is present (the cap clamps it to
+      // a finite `wrapperWidthPx - floorReservationPx` before it ever
+      // reaches `px()`) — a genuine, positive side effect of the "drags
+      // floor, never demote to absent" ruling. This probe is re-scoped to
+      // a sibling with NO floor (previewBoard's own shape) specifically
+      // so it still reaches the construction-time refusal this test
+      // exists to pin; the floor-bearing case is no longer reachable via
+      // this trigger at all, which is the improvement, not a gap.
       const others: readonly SideColumnFixedRegion[] = [
-        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, demote: CONTROL_PANEL_DEMOTE },
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, viabilityFloorPx: null },
       ];
 
       it('sovereign: falls back to the SAME (still-Infinity) drag value, plus a diagnostic naming the refusal', () => {
