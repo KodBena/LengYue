@@ -71,7 +71,7 @@ import { store, resetWorkspace } from '../../src/store';
 import { fakeBackendService, resetFakeBackendService } from '../fakes/backend-service';
 import { installRenderEnvStubs, removeRenderEnvStubs } from './render-count/jsdom-stubs';
 import { withSetup } from './with-setup';
-import { useResizablePanel } from '../../src/composables/chrome/useResizablePanel';
+import { useResizablePanel, RESIZER_WIDTH_PX } from '../../src/composables/chrome/useResizablePanel';
 
 class NoopResizeObserver {
   observe(): void {}
@@ -83,6 +83,27 @@ function stubSplitWorkspaceRect(widthPx: number, heightPx: number): void {
   const original = Element.prototype.getBoundingClientRect;
   Element.prototype.getBoundingClientRect = function (this: Element) {
     if (this.id === 'split-workspace') {
+      return {
+        width: widthPx, height: heightPx, top: 0, left: 0,
+        right: widthPx, bottom: heightPx, x: 0, y: 0, toJSON() {},
+      } as DOMRect;
+    }
+    return original.call(this);
+  };
+}
+
+// Divider-mechanics repair, item 2: layers an additional element id's own
+// stubbed rect on top of whatever `Element.prototype.getBoundingClientRect`
+// currently is (chains onto `stubSplitWorkspaceRect`'s own override the
+// same way each call there already layers onto the PRIOR override) — used
+// below to give `#vue-tree-panel`/`#tree-control-wrapper` real widths so
+// `startResizeInner`'s own drag-origin/max-width reads (both `getElementById`
+// + `getBoundingClientRect`, `useResizablePanel.ts`) see plausible numbers
+// instead of jsdom's default all-zero box.
+function stubElementRect(id: string, widthPx: number, heightPx: number): void {
+  const original = Element.prototype.getBoundingClientRect;
+  Element.prototype.getBoundingClientRect = function (this: Element) {
+    if (this.id === id) {
       return {
         width: widthPx, height: heightPx, top: 0, left: 0,
         right: widthPx, bottom: heightPx, x: 0, y: 0, toJSON() {},
@@ -274,6 +295,76 @@ describe('App.vue — root-split live track (GAP A: rootSplitLayout reaches the 
     const gapsCount = Math.max(0, trackPxValues.length - 1);
     const totalPx = trackPxValues.reduce((a, b) => a + b, 0) + gapsCount * gapPx;
     expect(totalPx).toBeLessThanOrEqual(700 + gapPx);
+  });
+});
+
+// ── Divider-mechanics repair, item 2 (commissioner: "with the control
+//    panel absent, the tree's divider is inert — tree can't claim free
+//    space without resizing the board") ─────────────────────────────────
+describe('App.vue — #resizer-inner stays active beside an absent controlPanel (divider-mechanics repair, item 2)', () => {
+  let wrapper: VueWrapper | null = null;
+
+  afterEach(() => {
+    wrapper?.unmount();
+    wrapper = null;
+    document.body.innerHTML = '';
+  });
+
+  it('controlPanel absent: #resizer-inner still renders (the LytNode.vue DOM-side gap this repair closes)', async () => {
+    stubSplitWorkspaceRect(1920, 1080);
+    store.session.ui.lytPresence = { ...store.session.ui.lytPresence, controlPanel: false };
+    wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
+    await flushPromises();
+
+    // controlPanel genuinely absent (summon-only), not merely squeezed.
+    expect(wrapper.find('#control-panel-summon-btn').exists()).toBe(true);
+    expect(wrapper.find('#control-panel [role="tablist"]').exists()).toBe(false);
+
+    // The divider itself: pre-repair, this vanished along with the
+    // Exclusive's own presence-gated content (LytNode.vue's `v-if`) —
+    // now it lives in its own always-rendered slot and stays.
+    expect(wrapper.find('#resizer-inner').exists()).toBe(true);
+  });
+
+  it('controlPanel absent → dragging #resizer-inner rightward grows tree; the ROOT split (board vs. side column) stays unmoved', async () => {
+    stubSplitWorkspaceRect(1920, 1080);
+    store.session.ui.lytPresence = { ...store.session.ui.lytPresence, controlPanel: false };
+    wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
+    await flushPromises();
+
+    expect(wrapper.find('#resizer-inner').exists()).toBe(true);
+    const outerStyleBefore = wrapper.find('#split-workspace').attributes('style') ?? '';
+    expect(store.session.ui.treeControlRegionWidthPx).toBeUndefined(); // never dragged
+
+    // Plausible post-mount rendered widths for the INNER bar's own drag
+    // math (`startResizeInner`, `useResizablePanel.ts`): the wrapper
+    // (`#tree-control-wrapper`) at the side column's own resolved width,
+    // the tree pane itself narrower than that so there's real room to
+    // grow into (the space controlPanel's own absence just freed).
+    stubElementRect('tree-control-wrapper', 880, 1080);
+    stubElementRect('vue-tree-panel', 800, 1080);
+
+    const resizer = wrapper.find('#resizer-inner');
+    await resizer.trigger('mousedown', { clientX: 300 });
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 350 })); // +50, rightward
+    document.dispatchEvent(new MouseEvent('mouseup'));
+    await nextTick();
+
+    // Tree grew by exactly the drag delta — `computeTreePanelWidthPx`'s
+    // own `sign = +1` math (dragOriginPx 800 + 50), comfortably inside
+    // `[TREE_PANEL_MIN_WIDTH_PX, 880 - RESIZER_WIDTH_PX]` so no clamp
+    // engages.
+    expect(store.session.ui.treePanelWidthPx).toBe(800 + 50);
+    expect(RESIZER_WIDTH_PX).toBeGreaterThan(0); // sanity: the clamp ceiling (880 - RESIZER_WIDTH_PX) is genuinely below 880, not a no-op bound
+
+    // The board split (root child "1" vs. "2", `#resizer-outer`'s own
+    // domain) is a COMPLETELY SEPARATE persisted fact
+    // (`treeControlRegionWidthPx`) the inner drag never touches — still
+    // never dragged, and the outer grid track's own rendered literal is
+    // byte-identical to before the inner drag.
+    expect(store.session.ui.treeControlRegionWidthPx).toBeUndefined();
+    const outerStyleAfter = wrapper.find('#split-workspace').attributes('style') ?? '';
+    expect(outerStyleAfter).toBe(outerStyleBefore);
   });
 });
 

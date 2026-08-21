@@ -237,6 +237,15 @@
   into the summon popover — that path already has its own bounded,
   scrollable box (App.vue's `.control-panel-popover` CSS).
 
+  Divider-independent-of-presence chrome (divider-mechanics repair, item
+  2): the Exclusive branch's own `#exclusive-divider-<widget>` slot is a
+  SECOND, always-rendered outlet alongside the existing `#exclusive-
+  <widget>` one — rendered whether or not the Exclusive is present, and
+  never Teleported. See that slot's own template comment (the Exclusive
+  branch below) for the full derivation; it exists so a resizer bar
+  anchored to this Exclusive's own wrapper div does not vanish along with
+  the Exclusive's CONTENT when the Exclusive itself demotes to absent.
+
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
@@ -638,6 +647,35 @@ const slotNames = computed(() => Object.keys(slots));
         :id="domId(group.rep.path)"
         :style="{ ...placementStyle(group), minWidth: '0', minHeight: '0', position: 'relative', ...exclusiveOverflowStyle(group.rep) }"
       >
+        <!-- Divider-mechanics repair, item 2 (commissioner: "with the
+             control panel absent, the tree's divider is inert — tree
+             can't claim free space without resizing the board").
+             `#exclusive-divider-<widget>` is a SEPARATE, always-rendered
+             slot outlet for cross-cutting chrome that must stay active
+             regardless of this Exclusive's own presence — today, only
+             `#resizer-inner` (App.vue's own template). Deliberately
+             OUTSIDE both the `<Teleport>` below and its `isPresent`/
+             `isExclusiveSummoned` gate: this node's own wrapper div is
+             "Always present" (file header, "REALIZATION WAVE") even
+             when the Exclusive's CONTENT collapses to a 0px track — the
+             divider anchors to THIS div (`position: relative`, set
+             unconditionally above), so it can render, and be dragged,
+             whether or not the Exclusive itself is present. A divider
+             bordering unallocated (0px) track space stays active and
+             lets the adjacent region (`tree`) claim it — the region-
+             owned presence doctrine (`feasible-layout.ts`'s own
+             `resolveSideColumnLiveLayout`/`allot`) already supports
+             this from the DRAG-MATH side (a sovereign tree candidate is
+             never capped by an ABSENT sibling's floor); this slot
+             closes the remaining DOM-side gap, where the divider
+             element itself simply never mounted. Never Teleported
+             (unlike the `#exclusive-<widget>` slot below) — the
+             divider's own drag affordance assumes THIS div's own grid-
+             relative geometry, which a floating popover doesn't
+             reproduce (see the CSS block's own note, App.vue, for the
+             sibling case this mirrors). -->
+        <slot :name="'exclusive-divider-' + group.rep.node.widget" />
+
         <!-- Presence arc P2b, file header "Popover summon for an absent
              Exclusive": `disabled` renders in place (byte-identical to
              pre-P2b behavior) whenever present; when absent, content
