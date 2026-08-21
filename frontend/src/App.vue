@@ -1670,7 +1670,15 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
                  side column's full width with zero left offset. Paint 1px
                  / grab ~4px per the standing resizer ruling (mirrors
                  App.vue's pre-LYT `.panel-resizer` history — see the
-                 <style> block below). -->
+                 <style> block below). Divider-mechanics repair, item 3:
+                 `boardRailReservedPx`/`activeLytProgram.root.gapPx` are
+                 threaded into `startResizeOuter` here — the SAME two live
+                 facts `rootSplitLayout` (script, above) already reads —
+                 so the drag-time ceiling
+                 (`useResizablePanel.ts`'s own `computeRootSplitSideColumnCeilingPx`
+                 call) is the IDENTICAL region-owned bound the render-time
+                 solve (`resolveRootSplitLiveLayout`, `state/feasible-
+                 layout.ts`) computes, not an approximation of it. -->
             <div
               v-if="activeScreenClassId === 'landscape'"
               id="resizer-outer"
@@ -1678,7 +1686,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
               role="separator"
               aria-orientation="vertical"
               :aria-label="$t('app.chrome.resizerOuterLabel')"
-              @mousedown="startResizeOuter"
+              @mousedown="(e: MouseEvent) => startResizeOuter(e, { boardRailReservedPx, gapPx: activeLytProgram.root.gapPx })"
             ></div>
             <div id="tree-panel-header">{{ $t('app.chrome.gameTreePanelHeader') }}</div>
             <TreeWidget
@@ -1731,16 +1739,44 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
                (implicit z-index 0) so it genuinely occludes rather than
                merely coexisting with the Settings/Analysis/Other strip
                underneath. -->
-          <template #exclusive-controlPanel>
-            <!-- INNER resizer bar (W3, both screen classes — see
-                 useResizablePanel.ts's own header for the drag math).
-                 Anchored at #control-panel's own LEFT edge, exactly the
-                 tree/control-panel boundary this bar has always owned.
-                 Unaffected by the Exclusive-node opening: LytNode.vue's
-                 wrapper div (not TabWidget's own root) still carries
-                 `position: relative` and this bar's own `:id`/handler are
-                 unchanged. -->
+          <!-- Divider-mechanics repair, item 2 (commissioner: "with the
+               control panel absent, the tree's divider is inert"):
+               #resizer-inner moves into its OWN always-rendered slot
+               (`#exclusive-divider-controlPanel`, LytNode.vue's own new
+               outlet — see that file's header, "Divider-independent-of-
+               presence chrome") — SEPARATE from `#exclusive-controlPanel`
+               below, which stays gated by controlPanel's own presence.
+               Anchored at #control-panel's own LEFT edge, exactly the
+               tree/control-panel boundary this bar has always owned; that
+               anchor div (LytNode.vue's Exclusive wrapper, `position:
+               relative`) renders unconditionally regardless of presence
+               (its own compiled track collapses to 0px when absent, but
+               the div itself is never gated — file header, "REALIZATION
+               WAVE": "Always present"), so this bar can now render, and be
+               dragged, whether or not `controlPanel` itself is present:
+               dragging it rightward while `controlPanel` is absent grows
+               `tree` into the freed (0px) track, without touching the
+               ROOT split (`#resizer-outer`) or the board at all — the
+               region-owned presence solve (`feasible-layout.ts`'s own
+               `allot`) already supports this from the drag-math side; this
+               slot closes the remaining DOM-side gap.
+
+               `v-if="activeScreenClassId === 'landscape'"` (mirroring
+               `#resizer-outer`'s own identical gate above): PORTRAIT has
+               no side-by-side tree/controlPanel row for this bar to mean
+               anything against — controlPanel is ALWAYS demoted by
+               default there (repetition-first mobile disposition, ledger
+               row 2333), reachable only via the summon popover, never
+               docked. Pre-repair, `#resizer-inner`'s absence in portrait
+               was an ACCIDENT of the presence gate this slot now bypasses
+               (portrait's own program still models controlPanel as an
+               Exclusive node); this explicit screen-class gate restores
+               that absence on purpose, the same way the OUTER bar already
+               states its own landscape-only scope explicitly rather than
+               relying on an incidental side effect. -->
+          <template #exclusive-divider-controlPanel>
             <div
+              v-if="activeScreenClassId === 'landscape'"
               id="resizer-inner"
               class="lyt-resizer lyt-resizer-vertical"
               role="separator"
@@ -1748,7 +1784,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
               :aria-label="$t('app.chrome.resizerInnerLabel')"
               @mousedown="startResizeInner"
             ></div>
+          </template>
 
+          <template #exclusive-controlPanel>
             <div
               v-if="rightPanelMode !== 'controlPanel'"
               :key="controlPanelIdentityKey"
@@ -2260,17 +2298,23 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
   border-radius: var(--radius-default);
   z-index: var(--z-popover-chrome);
 }
-/* The inner tree/control-panel resizer bar (`#resizer-inner`, the
-   `#exclusive-controlPanel` slot's own content) rides along with every
-   Teleport of the control panel's content (LytNode.vue's own Exclusive
-   branch relocates the WHOLE slot, not just TabWidget) — its drag
-   affordance assumes the grid's own `#control-panel`-relative geometry,
-   which the popover doesn't reproduce. Grid and popover mounts are
-   mutually exclusive by construction (P2b: the Exclusive is never
-   simultaneously present-in-grid AND summoned-to-popover), so this
-   selector only ever hides the ONE `#resizer-inner` instance that
-   actually exists at a time — never both. */
-.control-panel-popover #resizer-inner { display: none; }
+/* HISTORICAL (divider-mechanics repair, item 2): a `.control-panel-
+   popover #resizer-inner { display: none; }` rule used to live here.
+   It hid `#resizer-inner` while Teleported into the popover, because
+   pre-repair the bar rode along with every Teleport of the control
+   panel's content (LytNode.vue's own Exclusive branch relocated the
+   WHOLE `#exclusive-controlPanel` slot, resizer included) and its drag
+   affordance assumed the grid's own `#control-panel`-relative geometry,
+   which the popover doesn't reproduce. `#resizer-inner` now lives in its
+   OWN always-rendered, NEVER-Teleported slot
+   (`#exclusive-divider-controlPanel`, LytNode.vue's own new outlet — see
+   that file's header) precisely so a divider bordering unallocated
+   track space — controlPanel absent, or present-but-summoned-to-popover,
+   both collapse its own grid track to 0px — stays active and lets `tree`
+   claim the freed space (the commissioner's own diagnosed defect: "the
+   tree's divider is inert"). The rule above would now be actively WRONG
+   (it would hide the one instance that must stay visible in exactly the
+   case it's meant to serve), so it is removed rather than left stale. */
 
 /* #board-area (root child 1, the board/info/action V-composite): under
    CSS grid this is itself a nested grid container (LytNode's own
@@ -2344,7 +2388,46 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
    for the same reason. Cosmetically this paints the 1px line as the
    anchor's own leftmost column rather than literally straddling the
    split's gap — visually indistinguishable at this hairline width,
-   and the boundary it drags is unchanged. */
+   and the boundary it drags is unchanged.
+
+   Divider-mechanics repair, item 1 (commissioner: the pointer/grab
+   zone read as misaligned/right-aligned against the painted line).
+   The paragraph above's own union of hit regions was `[0, 4)` (the div
+   itself painted the line at `[0, 1)`; `::before` added a 4px overhang
+   at the SAME `left: 0`) — the painted line's own center (`0.5`) sits
+   nowhere near that union's center (`2`): a grab zone entirely to the
+   RIGHT of the line, never symmetric, exactly the commissioner's own
+   complaint. The negative-offset shape that WOULD center it
+   symmetrically (`left: -1.5px; width: 4px`, straddling the line's own
+   center) is unavailable — it is the identical shape the "DISCLOSED
+   FIX" paragraph above already found un-hit-testable on
+   `#resizer-inner`'s own anchor (`#control-panel`'s pre-existing
+   `overflow: auto` clips any absolutely-positioned descendant rendered
+   outside its own padding box, silently swallowing pointer events past
+   `left: 0`).
+
+   Resolution: invert which element is the FULL hit-zone. The DIV
+   (`.lyt-resizer-vertical`) is now the entire 4px grab zone itself
+   (`left: 0; width: 4px`, cursor applied to the whole box) — its own
+   box never carries a negative offset, so the hit-test constraint
+   above is unbroken. The painted 1px line moves to `::before`,
+   positioned AT THE GRAB ZONE'S OWN CENTER (`left: (4 - 1) / 2 =
+   1.5px`) rather than at the zone's edge. The union of the two boxes
+   is now just the div's own `[0, 4)` (the pseudo is a strict subset of
+   it, painted only, not an additional hit region) — its center is `2`,
+   and the painted line's own center (`1.5 + 0.5 = 2`) is now
+   IDENTICAL: the grab zone is geometrically centered on the visible
+   rule, symmetric on both sides (`1.5px` of grab zone on the line's
+   left, `1.5px` on its right), for BOTH `#resizer-outer` and
+   `#resizer-inner` — one shared class rules both, so the fix is
+   uniform without a per-divider branch. The line's own rendered
+   position shifts `1.5px` right of where it painted before (from the
+   anchor's literal edge to the grab zone's own center) — the same
+   "visually indistinguishable at this hairline width" cosmetic
+   tolerance this file already accepted for the never-shipped `-1px`
+   straddle; the boundary a drag actually moves is unchanged (still
+   driven by `startResizeOuter`/`startResizeInner`'s own measured
+   origins in `useResizablePanel.ts`, never by this paint offset). */
 .lyt-resizer {
   position: absolute;
   top: 0;
@@ -2352,18 +2435,18 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
 }
 .lyt-resizer-vertical {
   left: 0;
-  width: 1px;
+  width: 4px;
   height: 100%;
-  background: var(--border-2);
   cursor: col-resize;
 }
 .lyt-resizer-vertical::before {
   content: '';
   position: absolute;
   top: 0;
-  left: 0;
-  width: 4px;
+  left: 1.5px;
+  width: 1px;
   height: 100%;
+  background: var(--border-2);
 }
 
 /* library-cards-promotion: the toolbar-launched Library/Cards surface,
