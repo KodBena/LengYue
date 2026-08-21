@@ -343,8 +343,21 @@ const gameStatus = computed(() =>
   flex-shrink: 0;
 }
 
-.status-left  { display: flex; gap: var(--space-medium); align-items: center; }
-.status-right { display: flex; gap: var(--space-medium); align-items: center; }
+/* S4 (component-shoddiness audit, 2026-08-21): `.status-left` had no
+   `min-width: 0`, so as a flex item of `.status-bar` it refused to
+   shrink below its children's combined min-content width — at 1366×768
+   (a width ABOVE the 700px narrow-mode threshold, so narrow mode never
+   engaged) that combined width exceeded the space actually available,
+   and the browser rendered `.status-left` at its full natural width
+   regardless, overrunning into `.status-right` and physically
+   overlapping the komi input with the Pass button by ~6px. `min-width:
+   0` lets `.status-left` shrink to whatever the bar allocates it;
+   `.player-names` (below) is the one child that actually absorbs that
+   shrink, via its own `flex: 1 1 auto` + ellipsis. `.status-right`
+   gets `flex-shrink: 0` so Pass/caps/the user badge are never
+   themselves compressed or pushed off — only `.player-names` yields. */
+.status-left  { display: flex; gap: var(--space-medium); align-items: center; min-width: 0; }
+.status-right { display: flex; gap: var(--space-medium); align-items: center; flex-shrink: 0; }
 
 .move-badge {
   /* wC-contrast (F9 named site — the "MOVE 95" chip): --surface-0 text
@@ -362,6 +375,14 @@ const gameStatus = computed(() =>
   border-radius: var(--radius-default);
   font-family: monospace;
   font-size: var(--text-body);
+  /* S4: the "MOVE" / "0" pair is two space-separated words, so under
+     flexbox's default `min-width: auto` a squeezed `.status-left`
+     could satisfy its min-content constraint by wrapping at the space
+     — "MOVE" over "0" — growing the badge to two lines and, with it,
+     the whole bar's height (witnessed at 1366×768). Never negotiable:
+     this badge is essential game state, always one line. */
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Setup-mode chip (M8(b)): opaque solid fill (never a translucent
@@ -385,14 +406,31 @@ const gameStatus = computed(() =>
   letter-spacing: var(--tracking-tight);
 }
 
+/* S4: single-line by construction, not just under narrow mode. This is
+   the segment that ABSORBS `.status-left`'s shrink (`flex: 1 1 auto` +
+   `min-width: 0`) — it was the only child of `.status-left` with no
+   `white-space` rule at all, so a squeezed bar broke it mid-phrase
+   ("Black" / "vs" / "White" across two lines, witnessed at 1366×768)
+   instead of eliding gracefully. `min-width` floors it at a few
+   characters plus a stone chip so it never collapses to nothing; the
+   narrow-mode override below tightens the ceiling further. */
 .player-names {
   color: var(--text-0);
   font-weight: 600;
   display: inline-flex;
   align-items: center;
   gap: var(--space-tight);
+  flex: 1 1 auto;
+  min-width: 32px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.game-info    { color: var(--border-3); font-size: var(--text-body); display: flex; align-items: center; gap: var(--space-tight); }
+/* S4: fixed-content segment (ruleset + komi) — never wraps, never
+   shrinks below its own legible size. `.player-names` above is the
+   segment that yields when the bar is tight, so this one holds its
+   shape instead of being squeezed into the overlap the audit found. */
+.game-info    { color: var(--border-3); font-size: var(--text-body); display: flex; align-items: center; gap: var(--space-tight); flex-shrink: 0; white-space: nowrap; }
 
 /* Stone-chip indicators preceding each player name. Sized to the
    ambient font (0.85em) so they scale with the status-bar
@@ -469,22 +507,35 @@ const gameStatus = computed(() =>
   color: var(--text-0);
 }
 
+/* S4 (component-shoddiness audit, 2026-08-21): a bare `border-bottom:
+   dashed` on a 12px-tall unpadded box reads, at zoom, as a rendering
+   fault rather than a control — no box, no click affordance beyond
+   `cursor: text`, and far below any usable pointer target. A full
+   border + padding gives it an honest field outline and a ~20px hit
+   target (matching `.status-bar`'s own min-height) without departing
+   from the bar's low-contrast register — `border-3` is the same
+   token the dashed underline already used. */
 .komi-input {
   width: 42px;
+  min-height: 20px;
+  box-sizing: border-box;
   background: transparent;
-  border: none;
-  border-bottom: 1px dashed var(--border-3);
+  border: 1px solid var(--border-3);
+  border-radius: var(--radius-default);
   color: var(--text-0);
   font-size: var(--text-body);
   font-family: inherit;
-  padding: 0;
+  padding: 2px 4px;
   outline: none;
   text-align: center;
 }
-/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament). */
+/* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament).
+   S4: the border is now a full box (see the base rule above), so the
+   focus/hover highlight recolors all four sides, not just the bottom
+   edge, to match. */
 .komi-input:focus, .komi-input:hover {
   color: var(--text-0);
-  border-bottom: 1px solid var(--accent-primary);
+  border-color: var(--accent-primary);
 }
 /* G29 (audit finding, opus-uiux-geometry-consult.md): same defect and
    same fix as `.rules-select:focus-visible` above — the base rule's
@@ -561,9 +612,9 @@ const gameStatus = computed(() =>
    light padding trim that stays well over the G30 pointer-target
    floor. */
 .status-bar--narrow .player-names {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* white-space/overflow/text-overflow now live in the base
+     `.player-names` rule above (S4 fix) — narrow mode only needs to
+     tighten the ceiling further. */
   max-width: 90px;
 }
 .status-bar--narrow.status-bar {

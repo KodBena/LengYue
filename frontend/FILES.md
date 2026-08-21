@@ -437,7 +437,8 @@ frontend/src/
 │
 ├── i18n/                                    vue-i18n integration.
 │   ├── index.ts                       [B1]  createI18n configuration; bundled-catalog loading.
-│   └── locales.ts                     [B1]  SupportedLocale registry + browser-detection helper.
+│   ├── locales.ts                     [B1]  SupportedLocale registry + browser-detection helper.
+│   └── registry-labels.ts             [B1]  PATH_LABELS: dot-joined registry path → i18n key, for RegistryEditor.vue's leaf/branch labels (S9, component-shoddiness audit 2026-08-21). Covers store.session.ui; unmapped paths (e.g. the Advanced Registry root) fall back to vue-i18n's own missing-key loud fallback.
 │
 ├── locales/                                 vue-i18n catalogs.
 │   ├── en.json                        [B1]  English source catalog (canonical).

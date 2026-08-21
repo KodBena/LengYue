@@ -79,6 +79,12 @@ function onEscape(): void {
    comfortably fits `ws://127.0.0.1:1242`-shaped values while leaving
    room for the rest of the toolbar cluster; overflow ellipses rather
    than pushing neighbouring chrome. */
+/* S12 (component-shoddiness audit, 2026-08-21): `cursor: text` promised
+   direct in-place text editing this span doesn't provide —
+   `isContentEditable` is false; a click swaps in a SEPARATE `<input>`
+   (the `v-else` sibling above). `role="button"` is the honest
+   semantic already declared; `cursor: pointer` matches it instead of
+   contradicting it. */
 .uri-display {
   max-width: 220px;
   overflow: hidden;
@@ -87,7 +93,7 @@ function onEscape(): void {
   color: var(--text-0);
   font-family: monospace;
   font-size: var(--text-emphasis);
-  cursor: text;
+  cursor: pointer;
   border: 1px solid transparent;
   border-radius: var(--radius-default);
   padding: 0 var(--space-tight);

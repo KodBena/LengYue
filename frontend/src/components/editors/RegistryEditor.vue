@@ -10,6 +10,7 @@ import { WINRATE_FRAMINGS } from '../../engine/katago/types';
 import { BUNDLE_COMPRESSION_SCHEMES } from '../../types';
 import { isRegistryGroupDefaultCollapsed } from '../../lib/utils';
 import { PANEL_CONTENT_READING_MEASURE_CH } from '../../state/layout-model';
+import { PATH_LABELS } from '../../i18n/registry-labels';
 
 const props = defineProps<{
   registry: any;
@@ -197,6 +198,27 @@ function tooltipText(key: string): string | undefined {
   return PATH_TOOLTIPS[[...(props.path ?? []), key].join('.')];
 }
 
+// S9 (component-shoddiness audit, 2026-08-21): the raw registry key
+// (`activeTab`, `lytPresence`, …) is an internal storage identifier, not
+// user-facing copy. `PATH_LABELS` (src/i18n/registry-labels.ts) maps the
+// keys this editor's flagged mount root (`store.session.ui`) is known to
+// carry onto an i18n key that resolves to a human label. A key with no
+// mapped entry — including every leaf under the "Advanced Registry"
+// tab's `store.profile.settings` root, out of scope for this pass — is
+// NOT silently prettied up with a guessed label (ADR-0002 Rule 7,
+// closest-match discipline): `labelKey` falls back to the raw key
+// itself, which the template feeds to `$t(...)`. Passing an unmapped
+// string to `$t` is the codebase's OWN existing "surface missing
+// translations" mechanism (`i18n/index.ts`'s `missingWarn: true`) — it
+// renders the raw key back out (vue-i18n's documented missing-key
+// fallback) AND logs a console warning naming it, which is exactly the
+// "show it AND log it" loud fallback this finding asks for, with no
+// second warn/dedup mechanism needed.
+function labelKey(key: string): string {
+  const path = [...(props.path ?? []), key].join('.');
+  return PATH_LABELS[path] ?? key;
+}
+
 function getFieldType(key: string, value: any) {
   if (typeof value !== 'string') return 'scalar';
   if (enumOptions(key)) return 'enum';
@@ -278,7 +300,7 @@ const registryMeasureMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READ
       >
         <summary class="branch-header">
           <div class="label-group">
-             <span class="branch-label">{{ key }}</span>
+             <span class="branch-label" :title="key">{{ $t(labelKey(key)) }}</span>
              <span v-if="isModified(key, value)" class="modified-dot"></span>
              <span
                v-if="tooltipText(key)"
@@ -310,7 +332,7 @@ const registryMeasureMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READ
       <div v-else class="registry-leaf" :class="getFieldType(key, value)">
         <div class="leaf-header">
           <div class="label-group">
-            <label class="leaf-label">{{ key }}</label>
+            <label class="leaf-label" :title="key">{{ $t(labelKey(key)) }}</label>
             <span v-if="isModified(key, value)" class="modified-dot"></span>
             <span
               v-if="tooltipText(key)"

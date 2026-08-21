@@ -58,7 +58,17 @@ const { expanded, toggle } = useSystemLogToggle();
     :aria-label="t('systemLog.toggleButton')"
     @click="toggle"
   >
-    <span aria-hidden="true">&#8801;</span>
+    <!-- S11 (component-shoddiness audit, 2026-08-21): the prior glyph
+         (≡, U+2261) was near-indistinguishable at 28px from
+         App.vue's control-panel-summon button (☰, U+2630) — both read
+         as "three horizontal lines," yet the two buttons do unrelated
+         things and ☰ is the sole route back to the app's main panel
+         (S1). A terminal prompt (">_") is the conventional glyph for
+         a log/console surface and shares no shape family with a
+         hamburger icon. Accessible label/tooltip were already wired
+         (`:title`/`:aria-label` above); only the glyph itself needed
+         differentiating. -->
+    <span class="log-glyph" aria-hidden="true">&gt;_</span>
   </button>
 </template>
 
@@ -80,6 +90,13 @@ const { expanded, toggle } = useSystemLogToggle();
   font-size: var(--text-emphasis);
 }
 .system-log-toggle:hover { border-color: var(--border-3); }
+/* S11: monospace + a hair of negative tracking keeps ">_" compact and
+   centred in the 28px box at the ambient font-size, matching the
+   single-glyph ☰/⚙ siblings' visual weight. */
+.log-glyph {
+  font-family: monospace;
+  letter-spacing: -0.05em;
+}
 /* Reflects the PERSISTED `systemLogExpanded` intent, not the transient
    auto-reveal — a message-triggered flash does not paint this button
    "active" (it isn't the user's own standing choice). */

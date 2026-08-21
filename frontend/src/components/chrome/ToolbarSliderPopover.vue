@@ -127,10 +127,18 @@ const count = computed(() => orderedKnobs.value.length);
          button not raw text") — semantics + keyboard focusability the
          hover-only div never had; `type="button"` keeps it inert
          inside any future `<form>`. -->
+    <!-- S12 (component-shoddiness audit, 2026-08-21): the bare count had
+         no unit or explanation on its own — unlike ToolbarEngineMetrics'
+         EVAL/HEALTH triggers (which deliberately omit a native `title`
+         because their OWN hover popover is the "more detail" surface,
+         see that file's header), this badge had no such prior decision
+         on record, so a `title` is a plain net addition, not a
+         double-up. -->
     <button
       ref="triggerEl"
       type="button"
       class="sliders-trigger"
+      :title="$t('toolbar.metric.slidersTooltip', { n: count })"
       :aria-haspopup="true"
       :aria-expanded="open"
     >
