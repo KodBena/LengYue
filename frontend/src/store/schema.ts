@@ -985,6 +985,20 @@ export interface UISession {
   // that annotation persistently crowds the board, not because it's
   // momentary). Schema-version 75 introduces the field.
   showGhostStone: boolean;
+  // Card-tree (Lineage Explorer, `CardTreeWidget.vue`) orientation
+  // override. `null` (the default) means "auto-derive from the
+  // tree/card-editor container's aspect ratio" — `ForestDirectory.vue`
+  // measures `.tree-panel` via ResizeObserver and picks 'horizontal'
+  // for a wide container, 'vertical' for a tall one. A non-null value
+  // is the user's explicit override via the panel-header orientation
+  // button, which wins over the derived value until the user cycles
+  // back to auto (the button now cycles horizontal -> vertical ->
+  // auto, matching the three real states this field expresses).
+  // Workspace-global, not per-board — matches `settingsTabsOrientation`'s
+  // scope, not `cardTreeNav`'s (this is a display preference, not
+  // per-board navigation state). Schema-version 78 introduces the
+  // field.
+  cardTreeOrientationOverride: 'horizontal' | 'vertical' | null;
 }
 
 // ── Forest Directory navigator persistence (UISession.forestNav) ─────────────

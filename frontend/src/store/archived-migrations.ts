@@ -5,10 +5,10 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-08-11 (lyt-w2-presence): migrations 1 → 2
- * through 73 → 74 (73 entries). The first eight covered pre-v1.0.0
- * schema evolution; the rest are the v1.0.x – v1.1.x active cycle,
- * archived in per-PR rolling fashion under the same archive contract.
+ * Scope as of 2026-08-21 (allocation-family closing arc): migrations
+ * 1 → 2 through 75 → 76. The first eight covered pre-v1.0.0 schema
+ * evolution; the rest are the v1.0.x – v1.1.x active cycle, archived
+ * in per-PR rolling fashion under the same archive contract.
  *
  * Note: the most recently archived bodies (57 → 58 onward) were
  * authored against the `witnessedContainer` helper and keep that call
@@ -3174,6 +3174,88 @@ export const archivedMigrations: Migration[] = [
       if (typeof u.showGhostStone !== 'boolean') {
         u.showGhostStone = true;
       }
+    }
+    return out;
+  },
+  // 75 → 76: LYT corner presence-menu state migration (W2,
+  // `.claude/dispatch-reports/lyt-vue-realization-roadmap.md` §5 +
+  // ledger row 1743). Introduces `session.ui.lytPresence` (per-widget-id
+  // boolean map) and `session.ui.railStyle` ('slot' | 'popover'),
+  // superseding three of the five pre-LYT-rework `*Expanded` toggles:
+  //
+  //   - `sidebarExpanded`  -> `lytPresence.boardRail`   (value carried
+  //     forward when boolean; the boardRail LYT leaf's own registration
+  //     default, `false`, otherwise — see schema.ts's own doc comment).
+  //   - `controlsExpanded` -> `lytPresence.controlPanel` (same carry-
+  //     forward rule; registration default `true`).
+  //   - `boardExpanded` retires outright, no successor — the board
+  //     composite is architecturally always-mounted (roadmap §5); no
+  //     value is carried forward anywhere, matching the 65 → 66 archived
+  //     body's own "strip with no successor" precedent for a dead field.
+  //   - `lytPresence.previewBoard` is a genuinely NEW target (no
+  //     pre-LYT-rework predecessor) — backfilled straight to its own
+  //     registration default, `false`.
+  //   - `railStyle` is likewise new — backfilled to `'slot'` (roadmap §7
+  //     ruling 2's own default; the user flips it explicitly).
+  //
+  // `sidebarExpanded` / `controlsExpanded` / `boardExpanded` are then
+  // deleted — the runtime `UISession` type (schema.ts) no longer
+  // describes them, so leaving any of the three in a migrated blob
+  // would be a stray key.
+  //
+  // DELIBERATELY NOT migrated: `treeExpanded` (untouched, still a real
+  // schema field — see schema.ts's own doc comment on why: blind-
+  // review-mode's unrelated, load-bearing reuse of that field name,
+  // outside W2's scope to touch) and `systemLogExpanded` (W4's overlay-
+  // stratum ruling owns that field's eventual home, per the roadmap's
+  // own commission text — untouched here).
+  //
+  // Container access goes through `witnessedContainer` (step 3 of the
+  // add-a-migration recipe): `session.ui` is witnessed against the
+  // runtime shape, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version. The blob-side resolution keeps
+  // the sibling bodies' non-null-object tolerance: a partial / legacy
+  // blob whose container is absent no-ops (both new fields stay
+  // unset — `updateFromRemote`'s deepMerge against `defaultSessionUI`
+  // supplies them on the next hydrate, same fallback every other
+  // additive field in this file relies on).
+  //
+  // Idempotent: re-running against an already-migrated blob (no
+  // `sidebarExpanded`/`controlsExpanded`/`boardExpanded` keys present,
+  // `lytPresence`/`railStyle` already set) leaves both new fields
+  // untouched — the boolean/string-typed guards below only backfill a
+  // MISSING or wrong-typed leaf, never overwrite a valid one.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as {
+        sidebarExpanded?: unknown;
+        controlsExpanded?: unknown;
+        boardExpanded?: unknown;
+        lytPresence?: unknown;
+        railStyle?: unknown;
+      };
+      const presence: Record<string, boolean> =
+        typeof u.lytPresence === 'object' && u.lytPresence !== null
+          ? { ...(u.lytPresence as Record<string, unknown>) } as Record<string, boolean>
+          : {};
+      if (typeof presence.boardRail !== 'boolean') {
+        presence.boardRail = typeof u.sidebarExpanded === 'boolean' ? u.sidebarExpanded : false;
+      }
+      if (typeof presence.controlPanel !== 'boolean') {
+        presence.controlPanel = typeof u.controlsExpanded === 'boolean' ? u.controlsExpanded : true;
+      }
+      if (typeof presence.previewBoard !== 'boolean') {
+        presence.previewBoard = false;
+      }
+      u.lytPresence = presence;
+      if (u.railStyle !== 'slot' && u.railStyle !== 'popover') {
+        u.railStyle = 'slot';
+      }
+      delete u.sidebarExpanded;
+      delete u.controlsExpanded;
+      delete u.boardExpanded;
     }
     return out;
   },
