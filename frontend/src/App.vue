@@ -781,6 +781,24 @@ const rootSplitLayout = computed(() => {
     sideColumn: { minPx: sideColumnTrack.minPx, maxPx: sideColumnTrack.maxPx },
     boardFloorPx: MIN_BOARD_PX,
     sovereignWrapperPx: store.session.ui.treeControlRegionWidthPx,
+    // Ledger row 2511 pragmatic repair (S1, the audit's own central
+    // case): when the user wants `controlPanel` visible, its compiled
+    // `@demote.belowPx` threshold (`controlPanelDemote`, declared above)
+    // is the genuine width the side column's interior needs to dock it —
+    // the SAME fact `resolveSideColumnLiveLayout`'s own presence check
+    // reads (`state/feasible-layout.ts`), read here a second time only
+    // because this earlier, ROOT-split solve needs it BEFORE the
+    // interior solve runs, not because it's independently derived.
+    // `desiredControlPanel` mirrors `sideColumnOtherRegions`' own
+    // identical expression below (that computed can't be reused here —
+    // it depends on this computed's own output transitively via
+    // `effectiveSideColumnWidthPx`, so reading it here would be
+    // circular; duplicated per that disclosed ordering constraint, not a
+    // second, driftable derivation of a DIFFERENT fact).
+    sideColumnDesiredMinPx:
+      (store.session.ui.lytPresence.controlPanel ?? lytPresenceClassDefaults.value.controlPanel ?? true) && controlPanelDemote.value !== null
+        ? controlPanelDemote.value.belowPx
+        : 0,
   });
 });
 
@@ -899,17 +917,27 @@ watch(
 // N4, ledger row 2511): `rootSplitLayout`'s own `sovereignClampedFromPx`
 // (`resolveRootSplitLiveLayout`'s own header, "Sovereign (revised)")
 // fires whenever the CATASTROPHIC-1 clamp above actually reduced a
-// stored/dragged override below what it asked for — including the
-// common case where the side column's own compiled ceiling binds
-// (`sideColumn.maxPx`) well before the board's floor ever would, which
-// `outerRowSovereignDiagnostic` above does not cover (it only checks
-// the board's own `MIN_BOARD_PX`). Without this push, a drag that
-// overshoots the panel's own designed range renders visibly "stuck"
-// with no explanation — the exact silent-refusal shape N4 named ("the
-// same bar... changed nothing at all, with no system message"). Dedup
-// mirrors the sibling watcher immediately above: push only when the
-// clamped-from value changes, not on every reactive recompute a held
-// drag produces.
+// stored/dragged override below what it asked for. Since the row 2511
+// allocation repair (`.claude/dispatch-reports/lyt-allocation-repair-
+// build.md`) dropped the compiled `sideColumn.maxPx` ceiling from
+// `maxRegionWidthPx`, the ONLY thing this clamp can now bind against is
+// the board's own `boardFloorPx` — the exact same fact
+// `outerRowSovereignDiagnostic` (`useResizablePanel.ts`) already
+// diagnoses independently. Without this push at all, a drag that
+// overshoots the board's floor renders visibly "stuck" with no
+// explanation — the exact silent-refusal shape N4 named ("the same
+// bar... changed nothing at all, with no system message") — so the
+// push itself stays. Dedup mirrors the sibling watcher immediately
+// above (push only when the clamped-from value changes), PLUS a second
+// condition closing the review's own condition-3 finding: the
+// CATASTROPHIC-1 repro satisfies BOTH this clamp and
+// `outerRowSovereignDiagnostic` simultaneously, which used to log two
+// near-duplicate warning rows for one event from two undeduplicated
+// watchers. `outerRowSovereignDiagnostic.value.length > 0` means the
+// OTHER watcher already told the user their geometry no longer permits
+// the board to render — the more specific, more actionable message for
+// this exact case — so this watcher stays silent rather than adding a
+// second, less specific row for the same event.
 let lastPushedRootSplitClampFromPx: number | null = null;
 watch(
   () => rootSplitLayout.value?.sovereignClampedFromPx ?? null,
@@ -920,6 +948,7 @@ watch(
     }
     if (clampedFromPx === lastPushedRootSplitClampFromPx) return;
     lastPushedRootSplitClampFromPx = clampedFromPx;
+    if (outerRowSovereignDiagnostic.value.length > 0) return;
     pushSystemMessage('warning', 'Your geometry modification no longer fits within the available space.', {
       remediation: 'reduce this region\'s width, or use Default Layout to reset',
       nextAction: 'open-default-layout-control',

@@ -335,8 +335,19 @@ export function computeTreeControlRegionWidthPx(
 // "Transcribed disclosures" section, per ADR-0002 Rule 6.
 // `sanitizeTreeControlRegionWidthPx`'s protective intent (never leave
 // `#board-area` starved) is NOW discharged by `outerRowSovereignDiagnostic`
-// below — sovereignty (SCOPE item 3): the stored value wins VERBATIM, a
-// starved board is DIAGNOSED, never resisted.
+// below — sovereignty (SCOPE item 3): the stored value wins VERBATIM at
+// the STORE layer (this composable's own `effectiveTreeControlRegionWidthPx`
+// still passes it through unclamped), a starved board is DIAGNOSED. Stale
+// doctrine correction (ledger row 2511, `.claude/dispatch-reports/
+// lyt-disease-repair-review.md`, cross-cutting finding): "never resisted"
+// stopped being true the moment `resolveRootSplitLiveLayout`
+// (`state/feasible-layout.ts`) shipped — the RENDER layer (what App.vue's
+// landscape path actually writes into the grid track) now DOES clamp a
+// stored override down to the board-floor-reserving ceiling at the
+// current geometry, and `startResizeOuter`'s own drag-time ceiling below
+// was harmonized to the same bound (row 2511 review condition 2). "Never
+// resisted" is accurate only for THIS composable's own store-layer
+// pass-through, not for what the user ultimately sees rendered.
 
 /**
  * "Default layout" (commission, ledger row 2379): clears BOTH persisted
@@ -476,11 +487,30 @@ export function useResizablePanel() {
 
     if (row) {
       const rowWidthPx = row.getBoundingClientRect().width;
-      // Sovereignty (dispatch L3): the ceiling reserves ONLY the
-      // resizer's own physical width — NOT `#board-area`'s own
-      // `MIN_BOARD_PX` demand. A drag that starves the board is
-      // diagnosed (`outerRowSovereignDiagnostic` below), never resisted.
-      regionMaxWidthPx = Math.max(0, Math.round(rowWidthPx - RESIZER_WIDTH_PX));
+      // Ledger row 2511 review condition 2 (`.claude/dispatch-reports/
+      // lyt-disease-repair-review.md`, defect 4): this ceiling USED to
+      // reserve ONLY the resizer's own physical width, leaving it far
+      // LOOSER than `resolveRootSplitLiveLayout`'s render-time ceiling
+      // (`state/feasible-layout.ts`, which additionally reserves
+      // `MIN_BOARD_PX` for the board) — two homes for what should be one
+      // fact (ADR-0012). A single drag gesture could accept mouse deltas
+      // past the point the RENDER stops moving, decoupling the cursor
+      // from the divider mid-gesture — a close cousin of the N4 "stuck,
+      // no visible movement" symptom, just relocated from across-drags to
+      // within-a-drag. Now reserves `MIN_BOARD_PX` here too, the same
+      // floor the render-time ceiling reserves, so the drag can never
+      // accept a delta the render would then refuse to honor. This is a
+      // disclosed NARROWER unification, not byte-identical: the render
+      // ceiling also reserves `boardRailReservedPx` and the LYT root
+      // `gapPx` (both unavailable to this composable without threading
+      // boardRail's own presence in — out of scope for this repair), so
+      // the two ceilings can still diverge by that small margin when
+      // boardRail is visible. A starved board is still DIAGNOSED
+      // (`outerRowSovereignDiagnostic` below), never silently resisted —
+      // this ceiling only stops the CURSOR from promising more than the
+      // render can ever grant, it does not resist a stored/restored
+      // value arriving some other way.
+      regionMaxWidthPx = Math.max(0, Math.round(rowWidthPx - RESIZER_WIDTH_PX - MIN_BOARD_PX));
     } else {
       regionMaxWidthPx = regionDragOriginPx;
     }

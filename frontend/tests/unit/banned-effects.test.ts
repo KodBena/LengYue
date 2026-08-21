@@ -31,19 +31,47 @@
  *
  * FENCE EXCLUSION (disclosed, not silent): three files were off-
  * limits to this sweep because a concurrent builder owns them
- * (WizardStepSgfImport.vue, useSetupWizard.ts, SetupWizardModal.vue)
- * plus one rail-side file (chrome/TabWidget.vue). Of those,
- * SetupWizardModal.vue still carries a live `box-shadow:` declaration
- * (line ~107 at sweep time) — reported as residue in the dispatch
- * report for the orchestrator's post-merge pass, NOT swept here. This
- * guard excludes exactly that fixed, named set so it can pass red-to-
- * green on the sweep's own tree without silently widening scope to
- * cover a file this builder was told not to touch; it does not
- * exclude anything else; a new violation anywhere else in `src/`
+ * (WizardStepSgfImport.vue, useSetupWizard.ts, SetupWizardModal.vue).
+ * Of those, SetupWizardModal.vue still carries a live `box-shadow:`
+ * declaration (line ~107 at sweep time) — reported as residue in the
+ * dispatch report for the orchestrator's post-merge pass, NOT swept
+ * here. This guard excludes exactly that fixed, named set so it can
+ * pass red-to-green on the sweep's own tree without silently widening
+ * scope to cover a file this builder was told not to touch; it does
+ * not exclude anything else; a new violation anywhere else in `src/`
  * still fails it. When the fenced files are swept (by whoever owns
  * that follow-up), remove their names from FENCE_EXCLUSIONS so this
  * guard starts covering them too — leaving them excluded forever
  * would silently narrow the net's promise.
+ *
+ * `components/chrome/TabWidget.vue` was a fourth fenced file (a
+ * rail-side ownership fence, not a residue one) — verified clean
+ * (no banned declaration) and REMOVED from the fence (ledger row
+ * 2511, `.claude/dispatch-reports/lyt-allocation-repair-build.md`):
+ * per the maintainer's own wiki finding #1 (a CSS transition observed
+ * animating a panel show/hide -> default-layout reset, despite this
+ * ban), every rail-side chrome file needed to be back under this
+ * guard's coverage rather than staying permanently fenced off from a
+ * class of regression the finding shows can actually recur. The
+ * transition ITSELF was not located by this pass (a thorough static
+ * sweep of `frontend/src/**` for `transition`/`@keyframes`/
+ * `requestAnimationFrame`/`scrollIntoView({behavior})`/`<Transition>`
+ * usage found none matching the described symptom) — closing this
+ * fence is the mechanical half of the ask ("close the lint hole"); the
+ * live symptom itself needs a live-rig DevTools Animations-panel trace
+ * to actually locate, which this pass had no rig access to perform.
+ * See the build report's own #1 disposition for the full account.
+ *
+ * **A second, still-open lint gap, disclosed but NOT closed here**
+ * (scope/risk, not oversight): this guard only scans `.vue`/`.css`
+ * files (`listFiles` below) — a `.ts` composable/service that
+ * constructs a `transition:` string at runtime (`element.style.
+ * transition = ...`) or via string concatenation would not be
+ * caught. No current `.ts` file does this (checked directly), but
+ * widening the file-extension filter to `.ts` risks false positives
+ * across many unrelated identifiers/comments this pass did not have
+ * the budget to audit one-by-one; left as a named residual rather
+ * than a rushed, unverified widening.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -60,7 +88,6 @@ const FENCE_EXCLUSIONS = new Set([
   'components/wizard/steps/WizardStepSgfImport.vue',
   'composables/useSetupWizard.ts',
   'components/wizard/SetupWizardModal.vue',
-  'components/chrome/TabWidget.vue',
 ]);
 
 function listFiles(dir: string): string[] {

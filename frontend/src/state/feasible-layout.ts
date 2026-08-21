@@ -1106,6 +1106,21 @@ export interface RootSplitLiveLayoutInput {
    *  rig's own flagship finding, `.claude/dispatch-reports/
    *  lyt-cure-live-witness.md` item 1). */
   readonly sovereignWrapperPx: number | undefined;
+  /** Ledger row 2511 pragmatic repair (UI shoddiness audit S1/S2/S3/S10,
+   *  `.claude/dispatch-reports/ui-shoddiness-audit-2026-08-21.md`):
+   *  the genuine minimum width the side column's OWN interior wants
+   *  right now, when its content actually wants it — today, the
+   *  `controlPanel` Exclusive's own compiled `@demote.belowPx`
+   *  threshold (778 landscape) when the user wants it visible, `0`
+   *  otherwise. This is NOT a second content-demand derivation: it is
+   *  the SAME `demote.belowPx` fact `resolveSideColumnLiveLayout`
+   *  already reads off the compiled program to decide presence — the
+   *  caller threads it through so the ROOT split's own un-dragged
+   *  candidate can try to satisfy it (see this function's own "board
+   *  yields honestly" doc below) BEFORE the interior solve ever runs
+   *  and finds it starved. `0`/`undefined` reproduces this field's own
+   *  absence — no change from the pre-row-2511 behavior. */
+  readonly sideColumnDesiredMinPx?: number;
 }
 
 export interface RootSplitLiveLayoutResult {
@@ -1245,10 +1260,22 @@ export function resolveRootSplitLiveLayout(input: RootSplitLiveLayoutInput): Roo
       };
     }
     const availableForSplitPx = input.rowWidthPx - input.boardRailReservedPx - input.gapPx;
-    const maxRegionWidthPx = Math.max(
-      input.sideColumn.minPx,
-      Math.min(input.sideColumn.maxPx, availableForSplitPx - input.boardFloorPx),
-    );
+    // Ledger row 2511 pragmatic repair (UI shoddiness audit S1/S2/S3/S10):
+    // `maxRegionWidthPx` no longer clamps to the compiled `sideColumn.maxPx`
+    // (820px, `board-priority-clamp`) — that STATIC ceiling is exactly the
+    // audit's own root cause for "absurd amounts of unused space and yet
+    // the panel claims too little width": at any geometry where the board's
+    // own useful (aspect-locked) size leaves more than 820px of genuine
+    // leftover, the side column used to be clamped DOWN to 820 regardless,
+    // converting real available width into dead space (S2's `.engine-
+    // controls` frozen at 265px and S3's Cards content column frozen at
+    // 664px both trace back to this same side-column ceiling). The ONLY
+    // ceiling that still binds is the board's own hard floor
+    // (`boardFloorPx`) — a bypass of the compiled DSL constant, not a
+    // remodeling of it, per the standing ruling (ledger row 2511): the
+    // board keeps at least its floor; the side column may now claim
+    // everything past that, live-measured, same as it always could have.
+    const maxRegionWidthPx = Math.max(input.sideColumn.minPx, availableForSplitPx - input.boardFloorPx);
     // Disease repair (`.claude/dispatch-reports/lyt-second-opus-review.md`
     // N2, ledger row 2511): this USED to return `rawSideColumnPx`
     // verbatim, no ceiling at all — a sovereign override taken on a wide
@@ -1287,11 +1314,29 @@ export function resolveRootSplitLiveLayout(input: RootSplitLiveLayoutInput): Roo
   }
   const availableForSplitPx = input.rowWidthPx - input.boardRailReservedPx - input.gapPx;
   const naturalSideColumnPx = availableForSplitPx - boardUsefulPx;
-  const maxRegionWidthPx = Math.max(
-    input.sideColumn.minPx,
-    Math.min(input.sideColumn.maxPx, availableForSplitPx - input.boardFloorPx),
-  );
-  const sideColumnPx = Math.min(Math.max(Math.round(naturalSideColumnPx), input.sideColumn.minPx), maxRegionWidthPx);
+  // Ledger row 2511 pragmatic repair: see the sovereign branch's own
+  // comment above for the full account of why `sideColumn.maxPx` no
+  // longer participates in this ceiling — only the board's own hard
+  // floor does now.
+  const maxRegionWidthPx = Math.max(input.sideColumn.minPx, availableForSplitPx - input.boardFloorPx);
+  // Ledger row 2511 pragmatic repair (S1, the audit's central case): the
+  // side column's own INTERIOR content can genuinely want more than its
+  // natural (leftover-after-the-board's-own-square) yield — most
+  // concretely, `controlPanel`'s own compiled `@demote.belowPx` threshold
+  // (778 landscape): below it, the panel undocks into the summon overlay
+  // even though the board could honestly afford to yield a FEW more
+  // pixels and still stay above its own floor. `sideColumnDesiredMinPx`
+  // (this function's own input doc) is that genuine want, threaded in by
+  // the caller (App.vue) from the SAME compiled fact
+  // `resolveSideColumnLiveLayout` already reads — not a second,
+  // independently-derived demand. Raising the candidate to it (capped at
+  // `maxRegionWidthPx`, so the board's floor still always wins) is the
+  // "board yields honestly if needed" the audit's own central finding
+  // calls for: the board gives up a little of its natural square size
+  // ONLY when doing so actually lets the panel dock, never further.
+  const desiredMinPx = Math.min(input.sideColumnDesiredMinPx ?? 0, maxRegionWidthPx);
+  const flooredNaturalSideColumnPx = Math.max(naturalSideColumnPx, desiredMinPx);
+  const sideColumnPx = Math.min(Math.max(Math.round(flooredNaturalSideColumnPx), input.sideColumn.minPx), maxRegionWidthPx);
   return { sideColumnPx, boardUsefulPx, sovereignClampedFromPx: null };
 }
 

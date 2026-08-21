@@ -121,34 +121,54 @@ describe('App.vue — root-split live track (GAP A: rootSplitLayout reaches the 
     document.body.innerHTML = '';
   });
 
-  it('1920x1080, default content: root child "2" (the side column) resolves to 820px in the rendered grid track — matching the pure-function acceptance table', async () => {
+  // Ledger row 2511 allocation repair (UI shoddiness audit S1/S2/S3/S10):
+  // the compiled `sideColumn.maxPx` (820) no longer clamps the side
+  // column's natural yield — see `feasible-layout.test.ts`'s own updated
+  // acceptance table for the full rationale. 880 is the new natural
+  // yield at 1920x1080 (1908 available - 1028 board useful).
+  it('1920x1080, default content: root child "2" (the side column) resolves to 880px in the rendered grid track — its own natural yield, no longer clamped at the compiled 820 ceiling', async () => {
     stubSplitWorkspaceRect(1920, 1080);
     wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
     await flushPromises();
 
     expect(wrapper.find('.reb-overlay').exists()).toBe(false);
     const style = wrapper.find('#split-workspace').attributes('style') ?? '';
-    expect(style).toContain('820px');
+    expect(style).toContain('880px');
   });
 
-  it('1366x768, default content: root child "2" resolves to 638px — its own NATURAL board-priority yield, below the panel-docking demand, matching the pure-function acceptance table', async () => {
+  // Row 2511 allocation repair (S1, the UI shoddiness audit's own
+  // central/CRITICAL case, `.claude/dispatch-reports/
+  // ui-shoddiness-audit-2026-08-21.md`): the side column's own NATURAL
+  // yield at 1366x768 is 638px (below controlPanel's 778px docking
+  // demand — see `feasible-layout.test.ts`'s own pure-function pin of
+  // that raw fact). Pre-repair, that undocked the ENTIRE control panel
+  // into the summon overlay — covering the board — at exactly this,
+  // the most common laptop resolution. The board can honestly spare the
+  // remaining 140px and stay far above its own floor (300, vs.
+  // 716-140=576 remaining useful), so it now yields them: the panel
+  // DOCKS at 1366x768.
+  it('1366x768, default content: root child "2" resolves to 778px — the board yields the gap between its natural yield (638) and the panel-docking demand, so the panel DOCKS instead of undocking into the summon overlay (S1 repair)', async () => {
     stubSplitWorkspaceRect(1366, 768);
     wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
     await flushPromises();
 
     expect(wrapper.find('.reb-overlay').exists()).toBe(false);
     const style = wrapper.find('#split-workspace').attributes('style') ?? '';
-    expect(style).toContain('638px');
+    expect(style).toContain('778px');
+    // The docked panel, not the summon overlay: the audit's own central
+    // acceptance bar.
+    expect(wrapper.find('#control-panel-summon-btn').exists()).toBe(false);
+    expect(wrapper.find('#control-panel [role="tablist"]').exists()).toBe(true);
   });
 
-  it('2560x1080, default content: root child "2" again resolves to 820px (the same compiled ceiling as 1920x1080)', async () => {
+  it('2560x1080, default content: root child "2" again resolves to its own natural yield, 1520px — genuine extra width at a wider monitor is no longer converted to void past the old 820 cap (S10)', async () => {
     stubSplitWorkspaceRect(2560, 1080);
     wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
     await flushPromises();
 
     expect(wrapper.find('.reb-overlay').exists()).toBe(false);
     const style = wrapper.find('#split-workspace').attributes('style') ?? '';
-    expect(style).toContain('820px');
+    expect(style).toContain('1520px');
   });
 
   it('sovereign: a dragged treeControlRegionWidthPx still wins verbatim in the rendered track, unaffected by the root-split live solve', async () => {
@@ -160,7 +180,7 @@ describe('App.vue — root-split live track (GAP A: rootSplitLayout reaches the 
     expect(wrapper.find('.reb-overlay').exists()).toBe(false);
     const style = wrapper.find('#split-workspace').attributes('style') ?? '';
     expect(style).toContain('500px');
-    expect(style).not.toContain('820px');
+    expect(style).not.toContain('880px');
   });
 
   it('portrait: no root-split override applies (landscape-only, disclosed narrowing) — mounts cleanly, no throw from rootSplitLayout\'s own guard', async () => {
@@ -174,21 +194,24 @@ describe('App.vue — root-split live track (GAP A: rootSplitLayout reaches the 
   // Final re-witness finding 1 (`.claude/dispatch-reports/
   // lyt-cure-live-witness.md`, item A1): a real session with `boardRail`
   // genuinely visible (a real, if unusual, persisted preference — NOT the
-  // compiled default) resolved the side column to 700px, but the
-  // INTERIOR solve (tree/controlPanel/previewBoard) kept computing
-  // against a STALE, separately-measured wrapper width, rendering
+  // compiled default) used to resolve the side column to 700px with a
+  // STALE, separately-measured interior wrapper width, rendering
   // controlPanel un-demoted (664px) inside a 700px box — 808px of
-  // content silently clipped, non-scrollably, by an ancestor's
-  // `overflow-x: hidden`. Root cause: `sideColumnLayout`'s own
-  // `wrapperWidthPx` read a SEPARATE, asynchronously ResizeObserver-
-  // measured fact (`sideColumnWidthPx`) instead of `rootSplitLayout`'s
-  // own already-resolved, synchronous output — fixed by
-  // `effectiveSideColumnWidthPx` (App.vue). This test pins BOTH halves
-  // of the fix: the outer track literal equals the resolver's own
-  // output ("resolved == rendered"), and the interior solve — now fed
-  // the SAME number — correctly demotes controlPanel rather than
-  // overflowing its own box.
-  it('boardRail visible (a real, non-default sibling): the resolved side-column width reaches BOTH the outer grid track and the interior solve, so controlPanel demotes instead of overflowing', async () => {
+  // content silently clipped. That half of the fix ("resolved ==
+  // rendered": the outer track literal equals the resolver's own
+  // output, and the interior solve is fed the SAME number) is UNCHANGED
+  // and still pinned below.
+  //
+  // Row 2511 allocation repair (S1, the audit's own central case): 700
+  // is the side column's own NATURAL yield at this geometry (after
+  // boardRail's 180px reservation) — 22px short of `controlPanel`'s own
+  // 778px docking demand. Pre-repair, that 22px shortfall demoted the
+  // panel into the summon overlay even though the board could honestly
+  // spare those 22px and stay far above its own floor. Post-repair, the
+  // board yields exactly that much: the side column now resolves to
+  // 778, the panel DOCKS, and no content is clipped OR forced into the
+  // overlay — this test now pins the FIXED outcome, not the demoted one.
+  it('boardRail visible (a real, non-default sibling): the board yields the last 22px so controlPanel DOCKS instead of demoting or overflowing (S1 repair)', async () => {
     stubSplitWorkspaceRect(1920, 1080);
     store.session.ui.lytPresence = { ...store.session.ui.lytPresence, boardRail: true };
     wrapper = mount(App, { attachTo: document.body, global: { plugins: [i18n] } });
@@ -197,26 +220,25 @@ describe('App.vue — root-split live track (GAP A: rootSplitLayout reaches the 
     expect(wrapper.find('.reb-overlay').exists()).toBe(false);
 
     // Resolved == rendered: boardUsefulPx (1028) unchanged; boardRail's
-    // own reservation (168px fixed + 12px gap = 180) now subtracts from
-    // availableForSplitPx, landing the side column at 700 — the EXACT
-    // figure the live rig's own resolveRootSplitLiveLayout output (per
-    // the final-repair report's own math) and the exact figure the
-    // witness found actually rendered, now DELIBERATELY, not by
-    // accident of a stale measurement.
+    // own reservation (168px fixed + 12px gap = 180) subtracts from
+    // availableForSplitPx (1920-180-12=1728), whose natural yield
+    // (1728-1028=700) is then floored up to controlPanel's own 778px
+    // docking demand — the board yielding the last 22px rather than the
+    // panel demoting for want of them.
     const outerStyle = wrapper.find('#split-workspace').attributes('style') ?? '';
     expect(outerStyle).toContain('168px'); // boardRail's own fixed track, genuinely present
-    expect(outerStyle).toContain('700px'); // the side column, resolved AND rendered
+    expect(outerStyle).toContain('778px'); // the side column, resolved AND rendered — floored to the docking demand
 
-    // The interior solve, fed the SAME 700px (not a stale, larger
-    // reading): controlPanel's own compiled demote threshold is 778px
-    // (tree 110 + gap 4 + panel 664) — 700 < 778, so it must demote,
-    // never render at its full 664px inside a box that can't hold it.
-    expect(wrapper.find('#resizer-inner').exists()).toBe(false);
-    expect(wrapper.find('#control-panel-summon-btn').exists()).toBe(true);
-    expect(wrapper.find('#control-panel [role="tablist"]').exists()).toBe(false);
+    // The interior solve, fed the SAME 778px: controlPanel's own
+    // compiled demote threshold is exactly 778px (tree 110 + gap 4 +
+    // panel 664) — 778 >= 778 docks it, per the compiled program's own
+    // >= semantics.
+    expect(wrapper.find('#resizer-inner').exists()).toBe(true);
+    expect(wrapper.find('#control-panel-summon-btn').exists()).toBe(false);
+    expect(wrapper.find('#control-panel [role="tablist"]').exists()).toBe(true);
 
     // No content wider than the resolved box: the wrapper's own inline
-    // track list must sum (plus its own row gaps) to AT MOST 700px —
+    // track list must sum (plus its own row gaps) to AT MOST 778px —
     // the direct, DOM-level proof that nothing overflows its own cell.
     const wrapperStyle = wrapper.find('#tree-control-wrapper').attributes('style') ?? '';
     const trackMatch = wrapperStyle.match(/grid-template-columns:\s*([^;]+);/);
@@ -226,7 +248,7 @@ describe('App.vue — root-split live track (GAP A: rootSplitLayout reaches the 
     const gapPx = gapMatch ? Number(gapMatch[1]) : 0;
     const gapsCount = Math.max(0, trackPxValues.length - 1);
     const totalPx = trackPxValues.reduce((a, b) => a + b, 0) + gapsCount * gapPx;
-    expect(totalPx).toBeLessThanOrEqual(700);
+    expect(totalPx).toBeLessThanOrEqual(778);
   });
 });
 
@@ -291,7 +313,7 @@ describe('App.vue — live resize across the landscape/portrait threshold (no re
 
     const landscapeStyle = wrapper.find('#split-workspace').attributes('style') ?? '';
     expect(landscapeStyle).toContain('grid-auto-flow: column');
-    expect(landscapeStyle).toContain('820px'); // the docked side-column track, GAP A's own acceptance figure
+    expect(landscapeStyle).toContain('880px'); // the docked side-column track's natural yield (row 2511 repair — see the file's own header)
 
     // Live resize, no reload: update the stubbed rect, then fire the SAME
     // ResizeObserver callback `useResizablePanel.ts`'s own `attachRowObserver`
@@ -304,7 +326,7 @@ describe('App.vue — live resize across the landscape/portrait threshold (no re
     const portraitStyle = wrapper.find('#split-workspace').attributes('style') ?? '';
     expect(portraitStyle).toContain('grid-auto-flow: row');
     expect(portraitStyle).not.toContain('grid-auto-flow: column');
-    expect(portraitStyle).not.toContain('820px');
+    expect(portraitStyle).not.toContain('880px');
     // The docked-panel affordance (#resizer-inner, only rendered when
     // genuinely docked) must be gone too — portrait's own program demotes
     // controlPanel by default (repetition-first).

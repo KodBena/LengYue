@@ -820,10 +820,19 @@ describe('resolveRootSplitLiveLayout() — GAP A: the root split (board vs. side
     };
   }
 
-  it('1920x1080 (default content): board useful width is 1028 (1080-52); side column gets 820 (clamped at its own compiled ceiling), well past the panel-docking demand of 778', () => {
+  // Ledger row 2511 pragmatic repair (UI shoddiness audit S1/S2/S3/S10,
+  // `.claude/dispatch-reports/lyt-allocation-repair-build.md`): the
+  // compiled `sideColumn.maxPx` (820) no longer clamps the side
+  // column's own NATURAL yield — that static ceiling was the audit's
+  // own root cause for turning genuine leftover width into dead space
+  // (S2's `.engine-controls`/S3's Cards content column both traced back
+  // to this same 820px cap). The side column now gets its full natural
+  // yield (whatever the board's own square doesn't need), bounded only
+  // by the board's hard floor.
+  it('1920x1080 (default content): board useful width is 1028 (1080-52); side column gets its full natural yield, 880 — no longer clamped at the compiled 820 ceiling', () => {
     const result = resolveRootSplitLiveLayout(baseInput());
     expect(result.boardUsefulPx).toBe(1028);
-    expect(result.sideColumnPx).toBe(820);
+    expect(result.sideColumnPx).toBe(880);
     expect(result.sideColumnPx).toBeGreaterThanOrEqual(778); // panel min (664) + tree cap (110) + gap (4)
   });
 
@@ -834,10 +843,10 @@ describe('resolveRootSplitLiveLayout() — GAP A: the root split (board vs. side
     expect(result.sideColumnPx).toBeLessThan(778);
   });
 
-  it('2560x1080: side column again clamps at its own compiled ceiling (820) — the SAME docking margin as 1920x1080, board absorbs the larger complement', () => {
+  it('2560x1080: side column again gets its full natural yield, 1520 — genuine extra width at a wider monitor is no longer converted to void past the old 820 cap (S10)', () => {
     const result = resolveRootSplitLiveLayout(baseInput({ rowWidthPx: 2560, rowHeightPx: 1080 }));
     expect(result.boardUsefulPx).toBe(1028);
-    expect(result.sideColumnPx).toBe(820);
+    expect(result.sideColumnPx).toBe(1520);
   });
 
   it("never demand-forces past the board's own natural yield: the 1366x768 result equals the hand-computed natural-yield formula exactly, proving it is not an artifact of some accidental demand-flooring", () => {
@@ -881,7 +890,10 @@ describe('resolveRootSplitLiveLayout() — GAP A: the root split (board vs. side
     it('a 1200px override carried into 1366x768 clamps to this geometry\'s own ceiling, not 1200 verbatim', () => {
       const result = resolveRootSplitLiveLayout(baseInput({ sovereignWrapperPx: 1200, rowWidthPx: 1366, rowHeightPx: 768 }));
       const availableForSplitPx = 1366 - ROOT_GAP_PX;
-      const maxRegionWidthPx = Math.min(SIDE_COLUMN.maxPx, availableForSplitPx - BOARD_FLOOR_PX);
+      // Row 2511 allocation repair: the compiled `sideColumn.maxPx` no
+      // longer participates in this ceiling — only the board's own
+      // floor does (see the describe block's own header above).
+      const maxRegionWidthPx = availableForSplitPx - BOARD_FLOOR_PX;
       expect(result.sideColumnPx).toBe(maxRegionWidthPx);
       expect(result.sideColumnPx).toBeLessThan(1200);
       // The board's own remaining share of the row is at least its floor —
@@ -915,6 +927,51 @@ describe('resolveRootSplitLiveLayout() — GAP A: the root split (board vs. side
       expect(result.sideColumnPx).toBeLessThanOrEqual(SIDE_COLUMN.maxPx);
       expect(result.sideColumnPx).toBeGreaterThanOrEqual(0);
     });
+
+    // Ledger row 2511 review condition 1 (`.claude/dispatch-reports/
+    // lyt-disease-repair-review.md`, defect 1): a DIRECT regression test
+    // against `resolveRootSplitLiveLayout` itself — the function that
+    // actually drives the landscape render path — for "Default layout
+    // reset ≡ fresh boot." The review traced that the pre-existing
+    // evidentiary citation for this claim
+    // (`tests/integration/resizer-restore-clamp.test.ts`'s "GREEN
+    // (sovereignty)" case) exercises `effectiveTreeControlRegionWidthPx`
+    // — a composable computed App.vue no longer reads for this path (see
+    // that test's own updated comment) — so the claim, though probably
+    // still true by construction (`resolveRootSplitLiveLayout` is pure;
+    // `resetLayoutOverrides()` clears exactly the field it reads as
+    // `sovereignWrapperPx`), was never actually asserted anywhere. This
+    // closes that gap: a call with a CLAMPED sovereign override
+    // (simulating the state immediately before a "Default Layout" reset)
+    // is compared against a from-scratch call with `sovereignWrapperPx:
+    // undefined` (simulating the state immediately after) at the SAME
+    // geometry — the two must be byte-identical, since `resetLayout-
+    // Overrides()`'s only effect on this function's own inputs is exactly
+    // that field going from a number to `undefined`.
+    it('reset ≡ fresh boot: resolveRootSplitLiveLayout with sovereignWrapperPx cleared to undefined, right after a clamped override, equals a from-scratch call at the same geometry', () => {
+      const geometry = { rowWidthPx: 1366, rowHeightPx: 768 } as const;
+
+      // "Before reset": a stored override so large it gets clamped
+      // (mirrors the CATASTROPHIC-1 repro geometry/override pairing used
+      // throughout this describe block).
+      const beforeReset = resolveRootSplitLiveLayout(baseInput({ ...geometry, sovereignWrapperPx: 1200 }));
+      expect(beforeReset.sovereignClampedFromPx).not.toBeNull(); // sanity: the clamp is genuinely exercised, not vacuous
+
+      // "After reset": `resetLayoutOverrides()` (`useResizablePanel.ts`)
+      // sets `store.session.ui.treeControlRegionWidthPx = undefined` —
+      // the ONLY input this function threads that field into is
+      // `sovereignWrapperPx`, so this is the exact post-reset call.
+      const afterReset = resolveRootSplitLiveLayout(baseInput({ ...geometry, sovereignWrapperPx: undefined }));
+
+      // "Fresh boot": a from-scratch call at the same geometry, never
+      // having carried any sovereign override at all.
+      const freshBoot = resolveRootSplitLiveLayout(baseInput(geometry));
+
+      expect(afterReset).toEqual(freshBoot);
+      // And the reset genuinely changed something observable — not a
+      // vacuous equality where beforeReset already equalled freshBoot.
+      expect(beforeReset).not.toEqual(freshBoot);
+    });
   });
 
   // Disease repair N4 (`.claude/dispatch-reports/lyt-second-opus-review.md`,
@@ -935,14 +992,15 @@ describe('resolveRootSplitLiveLayout() — GAP A: the root split (board vs. side
       expect(result.sovereignClampedFromPx).toBeNull();
     });
 
-    it('fires even when the SIDE COLUMN\'s own compiled ceiling binds, not only when the board would starve — the common case the review\'s own N4 repro hit (panel demoted well before the board floor is threatened)', () => {
-      // At 1920x1080 here, sideColumn.maxPx (820) binds well before the
-      // board-floor-reserving bound (1920-12-300=1608) ever would —
-      // exactly the "stuck, no message" gap outerRowSovereignDiagnostic
-      // (board-starvation-only) doesn't cover.
-      const result = resolveRootSplitLiveLayout(baseInput({ sovereignWrapperPx: 1000, rowWidthPx: 1920, rowHeightPx: 1080 }));
-      expect(result.sideColumnPx).toBe(SIDE_COLUMN.maxPx);
-      expect(result.sovereignClampedFromPx).toBe(1000);
+    it('fires whenever an override overshoots the board-floor-reserving ceiling, even far from the board\'s own literal floor — the "stuck, no message" gap outerRowSovereignDiagnostic (board-starvation-only) doesn\'t cover', () => {
+      // Row 2511 allocation repair: `sideColumn.maxPx` (820) no longer
+      // binds here — the ceiling at 1920x1080 is now
+      // 1920-12-300=1608. An override past THAT is what this diagnostic
+      // exists to name.
+      const result = resolveRootSplitLiveLayout(baseInput({ sovereignWrapperPx: 1700, rowWidthPx: 1920, rowHeightPx: 1080 }));
+      const availableForSplitPx = 1920 - ROOT_GAP_PX;
+      expect(result.sideColumnPx).toBe(availableForSplitPx - BOARD_FLOOR_PX);
+      expect(result.sovereignClampedFromPx).toBe(1700);
     });
 
     it('a SECOND, smaller override that is still within bounds clears the refusal signal (dividing back within range un-sticks it)', () => {
@@ -1026,7 +1084,11 @@ describe('resolveRootSplitLiveLayout() — GAP A: the root split (board vs. side
 
     it('passes through cleanly for the expected "vh" unit — the guard is a refusal, not a silent behavior change for the normal case', () => {
       const result = resolveRootSplitLiveLayout(baseInput({ board: { fixedSiblingSumPx: 52, naturalBoardCrossUnit: 'vh' } }));
-      expect(result.sideColumnPx).toBe(820);
+      // Row 2511 allocation repair: 880 is the 1920x1080 natural yield
+      // (see this file's own updated acceptance table above) — no
+      // `sideColumnDesiredMinPx` is passed by `baseInput()`, so no floor
+      // raise applies here either.
+      expect(result.sideColumnPx).toBe(880);
       expect(result.boardUsefulPx).toBe(1028);
     });
   });

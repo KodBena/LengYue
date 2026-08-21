@@ -121,7 +121,24 @@ describe('ui-5-3, superseded by sovereignty (dispatch L3): hydrating a wide-view
   // `outerRowSovereignDiagnostic` reports the starved board instead of
   // silently absorbing it into a clamp. Old assertion embodied exactly
   // the disease this dispatch cures — updated per SCOPE item 5.
-  it('GREEN (sovereignty): effectiveTreeControlRegionWidthPx passes the hydrated value through VERBATIM; outerRowSovereignDiagnostic reports the starved board instead', () => {
+  //
+  // Evidentiary condition (ledger row 2511 review, `.claude/dispatch-
+  // reports/lyt-disease-repair-review.md`, defect 1): `effectiveTree-
+  // ControlRegionWidthPx`, the composable computed this test exercises,
+  // is NO LONGER what App.vue reads for the landscape render path —
+  // App.vue's own `rootSplitLayout` (consuming `resolveRootSplitLiveLayout`,
+  // `state/feasible-layout.ts`) owns that now, and DOES clamp a stored
+  // override down to the current geometry's board-floor-reserving
+  // ceiling (see that resolver's own "Sovereign (revised)" doc). This
+  // test therefore pins the COMPOSABLE's own store-layer contract
+  // (still real, still exercised by the OUTER bar's raw pass-through and
+  // by portrait, where no root-split concept exists) — it is NOT
+  // evidence that a 3490px override renders unclamped on a real
+  // landscape screen. `tests/unit/state/feasible-layout.test.ts`'s own
+  // "sovereign clamp" describe block is the test that actually pins the
+  // live render-path clamp; `tests/integration/lyt-root-split-live.test.ts`
+  // proves that resolver's output reaches the real grid track.
+  it('GREEN (sovereignty, composable/store layer only — see the evidentiary condition above): effectiveTreeControlRegionWidthPx passes the hydrated value through VERBATIM; outerRowSovereignDiagnostic reports the starved board instead', () => {
     updateFromRemote({
       schemaVersion: 67,
       activeBoardIndex: 0,
