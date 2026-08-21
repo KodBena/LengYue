@@ -1,6 +1,12 @@
 <!--
   src/components/charts/AnalysisChartPanel.vue
-  Updated to support onMouseLeave.
+
+  Collapsible analysis-chart section: a disclosure header, a chart
+  area (or an empty-state message when the series has no data), and a
+  hover/position preview thumbnail. Shared by ScoreLeadPanel,
+  MergedDeltaPanel and the other analysis-tab chart sections.
+
+  License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue';
@@ -60,10 +66,12 @@ const hasData = computed(() => seriesHasData(props.series));
 // of the since-dissolved deferred-items ledger). A ResizeObserver fires only on ACTUAL width changes (not per
 // flush); the boolean toggle is idempotent, so a resize that doesn't cross the
 // threshold re-renders nothing.
-// magic-literal: 379px is the crossing point where the 140px preview + a ~240px
-// chart-area still leave the line traces legible (140 + 240 = 380); unchanged
-// from the prior @container threshold.
-const PREVIEW_HIDE_BELOW_PX = 379;
+// magic-literal: 399px is the crossing point where the 160px preview (S6,
+// component-shoddiness audit 2026-08-21: widened from 140 to 160 so the
+// preview is square against the row's 160px height — see `.preview-box`
+// below) + a ~240px chart-area still leave the line traces legible
+// (160 + 240 = 400).
+const PREVIEW_HIDE_BELOW_PX = 399;
 const contentEl = ref<HTMLElement | null>(null);
 const narrow = ref(false);
 let previewWidthObserver: ResizeObserver | null = null;
@@ -124,7 +132,16 @@ onUnmounted(() => {
           @index-click="onIndexClick"
         />
       </div>
-      <div class="preview-box" :class="playerColor === 'B' ? 'marker-b' : playerColor === 'W' ? 'marker-w' : ''">
+      <!-- S6 (component-shoddiness audit, 2026-08-21): previously
+           unconditional, so a series with no data rendered the "No …
+           data yet." empty-state text (chart-area, above) alongside a
+           board-preview thumbnail with nothing to preview — a
+           non-square (140×159) wood-texture swatch floating next to a
+           message announcing there's nothing to show. Gated on
+           `hasData` (the same flag that already gates the chart itself)
+           so the empty state, when it shows, actually reads as empty:
+           no orphaned preview. -->
+      <div v-if="hasData" class="preview-box" :class="playerColor === 'B' ? 'marker-b' : playerColor === 'W' ? 'marker-w' : ''">
         <ChartPreviewBox :accessor="previewAccessor" :show-marker="previewShowMarker" />
       </div>
     </div>
@@ -133,7 +150,14 @@ onUnmounted(() => {
 
 <style scoped>
 .section { background: var(--surface-2); border: 1px solid var(--surface-3); border-radius: var(--radius-default); overflow: hidden; }
-.header { padding: 0 var(--space-medium); display: flex; justify-content: space-between; cursor: pointer; font-size: var(--text-body); font-weight: bold; color: var(--text-0); text-transform: uppercase; background: var(--surface-3); letter-spacing: var(--tracking-default); }
+/* S6 (component-shoddiness audit, 2026-08-21): `justify-content:
+   space-between` pinned the disclosure chevron to the panel's far
+   right edge — ~600px from the heading text it belongs to on a wide
+   panel, with nothing in between. The chevron is the click affordance
+   FOR the heading (the whole header row is still clickable via the
+   `@click` on `.header` above), so it reads correctly only sitting
+   next to the text it discloses. */
+.header { padding: 0 var(--space-medium); display: flex; align-items: center; gap: var(--space-tight); cursor: pointer; font-size: var(--text-body); font-weight: bold; color: var(--text-0); text-transform: uppercase; background: var(--surface-3); letter-spacing: var(--tracking-default); }
 .header:hover { background: var(--surface-3); color: var(--text-0); }
 .content { border-top: 1px solid var(--surface-3); background: var(--surface-0); }
 /* The preview-box hides when this row is too narrow for both the chart and the
@@ -167,7 +191,11 @@ onUnmounted(() => {
   font-size: var(--text-body);
   font-style: italic;
 }
-.preview-box { width: 140px; background: var(--surface-0); border-left: 1px solid var(--surface-3); display: flex; align-items: center; justify-content: center; }
+/* S6: widened 140px → 160px to match `.linear-content`'s 160px height
+   (the preview stretches to fill that height via `align-items:
+   stretch`) — the swatch was a non-square 140×159, visibly stretching
+   the Go grid. 160px square. */
+.preview-box { width: 160px; background: var(--surface-0); border-left: 1px solid var(--surface-3); display: flex; align-items: center; justify-content: center; }
 .linear-content.narrow .preview-box { display: none; }
 .preview-box div { width: 100%; height: 100%; }
 .marker-b { border-left: 3px solid var(--player-black); }

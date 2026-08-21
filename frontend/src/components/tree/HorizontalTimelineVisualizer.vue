@@ -412,26 +412,35 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* theme-exception: chrome (slate-950 background, slate-700 border,
-   slate-400 grid lines, sky-400 alpha-modulated selection slider,
-   pink-200 handle bar) is preserved as a deliberate Tailwind-style
-   palette for this band-1 visualizer. The earlier rationale (chrome
-   "co-tuned" with the categorical Tailwind data colors) is retired
-   — the data gradient now uses the perceptually-uniform CIELAB LUT
-   that the rest of the app uses for analysis-depth signalling, see
-   the script's `getColor`. The chrome's slate aesthetic stands on
-   its own; whether to sweep it to the chrome substrate is a
-   separate UX decision (would lose the slate tint for grayscale
-   surface anchors). */
+/* theme-exception: the selection slider (sky-400 alpha), grid lines
+   (slate-400) and handle bar (pink-200) are preserved as a deliberate
+   Tailwind-style palette for this band-1 visualizer's data-adjacent
+   chrome — the data gradient itself uses the perceptually-uniform
+   CIELAB LUT the rest of the app uses for analysis-depth signalling,
+   see the script's `getColor`. Whether to sweep THOSE to the chrome
+   substrate remains the separate UX decision the prior comment named
+   (would lose the slate tint for grayscale surface anchors).
+
+   S5 (component-shoddiness audit, 2026-08-21): the container's OWN
+   background/border is different — it is plain chrome, not a data
+   color, and the slate-950 literal it used to carry painted a
+   near-black slab in the pale `cluster` (light) theme, reading as
+   unstyled or half-rendered. Today's ruling (ledger row 2511)
+   authorizes doing
+   the container half of the deferred sweep now: background moves to
+   `--surface-0` and the border to `--border-2` (the standing
+   default-border-token, matching every other bordered chrome box in
+   this codebase) so the track reads as a themed panel in both
+   themes. The slate DATA colors above are untouched. */
 .timeline-container {
   position: relative;
   width: 100%;
   height: 16px;
-  background-color: #020617;
+  background-color: var(--surface-0);
   overflow: hidden;
   user-select: none;
   cursor: crosshair;
-  border: 1px solid #1e293b;
+  border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
 }
 

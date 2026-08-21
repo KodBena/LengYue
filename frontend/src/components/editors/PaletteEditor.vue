@@ -433,10 +433,21 @@ async function deleteItem() {
         <div v-if="selectedType === 'symbol'" class="symbol-editor-pane">
           <p class="symbol-intro">{{ $t('palette.symbol.intro') }}</p>
           <div class="editor-wrap">
+            <!-- S7 (component-shoddiness audit, 2026-08-21): `height:
+                 '100%'` forced the editor to fill `.editor-wrap`'s whole
+                 flex:1 share of a 400px-tall panel regardless of content
+                 — a 442×280 dark slab under a single-line formula, ~260px
+                 of empty CodeMirror gutter below the actual text. `height:
+                 'auto'` lets CodeMirror size to its content (formulas are
+                 normally 1-3 lines); `minHeight` keeps short formulas from
+                 collapsing to an uncomfortably thin strip, `maxHeight`
+                 caps a pathologically long formula with CodeMirror's own
+                 internal scroll rather than growing the editor (and the
+                 panel) without bound. -->
             <Codemirror
               :model-value="env.symbols[selectedId]"
               :extensions="extensions"
-              :style="{ height: '100%', fontSize: '12px' }"
+              :style="{ height: 'auto', minHeight: '4.5em', maxHeight: '240px', fontSize: '12px' }"
               @update:model-value="updateSymbolValue"
             />
           </div>
