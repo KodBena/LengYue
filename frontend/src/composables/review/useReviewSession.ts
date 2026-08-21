@@ -42,6 +42,7 @@ import { waitForAnalysis, AnalysisWaitError } from '../analysis/wait-for-analysi
 import { blindModePrefs } from './blind-mode-prefs';
 import { KATAGO_ANALYSIS_TIMEOUT_MS } from '../../lib/timing';
 import { lerpVisits, visitsLerpParams } from '../../state/visits-lerp';
+import { transition as transitionNncacheContext, endSession as endNncacheSession } from '../../services/nncache-session';
 
 // @ts-ignore
 import sgf from '@sabaki/sgf';
@@ -565,6 +566,17 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       blindModePrefs.capture(bId);
       blindModePrefs.write('showMoveSuggestions', false);
       blindModePrefs.write('treeExpanded', false);
+
+      // NN-cache-context (ratified feature): every card advance
+      // re-enables under `card-<id>`, regardless of whether the user
+      // disabled it mid-way through the PREVIOUS card — a mid-card
+      // disable holds only until the next card. `transition` handles
+      // both legs itself (dump+detach the outgoing context if one was
+      // attached, then attach `card-<id>`); fire-and-forget from this
+      // synchronous flow, same disposition as the blind-mode writes
+      // above — a refusal surfaces its own system message from the
+      // driver and this composable does not retry.
+      void transitionNncacheContext(`card-${card.id}`);
 
     } catch (err) {
       // Surface a corrupt card SGF to the user (ADR-0002 level 4): the
@@ -1134,6 +1146,13 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     // above cover the other two exits (tab closed, identity flip); this
     // is the third — a normal session end while the board stays open.
     visitSnapshots.delete(bId);
+
+    // NN-cache-context (ratified feature): session end detaches —
+    // dump {what:'both'} then detach WITHOUT discarding (distinct from
+    // the user's explicit-uncheck discard). Fire-and-forget, same
+    // disposition as the rest of this synchronous teardown; a refusal
+    // surfaces its own system message from the driver.
+    void endNncacheSession();
 
     // The status→IDLE write below is also the blind-mode release:
     // the pref owner's exit watcher fires on it synchronously
