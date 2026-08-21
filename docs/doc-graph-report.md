@@ -35,26 +35,33 @@ explicit root/sub-project file list — not reference rot).
 
 ## Summary
 
-- **Dangling from LIVE documents, missing on disk** (review these): **19**.
+- **Dangling from LIVE documents, missing on disk** (review these): **25**.
 - **Dangling from LIVE documents, retired (tombstoned) targets**: **28**.
-- **Dangling from LIVE documents, on disk but outside the node set**: **12**.
-- **Dangling from EXECUTED playbooks** (reference-only records): **25**.
+- **Dangling from LIVE documents, on disk but outside the node set**: **13**.
+- **Dangling from EXECUTED playbooks** (reference-only records): **26**.
 - **Dangling from FROZEN documents** (archive + worklogs; expected drift): **305**.
-- **Directory references missing on disk**: **6** from live
+- **Directory references missing on disk**: **12** from live
   documents, **6** from frozen/executed
-  (257 directory references scanned in total).
+  (270 directory references scanned in total).
 - **Ambiguous references** (bare filename matches more than one node — never
   silently resolved, per ADR-0002): **0**.
 
 ## Advisory ratchet — no new danglers
 
 Live-document danglers in the two genuine-rot classes (missing-on-disk +
-retired-target): **47**, against a recorded baseline of
+retired-target): **53**, against a recorded baseline of
 **38** (2026-06-10). **EXCEEDED — new danglers have been introduced since the baseline.** Review the live sections above for the additions. Advisory only (this report does not gate), but the convention is: fix the new ones in the PR that introduced them, or record why not.
 
 ## Dangling references — from LIVE documents, missing on disk (review these)
 
 - `docs/adr/0005-documentation-discipline.md` → `backend/routers/REFERENCE.md` *(path-mention)* — target `backend/routers/REFERENCE.md` does not resolve to any node and does not exist on disk.
+- `docs/adr/0019-genre-convention-is-the-default-spec.md` → `0019-appendix-provisional-ui-proscriptions.md` *(path-mention)* — target `0019-appendix-provisional-ui-proscriptions.md` does not resolve to any node and does not exist on disk.
+- `docs/adr/history/0001-immutability-and-copy-on-write.md` → `docs/notes/audit/architectural-audit-2026-06-15.md` *(path-mention)* — target `docs/notes/audit/architectural-audit-2026-06-15.md` does not resolve to any node and does not exist on disk.
+- `docs/adr/history/0002-chocofarm-fail-loud-substrate.md` → `docs/notes/jaxtrain-deadlock-rca.md` *(path-mention)* — target `docs/notes/jaxtrain-deadlock-rca.md` does not resolve to any node and does not exist on disk.
+- `docs/adr/history/0003-band-map-and-instance-context.md` → `docs/consults/consult-002-detector-misspec-report.md` *(path-mention)* — target `docs/consults/consult-002-detector-misspec-report.md` does not resolve to any node and does not exist on disk.
+- `docs/adr/history/0008-chocofarm-classification-substrate.md` → `docs/consults/consult-002-detector-misspec-report.md` *(path-mention)* — target `docs/consults/consult-002-detector-misspec-report.md` does not resolve to any node and does not exist on disk.
+- `docs/adr/history/0009-chocofarm-perf-discipline.md` → `docs/design/scaling-and-cpp-seam.md` *(path-mention)* — target `docs/design/scaling-and-cpp-seam.md` does not resolve to any node and does not exist on disk.
+- `docs/adr/history/0009-chocofarm-perf-discipline.md` → `docs/results/az-perf.md` *(path-mention)* — target `docs/results/az-perf.md` does not resolve to any node and does not exist on disk.
 - `docs/notes/audit/audit-adr-corpus-2026-06-10-appendix-p1.md` → `backend/routers/REFERENCE.md` *(path-mention)* — target `backend/routers/REFERENCE.md` does not resolve to any node and does not exist on disk.
 - `docs/notes/audit/audit-adr-corpus-2026-06-10-appendix-p1.md` → `docs/notes/analysis-persistence-plan.md` *(path-mention)* — target `docs/notes/analysis-persistence-plan.md` does not resolve to any node and does not exist on disk.
 - `docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md` → `docs/dispatch/frontend-to-proxy-wire-diagnostic-channel.md` *(path-mention)* — target `docs/dispatch/frontend-to-proxy-wire-diagnostic-channel.md` does not resolve to any node and does not exist on disk.
@@ -70,7 +77,6 @@ retired-target): **47**, against a recorded baseline of
 - `docs/notes/distribution-packaging.md` → `docs/notes/distribution-tauri-plan.md` *(path-mention)* — target `docs/notes/distribution-tauri-plan.md` does not resolve to any node and does not exist on disk.
 - `docs/notes/distribution-packaging.md` → `docs/release-scope.md` *(path-mention)* — target `docs/release-scope.md` does not resolve to any node and does not exist on disk.
 - `docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md` → `docs/dispatch/frontend-to-proxy-wire-diagnostic-channel.md` *(path-mention)* — target `docs/dispatch/frontend-to-proxy-wire-diagnostic-channel.md` does not resolve to any node and does not exist on disk.
-- `docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md` → ADR-0013 *(adr-related)* — target `docs/adr/0013-*.md` does not resolve to any node and does not exist on disk.
 - `docs/rfcs/0001-adr-meta-review.md` → `docs/adr/0008-adr-meta-review.md` *(path-mention)* — target `docs/adr/0008-adr-meta-review.md` does not resolve to any node and does not exist on disk.
 - `docs/rfcs/0001-adr-meta-review.md` → `docs/audits/README.md` *(path-mention)* — target `docs/audits/README.md` does not resolve to any node and does not exist on disk.
 
@@ -117,6 +123,7 @@ node-set scope (a maintainer decision, not an action item here).
 
 - `backend/README.md` → `backend/samples/README.md` *(path-mention)* — target `backend/samples/README.md` exists on disk but is outside the doc-graph node set.
 - `docs/adr/0006-source-file-headers.md` → `backend/qeubo/README.md` *(path-mention)* — target `backend/qeubo/README.md` exists on disk but is outside the doc-graph node set.
+- `docs/docker.md` → `backend/resources_data/README.md` *(path-mention)* — target `backend/resources_data/README.md` exists on disk but is outside the doc-graph node set.
 - `docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md` → `frontend/docs/i18n.md` *(path-mention)* — target `frontend/docs/i18n.md` exists on disk but is outside the doc-graph node set.
 - `docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md` → `frontend/docs/notes/board-scope.md` *(path-mention)* — target `frontend/docs/notes/board-scope.md` exists on disk but is outside the doc-graph node set.
 - `docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md` → `frontend/tests/CLAUDE.md` *(path-mention)* — target `frontend/tests/CLAUDE.md` exists on disk but is outside the doc-graph node set.
@@ -137,6 +144,12 @@ reference. Resolved directory references are scanned but not listed.
 
 ### From live documents (review these)
 
+- `docs/adr/0013-execution-integrity.md` → `docs/notes/leaf-eval-refactor-audit-2026-06-22/` *(directory-ref)* — directory does not exist on disk.
+- `docs/adr/history/0005-audit-substrate.md` → `docs/agents/` *(directory-ref)* — directory does not exist on disk.
+- `docs/adr/history/0005-audit-substrate.md` → `docs/consults/` *(directory-ref)* — directory does not exist on disk.
+- `docs/adr/history/0005-audit-substrate.md` → `docs/design/` *(directory-ref)* — directory does not exist on disk.
+- `docs/adr/history/0005-audit-substrate.md` → `docs/results/` *(directory-ref)* — directory does not exist on disk.
+- `docs/adr/history/0013-attrition-specimens.md` → `docs/notes/leaf-eval-refactor-audit-2026-06-22/` *(directory-ref)* — directory does not exist on disk.
 - `docs/notes/audit-reflections.md` → `docs/old-todos/` *(directory-ref)* — directory does not exist on disk.
 - `docs/notes/design/doc-graph-discipline-plan.md` → `docs/audits/` *(directory-ref)* — directory does not exist on disk.
 - `docs/notes/design/proxy-topology-testing-plan.md` → `frontend/scripts/topologies/` *(directory-ref)* — directory does not exist on disk.
@@ -174,6 +187,7 @@ already performed, so these are not action items.
 - `docs/playbooks/monorepo/monorepo-plan.md` → `backend/docs/HANDOFF.md` *(path-mention)* — target `backend/docs/HANDOFF.md` does not resolve to any node and does not exist on disk.
 - `docs/playbooks/monorepo/monorepo-plan.md` → `backend/docs/notes/tenancy.md` *(path-mention)* — target `backend/docs/notes/tenancy.md` does not resolve to any node and does not exist on disk.
 - `docs/playbooks/monorepo/monorepo-plan.md` → `backend/docs/reflection.md` *(path-mention)* — target `backend/docs/reflection.md` does not resolve to any node and does not exist on disk.
+- `docs/playbooks/monorepo/monorepo-plan.md` → `backend/resources_data/README.md` *(path-mention)* — target `backend/resources_data/README.md` exists on disk but is outside the doc-graph node set.
 - `docs/playbooks/monorepo/monorepo-plan.md` → `backend/routers/REFERENCE.md` *(path-mention)* — target `backend/routers/REFERENCE.md` does not resolve to any node and does not exist on disk.
 - `docs/playbooks/monorepo/monorepo-plan.md` → `backend/TODO.md` *(path-mention)* — target `backend/TODO.md` does not resolve to any node and does not exist on disk.
 - `docs/playbooks/monorepo/monorepo-plan.md` → `docs/archive/handoff-2026-04-backend-pre-umbrella.md` *(path-mention)* — target `docs/archive/handoff-2026-04-backend-pre-umbrella.md` does not resolve to any node and does not exist on disk.
