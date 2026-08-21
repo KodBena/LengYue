@@ -74,3 +74,12 @@ chrome does not merge, that is the day's lesson. Resume by reading their
 report stubs and cherry-picking/finishing on a fresh branch.
 The 5174 preview worktree (`agent-acf4bdae7edb0c794`) is the known-good
 serving tree at its committed tip. lyt-phase2 is the integration truth.
+
+## Final addendum — both builders banked (row 2562)
+- `wip/statusbar-cards-hotfix` (GitHub): names + turn-ring + strip-overlap
+  LIVE-WITNESSED FIXED, defensive MORE-collapse fix, defect (e) untouched.
+- `wip/layout-residue` (GitHub): no fixes; witness driver + per-item
+  diagnoses (divider snap likely ceiling-unification, NOT the hit-zone CSS).
+- SEVERE open bug, found independently by both: LIBRARY tab + reload
+  crashes the app — recursive updates in <LytNode>, pre-existing.
+  First item for any resumption.
