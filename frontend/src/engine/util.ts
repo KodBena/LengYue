@@ -368,52 +368,15 @@ export function pathHasMidTreeSetup(nodes: Record<NodeId, GameNode>, path: reado
   return false;
 }
 
-/**
- * Game-end signal (pass-support design, PASS SUPPORT §"Game-end
- * signal"): a STATUS-ONLY read of "did the active path just end in
- * two consecutive passes?" — no persistent state, no scoring/territory
- * (explicitly out of scope, maintainer-ratified). A discriminated
- * union per `frontend/CLAUDE.md`'s branded-types/DU convention, not a
- * boolean, so a future third status (e.g. resignation) is additive
- * rather than a breaking boolean-to-enum migration.
- *
- * Evaluated positionally against whatever `path` names — typically
- * root→current (`getPath`), so navigating away from the two-pass
- * position (or into a branch that doesn't end in two passes) reverts
- * the signal, matching "branch switching resets correctly along the
- * active path" from the design's acceptance criteria. A moveless node
- * (e.g. an SGF's trailing `TW`/`TB` scoring node) sitting after the
- * two passes reads back to 'in-progress' at ITS position — the signal
- * is about the position named by `path`'s last element, not a
- * whole-tree property.
- */
-export type GameStatus =
-  | { kind: 'in-progress' }
-  | { kind: 'ended-by-pass'; lastMoveColor: StoneColor };
-
-export function getGameEndStatus(
-  nodes: Record<NodeId, GameNode>,
-  path: readonly NodeId[],
-): GameStatus {
-  if (path.length === 0) return { kind: 'in-progress' };
-  // The CURRENT position is judged as-is: a moveless node (setup-only,
-  // trailing scoring node) is not a pass, so the game reads in-progress
-  // at its own position — deliberately NOT skipped (see doc above).
-  const lastMove = nodes[path[path.length - 1]]?.move;
-  if (!lastMove || lastMove.type !== 'pass') return { kind: 'in-progress' };
-  // Walk backward for the PREVIOUS move, skipping (not counting) moveless
-  // nodes: a mid-tree setup node between two passes must not mask the
-  // pass-pass ending (review fix, pass-support-review.md — witnessed
-  // against the externally-authored-SGF shape sgf-loader produces).
-  for (let i = path.length - 2; i >= 0; i--) {
-    const m = nodes[path[i]]?.move;
-    if (m == null) continue;
-    return m.type === 'pass'
-      ? { kind: 'ended-by-pass', lastMoveColor: lastMove.color }
-      : { kind: 'in-progress' };
-  }
-  return { kind: 'in-progress' };
-}
+// Game-end-by-pass status (`GameStatus` / `getGameEndStatus`) was
+// removed (commissioner ruling, ledger row 2540): the SPA is not a
+// game server and must never treat two consecutive passes as a
+// terminal/locking condition — see `StatusBar.vue`'s history for the
+// removed badge, and `frontend/tests/unit/engine/util.test.ts` for the
+// removed truth-table coverage. Unlimited passing is genre-correct
+// (Sabaki/KaTrain/OGS); pass interpretation, if ever needed, is a
+// concern for a specific play-vs-engine protocol, not this general
+// board/GUI helper module.
 
 /**
  * Decodes a flat KataGo board-shaped array (length = size²) into per-cell

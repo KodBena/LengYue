@@ -112,9 +112,19 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix)', () => {
       const maxWidth = getComputedStyle(el).maxWidth;
       expect(maxWidth).toBe('90px');
       expect(maxWidth.endsWith('%')).toBe(false);
-      expect(getComputedStyle(el).whiteSpace).toBe('nowrap');
-      expect(getComputedStyle(el).overflow).toBe('hidden');
-      expect(getComputedStyle(el).textOverflow).toBe('ellipsis');
+      // Item 1 (occluded-names REOPENED, mandate addendum): the
+      // ellipsis/nowrap/overflow declarations now live on EACH
+      // `.player-name` child (symmetric per-name degradation), not on
+      // the outer `.player-names` row — see `StatusBar.vue`'s own
+      // comment on `.player-name`. Both children carry them equally,
+      // which is itself the "neither name is privileged" assertion.
+      const blackName = wrapper!.find('.player-name--black').element;
+      const whiteName = wrapper!.find('.player-name--white').element;
+      for (const nameEl of [blackName, whiteName]) {
+        expect(getComputedStyle(nameEl).whiteSpace).toBe('nowrap');
+        expect(getComputedStyle(nameEl).overflow).toBe('hidden');
+        expect(getComputedStyle(nameEl).textOverflow).toBe('ellipsis');
+      }
     });
 
     it('.status-left / .status-right gaps tighten to --space-tight in narrow mode', () => {
