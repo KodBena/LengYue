@@ -167,6 +167,13 @@ anywhere in the driver.
 
 ## Commit
 
-Committed in this worktree; hash and exact build/suite exit codes
-reported in the final chat message (this file is written before the
-commit step, per the brief's own report-then-summarize order).
+`b66a8a60` — "feat(frontend): NN-cache-context control + KataGo
+persisted-cache session driver", worktree branch
+`worktree-agent-a26f56978371be255` (cut from local `lyt-phase2` at
+`829e952c`). 19 files changed, 1506 insertions(+), 4 deletions(-).
+
+Final gate exit codes (all re-run after this file's first draft, to
+witness the actually-committed tree):
+- `nice -n 19 npm run build` → exit 0.
+- `nice -n 19 npx vitest run --maxWorkers=2` → exit 0 (279 files
+  passed, 3 skipped; 3482 tests passed, 8 skipped, 0 failed).
