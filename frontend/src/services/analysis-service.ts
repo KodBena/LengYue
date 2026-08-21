@@ -11,6 +11,8 @@ import {
   type KataAnalysisResponse,
   type KataErrorResponse,
   type WinrateFraming,
+  type KataGoActionQuery,
+  type KataGoResponse,
 } from '../engine/katago/types';
 import {
   resolveWinrateFraming,
@@ -293,6 +295,18 @@ export class AnalysisService {
   private packetCount = 0;
   private metricsTimer: number | null = null;
   private watchdogTimer: number | null = null;
+  // Best-effort hooks run before the user-initiated `disconnect()`
+  // tears down the WebSocket (see that method below). Registered-port
+  // shape (like `system-message-sink.ts`'s sink registration) rather
+  // than a direct import of the registering module: this service is
+  // imported BY `engine/katago/query-routing.ts`, and the NN-cache
+  // session driver (`services/nncache-session.ts`, the sole registrant
+  // today) itself imports THIS service to send its wire actions — a
+  // direct import back here would form a cycle. Hooks are fired
+  // fire-and-forget (best effort; `disconnect()` does not await them,
+  // since the socket must still close promptly for the user-initiated
+  // action).
+  private disconnectHooks: Array<() => void> = [];
 
   constructor() {
     this.client = new KataGoClient('');
@@ -562,7 +576,29 @@ export class AnalysisService {
     if (this.watchdogTimer) clearInterval(this.watchdogTimer);
   }
 
+  /**
+   * Register a best-effort hook to run just before a user-initiated
+   * `disconnect()` tears down the WebSocket. See `disconnectHooks`'
+   * field comment for why this is a registered port rather than a
+   * direct dependency. Not fired on an unexpected WS drop
+   * (`onDisconnect` above) — by the time that callback runs the
+   * socket is already gone, so there is nothing left to send.
+   */
+  public registerDisconnectHook(hook: () => void): void {
+    this.disconnectHooks.push(hook);
+  }
+
   public disconnect() {
+    // Best-effort teardown hooks (NN-cache session dump+detach today)
+    // fire BEFORE the telemetry sweep / socket close below, while the
+    // WebSocket can still carry their wire messages.
+    for (const hook of this.disconnectHooks) {
+      try {
+        hook();
+      } catch (err) {
+        console.error('[AnalysisService] disconnect hook failed:', err);
+      }
+    }
     // Telemetry sweep before `client.disconnect()` so the queue
     // tooltip clears immediately on user-initiated disconnect
     // (rather than waiting for the WS-level onDisconnect to fire,
@@ -1518,6 +1554,41 @@ export class AnalysisService {
     for (const boardId of boardIds) {
       this.stopBoardAnalysis(boardId);
     }
+  }
+
+  /**
+   * Whether this service currently tracks any in-flight query
+   * (analyze, ponder, or range) on ANY board. `stopAllBoardAnalyses`
+   * is the only path that empties `activeQueries` back to zero (via
+   * `stopQuery`'s synchronous bookkeeping release — see that method's
+   * doc comment); natural packet completion does not remove the entry.
+   * NOT currently called by `services/nncache-session.ts` — that
+   * driver's `quiesce()` step calls `stopAllBoardAnalyses()` directly,
+   * which synchronously empties `activeQueries` as a side effect, so
+   * the same "no queries in flight" postcondition holds without a
+   * separate check here. (That postcondition only covers THIS
+   * service's own tracked queries, not every open request the engine
+   * counts — see `nncache-session.ts`'s module header for the
+   * `connectFresh`-based paths it can't see.) Exposed as a
+   * general-purpose observer of the in-flight count for any future
+   * caller that needs to check it without stopping anything.
+   */
+  public hasActiveQueries(): boolean {
+    return this.activeQueries.size > 0;
+  }
+
+  /**
+   * Forwards an action query to the underlying `KataGoClient`, for a
+   * caller outside this service that needs the one-shot
+   * action-request/response shape without owning its own WebSocket
+   * connection. First (and, by design, only sanctioned) consumer:
+   * `services/nncache-session.ts`'s cache_attach/cache_detach/
+   * cache_dump/cache_stats verbs — this service still owns the sole
+   * `KataGoClient` instance and the connection lifecycle; this is a
+   * thin, typed pass-through, not a second transport.
+   */
+  public sendActionCommand(query: KataGoActionQuery): Promise<KataGoResponse> {
+    return this.client.sendCommand(query);
   }
 
   /** Board-close release for `midTreeSetupWarnedBoards` (resource-ownership discipline). */

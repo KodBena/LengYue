@@ -65,6 +65,18 @@
  * global default rather than replacing it. See that module's docstring
  * for the full precedence rationale and rejected alternatives.
  *
+ * ── NN-cache-context auto-stamp (persisted-cache feature) ───────────────
+ * A third leg is auto-injected in `finalizeAnalysisRouting` alongside
+ * `model`: whenever `state/nncache-context.ts::activeAttachedContext`
+ * is non-null, the routed query's `cacheContext` is stamped to it.
+ * Same choke-point rationale as the per-query-overrides merge above —
+ * every analysis-query builder already passes through here, so a
+ * blanket per-query effect rides the existing seam rather than a
+ * second remembered call. The reactive value lives in `state/` rather
+ * than being read from the session driver
+ * (`services/nncache-session.ts`) directly to avoid an import cycle —
+ * see that state module's own header.
+ *
  * License: Public Domain (The Unlicense)
  */
 
@@ -72,6 +84,7 @@ import type { Brand } from '../../types/ids';
 import type { KataGoAnalysisQuery } from './types';
 import { activePerQueryOverrides, mergeQueryOverrides } from '../../state/per-query-overrides';
 import { activeMatchPlayerOverrides, type MatchPlayer } from '../../state/match-player-overrides';
+import { activeAttachedContext } from '../../state/nncache-context';
 
 /**
  * An analysis query whose SELECTOR-routing decision has been made.
@@ -85,8 +98,9 @@ export type RoutedAnalysisQuery = Brand<KataGoAnalysisQuery, 'RoutedAnalysisQuer
  * themselves — the factory owns it entirely, so the routing slot has
  * exactly one writer.
  */
-export type UnroutedAnalysisQuery = Omit<KataGoAnalysisQuery, 'model'> & {
+export type UnroutedAnalysisQuery = Omit<KataGoAnalysisQuery, 'model' | 'cacheContext'> & {
   readonly model?: never;
+  readonly cacheContext?: never;
 };
 
 /**
@@ -104,8 +118,18 @@ export function finalizeAnalysisRouting(
   query: UnroutedAnalysisQuery,
   selectedModel: string | null,
 ): RoutedAnalysisQuery {
-  const routed: KataGoAnalysisQuery =
-    selectedModel !== null ? { ...query, model: selectedModel } : { ...query };
+  const routed: KataGoAnalysisQuery = {
+    ...query,
+    ...(selectedModel !== null ? { model: selectedModel } : {}),
+    // NN-cache-context auto-stamp (same choke-point idiom as the
+    // per-query-overrides merge below): whenever a context is
+    // currently attached (`services/nncache-session.ts` is the sole
+    // writer of `state/nncache-context.ts`), every outgoing analysis
+    // query is attributed to it. `null` (nothing attached) omits the
+    // field entirely — same as `model`'s `null` leg — matching KataGo's
+    // "no cacheContext behaves exactly as it always has" contract.
+    ...(activeAttachedContext.value !== null ? { cacheContext: activeAttachedContext.value } : {}),
+  };
   // Per-query-overrides merge (see header's "Per-query overrides
   // merge" section). `activePerQueryOverrides.value` is
   // `EMPTY_PER_QUERY_OVERRIDES` whenever the user hasn't configured

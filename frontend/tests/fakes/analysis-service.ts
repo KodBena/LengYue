@@ -74,6 +74,16 @@ export const fakeAnalysisService = {
   // spies are what those composables' tests assert against.
   connect: vi.fn<(urlOverride?: string) => void>(),
   disconnect: vi.fn<() => void>(),
+  // NN-cache-context feature (services/nncache-session.ts). The
+  // driver registers a disconnect hook and sends cache_* actions
+  // through this surface at MODULE LOAD time (top-level
+  // `analysisService.registerDisconnectHook(...)` call) — every test
+  // file that transitively imports `useReviewSession` (which imports
+  // the driver) exercises this call, so the fake must implement it
+  // even though no test in this tree currently asserts on it.
+  registerDisconnectHook: vi.fn<(hook: () => void) => void>(),
+  hasActiveQueries: vi.fn<() => boolean>(),
+  sendActionCommand: vi.fn<(query: unknown) => Promise<unknown>>(),
 };
 
 export function resetFakeAnalysisService(): void {
@@ -104,4 +114,8 @@ export function resetFakeAnalysisService(): void {
   fakeAnalysisService.analyzeActiveNode.mockReturnValue(FAKE_QUERY_ID as QueryId);
   fakeAnalysisService.connect.mockReset();
   fakeAnalysisService.disconnect.mockReset();
+  fakeAnalysisService.registerDisconnectHook.mockReset();
+  fakeAnalysisService.hasActiveQueries.mockReset();
+  fakeAnalysisService.hasActiveQueries.mockReturnValue(false);
+  fakeAnalysisService.sendActionCommand.mockReset();
 }

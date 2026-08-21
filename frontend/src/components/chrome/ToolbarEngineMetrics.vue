@@ -88,6 +88,7 @@ import { computed, ref } from 'vue';
 import { useThrottledSnapshot } from '../../composables/useThrottledSnapshot';
 import { useI18n } from 'vue-i18n';
 import EngineModelSelect from './EngineModelSelect.vue';
+import EngineNncacheControl from './EngineNncacheControl.vue';
 import { store, activeBoard } from '../../store';
 import { activeAnalysisKeys } from '../../state/analysis-config';
 import { ledger } from '../../state/analysis-ledger';
@@ -365,6 +366,12 @@ const { style: healthPopoverStyle } = useFixedAnchoredPopover(healthOpen, health
                duplicate the word. -->
           <div class="popover-row popover-row-model">
             <EngineModelSelect />
+          </div>
+          <!-- NN-cache-context control (persisted-cache feature, [experimental]):
+               same "no extra popover-lbl" reasoning as the model row above —
+               EngineNncacheControl.vue renders its own "NN CACHE" label. -->
+          <div class="popover-row popover-row-model">
+            <EngineNncacheControl />
           </div>
           <div class="popover-row" :title="$t('toolbar.metric.winrateTooltip')">
             <span class="popover-lbl">{{ $t('toolbar.metric.winrate') }}</span>

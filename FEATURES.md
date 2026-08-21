@@ -180,6 +180,21 @@ as a git submodule).
   active board. The choice flows through to the wire as a
   `model` field on each analysis query.
 
+- **Persisted NN-cache context** `[experimental]`. A checkbox +
+  text field beside the model picker lets the user attach a
+  named context to KataGo's persisted neural-net cache (a
+  newer KataGo capability — the engine keeps evaluations on
+  disk across sessions rather than recomputing them from a
+  cold cache each time). Wire contexts are namespaced under
+  the signed-in username so multiple users sharing one engine
+  never collide. Enabled automatically for spaced-repetition
+  review — each card gets its own context, re-attached on
+  every card advance — and available as a manual toggle
+  elsewhere. Requires the connected engine to be configured
+  with a persisted-cache directory; on an engine without it,
+  the toggle surfaces the engine's own refusal rather than
+  silently doing nothing.
+
 - **Engine-vs-engine match.** A modal lets the user configure
   black and white engines (independent model + visit budget
   per side), an end condition (N moves), and starts an
