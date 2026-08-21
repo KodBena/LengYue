@@ -37,6 +37,7 @@
 -->
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { StoneColor, BoardState, GameNode, NodeId } from '../../types';
 import UserBadge from '../chrome/UserBadge.vue';
 import ToolbarMoveNav from '../chrome/ToolbarMoveNav.vue';
@@ -184,6 +185,9 @@ const emit = defineEmits<{
 }>();
 
 const { hint } = useTransientHint();
+// Item 4: sourced for the `.player-names` title tooltip's "vs" text —
+// see that computed's own comment below.
+const { t } = useI18n();
 
 // M8(b) (menus-ui audit row 1291): the setup toolkit's sticky mode
 // (SetupToolPalette.vue's header — a selected tool persists after the
@@ -229,6 +233,20 @@ function onRulesChange(e: Event): void {
 const turn = computed<StoneColor>(() => props.board.turn);
 const captures = computed(() => props.board.captures);
 
+// Item 4 (occluded-names regression, mandate addendum): `.player-names`
+// can now genuinely ellipsize (see that rule's own CSS comment), so the
+// untruncated pairing needs a discoverable affordance — a native
+// `title` tooltip on the element, the same "elided value stays
+// reachable on hover" convention `HyperparamPromptModal.vue`'s raw-
+// symbol title already establishes (S9,
+// `.claude/dispatch-reports/component-shoddiness-build.md`). Reads the
+// same `metadata` fields the template already renders, so it can never
+// disagree with what's on screen (short of one being elided and the
+// other not, which the tooltip covers either way).
+const playerNamesTitle = computed(
+  () => `${props.metadata?.blackName ?? ''} ${t('statusBar.versus')} ${props.metadata?.whiteName ?? ''}`,
+);
+
 // Move number = count of 'place' moves from root to the current node.
 // Moved verbatim from App.vue's template-consumed computed (Arc 2).
 const moveNumber = computed((): number => {
@@ -268,7 +286,7 @@ const gameStatus = computed(() =>
         data-testid="setup-mode-chip"
       >{{ $t('statusBar.setupModeActive', { tool: $t(SETUP_TOOL_LABEL_KEYS[activeTool]) }) }}</span>
       <span class="move-badge">{{ $t('statusBar.move', { n: moveNumber }) }}</span>
-      <span class="player-names">
+      <span class="player-names" :title="playerNamesTitle">
         <span class="stone-chip stone-chip--black" :class="{ active: turn === 'B' }" :aria-label="turn === 'B' ? $t('statusBar.blackToPlay') : undefined"></span>
         {{ metadata?.blackName }}
         {{ $t('statusBar.versus') }}
@@ -413,13 +431,37 @@ const gameStatus = computed(() =>
    ("Black" / "vs" / "White" across two lines, witnessed at 1366×768)
    instead of eliding gracefully. `min-width` floors it at a few
    characters plus a stone chip so it never collapses to nothing; the
-   narrow-mode override below tightens the ceiling further. */
+   narrow-mode override below tightens the ceiling further.
+
+   Item 4 (occluded-names regression, mandate addendum): S4's own fix
+   still silently clipped mid-word with NO "…" affordance — witnessed as
+   "Black vs Whi" at a narrow bar width. Root cause: `text-overflow:
+   ellipsis` is only defined (and only reliably implemented) against the
+   overflow of a run of INLINE content in a block/inline box with
+   `overflow: hidden` + `white-space: nowrap` — it is NOT guaranteed to
+   insert the ellipsis glyph when the overflowing box is a FLEX container
+   (`display: inline-flex`, as this rule was) with multiple flex-item
+   children (the two `.stone-chip` spans + the interleaved text runs).
+   Browsers instead hard-clip the last partially-visible flex item with
+   no ellipsis inserted — exactly the "cut off mid-word, no affordance"
+   symptom. Fix: drop the flex display so `.player-names` is a plain
+   inline box whose children (`.stone-chip` is already `display:
+   inline-block`) participate in normal inline flow — the shape
+   `text-overflow: ellipsis` is actually specified for. Inter-child
+   spacing, previously from `gap`, now comes from `.stone-chip`'s own
+   `margin-right` (below) plus the template's own literal whitespace
+   between the name/"vs" text runs. `:title` on the element (template)
+   carries the untruncated "Black vs White" pairing on hover/focus, so
+   an elided pairing is never DISCOVERABLE only, per the mandate's
+   "ellipsis + affordance" requirement — mirroring the rest of this
+   codebase's elided-chrome-label convention (`.claude/dispatch-reports/
+   component-shoddiness-build.md` S9, `HyperparamPromptModal.vue`'s own
+   hover-title pattern for a value elided from permanent display). */
 .player-names {
   color: var(--text-0);
   font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-tight);
+  display: inline-block;
+  vertical-align: middle;
   flex: 1 1 auto;
   min-width: 32px;
   white-space: nowrap;
@@ -443,6 +485,15 @@ const gameStatus = computed(() =>
   height: 0.85em;
   border-radius: var(--radius-circle);
   flex-shrink: 0;
+  /* Item 4: `.player-names` is no longer a flex container (see its own
+     rule's comment), so the inter-child spacing `gap` used to provide
+     is replaced by a plain right-margin on each chip — the "vs"/name
+     spacing itself still comes from the template's own literal
+     whitespace between text runs. `vertical-align: middle` keeps the
+     circle centered on the text's line box in normal inline flow,
+     matching the old flex `align-items: center` visually. */
+  vertical-align: middle;
+  margin-right: var(--space-tight);
 }
 .stone-chip--black { background: #000; }
 .stone-chip--white { background: #fff; border: 1px solid var(--border-3); }
