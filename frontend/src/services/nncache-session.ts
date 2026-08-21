@@ -7,7 +7,8 @@
  * cache across sessions"). Owns the session shape:
  *
  *   enable(ctx)  -> quiesce -> cache_attach (bare: whole level 0, no level1Fill)
- *   transition() -> quiesce -> cache_dump {what:'both'} -> cache_detach -> cache_attach(new)
+ *   transition() -> quiesce -> cache_dump {what:'both'} -> cache_detach (discardUndumped:true
+ *                    IFF the dump succeeded — see `dumpAndDetach`'s doc comment) -> cache_attach(new)
  *   disable()    -> cache_detach {discardUndumped: true}
  *
  * State is session-ephemeral module-scope reactive state (the
@@ -250,9 +251,44 @@ export async function disable(): Promise<void> {
 }
 
 /**
- * Dump {what:'both'} the currently attached context and detach it
- * WITHOUT discarding — the dump-first semantics shared by
- * `transition`, `endSession`, and the best-effort disconnect hook.
+ * Dump {what:'both'} the currently attached context, then detach it —
+ * the dump-first semantics shared by `transition`, `endSession`, and
+ * the best-effort disconnect hook.
+ *
+ * ── Why the detach leg sends `discardUndumped:true`, but ONLY after a
+ * SUCCESSFUL dump (ledger row 2543) ──────────────────────────────────
+ * `cache_dump {what:'both'}`'s admission policy (Analysis_Engine.md,
+ * "Persisting a model's cache across sessions": a raw evaluation is
+ * written to the `.nnevals` dump only once it has accumulated at
+ * least `minObservations` observations — 2 by default — while the
+ * observation COUNT for every entry, including single-observation
+ * ones, is always written to the sibling `.nncounts` file regardless
+ * of that threshold. So a dump that legitimately, successfully wrote
+ * everything it's willing to write can still leave the context
+ * holding "earned but not on disk" entries — single-observation
+ * evaluations the admission policy declined to persist THIS session.
+ * A plain `cache_detach` right after such a dump is refused every
+ * time such an entry exists ("N earned entries not on disk"), because
+ * from the engine's perspective that's still un-persisted work the
+ * caller hasn't said it's fine to lose. But it isn't really lost: the
+ * observation count for those entries IS already on disk (the
+ * `.nncounts` dump captured it), so a future session that re-observes
+ * the same position starts from that count and promotes the entry
+ * past `minObservations` on its own — this is the engine's own
+ * documented cross-session admission design, not a workaround. So
+ * once the dump has actually succeeded, discarding exactly what the
+ * admission policy itself refused to write is safe and intentional:
+ * `discardUndumped:true` on THIS detach throws away nothing the dump
+ * didn't already choose to leave behind. Visible in the console log,
+ * same as `disable()`'s discard.
+ *
+ * A FAILED dump gets none of this — the detach leg is sent WITHOUT
+ * `discardUndumped`, exactly the pre-existing behavior. A refused
+ * dump means nothing was persisted this round, so there is nothing
+ * the admission policy "already handled"; discarding on that path
+ * would throw away real, never-written work, which is precisely what
+ * `disable()`'s explicit-opt-out discard is for and this dump-first
+ * path is not.
  *
  * Clears `state/nncache-context.ts` and `enabled`/`status` ONLY when
  * the detach leg actually SUCCEEDS. A refused `cache_dump` never
@@ -286,11 +322,15 @@ async function dumpAndDetach(ctx: EngineCacheContext): Promise<boolean> {
     return false;
   }
 
+  // Dump succeeded: any "earned but not on disk" entries left behind
+  // are exactly what the admission policy itself declined to persist
+  // (see the doc comment above) — safe to discard here.
   const detachResult = await sendCacheAction({
     id: actionId('detach'),
     action: 'cache_detach',
     context: ctx,
     model: currentModel(),
+    discardUndumped: true,
   });
   if (!detachResult.ok) {
     _state.status = 'attached';
@@ -301,15 +341,22 @@ async function dumpAndDetach(ctx: EngineCacheContext): Promise<boolean> {
   clearAttachedContext();
   _state.enabled = false;
   _state.status = 'idle';
-  console.info('[nncache-session] dumped + detached', ctx);
+  console.info(
+    '[nncache-session] dumped + detached (discarded post-dump admission-refused entries)',
+    ctx,
+    'discardedUndumpedEntries=', detachResult.response.discardedUndumpedEntries ?? 0,
+  );
   return true;
 }
 
 /**
- * Dump {what:'both'} the currently attached context, detach it
- * (WITHOUT discarding), then attach `newRawContext`. Used for a card
- * advance / context edit while enabled, and for a model/label switch
- * while enabled (same context string, different `model` leg).
+ * Dump {what:'both'} the currently attached context, detach it (per
+ * `dumpAndDetach`'s doc comment: `discardUndumped:true` IFF the dump
+ * succeeded, discarding only what the admission policy itself refused
+ * to persist — never a blanket discard), then attach `newRawContext`.
+ * Used for a card advance / context edit while enabled, and for a
+ * model/label switch while enabled (same context string, different
+ * `model` leg).
  *
  * On any leg's refusal: surfaces the refusal and leaves local state
  * exactly as `dumpAndDetach` reverted it — `enabled` stays true,
@@ -338,9 +385,13 @@ export async function transition(newRawContext: string): Promise<void> {
 
 /**
  * Dump {what:'both'} the currently attached context and detach it —
- * WITHOUT discarding. The ratified "session end" disposition (review
- * session ending, not the WS): distinct from `disable()`'s explicit
- * user-opt-out discard. No-op if nothing is attached.
+ * via `dumpAndDetach`, so `discardUndumped:true` is sent IFF the dump
+ * succeeded, discarding only the admission-refused residue (see that
+ * function's doc comment), never a blanket discard. The ratified
+ * "session end" disposition (review session ending, not the WS):
+ * distinct from `disable()`'s explicit user-opt-out discard, which
+ * discards unconditionally without ever attempting a dump. No-op if
+ * nothing is attached.
  */
 export async function endSession(): Promise<void> {
   if (!_state.enabled) return;
