@@ -221,6 +221,23 @@ dispatch C3 should treat `.app-cluster`'s authenticated-landscape
 width as unconfirmed pending a targeted follow-up, not as a settled
 614px fact.
 
+**Amendment (review-verification condition, appended by the
+orchestrator):** the delta review's own field diff found this same
+phenomenon on one further entry this section originally failed to
+name — `A_app|playwright-boundingBox|portrait-1080x1920`'s
+`value_w_px` also changed, from the committed `1080.0` to the
+regenerated `614` — the mirror image of the landscape swap above (the
+two width readings appear to have traded places between rig
+generations). The same caution therefore covers both entries: every
+`value_w_px` on the `A_app`/`.app-cluster` family is unconfirmed
+supplementary data pending the targeted follow-up, while the
+load-bearing `value_px` heights are unaffected, byte-identical, and
+witnessed-deterministic. The generated JSON itself is deliberately
+left exactly as the script reproduces it — annotating generated
+output by hand would reintroduce the authored-data disease this
+amendment exists to eliminate — so this report carries the naming
+instead.
+
 ## 6. The A_setup matter, restated per the brief's instruction
 
 Census grounding figures (amendment spec §1.4): **66px portrait /
