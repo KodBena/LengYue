@@ -173,8 +173,8 @@ describe('CONTROL_PANEL_TAB_IDS -> CONTROL_PANEL_MIN_WIDTH_PX — audit finding 
     );
   });
 
-  it('the registry has five tabs today (R2: the old hand literal was computed for four)', () => {
-    expect(CONTROL_PANEL_TAB_IDS.length).toBe(5);
+  it('the registry has three tabs today (library-cards-promotion narrowed it from five — R2\'s own hand literal was computed for four)', () => {
+    expect(CONTROL_PANEL_TAB_IDS.length).toBe(3);
   });
 
   it('computeControlPanelMinWidthPx grows monotonically with tab count — a sixth tab moves the floor by construction', () => {
@@ -184,9 +184,9 @@ describe('CONTROL_PANEL_TAB_IDS -> CONTROL_PANEL_MIN_WIDTH_PX — audit finding 
     expect(sixTabsPx - fiveTabsPx).toBe(TAB_STRIP_PER_TAB_WIDTH_PX);
   });
 
-  it('G10 fix (opus-uiux-geometry-consult.md): the floor for the CURRENT 5-tab strip clears the WITNESSED natural content need (271.8px, geo-d-overflow-build.md geometry probe) with margin — the old 270px floor sat fractionally BELOW that need, which is exactly what let the last tab clip before TabWidget.vue\'s own overflow-x:auto (R2) ever got a chance to engage', () => {
-    const WITNESSED_FIVE_TAB_NATURAL_CONTENT_WIDTH_PX = 271.8;
-    expect(CONTROL_PANEL_MIN_WIDTH_PX).toBeGreaterThan(WITNESSED_FIVE_TAB_NATURAL_CONTENT_WIDTH_PX);
+  it('G10 fix (opus-uiux-geometry-consult.md): the floor for the CURRENT 3-tab strip (library-cards-promotion narrowed it from five) clears the WITNESSED natural content need of the three SURVIVING tabs (Settings 60.4 + Analysis 61.7 + Other 47.0 = 169.1px, geo-d-overflow-build.md geometry probe, subset sum) with margin — the same reasoning R2/G10 established for the old five-tab strip, re-verified against the smaller set rather than re-witnessed live (see layout-model.ts\'s own HISTORICAL comment on this derivation)', () => {
+    const WITNESSED_THREE_SURVIVING_TAB_NATURAL_CONTENT_WIDTH_PX = 169.1;
+    expect(CONTROL_PANEL_MIN_WIDTH_PX).toBeGreaterThan(WITNESSED_THREE_SURVIVING_TAB_NATURAL_CONTENT_WIDTH_PX);
   });
 
   it('computeControlPanelMinWidthPx(4) now exceeds the OLD hand literal (220) — G10 raised the per-tab/gap constants, so the pre-fix reverse-derivation no longer reproduces verbatim (by design: 220 was already shown too tight for real rendered labels)', () => {
@@ -429,18 +429,9 @@ describe('computeTreePanelClampedWidthPx — W3-fix corrective, the 900x600 clip
     expect(computeTreePanelClampedWidthPx(TREE_PANEL_MIN_WIDTH_PX, regionWidthPx)).toBe(TREE_PANEL_MIN_WIDTH_PX);
   });
 
-  it('reproduces the reviewed 900x600 regression numbers: a 347px dragged tree width in a 599px region clamps to leave the control panel its own floor', () => {
-    // The exact numbers the review's own live measurement produced
-    // (`.claude/dispatch-reports/lyt-w3-resizers-review.md` §2):
-    // treePanelWidthPx dragged to 347 at a wide viewport, carried
-    // verbatim into a 900x600 session where
-    // effectiveTreeControlRegionWidthPx (the OUTER region, already
-    // clamped by sanitizeTreeControlRegionWidthPx) sanitizes down to
-    // 599. Pre-fix, App.vue rendered the wrapper at 347 (tree) + 300
-    // (control panel floor) + gaps > 599, clipping #control-panel by
-    // ~52px. Post-fix, the tree clamps down so the total fits.
+  it('originally reproduced the reviewed 900x600 regression numbers (`.claude/dispatch-reports/lyt-w3-resizers-review.md` §2: a 347px dragged tree width in a 599px region, against the THEN-300px control-panel floor). library-cards-promotion narrowed CONTROL_PANEL_MIN_WIDTH_PX to 188 (five tabs -> three), which means those exact historical numbers (347 + 188 + 2 gaps = 543 <= 599) no longer force a clamp — a genuine, correct consequence of the floor shrinking, not a regression in this function. Re-scaled to a region that still forces the clamp path with the CURRENT floor, so this test keeps exercising "the clamp actually clamps," not a stale historical coincidence.', () => {
     const naturalWidthPx = 347;
-    const regionWidthPx = 599;
+    const regionWidthPx = 400; // < naturalWidthPx + CONTROL_PANEL_MIN_WIDTH_PX + 2 gaps (543) at today's floor
     const clamped = computeTreePanelClampedWidthPx(naturalWidthPx, regionWidthPx);
     expect(clamped).toBeLessThan(naturalWidthPx);
     expect(clamped + CONTROL_PANEL_MIN_WIDTH_PX + TREE_CONTROL_WRAPPER_ROW_GAP_PX * 2).toBeLessThanOrEqual(regionWidthPx);

@@ -270,10 +270,30 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     // representative widget id 'controlPanel' is still what
     // `domIdsByPath`/`LYT_DOM_ID_BY_PATH` key the `#control-panel` DOM id
     // against (App.vue's own resizer-inner anchor).
+    //
+    // library-cards-promotion: Library/Cards are NO LONGER children of
+    // this Exclusive at all (see lyt-layout.gen.ts's own inline comment
+    // on this node) — App.vue's `#exclusive-controlPanel` slot mounts
+    // them directly as a toolbar-driven overlay instead, driven by
+    // `rightPanelMode`. App.vue now fills only THREE per-tab leaf slots
+    // below (#leaf-CP-settings / #leaf-CP-analysis, plus
+    // #leaf-otherColorDebug / #leaf-otherBand for the opened Other tab).
+    // The `CP-library`/`CP-cards` entries below are consequently DEAD
+    // for the real compiled program (no LytChild references either
+    // widget id any more) — kept, not deleted, because
+    // `LytNode-exclusive-rendering.test.ts` deliberately reuses them as
+    // generic pre-registered widget-id fixtures for testing
+    // LytNode.vue's Exclusive-case mechanism in the abstract (its own
+    // header: "reusing real registered widget ids ... so
+    // lyt-widget-registry.ts's lookups succeed without a second fake
+    // registry") — deleting the entries would fail that suite for a
+    // purely cosmetic registry-tidiness gain, not a real dead-code cost
+    // (an unreferenced registry row is inert, unlike unreferenced
+    // application code).
     slotName: null,
     absorbedInto: null,
     activityStates: null,
-    note: 'The now-OPENED Exclusive(T) node (see lyt-layout.gen.ts header, "REALIZATION WAVE"). LytNode.vue\'s Exclusive case reuses TabWidget.vue directly (v-model + dynamic named slots per child) rather than mounting App.vue\'s own TabWidget instance — App.vue instead fills the five per-tab leaf slots below (#leaf-CP-library / #leaf-CP-cards / #leaf-CP-settings / #leaf-CP-analysis, plus #leaf-otherColorDebug / #leaf-otherBand for the opened Other tab).',
+    note: 'The now-OPENED Exclusive(T) node (see lyt-layout.gen.ts header, "REALIZATION WAVE"). LytNode.vue\'s Exclusive case reuses TabWidget.vue directly (v-model + dynamic named slots per child) rather than mounting App.vue\'s own TabWidget instance. library-cards-promotion: Library/Cards relocated OUT of the control panel entirely — see this entry\'s own header comment.',
   },
   'CP-library': {
     widget: 'CP-library',
@@ -282,7 +302,7 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     slotName: '#leaf-CP-library',
     absorbedInto: null,
     activityStates: null,
-    note: 'REALIZATION WAVE: the control-panel T\'s own Library tab, opened live (item 1/2). Unchanged component/wiring from the pre-wave #library TabWidget slot — only the mount path moved (LytNode\'s Exclusive case instead of App.vue-authored TabWidget). scrollAxes: [v] (encoding-declared) derives this leaf\'s own overflow-y — see useLytOverflowCss.ts.',
+    note: 'REALIZATION WAVE (historical): the control-panel T\'s own Library tab, opened live. library-cards-promotion: relocated OUT of the control panel entirely — LibraryTab now mounts directly from App.vue\'s `#exclusive-controlPanel` slot, driven by `rightPanelMode`, bypassing this leaf-registry/slot mechanism. DEAD for the real compiled program — kept only for LytNode-exclusive-rendering.test.ts\'s fixture reuse; see the `controlPanel` entry\'s own note.',
   },
   'CP-cards': {
     widget: 'CP-cards',
@@ -291,7 +311,7 @@ export const LYT_WIDGET_REGISTRY: Readonly<Record<string, LytWidgetRegistryEntry
     slotName: '#leaf-CP-cards',
     absorbedInto: null,
     activityStates: null,
-    note: 'REALIZATION WAVE: the control-panel T\'s own Cards tab, opened live — see CP-library\'s own note for the shape (identical: pre-wave #cards TabWidget slot, unchanged wiring, scrollAxes: [v] derived overflow).',
+    note: 'REALIZATION WAVE (historical): the control-panel T\'s own Cards tab, opened live — see CP-library\'s own note for the shape (identical disposition). library-cards-promotion: relocated OUT of the control panel entirely, same as CP-library.',
   },
   // ── Settings interior, OPENED LIVE (work item `lyt-settings-live-
   //    opening`, ledger rows 2007/2009/2001) ─────────────────────────────

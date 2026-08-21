@@ -259,16 +259,37 @@ export function deriveLayoutClass(widthPx: number, heightPx: number): LayoutClas
 // ── Control-panel tab registry → floor projection (audit finding R2) ──
 
 /**
- * The control panel's tab strip (App.vue `controlTabs`) — SINGLE HOME
- * for the id list. App.vue builds its labelled `Tab[]` by mapping this
- * array through i18n; `computeControlPanelMinWidthPx` below projects
- * the SAME array's length into the floor, so the two can never drift
- * apart the way the hand-written 220px literal (audit finding R2) did
- * against a tab strip that had already grown to five.
+ * The control panel's tab strip (realized live by LytNode.vue's
+ * Exclusive case, `state/lyt-layout*.gen.ts`) — SINGLE HOME for the id
+ * list. `computeControlPanelMinWidthPx` below projects this array's
+ * length into the floor, so the two can never drift apart the way the
+ * hand-written 220px literal (audit finding R2) did against a tab
+ * strip that had already grown to five.
+ *
+ * library-cards-promotion (mandate item 1): Library and Cards are no
+ * longer members of this strip — they're toolbar-level primary entries
+ * now (`ToolbarEngineControls.vue`, `App.vue`'s `rightPanelMode`), not
+ * "control." The compiled program's own `controlPanel` Exclusive
+ * children were hand-edited to match (`lyt-layout.gen.ts` /
+ * `lyt-layout-portrait.gen.ts`, both headers explain the disclosed
+ * bypass); this array shrinks to the three REMAINING tabs so the two
+ * stay the single source of truth they always were, not two
+ * independently-edited copies of "how many tabs does the strip have."
  */
-export const CONTROL_PANEL_TAB_IDS = ['library', 'cards', 'settings', 'analysis', 'other'] as const;
+export const CONTROL_PANEL_TAB_IDS = ['settings', 'analysis', 'other'] as const;
 export type ControlPanelTabId = (typeof CONTROL_PANEL_TAB_IDS)[number];
 
+// HISTORICAL (library-cards-promotion narrowed CONTROL_PANEL_TAB_IDS
+// from five members to three — Settings/Analysis/Other — after this
+// measurement; the finding below is preserved as the derivation record
+// for TAB_STRIP_PER_TAB_WIDTH_PX, not re-witnessed against the new
+// three-tab strip. The three SURVIVING labels' own measured widths
+// (Settings 60.4px, Analysis 61.7px, Other 47.0px; average ~56.4px)
+// are close enough to the retained 56px/tab constant below that no new
+// geometry probe was run for this narrowing — a strip that SHRANK by
+// two tabs is the safe direction for an average-derived floor to be
+// slightly conservative in, unlike a strip that grows.)
+//
 // G10 (opus-uiux-geometry-consult.md, rows 1556/1563): the 50px/tab
 // literal above (superseded by this fix) was itself reverse-derived
 // from an OLDER hand literal's own comment, not from the tab strip's
@@ -276,7 +297,8 @@ export type ControlPanelTabId = (typeof CONTROL_PANEL_TAB_IDS)[number];
 // guess standing in for a text-content fact). WITNESSED via an
 // in-page geometry probe (playwright, `.claude/dispatch-reports/
 // geo-d-overflow-build.md`) against the five REAL `CONTROL_PANEL_TAB_IDS`
-// labels at their default (English) i18n strings: natural per-tab
+// labels at their default (English) i18n strings, AT THE TIME (five
+// tabs, pre-relocation): natural per-tab
 // widths (border-box, incl. padding/border) were Library 53.7px,
 // Cards 49.0px, Settings 60.4px, Analysis 61.7px, Other 47.0px — sum
 // 271.8px, against the OLD floor's 270px (5×50+20). That ~2px deficit

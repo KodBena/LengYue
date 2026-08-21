@@ -141,20 +141,24 @@ export const LYT_LANDSCAPE: LytProgram = {
                     presenceDefaultVisible: true,
                     track: { kind: "fixed", px: 664 },
                     node: {
-                      kind: "exclusive", widget: "controlPanel", tag: "BLACK BOX", defaultTabId: "library", demote: { axis: "h", belowPx: 778 },
+                      // library-cards-promotion (mandate item 1, ledger
+                      // row 2511 bypass — see App.vue's own
+                      // `#exclusive-controlPanel` template comment for
+                      // the full derivation): the `library`/`cards`
+                      // LytExclusiveChild entries this Exclusive used to
+                      // carry are REMOVED — hand-edited directly (this
+                      // file is `emit_layout_tree.py`-generated; the
+                      // source encoding `research/lyt/encodings/
+                      // lengyue_landscape.lyt` is NOT regenerated from,
+                      // per the standing ruling that a DSL concept
+                      // mismatch is bypassed with plain honest code
+                      // rather than forcing the DSL to model "a
+                      // toolbar-launched surface sharing a Split's grid
+                      // track," which it has no vocabulary for).
+                      // `defaultTabId` moves to `settings`, the first of
+                      // the three REMAINING tabs.
+                      kind: "exclusive", widget: "controlPanel", tag: "BLACK BOX", defaultTabId: "settings", demote: { axis: "h", belowPx: 778 },
                       children: [
-                        {
-                          path: "2.3.1.0",
-                          tabId: "library",
-                          tabLabelKey: "app.tabs.library",
-                          node: { kind: "leaf", widget: "CP-library", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded", elasticAxes: ["h"], ceilingAxes: [], floorAxes: [{ axis: "v", px: 160 }], edgeAxes: [{ axis: "v", disposition: "unit" }], orientation: "v", activity: null, demote: null, envelopeStates: null },
-                        },
-                        {
-                          path: "2.3.1.1",
-                          tabId: "cards",
-                          tabLabelKey: "app.tabs.cards",
-                          node: { kind: "leaf", widget: "CP-cards", domain: "common", facets: [], aspect: null, scrollAxes: ["v"], content: "unbounded", elasticAxes: ["h"], ceilingAxes: [], floorAxes: [{ axis: "v", px: 160 }], edgeAxes: [{ axis: "v", disposition: "unit" }], orientation: "v", activity: null, demote: null, envelopeStates: null },
-                        },
                         {
                           path: "2.3.1.2",
                           tabId: "settings",

@@ -112,6 +112,25 @@ export const LYT_CAPABILITY_REGISTRY: Readonly<Record<string, LytCapabilityEntry
     requiredActivityState: null,
     realizationCandidates: ['button-cluster', 'menu-path'],
   },
+  // library-cards-promotion (mandate: Library/Cards relocated out of the
+  // control panel's tab strip, promoted to toolbar-level primary entries
+  // in the SAME A_engine SESSION-ACTIONS cluster the five capabilities
+  // above already occupy — see ToolbarEngineControls.vue's own header
+  // for the realized markup). Always meaningful (no connection
+  // precondition, unlike `open-play`/`toggle-match`) — a Go student
+  // browses their library/deck regardless of engine state.
+  'open-library': {
+    id: 'open-library',
+    description: 'Show the Library surface (SGF game library) as the main right-side surface, replacing the control panel.',
+    requiredActivityState: null,
+    realizationCandidates: ['button-cluster', 'menu-path'],
+  },
+  'open-cards': {
+    id: 'open-cards',
+    description: 'Show the Cards surface (deck/review/lineage explorer) as the main right-side surface, replacing the control panel.',
+    requiredActivityState: null,
+    realizationCandidates: ['button-cluster', 'menu-path'],
+  },
   'load-sgf': {
     id: 'load-sgf',
     description: 'Open the file dialog and load an SGF into the active board.',

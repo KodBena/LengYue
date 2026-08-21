@@ -322,6 +322,30 @@ function selectTab(id: string) {
   height: auto;
   min-height: 0;
 }
+/* Rider (nncache-live-acceptance.md item 5, live-confirmed screenshots
+   05-settings-analysisEnv.png/05-settings-keybindings.png): a bordered,
+   tab-shaped empty region rendered immediately after the last real tab
+   ("Keybindings") in the settings sub-tab strip. `.vue-tabs` is a
+   column flex container with the default `align-items: stretch`, so
+   `.tab-header` (its only child in header-only mode) stretched to the
+   FULL leaf width regardless of how much room its own tabs actually
+   used — leaving a blank, `.tab-header`-styled strip (same background,
+   same trailing `border-bottom`) between the last tab and the leaf's
+   own right edge, which a bordered-line-styled screenshot crop reads
+   as an extra empty cell. `align-self: flex-start` sizes the header
+   row to its own CONTENT width instead of the leaf's full width — the
+   strip now ends exactly at the last tab, whether wrapped (settings,
+   `wrap`) or scrolling (every other consumer's default `overflow-x:
+   auto` shape, unaffected either way since content width was already
+   >= container width there). Scoped to `--header-only` (the settings
+   sub-tab strip's own `part="header"` mode) — every `part="both"`
+   consumer keeps `.tab-header`'s pre-existing full-width stretch
+   (inside `.vue-tabs`'s own flex-column body, unrelated to this leaf-
+   width-stretch case). */
+.vue-tabs--header-only .tab-header {
+  align-self: flex-start;
+  max-width: 100%;
+}
 
 /* Hover: text brightening only — the previous background:
    var(--border-1) was a border-token-as-hover-background (the "dark

@@ -90,47 +90,77 @@ useModalKeyboard(modalContentRef, isOpen, cancel);
 </script>
 
 <template>
-  <div v-if="isOpen" class="modal-backdrop" @mousedown.self="cancel">
-    <div ref="modalContentRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="harness-prompt-title" tabindex="-1">
-      <div class="modal-header">
-        <h2 id="harness-prompt-title">{{ $t('harnessPrompt.title') }}</h2>
-      </div>
-      <div class="modal-body">
-        <p class="lede">{{ $t('harnessPrompt.lede') }}</p>
-        <div v-for="d in declarations" :key="d.name" class="field-row">
-          <label :for="`hpv-${d.name}`">
-            <span class="field-label">{{ labelFor(d) }}</span>
-            <span class="field-name">{{ d.name }}</span>
-          </label>
-          <select
-            v-if="d.type === 'enum'"
-            :id="`hpv-${d.name}`"
-            class="dark-input"
-            v-model="inputs[d.name]"
-          >
-            <option v-for="opt in d.options" :key="opt" :value="opt">{{ opt }}</option>
-          </select>
-          <input
-            v-else
-            :id="`hpv-${d.name}`"
-            type="text"
-            class="dark-input"
-            :class="{ 'invalid': fieldError(d, inputs[d.name] ?? '') !== null }"
-            v-model="inputs[d.name]"
-          />
-          <span v-if="fieldError(d, inputs[d.name] ?? '')" class="field-error">
-            {{ fieldError(d, inputs[d.name] ?? '') }}
-          </span>
+  <!-- Rider (commissioner live finding, screenshot
+       5f94_cards_occluded_modal.png): this modal used to mount
+       in-place, deep inside ForestDirectory's own LYT leaf subtree
+       (`.forest-container` > `.forest-cq-wrapper` > the LytNode leaf
+       cell chain) — unlike every sibling modal (MintCardModal,
+       LearnPathModal, ConfirmLoadModal, …), which all mount directly
+       off App.vue's own template root, right under `#main-area`. The
+       `.modal-backdrop` below is `position: fixed`, which is SUPPOSED
+       to size/center against the viewport regardless of DOM depth —
+       but a `position: fixed` element's containing block silently
+       becomes its nearest ancestor that establishes one (`transform`,
+       `filter`, `contain: paint/layout/strict/content`, `will-change`
+       naming one of those, …), and the live-witnessed symptom (a
+       ~420px `.modal-content` rendering pinned to the control panel's
+       own box, partially past the true viewport's right edge) is
+       exactly that failure mode. Rather than chase which specific
+       ancestor in this deep, LYT-grid-nested subtree quietly
+       qualifies (a fragile thing to pin down and easy to reintroduce
+       the next time an ancestor gains one of those properties for an
+       unrelated reason), `<Teleport to="body">` gives this modal the
+       SAME guarantee every sibling modal gets implicitly from being
+       mounted near the true document root: its backdrop is always a
+       DIRECT CHILD of `<body>`, so `position: fixed` always resolves
+       against the real viewport no matter how deep the *trigger*
+       (ForestDirectory, now reachable from the relocated Cards
+       toolbar entry — see App.vue) is nested. See
+       `tests/integration/HyperparamPromptModal-teleport.test.ts` for
+       the regression coverage. -->
+  <Teleport to="body">
+    <div v-if="isOpen" class="modal-backdrop" @mousedown.self="cancel">
+      <div ref="modalContentRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="harness-prompt-title" tabindex="-1">
+        <div class="modal-header">
+          <h2 id="harness-prompt-title">{{ $t('harnessPrompt.title') }}</h2>
+        </div>
+        <div class="modal-body">
+          <p class="lede">{{ $t('harnessPrompt.lede') }}</p>
+          <div v-for="d in declarations" :key="d.name" class="field-row">
+            <label :for="`hpv-${d.name}`">
+              <span class="field-label">{{ labelFor(d) }}</span>
+              <span class="field-name">{{ d.name }}</span>
+            </label>
+            <select
+              v-if="d.type === 'enum'"
+              :id="`hpv-${d.name}`"
+              class="dark-input"
+              v-model="inputs[d.name]"
+            >
+              <option v-for="opt in d.options" :key="opt" :value="opt">{{ opt }}</option>
+            </select>
+            <input
+              v-else
+              :id="`hpv-${d.name}`"
+              type="text"
+              class="dark-input"
+              :class="{ 'invalid': fieldError(d, inputs[d.name] ?? '') !== null }"
+              v-model="inputs[d.name]"
+            />
+            <span v-if="fieldError(d, inputs[d.name] ?? '')" class="field-error">
+              {{ fieldError(d, inputs[d.name] ?? '') }}
+            </span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="cancel">{{ $t('harnessPrompt.button.cancel') }}</button>
+          <button class="btn-submit" :disabled="!allValid" @click="submit">
+            {{ $t('harnessPrompt.button.run') }}
+          </button>
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn-cancel" @click="cancel">{{ $t('harnessPrompt.button.cancel') }}</button>
-        <button class="btn-submit" :disabled="!allValid" @click="submit">
-          {{ $t('harnessPrompt.button.run') }}
-        </button>
-      </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <style scoped>
