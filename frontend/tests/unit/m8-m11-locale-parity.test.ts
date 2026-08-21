@@ -36,6 +36,14 @@ const KEYS = [
   'analysisChart.emptyState',
   'analysisTimeline.analyseDisabledOffline',
   'analysisTimeline.analyseDisabledNoSelection',
+  // Disease repair (`.claude/dispatch-reports/lyt-second-opus-review.md`
+  // N — the leaked raw `nextAction` token, ledger row 2511):
+  // `SystemLogPanel.vue`'s `nextActionLabel()` resolves this key rather
+  // than rendering `open-default-layout-control` verbatim — pinned here
+  // so a translation regression (or a future token added without a
+  // matching catalog entry) fails the same locale-parity net every
+  // other M8/M11 key already relies on.
+  'systemLog.nextActionToken.open-default-layout-control',
 ] as const;
 
 describe('M8/M11 locale parity — ja/ko/zh-CN carry real translations', () => {

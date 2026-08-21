@@ -1,4 +1,4 @@
-<!-- 
+<!--
   src/components/chrome/SystemLogPanel.vue
   System log panel. Renders messages pushed via pushSystemMessage() in
   the store, plus an idle row when the queue is empty so the panel is
@@ -8,13 +8,55 @@
   — D2 fix) OR the transient auto-reveal (`useTransientLogReveal.ts`)
   is true — no longer unconditionally visible, corrected from this
   header's own stale "always-visible" claim (D2 fix).
+
+  Disease repair (`.claude/dispatch-reports/lyt-second-opus-review.md`,
+  ledger row 2511): `nextAction` USED to render as the raw machine
+  token verbatim (`open-default-layout-control`) next to a LOCALIZED
+  label (`$t('systemLog.nextAction')`) — a real user saw
+  "次のアクション: open-default-layout-control", English hiding inside an
+  otherwise-Japanese sentence. `nextActionLabel()` below maps the
+  closed set of known tokens to their own locale key (`en.json`'s own
+  `systemLog.nextActionToken.*` entries), so both halves of the line
+  render in the SAME locale. `msg.text`/`msg.remediation` themselves
+  are producer-authored English strings (`state/feasible-layout.ts`)
+  independent of this repair's scope — localizing every system-message
+  producer is a materially larger effort than this one leaking-token
+  fix and is not attempted here.
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { store, dismissSystemMessage, clearSystemMessages } from '../../store';
 
 const hasMessages = computed(() => store.engine.messages.length > 0);
+
+const { t } = useI18n();
+
+// Closed map: every `nextAction` token any producer currently mints
+// (`state/feasible-layout.ts`'s `SovereignOverrideDiagnostic`) to its
+// own locale key. ADR-0002: an unrecognized token is a producer/
+// consumer contract drift — a NEW nextAction value shipped without a
+// matching entry here — surfaced loudly (console, so it's visible to
+// whoever ships the drift) rather than silently leaking the raw
+// identifier into user-facing copy again, which is the exact defect
+// this map exists to close.
+const NEXT_ACTION_LOCALE_KEY: Readonly<Record<string, string>> = {
+  'open-default-layout-control': 'systemLog.nextActionToken.open-default-layout-control',
+};
+
+function nextActionLabel(token: string): string {
+  const localeKey = NEXT_ACTION_LOCALE_KEY[token];
+  if (localeKey === undefined) {
+    console.error(
+      `SystemLogPanel: no locale label registered for nextAction token ${JSON.stringify(token)} — ` +
+        'add an entry to NEXT_ACTION_LOCALE_KEY (and every locale catalog) rather than let the raw ' +
+        'token reach the user (ADR-0002).',
+    );
+    return token;
+  }
+  return t(localeKey);
+}
 </script>
 
 <template>
@@ -45,9 +87,12 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
                producer supplies them. `nextAction` is a LABEL only: no
                affordance named `open-default-layout-control` exists on
                this branch to wire a click handler to (disclosed gap, not
-               a silently-implied control). -->
+               a silently-implied control). Disease repair (this file's
+               own header): the token itself is never rendered raw —
+               `nextActionLabel()` resolves it through the SAME locale the
+               "Next" label above it renders in. -->
           <span v-if="msg.remediation" class="msg-remediation">{{ msg.remediation }}</span>
-          <span v-if="msg.nextAction" class="msg-next-action">{{ $t('systemLog.nextAction') }}: {{ msg.nextAction }}</span>
+          <span v-if="msg.nextAction" class="msg-next-action">{{ $t('systemLog.nextAction') }}: {{ nextActionLabel(msg.nextAction) }}</span>
         </div>
         <button class="dismiss-btn" @click="dismissSystemMessage(msg.id)">×</button>
       </div>

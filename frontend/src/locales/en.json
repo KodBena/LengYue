@@ -738,6 +738,7 @@
   "systemLog.noMessages":                 "No messages — system idle.",
   "systemLog.toggleButton":               "Toggle system log",
   "systemLog.nextAction":                 "Next",
+  "systemLog.nextActionToken.open-default-layout-control": "Open the \"Default layout\" control",
 
   "analysisChart.emptyState":             "No {label} data yet.",
 

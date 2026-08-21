@@ -466,6 +466,7 @@
   "systemLog.noMessages":                 "メッセージなし — システムアイドル。",
   "systemLog.toggleButton":               "システムログの表示切替",
   "systemLog.nextAction":                 "次のアクション",
+  "systemLog.nextActionToken.open-default-layout-control": "「デフォルトレイアウト」を開く",
 
   "analysisChart.emptyState":             "{label} のデータはまだありません。",
 

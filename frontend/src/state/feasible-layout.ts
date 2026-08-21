@@ -1121,6 +1121,23 @@ export interface RootSplitLiveLayoutResult {
    *  are subtracted — this module never overrides the board's track
    *  directly, per §3 step 3's own "consume, don't rebuild" framing. */
   readonly boardUsefulPx: number;
+  /** Disease repair (`.claude/dispatch-reports/lyt-second-opus-review.md`
+   *  N4, ledger row 2511). Non-null EXACTLY when the sovereign clamp
+   *  above (see this function's own "Sovereign (revised)" doc) actually
+   *  reduced a stored/dragged override below what it literally asked
+   *  for — the RAW value it was clamped FROM, so a caller can push the
+   *  same honest "your geometry modification no longer fits" diagnostic
+   *  `resolveSovereignOverrides` produces for a starved sibling, this
+   *  time for "the override overshot what this region can render."
+   *  `null` on every other path (non-sovereign, sovereign but already
+   *  within bounds, not yet measured with no override). Without this,
+   *  a drag that overshoots the side column's own compiled ceiling (a
+   *  common case — `sideColumn.maxPx` frequently binds before
+   *  `boardFloorPx` ever would) renders visibly "stuck" with NO
+   *  explanation: the exact silent-refusal shape ADR-0002 forbids, and
+   *  the review's own N4 finding ("dragging the same bar back... changed
+   *  nothing at all, with no system message"). */
+  readonly sovereignClampedFromPx: number | null;
 }
 
 /**
@@ -1168,8 +1185,22 @@ export interface RootSplitLiveLayoutResult {
  * (`resolveSideColumnLiveLayout`, fed by this function's own
  * `sideColumnPx` output as its `wrapperWidthPx` input), not this one's.
  *
- * **Sovereign.** The stored value wins verbatim — this function does
- * not change drag behavior, only the un-dragged default's derivation.
+ * **Sovereign (revised, disease repair `.claude/dispatch-reports/
+ * lyt-second-opus-review.md` N2, ledger row 2511).** The stored value
+ * wins verbatim ONLY up to the SAME `maxRegionWidthPx` ceiling the
+ * un-dragged branch already reserves `boardFloorPx` against — this
+ * function's own board-can-never-render-at-0 guarantee, which the
+ * pre-repair version of this specific function did not carry (see the
+ * clamp's own inline comment for the "why here, why now" derivation;
+ * the older, WIDER "never drag resistance" doctrine at §1.6 above still
+ * governs a live drag gesture in progress and is untouched — this
+ * clamp only bounds what a STORED override may replay at a geometry the
+ * user never dragged at, e.g. a cold boot on a narrower screen). A
+ * clamped override still produces the SAME starvation diagnostic a
+ * fully-verbatim one would (via `outerRowSovereignDiagnostic`, which
+ * reads the raw stored value independently of this function) — the
+ * user is told their geometry choice no longer fits, even though the
+ * board itself keeps rendering.
  *
  * **Row 2502/2503 review repair, condition C1.** `board.
  * naturalBoardCrossUnit` is checked FIRST, before any arithmetic —
@@ -1195,14 +1226,64 @@ export function resolveRootSplitLiveLayout(input: RootSplitLiveLayoutInput): Roo
     );
   }
   const boardUsefulPx = Math.max(0, input.rowHeightPx - input.board.fixedSiblingSumPx);
+  const notYetMeasured =
+    !Number.isFinite(input.rowWidthPx) || input.rowWidthPx <= 0 || !Number.isFinite(input.rowHeightPx) || input.rowHeightPx <= 0;
   if (input.sovereignWrapperPx !== undefined) {
-    return { sideColumnPx: Math.max(0, Math.round(input.sovereignWrapperPx)), boardUsefulPx };
+    const rawSideColumnPx = Math.max(0, Math.round(input.sovereignWrapperPx));
+    if (notYetMeasured) {
+      // Not yet measured: nothing to clamp the override AGAINST yet (no
+      // live row geometry to reserve `boardFloorPx` out of) — degrade to
+      // the side column's own compiled ceiling, the same defensive
+      // shrink the un-dragged "not yet measured" branch below already
+      // applies, rather than shipping the raw override unclamped for the
+      // one tick before the row measures.
+      const clampedNotYetMeasuredPx = Math.min(rawSideColumnPx, input.sideColumn.maxPx);
+      return {
+        sideColumnPx: clampedNotYetMeasuredPx,
+        boardUsefulPx: 0,
+        sovereignClampedFromPx: clampedNotYetMeasuredPx < rawSideColumnPx ? rawSideColumnPx : null,
+      };
+    }
+    const availableForSplitPx = input.rowWidthPx - input.boardRailReservedPx - input.gapPx;
+    const maxRegionWidthPx = Math.max(
+      input.sideColumn.minPx,
+      Math.min(input.sideColumn.maxPx, availableForSplitPx - input.boardFloorPx),
+    );
+    // Disease repair (`.claude/dispatch-reports/lyt-second-opus-review.md`
+    // N2, ledger row 2511): this USED to return `rawSideColumnPx`
+    // verbatim, no ceiling at all — a sovereign override taken on a wide
+    // monitor (e.g. 1200px) was carried BYTE-IDENTICAL to every narrower
+    // geometry, including geometries where `availableForSplitPx -
+    // boardFloorPx` is far below it, starving `#board-area` to exactly
+    // `0` (the CATASTROPHIC cold-boot-with-no-board finding). The
+    // "never drag resistance" doctrine this module's own §1.6 header
+    // documents governs the DRAG itself (a live gesture the user is
+    // watching); it was never meant to license carrying a stale override
+    // across a COLD BOOT at a geometry the user never dragged at, into a
+    // state that cannot render at all. `maxRegionWidthPx` is the EXACT
+    // same bound the non-sovereign branch below already reserves
+    // `boardFloorPx` against — reusing it here (rather than a new,
+    // second bound) guarantees the sovereign candidate can never claim
+    // more than the non-sovereign one would, so the board always keeps
+    // at least its own floor. The diagnostic this clamp's own siblings
+    // already compute (`outerRowSovereignDiagnostic`,
+    // `useResizablePanel.ts`) is UNCHANGED — it reads the RAW stored
+    // value independently and keeps firing whenever the raw override
+    // would have starved the board, so the user still sees "your
+    // geometry modification no longer permits board to render" even
+    // though this clamp now keeps the board itself renderable.
+    const clampedSideColumnPx = Math.min(rawSideColumnPx, maxRegionWidthPx);
+    return {
+      sideColumnPx: clampedSideColumnPx,
+      boardUsefulPx,
+      sovereignClampedFromPx: clampedSideColumnPx < rawSideColumnPx ? rawSideColumnPx : null,
+    };
   }
-  if (!Number.isFinite(input.rowWidthPx) || input.rowWidthPx <= 0 || !Number.isFinite(input.rowHeightPx) || input.rowHeightPx <= 0) {
+  if (notYetMeasured) {
     // Not yet measured: degrade to the side column's own compiled floor —
     // the same "not yet measured" convention every other solve in this
     // module shares.
-    return { sideColumnPx: input.sideColumn.minPx, boardUsefulPx: 0 };
+    return { sideColumnPx: input.sideColumn.minPx, boardUsefulPx: 0, sovereignClampedFromPx: null };
   }
   const availableForSplitPx = input.rowWidthPx - input.boardRailReservedPx - input.gapPx;
   const naturalSideColumnPx = availableForSplitPx - boardUsefulPx;
@@ -1211,7 +1292,7 @@ export function resolveRootSplitLiveLayout(input: RootSplitLiveLayoutInput): Roo
     Math.min(input.sideColumn.maxPx, availableForSplitPx - input.boardFloorPx),
   );
   const sideColumnPx = Math.min(Math.max(Math.round(naturalSideColumnPx), input.sideColumn.minPx), maxRegionWidthPx);
-  return { sideColumnPx, boardUsefulPx };
+  return { sideColumnPx, boardUsefulPx, sovereignClampedFromPx: null };
 }
 
 function resolveSideColumnLiveLayoutUnguarded(

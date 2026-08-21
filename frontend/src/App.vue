@@ -895,6 +895,38 @@ watch(
   },
 );
 
+// Disease repair (`.claude/dispatch-reports/lyt-second-opus-review.md`
+// N4, ledger row 2511): `rootSplitLayout`'s own `sovereignClampedFromPx`
+// (`resolveRootSplitLiveLayout`'s own header, "Sovereign (revised)")
+// fires whenever the CATASTROPHIC-1 clamp above actually reduced a
+// stored/dragged override below what it asked for — including the
+// common case where the side column's own compiled ceiling binds
+// (`sideColumn.maxPx`) well before the board's floor ever would, which
+// `outerRowSovereignDiagnostic` above does not cover (it only checks
+// the board's own `MIN_BOARD_PX`). Without this push, a drag that
+// overshoots the panel's own designed range renders visibly "stuck"
+// with no explanation — the exact silent-refusal shape N4 named ("the
+// same bar... changed nothing at all, with no system message"). Dedup
+// mirrors the sibling watcher immediately above: push only when the
+// clamped-from value changes, not on every reactive recompute a held
+// drag produces.
+let lastPushedRootSplitClampFromPx: number | null = null;
+watch(
+  () => rootSplitLayout.value?.sovereignClampedFromPx ?? null,
+  (clampedFromPx) => {
+    if (clampedFromPx === null) {
+      lastPushedRootSplitClampFromPx = null;
+      return;
+    }
+    if (clampedFromPx === lastPushedRootSplitClampFromPx) return;
+    lastPushedRootSplitClampFromPx = clampedFromPx;
+    pushSystemMessage('warning', 'Your geometry modification no longer fits within the available space.', {
+      remediation: 'reduce this region\'s width, or use Default Layout to reset',
+      nextAction: 'open-default-layout-control',
+    });
+  },
+);
+
 const lytTrackStyleOverrides = computed<Record<string, string>>(() => {
   const treePanelPath = requireWidgetPath('tree');
   const overrides: Record<string, string> = {

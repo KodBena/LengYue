@@ -510,11 +510,40 @@ describe('purity §E: resolveRootSplitLiveLayout() — SOVEREIGN override presen
 
   const canonical = GEOMETRIES.map((g) => computeRootSplitSovereignAt(g));
 
-  it('sanity: the sovereign result is the SAME sideColumnPx at every geometry (verbatim pass-through), while boardUsefulPx still varies by rowHeightPx — proving the informational field is not accidentally frozen too', () => {
-    const sideColumnValues = new Set(canonical.map((c) => (c as { sideColumnPx: number }).sideColumnPx));
+  // Disease repair (`.claude/dispatch-reports/lyt-second-opus-review.md`
+  // N2/CATASTROPHIC-1, ledger row 2511): this sanity check used to pin
+  // "the sovereign result is the SAME sideColumnPx at every geometry
+  // (verbatim pass-through)" — that was the exact bug the repair closes:
+  // `SOVEREIGN_PX` carried byte-verbatim into a geometry too narrow to
+  // afford it could starve the board to 0. The corrected invariant is
+  // narrower and honest: sideColumnPx is now `min(SOVEREIGN_PX,
+  // maxRegionWidthPx-at-this-geometry)`, so it stays constant ONLY across
+  // geometries wide enough to afford the override verbatim, and clamps
+  // DOWN (never up, never past the override itself) at narrower ones.
+  // `boardUsefulPx` is untouched by this repair and still varies by
+  // `rowHeightPx` as before.
+  it('sanity (revised): sideColumnPx never exceeds SOVEREIGN_PX, equals it verbatim at geometries wide enough to afford it, and clamps DOWN (never past 0, never past the override) at narrower ones — while boardUsefulPx still varies by rowHeightPx', () => {
+    const sideColumnValues = canonical.map((c) => (c as { sideColumnPx: number }).sideColumnPx);
     const boardUsefulValues = new Set(canonical.map((c) => (c as { boardUsefulPx: number }).boardUsefulPx));
-    expect(sideColumnValues.size).toBe(1);
-    expect([...sideColumnValues][0]).toBe(SOVEREIGN_PX);
+    for (const px of sideColumnValues) {
+      expect(px).toBeLessThanOrEqual(SOVEREIGN_PX);
+      expect(px).toBeGreaterThanOrEqual(0);
+    }
+    // Wide geometries (1920x1080, 2560x1440) can comfortably afford
+    // 500px for the side column without threatening the board's floor —
+    // the override wins verbatim there, exactly as pre-repair.
+    const wideIndices = GEOMETRIES.reduce<number[]>((acc, g, i) => {
+      if (g.label === '1920x1080' || g.label === '2560x1440') acc.push(i);
+      return acc;
+    }, []);
+    for (const idx of wideIndices) {
+      expect(sideColumnValues[idx]).toBe(SOVEREIGN_PX);
+    }
+    // At least one geometry in this sweep is narrow enough that the
+    // override does NOT survive verbatim (480x900) — proving the clamp
+    // is actually exercised by this fixture, not vacuously true.
+    const narrowIdx = GEOMETRIES.findIndex((g) => g.label === '480x900');
+    expect(sideColumnValues[narrowIdx]).toBeLessThan(SOVEREIGN_PX);
     expect(boardUsefulValues.size).toBeGreaterThan(1);
   });
 

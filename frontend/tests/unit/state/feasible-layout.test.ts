@@ -442,6 +442,93 @@ describe('resolveSideColumnLiveLayout()', () => {
     });
   });
 
+  // Disease repair (`.claude/dispatch-reports/lyt-second-opus-review.md`
+  // N3, ledger row 2511): the presence-toggle leak. The review measured
+  // eight on/off cycles of "Preview Board" walking the tree panel
+  // 486→339→...→123px, ~31px per cycle, never recovering short of a
+  // reload. Root cause (traced in `src/components/tree/TreeWidget.vue`'s
+  // own repair comment): `tree.maxUsefulPx` used to be measured from
+  // `outerRef.scrollWidth`, which degenerates to the BOX's own rendered
+  // width whenever the tree's real content is narrower than its box (the
+  // ordinary case) — feeding a presence-toggle-narrowed box's width back
+  // in as the tree's own "content demand" on the NEXT resolve, capping it
+  // there even once the toggle reverses and room frees back up. This
+  // function itself (`resolveSideColumnLiveLayout`) was always a PURE
+  // function of its inputs — the leak lived entirely in what the CALLER
+  // fed it as `tree.maxUsefulPx`. This suite pins the caller-facing
+  // contract the fix relies on: GIVEN a content demand that is genuinely
+  // STABLE across a presence toggle (which `svgWidth` — a pure function
+  // of the game tree's own shape — now guarantees, never the box it's
+  // rendered into), the round-trip is an exact identity, for as many
+  // cycles as the review's own repro ran.
+  describe('presence-toggle idempotence (N3 repair): a stable tree.maxUsefulPx makes a desiredVisible round-trip an exact identity', () => {
+    const previewBoardOn: SideColumnFixedRegion = {
+      widgetId: 'previewBoard',
+      track: PREVIEW_BOARD_TRACK,
+      desiredVisible: true,
+      demote: null,
+    };
+    const previewBoardOff: SideColumnFixedRegion = { ...previewBoardOn, desiredVisible: false };
+    // A STABLE content demand — the fixed's whole point: this value never
+    // changes across the loop below, exactly what `svgWidth` (tree-
+    // structure-derived, container-independent) now guarantees in
+    // production, where the pre-repair `scrollWidth` reading did not.
+    const STABLE_TREE_MAX_USEFUL_PX = px(60);
+
+    it('eight on/off cycles at 1920x1080-equivalent geometry (the review\'s own reproduction count) return the tree panel to its EXACT starting width every single time — no drift, no reload needed', () => {
+      const wrapperWidthPx = 820; // the docked 1920x1080 side-column width the review's own evidence cites
+      const baselineResult = resolveSideColumnLiveLayout(
+        baseInput({ wrapperWidthPx, tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: STABLE_TREE_MAX_USEFUL_PX }, others: [previewBoardOff] }),
+      );
+      const startingTreePx = baselineResult.treePx;
+
+      for (let cycle = 0; cycle < 8; cycle++) {
+        const onResult = resolveSideColumnLiveLayout(
+          baseInput({ wrapperWidthPx, tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: STABLE_TREE_MAX_USEFUL_PX }, others: [previewBoardOn] }),
+        );
+        // Toggling ON legitimately reserves previewBoard's own fixed
+        // demand — the tree's candidate MAY shrink here; that is honest
+        // reservation, not the leak.
+        expect(onResult.treePx).toBeLessThanOrEqual(startingTreePx);
+
+        const offResult = resolveSideColumnLiveLayout(
+          baseInput({ wrapperWidthPx, tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: STABLE_TREE_MAX_USEFUL_PX }, others: [previewBoardOff] }),
+        );
+        // Toggling back OFF must be an IDENTITY on the tree's own
+        // candidate — this is the assertion the pre-repair code failed:
+        // each cycle it walked ~31px further from startingTreePx instead
+        // of landing back on it exactly.
+        expect(offResult.treePx).toBe(startingTreePx);
+      }
+    });
+
+    it('the UNBOUNDED widen path (maxUsefulPx: null — "widen into freed space") also recovers exactly: ON genuinely shrinks the tree (real reservation), OFF returns to the SAME starting value every cycle, not a drifting approximation', () => {
+      const wrapperWidthPx = 1400;
+      const baselineResult = resolveSideColumnLiveLayout(
+        baseInput({ wrapperWidthPx, tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: null }, others: [previewBoardOff] }),
+      );
+      const startingTreePx = baselineResult.treePx; // widens to fill the whole wrapper: 1400
+      expect(startingTreePx).toBe(1400);
+
+      for (let cycle = 0; cycle < 8; cycle++) {
+        const onResult = resolveSideColumnLiveLayout(
+          baseInput({ wrapperWidthPx, tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: null }, others: [previewBoardOn] }),
+        );
+        // ON genuinely reserves previewBoard's own fixed demand (164px) —
+        // a REAL, honest shrink, not the leak.
+        expect(onResult.treePx).toBe(startingTreePx - 4 - 160);
+
+        const offResult = resolveSideColumnLiveLayout(
+          baseInput({ wrapperWidthPx, tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: null }, others: [previewBoardOff] }),
+        );
+        // OFF must widen straight back to the SAME 1400 every cycle —
+        // the pre-repair leak instead walked this value down by ~31px
+        // per cycle because the freed width never fully returned.
+        expect(offResult.treePx).toBe(startingTreePx);
+      }
+    });
+  });
+
   // ── Branch 7: dispatch L4 (`.claude/dispatch-reports/
   //    lyt-space-owner-spec.md` §3 step 4, ledger rows 2447/2484/2498) —
   //    the parked "no sibling to diagnose against" fork the L3 build
@@ -762,7 +849,7 @@ describe('resolveRootSplitLiveLayout() — GAP A: the root split (board vs. side
     expect(result.sideColumnPx).toBe(Math.round(naturalSideColumnPx));
   });
 
-  it('sovereign (dragged): the stored value wins VERBATIM, independent of geometry', () => {
+  it('sovereign (dragged): the stored value wins VERBATIM, as long as it stays within the board-floor-reserving ceiling at the CURRENT geometry', () => {
     const result = resolveRootSplitLiveLayout(baseInput({ sovereignWrapperPx: 500, rowWidthPx: 1366, rowHeightPx: 768 }));
     expect(result.sideColumnPx).toBe(500);
     // boardUsefulPx is still reported (informational) even on the
@@ -776,9 +863,106 @@ describe('resolveRootSplitLiveLayout() — GAP A: the root split (board vs. side
     expect(result.sideColumnPx).toBe(0);
   });
 
+  // Disease repair (`.claude/dispatch-reports/lyt-second-opus-review.md`
+  // N2/CATASTROPHIC-1, ledger row 2511): a sovereign override taken at a
+  // WIDE geometry (e.g. a 1200px drag on a 2560px-wide monitor) must
+  // never be replayed byte-verbatim at a NARROWER geometry to the point
+  // of starving the board to 0 — the exact "cold boot at 1366x768 renders
+  // no board" finding. Pinned directly against the review's own numbers:
+  // a 1200px override at 1366x768 (the review's own reproduction
+  // geometry) used to yield `sideColumnPx: 1200`, leaving `1366 - 12 -
+  // 1200 = 154px` for the board's OWN grid track before boardRail/gap —
+  // in the review's live rig, less than that once boardRail's own
+  // reservation is subtracted, landing on exactly 0. It now clamps to
+  // this geometry's own `maxRegionWidthPx` (the SAME ceiling the
+  // non-sovereign branch already reserves `boardFloorPx` against), so
+  // the row always has at least `boardFloorPx` left for the board.
+  describe('sovereign clamp: a stored override can never starve the board below boardFloorPx (CATASTROPHIC-1 repair)', () => {
+    it('a 1200px override carried into 1366x768 clamps to this geometry\'s own ceiling, not 1200 verbatim', () => {
+      const result = resolveRootSplitLiveLayout(baseInput({ sovereignWrapperPx: 1200, rowWidthPx: 1366, rowHeightPx: 768 }));
+      const availableForSplitPx = 1366 - ROOT_GAP_PX;
+      const maxRegionWidthPx = Math.min(SIDE_COLUMN.maxPx, availableForSplitPx - BOARD_FLOOR_PX);
+      expect(result.sideColumnPx).toBe(maxRegionWidthPx);
+      expect(result.sideColumnPx).toBeLessThan(1200);
+      // The board's own remaining share of the row is at least its floor —
+      // never 0, never negative.
+      expect(availableForSplitPx - result.sideColumnPx).toBeGreaterThanOrEqual(BOARD_FLOOR_PX);
+      // N4 repair: the clamp names the RAW value it clamped FROM, so a
+      // caller can diagnose the refusal rather than leave it silent.
+      expect(result.sovereignClampedFromPx).toBe(1200);
+    });
+
+    it('the SAME 1200px override, replayed across every narrower geometry the review swept, always leaves at least boardFloorPx for the board', () => {
+      for (const [rowWidthPx, rowHeightPx] of [
+        [2560, 1440],
+        [1920, 1080],
+        [1366, 768],
+        [1024, 768],
+        [900, 600],
+      ] as const) {
+        const result = resolveRootSplitLiveLayout(
+          baseInput({ sovereignWrapperPx: 1200, rowWidthPx, rowHeightPx, boardRailReservedPx: 180 }),
+        );
+        const availableForSplitPx = rowWidthPx - 180 - ROOT_GAP_PX;
+        const boardRemainingPx = availableForSplitPx - result.sideColumnPx;
+        expect(boardRemainingPx).toBeGreaterThanOrEqual(BOARD_FLOOR_PX);
+        expect(result.sideColumnPx).toBeGreaterThan(0); // never the degenerate 0px side column either
+      }
+    });
+
+    it('a clamped override still stays within the side column\'s own compiled [minPx, maxPx] envelope', () => {
+      const result = resolveRootSplitLiveLayout(baseInput({ sovereignWrapperPx: 1200, rowWidthPx: 900, rowHeightPx: 600 }));
+      expect(result.sideColumnPx).toBeLessThanOrEqual(SIDE_COLUMN.maxPx);
+      expect(result.sideColumnPx).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  // Disease repair N4 (`.claude/dispatch-reports/lyt-second-opus-review.md`,
+  // ledger row 2511): the divider's own "no visible change, no message"
+  // symptom. `sovereignClampedFromPx` is the mechanism a caller
+  // (App.vue's own diagnostic watcher) uses to turn that silent refusal
+  // into the SAME graceful diagnostic a starved sibling already gets —
+  // pinned here at the pure-function layer, independent of any live-DOM
+  // reproduction of the original drag sequence.
+  describe('sovereignClampedFromPx: names the refusal so a drag that overshoots the region never goes silent (N4 repair)', () => {
+    it('is null when the sovereign value is already within bounds — no refusal, no diagnostic', () => {
+      const result = resolveRootSplitLiveLayout(baseInput({ sovereignWrapperPx: 500, rowWidthPx: 1366, rowHeightPx: 768 }));
+      expect(result.sovereignClampedFromPx).toBeNull();
+    });
+
+    it('is null on the non-sovereign path — clamping is only ever a REFUSAL of a user\'s own explicit override', () => {
+      const result = resolveRootSplitLiveLayout(baseInput({ sovereignWrapperPx: undefined }));
+      expect(result.sovereignClampedFromPx).toBeNull();
+    });
+
+    it('fires even when the SIDE COLUMN\'s own compiled ceiling binds, not only when the board would starve — the common case the review\'s own N4 repro hit (panel demoted well before the board floor is threatened)', () => {
+      // At 1920x1080 here, sideColumn.maxPx (820) binds well before the
+      // board-floor-reserving bound (1920-12-300=1608) ever would —
+      // exactly the "stuck, no message" gap outerRowSovereignDiagnostic
+      // (board-starvation-only) doesn't cover.
+      const result = resolveRootSplitLiveLayout(baseInput({ sovereignWrapperPx: 1000, rowWidthPx: 1920, rowHeightPx: 1080 }));
+      expect(result.sideColumnPx).toBe(SIDE_COLUMN.maxPx);
+      expect(result.sovereignClampedFromPx).toBe(1000);
+    });
+
+    it('a SECOND, smaller override that is still within bounds clears the refusal signal (dividing back within range un-sticks it)', () => {
+      const stuck = resolveRootSplitLiveLayout(baseInput({ sovereignWrapperPx: 1200, rowWidthPx: 1366, rowHeightPx: 768 }));
+      expect(stuck.sovereignClampedFromPx).not.toBeNull();
+      const recovered = resolveRootSplitLiveLayout(baseInput({ sovereignWrapperPx: 500, rowWidthPx: 1366, rowHeightPx: 768 }));
+      expect(recovered.sovereignClampedFromPx).toBeNull();
+      expect(recovered.sideColumnPx).toBe(500);
+    });
+  });
+
   it("not yet measured (rowWidthPx <= 0): degrades to the side column's own compiled floor", () => {
     const result = resolveRootSplitLiveLayout(baseInput({ rowWidthPx: 0, rowHeightPx: 0 }));
     expect(result.sideColumnPx).toBe(SIDE_COLUMN.minPx);
+    expect(result.boardUsefulPx).toBe(0);
+  });
+
+  it('not yet measured + sovereign override: clamps to the side column\'s own compiled ceiling rather than shipping the raw override unclamped for the pre-measurement tick', () => {
+    const result = resolveRootSplitLiveLayout(baseInput({ sovereignWrapperPx: 1200, rowWidthPx: 0, rowHeightPx: 0 }));
+    expect(result.sideColumnPx).toBe(SIDE_COLUMN.maxPx);
     expect(result.boardUsefulPx).toBe(0);
   });
 
