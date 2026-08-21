@@ -72,6 +72,7 @@ import { updateRegistry } from '../../lib/utils';
 import { cancelCapture } from '../../lib/keybindings-capture';
 import { openSetupWizard } from '../../composables/useSetupWizardSignal';
 import ProxyUpstreamSettingField from '../ProxyUpstreamSettingField.vue';
+import CacheReplaySettings from '../editors/CacheReplaySettings.vue';
 import { useSettingsSubTab, settingsSubTabs, type SettingsSubTabId } from '../../composables/chrome/useSettingsSubTab';
 
 const { t } = useI18n();
@@ -227,6 +228,11 @@ function setSettingsTabsOrientation(orientation: 'horizontal' | 'vertical'): voi
     <template #analysisEnv>
       <div class="tab-padding">
         <button class="toolbar-btn-sm" @click="$emit('force-save')">{{ $t('settings.button.forcePersistence') }}</button>
+        <!-- Replay-cache flag surface (cache-visibility build, cherry-picked
+             from its stale-base delivery; original host SettingsTab.vue was
+             retired by the CP-settings refactor, so the mount was re-grafted
+             here — the panel body itself is the builder's, unmodified). -->
+        <CacheReplaySettings />
         <div style="margin-top: var(--space-medium);">
           <PaletteEditor :env="store.profile.settings.engine.katago.analysis_env" @update="handleSettingsUpdate"/>
         </div>

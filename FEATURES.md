@@ -176,7 +176,12 @@ as a git submodule).
   toggle in the toolbar. Auto-reconnect on transient drops;
   capability-negotiation with the proxy (`delta_analysis`,
   `transposition`, `adaptive_reevaluate`, `selector`) gates
-  features that depend on proxy version.
+  features that depend on proxy version. Hovering the VERSION
+  metric shows the full `query_version` probe payload, plus a
+  line inferred locally from the SPA's own replay-cache settings
+  (on/off for cache write and cache lookup) — clearly marked as
+  SPA-side configuration rather than something the proxy
+  advertises.
 
 - **Multi-model engine selection.** When the proxy is in
   SELECTOR mode (multiple labelled upstream KataGo instances),

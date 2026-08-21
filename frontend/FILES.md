@@ -139,6 +139,7 @@ frontend/src/
 │   ├── editors/                             Settings / palette / pipeline editors.
 │   │   ├── AnalysisControls.vue       [B3]  Per-board analysis controls (engine status, palette picker, bundle persistence, …).
 │   │   ├── AnalysisTabsEditor.vue     [B3]  Controlled editor for the analysis-tab layout (AppSettings.analysisTabs): add/rename/reorder/delete tabs, assign panels (partition). Hosted in Settings → Analysis Layout.
+│   │   ├── CacheReplaySettings.vue    [B3]  Labeled checkbox pair for the proxy replay-cache flags (engine.katago.cache / .lookup_cache) — cache-wiki ask #1; owner-routed to the same leaves analysis-service.ts reads. Hosted in Settings → Analysis Environment.
 │   │   ├── CardSetEditor.vue          [B2]  Master-Detail Tree-DSL pipeline editor (CodeMirror 6) with JSON5+holes dialect.
 │   │   ├── HyperparameterPanel.vue    [B1]  Declarations editor (name/type/default/constraints) for a deck's harness.
 │   │   ├── PaletteEditor.vue          [B3]  Master-Detail Analysis-Environment editor.
@@ -370,6 +371,7 @@ frontend/src/
 │   │
 │   └── katago/                              KataGo wire-protocol surface. All B3.
 │       ├── cache-context.ts           [B3]  NN-cache-context feature [experimental]: `EngineCacheContext` brand + `translateEngineCacheContext` — the sole translate-and-validate site composing `<username>.<context>` and checking it against KataGo's context-name grammar (ASCII letters/digits/`.`/`_`/`-`, 1-128 chars, not `.`/`..`). Refuses (never rewrites) on bad grammar or no username.
+│       ├── cache-inference.ts         [B3]  Pure renderer for the SPA-inferred (not proxy-advertised) `cache` / `lookup_cache` line appended to the version tooltip — cache-wiki ask #2.
 │       ├── capability-injection.ts    [B3]  Pure builder for the per-query `capabilities` dict (proxy v1.0.14+).
 │       ├── contract.ts                [B3]  KataGoClient black-box callback-registry contract.
 │       ├── fresh-eval.ts              [B3]  Shared one-shot-eval primitives (connectFresh + awaitFinalPacket) for callers running a fresh KataGo eval off the analysisService singleton; telemetry injected via optional hooks. Consumed by usePlayFromPosition (engine self-play / match) and useKomiCalibration.
