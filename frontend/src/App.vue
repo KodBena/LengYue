@@ -1680,7 +1680,17 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
                  (`useResizablePanel.ts`'s own `computeRootSplitSideColumnCeilingPx`
                  call) is the IDENTICAL region-owned bound the render-time
                  solve (`resolveRootSplitLiveLayout`, `state/feasible-
-                 layout.ts`) computes, not an approximation of it. -->
+                 layout.ts`) computes, not an approximation of it.
+                 Drag-regression-0c21 repair (ledger rows 2597/2598):
+                 `sideColumnLayout.value.wrapperFloorPx` is threaded into
+                 `startResizeOuter` here — the SAME live, presence-aware
+                 floor the render just used — closing the class
+                 `startResizeInner`'s own `treeFloorPx` threading already
+                 closed for the INNER bar (row 2578), one level up: the
+                 static `WRAPPER_MIN_WIDTH_PX` always reserved a full
+                 `controlPanel` floor even when `controlPanel` is
+                 currently absent, stranding reclaimable width the drag
+                 could never reach. -->
             <div
               v-if="activeScreenClassId === 'landscape'"
               id="resizer-outer"
@@ -1688,7 +1698,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
               role="separator"
               aria-orientation="vertical"
               :aria-label="$t('app.chrome.resizerOuterLabel')"
-              @mousedown="(e: MouseEvent) => startResizeOuter(e, { boardRailReservedPx, gapPx: activeLytProgram.root.gapPx })"
+              @mousedown="(e: MouseEvent) => startResizeOuter(e, { boardRailReservedPx, gapPx: activeLytProgram.root.gapPx }, sideColumnLayout.wrapperFloorPx)"
             ></div>
             <div id="tree-panel-header">{{ $t('app.chrome.gameTreePanelHeader') }}</div>
             <TreeWidget
@@ -2377,7 +2387,28 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
   border-left: 1px solid var(--border-1); background: var(--surface-2);
   height: 100%;
 }
-#tree-panel-header { height: 20px; background: var(--surface-0); border-bottom: 1px solid var(--border-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: var(--text-tiny); letter-spacing: var(--tracking-wide); color: var(--text-0); text-transform: uppercase; flex-shrink: 0; }
+/* toolbar-space-0c21 (ledger row 2597, item 3): this header shares its
+   OWN left edge with `#resizer-outer` BY DESIGN (this file's own
+   template comment on that div: "cross-fills the side column's full
+   width with zero left offset," so a drag anywhere near the boundary
+   grabs it) — the resizer paints on top via `position: absolute` +
+   `z-index: 10`, so under normal width this header's own padding
+   (`--space-default`) already keeps its TEXT clear of the 4px grab
+   zone. At a genuinely narrow `tree` leaf (the live-witnessed
+   commissioner geometry), neither `overflow` nor `white-space` was
+   constrained here, so "Game Tree" wrapped onto two short lines
+   ("GAME"/"TREE") and/or ran wider than the panel's own narrow box —
+   with no `overflow: hidden`, that wrap/overflow painted straight
+   through the resizer's own transparent hit-zone and past the panel's
+   right edge into the control-panel side, a normal-flow child bleeding
+   past its box with nothing clipping it. `overflow: hidden` +
+   `white-space: nowrap` + `text-overflow: ellipsis` contain the label
+   to its own box at every width — the panel's own gutter is respected
+   even when the column is too narrow to show the label in full, which
+   this specific chrome text (a static one-line panel title, not the
+   load-bearing per-node tree content `TreeWidget` itself renders) can
+   afford to trade for. */
+#tree-panel-header { height: 20px; background: var(--surface-0); border-bottom: 1px solid var(--border-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: var(--text-tiny); letter-spacing: var(--tracking-wide); color: var(--text-0); text-transform: uppercase; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
 /* #control-panel (the collapsed T(CP-*) black-box leaf): TabWidget fills
    it edge-to-edge, matching pre-rework App.vue's own flex-column shape.

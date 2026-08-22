@@ -89,6 +89,38 @@
  * resource here (frontend/CLAUDE.md, resource-ownership-at-mutation-
  * sites).
  *
+ * ── Stale-poll fallback (row 2597, toolbar-space-0c21) ─────────────
+ * The settle burst above only spans the first
+ * `SETTLE_REMEASURE_FRAMES` frames after `observe()` — it cannot help
+ * a width change that lands well after mount with NEITHER a
+ * `window.resize` event NOR a further `ResizeObserver` delivery: the
+ * corner presence menu making `boardRail` genuinely visible (which
+ * shrinks the board-priority-clamp column via `leadingReservedPx` —
+ * see `LytNode.vue`'s own header — with no resize event anywhere in
+ * the chain), or the exact documented real-browser class this file's
+ * own "Window-resize fallback" section names (a live `ResizeObserver`
+ * instance simply stopping delivery for a still-attached element).
+ * Live diagnosis at row 2597's own reported geometry did not
+ * reproduce a scripted-Chromium case where `ResizeObserver` itself
+ * misreports — every synthetic width change (viewport resize,
+ * direct style-driven shrink/grow) was tracked correctly — but the
+ * live-witnessed real-browser stopped-delivery class from
+ * `useResizablePanel.ts`'s own report is exactly the case no
+ * scripted reproduction can force, and the existing defenses
+ * (settle burst, `window.resize`) both have gaps a silent
+ * mid-session change can fall through. A low-frequency,
+ * unconditional poll — decoupled from every other delivery mechanism
+ * — is the only defense that closes ALL of them at once: eventually
+ * every consumer's measured width converges on the real DOM box, no
+ * matter what caused the divergence or which delivery path silently
+ * failed to report it. `STALE_POLL_INTERVAL_MS` trades a bounded
+ * worst-case staleness window against fewer than one extra
+ * `getBoundingClientRect()` read per second per observed element —
+ * negligible against a `ResizeObserver` callback's own cost. Started
+ * in `observe()`, cleared in `stop()`/re-`observe()` like every other
+ * registered resource here (frontend/CLAUDE.md,
+ * resource-ownership-at-mutation-sites).
+ *
  * License: Public Domain (The Unlicense)
  */
 import { onUnmounted, ref, type Ref } from 'vue';
@@ -129,12 +161,22 @@ function measureContentBoxWidth(el: Element): number {
 // literal cited elsewhere, so no external doc reference is warranted.
 const SETTLE_REMEASURE_FRAMES = 6;
 
+// Stale-poll fallback cadence (see this file's own header, "Stale-poll
+// fallback"). 2000ms: frequent enough that a mid-session divergence
+// (a presence toggle, a stopped ResizeObserver) self-heals within a
+// couple of seconds — well under human-perceptible "this feels
+// broken" territory for a chrome-collapse symptom — while staying two
+// orders of magnitude looser than the rAF settle burst above, so it
+// never substitutes for that burst's tighter first-paint guarantee.
+const STALE_POLL_INTERVAL_MS = 2000;
+
 export function useElementWidth(): MeasuredElementWidth {
   const widthPx = ref(0);
   let observer: ResizeObserver | null = null;
   let observedEl: Element | null = null;
   let settleRafId: number | null = null;
   let fontsReadyCancelled = false;
+  let stalePollId: ReturnType<typeof setInterval> | null = null;
 
   // Window-resize fallback (see this file's own header) — force-reads
   // the currently observed element directly, decoupled from whether
@@ -195,6 +237,7 @@ export function useElementWidth(): MeasuredElementWidth {
   function observe(el: Element): void {
     observer?.disconnect();
     cancelSettleRemeasure();
+    if (stalePollId !== null) clearInterval(stalePollId);
     observedEl = el;
     widthPx.value = measureContentBoxWidth(el);
     observer = new ResizeObserver((entries) => {
@@ -204,6 +247,12 @@ export function useElementWidth(): MeasuredElementWidth {
     });
     observer.observe(el);
     scheduleSettleRemeasure();
+    // Stale-poll fallback (see this file's own header) — unconditional,
+    // decoupled from ResizeObserver delivery, window.resize, AND the
+    // settle burst's own short window: the last-resort net that
+    // guarantees `widthPx` cannot stay wrong indefinitely, no matter
+    // which of the other three mechanisms failed to report a change.
+    stalePollId = setInterval(remeasure, STALE_POLL_INTERVAL_MS);
   }
 
   function stop(): void {
@@ -211,6 +260,10 @@ export function useElementWidth(): MeasuredElementWidth {
     observer = null;
     observedEl = null;
     cancelSettleRemeasure();
+    if (stalePollId !== null) {
+      clearInterval(stalePollId);
+      stalePollId = null;
+    }
     window.removeEventListener('resize', remeasure);
   }
 

@@ -262,7 +262,7 @@ frontend/src/
 │   │   ├── useMoveDeltaAnnotation.ts  [B3]  Wiki Wanted #7/#7.1: per-node delta+visits derivation for the board overlay, reused unmodified from the same `useEnrichedData`/`enriched-accumulator` authority MergedDeltaPanel charts against — no separate delta formula. Returns null (absence) when the ledger lacks the node's delta.
 │   │   ├── use-move-suggestions.ts    [B3]  Refined intensity-mapping for KataGo move suggestions.
 │   │   ├── usePassSignal.ts           [B1]  Module-scoped "play a pass" request counter (`requestPass()` / `passRequestCount`), same shape as useMintDialogSignal.ts. Closes the same module-scope-has-no-component-instance gap: the `board.pass` keybinding bumps the counter; App.vue watches it and calls its own `handlePass()` (from useBoardMoveRouting).
-│   │   ├── usePlayFromPosition.ts     [B3]  "Engine plays from here" — looped applyGoMove against a KataGo URL.
+│   │   ├── usePlayFromPosition.ts     [B3]  "Engine plays from here" — looped applyGoMove (or applyPass, for an engine-recommended pass; ledger item engine-pass-throw) against a KataGo URL.
 │   │   ├── useKnownPositionNodes.ts   [B2]  card-position-annotations Stage B: `activeBoardKnownPositionNodeIds` — cache ∩ known-positions Set for the active board, precomputed at the composition layer (mirrors usePlayVsEngine's activeBoardGameHeadIds); no network I/O in the computed itself.
 │   │   ├── usePlayVsEngine.ts         [B3]  Play-vs-engine game-session lifecycle on `BoardState.games`: start (with the engine-turn kick via the injected responder), end, and the green-ring heads set. Extracted from App.vue 2026-06-11.
 │   │   ├── use-pv-animation.ts        [B3]  PV stone-sequence animation (window / instant / sequential modes).

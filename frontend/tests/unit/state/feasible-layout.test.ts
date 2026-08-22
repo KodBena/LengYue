@@ -840,6 +840,103 @@ describe('resolveSideColumnLiveLayout()', () => {
     });
   });
 
+  // ── Drag-regression-0c21 repair (ledger rows 2597/2598): `wrapperFloorPx`
+  //    — the OUTER bar's own honest floor, one level up from `treeFloorPx`.
+  //    ADR-0000 naming: the class is "the divider's drag RANGE is
+  //    non-degenerate — its enforced minimum sits strictly below the
+  //    current allotment whenever reclaimable free space exists — at
+  //    EVERY geometry," never merely "the divider activates beside an
+  //    absent region" (row 2538's own too-narrow naming). This is the
+  //    ADR-0011 Rule 2 mechanized net: a geometry matrix over presence
+  //    on/off × sovereign override on/off × width classes, asserting the
+  //    non-degeneracy property so a re-minted conflation (the floor
+  //    silently tracking the CURRENT allotment instead of the true
+  //    minimum) fails CI instead of needing a commissioner's eyes. ────────
+  describe('wrapperFloorPx: the OUTER bar\'s own honest floor — never a presence-blind reservation for a sibling that is not actually going to render', () => {
+    const WIDE_WRAPPER_PX = 2000; // ample room: controlPanel resolves present at its own floor
+    const NARROW_WRAPPER_PX = 200; // too narrow even for tree's floor (110) + controlPanel's floor (300) + gap
+    const MEDIUM_WRAPPER_PX = 500; // enough for tree's floor but not controlPanel's — auto-demotes
+
+    function othersFor(desiredControlPanel: boolean): readonly SideColumnFixedRegion[] {
+      return [
+        {
+          widgetId: 'controlPanel',
+          track: CONTROL_PANEL_TRACK,
+          desiredVisible: desiredControlPanel,
+          viabilityFloorPx: CONTROL_PANEL_VIABILITY_FLOOR_PX,
+        },
+      ];
+    }
+
+    // The presence-blind quantity the pre-repair static WRAPPER_MIN_WIDTH_PX
+    // constant always reserved, regardless of whether controlPanel was
+    // actually going to render — the "wrong" floor this repair replaces.
+    const PRESENCE_BLIND_FLOOR_PX = 110 + GAP_PX + CONTROL_PANEL_VIABILITY_FLOOR_PX;
+
+    describe('controlPanel explicitly toggled OFF (desiredVisible: false) — the exact live regression geometry', () => {
+      for (const wrapperWidthPx of [NARROW_WRAPPER_PX, MEDIUM_WRAPPER_PX, WIDE_WRAPPER_PX]) {
+        for (const treeSovereignPx of [undefined, 5, 900] as const) {
+          it(`wrapperFloorPx === treeFloorPx (no reservation for the absent sibling) at wrapperWidthPx=${wrapperWidthPx}, treeSovereignPx=${String(treeSovereignPx)}`, () => {
+            const result = resolveSideColumnLiveLayout(
+              baseInput({ wrapperWidthPx, others: othersFor(false), treeSovereignPx }),
+            );
+            const controlPanelOutcome = result.others.find((o) => o.widgetId === 'controlPanel');
+            expect(controlPanelOutcome?.present).toBe(false);
+            expect(result.wrapperFloorPx).toBe(result.treeFloorPx);
+            // The non-degeneracy property itself: the floor sits STRICTLY
+            // below the presence-blind reservation — reclaimable space
+            // (the ~244px stranded live-witnessed at 1920×1080) is honestly
+            // reachable, never conflated with the wider, presence-blind
+            // constant a static floor would have enforced.
+            expect(result.wrapperFloorPx).toBeLessThan(PRESENCE_BLIND_FLOOR_PX);
+          });
+        }
+      }
+    });
+
+    describe('controlPanel desired PRESENT, ample width — reserves exactly its own viability floor (never its full compiled fixed width)', () => {
+      for (const treeSovereignPx of [undefined, 5, 900] as const) {
+        it(`wrapperFloorPx === treeFloorPx + gapPx + controlPanel's own viability floor, treeSovereignPx=${String(treeSovereignPx)}`, () => {
+          const result = resolveSideColumnLiveLayout(
+            baseInput({ wrapperWidthPx: WIDE_WRAPPER_PX, others: othersFor(true), treeSovereignPx }),
+          );
+          const controlPanelOutcome = result.others.find((o) => o.widgetId === 'controlPanel');
+          expect(controlPanelOutcome?.present).toBe(true);
+          expect(result.wrapperFloorPx).toBe(result.treeFloorPx + GAP_PX + CONTROL_PANEL_VIABILITY_FLOOR_PX);
+        });
+      }
+    });
+
+    it('controlPanel desired PRESENT but auto-demoted at a narrow width (the fixpoint\'s own resolved presence, never the merely-desired one): wrapperFloorPx reflects the ACTUAL absence, not the wish', () => {
+      const result = resolveSideColumnLiveLayout(
+        baseInput({ wrapperWidthPx: NARROW_WRAPPER_PX, others: othersFor(true) }),
+      );
+      const controlPanelOutcome = result.others.find((o) => o.widgetId === 'controlPanel');
+      expect(controlPanelOutcome?.present).toBe(false); // NARROW_WRAPPER_PX starves it below its own floor
+      expect(result.wrapperFloorPx).toBe(result.treeFloorPx);
+    });
+
+    it('the invariant this whole repair rests on: wrapperFloorPx never exceeds the presence-blind reservation the static constant used to enforce — this can only ever LOWER the enforced floor, never raise it past what callers already relied on', () => {
+      for (const wrapperWidthPx of [NARROW_WRAPPER_PX, MEDIUM_WRAPPER_PX, WIDE_WRAPPER_PX]) {
+        for (const desiredControlPanel of [true, false]) {
+          for (const treeSovereignPx of [undefined, 5, 900] as const) {
+            const result = resolveSideColumnLiveLayout(
+              baseInput({ wrapperWidthPx, others: othersFor(desiredControlPanel), treeSovereignPx }),
+            );
+            expect(result.wrapperFloorPx).toBeLessThanOrEqual(PRESENCE_BLIND_FLOOR_PX);
+          }
+        }
+      }
+    });
+
+    it('not yet measured (wrapperWidthPx <= 0): degrades to the compiled defaults, presence resolved by DESIRED visibility (no fixpoint has run yet)', () => {
+      const presentResult = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 0, others: othersFor(true) }));
+      expect(presentResult.wrapperFloorPx).toBe(110 + GAP_PX + CONTROL_PANEL_VIABILITY_FLOOR_PX);
+      const absentResult = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 0, others: othersFor(false) }));
+      expect(absentResult.wrapperFloorPx).toBe(110);
+    });
+  });
+
   // ── Row 2501 defense in depth, NARROWED per the review's own obligation
   //    1 (`.claude/dispatch-reports/lyt-cure-repair-review.md`): the
   //    resolver's catch degrades ONLY a genuine `MeasurementRefusalError`

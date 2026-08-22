@@ -52,7 +52,7 @@ import {
 import type { BoardId, BoardState, GameNode, NodeId, QueryId } from '../../types';
 import { asQueryId } from '../../services/query-id';
 import { store } from '../../store';
-import { applyGoMove } from '../../logic';
+import { applyGoMove, applyPass } from '../../logic';
 import { gtpToBoard } from './use-move-suggestions';
 import { getPath } from '../../engine/navigator';
 import { reconcileEngineMoveDelta } from './engine-move-delta-reconcile';
@@ -421,11 +421,12 @@ export async function playEngineMoves(opts: PlayEngineMovesOptions): Promise<Boa
         throw new Error(`playEngineMoves: turn ${expectedTurn} packet has no order-0 moveInfo`);
       }
       const coords = gtpToBoard(best.move);
-      if (!coords) {
-        throw new Error(`playEngineMoves: engine recommended pass at turn ${expectedTurn}`);
-      }
+      // Sibling of `playEngineMatch`'s identical fix (engine-pass-throw,
+      // ledger row 2599 arc) — a pass is a real move, applied via
+      // `applyPass` rather than treated as a failure. See that site's
+      // comment for the full rationale.
       const previousPointer = board.currentNodeId;
-      const next = applyGoMove(board, coords.x, coords.y);
+      const next = coords ? applyGoMove(board, coords.x, coords.y) : applyPass(board);
       if (!next) {
         throw new Error(`playEngineMoves: engine's top move ${best.move} is illegal at turn ${expectedTurn}`);
       }
@@ -700,11 +701,16 @@ export async function playEngineMatch(opts: PlayEngineMatchOptions): Promise<Boa
         throw new Error(`playEngineMatch: turn ${expectedTurn} packet has no order-0 moveInfo`);
       }
       const coords = gtpToBoard(best.move);
-      if (!coords) {
-        throw new Error(`playEngineMatch: engine recommended pass at turn ${expectedTurn}`);
-      }
+      // A pass is a real move in the engine's vocabulary (KataProxy
+      // move semantics: a move IS a state transition), not a failure —
+      // `applyPass` applies it the same way `applyGoMove` applies a
+      // coordinate move (turn flip, new/reused child node), so the
+      // match keeps playing through it rather than crashing. See
+      // `applyGoMove`'s own throw just below for the genuinely-illegal
+      // case, which stays a throw (ADR-0002): `applyPass` never
+      // returns null, so that guard cannot spuriously fire here.
       const previousPointer = matchBoard.currentNodeId;
-      const next = applyGoMove(matchBoard, coords.x, coords.y);
+      const next = coords ? applyGoMove(matchBoard, coords.x, coords.y) : applyPass(matchBoard);
       if (!next) {
         throw new Error(`playEngineMatch: engine's top move ${best.move} is illegal at turn ${expectedTurn}`);
       }

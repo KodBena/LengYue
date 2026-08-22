@@ -259,6 +259,59 @@ describe('computeTreeControlRegionWidthPx — no drag-start clobber', () => {
   });
 });
 
+/**
+ * Drag-regression-0c21 repair (ledger rows 2597/2598): mirrors row
+ * 2578's `computeTreePanelWidthPx — optional minWidthPx` block one level
+ * up. `WRAPPER_MIN_WIDTH_PX` always reserves a FULL `controlPanel` floor
+ * — even when `controlPanel` is currently toggled off and nothing
+ * renders into that reserved space — stranding reclaimable width the
+ * OUTER bar's drag range could never reach (live-witnessed: ~244px at
+ * 1920×1080, the "vast free middle space, divider stuck short of it"
+ * commissioner finding, ledger row 2597 items 1/2). The 4th, optional
+ * `minWidthPx` parameter closes the SAME class of gap
+ * `computeTreePanelWidthPx`'s own 4th parameter closed for the INNER
+ * bar: a caller that supplies the live, presence-aware floor
+ * (`SideColumnLiveLayoutResult.wrapperFloorPx`) gets a drag range whose
+ * minimum is never a presence-blind over-reservation.
+ */
+describe('computeTreeControlRegionWidthPx — optional minWidthPx (drag-regression-0c21 repair, row 2597/2598)', () => {
+  it('defaults to WRAPPER_MIN_WIDTH_PX when omitted — byte-identical to every pre-repair call site', () => {
+    expect(computeTreeControlRegionWidthPx(1400, 100000, MAX_REGION)).toBe(WRAPPER_MIN_WIDTH_PX);
+    expect(computeTreeControlRegionWidthPx(1400, 100000, MAX_REGION, WRAPPER_MIN_WIDTH_PX)).toBe(WRAPPER_MIN_WIDTH_PX);
+  });
+
+  it('a trailing default parameter does not widen the function\'s own arity — the existing "pure function of its own three arguments" pin (resizer-rearch block below) is unaffected', () => {
+    expect(computeTreeControlRegionWidthPx.length).toBe(3);
+  });
+
+  it('reproduces the live regression when the caller ignores the honest floor and controlPanel is absent (77px origin, static WRAPPER_MIN_WIDTH_PX floor, a mere 1px shrink attempt): the drag range degenerates hundreds of px above the true minimum', () => {
+    const stuck = computeTreeControlRegionWidthPx(77, 1, MAX_REGION); // no minWidthPx supplied
+    expect(stuck).toBe(WRAPPER_MIN_WIDTH_PX); // pinned WAY above 77 — the stranded-space defect
+    expect(stuck).toBeGreaterThan(77);
+  });
+
+  it('closes the bug when the SAME live, presence-aware floor the render used (77px — controlPanel absent, nothing to reserve) is threaded through: growing 1px off that floor tracks linearly (78), and a further 1px shrink attempt correctly clamps AT the true floor (77), never at the presence-blind static one', () => {
+    const grown = computeTreeControlRegionWidthPx(77, -1, MAX_REGION, 77); // sign = -1: negative delta GROWS
+    expect(grown).toBe(78); // origin - sign(-1)*delta — continuous, not clamped to a presence-blind floor
+    const backAtFloor = computeTreeControlRegionWidthPx(77, 1, MAX_REGION, 77); // shrink attempt, already at floor
+    expect(backAtFloor).toBe(77); // correctly clamped AT the true (low) floor, not the static 140+188+1 one
+  });
+
+  it('grab-and-hold (zero movement), with the live floor supplied, returns the origin verbatim', () => {
+    expect(computeTreeControlRegionWidthPx(77, 0, MAX_REGION, 77)).toBe(77);
+  });
+
+  it('a floor ABOVE the origin (a caller-supplied value inconsistent with what actually rendered) still clamps — this parameter changes WHICH floor binds, not whether one does', () => {
+    expect(computeTreeControlRegionWidthPx(50, 1, MAX_REGION, 77)).toBe(77);
+  });
+
+  it('the non-degeneracy property itself: a live floor well below the static constant lets the drag actually REACH deep into the reclaimable range (900px more room than the static floor would ever have permitted)', () => {
+    const reached = computeTreeControlRegionWidthPx(880, 803, MAX_REGION, 77);
+    expect(reached).toBe(77); // exactly the wrapper's own honest floor — reclaimable space fully reachable
+    expect(reached).toBeLessThan(WRAPPER_MIN_WIDTH_PX);
+  });
+});
+
 describe('WRAPPER_MIN_WIDTH_PX — derived, not independently chosen', () => {
   it('equals TREE_PANEL_MIN_WIDTH_PX + resizer(1) + CONTROL_PANEL_MIN_WIDTH_PX', () => {
     // The literal 1 (not RESIZER_WIDTH_PX) is deliberate: importing the
