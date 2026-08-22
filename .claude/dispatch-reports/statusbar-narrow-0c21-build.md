@@ -200,7 +200,28 @@ at 1920×1080) shows the nav cluster, Pass, and text baseline all sharing
 one visual height band — no more mismatched dead space around the
 previously-18px Pass button.
 
-## Gates (from `frontend/`, synchronous, foreground, outputs read)
+## §7 — merge + regate against the moved `next` tip
+
+`next` advanced from `0c21780d` to `008c136d` during this session
+(concurrent builder, toolbar/divider hardening —
+`toolbar-space-0c21-build.md`). `git diff --stat 0c21780d..next -- <this
+build's 3 touched source files>` was empty before merging — no conflict
+risk. `git merge next` produced a clean merge (no conflicts, `ort`
+strategy). All three gates below were re-run on the MERGED tree, not just
+the pre-merge one:
+
+- `npx vue-tsc -b --noEmit` — clean, no output.
+- Targeted `npx vitest run` (19 files: every StatusBar suite + every file
+  found via `grep -rl` importing `StatusBar.vue` / `ToolbarMoveNav.vue` /
+  `theme.css`, plus the token-integrity suites) — **661/661 passed.**
+- `npm run build` — clean, 1274 modules transformed.
+- Full `npx vitest run` (whole suite) — **296 files / 3641 passed, 8
+  skipped, 0 failed.** The `system-message-sink.test.ts` flake from the
+  pre-merge full run (see below) did NOT recur here — consistent with it
+  being a pre-existing order-dependent flake, not something this build's
+  changes touch.
+
+## Gates (pre-merge, from `frontend/`, synchronous, foreground, outputs read)
 
 - `npx vue-tsc -b --noEmit` — **clean, no output.**
 - Targeted `npx vitest run` (StatusBar suites + every test file
