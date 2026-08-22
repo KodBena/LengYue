@@ -6,11 +6,40 @@
  * `Pass` button and `B: 0 · W: 0` captures were off-screen and
  * unreachable (`#status-bar` `scrollWidth 530` vs `clientWidth 420`,
  * no scrollbar); at 1280×1024 the same class recurred against the
- * captures span. The fix (`.claude/dispatch-reports/lyt-n1-statusbar.md`)
- * tightens `.status-bar--narrow`'s existing collapse — a fixed 90px
- * `.player-names` cap (replacing a `40%` cap that measured live at
- * ~250px against a 647px bar, per that report's root-cause finding)
- * plus tighter gaps/padding already declared elsewhere in the file.
+ * captures span. The original fix (`.claude/dispatch-reports/
+ * lyt-n1-statusbar.md`) tightened `.status-bar--narrow`'s collapse with
+ * a fixed 90px `.player-names` cap plus tighter gaps/padding.
+ *
+ * Superseded, status-bar-narrow-0c21
+ * (`.claude/dispatch-reports/statusbar-narrow-0c21-build.md`): that
+ * flat 90px cap turned out to be a STEP FUNCTION independent of how
+ * much room the bar actually had the instant `narrow` engaged — live-
+ * witnessed re-occluding BOTH player names entirely (`~/ys/0c21_status
+ * _bar_...png`) at a bar width where the ephemeral `.transient-hint`
+ * slot (almost always empty) was still absorbing hundreds of free
+ * pixels the names could have used instead. Below that, an even
+ * narrower width (`~/ys/63a0_gaslighted.png`) reproduced a deeper
+ * defect: `.player-names`' own `min-width: 32px` floor, combined with
+ * `.status-left`'s `min-width: 0` (S4), let the names OVERFLOW
+ * `.status-left`'s shrunk box directly into `.status-right`, visually
+ * corrupting the `Pass` button.
+ *
+ * The current fix (three composing mechanisms, each pinned below):
+ * 1. The flat 90px cap is REMOVED — `.player-names` flexes the same
+ *    way in every tier, genuinely reactive to available width.
+ * 2. `.status-bar--narrow .transient-hint` gets `flex-grow: 0` — the
+ *    ephemeral hint slot yields its claim on surplus width to player
+ *    identity in the tier where space is actually scarce.
+ * 3. `.status-bar` reserves a `gap` between its three direct children
+ *    (`.status-left` / `.transient-hint` / `.status-right`) — a
+ *    structural minimum separation regardless of how any of the three
+ *    end up sized, closing the active-turn ring's outline-bleed class.
+ * 4. Below `STATUS_BAR_ULTRA_NARROW_THRESHOLD_PX` (300px, a SECOND,
+ *    independently-committed breakpoint —
+ *    `StatusBar-ultra-narrow.test.ts` covers this tier and the
+ *    control-height unification together), `.status-right` moves to
+ *    its own second flex line — closing the class `gap` alone cannot
+ *    (a child overflowing its OWN shrunk parent, not a sibling gap).
  *
  * jsdom has no real flex/text layout, so this file follows the SAME
  * two-part convention `ToolbarEngineMetrics-overlap-fix.test.ts` and
@@ -18,17 +47,15 @@
  *
  *   1. A computed-style pin (the `status-bar-hint-no-reflow.test.ts`
  *      idiom — install the SFC's own `<style scoped>` block as a real
- *      stylesheet, then read `getComputedStyle`) confirming the fixed
- *      `max-width` / tightened `gap` / `padding` declarations this fix
- *      depends on are actually present on the rendered `.status-bar`
- *      when narrow.
+ *      stylesheet, then read `getComputedStyle`) confirming the
+ *      current declarations this fix depends on are actually present.
  *   2. An arithmetic no-overflow check using REAL widths measured via
  *      an isolated live-rig Playwright probe against the real theme
- *      font stack (`.claude/dispatch-reports/lyt-n1-statusbar.md`,
- *      worst-case content: a 245-move game, 27/19 captures, two
- *      33-40-character player names) — reused verbatim as named
- *      constants, not re-derived here, same discipline the two
- *      existing files above already follow.
+ *      font stack (`.claude/dispatch-reports/
+ *      statusbar-narrow-0c21-build.md`, worst-case content: a 245-move
+ *      game, 27/19 captures, two 33/34-character player names) —
+ *      reused verbatim as named constants, not re-derived here, same
+ *      discipline the two existing files above already follow.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -84,7 +111,7 @@ function worstCaseBoardWithMetadata(): { board: BoardState; metadata: { blackNam
   };
 }
 
-describe('StatusBar — narrow-mode no-overflow (N1/N4 fix)', () => {
+describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c21 revision)', () => {
   let wrapper: VueWrapper | null = null;
 
   afterEach(() => {
@@ -92,7 +119,7 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix)', () => {
     wrapper = null;
   });
 
-  describe('computed-style pin — the tightened narrow-mode declarations exist', () => {
+  describe('computed-style pin — the current narrow-mode declarations', () => {
     beforeEach(() => {
       const { board, metadata } = worstCaseBoardWithMetadata();
       wrapper = mount(StatusBar, {
@@ -107,20 +134,25 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix)', () => {
       wrapper.find('.status-bar').element.classList.add('status-bar--narrow');
     });
 
-    it('.player-names gets a FIXED px cap, not a percentage (the root cause this fix closes)', () => {
+    it('.player-names carries NO narrow-mode max-width — the flat cap is removed, not retuned', () => {
+      // status-bar-narrow-0c21: the former fixed 90px cap engaged the
+      // instant `narrow` flipped, regardless of how much of the bar's
+      // width was actually free — the root cause of both names
+      // rendering fully elided while `.transient-hint` sat on hundreds
+      // of unused pixels. Asserting its ABSENCE (not a new value) is
+      // the correct pin: no rule should reintroduce a step-function
+      // ceiling on this element in this tier.
       const el = wrapper!.find('.player-names').element;
       const maxWidth = getComputedStyle(el).maxWidth;
-      expect(maxWidth).toBe('90px');
-      expect(maxWidth.endsWith('%')).toBe(false);
+      expect(maxWidth === 'none' || maxWidth === '').toBe(true);
+
       // Item 1 (occluded-names REOPENED, mandate addendum) / defect (f)
-      // repair (statusbar-cards-completion-build): the ellipsis/nowrap/
-      // overflow declarations live on the INNER `.player-name-text` span
-      // now, not on `.player-name` itself — moving the clip boundary off
-      // the chip so the active-turn ring (painted OUTSIDE the chip's
-      // border box) is never clipped by the ellipsis affordance's own
-      // `overflow: hidden`. See `StatusBar.vue`'s own comment on
-      // `.player-name-text` for the full derivation. Both names' inner
-      // text spans carry them equally — "neither name is privileged".
+      // repair (statusbar-cards-completion-build), unchanged by this
+      // revision: the ellipsis/nowrap/overflow declarations live on the
+      // INNER `.player-name-text` span, not on `.player-name` itself —
+      // moving the clip boundary off the chip so the active-turn ring
+      // (painted OUTSIDE the chip's own border box) is never clipped by
+      // the ellipsis affordance's own `overflow: hidden`.
       const blackNameText = wrapper!.find('.player-name--black .player-name-text').element;
       const whiteNameText = wrapper!.find('.player-name--white .player-name-text').element;
       for (const nameEl of [blackNameText, whiteNameText]) {
@@ -128,14 +160,31 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix)', () => {
         expect(getComputedStyle(nameEl).overflow).toBe('hidden');
         expect(getComputedStyle(nameEl).textOverflow).toBe('ellipsis');
       }
-      // `.player-name` itself no longer clips — this is the structural
-      // half of the fix (defect f): the chip's ring has no clipping
-      // ancestor at all now, on any edge.
       const blackName = wrapper!.find('.player-name--black').element;
       const whiteName = wrapper!.find('.player-name--white').element;
       for (const nameEl of [blackName, whiteName]) {
         expect(getComputedStyle(nameEl).overflow).not.toBe('hidden');
       }
+    });
+
+    it('.status-bar--narrow .transient-hint yields its flex-grow to player identity', () => {
+      // status-bar-narrow-0c21: the mechanism that makes removing the
+      // 90px cap safe — the ephemeral hint slot (base rule: `flex-grow:
+      // 1`, almost always empty) no longer competes with `.player-names`
+      // for the bar's surplus once the bar is genuinely narrow.
+      const hint = wrapper!.find('.transient-hint').element;
+      expect(getComputedStyle(hint).flexGrow).toBe('0');
+    });
+
+    it('.status-bar reserves a minimum gap between its three direct children', () => {
+      // status-bar-narrow-0c21: the structural overlap guard — closes
+      // the active-turn ring's outline-bleed class regardless of how
+      // `.transient-hint` or `.player-names` end up sized. Unlike the
+      // narrow-mode-only `.status-left`/`.status-right` internal gaps
+      // (below), this one lives on the OUTER `.status-bar` and applies
+      // at every width tier, not just narrow.
+      const bar = wrapper!.find('.status-bar').element;
+      expect(getComputedStyle(bar).gap).toBe('var(--space-default)');
     });
 
     it('.status-left / .status-right gaps tighten to --space-tight in narrow mode', () => {
@@ -181,46 +230,50 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix)', () => {
     });
   });
 
-  describe('arithmetic no-overflow check — real widths from the live rig probe', () => {
+  describe('arithmetic no-overflow check — real widths from the status-bar-narrow-0c21 live rig probe', () => {
     // Real widths measured via an isolated live-rig Playwright probe
-    // (`.claude/dispatch-reports/lyt-n1-statusbar.md`) against the
-    // theme's real font stack, worst-case content (245-move game,
-    // 27/19 captures, ~33-40-char player names), narrow mode engaged.
-    // Reused verbatim, not re-derived — same discipline
+    // (`.claude/dispatch-reports/statusbar-narrow-0c21-build.md`)
+    // against the theme's real font stack, worst-case content
+    // (long player names, heavy captures), narrow mode engaged, at the
+    // documented floor (420px) and just above the ultra-narrow
+    // breakpoint (310px) where `.player-names` sits at its `min-width:
+    // 32px` floor rather than a cap (there is no cap any more — see
+    // above). Reused verbatim, not re-derived — same discipline
     // `ToolbarEngineMetrics-overlap-fix.test.ts`'s own
     // `EVAL_SUMMARY_WORST_CASE_PX` follows.
     const TOOLBAR_MOVE_NAV_PX = 84.8;
     const MOVE_BADGE_PX = 56;
-    const PLAYER_NAMES_CAPPED_PX = 90; // the fixed max-width itself
+    const PLAYER_NAMES_FLOOR_PX = 32; // `.player-names`' own min-width — the terminal floor, not a cap
     const PASS_BTN_PX = 36.2;
     const CAPS_PX = 78;
     const NARROW_GAP_PX = 4; // --space-tight, 2 gaps in .status-left + 1 in .status-right
     const BAR_PADDING_PX = 4; // --space-tight, both sides
+    const BAR_GAP_PX = 8; // --space-default, reserved between .status-bar's 3 direct children (2 gaps)
 
-    // .status-left: nav + gap + move-badge + gap + player-names
-    const STATUS_LEFT_PX = TOOLBAR_MOVE_NAV_PX + NARROW_GAP_PX + MOVE_BADGE_PX + NARROW_GAP_PX + PLAYER_NAMES_CAPPED_PX;
+    // .status-left: nav + gap + move-badge + gap + player-names (at its floor)
+    const STATUS_LEFT_PX = TOOLBAR_MOVE_NAV_PX + NARROW_GAP_PX + MOVE_BADGE_PX + NARROW_GAP_PX + PLAYER_NAMES_FLOOR_PX;
     // .status-right: pass-btn + gap + caps
     const STATUS_RIGHT_PX = PASS_BTN_PX + NARROW_GAP_PX + CAPS_PX;
-    // .status-bar: left padding + status-left + status-right + right padding
-    // (.transient-hint is flex-grow:1/flex-shrink:1/min-width:0 — it
-    // never adds to the MINIMUM required width; it only absorbs
-    // whatever slack remains once everything else has its space).
-    const MINIMUM_BAR_WIDTH_PX = BAR_PADDING_PX + STATUS_LEFT_PX + STATUS_RIGHT_PX + BAR_PADDING_PX;
+    // .status-bar: left padding + status-left + 2 reserved bar gaps (hint collapses to 0) + status-right + right padding
+    const MINIMUM_BAR_WIDTH_PX = BAR_PADDING_PX + STATUS_LEFT_PX + 2 * BAR_GAP_PX + STATUS_RIGHT_PX + BAR_PADDING_PX;
 
-    it('minimum required width (365px witnessed) fits comfortably under 420px, WITH margin', () => {
-      expect(MINIMUM_BAR_WIDTH_PX).toBeCloseTo(365, 0);
+    it('minimum required width fits comfortably under 420px (this codebase\'s documented narrow floor), WITH margin', () => {
       expect(MINIMUM_BAR_WIDTH_PX).toBeLessThan(420);
       // Margin, not just "fits" — a future label/spacing tweak that
       // eats the margin down to zero should be caught here rather
       // than only live (same discipline as the eval/health overlap
       // test's own margin assertion).
       const marginAt420 = 420 - MINIMUM_BAR_WIDTH_PX;
-      expect(marginAt420).toBeGreaterThan(40);
+      expect(marginAt420).toBeGreaterThan(30);
     });
 
-    it('minimum required width fits under 1280px\'s own witnessed 647px bar track (N4\'s viewport)', () => {
-      const BAR_WIDTH_1280 = 647; // live-measured .status-bar width at 1280×1024 in this rig's layout
-      expect(MINIMUM_BAR_WIDTH_PX).toBeLessThan(BAR_WIDTH_1280);
+    it('minimum required width sits ABOVE the ultra-narrow breakpoint (300px) — the two tiers don\'t overlap', () => {
+      // If this ever went the other way (minimum need dropping below
+      // 300px), the ultra-narrow tier's own second-line wrap
+      // (`StatusBar-ultra-narrow.test.ts`) would be reachable from a
+      // width where a single line was still supposed to work — a
+      // tier-boundary inconsistency this assertion catches.
+      expect(MINIMUM_BAR_WIDTH_PX).toBeGreaterThan(300);
     });
 
     it('Pass and captures both land fully inside a 420px track (no off-screen positioning)', () => {
@@ -229,15 +282,15 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix)', () => {
       const leftStart = BAR_PADDING_PX;
       const navRight = leftStart + TOOLBAR_MOVE_NAV_PX;
       const badgeRight = navRight + NARROW_GAP_PX + MOVE_BADGE_PX;
-      const namesRight = badgeRight + NARROW_GAP_PX + PLAYER_NAMES_CAPPED_PX;
+      const namesRight = badgeRight + NARROW_GAP_PX + PLAYER_NAMES_FLOOR_PX;
       expect(namesRight).toBeLessThanOrEqual(STATUS_LEFT_PX + BAR_PADDING_PX);
 
-      // .status-right is right-aligned against the bar's own right edge
-      // (justify-content: space-between, with .transient-hint absorbing
-      // the middle slack) — so its rightmost content sits at
-      // TRACK_WIDTH - BAR_PADDING_PX exactly when there's zero slack
-      // (the worst case for reachability), and Pass/caps are laid out
-      // left-to-right within that block.
+      // .status-right sits after .status-left plus the two reserved
+      // bar gaps (`.transient-hint` collapses to 0 between them) — so
+      // its rightmost content sits at TRACK_WIDTH - BAR_PADDING_PX
+      // exactly when there's zero slack (the worst case for
+      // reachability), and Pass/caps are laid out left-to-right within
+      // that block.
       const TRACK_WIDTH = 420;
       const rightBlockLeft = TRACK_WIDTH - BAR_PADDING_PX - STATUS_RIGHT_PX;
       const passLeft = rightBlockLeft;
@@ -256,13 +309,19 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix)', () => {
       // track, which is the geometric precondition
       // `document.elementFromPoint` reachability depends on — the
       // live rig probe (linked in this file's header) performed the
-      // real `elementFromPoint` hit-test and confirmed both reachable.
+      // real geometry measurement and confirmed both reachable, no
+      // overlap, at this width.
       const passCenter = (passLeft + passRight) / 2;
       const capsCenter = (capsLeft + capsRight) / 2;
       expect(passCenter).toBeGreaterThan(0);
       expect(passCenter).toBeLessThan(TRACK_WIDTH);
       expect(capsCenter).toBeGreaterThan(0);
       expect(capsCenter).toBeLessThan(TRACK_WIDTH);
+
+      // No overlap: `.player-names`' rightmost extent (namesRight) sits
+      // strictly before Pass's leftmost extent (passLeft), with the
+      // reserved bar gap (at minimum) between them.
+      expect(passLeft - namesRight).toBeGreaterThanOrEqual(BAR_GAP_PX);
     });
   });
 });

@@ -65,7 +65,15 @@ const nav = useNavigation();
    floor. min-height is a floor only (padding/border/font-size, i.e. the
    visual language, are untouched); flex-centering keeps the |</>| glyphs
    centred in the taller box. Mirrored in Toolbar.vue's copy of this same
-   rule — see this file's own header note on why the two copies exist. */
+   rule — see this file's own header note on why the two copies exist.
+   `--control-height-min` (status-bar-narrow-0c21, theme.css): this bar
+   mounts directly beside `StatusBar.vue`'s own Pass/komi controls, which
+   were witnessed rendering at a shorter, unfloored height — same G30
+   literal, two independent authoring sites, no shared home (ADR-0012 P1).
+   Reading the token here instead of the bare `24px` this rule always used
+   is what makes `StatusBar.vue`'s own `.pass-btn`/`.komi-input` height fix
+   an actual guarantee of parity rather than two literals that happen to
+   agree today. */
 .toolbar-btn {
   background: var(--surface-0);
   border: 1px solid var(--border-3);
@@ -77,7 +85,7 @@ const nav = useNavigation();
   font-family: 'Courier New', monospace;
   text-transform: uppercase;
   letter-spacing: var(--tracking-tight);
-  min-height: 24px;
+  min-height: var(--control-height-min);
   display: inline-flex;
   align-items: center;
   justify-content: center;

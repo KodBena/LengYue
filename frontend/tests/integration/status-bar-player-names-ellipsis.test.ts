@@ -84,6 +84,18 @@
  * see `StatusBar-player-names-ample-width.test.ts` for the dedicated
  * ample-width companion suite.
  *
+ * Addendum (status-bar-narrow-0c21): the narrow tier's own flat 90px
+ * `.player-names` cap (introduced by `.claude/dispatch-reports/
+ * lyt-n1-statusbar.md`, pinned by this file's last test above) is
+ * REMOVED — live-witnessed re-occluding both names entirely at a
+ * narrower bar width than the cap ever engaged at, while the bar's
+ * ephemeral `.transient-hint` slot absorbed the freed space instead
+ * (`.claude/dispatch-reports/statusbar-narrow-0c21-build.md`). See
+ * `StatusBar.vue`'s own removal note on that former rule for the full
+ * derivation. The last test in this file is updated in place to assert
+ * the rule's ABSENCE rather than its value — the symmetric-degradation
+ * property it protects is otherwise unchanged.
+ *
  * License: Public Domain (The Unlicense)
  */
 
@@ -316,33 +328,36 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
     expect(blackChip.parentElement?.className).toContain('player-name--black');
   });
 
-  it('narrow mode: symmetric degradation — a single shared ceiling on `.player-names` squeezes both names equally, not one first — contract (b)', () => {
+  it('narrow mode: symmetric degradation — both names share `.player-names`\' width equally, not one first — contract (b)', () => {
     const { board, metadata } = boardWithMetadata('Black', 'White');
     wrapper = mount(StatusBar, {
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
 
-    // jsdom has no ResizeObserver (per this file's own onMounted guard),
-    // so `statusBarNarrow` never flips true here — this asserts the RULE
-    // exists and targets `.player-names` (the shared ceiling both names
-    // are constrained under) with the expected ceiling, mirroring this
-    // test tree's stated posture of asserting on CSS shape rather than
-    // on a layout jsdom cannot produce.
+    // Superseded, status-bar-narrow-0c21: the flat 90px `.status-bar--
+    // narrow .player-names` ceiling is REMOVED (see that rule's own
+    // removal note in StatusBar.vue — it was a step function independent
+    // of genuine available width, starving names even when the bar had
+    // hundreds of free pixels going to the ephemeral `.transient-hint`
+    // slot instead). `.player-names` now flexes the SAME way in every
+    // tier — this test's own title survives ("symmetric degradation");
+    // its former proof (a shared literal ceiling) does not, because
+    // there is no longer a ceiling to point at. Confirmed instead: no
+    // narrow-mode `max-width` rule targets `.player-names` at all.
     const styleText = readStatusBarStyleBlock();
     const narrowRuleMatch = styleText.match(/\.status-bar--narrow \.player-names\s*{([^}]*)}/);
-    expect(narrowRuleMatch).toBeTruthy();
-    expect(narrowRuleMatch![1]).toContain('max-width: 90px');
+    expect(narrowRuleMatch).toBeNull();
 
     // Because `.player-names` is `display: flex` with two `.player-name`
     // children (each `flex: 1 1 auto`, basis = the name's OWN natural
     // width — statusbar-cards-completion-build, defect (a)'s second
     // reopening: `flex-basis: 0` silently zeroed each name's contribution
     // to `.player-names`' own max-content size up the tree, so `auto` is
-    // the fix, not a shared literal), constraining `.player-names`' width
-    // via this narrow-mode `max-width` still squeezes both names'
-    // proportional to their own content — neither is asked to give up
-    // more than a proportional share. The ellipsis affordance itself now
+    // the fix, not a shared literal), whatever width `.player-names`
+    // itself ends up with (ample or narrow) is shared PROPORTIONALLY
+    // between the two `flex: 1 1 auto` children — neither is asked to
+    // give up more than its own share. The ellipsis affordance itself
     // lives on the inner `.player-name-text` span (defect f). Confirmed
     // against the LIVE computed style of both text spans (not just the
     // rule text), so this assertion tracks the actual cascade.

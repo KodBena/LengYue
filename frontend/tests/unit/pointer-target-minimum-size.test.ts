@@ -183,13 +183,22 @@ describe('RegistryEditor.vue — .restore-btn clears 24x24 (G30, rows 1556/1561)
 describe('StatusBar.vue — .move-numbers-btn clears 24x24 (G30, rows 1556/1561)', () => {
   // Witnessed 14x10.
   const rule = /\.move-numbers-btn\s*\{[^}]*\}/.exec(src('src/components/board/StatusBar.vue'))![0];
-  it('carries explicit min-width and min-height >= 24px', () => {
-    const w = /min-width:\s*(\d+)px/.exec(rule);
-    const h = /min-height:\s*(\d+)px/.exec(rule);
+  // status-bar-narrow-0c21: the bare `24px` literal this rule used to
+  // carry is now `var(--control-height-min)` — the SAME anchor
+  // `.pass-btn` and `ToolbarMoveNav.vue`'s `.toolbar-btn` read (ADR-0012
+  // P1, minted in theme.css). The token-vs-literal distinction is
+  // NOT what this suite polices (a separate suite,
+  // `StatusBar-ultra-narrow-and-control-height.test.ts`, pins that the
+  // token itself resolves to 24px and that all four consumers share
+  // it) — this suite's job is just "the effective floor is >= 24px",
+  // which the token form still satisfies.
+  it('carries explicit min-width and min-height >= 24px (a literal or the shared --control-height-min token)', () => {
+    const w = /min-width:\s*(?:(\d+)px|var\(--control-height-min\))/.exec(rule);
+    const h = /min-height:\s*(?:(\d+)px|var\(--control-height-min\))/.exec(rule);
     expect(w).not.toBeNull();
     expect(h).not.toBeNull();
-    expect(Number(w![1])).toBeGreaterThanOrEqual(24);
-    expect(Number(h![1])).toBeGreaterThanOrEqual(24);
+    expect(w![1] === undefined ? 24 : Number(w![1])).toBeGreaterThanOrEqual(24);
+    expect(h![1] === undefined ? 24 : Number(h![1])).toBeGreaterThanOrEqual(24);
   });
   it('stays visually unpainted (transparent background, no border) so only the hit box grew', () => {
     expect(rule).toMatch(/background:\s*transparent/);
@@ -218,10 +227,17 @@ describe('.toolbar-btn clears the 24px height floor at every scoped-CSS copy (G3
   ]) {
     describe(file, () => {
       const rule = /(?:^|\n)\.toolbar-btn\s*\{[^}]*\}/.exec(src(file))![0];
-      it('carries an explicit min-height >= 24px', () => {
-        const m = /min-height:\s*(\d+)px/.exec(rule);
+      // status-bar-narrow-0c21: `ToolbarMoveNav.vue`'s copy now reads
+      // `var(--control-height-min)` (ADR-0012 P1 — the same anchor
+      // `StatusBar.vue`'s `.pass-btn`/`.komi-input`/`.move-numbers-btn`
+      // read) instead of an independent `24px` literal; the OTHER two
+      // files' copies are untouched (out of that fix's scope) and still
+      // carry the bare literal — both forms satisfy this suite's
+      // ">= 24px effective floor" check.
+      it('carries an explicit min-height >= 24px (a literal or the shared --control-height-min token)', () => {
+        const m = /min-height:\s*(?:(\d+)px|var\(--control-height-min\))/.exec(rule);
         expect(m).not.toBeNull();
-        expect(Number(m![1])).toBeGreaterThanOrEqual(24);
+        expect(m![1] === undefined ? 24 : Number(m![1])).toBeGreaterThanOrEqual(24);
       });
       it('padding/font-size (the visual language) are untouched by this pass', () => {
         expect(rule).toMatch(/padding:\s*1px 5px/);

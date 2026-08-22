@@ -85,12 +85,34 @@ import { komiDomainStep } from '../../engine/katago/komi-calibration';
 // reorganization must not flip superimposed on that gesture either.
 const STATUS_BAR_NARROW_THRESHOLD_PX = 700;
 
+// status-bar-narrow-0c21: a SECOND breakpoint, added despite the N1/N4
+// report below (which tried and reverted a two-tier design for A
+// DIFFERENT defect — see its own §5.1). That report's two causes both
+// stayed inside the single `narrow` tier because tightening
+// spacing/gaps was enough down to the 420px documented floor. This one
+// is a different failure CLASS, live-probed below that floor
+// (~300px, `.claude/dispatch-reports/statusbar-narrow-0c21-build.md`):
+// `.player-names` (now genuinely flexible, no flat cap — see that
+// rule's own comment) sharing `.status-left`'s space with the nav
+// cluster and move-badge eventually hits a floor (bare stone chips, no
+// name text) that ITSELF no longer fits beside `.status-right` on one
+// line — and because `.status-left` carries `min-width: 0` (S4, so it
+// can shrink for the FIRST cause), its child can overflow `.status-
+// left`'s own shrunk box directly into `.status-right`'s territory,
+// reproducing the overlap regardless of the reserved `.status-bar`
+// `gap`. `ultraNarrow` moves `.status-right` to its own second line
+// instead (CSS below) — a discrete reorganization exactly like
+// `narrow` itself, so it gets its own committed/deferred breakpoint
+// for the SAME drag-continuity reason `narrow` already has one.
+const STATUS_BAR_ULTRA_NARROW_THRESHOLD_PX = 300;
+
 // N1/N4 (LYT finish-pass-2, `.claude/dispatch-reports/lyt-finish-pass-2.md`):
 // narrow mode's own G12 collapse (above) still wasn't enough — a live
 // rig re-measurement (`.claude/dispatch-reports/lyt-n1-statusbar.md`)
 // found TWO compounding causes, both fixed below, both still inside
 // this single `narrow` tier (no second breakpoint added — see that
-// report for why a two-tier design was tried and reverted):
+// report for why a two-tier design was tried and reverted, for THAT
+// defect class; `ultraNarrow` above is a different one):
 //
 // 1. `.player-names`' old `max-width: 40%` doesn't resolve against a
 //    small "just enough" basis the way the mental model of "cap the
@@ -118,6 +140,12 @@ const STATUS_BAR_NARROW_THRESHOLD_PX = 700;
 const statusBarRef = ref<HTMLElement | null>(null);
 const { committed: statusBarNarrow, observe: observeStatusBarWidth, stop: stopObservingStatusBarWidth } =
   useDeferredContainerBreakpoint(STATUS_BAR_NARROW_THRESHOLD_PX);
+// status-bar-narrow-0c21: a second, independent breakpoint instance
+// against the SAME element — the composable is generic over one
+// threshold, so a second tier is a second call, not a parameter. Each
+// keeps its own hysteresis/drag-continuity state; they don't interact.
+const { committed: statusBarUltraNarrow, observe: observeStatusBarUltraNarrowWidth, stop: stopObservingStatusBarUltraNarrowWidth } =
+  useDeferredContainerBreakpoint(STATUS_BAR_ULTRA_NARROW_THRESHOLD_PX);
 
 // `typeof ResizeObserver !== 'undefined'` guard: mirrors
 // `useResizablePanel.ts`'s `attachRowObserver` convention — jsdom (this
@@ -132,10 +160,12 @@ const { committed: statusBarNarrow, observe: observeStatusBarWidth, stop: stopOb
 onMounted(() => {
   if (statusBarRef.value && typeof ResizeObserver !== 'undefined') {
     observeStatusBarWidth(statusBarRef.value);
+    observeStatusBarUltraNarrowWidth(statusBarRef.value);
   }
 });
 onUnmounted(() => {
   stopObservingStatusBarWidth();
+  stopObservingStatusBarUltraNarrowWidth();
 });
 
 // Toggle the persisted `session.ui.showStoneMoveNumbers` flag and bump
@@ -265,7 +295,11 @@ const moveNumber = computed((): number => {
 </script>
 
 <template>
-  <div class="status-bar" ref="statusBarRef" :class="{ 'status-bar--narrow': statusBarNarrow }">
+  <div
+    class="status-bar"
+    ref="statusBarRef"
+    :class="{ 'status-bar--narrow': statusBarNarrow, 'status-bar--ultra-narrow': statusBarUltraNarrow }"
+  >
     <div class="status-left">
       <!-- Move-navigation cluster (item 1, see header comment above) —
            leftmost, board-adjacent, genre position (Sabaki/KaTrain/
@@ -334,23 +368,53 @@ const moveNumber = computed((): number => {
 </template>
 
 <style scoped>
-/* magic-literal: 20px `.status-bar` min-height. The at-rest floor —
-   chosen as the compact-but-legible band for a single line of
-   text-emphasis (~13px) bracketed by a 1px border-top, leaving ~19px
-   interior. `min-height` (not `height`, iter-15): the bar grows if
-   the actual rendered content (Move-badge font + bold monospace +
-   padding) exceeds the 19px interior at any given browser/font
-   combination. Without that, `align-items: center` distributed the
-   overflow equally above and below — text visibly crossed the
-   border-top line. */
+/* status-bar-narrow-0c21: `min-height` raised from a standalone 20px
+   literal to `--control-height-min` (theme.css, 24px — the G30
+   pointer-target floor `ToolbarMoveNav.vue`'s nav cluster already
+   requires). The 20px figure predates that cluster's relocation into
+   this bar (see the header comment above on item 1 "BOARD CONTROLS GO
+   TO THE BOARD") — once the nav buttons mounted here, their own G30
+   floor already forced the row to 24px regardless of this
+   declaration, so the two numbers had silently drifted apart (a
+   `min-height` that no longer described the bar's real floor). Reading
+   the same token nav/Pass/komi now share makes the four agree by
+   construction instead of by coincidence — no more mismatched-height
+   dead space around whichever control was shorter than the row nav
+   buttons already forced it to be. `min-height` (not `height`,
+   iter-15, unchanged): the bar still grows past the floor if content
+   ever needs more at some font/browser combination. */
 .status-bar {
-  min-height: 20px;
+  min-height: var(--control-height-min);
   background: var(--surface-2);
   border-top: 1px solid var(--border-1);
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 var(--space-default);
+  /* status-bar-narrow-0c21: a reserved minimum gap between the three
+     direct children (`.status-left` / `.transient-hint` /
+     `.status-right`) — NOT a tuning choice, a structural guarantee.
+     `.transient-hint` (below) is `flex-grow: 1` / `flex-basis: 0` and
+     legitimately shrinks to 0px whenever `.status-left`'s own content
+     already fills the bar (witnessed live at narrow widths down to
+     ~290px, `status-bar-narrow-0c21` rig probe) — at that point,
+     without a reserved gap, `.status-left`'s last rendered content (the
+     white `.stone-chip`) sits FLUSH against `.status-right`'s first
+     content (`.pass-btn`), and the active-turn ring's `outline`
+     (deliberately laid outside the chip's border box, "takes no layout
+     space" — see `.stone-chip.active`'s own comment) visually bleeds
+     ~4px into the Pass button with no DOM-level overlap needed to
+     produce it. `--space-default` (8px) clears that 3px bleed
+     (outline-width 2px + outline-offset 1px) with margin to spare at
+     every width down to where `.status-right` still shares line 1 with
+     `.status-left`. Below that (the `.status-bar--ultra-narrow` tier,
+     further down this file), `.status-right` moves to its own second
+     line instead — this gap alone cannot close that class, since it
+     only reserves space BETWEEN `.status-bar`'s direct children, not
+     against a child's own descendant (`.player-names`) overflowing its
+     shrunk parent's box; the two mechanisms compose, one is not a
+     substitute for the other. */
+  gap: var(--space-default);
   font-size: var(--text-emphasis);
   color: var(--text-0);
   flex-shrink: 0;
@@ -447,8 +511,11 @@ const moveNumber = computed((): number => {
    `white-space` rule at all, so a squeezed bar broke it mid-phrase
    ("Black" / "vs" / "White" across two lines, witnessed at 1366×768)
    instead of eliding gracefully. `min-width` floors it at a few
-   characters plus a stone chip so it never collapses to nothing; the
-   narrow-mode override below tightens the ceiling further.
+   characters plus a stone chip so it never collapses to nothing.
+   (status-bar-narrow-0c21: narrow mode no longer adds its own flat
+   `max-width` ceiling here — see that rule's own removal note further
+   below — `.player-names` now flexes the same way in both tiers,
+   reactive to whatever room `.status-left` actually has.)
 
    Item 4 (occluded-names regression, mandate addendum): S4's own fix
    still silently clipped mid-word with NO "…" affordance — witnessed as
@@ -676,13 +743,17 @@ const moveNumber = computed((): number => {
    dashed` on a 12px-tall unpadded box reads, at zoom, as a rendering
    fault rather than a control — no box, no click affordance beyond
    `cursor: text`, and far below any usable pointer target. A full
-   border + padding gives it an honest field outline and a ~20px hit
-   target (matching `.status-bar`'s own min-height) without departing
-   from the bar's low-contrast register — `border-3` is the same
-   token the dashed underline already used. */
+   border + padding gives it an honest field outline and a real pointer
+   target without departing from the bar's low-contrast register —
+   `border-3` is the same token the dashed underline already used.
+   status-bar-narrow-0c21: raised from a standalone 20px to the shared
+   `--control-height-min` token (theme.css) — the same height
+   `.pass-btn`/`ToolbarMoveNav.vue`'s `.toolbar-btn` now read — so every
+   control in this row agrees on one floor instead of three
+   independently-chosen numbers that happened to be close. */
 .komi-input {
   width: 42px;
-  min-height: 20px;
+  min-height: var(--control-height-min);
   box-sizing: border-box;
   background: transparent;
   border: 1px solid var(--border-3);
@@ -749,47 +820,22 @@ const moveNumber = computed((): number => {
 .status-bar--narrow .game-info {
   display: none;
 }
-/* N1/N4 fix (rig witness, `.claude/dispatch-reports/lyt-n1-statusbar.md`):
-   `max-width` changed from `40%` to a fixed 90px, and several
-   already-present spacing/padding declarations tightened alongside it
-   — see below. Two compounding causes, both witnessed live:
-   1. A percentage `max-width` on a flex-item descendant of an
-      auto-width (shrink-to-fit) `.status-left` does not resolve
-      against a small "just enough" basis the way a mental model of
-      "cap the low-priority segment" suggests — Chromium resolved it
-      against the BAR's own width, so at a witnessed 647px bar width
-      the "capped" element still rendered ~250px wide, alone
-      accounting for a third of a 759px natural need against a 647px
-      track. A fixed px ceiling is deterministic regardless of the
-      bar's own width, which is the property this rule needs.
-   2. Even with (1) fixed, the remaining segments' spacing/padding —
-      sized comfortably for the wide (non-narrow) bar — still didn't
-      leave room at the tightest supported width (420px, with a
-      realistic long-game move badge + capture count). The gap/
-      padding reductions below (all of an EXISTING declaration's
-      value, never a new rule) close that remainder.
-   90px still shows a stone chip and a character or two of EACH name
-   before eliding; the full pairing remains one hover/selection away,
-   same as any other ellipsized chrome label in this codebase —
-   `.pass-btn`, `.move-badge` and `.caps` are the segments this bar's
-   own header ranks above `.player-names`, and none of the three is
-   touched below beyond a light padding trim that stays well over the
-   G30 pointer-target floor.
-
-   Item 1 (occluded-names REOPENED, mandate addendum, contract (b)):
-   this `max-width` still constrains the OUTER `.player-names` row, not
-   either name directly — `.player-names` is now `display: flex` with
-   two `flex: 1 1 auto` children (`.player-name--black` / `--white`,
-   see the base rule's own comment — basis is each name's own natural
-   width, not the literal `0` that reopened item 1 a second time), so
-   squeezing this ceiling squeezes BOTH names, proportional to their
-   own natural width, automatically. Neither player's name is
-   privileged: both abbreviate and elide together as the ceiling
-   tightens, never one first-takes-all tail elision at the other's
-   expense — the symmetric-degradation half of the mandate's contract. */
-.status-bar--narrow .player-names {
-  max-width: 90px;
-}
+/* N1/N4 fix (rig witness, `.claude/dispatch-reports/lyt-n1-statusbar.md`)
+   — SUPERSEDED, status-bar-narrow-0c21: the flat 90px `.player-names`
+   `max-width` this comment used to document here is REMOVED — it was a
+   step function independent of genuine available width (live-witnessed
+   re-occluding both names entirely, `.claude/dispatch-reports/
+   statusbar-narrow-0c21-build.md`). The replacement mechanism —
+   `.status-bar--narrow .transient-hint { flex-grow: 0; }`, freeing the
+   room the flat cap used to withhold — is declared alongside the BASE
+   `.transient-hint` rule further down this file (not here), a jsdom
+   cascade-ordering requirement: jsdom's computed-style resolution was
+   witnessed NOT preferring the more-specific narrow-mode selector over
+   a same-property base-rule declaration that appears later in source
+   (a real browser's specificity-over-order cascade does prefer it
+   either way — this is a jsdom-only accommodation, the same family as
+   this file's other documented CSSOM quirks). See that rule's own
+   comment for the full derivation. */
 .status-bar--narrow.status-bar {
   padding: 0 var(--space-tight);
 }
@@ -817,6 +863,58 @@ const moveNumber = computed((): number => {
   padding: 1px 6px;
 }
 
+/* status-bar-narrow-0c21 — the ultra-narrow tier (below ~300px bar
+   width, `STATUS_BAR_ULTRA_NARROW_THRESHOLD_PX` in <script>). See that
+   constant's own comment for the root cause: below this width, even
+   `.player-names` at its bare-chip floor no longer fits beside
+   `.status-right` on the SAME line as the nav cluster and move-badge,
+   and because `.status-left` is allowed to shrink narrower than its
+   own children (`min-width: 0`, S4), the overflow bleeds past
+   `.status-left`'s box into `.status-right` — the "chip inside Pass"
+   overlap the mandate's second witness shot
+   (`~/ys/63a0_gaslighted.png`) shows, live-reproduced at this tier in
+   the dispatch report's rig probe.
+
+   Fix: `.status-right` moves to ITS OWN second line instead of
+   sharing line 1 at all — two elements on different lines cannot
+   overlap regardless of how tight either line's own content is. This
+   is the commissioner-ruled shape for this class (status-bar-narrow-
+   0c21 ruling): the bar's height is not a fixed cap, it grows to fit
+   its content's honest demand once no single-line arrangement can
+   avoid overlap, rather than starving `.player-names` further (there
+   is no further floor below "bare chips, no name") or letting content
+   corrupt Pass. `flex-basis: 100%` deterministically forces
+   `.status-right` onto a new flex line (unlike an unscoped top-level
+   `flex-wrap: wrap`, which this codebase tried and reverted here — see
+   the build report's own §"a top-level flex-wrap was tried and
+   reverted" — Chromium's line-breaking pass uses each item's
+   HYPOTHETICAL (pre-shrink) main size, and `.status-left`'s is its
+   full unclamped natural content width once `.player-names` is
+   genuinely uncapped [the very fix this file's `.status-bar--narrow
+   .transient-hint` rule above depends on] — large enough that
+   `.status-right` was found wrapping prematurely at 900px and even
+   1920px bar widths, an unrelated regression an *unscoped* wrap would
+   have introduced). Scoping the 100%-basis force to ONLY
+   `.status-right`, gated by its own dedicated breakpoint rather than
+   the browser's implicit fit decision, avoids that regression
+   entirely — confirmed clean at every non-ultra-narrow width tested
+   (`.claude/dispatch-reports/statusbar-narrow-0c21-build.md`).
+   `.status-bar`'s own `gap` (above) becomes the row-gap between the
+   two lines too (the CSS `gap` property is symmetric across both
+   flex axes), so the wrapped Pass/caps line never sits flush against
+   line 1 either. The extra height this tier costs is a genuine,
+   measured demand on the column this bar is mounted in — named as a
+   handoff in the dispatch report, not manufactured by this component
+   on its own (LytNode/track allocation is outside this file's fence). */
+.status-bar--ultra-narrow {
+  flex-wrap: wrap;
+}
+.status-bar--ultra-narrow .status-right {
+  flex-basis: 100%;
+  order: 3;
+  justify-content: flex-end;
+}
+
 /* Pass affordance — always-visible board-chrome control per genre
    convention (Sabaki/KaTrain/OGS survey, design-engine-features.md
    PASS SUPPORT §"Genre convention"): a labeled button, not a
@@ -826,6 +924,17 @@ const moveNumber = computed((): number => {
    whose meaning must never be color- or icon-only (ADR-0019 appendix
    C18), and "Pass" has no established single-glyph convention the
    way move-numbers' "#" does. */
+/* status-bar-narrow-0c21: witnessed rendering 18px tall beside the
+   move-nav cluster's 24px-floored buttons (`ToolbarMoveNav.vue`'s
+   `.toolbar-btn`, G30/WCAG 2.5.8) — same row, two different control
+   heights, plus the mismatch itself forced `.status-bar` taller than
+   either control alone needed (align-items: center then split the
+   difference as dead space above/below the shorter ones). Reads the
+   SAME `--control-height-min` token `.toolbar-btn` reads (theme.css;
+   ADR-0012 P1 — one home for the G30 24px floor, not two agreeing
+   literals) rather than leaving Pass unfloored; flex-centering matches
+   `.toolbar-btn`'s own recipe so the label centers in the taller box
+   without touching padding/font-size (the visual language). */
 .pass-btn {
   background: transparent;
   border: 1px solid var(--border-3);
@@ -836,6 +945,10 @@ const moveNumber = computed((): number => {
   cursor: pointer;
   padding: 1px 8px;
   line-height: 1.4;
+  min-height: var(--control-height-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament). */
 .pass-btn:hover:not(:disabled) {
@@ -865,7 +978,11 @@ const moveNumber = computed((): number => {
    floor. min-width/min-height is the same transparent-expansion floor
    KeybindingRow's .row-btn already carries (M16 era) — background stays
    transparent and border stays none, so the "#" glyph's visual size is
-   unchanged; flex-centering keeps it centred in the taller/wider box. */
+   unchanged; flex-centering keeps it centred in the taller/wider box.
+   status-bar-narrow-0c21: the two `24px` literals now read
+   `--control-height-min` (theme.css) — the same anchor `.pass-btn` and
+   `ToolbarMoveNav.vue`'s `.toolbar-btn` read, so this row's whole
+   control-height floor lives in one place (ADR-0012 P1). */
 .move-numbers-btn {
   background: transparent;
   border: none;
@@ -876,8 +993,8 @@ const moveNumber = computed((): number => {
   cursor: pointer;
   padding: 0 var(--space-tight);
   line-height: 1;
-  min-width: 24px;
-  min-height: 24px;
+  min-width: var(--control-height-min);
+  min-height: var(--control-height-min);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -939,5 +1056,87 @@ const moveNumber = computed((): number => {
   color: var(--text-0);
   font-style: italic;
   font-size: var(--text-body);
+}
+/* status-bar-narrow-0c21. Placed HERE, immediately after the base
+   `.transient-hint` rule (not up in the `.status-bar--narrow` block
+   with its narrow-mode siblings), because jsdom's computed-style
+   resolution was witnessed NOT applying CSS specificity-over-order
+   correctly for this property: a more-specific narrow-mode selector
+   declared BEFORE this base rule in source lost to the base rule's own
+   `flex-grow: 1` when read back via `getComputedStyle` in the test
+   tier, even though a real browser's cascade (specificity first, order
+   only as a tie-break) prefers the more-specific selector regardless
+   of which one appears first. Declaring this rule AFTER the base one
+   makes it win under BOTH cascade models — the real browser (by
+   specificity) and jsdom's test substrate (apparently by source
+   order for this case) — rather than trusting jsdom to replicate the
+   specificity rule a real browser applies. This is the same family of
+   accommodation as this rule's own "longhand, not shorthand" comment
+   above.
+
+   N1/N4 fix (rig witness, `.claude/dispatch-reports/
+   lyt-n1-statusbar.md`) — SUPERSEDED, status-bar-narrow-0c21. History
+   preserved: a flat 90px `.player-names` `max-width` (replacing an
+   earlier `40%` that resolved against the wrong basis — Chromium
+   resolved it against the BAR's own width, not a "just enough" one)
+   closed the N1/N4 overflow class and, per the mandate active at the
+   time, gave both names symmetric treatment via `.player-names`' own
+   `flex: 1 1 auto` children.
+
+   Live-witnessed AGAIN at 0c21 (`.claude/dispatch-reports/
+   statusbar-narrow-0c21-build.md`), the flat cap itself is what
+   produced the regression it was meant to prevent: the 90px ceiling is
+   a STEP FUNCTION independent of how much room the bar actually has
+   the moment `.status-bar--narrow` engages — at a bar width just under
+   700px there can be 300+px of genuinely free space, yet the cap still
+   allows only 90 of it to `.player-names`, because `.transient-hint`
+   (an ephemeral, usually-EMPTY hover-hint slot — see the base rule's
+   own comment) keeps its base-rule `flex-grow: 1` and silently absorbs
+   every pixel of that free space instead. At the genuinely narrow end
+   of the range (rig-probed down to ~290px bar width), `.status-left`'s
+   fixed content (nav cluster + move-badge) alone approaches the bar's
+   total width, `.transient-hint` collapses to its `flex-basis: 0`
+   floor, and `.player-names` — still hard-capped at 90px even though
+   there is now no free space ANYWHERE to give it — renders both names
+   fully elided (a bare stone chip, no character of either name) while
+   the active-turn ring on the last chip visually bleeds into
+   `.pass-btn` (closed structurally by `.status-bar`'s own `gap`,
+   defense-in-depth — but the starved-names symptom itself needed its
+   own fix, not just the overlap).
+
+   Fix: the flat cap is REMOVED. `.player-names` reverts to plain
+   `flex: 1 1 auto` (the base rule, unchanged) — genuinely reactive to
+   however much room `.status-left` actually has, rather than a ceiling
+   that engages the instant `narrow` flips regardless of real
+   availability. What makes that room available to names instead of
+   the empty hint slot is `.transient-hint`'s OWN narrow-mode demotion
+   (this rule): the ephemeral segment steps back below player identity
+   in the narrow tier's already-established priority order (game-info
+   and move-numbers already fully collapse there; this is the same
+   "lowest-priority segments yield first" policy, just extended to a
+   segment that previously never yielded because nothing asked it to).
+   Both names still degrade together under GENUINE narrowness — that
+   symmetric mechanism (`.player-name--black`/`--white`, each
+   `flex: 1 1 auto`, sharing `.player-names`' width proportionally) is
+   completely unchanged; only the artificial mid-range ceiling is gone. */
+.status-bar--narrow .transient-hint {
+  /* Demote the hint's claim on the bar's surplus below player
+     identity — narrow mode already sheds `.game-info` and
+     `.move-numbers-btn` outright; this is the same "yield before
+     `.player-names`" ranking applied to a segment that previously had
+     no narrow-mode rule at all. `flex-shrink: 1` / `flex-basis: 0`
+     (base rule, unchanged) mean this renders at effectively 0px
+     whenever there is nothing to show — which is most of the time, an
+     ephemeral hover-hint — so the bar's own "byte-for-byte identical
+     geometry whether a hint is active or not" invariant (commission
+     row 837, this rule's own header comment) still holds: an active
+     hint's arrival/departure does not itself move anything, in narrow
+     mode either, because this segment's width was already ~0 before
+     and after. What DOES change relative to non-narrow mode: an active
+     hint's TEXT is effectively invisible here (immediate ellipsis,
+     nothing to grow into) — an accepted trade in the tier that already
+     hides `.game-info` and `.move-numbers-btn` outright; the hint is
+     lower-priority chrome than either. */
+  flex-grow: 0;
 }
 </style>

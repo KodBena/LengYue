@@ -8,6 +8,7 @@
  * literal accent — `--accent-peach`, wiki2-scrollbar-color). Z-index
  * ladder (4 layering tiers). Animation
  * durations (2 timing tiers). Spacing scale (4 spacing tiers).
+ * Control-height anchor (1, the G30 24px pointer-target floor).
  * Font-size scale (4 typographic tiers). Border-radius scale (2
  * rounding tiers). Letter-spacing scale (3 tracking tiers).
  * Disabled-state alpha (1 anchor). Every chrome color, z-index,
@@ -568,6 +569,27 @@
   --space-default: 8px;   /* default chrome — control-row, modal-element gap */
   --space-medium:  12px;  /* section-level gap, content-block separation */
   --space-loose:   20px;  /* block-level gap, large content separation */
+
+  /* ── Control-height anchor (1) ────────────────────────────────
+   * `--control-height-min`: the G30 pointer-target floor (WCAG
+   * 2.5.8, 24×24 minimum) ALREADY reused as a bare `24px` literal
+   * across eight sites (`ToolbarMoveNav.vue`'s `.toolbar-btn`,
+   * `ToolbarAppCluster.vue`, `MintCardModal.vue`,
+   * `RegistryEditor.vue`, `StatusBar.vue`'s own
+   * `.move-numbers-btn`, plus `style.css`'s checkbox rule) — an
+   * ADR-0012 P1 (single-source-of-truth) violation already in
+   * progress, per that rule's own precedent for the sibling
+   * checkbox family ("one document-wide rule … instead of eight
+   * per-site sprinkles", `style.css`'s G30 comment). Minted here,
+   * not swept everywhere at once (ADR-0004 no-retroactive-sweep —
+   * existing sites retrofit on touch): this token's immediate
+   * consumers are `StatusBar.vue`'s `.pass-btn`/`.komi-input` and
+   * `ToolbarMoveNav.vue`'s `.toolbar-btn`, closing a same-row
+   * height mismatch (nav buttons rendering 24px tall beside an
+   * unfloored 18px `.pass-btn`) diagnosed live in the
+   * status-bar-narrow-0c21 dispatch. A future G30 site may adopt
+   * the same token on touch rather than re-typing `24px`. */
+  --control-height-min: 24px;
 
   /* ── Font-size scale (4) ─────────────────────────────────────
    * Four tiers for the codebase's typographic hierarchy.
