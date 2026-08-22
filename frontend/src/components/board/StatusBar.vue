@@ -283,11 +283,11 @@ const moveNumber = computed((): number => {
       <span class="move-badge">{{ $t('statusBar.move', { n: moveNumber }) }}</span>
       <span class="player-names" :title="playerNamesTitle">
         <span class="player-name player-name--black">
-          <span class="stone-chip stone-chip--black" :class="{ active: turn === 'B' }" :aria-label="turn === 'B' ? $t('statusBar.blackToPlay') : undefined"></span>{{ metadata?.blackName }}
+          <span class="stone-chip stone-chip--black" :class="{ active: turn === 'B' }" :aria-label="turn === 'B' ? $t('statusBar.blackToPlay') : undefined"></span><span class="player-name-text">{{ metadata?.blackName }}</span>
         </span>
         <span class="vs-text">{{ $t('statusBar.versus') }}</span>
         <span class="player-name player-name--white">
-          <span class="stone-chip stone-chip--white" :class="{ active: turn === 'W' }" :aria-label="turn === 'W' ? $t('statusBar.whiteToPlay') : undefined"></span>{{ metadata?.whiteName }}
+          <span class="stone-chip stone-chip--white" :class="{ active: turn === 'W' }" :aria-label="turn === 'W' ? $t('statusBar.whiteToPlay') : undefined"></span><span class="player-name-text">{{ metadata?.whiteName }}</span>
         </span>
       </span>
       <span class="game-info">
@@ -484,14 +484,41 @@ const moveNumber = computed((): number => {
    elision, never a symmetric degradation — the defect the mandate
    names explicitly. Fix: `.player-names` is now a flex ROW (not the
    ellipsizing box itself); each name gets its OWN `.player-name` child
-   with `flex: 1 1 0` (equal basis, equal growth) and its own
-   `overflow: hidden` + `text-overflow: ellipsis` + `white-space:
-   nowrap` — so whatever width `.player-names` is given (ample or
-   narrow, see `.status-left`'s own comment above) is split EVENLY
+   with its own `overflow: hidden` + `text-overflow: ellipsis` +
+   `white-space: nowrap` — so whatever width `.player-names` is given
+   (ample or narrow, see `.status-left`'s own comment above) is shared
    between the two names, and both abbreviate/elide together as that
    width shrinks. Neither player is privileged by DOM position. The
    `:title` tooltip (below, unchanged) still carries the full
-   untruncated pairing regardless of which (or both) names are elided. */
+   untruncated pairing regardless of which (or both) names are elided.
+
+   Item 1 REOPENED a second time (live-witnessed at 1920px: BOTH names
+   rendered fully elided despite enormous free width — the "equal
+   flex-basis split" this comment used to describe). Root cause:
+   `flex: 1 1 0` sets each name's flex-BASIS to the literal length
+   `0`. A flex item's `flex-basis` isn't only "the size to flex from" —
+   per the CSS Flexbox intrinsic-sizing algorithm (§9.9), it is ALSO
+   what that item contributes toward ITS OWN FLEX CONTAINER's
+   max-content size when an ANCESTOR is sizing that container
+   content-based (exactly `.player-names`' own situation: `flex: 1 1
+   auto` on `.player-names` itself, resolved against `.status-left`).
+   With both children's basis pinned to `0`, `.player-names`'
+   max-content contribution up the tree was ~0 regardless of how long
+   either name actually was — so `.status-left`/`.status-bar` never
+   saw a reason to hand `.player-names` more than its bare `min-width:
+   32px` floor, and both names ellipsized immediately even with the
+   whole bar empty to their right. `flex-basis: 0` is a well-known
+   CSS footgun for exactly this reason: it silently severs a flex
+   item's content size from its ancestors' intrinsic-size
+   calculations. Fix: `flex: 1 1 auto` (basis = the name's own natural
+   content width) restores that propagation — at ample width each name
+   asks for, and gets, its full natural size (no shrink needed, no
+   ellipsis); under narrowing, `flex-shrink: 1` still applies, weighted
+   by each name's own basis (its natural width) rather than an
+   artificial equal split, so both degrade together — proportionally,
+   not first-takes-all — as the mandate requires. `min-width: 0`
+   (unchanged) is what still lets each name shrink below its content
+   width once genuine narrowing forces it. */
 .player-names {
   display: flex;
   align-items: center;
@@ -499,45 +526,53 @@ const moveNumber = computed((): number => {
   flex: 1 1 auto;
   min-width: 32px;
 }
+/* Ring-occlusion repair (defect (f), live-refuted twice: the padding-
+   left band-aid below — commit 87455822, "StatusBar active-turn ring
+   no longer clipped" — was witnessed STILL occluded live in both
+   to-move states. That fix only opened 3px of headroom on the LEFT
+   edge of `.player-name`'s own `overflow: hidden` box, reasoning that
+   the ring's top/bottom/right arcs had "vertical line-height slack" to
+   bleed into — an assumption, not a measurement, and evidently false:
+   `.stone-chip`'s `vertical-align: middle` centers it tightly on the
+   text line box, leaving near-zero vertical slack, so the ring's
+   top/bottom arcs were STILL clipped by the same `overflow: hidden`
+   the left-padding fix never touched. Padding any one edge of a box
+   that clips on all four sides was always going to be a partial fix
+   at best.
+
+   Root fix: stop clipping the CHIP at all. `.player-name` (this rule)
+   no longer carries `overflow: hidden` / `text-overflow: ellipsis`
+   itself — those move to the NEW inner `.player-name-text` span
+   (below), wrapping ONLY the name text, not the chip. The ring's
+   outline (painted outside the chip's own border box) now has no
+   clipping ancestor at all, on any edge, at any width.
+
+   This also resolves the earlier "`display: inline-block`, NOT
+   `inline-flex`" constraint the prior version of this comment
+   documented: THAT constraint was about ellipsis failing to insert
+   when applied directly to a flex CONTAINER with multiple flex-item
+   children (chip + text runs) — Chromium hard-clips instead. Ellipsis
+   here is now applied to `.player-name-text`, a plain inline-block
+   LEAF with a single text-node child, never a flex container itself —
+   so `.player-name` is free to be `inline-flex` (needed so the chip
+   and the text span can independently size: the chip fixed, the text
+   span flexing/shrinking with its own ellipsis) without reopening
+   that defect. */
 .player-name {
+  display: inline-flex;
+  align-items: center;
   color: var(--text-0);
   font-weight: 600;
-  /* `display: inline-block`, NOT `inline-flex` — this is a flex ITEM
-     of `.player-names` (the `flex: 1 1 0`/`min-width: 0` below), but
-     its OWN inner display must stay plain inline flow: `text-overflow:
-     ellipsis` is only reliably inserted against inline-flow content
-     (the same reasoning as the original S4→item-4 fix on the old
-     unified `.player-names` rule, now applied per-name). A flex
-     display here, even `inline-flex`, would silently hard-clip the
-     name (chip + text as two flex-item children) with no "…" glyph —
-     exactly the defect that fix closed, reopened one level down. */
-  display: inline-block;
-  vertical-align: middle;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-width: 0;
+}
+.player-name-text {
+  display: inline-block;
+  min-width: 0;
+  flex: 1 1 auto;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  /* Occluded-highlighter fix (component-shoddiness follow-up, live
-     screenshot ~/xs/fd2a_occluded_move_highlighter_in_status_bar_
-     default_tree_still_horizontal_scroll.png): `.stone-chip.active`'s
-     turn-indicator ring is an `outline` (2px solid, 1px offset — 3px
-     total bleed beyond the chip's own border box, see that rule's own
-     comment) painted OUTSIDE the chip. The chip is this element's
-     FIRST inline child, flush against `.player-name`'s own left edge,
-     so `overflow: hidden` above (required for the ellipsis affordance)
-     clipped the ring's left arc against that edge — witnessed live as
-     a "C", not an "O", around the active player's chip. `box-sizing:
-     border-box` (global reset) means this padding does NOT change
-     `.player-name`'s own flex-computed width (border-box holds, only
-     the content box shrinks by 3px) — it opens 3px of clip headroom
-     INSIDE the same border box the ring's bleed now fits inside,
-     without shifting `.player-names`' overall geometry or reopening
-     the S4/item-1/item-4 overlap-vs-clip history above. Left-only:
-     the ring's top/bottom/right arcs already had vertical line-height
-     slack and trailing content to bleed into; only the leading edge,
-     flush against this box's own boundary, needed the room. */
-  padding-left: 3px;
 }
 .vs-text {
   color: var(--text-0);
@@ -744,9 +779,11 @@ const moveNumber = computed((): number => {
    Item 1 (occluded-names REOPENED, mandate addendum, contract (b)):
    this `max-width` still constrains the OUTER `.player-names` row, not
    either name directly — `.player-names` is now `display: flex` with
-   two `flex: 1 1 0` children (`.player-name--black` / `--white`, see
-   the base rule's own comment), so squeezing this ceiling squeezes
-   BOTH names by an equal share automatically. Neither player's name is
+   two `flex: 1 1 auto` children (`.player-name--black` / `--white`,
+   see the base rule's own comment — basis is each name's own natural
+   width, not the literal `0` that reopened item 1 a second time), so
+   squeezing this ceiling squeezes BOTH names, proportional to their
+   own natural width, automatically. Neither player's name is
    privileged: both abbreviate and elide together as the ceiling
    tightens, never one first-takes-all tail elision at the other's
    expense — the symmetric-degradation half of the mandate's contract. */

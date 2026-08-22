@@ -112,18 +112,29 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix)', () => {
       const maxWidth = getComputedStyle(el).maxWidth;
       expect(maxWidth).toBe('90px');
       expect(maxWidth.endsWith('%')).toBe(false);
-      // Item 1 (occluded-names REOPENED, mandate addendum): the
-      // ellipsis/nowrap/overflow declarations now live on EACH
-      // `.player-name` child (symmetric per-name degradation), not on
-      // the outer `.player-names` row — see `StatusBar.vue`'s own
-      // comment on `.player-name`. Both children carry them equally,
-      // which is itself the "neither name is privileged" assertion.
-      const blackName = wrapper!.find('.player-name--black').element;
-      const whiteName = wrapper!.find('.player-name--white').element;
-      for (const nameEl of [blackName, whiteName]) {
+      // Item 1 (occluded-names REOPENED, mandate addendum) / defect (f)
+      // repair (statusbar-cards-completion-build): the ellipsis/nowrap/
+      // overflow declarations live on the INNER `.player-name-text` span
+      // now, not on `.player-name` itself — moving the clip boundary off
+      // the chip so the active-turn ring (painted OUTSIDE the chip's
+      // border box) is never clipped by the ellipsis affordance's own
+      // `overflow: hidden`. See `StatusBar.vue`'s own comment on
+      // `.player-name-text` for the full derivation. Both names' inner
+      // text spans carry them equally — "neither name is privileged".
+      const blackNameText = wrapper!.find('.player-name--black .player-name-text').element;
+      const whiteNameText = wrapper!.find('.player-name--white .player-name-text').element;
+      for (const nameEl of [blackNameText, whiteNameText]) {
         expect(getComputedStyle(nameEl).whiteSpace).toBe('nowrap');
         expect(getComputedStyle(nameEl).overflow).toBe('hidden');
         expect(getComputedStyle(nameEl).textOverflow).toBe('ellipsis');
+      }
+      // `.player-name` itself no longer clips — this is the structural
+      // half of the fix (defect f): the chip's ring has no clipping
+      // ancestor at all now, on any edge.
+      const blackName = wrapper!.find('.player-name--black').element;
+      const whiteName = wrapper!.find('.player-name--white').element;
+      for (const nameEl of [blackName, whiteName]) {
+        expect(getComputedStyle(nameEl).overflow).not.toBe('hidden');
       }
     });
 

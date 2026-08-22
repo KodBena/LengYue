@@ -1720,17 +1720,23 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
                (script, derived from the SAME `activeTab` cell the
                remaining three tabs' own TabWidget instance still
                reads/writes below — one persisted fact, two views, ADR-0012
-               P1) selects an OPAQUE overlay `position: absolute; inset: 0`
-               within this Exclusive's own wrapper div (LytNode.vue's
-               `position: relative` cell) — the EXACT SAME box the tab
-               strip's body used to give Library/Cards when they were
-               `TabWidget` panes, so neither surface is narrower than
-               before; `z-index: 5` paints it above the (unaffected,
-               z-index: 10) resizer-inner bar's own draggable priority is
-               preserved by staying BELOW that, and above the TabWidget
-               (implicit z-index 0) so it genuinely occludes rather than
-               merely coexisting with the Settings/Analysis/Other strip
-               underneath. -->
+               P1) selects an OPAQUE overlay within this Exclusive's own
+               wrapper div (LytNode.vue's `position: relative`, `display:
+               flex; flex-direction: column` cell) — the EXACT SAME box
+               the tab strip's body used to give Library/Cards when they
+               were `TabWidget` panes, so neither surface is narrower than
+               before. Strip-overlap repair (69cf commissioner shot):
+               this was originally `position: absolute; inset: 0; z-index:
+               5`, which painted above the header-only strip but still
+               laid its own content out starting at y=0 — genuinely
+               UNDERNEATH the strip's rendered rows, not merely behind it
+               in z-order. Now a flex ITEM (`order: 2`, `flex: 1 1 auto`,
+               `.right-panel-surface-overlay`'s own CSS below) alongside
+               the header-only strip's `order: 1`/`flex-shrink: 0`
+               (TabWidget.vue) — the overlay starts exactly where the
+               strip's own rendered height ends, for any strip height, no
+               measured pixel literal. See that CSS rule's own comment for
+               the full derivation. -->
           <template #exclusive-controlPanel>
             <!-- INNER resizer bar (W3, both screen classes — see
                  useResizablePanel.ts's own header for the drag math).
@@ -2367,24 +2373,39 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
 }
 
 /* library-cards-promotion: the toolbar-launched Library/Cards surface,
-   rendered inside the SAME `position: relative` wrapper LytNode.vue
-   gives the control-panel Exclusive (see the `#exclusive-controlPanel`
-   template comment above for the full derivation). `inset: 0` — the
-   EXACT box the tab strip's own body used to give these two panes, so
-   neither is narrower than before ("FULL available width" of the main
-   right-side region, mandate item 3). Opaque `--surface-0` (the same
-   standing occlusion law `LytPresenceMenu.vue`'s own header names for
-   this codebase's other summon/overlay surfaces) so the Settings/
-   Analysis/Other TabWidget underneath is fully hidden, not merely
-   under it in paint order. `z-index: 5`: above the TabWidget's own
-   implicit stacking (0), below `.lyt-resizer`'s `10` — the tree/
-   control-panel drag handle stays grabbable while either surface is
-   showing. No box-shadow/transition/blur per the toolbar idiom this
-   surface is a peer of. */
+   rendered inside the SAME wrapper LytNode.vue gives the control-panel
+   Exclusive (see the `#exclusive-controlPanel` template comment above
+   for the full derivation) — the EXACT box the tab strip's own body
+   used to give these two panes, so neither is narrower than before
+   ("FULL available width" of the main right-side region, mandate item
+   3). Opaque `--surface-0` (the same standing occlusion law
+   `LytPresenceMenu.vue`'s own header names for this codebase's other
+   summon/overlay surfaces) so the Settings/Analysis/Other TabWidget
+   underneath is fully hidden, not merely under it in paint order.
+
+   Strip-overlap repair (69cf commissioner shot, live-witnessed): this
+   used to be `position: absolute; inset: 0; z-index: 5` — occluding
+   the header-only Settings/Analysis/Other strip in PAINT order only
+   (the strip's own `z-index: 6`, TabWidget.vue, kept it clickable
+   on top), but this overlay's own CONTENT still laid out starting at
+   the wrapper's y=0, genuinely BEHIND the strip's rendered rows, not
+   merely below it in z-order — the strip visually overlapped this
+   overlay's own top content (e.g. LibraryTab's SGF drop-zone).
+   `LytNode.vue`'s Exclusive wrapper is now a column flex container
+   (that file's own template, exclusive branch); this overlay is a
+   flex ITEM now (`order: 2`, after the header-only strip's `order:
+   1` — TabWidget.vue's own comment), sized `flex: 1 1 auto` to fill
+   whatever height the strip doesn't claim. No absolute positioning,
+   no z-index, no measured/hand-picked header-height literal: the
+   overlay's content starts exactly where the strip's own rendered
+   height ends, by construction, for any strip height (locale,
+   font-metric variance). `min-width`/`min-height: 0` (unchanged)
+   still let this flex item shrink below its own content's natural
+   size instead of overflowing the wrapper. No box-shadow/transition/
+   blur per the toolbar idiom this surface is a peer of. */
 .right-panel-surface-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
+  order: 2;
+  flex: 1 1 auto;
   background: var(--surface-0);
   display: flex;
   min-width: 0;

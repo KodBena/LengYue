@@ -651,7 +651,7 @@ const slotNames = computed(() => Object.keys(slots));
       <div
         v-else-if="group.rep.node.kind === 'exclusive'"
         :id="domId(group.rep.path)"
-        :style="{ ...placementStyle(group), minWidth: '0', minHeight: '0', position: 'relative', ...exclusiveOverflowStyle(group.rep) }"
+        :style="{ ...placementStyle(group), minWidth: '0', minHeight: '0', position: 'relative', display: 'flex', flexDirection: 'column', ...exclusiveOverflowStyle(group.rep) }"
       >
         <!-- Presence arc P2b, file header "Popover summon for an absent
              Exclusive": `disabled` renders in place (byte-identical to
