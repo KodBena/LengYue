@@ -42,7 +42,7 @@ import type { LibraryGameListItem } from '../../../src/types';
 import type { GameDisplayOrdinal, GameSourceId } from '../../../src/types/ids';
 
 // jsdom ships no ResizeObserver (same gap LibraryTable-column-fit.test.ts
-// and panel-content-two-col-reflow.test.ts each fill); LibraryTable's
+// fills); LibraryTable's
 // onMounted wires one unconditionally for both the scroll container's
 // height tracking and the header's width tracking. A no-op stub is
 // enough here — this suite doesn't drive width/height changes, it only
