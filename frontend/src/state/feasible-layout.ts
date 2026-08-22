@@ -769,11 +769,89 @@ export interface SideColumnLiveLayoutResult {
    * unit tests, which have no live geometry to supply) is unaffected.
    */
   readonly treeFloorPx: number;
+  /**
+   * Drag-regression-0c21 repair (ledger rows 2597/2598): the WRAPPER's
+   * (`#tree-control-wrapper`) own honest minimum width — the OUTER bar's
+   * region-owned floor, closing the SAME class `treeFloorPx` above closed
+   * for the INNER bar, one level up. Per ADR-0000: naming the class at
+   * its true width, this is NOT "the divider activates beside an absent
+   * region" (row 2538's own too-narrow naming) but "the divider's drag
+   * RANGE is non-degenerate — its enforced minimum sits strictly below
+   * the current allotment whenever reclaimable free space exists — at
+   * EVERY geometry."
+   *
+   * Before this repair, `startResizeOuter` (`useResizablePanel.ts`)
+   * enforced a STATIC `WRAPPER_MIN_WIDTH_PX` floor
+   * (`TREE_PANEL_MIN_WIDTH_PX + RESIZER_WIDTH_PX + CONTROL_PANEL_MIN_WIDTH_PX`,
+   * `state/layout-model.ts`) — a constant that always reserves a FULL
+   * `controlPanel` floor, REGARDLESS of whether `controlPanel` is
+   * actually present. When the user has toggled `controlPanel` off
+   * (`lytPresence.controlPanel === false`), nothing renders into that
+   * reserved space — `tree` itself is independently capped at its own
+   * honest, content-driven `treeFloorPx` (often ~70-90px) — so the
+   * static floor stranded exactly `CONTROL_PANEL_MIN_WIDTH_PX +
+   * TREE_PANEL_MIN_WIDTH_PX - treeFloorPx` worth of reclaimable width
+   * (live-witnessed: ~244px at 1920×1080) that the OUTER bar's drag
+   * range could never reach, no matter how far the user dragged — the
+   * exact "vast free middle space, divider stuck short of it" symptom
+   * (commissioner finding, row 2597 items 1/2). The render-side
+   * authority (`resolveSideColumnLiveLayoutUnguarded`'s own `allot()`
+   * fixpoint, above) already reserves floor space ONLY for regions that
+   * resolved PRESENT — this field exposes that SAME honest, presence-
+   * aware minimum to the drag-time caller, one region up, so the two
+   * authorities agree the same way `treeFloorPx` already made them agree
+   * for the tree/controlPanel boundary.
+   *
+   * `= treeFloorPx + Σ (over every `others` entry that resolved PRESENT
+   * in the SAME final fixpoint `treePx`/`others` above were computed
+   * against): one `gapPx` + that region's own reserved width (its
+   * `viabilityFloorPx` when floor-bearing, else its full compiled fixed
+   * width — mirroring EXACTLY the reservation arithmetic `allot()`
+   * itself already performs for a present region, never a second,
+   * independently-approximated derivation of the same quantity)`. When
+   * every `others` entry is absent (the `controlPanel`-off scenario
+   * above), the sum is empty and this collapses to `treeFloorPx` alone —
+   * the wrapper need honestly hold nothing more than the tree's own
+   * minimum. Always `<=` the static `WRAPPER_MIN_WIDTH_PX` (never
+   * raises the floor past what the constant already guaranteed — the
+   * constant assumes controlPanel present at ITS full floor with tree at
+   * ITS static 140px floor; both terms here are `<=` their static
+   * counterparts), so a caller that ignores this field (composable-level
+   * unit tests with no live geometry) is unaffected. */
+  readonly wrapperFloorPx: number;
   readonly others: readonly SideColumnRegionOutcome[];
   /** Non-empty only when `tree` is sovereign (dragged this session) AND
    *  the resulting candidate starves another region — §1.6's own
    *  contract, never a silent clamp, never a silent starvation. */
   readonly diagnostics: readonly SovereignOverrideDiagnostic[];
+}
+
+/**
+ * Drag-regression-0c21 repair: the ONE place `wrapperFloorPx` (above) is
+ * computed — `treeFloorPx` plus one `gapPx` and one reserved width per
+ * `others` entry that resolved PRESENT in `presentByWidgetId`. `widthOf`
+ * lets each of `resolveSideColumnLiveLayoutUnguarded`'s three return
+ * paths supply its own safe accessor for a present region's reserved
+ * width: the two guarded paths use `fixedTrackPx` (a broken/undefined
+ * track there is a genuine caller-contract bug that must propagate, per
+ * this module's own "Defense in depth" doc), the degrade-gracefully
+ * catch path uses the SAME defensive `o.track?.kind === 'fixed' ? ... :
+ * 0` shape that path's own `others` mapping already uses (never a SECOND
+ * throw while degrading from a first).
+ */
+function computeWrapperFloorPx(
+  treeFloorPx: number,
+  gapPx: number,
+  others: readonly SideColumnFixedRegion[],
+  presentByWidgetId: ReadonlyMap<string, boolean>,
+  widthOf: (o: SideColumnFixedRegion) => number,
+): number {
+  let floorPx = treeFloorPx;
+  for (const o of others) {
+    if (!(presentByWidgetId.get(o.widgetId) ?? false)) continue;
+    floorPx += gapPx + (o.viabilityFloorPx ?? widthOf(o));
+  }
+  return floorPx;
 }
 
 /**
@@ -1085,6 +1163,19 @@ export function resolveSideColumnLiveLayout(input: SideColumnLiveLayoutInput): S
       // track's own `minPx` is the same conservative default the
       // "not yet measured" branch below also uses for this field.
       treeFloorPx: treeTrack.minPx,
+      // Drag-regression-0c21 repair: the degrade-gracefully wrapper floor
+      // mirrors `treeFloorPx`'s own choice on this path (the compiled
+      // default, `others` resolved by DESIRED visibility since no fixpoint
+      // ran) — same defensive `o.track?.kind === 'fixed'` accessor the
+      // `others` mapping just below already uses, never `fixedTrackPx`
+      // (which would throw a SECOND time while degrading from the first).
+      wrapperFloorPx: computeWrapperFloorPx(
+        treeTrack.minPx,
+        input.gapPx,
+        input.others,
+        new Map(input.others.map((o) => [o.widgetId, o.desiredVisible])),
+        (o) => (o.track?.kind === 'fixed' ? o.track.px : 0),
+      ),
       // `o.track?.kind === 'fixed' ? o.track.px : 0` — NOT `fixedTrackPx`
       // (which throws on a non-'fixed' track), and NOT the unguarded
       // `o.track.kind` this fallback originally used (the review's own
@@ -1540,6 +1631,16 @@ function resolveSideColumnLiveLayoutUnguarded(
       // either — the compiled track's own `minPx`, same convention as
       // every other "not yet measured" default in this module.
       treeFloorPx: treeTrack.minPx,
+      // Drag-regression-0c21 repair: not-yet-measured wrapper floor —
+      // same compiled default, `others` resolved by DESIRED visibility
+      // (nothing has been allotted yet to derive a fixpoint from).
+      wrapperFloorPx: computeWrapperFloorPx(
+        treeTrack.minPx,
+        input.gapPx,
+        input.others,
+        new Map(input.others.map((o) => [o.widgetId, o.desiredVisible])),
+        (o) => fixedTrackPx(o.track, o.widgetId),
+      ),
       others: input.others.map((o) => ({
         widgetId: o.widgetId,
         present: o.desiredVisible,
@@ -1708,5 +1809,24 @@ function resolveSideColumnLiveLayoutUnguarded(
   // but a FRESH drag always starts from the non-sovereign-rendered
   // width, so this is the correct floor to hand a caller preparing to
   // grab the INNER bar either way).
-  return { treePx: pass2.treePx, treeFloorPx: effectiveTreeMinPx, others: outcomes, diagnostics };
+  //
+  // Drag-regression-0c21 repair: `wrapperFloorPx` uses `finalPresentByWidgetId`
+  // — the ACTUAL, post-fixpoint presence verdict (never the merely-desired
+  // one) — because the wrapper only genuinely needs room for what is
+  // actually going to render. A region resolved absent (e.g. `controlPanel`
+  // toggled off) contributes nothing to this floor, exactly mirroring how
+  // `allot()` itself only ever reserves for a PRESENT floor-bearing sibling.
+  return {
+    treePx: pass2.treePx,
+    treeFloorPx: effectiveTreeMinPx,
+    wrapperFloorPx: computeWrapperFloorPx(
+      effectiveTreeMinPx,
+      input.gapPx,
+      input.others,
+      finalPresentByWidgetId,
+      (o) => fixedTrackPx(o.track, o.widgetId),
+    ),
+    others: outcomes,
+    diagnostics,
+  };
 }

@@ -1680,7 +1680,17 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
                  (`useResizablePanel.ts`'s own `computeRootSplitSideColumnCeilingPx`
                  call) is the IDENTICAL region-owned bound the render-time
                  solve (`resolveRootSplitLiveLayout`, `state/feasible-
-                 layout.ts`) computes, not an approximation of it. -->
+                 layout.ts`) computes, not an approximation of it.
+                 Drag-regression-0c21 repair (ledger rows 2597/2598):
+                 `sideColumnLayout.value.wrapperFloorPx` is threaded into
+                 `startResizeOuter` here — the SAME live, presence-aware
+                 floor the render just used — closing the class
+                 `startResizeInner`'s own `treeFloorPx` threading already
+                 closed for the INNER bar (row 2578), one level up: the
+                 static `WRAPPER_MIN_WIDTH_PX` always reserved a full
+                 `controlPanel` floor even when `controlPanel` is
+                 currently absent, stranding reclaimable width the drag
+                 could never reach. -->
             <div
               v-if="activeScreenClassId === 'landscape'"
               id="resizer-outer"
@@ -1688,7 +1698,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
               role="separator"
               aria-orientation="vertical"
               :aria-label="$t('app.chrome.resizerOuterLabel')"
-              @mousedown="(e: MouseEvent) => startResizeOuter(e, { boardRailReservedPx, gapPx: activeLytProgram.root.gapPx })"
+              @mousedown="(e: MouseEvent) => startResizeOuter(e, { boardRailReservedPx, gapPx: activeLytProgram.root.gapPx }, sideColumnLayout.wrapperFloorPx)"
             ></div>
             <div id="tree-panel-header">{{ $t('app.chrome.gameTreePanelHeader') }}</div>
             <TreeWidget

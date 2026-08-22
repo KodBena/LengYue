@@ -344,12 +344,28 @@ export function computeTreePanelWidthPx(
  * pre-nesting resizer-rearch convention: "drag right narrows the
  * control-side pane, grows the board").
  */
+/**
+ * `minWidthPx` (drag-regression-0c21 repair, ledger rows 2597/2598):
+ * defaults to `WRAPPER_MIN_WIDTH_PX` — a TRAILING default parameter, so
+ * this function's own arity stays 3 for every existing caller
+ * (`useResizablePanel.test.ts`'s own `computeTreeControlRegionWidthPx.length
+ * === 3` pin is unaffected). A caller that CAN supply the row's own
+ * live, honest floor (`SideColumnLiveLayoutResult.wrapperFloorPx`,
+ * `state/feasible-layout.ts`) — `startResizeOuter` below — does so,
+ * closing the SAME class of divergence `computeTreePanelWidthPx`'s own
+ * `minWidthPx` parameter closed for the INNER bar (row 2578): the
+ * wrapper's own honest minimum can sit well below the static
+ * `WRAPPER_MIN_WIDTH_PX` (which always reserves a full `controlPanel`
+ * floor, even when `controlPanel` is currently absent) — a caller
+ * ignoring this optional floor keeps the pre-repair static behavior.
+ */
 export function computeTreeControlRegionWidthPx(
   dragOriginPx: number,
   totalDeltaPx: number,
   maxRegionWidthPx: number,
+  minWidthPx: number = WRAPPER_MIN_WIDTH_PX,
 ): number {
-  return computePaneWidthPx(dragOriginPx, totalDeltaPx, WRAPPER_MIN_WIDTH_PX, maxRegionWidthPx, -1);
+  return computePaneWidthPx(dragOriginPx, totalDeltaPx, minWidthPx, maxRegionWidthPx, -1);
 }
 
 // HISTORICAL, deleted by dispatch L3 (`.claude/dispatch-reports/
@@ -523,6 +539,10 @@ export function useResizablePanel() {
   // ── OUTER bar: tree+control wrapper (in #split-workspace) ────────
   let regionDragOriginPx = 0;
   let regionMaxWidthPx = WRAPPER_MIN_WIDTH_PX;
+  // Drag-regression-0c21 repair: the floor THIS drag enforces, captured
+  // at mousedown — mirrors `treeMinWidthPx`'s identical role for the
+  // INNER bar above (row 2578).
+  let regionMinWidthPx = WRAPPER_MIN_WIDTH_PX;
   let regionLastMouseX = 0;
 
   /**
@@ -555,10 +575,29 @@ export function useResizablePanel() {
    * shrink it) bound than production — never a silent re-introduction
    * of the old, unrelated `RESIZER_WIDTH_PX` approximation.
    */
-  function startResizeOuter(e: MouseEvent, rootSplitCeiling?: { readonly boardRailReservedPx: number; readonly gapPx: number }) {
+  /**
+   * `wrapperFloorPx` (drag-regression-0c21 repair, ledger rows 2597/2598):
+   * the region-owned live floor `resolveSideColumnLiveLayout` just
+   * rendered the WRAPPER against (`SideColumnLiveLayoutResult.wrapperFloorPx`,
+   * `state/feasible-layout.ts`) — App.vue's own template call site threads
+   * its live `sideColumnLayout.value.wrapperFloorPx` through, mirroring
+   * exactly how `startResizeInner`'s own `treeFloorPx` parameter threads
+   * the INNER bar's region-owned floor through (row 2578). Optional
+   * (defaults to `WRAPPER_MIN_WIDTH_PX`) ONLY so a caller with no live
+   * `SideColumnLiveLayoutResult` to read (a direct composable-level test,
+   * e.g. `sync-session-version.test.ts`'s save-coverage probes) still
+   * compiles and drags correctly against the pre-repair static floor.
+   */
+  function startResizeOuter(
+    e: MouseEvent,
+    rootSplitCeiling?: { readonly boardRailReservedPx: number; readonly gapPx: number },
+    wrapperFloorPx?: number,
+  ) {
     e.preventDefault();
     isAnyPanelResizing.value = true;
     regionLastMouseX = e.clientX;
+    regionMinWidthPx =
+      wrapperFloorPx !== undefined && Number.isFinite(wrapperFloorPx) ? Math.max(0, Math.round(wrapperFloorPx)) : WRAPPER_MIN_WIDTH_PX;
 
     const wrapper = document.getElementById('tree-control-wrapper');
     const row = document.getElementById('split-workspace');
@@ -594,6 +633,7 @@ export function useResizablePanel() {
       regionDragOriginPx,
       totalDelta,
       regionMaxWidthPx,
+      regionMinWidthPx,
     );
     // treeControlRegionWidthPx is persisted session UI state; bump the
     // session counter so SyncService schedules a (debounced) save. See
