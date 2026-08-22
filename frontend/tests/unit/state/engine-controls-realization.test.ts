@@ -188,6 +188,33 @@ describe('the live-measured worst-case button widths — threshold arithmetic (F
   });
 });
 
+describe('library-cards-promotion: seven capabilities, ample-width regression (aff8 defect 3)', () => {
+  // Library/Cards join the five worst-case widths above at runtime
+  // (`ToolbarEngineControls.vue`'s own shadow-clone template) — this
+  // module's own `ENGINE_CONTROLS_WORST_CASE_BUTTON_WIDTHS_PX` constant
+  // is NOT extended to seven (its own header: "a pinned regression
+  // fixture" for the original five), so this suite builds its own
+  // seven-item set: the five live-measured widths plus two conservative
+  // placeholders sized to the widest EXISTING single-word label
+  // ("Learn Path"/"Connect", 90.015625px) — a safe upper bound for the
+  // shorter "Library"/"Cards" labels, so a pass here can't be an
+  // accident of an unrealistically narrow synthetic set.
+  const sevenWidths = [...ENGINE_CONTROLS_WORST_CASE_BUTTON_WIDTHS_PX, 90.015625, 90.015625];
+
+  it('an ample column (900px) fits all seven in one row — button-cluster, regardless of the fixed 80px height reservation ("at ample width all entries render as buttons")', () => {
+    const rows = computeWrappedRowCount(sevenWidths, ENGINE_CONTROLS_GAP_PX, 900);
+    expect(rows).toBe(1);
+    const neededPx = computeClusterNeededHeightPx(rows, ENGINE_CONTROLS_ROW_HEIGHT_PX, ENGINE_CONTROLS_GAP_PX);
+    expect(resolveEngineControlsRealization(neededPx, A_ENGINE_CONTROLS_RESERVED_HEIGHT_PX)).toBe('button-cluster');
+  });
+
+  it('sanity: the SAME seven items at a genuinely narrow column (150px) still correctly select menu-path — the ample-width pass above is not from an unconditional button-cluster bug', () => {
+    const rows = computeWrappedRowCount(sevenWidths, ENGINE_CONTROLS_GAP_PX, 150);
+    const neededPx = computeClusterNeededHeightPx(rows, ENGINE_CONTROLS_ROW_HEIGHT_PX, ENGINE_CONTROLS_GAP_PX);
+    expect(resolveEngineControlsRealization(neededPx, A_ENGINE_CONTROLS_RESERVED_HEIGHT_PX)).toBe('menu-path');
+  });
+});
+
 describe('state-invariance: the worst-case set never depends on which state produced it (F2 correction)', () => {
   // Regression test for the review's exact traced case
   // (`.claude/dispatch-reports/lyt-wB2-controls-menu-review.md` §1):

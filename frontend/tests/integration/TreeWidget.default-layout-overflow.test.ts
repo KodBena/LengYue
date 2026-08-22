@@ -13,33 +13,47 @@
  * meaningless zeros/defaults regardless of the fix. See
  * `tests/CLAUDE.md`'s component-test-tier note on this exact gap.
  *
- * The fix itself (`TreeWidget.vue`'s `.tree-widget-outer`) is a CSS-only
- * change: `scrollbar-gutter: stable` stops the vertical scrollbar's
- * gutter from silently eating into the horizontal budget only when it
- * happens to be showing (see that rule's own comment for the mechanism).
- * Threading the tree's own content demand into the LYT allocation
- * solver (`contentDemandPx`, exposed via `defineExpose` below,
- * ultimately feeding `resolveSideColumnLiveLayout`) is EXPLICITLY out of
- * scope — its own header comment names this as a prior dispatch's
- * disclosed narrowing, and rewriting that solver is exactly the
- * "layout-engine rewrite" this fix's own brief rules out.
+ * Addendum (commissioner shot ~/xs/9440_scrollbar.png, live-witness
+ * REQUIRED per the addendum brief): the CSS-only `scrollbar-gutter:
+ * stable` fix above closed the INTERMITTENT overflow (the vertical
+ * scrollbar's gutter appearing/disappearing as `svgHeight` grew) but two
+ * static follow-up attempts still failed a live rig re-witness — because
+ * `scrollbar-gutter: stable` reserves its ~15-17px width UNCONDITIONALLY,
+ * from first paint, whether or not a vertical scrollbar is ever actually
+ * needed, and that reservation was never fed back into `contentDemandPx`
+ * (the very thing this test pins). A live probe
+ * (`scripts/tree-scrollbar-repro.mjs`, measured against a real Chromium
+ * via playwright-core) found a real `scrollWidth(60) > clientWidth(44)`
+ * horizontal overflow on a completely fresh, single-node board — the
+ * "threading into the solver is out of scope" narrowing this file
+ * previously carried is the residual gap that left open. `TreeWidget.vue`
+ * now measures that reservation off the real DOM (`outerRef.offsetWidth -
+ * outerRef.clientWidth`, present from first paint on a `scrollbar-gutter:
+ * stable` box regardless of overflow state) and adds it — plus a small
+ * fixed buffer for the CSS Grid solver's own per-track sub-pixel rounding
+ * (witnessed: a 1px residual even with the gutter's exact measured width
+ * fed through) — to `contentDemandPx`. jsdom performs no real layout, so
+ * `outerRef.value.offsetWidth`/`clientWidth` both read `0` there — the
+ * measured term is always `0`, leaving only the fixed buffer
+ * (`JSDOM_GUTTER_BUFFER_PX` below) as a deterministic, environment-stable
+ * addend to the budget this test pins.
  *
  * What IS honestly pinnable without a real layout pipeline is
  * `TreeWidget`'s own contract with that solver: `contentDemandPx` (=
- * `svgWidth`, a pure function of tree shape — `cols * CELL + PAD * 2`)
- * stays at the small, documented default ceiling (cols <= 3: a
- * mainline plus the "1-2 side variations" `ensureVisible` auto-reveals
- * with NO user toggle) unless the user genuinely expands further. A
- * drift in that ceiling — CELL/PAD tuning, or `ensureVisible` starting
- * to auto-reveal more than ancestors — is exactly the kind of silent
- * regression that reintroduces this class of bug upstream of the CSS
- * fix, so pinning it here is real regression coverage even though it
- * cannot exercise `scrollbar-gutter` itself.
+ * `svgWidth` PLUS the gutter-reservation term above) stays at the small,
+ * documented default ceiling (cols <= 3: a mainline plus the "1-2 side
+ * variations" `ensureVisible` auto-reveals with NO user toggle) unless
+ * the user genuinely expands further. A drift in that ceiling —
+ * CELL/PAD tuning, or `ensureVisible` starting to auto-reveal more than
+ * ancestors — is exactly the kind of silent regression that reintroduces
+ * this class of bug upstream of the CSS fix, so pinning it here is real
+ * regression coverage even though it cannot exercise `scrollbar-gutter`
+ * itself.
  *
  * License: Public Domain (The Unlicense)
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 // @ts-expect-error — @sabaki/sgf has no published types declaration.
@@ -62,7 +76,13 @@ import { installRenderEnvStubs, removeRenderEnvStubs } from './render-count/jsdo
 const CELL = 24;
 const PAD = 18;
 const DEFAULT_BUDGET_COLS = 3; // "single-column main-line walks and 1-2 side variations"
-const DEFAULT_BUDGET_PX = DEFAULT_BUDGET_COLS * CELL + PAD * 2;
+// Mirrors `TreeWidget.vue`'s own `scrollbarGutterPx` fixed buffer (its own
+// comment has the full derivation: absorbs the CSS Grid solver's per-track
+// sub-pixel rounding). jsdom's `offsetWidth`/`clientWidth` are always `0`
+// (no real layout pipeline), so the DOM-measured half of that ref is
+// always `0` here — only this fixed term ever contributes under test.
+const JSDOM_GUTTER_BUFFER_PX = 2;
+const DEFAULT_BUDGET_PX = DEFAULT_BUDGET_COLS * CELL + PAD * 2 + JSDOM_GUTTER_BUFFER_PX;
 
 /** A branching SGF with two INDEPENDENT branch points:
  *    - pd -> {W[dp] mainline, W[dd] variation}, and W[dd] -> B[fc] ->
@@ -141,6 +161,47 @@ describe('TreeWidget — default-allocation content-demand budget (no false-posi
     expect(contentDemandPx).toBe(DEFAULT_BUDGET_PX);
 
     wrapper.unmount();
+  });
+
+  it('folds the DOM-measured scrollbar-gutter reservation into contentDemandPx (the live-witness fix)', async () => {
+    // Pins the actual MEASURED relation the addendum's live rig probe
+    // found (`scripts/tree-scrollbar-repro.mjs`): `.tree-widget-outer`'s
+    // `scrollbar-gutter: stable` reserves `offsetWidth - clientWidth` of
+    // width unconditionally, and `TreeWidget.vue`'s `scrollbarGutterPx`
+    // folds exactly that measured gap (plus its own fixed rounding
+    // buffer) into `contentDemandPx`. jsdom has no real layout, so the
+    // gap is stubbed directly on `HTMLElement.prototype` — the same
+    // idiom `useLytFitAssertion.test.ts`'s `elWithBox` helper uses for
+    // `scrollWidth`/`clientWidth`.
+    const board = loadBoardIntoStore(BRANCHING_SGF);
+    board.currentNodeId = findOffMainlineLeaf(board);
+
+    const STUBBED_OFFSET_WIDTH = 74;
+    const STUBBED_CLIENT_WIDTH = 59; // a 15px gutter reservation, matching the live probe's own witnessed figure
+    const offsetWidthSpy = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(STUBBED_OFFSET_WIDTH);
+    const clientWidthSpy = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(STUBBED_CLIENT_WIDTH);
+
+    const wrapper = mount(TreeWidget, {
+      props: { nodes: board.nodes, boardId: board.id },
+      global: { plugins: [i18n] },
+    });
+    await nextTick();
+    await nextTick();
+
+    const contentDemandPx = (wrapper.vm as unknown as { contentDemandPx: number }).contentDemandPx;
+
+    // DEFAULT_BUDGET_PX already carries the jsdom-only fixed buffer term
+    // (offsetWidth/clientWidth both read 0 without this stub, so the
+    // measured half of `scrollbarGutterPx` is 0 there). The fixed buffer
+    // is a constant addend present in BOTH cases, so it cancels out of
+    // the delta: swapping in the stubbed 15px gap raises the demand by
+    // exactly that measured gap over the unstubbed baseline.
+    const measuredGutterPx = STUBBED_OFFSET_WIDTH - STUBBED_CLIENT_WIDTH;
+    expect(contentDemandPx).toBe(DEFAULT_BUDGET_PX + measuredGutterPx);
+
+    wrapper.unmount();
+    offsetWidthSpy.mockRestore();
+    clientWidthSpy.mockRestore();
   });
 
   it('lets contentDemandPx genuinely exceed the default budget once the user expands further', async () => {

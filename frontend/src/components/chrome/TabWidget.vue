@@ -345,6 +345,38 @@ function selectTab(id: string) {
 .vue-tabs--header-only .tab-header {
   align-self: flex-start;
   max-width: 100%;
+  /* aff8 defect 2 addendum (`.claude/dispatch-reports/
+     library-cards-repair-build.md`), superseded by the strip-overlap
+     repair below: App.vue's promoted-surface overlay
+     (`.right-panel-surface-overlay`) is a DOM sibling of this
+     Exclusive's own TabWidget. `position: relative` + `z-index: 6`
+     (between the overlay's `5` and `.lyt-resizer`'s `10`) used to be
+     the ONLY thing keeping this header paint-order-above (and so
+     clickable over) the overlay — but paint-order stacking alone
+     left the overlay's own content still LAID OUT starting at the
+     wrapper's y=0, genuinely underneath this header's rendered rows,
+     not merely behind it in z-order: the strip visually overlapped
+     the overlay's top content (e.g. LibraryTab's SGF drop-zone),
+     live-witnessed at the 69cf commissioner shot. `z-index`/`position:
+     relative` are kept as defense-in-depth (still correct, still
+     harmless) but are no longer load-bearing for the overlap — see
+     `.right-panel-surface-overlay`'s own comment (App.vue) for the
+     structural fix: the Exclusive wrapper (`LytNode.vue`) is now a
+     column flex container, this header is `order: 1`/`flex-shrink: 0`
+     (its own natural height, first in visual order), and the overlay
+     is `order: 2`/`flex: 1 1 auto` — the overlay's content now starts
+     BELOW this header's actual rendered height, whatever that height
+     is, with no measured/hand-picked pixel value. Scoped to
+     header-only mode only (the same scoping the stray-tab-cell rider
+     above already established) — every `part="both"` consumer
+     (Settings sub-strip, Analysis dashboard, ForestDirectory
+     Decks/Browse) is unaffected: `order`/`flex-shrink` are no-ops
+     outside a flex container, and none of those consumers' own parents
+     are one. */
+  position: relative;
+  z-index: 6;
+  order: 1;
+  flex-shrink: 0;
 }
 
 /* Hover: text brightening only — the previous background:

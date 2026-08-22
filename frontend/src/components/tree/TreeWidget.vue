@@ -180,7 +180,47 @@ const viewportFollow = useViewportFollow(outerRef);
 // contamination in the non-overflow case), not a narrower one.
 // `outerRef`/`useContentDemand` accordingly no longer feed this value;
 // `outerRef` remains in use for scroll and viewport-follow, untouched.
-const contentDemandPx = computed<Px>(() => px(svgWidth.value));
+// Addendum item 3 (commissioner shot ~/xs/9440_scrollbar.png, live rig
+// measurement `scripts/tree-scrollbar-repro.mjs`): `.tree-widget-outer`'s
+// `scrollbar-gutter: stable` (below) reserves width for a vertical
+// scrollbar UNCONDITIONALLY — present from first paint, whether or not a
+// vertical scrollbar is actually showing (that is the entire point of
+// "stable" over "auto": no width fluctuation as content grows past the
+// fold). WITNESSED on a completely fresh, single-node board: `offsetWidth`
+// 59px vs `clientWidth` 44px, a 15px gutter reservation ALREADY consuming
+// width the SVG (60px, `svgWidth` below) never budgeted for — a real
+// `scrollWidth(60) > clientWidth(44)` horizontal overflow at rest, on the
+// very first paint, before any user action. The prior fix (`scrollbar-
+// gutter: stable` itself) closed a DIFFERENT, intermittent overflow (the
+// vertical scrollbar's gutter appearing/disappearing as `svgHeight` grew)
+// but never fed the gutter's own width cost back into `contentDemandPx` —
+// so the side-column solve kept sizing this leaf to the SVG's bare pixel
+// need, never to "SVG + the gutter this box always reserves for itself."
+// `scrollbarGutterPx` (below) is that reservation, MEASURED off the real
+// DOM rather than a hardcoded browser/OS-specific magic number (Chromium/
+// Linux ~15-17px, ~17px Windows, 0 under macOS overlay scrollbars) —
+// `offsetWidth - clientWidth` on a `scrollbar-gutter: stable` box IS the
+// reservation, readable from the very first paint regardless of whether
+// content currently overflows.
+// `+2`: the CSS Grid track solve this feeds (`resolveSideColumnLiveLayout`
+// → the compiled program's grid-template-columns) distributes available
+// width across MULTIPLE tracks in fractional-pixel amounts and rounds
+// each track to a whole pixel independently — witnessed live
+// (`scripts/tree-scrollbar-repro.mjs`, before/after in the build report):
+// requesting the gutter's measured width verbatim (no buffer) still left
+// a 1px residual overflow (`scrollWidth` 60 vs `clientWidth` 59) purely
+// from that grid-level sub-pixel rounding, one layer below anything this
+// component's own arithmetic controls. A small fixed buffer absorbs that
+// class of rounding loss without chasing the browser's own distribution
+// algorithm; 2px is comfortably above the 1px loss actually witnessed.
+const scrollbarGutterPx = ref(0);
+onMounted(() => {
+  if (outerRef.value) {
+    scrollbarGutterPx.value = Math.max(0, outerRef.value.offsetWidth - outerRef.value.clientWidth) + 2;
+  }
+});
+
+const contentDemandPx = computed<Px>(() => px(svgWidth.value + scrollbarGutterPx.value));
 
 const expansion = useTreeExpansion();
 const { variationMarkerLabels } = useThumbnailCache();

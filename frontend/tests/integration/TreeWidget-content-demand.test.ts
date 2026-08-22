@@ -61,14 +61,27 @@ afterEach(() => {
   removeRenderEnvStubs();
 });
 
+// Addendum (commissioner shot ~/xs/9440_scrollbar.png, live-witness
+// re-repair): `contentDemandPx` is still `svgWidth` — the pure-shape
+// figure this suite's own header describes — PLUS `scrollbarGutterPx`,
+// a small measured/buffered term `TreeWidget.vue` now folds in so the
+// LYT solver's own allocation accounts for `.tree-widget-outer`'s
+// `scrollbar-gutter: stable` reservation (see that ref's own header for
+// the live rig measurement that forced this). jsdom has no real layout,
+// so `outerRef`'s `offsetWidth`/`clientWidth` both read `0` and the
+// measured half of that term is always `0` under test — only the fixed
+// rounding-buffer half (`JSDOM_GUTTER_BUFFER_PX`) ever contributes here,
+// a constant added atop every figure this file pins by exact value.
+const JSDOM_GUTTER_BUFFER_PX = 2;
+
 describe('TreeWidget.vue — contentDemandPx is tree-structure-derived, not box-measured (N3 repair)', () => {
-  it('a root-only (single-column) tree reports exactly 60px — the review\'s own cited figure for this shape', () => {
+  it('a root-only (single-column) tree reports exactly 60px (+ the scrollbar-gutter buffer) — the review\'s own cited figure for this shape', () => {
     const board = loadBoardIntoStore('(;FF[4]GM[1]SZ[19])'); // root only, no moves
     wrapper = mount(TreeWidget, {
       props: { nodes: board.nodes, boardId: board.id },
       global: { plugins: [i18n] },
     });
-    expect(wrapper.vm.contentDemandPx).toBe(60);
+    expect(wrapper.vm.contentDemandPx).toBe(60 + JSDOM_GUTTER_BUFFER_PX);
   });
 
   it('is identical across two independently-mounted instances of the SAME tree shape — no dependency on whatever (jsdom-inert) box each happens to sit in', () => {

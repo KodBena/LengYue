@@ -172,4 +172,18 @@ export interface SystemMessage {
    *  wire a click handler to (disclosed, not silently implied). */
   readonly remediation?: string;
   readonly nextAction?: string;
+  /** Show-once dedup (system-message-sink's `push`): when a push arrives
+   *  whose `type`/`text`/`remediation`/`nextAction` are byte-identical to
+   *  the CURRENT newest entry (`store.engine.messages[0]`), the sink does
+   *  not unshift a second row — it bumps this count on the existing entry
+   *  instead, so an identical-consecutive flood (e.g. a diagnostic
+   *  recomputed on every reactive tick with no new information) collapses
+   *  to one visible row instead of spamming the log. `undefined`/`1` for
+   *  every message that has never been collapsed into (the common case);
+   *  `SystemLogPanel.vue` renders "×N" only when `count > 1`. A push whose
+   *  key differs from the current head — including one identical to an
+   *  EARLIER (non-head) entry, or arriving after a different message
+   *  intervened — always starts a fresh row, per the "genuinely new
+   *  occurrence" half of the contract. */
+  readonly count?: number;
 }

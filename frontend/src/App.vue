@@ -126,7 +126,7 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { computed, nextTick, watch } from 'vue';
+import { computed, nextTick, onUnmounted, watch } from 'vue';
 import { ref as vueRef, type ComponentPublicInstance } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -140,6 +140,8 @@ import {
   useDeferredLayoutClass,
   computeTreePanelDefaultWidthPx,
   TREE_CONTROL_WRAPPER_ROW_GAP_PX,
+  CONTROL_PANEL_TAB_IDS,
+  type ControlPanelTabId,
 } from './state/layout-model';
 import type { LytTrackShape } from './state/lyt-layout-types';
 import { useSideColumnLiveLayout } from './composables/chrome/useSideColumnLiveLayout';
@@ -1361,8 +1363,82 @@ const rightPanelMode = computed<'library' | 'cards' | 'controlPanel'>(() => {
   const v = activeTab.value;
   return v === 'library' || v === 'cards' ? v : 'controlPanel';
 });
-function openLibrarySurface(): void { activeTab.value = 'library'; }
-function openCardsSurface(): void { activeTab.value = 'cards'; }
+
+// Coordinator addendum (aff8 defect 2, commissioner shot
+// `9440_no_access_to_analysis.png`): Settings/Analysis/Other must stay
+// DIRECTLY reachable while a promoted surface is showing — not merely
+// closeable first. Drives `LytNode.vue`'s own `exclusiveHeaderOnlyByPath`
+// (that file's own header, "Split composition, `part`") so the
+// controlPanel Exclusive's tab STRIP renders (and, per
+// `TabWidget.vue`'s own `.vue-tabs--header-only .tab-header` rule,
+// stacks above `.right-panel-surface-overlay`) even while the overlay
+// covers the body — one boolean, keyed by the SAME `controlPanelLytPath`
+// every other Exclusive-scoped fact in this file already uses.
+const exclusiveHeaderOnlyByPath = computed<Record<string, boolean>>(() => ({
+  [controlPanelLytPath.value]: rightPanelMode.value !== 'controlPanel',
+}));
+
+function isControlPanelTabId(v: string): v is ControlPanelTabId {
+  return (CONTROL_PANEL_TAB_IDS as readonly string[]).includes(v);
+}
+
+// aff8 defect 2 repair ("enable-never-disable trap" — live-tested,
+// `.claude/dispatch-reports/library-cards-repair-build.md`): the
+// toolbar-launched Library/Cards surface used to have no way back —
+// `openLibrarySurface`/`openCardsSurface` only ever WROTE 'library'/
+// 'cards', never read the CURRENT value, so the control panel became
+// permanently unreachable once either surface opened.
+// `priorControlPanelTab` is the one remembered fact this needs:
+// the last REAL control-panel tab id (`settings`/`analysis`/`other`)
+// `activeTab` held, kept current by the watcher below every time
+// `activeTab` genuinely holds one (which includes every click on the
+// Settings/Analysis/Other strip, via `handleLytExclusiveActiveChange`
+// above) — read only when a surface closes, so closing restores
+// EXACTLY the tab that was showing before, not a fixed default.
+const priorControlPanelTab = vueRef<ControlPanelTabId>(
+  isControlPanelTabId(activeTab.value) ? (activeTab.value as ControlPanelTabId) : 'settings',
+);
+watch(activeTab, (v) => {
+  if (isControlPanelTabId(v)) priorControlPanelTab.value = v;
+});
+
+function closeRightPanelSurface(): void {
+  activeTab.value = priorControlPanelTab.value;
+}
+// Toggle: clicking the ALREADY-ACTIVE toolbar entry closes its own
+// surface (round-trips back to `priorControlPanelTab`); clicking the
+// other one swaps directly, matching the pre-existing Settings/
+// Analysis/Other swap behavior one cell up.
+function openLibrarySurface(): void {
+  activeTab.value = activeTab.value === 'library' ? priorControlPanelTab.value : 'library';
+}
+function openCardsSurface(): void {
+  activeTab.value = activeTab.value === 'cards' ? priorControlPanelTab.value : 'cards';
+}
+
+// Escape closes the surface (aff8 defect 2, mandate item 2). A single
+// window-level listener, owned for this component's whole lifetime
+// (App.vue mounts once, for the app's lifetime) and released
+// `onUnmounted` per the resource-ownership-at-mutation-sites
+// discipline (frontend/CLAUDE.md) — the resource is the listener
+// itself, the failure mode a leaked handler if App.vue ever unmounts
+// while still registered. NOT gated on `anyModalOpen`: a real modal's
+// own `useModalKeyboard` wiring calls `e.preventDefault()` but never
+// `stopPropagation()` (confirmed by reading every modal in
+// `src/components/modals/`), so both handlers seeing the same Escape
+// keydown is the existing, unproblematic shape every other
+// window/document-level keydown listener in this file already
+// tolerates — gating here would have made this surface's own Escape
+// silently inert whenever an UNRELATED modal happens to be open
+// (live-witnessed in this repair's own test harness: SetupWizardModal/
+// LoginModal are both mounted during a fresh, auth-less boot).
+function handleRightPanelSurfaceKeydown(e: KeyboardEvent): void {
+  if (e.key !== 'Escape') return;
+  if (rightPanelMode.value === 'controlPanel') return;
+  closeRightPanelSurface();
+}
+window.addEventListener('keydown', handleRightPanelSurfaceKeydown);
+onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceKeydown));
 
 </script>
 
@@ -1450,6 +1526,7 @@ function openCardsSurface(): void { activeTab.value = 'cards'; }
           :translate-label="t"
           :exclusive-popover-open="exclusivePopoverOpenMap"
           :exclusive-popover-target="controlPanelPopoverEl ?? undefined"
+          :exclusive-header-only-by-path="exclusiveHeaderOnlyByPath"
         >
 
           <!-- W2: style A only (railStyle === 'slot') actually shows this
@@ -1643,17 +1720,23 @@ function openCardsSurface(): void { activeTab.value = 'cards'; }
                (script, derived from the SAME `activeTab` cell the
                remaining three tabs' own TabWidget instance still
                reads/writes below — one persisted fact, two views, ADR-0012
-               P1) selects an OPAQUE overlay `position: absolute; inset: 0`
-               within this Exclusive's own wrapper div (LytNode.vue's
-               `position: relative` cell) — the EXACT SAME box the tab
-               strip's body used to give Library/Cards when they were
-               `TabWidget` panes, so neither surface is narrower than
-               before; `z-index: 5` paints it above the (unaffected,
-               z-index: 10) resizer-inner bar's own draggable priority is
-               preserved by staying BELOW that, and above the TabWidget
-               (implicit z-index 0) so it genuinely occludes rather than
-               merely coexisting with the Settings/Analysis/Other strip
-               underneath. -->
+               P1) selects an OPAQUE overlay within this Exclusive's own
+               wrapper div (LytNode.vue's `position: relative`, `display:
+               flex; flex-direction: column` cell) — the EXACT SAME box
+               the tab strip's body used to give Library/Cards when they
+               were `TabWidget` panes, so neither surface is narrower than
+               before. Strip-overlap repair (69cf commissioner shot):
+               this was originally `position: absolute; inset: 0; z-index:
+               5`, which painted above the header-only strip but still
+               laid its own content out starting at y=0 — genuinely
+               UNDERNEATH the strip's rendered rows, not merely behind it
+               in z-order. Now a flex ITEM (`order: 2`, `flex: 1 1 auto`,
+               `.right-panel-surface-overlay`'s own CSS below) alongside
+               the header-only strip's `order: 1`/`flex-shrink: 0`
+               (TabWidget.vue) — the overlay starts exactly where the
+               strip's own rendered height ends, for any strip height, no
+               measured pixel literal. See that CSS rule's own comment for
+               the full derivation. -->
           <template #exclusive-controlPanel>
             <!-- INNER resizer bar (W3, both screen classes — see
                  useResizablePanel.ts's own header for the drag math).
@@ -2290,24 +2373,39 @@ function openCardsSurface(): void { activeTab.value = 'cards'; }
 }
 
 /* library-cards-promotion: the toolbar-launched Library/Cards surface,
-   rendered inside the SAME `position: relative` wrapper LytNode.vue
-   gives the control-panel Exclusive (see the `#exclusive-controlPanel`
-   template comment above for the full derivation). `inset: 0` — the
-   EXACT box the tab strip's own body used to give these two panes, so
-   neither is narrower than before ("FULL available width" of the main
-   right-side region, mandate item 3). Opaque `--surface-0` (the same
-   standing occlusion law `LytPresenceMenu.vue`'s own header names for
-   this codebase's other summon/overlay surfaces) so the Settings/
-   Analysis/Other TabWidget underneath is fully hidden, not merely
-   under it in paint order. `z-index: 5`: above the TabWidget's own
-   implicit stacking (0), below `.lyt-resizer`'s `10` — the tree/
-   control-panel drag handle stays grabbable while either surface is
-   showing. No box-shadow/transition/blur per the toolbar idiom this
-   surface is a peer of. */
+   rendered inside the SAME wrapper LytNode.vue gives the control-panel
+   Exclusive (see the `#exclusive-controlPanel` template comment above
+   for the full derivation) — the EXACT box the tab strip's own body
+   used to give these two panes, so neither is narrower than before
+   ("FULL available width" of the main right-side region, mandate item
+   3). Opaque `--surface-0` (the same standing occlusion law
+   `LytPresenceMenu.vue`'s own header names for this codebase's other
+   summon/overlay surfaces) so the Settings/Analysis/Other TabWidget
+   underneath is fully hidden, not merely under it in paint order.
+
+   Strip-overlap repair (69cf commissioner shot, live-witnessed): this
+   used to be `position: absolute; inset: 0; z-index: 5` — occluding
+   the header-only Settings/Analysis/Other strip in PAINT order only
+   (the strip's own `z-index: 6`, TabWidget.vue, kept it clickable
+   on top), but this overlay's own CONTENT still laid out starting at
+   the wrapper's y=0, genuinely BEHIND the strip's rendered rows, not
+   merely below it in z-order — the strip visually overlapped this
+   overlay's own top content (e.g. LibraryTab's SGF drop-zone).
+   `LytNode.vue`'s Exclusive wrapper is now a column flex container
+   (that file's own template, exclusive branch); this overlay is a
+   flex ITEM now (`order: 2`, after the header-only strip's `order:
+   1` — TabWidget.vue's own comment), sized `flex: 1 1 auto` to fill
+   whatever height the strip doesn't claim. No absolute positioning,
+   no z-index, no measured/hand-picked header-height literal: the
+   overlay's content starts exactly where the strip's own rendered
+   height ends, by construction, for any strip height (locale,
+   font-metric variance). `min-width`/`min-height: 0` (unchanged)
+   still let this flex item shrink below its own content's natural
+   size instead of overflowing the wrapper. No box-shadow/transition/
+   blur per the toolbar idiom this surface is a peer of. */
 .right-panel-surface-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
+  order: 2;
+  flex: 1 1 auto;
   background: var(--surface-0);
   display: flex;
   min-width: 0;

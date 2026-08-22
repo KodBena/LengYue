@@ -20,9 +20,9 @@ of truth and the picture is a projection of it.
 
 ## At a glance
 
-- **Nodes:** 491 documents.
-- **Edges:** 2378 cross-references
-  (1989 resolved, 389 dangling, 0 ambiguous).
+- **Nodes:** 537 documents.
+- **Edges:** 2647 cross-references
+  (2250 resolved, 397 dangling, 0 ambiguous).
 
 ## Staleness heatmap (buckets)
 
@@ -82,95 +82,397 @@ the locally-rendered `docs/doc-graph.svg` (not committed — run the generator).
 flowchart LR
   n0["TODO"]
   n1["adr-synopsis"]
-  n2["0001-state-mutation-and-readonly"]
-  n3["0002-fail-loudly"]
-  n4["0003-frontend-portability-and-domain-boundaries"]
-  n5["0004-minimal-touch-edits-to-partially-visible-files"]
-  n6["0005-documentation-discipline"]
-  n7["0006-source-file-headers"]
-  n8["0007-file-size-and-information-density"]
-  n9["0008-classification-discipline"]
-  n10["0009-performance-investigation-discipline"]
-  n11["0010-render-locality-and-canvas-for-data-dense-visuals"]
-  n12["0011-mechanization-discipline"]
-  n13["handoff-current"]
-  n0 --> n8
-  n0 --> n13
-  n2 --> n3
-  n2 --> n6
-  n3 --> n2
-  n3 --> n6
-  n3 --> n9
+  n2["0000-the-alpha-and-the-omega-type-driven-design"]
+  n3["0001-immutability-and-copy-on-write"]
+  n4["0001-state-mutation-and-readonly"]
+  n5["0002-fail-loudly"]
+  n6["0003-domain-coupling-bands"]
+  n7["0003-frontend-portability-and-domain-boundaries"]
+  n8["0004-minimal-touch-edits-to-partially-visible-files"]
+  n9["0005-documentation-discipline"]
+  n10["0006-source-file-headers"]
+  n11["0007-file-size-and-information-density"]
+  n12["0008-classification-discipline"]
+  n13["0009-performance-investigation-discipline"]
+  n14["0010-render-locality-and-canvas-for-data-dense-visuals"]
+  n15["0010-render-locality-and-canvas"]
+  n16["0011-mechanization-discipline"]
+  n17["0012-compositional-and-structural-hygiene"]
+  n18["0013-execution-integrity"]
+  n19["0014-executor-second-opinion"]
+  n20["0015-verification-substrate-discipline"]
+  n21["0016-the-service-contract-is-an-enforcement-surface"]
+  n22["0017-the-zero-context-reader"]
+  n23["0018-consults-are-not-front-loaded"]
+  n24["0019-appendix-ui-proscriptions"]
+  n25["0019-genre-convention-is-the-default-spec"]
+  n26["0020-meaning-preservation-witness"]
+  n27["0021-witness-construction-discipline"]
+  n28["README"]
+  n29["0021-the-checked-surface-is-the-shipped-surface"]
+  n30["CONSULT-ADR-0021-REVIEW-CONDUCT-APPENDIX-2026-07-25"]
+  n31["FABLE-ADR-0021-PROPOSED-REVIEW-CONDUCT-APPENDIX"]
+  n32["README"]
+  n33["0000-specimens"]
+  n34["0001-immutability-and-copy-on-write"]
+  n35["0002-chocofarm-fail-loud-substrate"]
+  n36["0003-band-map-and-instance-context"]
+  n37["0004-contract-examples"]
+  n38["0005-audit-substrate"]
+  n39["0006-header-exemplars"]
+  n40["0007-oversized-file-queue"]
+  n41["0008-chocofarm-classification-substrate"]
+  n42["0009-autoharn-reinstancement-2026-07-12"]
+  n43["0009-chocofarm-perf-discipline"]
+  n44["0010-lineage-not-applicable-record"]
+  n45["0011-chocofarm-context"]
+  n46["0011-throughput-lab-amendments"]
+  n47["0012-cpp-wire-contract"]
+  n48["0012-cross-device-bench-saga"]
+  n49["0012-p9-worked-examples"]
+  n50["0013-attrition-specimens"]
+  n51["0014-throughput-lab-specimen"]
+  n52["0016-fact-mining-worked-instances"]
+  n53["POSTMORTEM-REVIEW-CAMPAIGN-2026-07-23"]
+  n54["POSTMORTEM-SETUP-TUI-ARC-2026-07-23"]
+  n55["README"]
+  n56["ledger"]
+  n57["handoff-current"]
+  n0 --> n11
+  n0 --> n57
+  n2 --> n22
+  n2 --> n16
+  n2 --> n17
+  n2 --> n18
+  n2 --> n12
+  n2 --> n9
+  n2 --> n5
+  n2 --> n19
+  n2 --> n8
+  n2 --> n7
+  n2 --> n23
   n3 --> n4
+  n3 --> n17
+  n3 --> n5
   n3 --> n12
-  n4 --> n2
-  n4 --> n3
+  n3 --> n15
+  n4 --> n5
   n4 --> n9
-  n4 --> n6
-  n4 --> n12
-  n5 --> n3
-  n5 --> n2
-  n6 --> n3
-  n6 --> n5
-  n6 --> n9
-  n6 --> n10
+  n5 --> n4
+  n5 --> n9
+  n5 --> n12
+  n5 --> n7
+  n5 --> n16
   n6 --> n7
-  n7 --> n3
+  n6 --> n4
+  n6 --> n5
+  n6 --> n16
+  n7 --> n4
   n7 --> n5
-  n7 --> n6
   n7 --> n12
-  n8 --> n3
+  n7 --> n9
+  n7 --> n16
   n8 --> n5
-  n8 --> n6
-  n8 --> n7
-  n8 --> n2
   n8 --> n4
-  n8 --> n1
-  n9 --> n3
   n9 --> n5
-  n9 --> n6
-  n9 --> n7
   n9 --> n8
   n9 --> n12
-  n9 --> n4
-  n10 --> n3
+  n9 --> n13
+  n9 --> n10
   n10 --> n5
-  n10 --> n6
-  n10 --> n7
   n10 --> n8
   n10 --> n9
-  n10 --> n11
-  n11 --> n3
+  n10 --> n16
   n11 --> n5
-  n11 --> n6
-  n11 --> n7
   n11 --> n8
   n11 --> n9
   n11 --> n10
   n11 --> n4
-  n12 --> n3
+  n11 --> n7
+  n11 --> n1
+  n12 --> n5
+  n12 --> n8
   n12 --> n9
   n12 --> n10
   n12 --> n11
-  n12 --> n5
-  n12 --> n6
-  n13 --> n11
-  n13 --> n4
-  n13 --> n2
-  n13 --> n3
-  n13 --> n6
+  n12 --> n16
+  n12 --> n7
   n13 --> n5
-  n13 --> n7
   n13 --> n8
   n13 --> n9
   n13 --> n10
-  n13 --> n0
-  n13 --> n1
+  n13 --> n11
+  n13 --> n12
+  n13 --> n15
+  n14 --> n15
+  n14 --> n5
+  n14 --> n8
+  n14 --> n9
+  n14 --> n10
+  n14 --> n11
+  n14 --> n12
+  n14 --> n13
+  n14 --> n7
+  n15 --> n13
+  n15 --> n4
+  n15 --> n12
+  n16 --> n5
+  n16 --> n12
+  n16 --> n13
+  n16 --> n15
+  n16 --> n8
+  n16 --> n9
+  n17 --> n5
+  n17 --> n16
+  n17 --> n8
+  n17 --> n13
+  n17 --> n9
+  n17 --> n11
+  n17 --> n22
+  n17 --> n2
+  n17 --> n12
+  n17 --> n7
+  n18 --> n16
+  n18 --> n5
+  n18 --> n17
+  n18 --> n12
+  n18 --> n13
+  n18 --> n8
+  n18 --> n9
+  n18 --> n7
+  n18 --> n2
+  n19 --> n16
+  n19 --> n18
+  n19 --> n17
+  n19 --> n9
+  n19 --> n2
+  n19 --> n8
+  n19 --> n12
+  n19 --> n11
+  n19 --> n5
+  n19 --> n23
+  n20 --> n13
+  n20 --> n16
+  n20 --> n18
+  n20 --> n17
+  n20 --> n5
+  n20 --> n8
+  n21 --> n2
+  n21 --> n16
+  n21 --> n17
+  n21 --> n18
+  n21 --> n20
+  n21 --> n19
+  n21 --> n13
+  n21 --> n8
+  n21 --> n5
+  n21 --> n9
+  n22 --> n9
+  n22 --> n18
+  n22 --> n16
+  n22 --> n20
+  n22 --> n19
+  n22 --> n8
+  n22 --> n2
+  n22 --> n17
+  n23 --> n19
+  n23 --> n2
+  n24 --> n17
+  n25 --> n2
+  n25 --> n19
+  n25 --> n16
+  n25 --> n9
+  n25 --> n5
+  n25 --> n17
+  n26 --> n7
+  n26 --> n22
+  n26 --> n12
+  n26 --> n5
+  n27 --> n12
+  n27 --> n13
+  n27 --> n16
+  n27 --> n18
+  n27 --> n20
+  n27 --> n26
+  n28 --> n2
+  n28 --> n5
+  n28 --> n16
+  n28 --> n4
+  n28 --> n7
+  n28 --> n8
+  n28 --> n9
+  n28 --> n10
+  n28 --> n11
+  n28 --> n12
+  n28 --> n13
+  n28 --> n15
+  n28 --> n20
+  n28 --> n17
+  n28 --> n18
+  n28 --> n19
+  n28 --> n21
+  n28 --> n22
+  n28 --> n23
+  n28 --> n25
+  n28 --> n26
+  n29 --> n27
+  n29 --> n26
+  n29 --> n2
+  n30 --> n27
+  n30 --> n23
+  n30 --> n22
+  n30 --> n12
+  n30 --> n17
+  n30 --> n5
+  n30 --> n2
+  n30 --> n26
+  n31 --> n27
+  n32 --> n27
+  n32 --> n29
+  n33 --> n2
+  n33 --> n9
+  n33 --> n22
+  n33 --> n5
+  n33 --> n17
+  n33 --> n12
+  n33 --> n18
+  n33 --> n16
+  n34 --> n9
+  n34 --> n4
+  n34 --> n5
+  n34 --> n16
+  n34 --> n13
+  n35 --> n9
+  n35 --> n5
+  n35 --> n13
+  n35 --> n12
+  n36 --> n9
+  n36 --> n7
+  n36 --> n4
+  n36 --> n16
+  n37 --> n8
+  n37 --> n9
+  n37 --> n11
+  n37 --> n5
+  n38 --> n9
+  n38 --> n5
+  n38 --> n12
+  n38 --> n16
+  n39 --> n10
+  n39 --> n9
+  n39 --> n8
+  n40 --> n11
+  n40 --> n9
+  n40 --> n8
+  n41 --> n9
+  n41 --> n12
+  n41 --> n5
+  n42 --> n13
+  n42 --> n9
+  n42 --> n22
+  n42 --> n2
+  n42 --> n18
+  n42 --> n16
+  n43 --> n13
+  n43 --> n9
+  n43 --> n22
+  n43 --> n12
+  n43 --> n4
+  n43 --> n5
+  n43 --> n16
+  n43 --> n8
+  n43 --> n15
+  n44 --> n9
+  n44 --> n15
+  n44 --> n12
+  n44 --> n13
+  n44 --> n5
+  n44 --> n8
+  n44 --> n1
+  n45 --> n16
+  n45 --> n9
+  n45 --> n22
+  n45 --> n5
+  n46 --> n16
+  n46 --> n9
+  n46 --> n22
+  n46 --> n17
+  n46 --> n13
+  n46 --> n2
+  n46 --> n12
+  n47 --> n17
+  n47 --> n9
+  n47 --> n16
+  n47 --> n5
+  n47 --> n12
+  n47 --> n13
+  n48 --> n17
+  n48 --> n9
+  n48 --> n16
+  n48 --> n13
+  n48 --> n12
+  n48 --> n8
+  n48 --> n4
+  n48 --> n5
+  n49 --> n17
+  n49 --> n9
+  n49 --> n5
+  n50 --> n18
+  n50 --> n9
+  n50 --> n22
+  n50 --> n12
+  n50 --> n5
+  n51 --> n19
+  n51 --> n9
+  n51 --> n22
+  n52 --> n21
+  n52 --> n9
+  n52 --> n22
+  n52 --> n17
+  n52 --> n13
+  n52 --> n16
+  n52 --> n20
+  n53 --> n27
+  n53 --> n26
+  n53 --> n2
+  n53 --> n22
+  n54 --> n25
+  n54 --> n5
+  n54 --> n2
+  n55 --> n17
+  n55 --> n18
+  n55 --> n12
+  n55 --> n9
+  n55 --> n22
+  n56 --> n15
+  n56 --> n7
+  n56 --> n2
+  n56 --> n19
+  n56 --> n17
+  n56 --> n25
+  n56 --> n16
+  n56 --> n5
+  n56 --> n26
+  n56 --> n27
+  n56 --> n12
+  n56 --> n11
+  n57 --> n15
+  n57 --> n7
+  n57 --> n4
+  n57 --> n5
+  n57 --> n9
+  n57 --> n8
+  n57 --> n10
+  n57 --> n11
+  n57 --> n12
+  n57 --> n13
+  n57 --> n0
+  n57 --> n1
 ```
 
 ## Broken-reference report
 
-**47** dangling references from **live** documents in the genuine-rot classes (missing-on-disk + retired-target; 59 live total — the remainder point at on-disk files outside the node set), 330 from frozen / executed documents (expected drift), and 0 ambiguous, after the ADR-0005 Rule 4 code-block/placeholder filter. See [`docs/doc-graph-report.md`](./doc-graph-report.md) for the full list, split by origin bucket and target class — the maintainer reviews it; nothing is auto-fixed.
+**53** dangling references from **live** documents in the genuine-rot classes (missing-on-disk + retired-target; 66 live total — the remainder point at on-disk files outside the node set), 331 from frozen / executed documents (expected drift), and 0 ambiguous, after the ADR-0005 Rule 4 code-block/placeholder filter. See [`docs/doc-graph-report.md`](./doc-graph-report.md) for the full list, split by origin bucket and target class — the maintainer reviews it; nothing is auto-fixed.
 
 ## Regeneration
 

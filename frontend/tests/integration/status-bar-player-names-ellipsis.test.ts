@@ -66,6 +66,24 @@
  * hand-copied duplicate) so `getComputedStyle` reflects the real,
  * current CSS — same technique as `status-bar-hint-no-reflow.test.ts`.
  *
+ * Addendum (statusbar-cards-completion-build, defects (a) and (f)
+ * REOPENED a second/third time, both re-witnessed live at 1920px against
+ * the reverted divider-mechanics base, 90b67af3): two more root causes
+ * surfaced past Arc 2's fix above. (a) `flex: 1 1 0` on each
+ * `.player-name` pinned its flex-BASIS to the literal `0`, which also
+ * zeroed `.player-names`' own max-content contribution up the tree — both
+ * names ellipsized immediately even at an enormous ample width; fixed by
+ * `flex: 1 1 auto` (basis = each name's own natural content width). (f)
+ * the active-turn ring (`.stone-chip.active`'s outline, painted OUTSIDE
+ * the chip) was still clipped by `.player-name`'s `overflow: hidden`
+ * needed for the ellipsis affordance — the prior left-padding band-aid
+ * (below) only opened headroom on ONE edge and was live-refuted; the
+ * root fix moves the ellipsis/clip declarations to a NEW inner
+ * `.player-name-text` span, so `.player-name` itself never clips on any
+ * edge. The tests below are updated in place to pin the CURRENT shape;
+ * see `StatusBar-player-names-ample-width.test.ts` for the dedicated
+ * ample-width companion suite.
+ *
  * License: Public Domain (The Unlicense)
  */
 
@@ -153,6 +171,16 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
   });
 
   it('.player-names is a flex ROW of two independently-ellipsizing children, not one shared blob (closes first-takes-all tail elision) — contract (b)', () => {
+    // Superseded shape, statusbar-cards-completion-build (defect f): the
+    // ellipsis/nowrap/overflow clip boundary moved from `.player-name`
+    // itself to a NEW inner `.player-name-text` span — `.player-name` is
+    // now `inline-flex` (chip + text-span as independent flex children)
+    // and carries NO overflow clipping, so the active-turn ring (painted
+    // outside the chip's border box) is never clipped on any edge. See
+    // `StatusBar.vue`'s own comment on `.player-name-text` for the full
+    // derivation; this test's intent (symmetric, non-privileged
+    // ellipsis) is preserved, just re-pinned against the current DOM
+    // shape.
     const { board, metadata } = boardWithMetadata('AlphaGo', 'Lee Sedol');
     wrapper = mount(StatusBar, {
       props: { board, metadata, canPass: true },
@@ -170,27 +198,41 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
     const blackComputed = getComputedStyle(blackName.element);
     const whiteComputed = getComputedStyle(whiteName.element);
 
-    // Neither name's ellipsizing box is itself a flex container (Arc
-    // 1's lesson, applied per-name): `text-overflow: ellipsis` is only
-    // reliably inserted against inline-flow content.
-    expect(blackComputed.display).not.toBe('flex');
-    expect(blackComputed.display).not.toBe('inline-flex');
-    expect(whiteComputed.display).not.toBe('flex');
-    expect(whiteComputed.display).not.toBe('inline-flex');
+    // `.player-name` is `inline-flex` now (chip + `.player-name-text` as
+    // two independent flex children) — it is deliberately NOT the
+    // ellipsizing box itself, so it carries no overflow clipping.
+    expect(blackComputed.display).toBe('inline-flex');
+    expect(whiteComputed.display).toBe('inline-flex');
+    expect(blackComputed.overflow).not.toBe('hidden');
+    expect(whiteComputed.overflow).not.toBe('hidden');
 
-    // Both names carry IDENTICAL ellipsis/nowrap/overflow declarations
-    // AND identical flex-basis/flex-grow — the symmetry itself is the
-    // assertion that neither player is structurally privileged, unlike
-    // the old single-blob shape where Black (head of the run) could
-    // never be the one elided.
-    for (const computed of [blackComputed, whiteComputed]) {
+    // The ellipsizing box is the INNER `.player-name-text` span — a
+    // plain inline-block leaf, never a flex container itself (Arc 1's
+    // lesson, still true, applied one level deeper now).
+    const blackNameText = wrapper.find('.player-name--black .player-name-text');
+    const whiteNameText = wrapper.find('.player-name--white .player-name-text');
+    expect(blackNameText.exists()).toBe(true);
+    expect(whiteNameText.exists()).toBe(true);
+    const blackTextComputed = getComputedStyle(blackNameText.element);
+    const whiteTextComputed = getComputedStyle(whiteNameText.element);
+    expect(blackTextComputed.display).not.toBe('flex');
+    expect(blackTextComputed.display).not.toBe('inline-flex');
+    expect(whiteTextComputed.display).not.toBe('flex');
+    expect(whiteTextComputed.display).not.toBe('inline-flex');
+
+    // Both names' text spans carry IDENTICAL ellipsis/nowrap/overflow
+    // declarations AND identical flex-basis/flex-grow — the symmetry
+    // itself is the assertion that neither player is structurally
+    // privileged, unlike the old single-blob shape where Black (head of
+    // the run) could never be the one elided.
+    for (const computed of [blackTextComputed, whiteTextComputed]) {
       expect(computed.whiteSpace).toBe('nowrap');
       expect(computed.overflow).toBe('hidden');
       expect(computed.textOverflow).toBe('ellipsis');
     }
-    expect(blackComputed.flexGrow).toBe(whiteComputed.flexGrow);
-    expect(blackComputed.flexShrink).toBe(whiteComputed.flexShrink);
-    expect(blackComputed.flexBasis).toBe(whiteComputed.flexBasis);
+    expect(blackTextComputed.flexGrow).toBe(whiteTextComputed.flexGrow);
+    expect(blackTextComputed.flexShrink).toBe(whiteTextComputed.flexShrink);
+    expect(blackTextComputed.flexBasis).toBe(whiteTextComputed.flexBasis);
   });
 
   it('.player-names carries a title tooltip with the full, untruncated pairing', () => {
@@ -245,6 +287,35 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
     expect(playerNames.minWidth).toBe('32px');
   });
 
+  it('defect (f) root fix: the active-turn ring has NO clipping ancestor at all — the left-padding band-aid is retired, not widened', () => {
+    // Superseded shape, statusbar-cards-completion-build: the prior fix
+    // (commit 87455822, "StatusBar active-turn ring no longer clipped")
+    // opened 3px of left-edge headroom on `.player-name`'s own
+    // `overflow: hidden` box — live-refuted TWICE: `.stone-chip`'s
+    // `vertical-align: middle` leaves near-zero vertical slack, so the
+    // ring's top/bottom arcs were still clipped by the same box the
+    // left-padding never touched. Root fix: `.player-name` no longer
+    // clips on ANY edge (asserted above) — there is no ring-bleed
+    // headroom left to reserve, because there is no clipping box left
+    // to reserve it against. This test pins the retirement, not a
+    // successor magic number.
+    const { board, metadata } = boardWithMetadata('Black', 'White');
+    wrapper = mount(StatusBar, {
+      props: { board, metadata, canPass: true },
+      global: { plugins: [i18n] },
+    });
+
+    const blackComputed = getComputedStyle(wrapper.find('.player-name--black').element);
+    const whiteComputed = getComputedStyle(wrapper.find('.player-name--white').element);
+    expect(blackComputed.overflow).not.toBe('hidden');
+    expect(whiteComputed.overflow).not.toBe('hidden');
+    // The chip and the (now-clipping) `.player-name-text` are SIBLINGS
+    // under `.player-name` — the chip itself sits outside the only
+    // element that still clips, on every edge, at any width.
+    const blackChip = wrapper.find('.player-name--black .stone-chip').element;
+    expect(blackChip.parentElement?.className).toContain('player-name--black');
+  });
+
   it('narrow mode: symmetric degradation — a single shared ceiling on `.player-names` squeezes both names equally, not one first — contract (b)', () => {
     const { board, metadata } = boardWithMetadata('Black', 'White');
     wrapper = mount(StatusBar, {
@@ -263,18 +334,28 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
     expect(narrowRuleMatch).toBeTruthy();
     expect(narrowRuleMatch![1]).toContain('max-width: 90px');
 
-    // Because `.player-names` is `display: flex` with two `flex: 1 1 0`
-    // children (asserted above), constraining ITS width via this
-    // narrow-mode `max-width` mechanically splits the squeeze evenly
-    // between `.player-name--black` and `.player-name--white` — neither
-    // one is asked to give up more than the other. Confirmed against
-    // the LIVE computed style of both children (not just the rule
-    // text), so this assertion tracks the actual cascade.
+    // Because `.player-names` is `display: flex` with two `.player-name`
+    // children (each `flex: 1 1 auto`, basis = the name's OWN natural
+    // width — statusbar-cards-completion-build, defect (a)'s second
+    // reopening: `flex-basis: 0` silently zeroed each name's contribution
+    // to `.player-names`' own max-content size up the tree, so `auto` is
+    // the fix, not a shared literal), constraining `.player-names`' width
+    // via this narrow-mode `max-width` still squeezes both names'
+    // proportional to their own content — neither is asked to give up
+    // more than a proportional share. The ellipsis affordance itself now
+    // lives on the inner `.player-name-text` span (defect f). Confirmed
+    // against the LIVE computed style of both text spans (not just the
+    // rule text), so this assertion tracks the actual cascade.
+    const blackTextComputed = getComputedStyle(wrapper!.find('.player-name--black .player-name-text').element);
+    const whiteTextComputed = getComputedStyle(wrapper!.find('.player-name--white .player-name-text').element);
+    expect(blackTextComputed.textOverflow).toBe('ellipsis');
+    expect(whiteTextComputed.textOverflow).toBe('ellipsis');
+    expect(blackTextComputed.flexGrow).toBe(whiteTextComputed.flexGrow);
+    expect(blackTextComputed.flexBasis).toBe(whiteTextComputed.flexBasis);
+
     const blackComputed = getComputedStyle(wrapper!.find('.player-name--black').element);
     const whiteComputed = getComputedStyle(wrapper!.find('.player-name--white').element);
-    expect(blackComputed.textOverflow).toBe('ellipsis');
-    expect(whiteComputed.textOverflow).toBe('ellipsis');
-    expect(blackComputed.flexGrow).toBe(whiteComputed.flexGrow);
+    expect(blackComputed.flexBasis).toBe('auto');
     expect(blackComputed.flexBasis).toBe(whiteComputed.flexBasis);
   });
 });

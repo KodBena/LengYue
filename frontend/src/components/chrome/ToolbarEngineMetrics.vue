@@ -96,6 +96,7 @@ import { useEngineControls } from '../../composables/useEngineControls';
 import { useHoverPopover } from '../../composables/chrome/useHoverPopover';
 import { useFixedAnchoredPopover } from '../../composables/chrome/useFixedAnchoredPopover';
 import { TOOLBAR_METRICS_REDRAW_THROTTLE_MS } from '../../lib/timing';
+import { describeInferredCacheState } from '../../engine/katago/cache-inference';
 
 const { t } = useI18n();
 
@@ -188,9 +189,20 @@ const watchdogStyle = computed(() => ({
 const engineVersion = computed(() => store.engine.info.version);
 const versionTooltip = computed(() => {
   const payload = store.engine.info.versionPayload;
-  return payload
+  const base = payload
     ? `query_version response:\n${JSON.stringify(payload, null, 2)}`
     : t('toolbar.engineVersionTooltipPending');
+  // Cache-wiki ask #2: append the SPA's own inferred cache-config
+  // line, clearly separated from (and marked as distinct from) the
+  // proxy-advertised payload above. Read unconditionally — these are
+  // profile registry leaves, not gated on connection state, so the
+  // line renders even in the `payload === null` pending-probe window.
+  const cacheLine = describeInferredCacheState(
+    store.profile.settings.engine.katago.cache,
+    store.profile.settings.engine.katago.lookup_cache,
+    t,
+  );
+  return `${base}\n\n${cacheLine}`;
 });
 
 // Live engine-evaluation surface — slim-tier preview of the

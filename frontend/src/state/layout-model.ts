@@ -734,6 +734,51 @@ export const FOREST_NARROW_THRESHOLD_PX = computeForestNarrowThresholdPx(
   FOREST_TREE_USABLE_FLOOR_PX,
 );
 
+// ── Tree-panel two-column (chart+metadata) threshold ──────────────────
+//
+// statusbar-cards-completion-build (defect e): `ForestDirectory.vue`'s
+// `.tree-panel` reflows the card-tree chart and `CardMetadataPanel`
+// side-by-side (`.panel-content-two-col`) when the ANCESTOR
+// `props.twoColumnReflow` prop says so — and that prop is sourced from
+// `getPanelContentPolicy(layoutClass)`, the WHOLE-WORKSPACE viewport
+// width class (App.vue). At a wide/vast viewport this is unconditionally
+// `true` regardless of how narrow the Cards surface's OWN tree-panel
+// currently renders — the toolbar-launched Cards overlay shares the
+// split-layout's right column with the goban, so a wide viewport with a
+// dominant board can still leave `.tree-panel` at ~380px. Selecting a
+// card there forced the metadata panel's `PANEL_CONTENT_READING_MEASURE_CH`
+// column (`cardMetadataMaxWidthCss`) into a CSS grid `1fr auto` split
+// whose `1fr` (the chart) has `min-width: 0` — so the chart column
+// collapsed to a sliver (~23px, live-witnessed), reading as "the tree
+// disappeared" the instant a card was clicked. Root cause: the two-col
+// decision is driven by the wrong width source (viewport, not this
+// panel's own rendered width).
+//
+// Fix: `ForestDirectory.vue` ANDs the ancestor's intent with a
+// container-measured guard on `.tree-panel` itself (the same element
+// `useContainerAspectOrientation` already observes for the tree's own
+// orientation), via `useDeferredContainerBreakpoint` — the SAME
+// mid-drag-flip-avoidance mechanism `forestNarrow` above already uses,
+// so this doesn't reintroduce the discrete-reorg-during-a-continuous-
+// drag defect the resizer-rearch amendment closed once. Below this
+// threshold, two-col simply doesn't apply and CSS's existing "chart
+// stretches full width, metadata panel stacks below" default (the
+// `.panel-content-two-col`-less shape) takes over instead — the tree
+// is never removed from layout, only the metadata panel's placement
+// relative to it changes.
+//
+// Threshold: each region (chart, metadata) needs at least
+// `FOREST_TREE_USABLE_FLOOR_PX` (declared above, the same "renders
+// unintelligibly below this" floor `FOREST_NARROW_THRESHOLD_PX` already
+// uses for the chart) to be worth showing beside the other rather than
+// stacked — `computeForestNarrowThresholdPx` (above) already expresses
+// "sum of two region floors, minus one", so this reuses that function
+// rather than hand-deriving a second formula for the same shape.
+export const FOREST_TREE_TWO_COL_THRESHOLD_PX = computeForestNarrowThresholdPx(
+  FOREST_TREE_USABLE_FLOOR_PX,
+  FOREST_TREE_USABLE_FLOOR_PX,
+);
+
 // ── Reactive entry point (Phase 1 consumer: App.vue) ───────────────────
 
 /**

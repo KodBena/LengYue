@@ -181,7 +181,7 @@ export class FutureSchemaVersionError extends Error {
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 77;
+export const CURRENT_SCHEMA_VERSION = 78;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -209,94 +209,12 @@ export const CURRENT_SCHEMA_VERSION = 77;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 75 → 76: LYT corner presence-menu state migration (W2,
-  // `.claude/dispatch-reports/lyt-vue-realization-roadmap.md` §5 +
-  // ledger row 1743). Introduces `session.ui.lytPresence` (per-widget-id
-  // boolean map) and `session.ui.railStyle` ('slot' | 'popover'),
-  // superseding three of the five pre-LYT-rework `*Expanded` toggles:
-  //
-  //   - `sidebarExpanded`  -> `lytPresence.boardRail`   (value carried
-  //     forward when boolean; the boardRail LYT leaf's own registration
-  //     default, `false`, otherwise — see schema.ts's own doc comment).
-  //   - `controlsExpanded` -> `lytPresence.controlPanel` (same carry-
-  //     forward rule; registration default `true`).
-  //   - `boardExpanded` retires outright, no successor — the board
-  //     composite is architecturally always-mounted (roadmap §5); no
-  //     value is carried forward anywhere, matching the 65 → 66 archived
-  //     body's own "strip with no successor" precedent for a dead field.
-  //   - `lytPresence.previewBoard` is a genuinely NEW target (no
-  //     pre-LYT-rework predecessor) — backfilled straight to its own
-  //     registration default, `false`.
-  //   - `railStyle` is likewise new — backfilled to `'slot'` (roadmap §7
-  //     ruling 2's own default; the user flips it explicitly).
-  //
-  // `sidebarExpanded` / `controlsExpanded` / `boardExpanded` are then
-  // deleted — the runtime `UISession` type (schema.ts) no longer
-  // describes them, so leaving any of the three in a migrated blob
-  // would be a stray key.
-  //
-  // DELIBERATELY NOT migrated: `treeExpanded` (untouched, still a real
-  // schema field — see schema.ts's own doc comment on why: blind-
-  // review-mode's unrelated, load-bearing reuse of that field name,
-  // outside W2's scope to touch) and `systemLogExpanded` (W4's overlay-
-  // stratum ruling owns that field's eventual home, per the roadmap's
-  // own commission text — untouched here).
-  //
-  // Container access goes through `witnessedContainer` (step 3 of the
-  // add-a-migration recipe): `session.ui` is witnessed against the
-  // runtime shape, so a typo'd path fails loudly here rather than
-  // no-oping and stamping the version. The blob-side resolution keeps
-  // the sibling bodies' non-null-object tolerance: a partial / legacy
-  // blob whose container is absent no-ops (both new fields stay
-  // unset — `updateFromRemote`'s deepMerge against `defaultSessionUI`
-  // supplies them on the next hydrate, same fallback every other
-  // additive field in this file relies on).
-  //
-  // Idempotent: re-running against an already-migrated blob (no
-  // `sidebarExpanded`/`controlsExpanded`/`boardExpanded` keys present,
-  // `lytPresence`/`railStyle` already set) leaves both new fields
-  // untouched — the boolean/string-typed guards below only backfill a
-  // MISSING or wrong-typed leaf, never overwrite a valid one.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const ui = witnessedContainer(out, 'session.ui');
-    if (ui) {
-      const u = ui as {
-        sidebarExpanded?: unknown;
-        controlsExpanded?: unknown;
-        boardExpanded?: unknown;
-        lytPresence?: unknown;
-        railStyle?: unknown;
-      };
-      const presence: Record<string, boolean> =
-        typeof u.lytPresence === 'object' && u.lytPresence !== null
-          ? { ...(u.lytPresence as Record<string, unknown>) } as Record<string, boolean>
-          : {};
-      if (typeof presence.boardRail !== 'boolean') {
-        presence.boardRail = typeof u.sidebarExpanded === 'boolean' ? u.sidebarExpanded : false;
-      }
-      if (typeof presence.controlPanel !== 'boolean') {
-        presence.controlPanel = typeof u.controlsExpanded === 'boolean' ? u.controlsExpanded : true;
-      }
-      if (typeof presence.previewBoard !== 'boolean') {
-        presence.previewBoard = false;
-      }
-      u.lytPresence = presence;
-      if (u.railStyle !== 'slot' && u.railStyle !== 'popover') {
-        u.railStyle = 'slot';
-      }
-      delete u.sidebarExpanded;
-      delete u.controlsExpanded;
-      delete u.boardExpanded;
-    }
-    return out;
-  },
-  // 76 → 77: compensating fix for a bug the 75 → 76 body above shipped
-  // with (LYT presence arc P2b, `.claude/dispatch-reports/lyt-p2b-
-  // presence-realization.md` — "the schema decision, and why"). Per this
-  // file's own header ("bugs in a shipped migration are addressed by
-  // adding a NEW migration later that compensates"), NOT by editing the
-  // frozen 75 → 76 body above.
+  // 76 → 77: compensating fix for a bug the 75 → 76 body (now archived,
+  // see archived-migrations.ts) shipped with (LYT presence arc P2b,
+  // `.claude/dispatch-reports/lyt-p2b-presence-realization.md` — "the
+  // schema decision, and why"). Per this file's own header ("bugs in
+  // a shipped migration are addressed by adding a NEW migration later
+  // that compensates"), NOT by editing the frozen 75 → 76 body.
   //
   // THE BUG: 75 → 76's own `presence.controlPanel = typeof
   // u.controlsExpanded === 'boolean' ? u.controlsExpanded : true` wrote a
@@ -352,6 +270,42 @@ export const migrations: Migration[] = [
         if (presence.controlPanel === true) {
           delete presence.controlPanel;
         }
+      }
+    }
+    return out;
+  },
+  // 77 → 78: allocation-family closing arc, item 1 — card-tree
+  // orientation now auto-derives from the tree/card-editor container's
+  // aspect ratio (`ForestDirectory.vue`); the panel-header toggle
+  // becomes an override of that derived value rather than the sole
+  // source of truth. Introduces `session.ui.cardTreeOrientationOverride`
+  // ('horizontal' | 'vertical' | null); see the field's doc comment on
+  // `UISession` in schema.ts for the auto-vs-override contract.
+  //
+  // No legacy predecessor to carry forward — the pre-78 orientation
+  // toggle was component-local (`ForestDirectory.vue`'s own `ref`, not
+  // persisted at all), so every existing blob simply gets the field
+  // backfilled to its registration default (`null`, i.e. "auto").
+  //
+  // Container witnessed against the runtime shape (`witnessedContainer`,
+  // step 3 of the add-a-migration recipe): `session.ui` exists from the
+  // original UISession seed (v1), so a typo'd path fails loudly here
+  // rather than no-oping and stamping the version.
+  //
+  // Idempotent: a pre-existing valid value ('horizontal' | 'vertical' |
+  // null) is preserved unchanged; only a missing / wrong-typed leaf is
+  // backfilled to `null`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { cardTreeOrientationOverride?: unknown };
+      if (
+        u.cardTreeOrientationOverride !== 'horizontal' &&
+        u.cardTreeOrientationOverride !== 'vertical' &&
+        u.cardTreeOrientationOverride !== null
+      ) {
+        u.cardTreeOrientationOverride = null;
       }
     }
     return out;

@@ -16,6 +16,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { store, activeBoard, pushSystemMessage, touchSession } from '../../store';
 import { useDeferredContainerBreakpoint } from '../../composables/chrome/useDeferredContainerBreakpoint';
+import { useContainerAspectOrientation } from '../../composables/chrome/useContainerAspectOrientation';
 import type { BoardId, CardId, CardMetadataPatch, ForestStat, ReviewCard } from '../../types';
 import { useCardTreeData } from '../../composables/cards/useCardTreeData';
 import { useCardMetadata } from '../../composables/cards/useCardMetadata';
@@ -24,7 +25,7 @@ import { useForestBrowsePolicy } from '../../composables/forest/useForestBrowseP
 import { useForestStats } from '../../composables/forest/useForestStats';
 import { useReviewSession } from '../../composables/review/useReviewSession';
 import { useAuth } from '../../composables/auth-app/useAuth';
-import { FOREST_NARROW_THRESHOLD_PX, PANEL_CONTENT_READING_MEASURE_CH } from '../../state/layout-model';
+import { FOREST_NARROW_THRESHOLD_PX, FOREST_TREE_TWO_COL_THRESHOLD_PX, PANEL_CONTENT_READING_MEASURE_CH } from '../../state/layout-model';
 import { expandContextIdMacros } from '../../utils/context-id-macros';
 import CardTreeWidget from '../charts/CardTreeWidget.vue';
 import ForestTreeNav from './ForestTreeNav.vue';
@@ -83,7 +84,31 @@ const auth = useAuth();
 const cardMetadata = useCardMetadata();
 const reviewSession = useReviewSession(boardIdRef);
 const selectedDeckId = ref<string>(store.session.ui.activeCardSetId);
-const orientation = ref<'horizontal' | 'vertical'>('vertical');
+
+// Item 1 (allocation-family closing arc, maintainer's own remedy): the
+// card-tree's orientation auto-derives from `.tree-panel`'s own
+// aspect ratio via `useContainerAspectOrientation` — a wide container
+// gets 'horizontal', a tall one 'vertical' — so the tree no longer
+// squishes into a narrow strip inside a wide-but-short container
+// (fd2a_cardtree_poorly_utilized_space_when_selecting_card.png). The
+// panel-header button becomes an OVERRIDE of that derived value,
+// persisted at `store.session.ui.cardTreeOrientationOverride`
+// ('horizontal' | 'vertical' | null — schema-version 78); `null` means
+// "no override, use the derived value." `effectiveOrientation` is what
+// actually reaches `CardTreeWidget`.
+const treePanelEl = ref<HTMLElement | null>(null);
+const {
+  derivedOrientation,
+  observe: observeTreePanelAspect,
+  stop: stopTreePanelAspectObserver,
+} = useContainerAspectOrientation();
+
+const orientationOverride = computed<'horizontal' | 'vertical' | null>(
+  () => store.session.ui.cardTreeOrientationOverride,
+);
+const orientation = computed<'horizontal' | 'vertical'>(
+  () => orientationOverride.value ?? derivedOrientation.value,
+);
 
 // Phase 3 (audit finding R3) — the metadata panel's own width when
 // reflowed beside the chart (`.panel-content-two-col`, style block
@@ -91,6 +116,28 @@ const orientation = ref<'horizontal' | 'vertical'>('vertical');
 // split cap uses, so this and that never drift into two independently
 // hand-picked `ch` figures.
 const cardMetadataMaxWidthCss = computed(() => `${PANEL_CONTENT_READING_MEASURE_CH}ch`);
+
+// defect (e) repair (statusbar-cards-completion-build): `props.twoColumnReflow`
+// is derived from the WHOLE-WORKSPACE viewport width class (App.vue's
+// `panelContentPolicy`), not from this panel's own rendered width — the
+// Cards surface shares the split layout's right column with the goban,
+// so a wide/vast viewport can still leave `.tree-panel` too narrow for
+// a side-by-side chart+metadata split (live-witnessed: selecting a card
+// squeezed the chart to a ~23px sliver, reading as "the tree
+// disappeared"). Guard the ancestor's intent with a container-measured
+// breakpoint on `.tree-panel` itself, using the SAME
+// `useDeferredContainerBreakpoint` mid-drag-flip-avoidance mechanism
+// `forestNarrow` below already uses (see `FOREST_TREE_TWO_COL_THRESHOLD_PX`'s
+// own header, state/layout-model.ts, for the full derivation and the
+// "committed" naming below is "narrow", i.e. two-col does NOT fit).
+const {
+  committed: treePanelTooNarrowForTwoCol,
+  observe: observeTreePanelTwoColWidth,
+  stop: stopTreePanelTwoColWidthObserver,
+} = useDeferredContainerBreakpoint(FOREST_TREE_TWO_COL_THRESHOLD_PX);
+const effectiveTwoColumnReflow = computed(
+  () => (props.twoColumnReflow ?? false) && !treePanelTooNarrowForTwoCol.value,
+);
 
 // "In-session" gating for the Decks panel: when a session is running
 // against the active board, the Decks left panel hosts the
@@ -113,8 +160,15 @@ const currentCardId = computed<CardId | null>(() => {
   return card ? card.id : null;
 });
 
-function toggleOrientation(): void {
-  orientation.value = orientation.value === 'horizontal' ? 'vertical' : 'horizontal';
+// Cycles the persisted override: auto (null) -> horizontal -> vertical
+// -> auto. Three states because the field now expresses three real
+// choices (let it derive vs. force either orientation), not two.
+function cycleOrientation(): void {
+  const cur = orientationOverride.value;
+  const next: 'horizontal' | 'vertical' | null =
+    cur === null ? 'horizontal' : cur === 'horizontal' ? 'vertical' : null;
+  store.session.ui.cardTreeOrientationOverride = next;
+  touchSession();
 }
 
 // Load the forest roots once authenticated — NOT on a bare onMounted.
@@ -441,12 +495,16 @@ const {
 
 onMounted(() => {
   if (forestCqWrapperEl.value) observeForestWidth(forestCqWrapperEl.value);
+  if (treePanelEl.value) observeTreePanelAspect(treePanelEl.value);
+  if (treePanelEl.value) observeTreePanelTwoColWidth(treePanelEl.value);
 });
-// ADR-0010 imperative-escape step 4: the ResizeObserver lives outside
-// Vue's reactivity graph and must be released, or every mounted
+// ADR-0010 imperative-escape step 4: all three ResizeObservers live
+// outside Vue's reactivity graph and must be released, or every mounted
 // ForestDirectory leaks an observer for the component's lifetime.
 onUnmounted(() => {
   stopForestWidthObserver();
+  stopTreePanelAspectObserver();
+  stopTreePanelTwoColWidthObserver();
 });
 </script>
 
@@ -458,7 +516,7 @@ onUnmounted(() => {
        target (same ancestor-not-self reasoning iter-17 established:
        `.forest-container` cannot observe/react to its own width). -->
   <div class="forest-cq-wrapper" ref="forestCqWrapperEl">
-  <div class="forest-container" :class="{ 'forest-narrow-stack': forestNarrow, 'panel-content-two-col': props.twoColumnReflow }">
+  <div class="forest-container" :class="{ 'forest-narrow-stack': forestNarrow, 'panel-content-two-col': effectiveTwoColumnReflow }">
 
     <!-- LEFT PANEL: Navigation — Decks / Browse via the shared TabWidget -->
     <div class="left-panel">
@@ -525,17 +583,31 @@ onUnmounted(() => {
       </TabWidget>
     </div>
 
-    <!-- RIGHT PANEL: Card-tree widget -->
-    <div class="tree-panel">
+    <!-- RIGHT PANEL: Card-tree widget. `ref="treePanelEl"` is the
+         ResizeObserver target for auto-derived orientation (item 1) —
+         observing this container (not `.chart-wrapper` alone) means
+         the derivation reacts to the same space the metadata panel's
+         side-by-side reflow (`.panel-content-two-col`) also competes
+         for, so the tree's orientation and its available room stay
+         consistent. -->
+    <div class="tree-panel" ref="treePanelEl">
       <div class="panel-header">
         <span>{{ $t('cards.lineage.header') }}</span>
         <div class="header-controls">
           <button
             class="orient-btn"
-            :title="orientation === 'horizontal' ? $t('cards.lineage.switchToVertical') : $t('cards.lineage.switchToHorizontal')"
-            @click="toggleOrientation"
+            :title="orientationOverride === null
+              ? $t('cards.lineage.switchToHorizontal')
+              : orientationOverride === 'horizontal'
+                ? $t('cards.lineage.switchToVertical')
+                : $t('cards.lineage.switchToAuto')"
+            @click="cycleOrientation"
           >
-            {{ orientation === 'horizontal' ? `⇥ ${$t('cards.lineage.orientationHorizontal')}` : `⇩ ${$t('cards.lineage.orientationVertical')}` }}
+            {{ orientationOverride === null
+              ? `⇆ ${$t('cards.lineage.orientationAuto')}`
+              : orientationOverride === 'horizontal'
+                ? `⇥ ${$t('cards.lineage.orientationHorizontal')}`
+                : `⇩ ${$t('cards.lineage.orientationVertical')}` }}
           </button>
           <span class="tree-meta" v-if="tree.forest.value.length">
             {{ $t('cards.lineage.treeCount', tree.forest.value.length) }} ·
@@ -704,7 +776,18 @@ onUnmounted(() => {
    mounted. `cardMetadataMaxWidthCss` (script) keeps the metadata
    column's own width sourced from `PANEL_CONTENT_READING_MEASURE_CH`,
    the same declared measure LibraryTab.vue's split cap uses — no
-   second hand-typed `ch` literal. */
+   second hand-typed `ch` literal.
+
+   defect (e) repair (statusbar-cards-completion-build): this class is
+   gated on `effectiveTwoColumnReflow` (script), not the raw
+   `props.twoColumnReflow` — the prop alone is viewport-width-derived
+   and said "yes" even when THIS panel's own rendered width couldn't
+   actually fit both columns (the Cards surface shares the split
+   layout's right column with the goban), squeezing `.chart-wrapper`'s
+   `1fr` down to a live-witnessed ~23px sliver the instant a card was
+   selected — the tree effectively vanished. See
+   `FOREST_TREE_TWO_COL_THRESHOLD_PX`'s header (state/layout-model.ts)
+   for the container-measured guard. */
 .forest-container.panel-content-two-col .tree-panel {
   display: grid;
   grid-template-columns: 1fr auto;

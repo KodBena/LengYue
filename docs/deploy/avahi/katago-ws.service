@@ -1,0 +1,17 @@
+<?xml version="1.0" standalone='no'?><!--*-nxml-*-->
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<!-- docs/deploy/avahi/katago-ws.service — advertises a KataGo-analysis-
+     compatible WebSocket endpoint (KataProxy relay or shim) over
+     mDNS/DNS-SD so the LengYue desktop app's engine autodiscovery
+     (frontend/src-tauri/src/mdns_discovery.rs, SERVICE_TYPE
+     "_katago-ws._tcp") can find it without a typed IP.
+     Install on the RELAY host: copy to /etc/avahi/services/ and adjust
+     the port to the relay's listening port. License: Public Domain
+     (The Unlicense). -->
+<service-group>
+  <name replace-wildcards="yes">KataGo analysis WS on %h</name>
+  <service>
+    <type>_katago-ws._tcp</type>
+    <port>1235</port>
+  </service>
+</service-group>

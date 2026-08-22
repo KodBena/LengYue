@@ -139,10 +139,16 @@ describe('mergeEnrichment — nested-null guard (adaptive-deeper postmortem §5.
     expect(warnings()).toHaveLength(1);
 
     // purgeAll resets the latch with the workspace: a fresh session surfaces
-    // the anomaly anew.
+    // the anomaly anew. Show-once dedup at the sink (system-message-sink's
+    // `push`, added alongside this test's own repair): the re-notification's
+    // text is byte-identical to the still-present prior entry and nothing
+    // else was logged in between, so it collapses into that SAME row
+    // (count bumped to 2) rather than adding a second near-duplicate row —
+    // the user still sees the anomaly recur, just without a duplicate line.
     ledger.purgeAll();
     mergeEnrichment(existing, incoming);
-    expect(warnings()).toHaveLength(2);
+    expect(warnings()).toHaveLength(1);
+    expect(warnings()[0].count).toBe(2);
 
     warn.mockRestore();
   });

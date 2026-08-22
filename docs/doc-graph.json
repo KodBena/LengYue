@@ -1,6 +1,6 @@
 {
-  "node_count": 491,
-  "edge_count": 2378,
+  "node_count": 537,
+  "edge_count": 2647,
   "age_buckets": [
     {
       "name": "fresh",
@@ -25,7 +25,7 @@
       "genre": "umbrella-root",
       "is_hub": false,
       "first_committed": "2026-04-27",
-      "last_committed": "2026-06-11",
+      "last_committed": "2026-08-13",
       "age_bucket": "aging"
     },
     {
@@ -33,16 +33,16 @@
       "genre": "umbrella-root",
       "is_hub": false,
       "first_committed": "2026-05-12",
-      "last_committed": "2026-06-12",
-      "age_bucket": "recent"
+      "last_committed": "2026-08-21",
+      "age_bucket": "fresh"
     },
     {
       "path": "README.md",
       "genre": "umbrella-root",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "last_committed": "2026-08-08",
+      "age_bucket": "stale"
     },
     {
       "path": "backend/CLAUDE.md",
@@ -98,7 +98,23 @@
       "is_hub": true,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-12",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/0001-immutability-and-copy-on-write.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
     },
     {
       "path": "docs/adr/0001-state-mutation-and-readonly.md",
@@ -106,7 +122,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/adr/0002-fail-loudly.md",
@@ -114,7 +130,15 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/0003-domain-coupling-bands.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
     },
     {
       "path": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
@@ -122,7 +146,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
@@ -130,7 +154,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/adr/0005-documentation-discipline.md",
@@ -138,7 +162,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/adr/0006-source-file-headers.md",
@@ -146,7 +170,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/adr/0007-file-size-and-information-density.md",
@@ -154,7 +178,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/adr/0008-classification-discipline.md",
@@ -162,7 +186,7 @@
       "is_hub": false,
       "first_committed": "2026-05-17",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/adr/0009-performance-investigation-discipline.md",
@@ -170,7 +194,7 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-06-12",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
@@ -178,7 +202,15 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/0010-render-locality-and-canvas.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
     },
     {
       "path": "docs/adr/0011-mechanization-discipline.md",
@@ -186,7 +218,327 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/0013-execution-integrity.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/0014-executor-second-opinion.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/0015-verification-substrate-discipline.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/0016-the-service-contract-is-an-enforcement-surface.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/0017-the-zero-context-reader.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/0018-consults-are-not-front-loaded.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/0019-appendix-ui-proscriptions.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/0019-genre-convention-is-the-default-spec.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/0020-meaning-preservation-witness.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/0021-witness-construction-discipline.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/README.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/backlog/0021-the-checked-surface-is-the-shipped-surface.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/backlog/CONSULT-ADR-0021-REVIEW-CONDUCT-APPENDIX-2026-07-25.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/backlog/FABLE-ADR-0021-PROPOSED-REVIEW-CONDUCT-APPENDIX.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/backlog/README.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0000-specimens.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0001-immutability-and-copy-on-write.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0002-chocofarm-fail-loud-substrate.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0003-band-map-and-instance-context.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0004-contract-examples.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0005-audit-substrate.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0006-header-exemplars.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0007-oversized-file-queue.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0008-chocofarm-classification-substrate.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0009-autoharn-reinstancement-2026-07-12.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0009-chocofarm-perf-discipline.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0010-lineage-not-applicable-record.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0011-chocofarm-context.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0011-throughput-lab-amendments.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0012-cpp-wire-contract.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0012-cross-device-bench-saga.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0012-p9-worked-examples.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0013-attrition-specimens.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0014-throughput-lab-specimen.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/0016-fact-mining-worked-instances.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/POSTMORTEM-REVIEW-CAMPAIGN-2026-07-23.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/POSTMORTEM-SETUP-TUI-ARC-2026-07-23.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/README.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/adr/history/ledger.md",
+      "genre": "adr",
+      "is_hub": false,
+      "first_committed": "2026-08-10",
+      "last_committed": "2026-08-10",
+      "age_bucket": "stale"
     },
     {
       "path": "docs/archive/34b-complete-status.md",
@@ -1525,6 +1877,14 @@
       "age_bucket": "stale"
     },
     {
+      "path": "docs/deploy/avahi/README.md",
+      "genre": "doc-root",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/dispatch/backend-to-frontend-card-metadata-inline-edit-arc1-shipped.md",
       "genre": "dispatch",
       "is_hub": false,
@@ -1594,7 +1954,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/dispatch/frontend-to-proxy-selector-and-capabilities.md",
@@ -1610,7 +1970,7 @@
       "is_hub": false,
       "first_committed": "2026-05-18",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/dispatch/proxy-to-frontend-selector-and-capabilities-status.md",
@@ -1645,12 +2005,20 @@
       "age_bucket": "stale"
     },
     {
+      "path": "docs/docker.md",
+      "genre": "doc-root",
+      "is_hub": false,
+      "first_committed": "2026-08-07",
+      "last_committed": "2026-08-21",
+      "age_bucket": "fresh"
+    },
+    {
       "path": "docs/handoff-current.md",
       "genre": "doc-root",
       "is_hub": true,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "last_committed": "2026-08-09",
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/analysis-persistence-followups.md",
@@ -1682,7 +2050,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/audit/audit-adr-corpus-2026-06-10-appendix-p2.md",
@@ -1690,7 +2058,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/audit/audit-adr-corpus-2026-06-10.md",
@@ -1698,7 +2066,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10-appendix.md",
@@ -1706,7 +2074,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md",
@@ -1714,7 +2082,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
@@ -1722,7 +2090,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/audit/audit-debt-second-opinion-2026-06-11.md",
@@ -1730,7 +2098,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/audit/audit-deferral-harvest-2026-06-10.md",
@@ -1738,7 +2106,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/audit/audit-hydration-rebind-residue-2026-06-10.md",
@@ -1746,7 +2114,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
@@ -2002,7 +2370,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/design/README.md",
@@ -2042,7 +2410,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/design/doc-graph-discipline-plan.md",
@@ -2194,7 +2562,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/investigation-refactoring-queue-adr0007-2026-06-02.md",
@@ -2234,7 +2602,7 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
@@ -2249,8 +2617,8 @@
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-06-22",
-      "last_committed": "2026-06-22",
-      "age_bucket": "fresh"
+      "last_committed": "2026-06-23",
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md",
@@ -2609,7 +2977,7 @@
       "genre": "playbook",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-06-02",
+      "last_committed": "2026-08-08",
       "age_bucket": "stale"
     },
     {
@@ -2618,7 +2986,7 @@
       "is_hub": false,
       "first_committed": "2026-06-04",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/rfcs/0001-adr-meta-review.md",
@@ -2626,7 +2994,7 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/rfcs/README.md",
@@ -2641,8 +3009,8 @@
       "genre": "doc-root",
       "is_hub": false,
       "first_committed": "2026-05-12",
-      "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "last_committed": "2026-08-06",
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-12-dsl-hyperparameter-harness.md",
@@ -3378,7 +3746,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-adr-record-amendments.md",
@@ -3394,7 +3762,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-cast-hygiene-lint.md",
@@ -3402,7 +3770,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-deferral-harvest.md",
@@ -3410,7 +3778,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-doc-graph-dangling-signal-cleanup.md",
@@ -3418,7 +3786,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-e2-consolidation-review.md",
@@ -3426,7 +3794,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-enrichment-merge-null-validation.md",
@@ -3434,7 +3802,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-hydration-rebind-residue-audit.md",
@@ -3442,7 +3810,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-keybindings-substrate-split.md",
@@ -3450,7 +3818,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-keyed-cache-brand-and-stable-handles.md",
@@ -3458,7 +3826,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-migration-leaf-assertion-and-composition-test.md",
@@ -3474,7 +3842,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-only-throw-error-g3.md",
@@ -3482,7 +3850,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-refs-kind-audit.md",
@@ -3490,7 +3858,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-rehome-agnostic-utils.md",
@@ -3498,7 +3866,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-resource-service-calibration-seam.md",
@@ -3506,7 +3874,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-review-scoring-named-seam.md",
@@ -3514,7 +3882,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-reviewcard-canonical-content.md",
@@ -3522,7 +3890,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-services-boundary-deny-by-default.md",
@@ -3530,7 +3898,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-spa-history-lessons-audit.md",
@@ -3546,7 +3914,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-types-split.md",
@@ -3554,7 +3922,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-vue-lifecycle-footgun-guards.md",
@@ -3562,7 +3930,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
@@ -3570,7 +3938,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-analysis-subscribe-union-narrowing.md",
@@ -3578,7 +3946,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-app-vue-extraction-residue.md",
@@ -3586,7 +3954,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-app-vue-orphan-sr-css.md",
@@ -3594,7 +3962,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-app-vue-style-and-wiring-extraction.md",
@@ -3602,7 +3970,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-archived-migration-wrong-path-corrective.md",
@@ -3610,7 +3978,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-audit-program-closeout.md",
@@ -3618,7 +3986,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-autosave-pause-unreachable.md",
@@ -3626,7 +3994,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-band-conformance-advisory-ratchet.md",
@@ -3634,7 +4002,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-band-conformance-ci-check.md",
@@ -3642,7 +4010,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-cast-stage2-burndown.md",
@@ -3650,7 +4018,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-chart-panel-preview-migration.md",
@@ -3658,7 +4026,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-doc-graph-svg-spline-failure.md",
@@ -3666,7 +4034,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-drop-engine-activemode.md",
@@ -3674,7 +4042,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-e2e-harness-selector-model-field.md",
@@ -3682,7 +4050,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-gate-recommendations-sweep.md",
@@ -3690,7 +4058,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-genapi-host-configurable.md",
@@ -3698,7 +4066,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-learned-vf-dispatch-closure.md",
@@ -3706,7 +4074,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-mechanization-discipline-tenet.md",
@@ -3714,7 +4082,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-perf-reprofile.md",
@@ -3722,7 +4090,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-perf-stability-panel-reprofile.md",
@@ -3730,7 +4098,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-persistence-board-keyed-drain.md",
@@ -3738,7 +4106,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-playenginemoves-cursor-conflation-twin.md",
@@ -3746,7 +4114,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-profile-owner-scope-analysis-net.md",
@@ -3754,7 +4122,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-reactive-state-modules-relocation.md",
@@ -3762,7 +4130,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-restart-thunk-inflight-semantics.md",
@@ -3770,7 +4138,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-review-paste-permissiveness-asymmetry.md",
@@ -3778,7 +4146,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-settings-profile-mutator-owner.md",
@@ -3786,7 +4154,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-sgf-file-boundary-coercions.md",
@@ -3794,7 +4162,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-single-owner-auth-state.md",
@@ -3802,7 +4170,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-source-file-header-lint.md",
@@ -3810,7 +4178,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-thumbnail-render-lifecycle-consolidation.md",
@@ -3818,7 +4186,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-unhandledrejection-backstop.md",
@@ -3826,7 +4194,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-11-work-status-audit-trail.md",
@@ -3834,7 +4202,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-12-analysis-query-routing-brand.md",
@@ -3842,7 +4210,7 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-12-band-adjudication-tranche-2.md",
@@ -3850,7 +4218,7 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-12-engine-move-delta-reconcile.md",
@@ -3858,7 +4226,7 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-12-mint-komi-calibration.md",
@@ -3866,7 +4234,7 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-12-perf-jank-extended-protocol.md",
@@ -3874,7 +4242,7 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-12-perf-jank-extended-study-results.md",
@@ -3882,7 +4250,7 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-12-preview-snapshot-composable.md",
@@ -3890,7 +4258,7 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-12-settings-accordion-to-tabs.md",
@@ -3898,7 +4266,7 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-12-subscribe-dispatch-narrowing.md",
@@ -3906,7 +4274,7 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "recent"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-22-perf-close-at-scale-capture.md",
@@ -3914,7 +4282,7 @@
       "is_hub": false,
       "first_committed": "2026-06-22",
       "last_committed": "2026-06-22",
-      "age_bucket": "fresh"
+      "age_bucket": "stale"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -3922,14 +4290,14 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "frontend/FILES.md",
       "genre": "subproject-frontend",
       "is_hub": false,
       "first_committed": "2026-05-11",
-      "last_committed": "2026-06-23",
+      "last_committed": "2026-08-21",
       "age_bucket": "fresh"
     },
     {
@@ -3937,16 +4305,16 @@
       "genre": "subproject-frontend",
       "is_hub": false,
       "first_committed": "2026-05-31",
-      "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "last_committed": "2026-08-06",
+      "age_bucket": "stale"
     },
     {
       "path": "frontend/README.md",
       "genre": "subproject-frontend",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-06-11",
-      "age_bucket": "aging"
+      "last_committed": "2026-08-08",
+      "age_bucket": "stale"
     }
   ],
   "edges": [
@@ -4155,6 +4523,13 @@
     },
     {
       "from": "README.md",
+      "to": "frontend/README.md",
+      "kind": "path-mention",
+      "site": "`frontend/README.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "README.md",
       "to": "backend/samples/README.md",
       "kind": "path-mention",
       "site": "`backend/samples/README.md`",
@@ -4207,13 +4582,6 @@
       "to": "docs/notes/distribution-packaging.md",
       "kind": "path-mention",
       "site": "`docs/notes/distribution-packaging.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "README.md",
-      "to": "frontend/README.md",
-      "kind": "path-mention",
-      "site": "`frontend/README.md`",
       "resolved": "resolved"
     },
     {
@@ -4414,7 +4782,7 @@
     },
     {
       "from": "docs/adr-synopsis.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "synopsis-of",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -4431,6 +4799,118 @@
       "to": "docs/archive/notes/perf-investigation-tooling-comparison-2026-05-27.md",
       "kind": "path-mention",
       "site": "`docs/archive/notes/perf-investigation-tooling-comparison-2026-05-27.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "to": "docs/adr/0017-the-zero-context-reader.md",
+      "kind": "adr-related",
+      "site": "ADR-0017",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "to": "docs/adr/0013-execution-integrity.md",
+      "kind": "adr-related",
+      "site": "ADR-0013",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "to": "docs/adr/0014-executor-second-opinion.md",
+      "kind": "adr-related",
+      "site": "ADR-0014",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "to": "docs/adr/0018-consults-are-not-front-loaded.md",
+      "kind": "adr-related",
+      "site": "ADR-0018",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0001-immutability-and-copy-on-write.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0001-immutability-and-copy-on-write.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0001-immutability-and-copy-on-write.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0001-immutability-and-copy-on-write.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0001-immutability-and-copy-on-write.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
       "resolved": "resolved"
     },
     {
@@ -4522,6 +5002,34 @@
       "to": "docs/archive/TODO-completed-2026-05-06.md",
       "kind": "path-mention",
       "site": "`docs/archive/TODO-completed-2026-05-06.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0003-domain-coupling-bands.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0003-domain-coupling-bands.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0003-domain-coupling-bands.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0003-domain-coupling-bands.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
       "resolved": "resolved"
     },
     {
@@ -4925,7 +5433,7 @@
     },
     {
       "from": "docs/adr/0009-performance-investigation-discipline.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -4998,6 +5506,13 @@
       "to": "docs/worklog/2026-06-01-perf-scenario-harness.md",
       "kind": "path-mention",
       "site": "`docs/worklog/2026-06-01-perf-scenario-harness.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
       "resolved": "resolved"
     },
     {
@@ -5127,6 +5642,27 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/adr/0010-render-locality-and-canvas.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0010-render-locality-and-canvas.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0010-render-locality-and-canvas.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
       "from": "docs/adr/0011-mechanization-discipline.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
@@ -5149,7 +5685,7 @@
     },
     {
       "from": "docs/adr/0011-mechanization-discipline.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -5173,6 +5709,1693 @@
       "to": "docs/pre-merge-checklist.md",
       "kind": "path-mention",
       "site": "`docs/pre-merge-checklist.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "to": "docs/adr/0007-file-size-and-information-density.md",
+      "kind": "adr-related",
+      "site": "ADR-0007",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "to": "docs/adr/0017-the-zero-context-reader.md",
+      "kind": "adr-related",
+      "site": "ADR-0017",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "to": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "kind": "adr-related",
+      "site": "ADR-0000",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0013-execution-integrity.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0013-execution-integrity.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0013-execution-integrity.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0013-execution-integrity.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0013-execution-integrity.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0013-execution-integrity.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0013-execution-integrity.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0013-execution-integrity.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0013-execution-integrity.md",
+      "to": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "kind": "adr-related",
+      "site": "ADR-0000",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0014-executor-second-opinion.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0014-executor-second-opinion.md",
+      "to": "docs/adr/0013-execution-integrity.md",
+      "kind": "adr-related",
+      "site": "ADR-0013",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0014-executor-second-opinion.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0014-executor-second-opinion.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0014-executor-second-opinion.md",
+      "to": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "kind": "adr-related",
+      "site": "ADR-0000",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0014-executor-second-opinion.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0014-executor-second-opinion.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0014-executor-second-opinion.md",
+      "to": "docs/adr/0007-file-size-and-information-density.md",
+      "kind": "adr-related",
+      "site": "ADR-0007",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0014-executor-second-opinion.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0014-executor-second-opinion.md",
+      "to": "docs/adr/0018-consults-are-not-front-loaded.md",
+      "kind": "adr-related",
+      "site": "ADR-0018",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0015-verification-substrate-discipline.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0015-verification-substrate-discipline.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0015-verification-substrate-discipline.md",
+      "to": "docs/adr/0013-execution-integrity.md",
+      "kind": "adr-related",
+      "site": "ADR-0013",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0015-verification-substrate-discipline.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0015-verification-substrate-discipline.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0015-verification-substrate-discipline.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0016-the-service-contract-is-an-enforcement-surface.md",
+      "to": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "kind": "adr-related",
+      "site": "ADR-0000",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0016-the-service-contract-is-an-enforcement-surface.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0016-the-service-contract-is-an-enforcement-surface.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0016-the-service-contract-is-an-enforcement-surface.md",
+      "to": "docs/adr/0013-execution-integrity.md",
+      "kind": "adr-related",
+      "site": "ADR-0013",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0016-the-service-contract-is-an-enforcement-surface.md",
+      "to": "docs/adr/0015-verification-substrate-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0015",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0016-the-service-contract-is-an-enforcement-surface.md",
+      "to": "docs/adr/0014-executor-second-opinion.md",
+      "kind": "adr-related",
+      "site": "ADR-0014",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0016-the-service-contract-is-an-enforcement-surface.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0016-the-service-contract-is-an-enforcement-surface.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0016-the-service-contract-is-an-enforcement-surface.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0016-the-service-contract-is-an-enforcement-surface.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0017-the-zero-context-reader.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0017-the-zero-context-reader.md",
+      "to": "docs/adr/0013-execution-integrity.md",
+      "kind": "adr-related",
+      "site": "ADR-0013",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0017-the-zero-context-reader.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0017-the-zero-context-reader.md",
+      "to": "docs/adr/0015-verification-substrate-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0015",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0017-the-zero-context-reader.md",
+      "to": "docs/adr/0014-executor-second-opinion.md",
+      "kind": "adr-related",
+      "site": "ADR-0014",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0017-the-zero-context-reader.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0017-the-zero-context-reader.md",
+      "to": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "kind": "adr-related",
+      "site": "ADR-0000",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0017-the-zero-context-reader.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0018-consults-are-not-front-loaded.md",
+      "to": "docs/adr/0014-executor-second-opinion.md",
+      "kind": "adr-related",
+      "site": "ADR-0014",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0018-consults-are-not-front-loaded.md",
+      "to": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "kind": "adr-related",
+      "site": "ADR-0000",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0019-appendix-ui-proscriptions.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0019-genre-convention-is-the-default-spec.md",
+      "to": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "kind": "adr-related",
+      "site": "ADR-0000",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0019-genre-convention-is-the-default-spec.md",
+      "to": "docs/adr/0014-executor-second-opinion.md",
+      "kind": "adr-related",
+      "site": "ADR-0014",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0019-genre-convention-is-the-default-spec.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0019-genre-convention-is-the-default-spec.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0019-genre-convention-is-the-default-spec.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0019-genre-convention-is-the-default-spec.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0019-genre-convention-is-the-default-spec.md",
+      "to": "0019-appendix-provisional-ui-proscriptions.md",
+      "kind": "path-mention",
+      "site": "`0019-appendix-provisional-ui-proscriptions.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/adr/0020-meaning-preservation-witness.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0020-meaning-preservation-witness.md",
+      "to": "docs/adr/0017-the-zero-context-reader.md",
+      "kind": "adr-related",
+      "site": "ADR-0017",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0020-meaning-preservation-witness.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0020-meaning-preservation-witness.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0021-witness-construction-discipline.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0021-witness-construction-discipline.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0021-witness-construction-discipline.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0021-witness-construction-discipline.md",
+      "to": "docs/adr/0013-execution-integrity.md",
+      "kind": "adr-related",
+      "site": "ADR-0013",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0021-witness-construction-discipline.md",
+      "to": "docs/adr/0015-verification-substrate-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0015",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0021-witness-construction-discipline.md",
+      "to": "docs/adr/0020-meaning-preservation-witness.md",
+      "kind": "adr-related",
+      "site": "ADR-0020",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "kind": "adr-related",
+      "site": "ADR-0000",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0006-source-file-headers.md",
+      "kind": "adr-related",
+      "site": "ADR-0006",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0007-file-size-and-information-density.md",
+      "kind": "adr-related",
+      "site": "ADR-0007",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0015-verification-substrate-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0015",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0013-execution-integrity.md",
+      "kind": "adr-related",
+      "site": "ADR-0013",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0014-executor-second-opinion.md",
+      "kind": "adr-related",
+      "site": "ADR-0014",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0016-the-service-contract-is-an-enforcement-surface.md",
+      "kind": "adr-related",
+      "site": "ADR-0016",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0017-the-zero-context-reader.md",
+      "kind": "adr-related",
+      "site": "ADR-0017",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0018-consults-are-not-front-loaded.md",
+      "kind": "adr-related",
+      "site": "ADR-0018",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0019-genre-convention-is-the-default-spec.md",
+      "kind": "adr-related",
+      "site": "ADR-0019",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/README.md",
+      "to": "docs/adr/0020-meaning-preservation-witness.md",
+      "kind": "adr-related",
+      "site": "ADR-0020",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/backlog/0021-the-checked-surface-is-the-shipped-surface.md",
+      "to": "docs/adr/0021-witness-construction-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0021",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/backlog/0021-the-checked-surface-is-the-shipped-surface.md",
+      "to": "docs/adr/0020-meaning-preservation-witness.md",
+      "kind": "adr-related",
+      "site": "ADR-0020",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/backlog/0021-the-checked-surface-is-the-shipped-surface.md",
+      "to": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "kind": "adr-related",
+      "site": "ADR-0000",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/backlog/CONSULT-ADR-0021-REVIEW-CONDUCT-APPENDIX-2026-07-25.md",
+      "to": "docs/adr/0021-witness-construction-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0021",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/backlog/CONSULT-ADR-0021-REVIEW-CONDUCT-APPENDIX-2026-07-25.md",
+      "to": "docs/adr/0018-consults-are-not-front-loaded.md",
+      "kind": "adr-related",
+      "site": "ADR-0018",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/backlog/CONSULT-ADR-0021-REVIEW-CONDUCT-APPENDIX-2026-07-25.md",
+      "to": "docs/adr/0017-the-zero-context-reader.md",
+      "kind": "adr-related",
+      "site": "ADR-0017",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/backlog/CONSULT-ADR-0021-REVIEW-CONDUCT-APPENDIX-2026-07-25.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/backlog/CONSULT-ADR-0021-REVIEW-CONDUCT-APPENDIX-2026-07-25.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/backlog/CONSULT-ADR-0021-REVIEW-CONDUCT-APPENDIX-2026-07-25.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/backlog/CONSULT-ADR-0021-REVIEW-CONDUCT-APPENDIX-2026-07-25.md",
+      "to": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "kind": "adr-related",
+      "site": "ADR-0000",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/backlog/CONSULT-ADR-0021-REVIEW-CONDUCT-APPENDIX-2026-07-25.md",
+      "to": "docs/adr/0020-meaning-preservation-witness.md",
+      "kind": "adr-related",
+      "site": "ADR-0020",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/backlog/FABLE-ADR-0021-PROPOSED-REVIEW-CONDUCT-APPENDIX.md",
+      "to": "docs/adr/0021-witness-construction-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0021",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/backlog/README.md",
+      "to": "docs/adr/0021-witness-construction-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0021",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/backlog/README.md",
+      "to": "docs/adr/backlog/0021-the-checked-surface-is-the-shipped-surface.md",
+      "kind": "path-mention",
+      "site": "`0021-the-checked-surface-is-the-shipped-surface.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0000-specimens.md",
+      "to": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "kind": "adr-related",
+      "site": "ADR-0000",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0000-specimens.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0000-specimens.md",
+      "to": "docs/adr/0017-the-zero-context-reader.md",
+      "kind": "adr-related",
+      "site": "ADR-0017",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0000-specimens.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0000-specimens.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0000-specimens.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0000-specimens.md",
+      "to": "docs/adr/0013-execution-integrity.md",
+      "kind": "adr-related",
+      "site": "ADR-0013",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0000-specimens.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0001-immutability-and-copy-on-write.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0001-immutability-and-copy-on-write.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0001-immutability-and-copy-on-write.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0001-immutability-and-copy-on-write.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0001-immutability-and-copy-on-write.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0001-immutability-and-copy-on-write.md",
+      "to": "docs/notes/audit/architectural-audit-2026-06-15.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/architectural-audit-2026-06-15.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/adr/history/0002-chocofarm-fail-loud-substrate.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0002-chocofarm-fail-loud-substrate.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0002-chocofarm-fail-loud-substrate.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0002-chocofarm-fail-loud-substrate.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0002-chocofarm-fail-loud-substrate.md",
+      "to": "docs/notes/jaxtrain-deadlock-rca.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/jaxtrain-deadlock-rca.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/adr/history/0003-band-map-and-instance-context.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0003-band-map-and-instance-context.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0003-band-map-and-instance-context.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0003-band-map-and-instance-context.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0003-band-map-and-instance-context.md",
+      "to": "docs/consults/consult-002-detector-misspec-report.md",
+      "kind": "path-mention",
+      "site": "`docs/consults/consult-002-detector-misspec-report.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/adr/history/0004-contract-examples.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0004-contract-examples.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0004-contract-examples.md",
+      "to": "docs/adr/0007-file-size-and-information-density.md",
+      "kind": "adr-related",
+      "site": "ADR-0007",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0004-contract-examples.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0005-audit-substrate.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0005-audit-substrate.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0005-audit-substrate.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0005-audit-substrate.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0006-header-exemplars.md",
+      "to": "docs/adr/0006-source-file-headers.md",
+      "kind": "adr-related",
+      "site": "ADR-0006",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0006-header-exemplars.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0006-header-exemplars.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0007-oversized-file-queue.md",
+      "to": "docs/adr/0007-file-size-and-information-density.md",
+      "kind": "adr-related",
+      "site": "ADR-0007",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0007-oversized-file-queue.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0007-oversized-file-queue.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0008-chocofarm-classification-substrate.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0008-chocofarm-classification-substrate.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0008-chocofarm-classification-substrate.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0008-chocofarm-classification-substrate.md",
+      "to": "docs/consults/consult-002-detector-misspec-report.md",
+      "kind": "path-mention",
+      "site": "`docs/consults/consult-002-detector-misspec-report.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/adr/history/0009-autoharn-reinstancement-2026-07-12.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0009-autoharn-reinstancement-2026-07-12.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0009-autoharn-reinstancement-2026-07-12.md",
+      "to": "docs/adr/0017-the-zero-context-reader.md",
+      "kind": "adr-related",
+      "site": "ADR-0017",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0009-autoharn-reinstancement-2026-07-12.md",
+      "to": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "kind": "adr-related",
+      "site": "ADR-0000",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0009-autoharn-reinstancement-2026-07-12.md",
+      "to": "docs/adr/0013-execution-integrity.md",
+      "kind": "adr-related",
+      "site": "ADR-0013",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0009-autoharn-reinstancement-2026-07-12.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0009-chocofarm-perf-discipline.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0009-chocofarm-perf-discipline.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0009-chocofarm-perf-discipline.md",
+      "to": "docs/adr/0017-the-zero-context-reader.md",
+      "kind": "adr-related",
+      "site": "ADR-0017",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0009-chocofarm-perf-discipline.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0009-chocofarm-perf-discipline.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0009-chocofarm-perf-discipline.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0009-chocofarm-perf-discipline.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0009-chocofarm-perf-discipline.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0009-chocofarm-perf-discipline.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0009-chocofarm-perf-discipline.md",
+      "to": "docs/results/az-perf.md",
+      "kind": "path-mention",
+      "site": "`docs/results/az-perf.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/adr/history/0009-chocofarm-perf-discipline.md",
+      "to": "docs/design/scaling-and-cpp-seam.md",
+      "kind": "path-mention",
+      "site": "`docs/design/scaling-and-cpp-seam.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/adr/history/0010-lineage-not-applicable-record.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0010-lineage-not-applicable-record.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0010-lineage-not-applicable-record.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0010-lineage-not-applicable-record.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0010-lineage-not-applicable-record.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0010-lineage-not-applicable-record.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0010-lineage-not-applicable-record.md",
+      "to": "docs/adr-synopsis.md",
+      "kind": "path-mention",
+      "site": "`docs/adr-synopsis.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0011-chocofarm-context.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0011-chocofarm-context.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0011-chocofarm-context.md",
+      "to": "docs/adr/0017-the-zero-context-reader.md",
+      "kind": "adr-related",
+      "site": "ADR-0017",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0011-chocofarm-context.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0011-throughput-lab-amendments.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0011-throughput-lab-amendments.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0011-throughput-lab-amendments.md",
+      "to": "docs/adr/0017-the-zero-context-reader.md",
+      "kind": "adr-related",
+      "site": "ADR-0017",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0011-throughput-lab-amendments.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0011-throughput-lab-amendments.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0011-throughput-lab-amendments.md",
+      "to": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "kind": "adr-related",
+      "site": "ADR-0000",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0011-throughput-lab-amendments.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0012-cpp-wire-contract.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0012-cpp-wire-contract.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0012-cpp-wire-contract.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0012-cpp-wire-contract.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0012-cpp-wire-contract.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0012-cpp-wire-contract.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0012-cross-device-bench-saga.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0012-cross-device-bench-saga.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0012-cross-device-bench-saga.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0012-cross-device-bench-saga.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0012-cross-device-bench-saga.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0012-cross-device-bench-saga.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0012-cross-device-bench-saga.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0012-cross-device-bench-saga.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0012-p9-worked-examples.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0012-p9-worked-examples.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0012-p9-worked-examples.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0013-attrition-specimens.md",
+      "to": "docs/adr/0013-execution-integrity.md",
+      "kind": "adr-related",
+      "site": "ADR-0013",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0013-attrition-specimens.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0013-attrition-specimens.md",
+      "to": "docs/adr/0017-the-zero-context-reader.md",
+      "kind": "adr-related",
+      "site": "ADR-0017",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0013-attrition-specimens.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0013-attrition-specimens.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0014-throughput-lab-specimen.md",
+      "to": "docs/adr/0014-executor-second-opinion.md",
+      "kind": "adr-related",
+      "site": "ADR-0014",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0014-throughput-lab-specimen.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0014-throughput-lab-specimen.md",
+      "to": "docs/adr/0017-the-zero-context-reader.md",
+      "kind": "adr-related",
+      "site": "ADR-0017",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0016-fact-mining-worked-instances.md",
+      "to": "docs/adr/0016-the-service-contract-is-an-enforcement-surface.md",
+      "kind": "adr-related",
+      "site": "ADR-0016",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0016-fact-mining-worked-instances.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0016-fact-mining-worked-instances.md",
+      "to": "docs/adr/0017-the-zero-context-reader.md",
+      "kind": "adr-related",
+      "site": "ADR-0017",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0016-fact-mining-worked-instances.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0016-fact-mining-worked-instances.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0016-fact-mining-worked-instances.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/0016-fact-mining-worked-instances.md",
+      "to": "docs/adr/0015-verification-substrate-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0015",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/POSTMORTEM-REVIEW-CAMPAIGN-2026-07-23.md",
+      "to": "docs/adr/0021-witness-construction-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0021",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/POSTMORTEM-REVIEW-CAMPAIGN-2026-07-23.md",
+      "to": "docs/adr/0020-meaning-preservation-witness.md",
+      "kind": "adr-related",
+      "site": "ADR-0020",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/POSTMORTEM-REVIEW-CAMPAIGN-2026-07-23.md",
+      "to": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "kind": "adr-related",
+      "site": "ADR-0000",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/POSTMORTEM-REVIEW-CAMPAIGN-2026-07-23.md",
+      "to": "docs/adr/0017-the-zero-context-reader.md",
+      "kind": "adr-related",
+      "site": "ADR-0017",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/POSTMORTEM-SETUP-TUI-ARC-2026-07-23.md",
+      "to": "docs/adr/0019-genre-convention-is-the-default-spec.md",
+      "kind": "adr-related",
+      "site": "ADR-0019",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/POSTMORTEM-SETUP-TUI-ARC-2026-07-23.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/POSTMORTEM-SETUP-TUI-ARC-2026-07-23.md",
+      "to": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "kind": "adr-related",
+      "site": "ADR-0000",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/README.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/README.md",
+      "to": "docs/adr/0013-execution-integrity.md",
+      "kind": "adr-related",
+      "site": "ADR-0013",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/README.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/README.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/README.md",
+      "to": "docs/adr/0017-the-zero-context-reader.md",
+      "kind": "adr-related",
+      "site": "ADR-0017",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/ledger.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/ledger.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/ledger.md",
+      "to": "docs/adr/0000-the-alpha-and-the-omega-type-driven-design.md",
+      "kind": "adr-related",
+      "site": "ADR-0000",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/ledger.md",
+      "to": "docs/adr/0014-executor-second-opinion.md",
+      "kind": "adr-related",
+      "site": "ADR-0014",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/ledger.md",
+      "to": "docs/adr/0012-compositional-and-structural-hygiene.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/ledger.md",
+      "to": "docs/adr/0019-genre-convention-is-the-default-spec.md",
+      "kind": "adr-related",
+      "site": "ADR-0019",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/ledger.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/ledger.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/ledger.md",
+      "to": "docs/adr/0020-meaning-preservation-witness.md",
+      "kind": "adr-related",
+      "site": "ADR-0020",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/ledger.md",
+      "to": "docs/adr/0021-witness-construction-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0021",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/ledger.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/history/ledger.md",
+      "to": "docs/adr/0007-file-size-and-information-density.md",
+      "kind": "adr-related",
+      "site": "ADR-0007",
       "resolved": "resolved"
     },
     {
@@ -11028,8 +13251,22 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/docker.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/docker.md",
+      "to": "backend/resources_data/README.md",
+      "kind": "path-mention",
+      "site": "`backend/resources_data/README.md`",
+      "resolved": "dangling"
+    },
+    {
       "from": "docs/handoff-current.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -11151,6 +13388,13 @@
       "to": "docs/notes/tenancy.md",
       "kind": "path-mention",
       "site": "`docs/notes/tenancy.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/handoff-current.md",
+      "to": "docs/docker.md",
+      "kind": "path-mention",
+      "site": "`docs/docker.md`",
       "resolved": "resolved"
     },
     {
@@ -11316,7 +13560,7 @@
     },
     {
       "from": "docs/notes/audit/audit-adr-corpus-2026-06-10-appendix-p1.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -11477,7 +13721,7 @@
     },
     {
       "from": "docs/notes/audit/audit-adr-corpus-2026-06-10-appendix-p2.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -11596,7 +13840,7 @@
     },
     {
       "from": "docs/notes/audit/audit-adr-corpus-2026-06-10.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -12142,7 +14386,7 @@
     },
     {
       "from": "docs/notes/audit/audit-spa-history-lessons-2026-06-10-filings.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -12163,7 +14407,7 @@
     },
     {
       "from": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -12282,7 +14526,7 @@
     },
     {
       "from": "docs/notes/audit/opus-audit-green-perf-arc-2026-05-31.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -12618,7 +14862,7 @@
     },
     {
       "from": "docs/notes/consult/opus-consult-2026-06-01-effect-ts-architectural-merits.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -12877,7 +15121,7 @@
     },
     {
       "from": "docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -13346,7 +15590,7 @@
     },
     {
       "from": "docs/notes/design/perceptual-event-projection-plan.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -13710,7 +15954,7 @@
     },
     {
       "from": "docs/notes/investigation-perf-reprofile-2026-06-11.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -13976,7 +16220,7 @@
     },
     {
       "from": "docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -13990,10 +16234,10 @@
     },
     {
       "from": "docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md",
-      "to": "docs/adr/0013-*.md",
+      "to": "docs/adr/0013-execution-integrity.md",
       "kind": "adr-related",
       "site": "ADR-0013",
-      "resolved": "dangling"
+      "resolved": "resolved"
     },
     {
       "from": "docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md",
@@ -14270,7 +16514,7 @@
     },
     {
       "from": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -14326,7 +16570,7 @@
     },
     {
       "from": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -15250,7 +17494,7 @@
     },
     {
       "from": "docs/onboarding/frontend.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -15460,7 +17704,7 @@
     },
     {
       "from": "docs/onboarding/proxy.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -16009,6 +18253,13 @@
       "to": "docs/release-scope.md",
       "kind": "path-mention",
       "site": "`docs/release-scope.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/playbooks/monorepo/monorepo-plan.md",
+      "to": "backend/resources_data/README.md",
+      "kind": "path-mention",
+      "site": "`backend/resources_data/README.md`",
       "resolved": "dangling"
     },
     {
@@ -17504,7 +19755,7 @@
     },
     {
       "from": "docs/worklog/2026-06-01-component-service-boundaries-and-ci.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -17525,7 +19776,7 @@
     },
     {
       "from": "docs/worklog/2026-06-01-de-cq-preview-hide.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -17686,7 +19937,7 @@
     },
     {
       "from": "docs/worklog/2026-06-01-memory-profiling-session.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -17700,7 +19951,7 @@
     },
     {
       "from": "docs/worklog/2026-06-01-perf-miniboard-canvas-renderer.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -17924,7 +20175,7 @@
     },
     {
       "from": "docs/worklog/2026-06-08-ledger-stratified-keying.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -17938,7 +20189,7 @@
     },
     {
       "from": "docs/worklog/2026-06-08-stability-trajectory-stratified-keying.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -17952,7 +20203,7 @@
     },
     {
       "from": "docs/worklog/2026-06-09-board-scope-fix-perf-diff.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -18022,7 +20273,7 @@
     },
     {
       "from": "docs/worklog/2026-06-10-adr-record-amendments.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -18218,7 +20469,7 @@
     },
     {
       "from": "docs/worklog/2026-06-10-doc-graph-dangling-signal-cleanup.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -18463,7 +20714,7 @@
     },
     {
       "from": "docs/worklog/2026-06-10-only-throw-error-g3.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -18645,7 +20896,7 @@
     },
     {
       "from": "docs/worklog/2026-06-10-services-boundary-deny-by-default.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -18729,7 +20980,7 @@
     },
     {
       "from": "docs/worklog/2026-06-10-vue-lifecycle-footgun-guards.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -18813,7 +21064,7 @@
     },
     {
       "from": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -19177,7 +21428,7 @@
     },
     {
       "from": "docs/worklog/2026-06-11-cast-stage2-burndown.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -19457,7 +21708,7 @@
     },
     {
       "from": "docs/worklog/2026-06-11-perf-stability-panel-reprofile.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -19562,7 +21813,7 @@
     },
     {
       "from": "docs/worklog/2026-06-11-reactive-state-modules-relocation.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -19716,7 +21967,7 @@
     },
     {
       "from": "docs/worklog/2026-06-11-settings-profile-mutator-owner.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -19912,7 +22163,7 @@
     },
     {
       "from": "docs/worklog/2026-06-11-thumbnail-render-lifecycle-consolidation.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -20164,7 +22415,7 @@
     },
     {
       "from": "docs/worklog/2026-06-12-subscribe-dispatch-narrowing.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
@@ -20213,7 +22464,7 @@
     },
     {
       "from": "frontend/CLAUDE.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/adr/0010-render-locality-and-canvas.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
