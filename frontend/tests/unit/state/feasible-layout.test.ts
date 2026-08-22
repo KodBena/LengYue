@@ -27,6 +27,8 @@ import {
   resolveSovereignOverrides,
   resolveSideColumnLiveLayout,
   resolveRootSplitLiveLayout,
+  computeRootSplitSideColumnCeilingPx,
+  assertSingleFloorBearingRegion,
   MeasurementRefusalError,
   type Measured,
   type RegionAllotment,
@@ -1192,5 +1194,66 @@ describe('resolveRootSplitLiveLayout() — GAP A: the root split (board vs. side
       expect(result.sideColumnPx).toBe(880);
       expect(result.boardUsefulPx).toBe(1028);
     });
+  });
+});
+
+// Divider-mechanics re-land (ledger rows 2538/2541/2556/2559): item 3
+// (drag-time/render-time ceiling unification) and item 4 (single-floor
+// guard) are both pure functions — pinned directly here rather than only
+// indirectly through `resolveRootSplitLiveLayout`'s own call sites above,
+// so a future edit to either function's own arithmetic/guard shape is
+// caught at the smallest possible unit, not only through the composite
+// resolver's acceptance numbers.
+describe('computeRootSplitSideColumnCeilingPx() — the ONE region-owned bound both startResizeOuter (drag-time) and resolveRootSplitLiveLayout (render-time) now read', () => {
+  it('reserves rowWidthPx minus boardRailReservedPx, gapPx, and boardFloorPx — no RESIZER_WIDTH_PX term at all (the exact approximation this function replaces)', () => {
+    expect(
+      computeRootSplitSideColumnCeilingPx({ rowWidthPx: 1920, boardRailReservedPx: 180, gapPx: 12, boardFloorPx: 300 }),
+    ).toBe(1920 - 180 - 12 - 300);
+  });
+
+  it('boardRailReservedPx: 0 (the common case — boardRail off by default) reduces to rowWidthPx - gapPx - boardFloorPx', () => {
+    expect(computeRootSplitSideColumnCeilingPx({ rowWidthPx: 1600, boardRailReservedPx: 0, gapPx: 12, boardFloorPx: 300 })).toBe(
+      1600 - 12 - 300,
+    );
+  });
+
+  it('floors at 0 rather than a negative CSS width when the reservations exceed the row width', () => {
+    expect(computeRootSplitSideColumnCeilingPx({ rowWidthPx: 400, boardRailReservedPx: 180, gapPx: 12, boardFloorPx: 300 })).toBe(0);
+  });
+
+  it('omitting a positive reservation (boardRailReservedPx: 0) can only WIDEN the ceiling relative to boardRailReservedPx > 0 at the same geometry — never narrow it (the disclosed "never narrower" property useResizablePanel.ts\'s own header relies on for its optional-arg default)', () => {
+    const withRail = computeRootSplitSideColumnCeilingPx({ rowWidthPx: 1200, boardRailReservedPx: 180, gapPx: 12, boardFloorPx: 300 });
+    const withoutRail = computeRootSplitSideColumnCeilingPx({ rowWidthPx: 1200, boardRailReservedPx: 0, gapPx: 12, boardFloorPx: 300 });
+    expect(withoutRail).toBeGreaterThanOrEqual(withRail);
+  });
+});
+
+describe('assertSingleFloorBearingRegion() — divider-mechanics item 4, wired at the production construction site (useSideColumnLiveLayout.ts), never inside the pure solver itself', () => {
+  const TRACK: LytTrackShape = { kind: 'fixed', px: 100 };
+
+  it('is silent (no throw) for zero floor-bearing regions — the pure solver\'s own "row 2501 defense in depth" fixtures above deliberately construct these and must be unaffected', () => {
+    expect(() =>
+      assertSingleFloorBearingRegion([
+        { widgetId: 'previewBoard', track: TRACK, desiredVisible: true, viabilityFloorPx: null },
+      ]),
+    ).not.toThrow();
+  });
+
+  it('is silent (no throw) for exactly one floor-bearing region — today\'s only production shape (controlPanel)', () => {
+    expect(() =>
+      assertSingleFloorBearingRegion([
+        { widgetId: 'controlPanel', track: TRACK, desiredVisible: true, viabilityFloorPx: 640 },
+        { widgetId: 'previewBoard', track: TRACK, desiredVisible: true, viabilityFloorPx: null },
+      ]),
+    ).not.toThrow();
+  });
+
+  it('throws loudly, naming both offending widget ids, for two floor-bearing regions — the ALLOT two-pass fixpoint is only provably correct for a single one', () => {
+    expect(() =>
+      assertSingleFloorBearingRegion([
+        { widgetId: 'controlPanel', track: TRACK, desiredVisible: true, viabilityFloorPx: 640 },
+        { widgetId: 'previewBoard', track: TRACK, desiredVisible: true, viabilityFloorPx: 160 },
+      ]),
+    ).toThrow(/2 regions carry a non-null viabilityFloorPx.*controlPanel.*previewBoard/s);
   });
 });

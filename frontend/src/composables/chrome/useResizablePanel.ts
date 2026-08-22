@@ -231,7 +231,13 @@ import {
   computeTreeControlRegionDefaultWidthPx,
   computeTreePanelBoundWidth,
 } from '../../state/layout-model';
-import { measured, px, resolveSovereignOverrides, type RegionAllotment } from '../../state/feasible-layout';
+import {
+  measured,
+  px,
+  resolveSovereignOverrides,
+  computeRootSplitSideColumnCeilingPx,
+  type RegionAllotment,
+} from '../../state/feasible-layout';
 
 // Phase 0 (resolution roadmap, audit finding R2): these five floors
 // used to be hand-picked literals living HERE, independently of each
@@ -471,7 +477,37 @@ export function useResizablePanel() {
   let regionMaxWidthPx = WRAPPER_MIN_WIDTH_PX;
   let regionLastMouseX = 0;
 
-  function startResizeOuter(e: MouseEvent) {
+  /**
+   * Divider-mechanics repair, item 3 (completing the row 2511 review
+   * condition 2 unification, this function's own prior comment above —
+   * transcribed here per ADR-0002 rather than silently deleted:
+   * "Ledger row 2511 review condition 2 ... this ceiling USED to
+   * reserve ONLY the resizer's own physical width ... Now reserves
+   * `MIN_BOARD_PX` here too ... This is a disclosed NARROWER
+   * unification, not byte-identical: the render ceiling also reserves
+   * `boardRailReservedPx` and the LYT root `gapPx` (both unavailable to
+   * this composable without threading boardRail's own presence in —
+   * out of scope for this repair), so the two ceilings can still
+   * diverge by that small margin when boardRail is visible.").
+   *
+   * `rootSplitCeiling` closes exactly that gap: App.vue's own template
+   * call site now threads its LIVE `boardRailReservedPx`/root `gapPx`
+   * through (the same two facts `rootSplitLayout`, this file's own
+   * render-time twin, already reads), so `regionMaxWidthPx` below calls
+   * the SAME `computeRootSplitSideColumnCeilingPx` (`state/feasible-
+   * layout.ts`) `resolveRootSplitLiveLayout` calls — one region-owned
+   * bound, not two independently-approximated ones. Optional (defaults
+   * to `{ boardRailReservedPx: 0, gapPx: 0 }`) ONLY so a caller with no
+   * live boardRail/gap fact to thread (a direct composable-level test
+   * exercising drag mechanics unrelated to this ceiling, e.g.
+   * `sync-session-version.test.ts`'s save-coverage probes) still
+   * compiles and drags correctly at a WIDER (never narrower — `Math.max`
+   * inside `computeRootSplitSideColumnCeilingPx` floors at `0`, and
+   * omitting a positive reservation can only WIDEN the ceiling, never
+   * shrink it) bound than production — never a silent re-introduction
+   * of the old, unrelated `RESIZER_WIDTH_PX` approximation.
+   */
+  function startResizeOuter(e: MouseEvent, rootSplitCeiling?: { readonly boardRailReservedPx: number; readonly gapPx: number }) {
     e.preventDefault();
     isAnyPanelResizing.value = true;
     regionLastMouseX = e.clientX;
@@ -487,30 +523,14 @@ export function useResizablePanel() {
 
     if (row) {
       const rowWidthPx = row.getBoundingClientRect().width;
-      // Ledger row 2511 review condition 2 (`.claude/dispatch-reports/
-      // lyt-disease-repair-review.md`, defect 4): this ceiling USED to
-      // reserve ONLY the resizer's own physical width, leaving it far
-      // LOOSER than `resolveRootSplitLiveLayout`'s render-time ceiling
-      // (`state/feasible-layout.ts`, which additionally reserves
-      // `MIN_BOARD_PX` for the board) — two homes for what should be one
-      // fact (ADR-0012). A single drag gesture could accept mouse deltas
-      // past the point the RENDER stops moving, decoupling the cursor
-      // from the divider mid-gesture — a close cousin of the N4 "stuck,
-      // no visible movement" symptom, just relocated from across-drags to
-      // within-a-drag. Now reserves `MIN_BOARD_PX` here too, the same
-      // floor the render-time ceiling reserves, so the drag can never
-      // accept a delta the render would then refuse to honor. This is a
-      // disclosed NARROWER unification, not byte-identical: the render
-      // ceiling also reserves `boardRailReservedPx` and the LYT root
-      // `gapPx` (both unavailable to this composable without threading
-      // boardRail's own presence in — out of scope for this repair), so
-      // the two ceilings can still diverge by that small margin when
-      // boardRail is visible. A starved board is still DIAGNOSED
-      // (`outerRowSovereignDiagnostic` below), never silently resisted —
-      // this ceiling only stops the CURSOR from promising more than the
-      // render can ever grant, it does not resist a stored/restored
-      // value arriving some other way.
-      regionMaxWidthPx = Math.max(0, Math.round(rowWidthPx - RESIZER_WIDTH_PX - MIN_BOARD_PX));
+      regionMaxWidthPx = Math.round(
+        computeRootSplitSideColumnCeilingPx({
+          rowWidthPx,
+          boardRailReservedPx: rootSplitCeiling?.boardRailReservedPx ?? 0,
+          gapPx: rootSplitCeiling?.gapPx ?? 0,
+          boardFloorPx: MIN_BOARD_PX,
+        }),
+      );
     } else {
       regionMaxWidthPx = regionDragOriginPx;
     }
