@@ -367,3 +367,132 @@ regeneration, as the final state.
   fix seemed better done by whoever owns that surface next, rather than by
   this session inventing a new deferral record outside its mandate. Flagged
   here so it isn't silently lost.
+
+## Addendum, 2026-08-22: perf regression test for the sink path (ledger row 2568)
+
+Follow-up commit on the same branch, per the commissioner's delivery
+condition on the fix above (row 2568): nothing covered the sink path's
+performance property before this. Worked in-place in the same worktree
+(`c15429e7` was the tip; the delivery above was intact and untouched).
+Amended gates from the orchestrator mid-session (a full `npx vitest run`
+and `npm run build` were named too slow for this diff's shape): the
+targeted gates below, run synchronously, are what actually gated this
+commit — no full-suite or build run was started, so nothing needed to be
+killed.
+
+### What was pinned
+
+Two cases added to the existing `describe('untracked read/write (row
+2562 …)')` sibling block in
+`frontend/tests/unit/services/system-message-sink.test.ts`, in a new
+`describe('subscriber notification cadence (row 2568 — perf regression,
+consumer side)')`:
+
+1. **Deterministic effect-storm pin.** A `watchEffect` (`flush: 'sync'`)
+   shaped like `SystemLogPanel.vue`'s own `v-for="msg in
+   store.engine.messages"` body — it iterates the list and reads each
+   row's `text`/`count`/`timestamp`, the exact fields that component
+   renders — asserted to run **exactly once per push**, across a
+   sequence that includes two consecutive dedup-hit pushes (same
+   type/text as the current head) as well as fresh-row pushes. The
+   established contract, read out of the sink's own `push()` header
+   comment (`src/store/index.ts`): a dedup hit is NOT a no-op — it
+   widens the existing row in place (`head.count++`, `head.timestamp =
+   …`), a genuine mutation of reactive state a real subscriber must see.
+   So the pin is "exactly one notification per push, whichever branch of
+   `push()` ran" — not "zero notifications on a dedup hit." Bidirectional
+   guard: if a future edit widens the `pauseTracking` window to also
+   swallow the write's notification, a real subscriber would silently
+   miss pushes and this test goes red for missing runs; if a future edit
+   narrows it (moves a read outside the pause), row 2562 reopens and
+   the *producer*-side test above (already in the file) goes red first,
+   but this consumer-side test would also show extra runs if the leak
+   ever manifested as the subscriber's own effect re-entering.
+2. **Wall-clock backstop.** 10,000 pushes through the registered sink
+   (`sink.pushSystemMessage`), alternating a fresh row with an immediate
+   dedup-hit repeat of it (a realistic 50/50 mix of `push()`'s two
+   branches), asserted to complete in well under 8000ms. Not attempted
+   as a tight benchmark — see the measurement below for why 8000ms is
+   the chosen bound (roughly 17-20x the measured value, not a
+   CI-variance-flaky tight number).
+
+Both cases pass; full targeted run below.
+
+### Measured overhead statement (ADR-0009; report-only, not asserted)
+
+Method: a throwaway scratch test file
+(`frontend/tests/unit/services/__scratch10k.test.ts`, never committed —
+created, used, then deleted) ran 10,000 `pushSystemMessage` calls
+(alternating fresh/dedup-hit pairs, same shape as the committed backstop
+test) through the real registered sink and timed the loop with
+`performance.now()`. Three consecutive runs with the fix as shipped:
+
+```
+437.789ms, 452.247ms, 450.191ms   (mean ≈ 447ms)
+```
+
+`src/store/index.ts`'s `push()` was then temporarily edited — the
+`pauseTracking()` call commented out and the matching `resetTracking()`
+in the `finally` block commented out — and the same scratch test rerun
+three times:
+
+```
+439.564ms, 445.634ms, 441.099ms   (mean ≈ 442ms)
+```
+
+The two distributions overlap entirely (~440-452ms either way) — no
+measurable overhead from the `pauseTracking()`/`resetTracking()` pair
+itself at this scale (10k calls, ~44µs/call all-in). The ~44µs/call cost
+is dominated by the array `unshift`/`pop` capping-at-50 behavior and
+`Math.random()` id minting on the non-dedup half, not by the tracking
+guard, which is consistent with `pauseTracking`/`resetTracking` being
+cheap flag flips in `@vue/reactivity` rather than anything that walks
+reactive state. This substantiates the fix's "costs nothing" framing
+(dispatch report body, "Denomination check" section) with a number
+rather than leaving it asserted on reasoning alone.
+
+The edit was reverted immediately after measuring; `git diff
+src/store/index.ts` was confirmed empty before proceeding, and the
+scratch test file was deleted (never staged, never committed).
+
+### Gates (amended, run synchronously, output read)
+
+- `npx vue-tsc -b --noEmit` — clean, exit 0, no output.
+- `npx vitest run tests/unit/services/system-message-sink.test.ts` (the
+  file this follow-up touches, containing both this addendum's two new
+  cases and the row-2562 regression test from the delivery above) —
+  **15 passed, 0 failed**, exit 0. The wall-clock backstop case itself
+  ran in 459ms in this run (consistent with the standalone measurement
+  above).
+- No full `npx vitest run` and no `npm run build` were run this
+  follow-up, per the orchestrator's amended-gates directive — the diff
+  is test-file-plus-report only, and the commissioner's amendment named
+  the targeted form as sufficient for that shape of change.
+
+### Fence compliance
+
+- `src/store/index.ts`: touched only transiently for the measurement
+  above, reverted before commit — `git diff --stat` confirms zero net
+  changes to it.
+- Only file changed in this follow-up commit:
+  `frontend/tests/unit/services/system-message-sink.test.ts` (+117
+  lines), plus this addendum to the report itself.
+- No other `src/` file touched. No divider-mechanics, no `proxy/`, no
+  `StatusBar.vue` — untouched, as before.
+
+### What was honestly NOT done
+
+- The wall-clock bound (8000ms) is generous by design and will not
+  catch a *mild* regression (say, a 3x slowdown) — only a gross one (an
+  effect-storm-shaped blowup or an accidental O(n²) creeping into the
+  dedup path). The deterministic effect-storm pin (case 1) is the test
+  that actually catches the specific regression class this delivery
+  condition names; the wall-clock case is explicitly the coarser
+  backstop, not a substitute for it.
+- No component-level (mounted `SystemLogPanel.vue`) version of the
+  subscriber-cadence test was attempted — the `watchEffect`-based
+  stand-in reads the identical reactive surface
+  (`store.engine.messages[].{text,count,timestamp}`) the real component
+  reads in its `v-for`, so it pins the same dependency shape without the
+  added jsdom-mount machinery; this mirrors the delivery report's own
+  choice for the row-2562 producer-side test.

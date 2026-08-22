@@ -269,4 +269,121 @@ describe('system-message-sink', () => {
       stop();
     });
   });
+
+  // Row 2568 (commissioner ledger, delivery condition on the row-2562 fix
+  // above): a perf regression test for the SINK PATH itself. Nothing
+  // covered this before — the row-2562 tests above pin the PRODUCER side
+  // (a call from inside an active effect must not retrigger that effect);
+  // these pin the CONSUMER side (a genuine subscriber, shaped like
+  // `SystemLogPanel.vue`'s own `v-for="msg in store.engine.messages"` +
+  // per-row `msg.text`/`msg.count`/`msg.timestamp` reads, must be notified
+  // EXACTLY once per push). This is the property that regresses if the
+  // `pauseTracking()`/`resetTracking()` boundary or the dedup read/write
+  // shape in `src/store/index.ts` is later broken in the OTHER direction —
+  // e.g. a future edit that widens the pause window to also swallow the
+  // WRITE notification would make a real subscriber miss pushes silently;
+  // one that narrows it (moves a read outside the pause) reopens row 2562.
+  // Either direction should show up here as `runs` diverging from the push
+  // count.
+  describe('subscriber notification cadence (row 2568 — perf regression, consumer side)', () => {
+    it('a SystemLogPanel-shaped subscriber runs exactly once per push, INCLUDING dedup-hit pushes', async () => {
+      const { watchEffect } = await import('vue');
+      const sink = await import('../../../src/services/system-message-sink');
+      const store = await import('../../../src/store');
+
+      store.clearSystemMessages();
+      let runs = 0;
+      // `flush: 'sync'` so each push's notification (or lack of one) is
+      // observable immediately, without batching several pushes into one
+      // microtask-queued flush and hiding an under- or over-notification.
+      const stop = watchEffect(
+        () => {
+          runs++;
+          // Mirror SystemLogPanel.vue's own v-for body: iterate the list
+          // and read the per-row fields it actually renders (`msg.text`,
+          // `msg.count`, `msg.timestamp`) — the real subscriber-visible
+          // dependency surface, not just an array-length read. This is
+          // what makes a dedup-hit's in-place `head.count++` /
+          // `head.timestamp = …` write (as opposed to a fresh `.unshift`)
+          // observable at all: a subscriber that only read `.length`
+          // would not react to an in-place field mutation on an existing
+          // element.
+          for (const msg of store.store.engine.messages) {
+            void msg.text;
+            void msg.count;
+            void msg.timestamp;
+          }
+        },
+        { flush: 'sync' },
+      );
+
+      expect(runs).toBe(1); // the initial run, over the empty (post-clear) list
+
+      // New row: establishes the head this test's dedup pushes then repeat.
+      sink.pushSystemMessage('warning', 'overflow check');
+      expect(runs).toBe(2);
+
+      // Two consecutive DEDUP-HIT pushes (identical type/text to the
+      // current head) — per the sink's own contract (see the `push()`
+      // header comment in `src/store/index.ts`), these widen the existing
+      // row in place (`head.count++`, `head.timestamp = …`) rather than
+      // unshifting a new one. That in-place write is still a genuine
+      // mutation of reactive state the subscriber legitimately depends on
+      // (it rendered `msg.count`/`msg.timestamp` off that exact object on
+      // the previous run) — so the CORRECT subscriber-visible behaviour,
+      // established here as the pin, is one notification per dedup-hit
+      // push too, not zero (the row's `count`/`timestamp` genuinely
+      // changed and a real panel must reflect that) and not more than one
+      // (that would mean the sink's own untracked bookkeeping read is
+      // somehow re-entering the subscriber's dependency set, the row-2562
+      // shape in reverse).
+      sink.pushSystemMessage('warning', 'overflow check');
+      expect(runs).toBe(3);
+      expect(store.store.engine.messages).toHaveLength(1);
+      expect(store.store.engine.messages[0].count).toBe(2);
+
+      sink.pushSystemMessage('warning', 'overflow check');
+      expect(runs).toBe(4);
+      expect(store.store.engine.messages[0].count).toBe(3);
+
+      // A genuinely different message: a fresh `.unshift`, one more
+      // notification.
+      sink.pushSystemMessage('error', 'a different overflow');
+      expect(runs).toBe(5);
+      expect(store.store.engine.messages).toHaveLength(2);
+
+      stop();
+    });
+
+    it('wall-clock backstop: 10k pushes through the registered sink with dedup active complete well within a generous bound', async () => {
+      const sink = await import('../../../src/services/system-message-sink');
+      const store = await import('../../../src/store');
+
+      store.clearSystemMessages();
+      const TOTAL = 10_000;
+      const start = performance.now();
+      // Alternates a fresh row with an immediate dedup-hit repeat of it
+      // (pairs: push, push-again), so the run is a realistic 50/50 mix of
+      // the two `push()` branches (`.unshift` vs the in-place `count`/
+      // `timestamp` bump) rather than exercising only one of them.
+      for (let i = 0; i < TOTAL; i++) {
+        sink.pushSystemMessage('info', `batch ${Math.floor(i / 2)}`);
+      }
+      const elapsedMs = performance.now() - start;
+
+      expect(store.store.engine.messages).toHaveLength(50); // the pre-existing 50-cap, preserved
+      // Measured on this machine (see the delivery report's addendum):
+      // 10k mixed pushes complete in ~400-460ms under Vitest/jsdom (most
+      // of that is the array `unshift`/`pop` capping and `Math.random()`
+      // id minting on the ~half that aren't dedup hits, not the
+      // pauseTracking/resetTracking pair itself — the addendum's
+      // before/after comparison found no measurable difference from that
+      // pair). 8000ms is roughly 17-20x headroom over the measured
+      // value — a gross-regression net (an accidentally re-tracked read
+      // turning this into an effect storm, or an O(n) scan creeping into
+      // the dedup path), not a tight benchmark that would flake under CI
+      // variance.
+      expect(elapsedMs).toBeLessThan(8000);
+    });
+  });
 });
