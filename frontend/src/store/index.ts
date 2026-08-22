@@ -21,6 +21,7 @@
  */
 
 import { reactive, computed, ref } from 'vue';
+import { pauseTracking, resetTracking } from '@vue/reactivity';
 import { deepMerge } from '../lib/utils';
 
 import type {
@@ -229,36 +230,76 @@ registerSystemMessageSink({
   // halves: 5 identical consecutive pushes collapse to 1 (with `count`);
   // an interleaved different message, or a push arriving after the head
   // changed for any other reason, always starts a fresh row.
+  //
+  // Untracked read/write (row 2562, ADR-0000 Rule 2 closure): `push()` is a
+  // producer-facing PORT — it may be called from ANYWHERE, including
+  // synchronously from inside another component's own render/patch effect
+  // (the worked case: `useLytFitAssertion.ts`'s mount-time `checkFit`,
+  // invoked from a template `:ref` callback, which runs WHILE the host
+  // `<LytNode>` instance's own render effect is Vue's `activeEffect`). Read
+  // `store.engine.messages[0]` for the dedup comparison ABOVE would, absent
+  // this guard, be silently TRACKED as a dependency of whatever effect
+  // happens to be active at the call site — a foreign, accidental
+  // subscription this port never advertises and no caller can see. The
+  // very next line's write (`head.count++` / `.unshift`) then RE-TRIGGERS
+  // that same foreign effect (writes are never gated by `pauseTracking` —
+  // only the read-side `track()` is), which re-runs its body, calls
+  // `push()` again, re-establishes the same phantom dependency, and writes
+  // again: "a reactive effect that is mutating its own dependencies and
+  // thus recursively triggering itself" (Vue's own diagnostic, verbatim) —
+  // the `<LytNode>` recursive-update crash this closes.
+  //
+  // The invariant, stated over the class: a message-sink push is a
+  // side-channel effect, never a value the calling effect's own
+  // computation depends on — so the sink's INTERNAL bookkeeping reads must
+  // never become a dependency of an ARBITRARY caller's active effect,
+  // regardless of what that caller is (a render effect, a watcher, a
+  // computed) or why it called `push()` (a template ref, a plain function
+  // call, a promise continuation). `pauseTracking()`/`resetTracking()`
+  // (the same primitive Vue's own internals use to read reactive state
+  // without recording a dependency) foreclose the whole class at its one
+  // choke point — every current and future producer is covered without a
+  // matching per-producer fix, and a genuine consumer that itself reads
+  // `store.engine.messages` in ITS OWN render (e.g. `SystemLogPanel.vue`)
+  // is untouched: `pauseTracking` gates `track()` (dependency collection
+  // on read) only, never `trigger()` (dependent notification on write), so
+  // real subscribers still update normally. `try/finally` guarantees the
+  // tracking flag is restored even if a future edit here throws.
   push(type: SystemMessage['type'], text: string, details) {
-    const head = store.engine.messages[0] as (SystemMessage & { count?: number }) | undefined;
-    const sameAsHead =
-      head !== undefined &&
-      head.type === type &&
-      head.text === text &&
-      head.remediation === details?.remediation &&
-      head.nextAction === details?.nextAction;
-    if (sameAsHead) {
-      // Widen the reactive entry in place: bump the show-once count and
-      // refresh the timestamp so the row reflects the latest occurrence
-      // time, without unshifting a second near-duplicate row.
-      head.count = (head.count ?? 1) + 1;
-      (head as { timestamp: number }).timestamp = Date.now();
-      return;
+    pauseTracking();
+    try {
+      const head = store.engine.messages[0] as (SystemMessage & { count?: number }) | undefined;
+      const sameAsHead =
+        head !== undefined &&
+        head.type === type &&
+        head.text === text &&
+        head.remediation === details?.remediation &&
+        head.nextAction === details?.nextAction;
+      if (sameAsHead) {
+        // Widen the reactive entry in place: bump the show-once count and
+        // refresh the timestamp so the row reflects the latest occurrence
+        // time, without unshifting a second near-duplicate row.
+        head.count = (head.count ?? 1) + 1;
+        (head as { timestamp: number }).timestamp = Date.now();
+        return;
+      }
+      const msg: SystemMessage = {
+        id: Math.random().toString(36).substring(2, 9),
+        type,
+        text,
+        timestamp: Date.now(),
+        count: 1,
+        // Optional structured fields (dispatch L3 repair) — `undefined` for
+        // every existing two-argument caller, so `msg` stays byte-identical
+        // to before whenever a producer doesn't supply them.
+        ...(details?.remediation !== undefined ? { remediation: details.remediation } : {}),
+        ...(details?.nextAction !== undefined ? { nextAction: details.nextAction } : {}),
+      };
+      store.engine.messages.unshift(msg);
+      if (store.engine.messages.length > 50) store.engine.messages.pop();
+    } finally {
+      resetTracking();
     }
-    const msg: SystemMessage = {
-      id: Math.random().toString(36).substring(2, 9),
-      type,
-      text,
-      timestamp: Date.now(),
-      count: 1,
-      // Optional structured fields (dispatch L3 repair) — `undefined` for
-      // every existing two-argument caller, so `msg` stays byte-identical
-      // to before whenever a producer doesn't supply them.
-      ...(details?.remediation !== undefined ? { remediation: details.remediation } : {}),
-      ...(details?.nextAction !== undefined ? { nextAction: details.nextAction } : {}),
-    };
-    store.engine.messages.unshift(msg);
-    if (store.engine.messages.length > 50) store.engine.messages.pop();
   },
 });
 

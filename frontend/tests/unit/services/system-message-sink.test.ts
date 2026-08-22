@@ -176,4 +176,97 @@ describe('system-message-sink', () => {
       expect(store.store.engine.messages[0].count ?? 1).toBe(1);
     });
   });
+
+  // Row 2562 (LytNode recursive-update crash): the sink is a producer-facing
+  // PORT — it can be called from anywhere, including synchronously from
+  // inside a caller's own active reactive effect (the worked case:
+  // `useLytFitAssertion.ts`'s mount-time `checkFit`, invoked from a
+  // `<LytNode>` template `:ref` callback while that component's own render
+  // effect is Vue's `activeEffect`). Before the fix, `push()`'s dedup read
+  // of `store.engine.messages[0]` got silently TRACKED as a dependency of
+  // whatever effect was active at the call site, and the very next line's
+  // write (`.unshift` / `head.count++`) RE-TRIGGERED that same effect —
+  // "a reactive effect that is mutating its own dependencies and thus
+  // recursively triggering itself" (Vue's own diagnostic), which is
+  // exactly the `<LytNode>` crash.
+  //
+  // `App.vue`'s full render tree can't be exercised in jsdom for this (no
+  // real `scrollWidth`/`clientWidth` overflow ever occurs there), but the
+  // actual defect is a Vue reactivity-TRACKING-mechanics bug, not a layout
+  // bug — so it is pinned here at the mechanism's own level, with the one
+  // detail that makes a component's render effect special: Vue explicitly
+  // marks a component's own update job `ALLOW_RECURSE` (`toggleRecurse`,
+  // `@vue/runtime-core`) precisely so it CAN be re-triggered by its own
+  // write — the same flag a plain `watchEffect`/`watch` does NOT carry (a
+  // plain effect's self-trigger is silently swallowed by Vue's own
+  // recursion guard, which is why a `watchEffect`-based version of this
+  // test cannot reproduce the bug — verified while drafting this pin). A
+  // raw `ReactiveEffect` with `ALLOW_RECURSE` set and a scheduler that
+  // re-runs it, exactly mirroring a component's own
+  // `effect.scheduler = () => queueJob(job)` wiring, is the minimal vehicle
+  // that actually carries the same reactive shape as `<LytNode>`'s render
+  // effect. A hard cap stands in for Vue's own `RECURSION_LIMIT` breaker
+  // so a regression here fails as a false-negative-proof count (10, the
+  // cap) rather than hanging the suite.
+  describe('untracked read/write (row 2562 — a caller must never become a dependency of its own push)', () => {
+    it('pushSystemMessage from inside a recursion-permitting effect (a render-effect stand-in) does not retrigger that same effect', async () => {
+      const { ReactiveEffect, EffectFlags } = await import('@vue/reactivity');
+      const sink = await import('../../../src/services/system-message-sink');
+      const store = await import('../../../src/store');
+
+      store.clearSystemMessages();
+      let runs = 0;
+      const CAP = 10; // stand-in for Vue's own RECURSION_LIMIT (100) — small enough to fail fast, large enough to distinguish "looped" from "ran once".
+      const renderEffectStandIn = new ReactiveEffect(() => {
+        runs++;
+        // A genuinely NEW message every run (not a dedup hit) is the
+        // stronger form of this guard: even a push that unshifts a
+        // fresh row (not just the in-place `count` bump) must not be
+        // attributable back to this effect's own dependency set.
+        sink.pushSystemMessage('error', `overflow check run ${runs}`);
+      });
+      renderEffectStandIn.flags |= EffectFlags.ALLOW_RECURSE;
+      renderEffectStandIn.scheduler = () => {
+        if (runs < CAP) renderEffectStandIn.run();
+      };
+      renderEffectStandIn.run();
+
+      // Absent the fix, the push's untracked read of
+      // `store.engine.messages[0]` gets recorded as this effect's OWN
+      // dependency, and the immediately following `.unshift` re-triggers
+      // it via the scheduler above — synchronously, repeatedly, hitting
+      // the cap. `runs` staying at 1 is the pin.
+      expect(runs).toBe(1);
+      expect(store.store.engine.messages).toHaveLength(1);
+    });
+
+    it('a genuine subscriber (reading messages in its own effect) still sees a push', async () => {
+      const { watchEffect, nextTick } = await import('vue');
+      const sink = await import('../../../src/services/system-message-sink');
+      const store = await import('../../../src/store');
+
+      store.clearSystemMessages();
+      let observedHeadText: string | undefined;
+      let observations = 0;
+      const stop = watchEffect(() => {
+        observations++;
+        observedHeadText = store.store.engine.messages[0]?.text;
+      });
+      await nextTick();
+      expect(observations).toBe(1);
+      expect(observedHeadText).toBeUndefined();
+
+      // Pushed from OUTSIDE the subscriber's own effect — the pauseTracking
+      // guard only shields the SINK's internal bookkeeping read from being
+      // attributed to an unrelated active effect; it must never suppress
+      // the WRITE's normal notification to an effect that legitimately
+      // subscribed by reading `engine.messages` in its own body.
+      sink.pushSystemMessage('info', 'a real notice');
+      await nextTick();
+
+      expect(observations).toBe(2);
+      expect(observedHeadText).toBe('a real notice');
+      stop();
+    });
+  });
 });
