@@ -386,4 +386,25 @@ describe('system-message-sink', () => {
       expect(elapsedMs).toBeLessThan(8000);
     });
   });
+
+  describe('vue / @vue/reactivity version lockstep (review condition on the row-2562 fix)', () => {
+    it('resolves @vue/reactivity to the exact version vue itself ships', async () => {
+      // The fix's pauseTracking() only protects the app if the direct
+      // @vue/reactivity dependency resolves to the SAME instance vue's
+      // own runtime uses. Both carry a caret range today; a staggered
+      // upstream publish caught by an `npm update` could silently split
+      // them into two copies — and because THIS suite also imports from
+      // '@vue/reactivity' directly, the row-2562 recursion test above
+      // would keep passing against the duplicate copy while the real
+      // app's render effects went unprotected. Pinning version equality
+      // here makes that split a loud CI failure instead.
+      const { version: vueVersion } = await import('vue');
+      const reactivityPkg = (await import('@vue/reactivity/package.json')) as {
+        version?: string;
+        default?: { version?: string };
+      };
+      const reactivityVersion = reactivityPkg.version ?? reactivityPkg.default?.version;
+      expect(reactivityVersion).toBe(vueVersion);
+    });
+  });
 });
