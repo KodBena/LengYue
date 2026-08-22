@@ -25,7 +25,7 @@ import { useForestBrowsePolicy } from '../../composables/forest/useForestBrowseP
 import { useForestStats } from '../../composables/forest/useForestStats';
 import { useReviewSession } from '../../composables/review/useReviewSession';
 import { useAuth } from '../../composables/auth-app/useAuth';
-import { FOREST_NARROW_THRESHOLD_PX, PANEL_CONTENT_READING_MEASURE_CH } from '../../state/layout-model';
+import { FOREST_NARROW_THRESHOLD_PX, FOREST_TREE_TWO_COL_THRESHOLD_PX, PANEL_CONTENT_READING_MEASURE_CH } from '../../state/layout-model';
 import { expandContextIdMacros } from '../../utils/context-id-macros';
 import CardTreeWidget from '../charts/CardTreeWidget.vue';
 import ForestTreeNav from './ForestTreeNav.vue';
@@ -116,6 +116,28 @@ const orientation = computed<'horizontal' | 'vertical'>(
 // split cap uses, so this and that never drift into two independently
 // hand-picked `ch` figures.
 const cardMetadataMaxWidthCss = computed(() => `${PANEL_CONTENT_READING_MEASURE_CH}ch`);
+
+// defect (e) repair (statusbar-cards-completion-build): `props.twoColumnReflow`
+// is derived from the WHOLE-WORKSPACE viewport width class (App.vue's
+// `panelContentPolicy`), not from this panel's own rendered width — the
+// Cards surface shares the split layout's right column with the goban,
+// so a wide/vast viewport can still leave `.tree-panel` too narrow for
+// a side-by-side chart+metadata split (live-witnessed: selecting a card
+// squeezed the chart to a ~23px sliver, reading as "the tree
+// disappeared"). Guard the ancestor's intent with a container-measured
+// breakpoint on `.tree-panel` itself, using the SAME
+// `useDeferredContainerBreakpoint` mid-drag-flip-avoidance mechanism
+// `forestNarrow` below already uses (see `FOREST_TREE_TWO_COL_THRESHOLD_PX`'s
+// own header, state/layout-model.ts, for the full derivation and the
+// "committed" naming below is "narrow", i.e. two-col does NOT fit).
+const {
+  committed: treePanelTooNarrowForTwoCol,
+  observe: observeTreePanelTwoColWidth,
+  stop: stopTreePanelTwoColWidthObserver,
+} = useDeferredContainerBreakpoint(FOREST_TREE_TWO_COL_THRESHOLD_PX);
+const effectiveTwoColumnReflow = computed(
+  () => (props.twoColumnReflow ?? false) && !treePanelTooNarrowForTwoCol.value,
+);
 
 // "In-session" gating for the Decks panel: when a session is running
 // against the active board, the Decks left panel hosts the
@@ -474,13 +496,15 @@ const {
 onMounted(() => {
   if (forestCqWrapperEl.value) observeForestWidth(forestCqWrapperEl.value);
   if (treePanelEl.value) observeTreePanelAspect(treePanelEl.value);
+  if (treePanelEl.value) observeTreePanelTwoColWidth(treePanelEl.value);
 });
-// ADR-0010 imperative-escape step 4: both ResizeObservers live outside
-// Vue's reactivity graph and must be released, or every mounted
+// ADR-0010 imperative-escape step 4: all three ResizeObservers live
+// outside Vue's reactivity graph and must be released, or every mounted
 // ForestDirectory leaks an observer for the component's lifetime.
 onUnmounted(() => {
   stopForestWidthObserver();
   stopTreePanelAspectObserver();
+  stopTreePanelTwoColWidthObserver();
 });
 </script>
 
@@ -492,7 +516,7 @@ onUnmounted(() => {
        target (same ancestor-not-self reasoning iter-17 established:
        `.forest-container` cannot observe/react to its own width). -->
   <div class="forest-cq-wrapper" ref="forestCqWrapperEl">
-  <div class="forest-container" :class="{ 'forest-narrow-stack': forestNarrow, 'panel-content-two-col': props.twoColumnReflow }">
+  <div class="forest-container" :class="{ 'forest-narrow-stack': forestNarrow, 'panel-content-two-col': effectiveTwoColumnReflow }">
 
     <!-- LEFT PANEL: Navigation — Decks / Browse via the shared TabWidget -->
     <div class="left-panel">
@@ -752,7 +776,18 @@ onUnmounted(() => {
    mounted. `cardMetadataMaxWidthCss` (script) keeps the metadata
    column's own width sourced from `PANEL_CONTENT_READING_MEASURE_CH`,
    the same declared measure LibraryTab.vue's split cap uses — no
-   second hand-typed `ch` literal. */
+   second hand-typed `ch` literal.
+
+   defect (e) repair (statusbar-cards-completion-build): this class is
+   gated on `effectiveTwoColumnReflow` (script), not the raw
+   `props.twoColumnReflow` — the prop alone is viewport-width-derived
+   and said "yes" even when THIS panel's own rendered width couldn't
+   actually fit both columns (the Cards surface shares the split
+   layout's right column with the goban), squeezing `.chart-wrapper`'s
+   `1fr` down to a live-witnessed ~23px sliver the instant a card was
+   selected — the tree effectively vanished. See
+   `FOREST_TREE_TWO_COL_THRESHOLD_PX`'s header (state/layout-model.ts)
+   for the container-measured guard. */
 .forest-container.panel-content-two-col .tree-panel {
   display: grid;
   grid-template-columns: 1fr auto;

@@ -365,6 +365,20 @@ async function resetPriorStandalone(): Promise<void> {
 </template>
 
 <style scoped>
+/* defect (e) repair (statusbar-cards-completion-build,
+   fd2a_cardtree_poorly_utilized_space_when_selecting_card.png /
+   5f94_clicking_a_card_hides_tree.png): this panel previously had no
+   height budget of its own. Docked below (single-column) or beside
+   (two-col, `.forest-container.panel-content-two-col`) the card-tree
+   chart, an ancestor either clips silently (`.tree-panel`'s base
+   `overflow: hidden`) or the chart's own `flex`/grid track gets
+   squeezed to make room — either way, a metadata form with enough
+   content (many tags, a longer TAGS row, an expanded ANALYSIS CONFIG
+   editor) had no bounded, self-contained way to grow. Self-budgeted
+   max-height + contained overflow (this repo's established idiom —
+   `SettingsPane.vue`'s `.registry-container` is the precedent): past
+   this cap the panel scrolls WITHIN ITSELF, never past its own
+   ancestor's edge and never silently clipped by one either. */
 .card-metadata-panel {
   border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
@@ -372,6 +386,8 @@ async function resetPriorStandalone(): Promise<void> {
   font-size: var(--text-body);
   color: var(--text-0);
   margin-top: var(--space-medium);
+  max-height: clamp(200px, 40vh, 480px);
+  overflow-y: auto;
 }
 .card-metadata-panel.disabled { opacity: 0.6; pointer-events: none; }
 

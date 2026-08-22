@@ -44,6 +44,7 @@ import {
   FOREST_TREE_USABLE_FLOOR_PX,
   computeForestNarrowThresholdPx,
   FOREST_NARROW_THRESHOLD_PX,
+  FOREST_TREE_TWO_COL_THRESHOLD_PX,
   PANEL_CONTENT_READING_MEASURE_CH,
   getPanelContentPolicy,
   PANEL_CONTENT_POLICY_BY_WIDTH_CLASS,
@@ -227,6 +228,31 @@ describe('computeForestNarrowThresholdPx — ForestDirectory\'s 479px, re-derive
   it('moves when either content fact moves — the whole point of naming them instead of hand-writing the sum', () => {
     expect(computeForestNarrowThresholdPx(300, 200)).toBe(499);
     expect(computeForestNarrowThresholdPx(280, 220)).toBe(499);
+  });
+});
+
+describe('FOREST_TREE_TWO_COL_THRESHOLD_PX — defect (e) repair (statusbar-cards-completion-build)', () => {
+  it('equals two tree-usable floors summed via computeForestNarrowThresholdPx, minus one — the same "sum of two region floors" shape FOREST_NARROW_THRESHOLD_PX already uses', () => {
+    expect(FOREST_TREE_TWO_COL_THRESHOLD_PX).toBe(
+      computeForestNarrowThresholdPx(FOREST_TREE_USABLE_FLOOR_PX, FOREST_TREE_USABLE_FLOOR_PX),
+    );
+  });
+
+  it('reproduces the exact value from the two content facts (200 + 200 - 1 = 399)', () => {
+    expect(FOREST_TREE_TWO_COL_THRESHOLD_PX).toBe(399);
+  });
+
+  it('is strictly less than the live-witnessed collapse width (383px, .tree-panel at 1920x1080 with the CARDS surface sharing the split layout with the goban) is ABOVE this threshold\'s complement — i.e. 383px sits inside the "too narrow for two-col" band this threshold defines', () => {
+    // The witnessed repro (statusbar-cards-completion-build report):
+    // .tree-panel measured 383px wide; two-col (still gated only by the
+    // viewport-derived prop, pre-fix) squeezed .chart-wrapper to ~23px.
+    // Post-fix, ForestDirectory.vue's effectiveTwoColumnReflow ANDs the
+    // ancestor's intent with `widthPx >= FOREST_TREE_TWO_COL_THRESHOLD_PX`
+    // (component-level, exercised in
+    // forest-directory-two-col-narrow-guard.test.ts) — this test pins
+    // only the pure constant: 383px is below 399px, so the guard fires.
+    const LIVE_WITNESSED_TREE_PANEL_WIDTH_PX = 383;
+    expect(LIVE_WITNESSED_TREE_PANEL_WIDTH_PX).toBeLessThan(FOREST_TREE_TWO_COL_THRESHOLD_PX);
   });
 });
 
