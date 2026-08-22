@@ -782,6 +782,64 @@ describe('resolveSideColumnLiveLayout()', () => {
     });
   });
 
+  // ── Tree-floor-drag-jump repair (ledger row 2578, `.claude/dispatch-
+  //    reports/tree-floor-jump-build.md`): `treeFloorPx` is the ONE
+  //    region-owned floor `treePx`'s own non-sovereign clamp used and
+  //    `useResizablePanel.ts`'s `startResizeInner` now reads too — pinning
+  //    it here is the pure-function half of the fix; the live witness
+  //    (grab at natural width, first movement tracks linearly) is the
+  //    other half. ──────────────────────────────────────────────────────
+  describe('treeFloorPx: the SAME honest floor treePx is clamped against, exposed for a caller about to start a drag', () => {
+    it('the ordinary case (no content-demand overlay yet): treeFloorPx is the compiled elastic minPx (110), matching treePx\'s own floor', () => {
+      const result = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 1000 }));
+      expect(result.treeFloorPx).toBe(110);
+    });
+
+    it('a live content demand below the compiled floor (the row 2501 109-vs-110 repro): treeFloorPx follows treePx DOWN to the live 109px reading — the exact quantity that used to diverge from the static TREE_PANEL_MIN_WIDTH_PX (140) drag floor and produce the "instant snap" jump', () => {
+      const others: readonly SideColumnFixedRegion[] = [
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, viabilityFloorPx: CONTROL_PANEL_VIABILITY_FLOOR_PX },
+      ];
+      const result = resolveSideColumnLiveLayout(
+        baseInput({ wrapperWidthPx: 1000, others, tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: px(109) } }),
+      );
+      expect(result.treePx).toBe(109);
+      expect(result.treeFloorPx).toBe(109);
+      // The invariant this whole repair rests on: a drag starting from the
+      // rendered width (treePx) is never below the floor it will be
+      // clamped against (treeFloorPx) — no origin-below-floor snap is
+      // representable.
+      expect(result.treePx).toBeGreaterThanOrEqual(result.treeFloorPx);
+    });
+
+    it('a content demand of exactly 0 (review obligation 2): treeFloorPx pins to the compiled floor (110), same as treePx, never 0', () => {
+      const result = resolveSideColumnLiveLayout(
+        baseInput({ wrapperWidthPx: 1000, tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: px(0) } }),
+      );
+      expect(result.treeFloorPx).toBe(110);
+    });
+
+    it('sovereign (an in-progress drag): treeFloorPx still reflects the honest live floor, even though treePx itself renders verbatim past it — a SUBSEQUENT drag start still gets the correct floor to clamp against', () => {
+      const others: readonly SideColumnFixedRegion[] = [
+        { widgetId: 'controlPanel', track: CONTROL_PANEL_TRACK, desiredVisible: true, viabilityFloorPx: CONTROL_PANEL_VIABILITY_FLOOR_PX },
+      ];
+      const result = resolveSideColumnLiveLayout(
+        baseInput({
+          wrapperWidthPx: 1000,
+          others,
+          treeSovereignPx: 5,
+          tree: { track: LANDSCAPE_TREE_TRACK, maxUsefulPx: px(109) },
+        }),
+      );
+      expect(result.treePx).toBe(5); // sovereignty: verbatim, never resisted
+      expect(result.treeFloorPx).toBe(109); // the honest floor, unaffected by sovereignty
+    });
+
+    it('not yet measured (wrapperWidthPx <= 0): degrades to the compiled track\'s own minPx — no live overlay to consult, same convention as treePx\'s own not-yet-measured default', () => {
+      const result = resolveSideColumnLiveLayout(baseInput({ wrapperWidthPx: 0 }));
+      expect(result.treeFloorPx).toBe(110);
+    });
+  });
+
   // ── Row 2501 defense in depth, NARROWED per the review's own obligation
   //    1 (`.claude/dispatch-reports/lyt-cure-repair-review.md`): the
   //    resolver's catch degrades ONLY a genuine `MeasurementRefusalError`

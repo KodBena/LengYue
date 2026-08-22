@@ -163,6 +163,51 @@ describe('computeTreePanelWidthPx — no drag-start clobber', () => {
   });
 });
 
+/**
+ * Tree-floor-drag-jump repair (ledger row 2578, `.claude/dispatch-
+ * reports/tree-floor-jump-build.md`): the tree panel's own NATURAL
+ * render width can sit below `TREE_PANEL_MIN_WIDTH_PX` (a compiled
+ * `elastic` track floor of 110px, or a live content-demand reading even
+ * lower — `state/feasible-layout.ts`'s `resolveEffectiveDemand`) — a drag
+ * started from that already-below-floor origin used to snap straight to
+ * `TREE_PANEL_MIN_WIDTH_PX` on its FIRST `mousemove`, regardless of how
+ * small the movement was, because `computePaneWidthPx`'s own
+ * `Math.max(minWidthPx, ...)` fires immediately whenever the origin
+ * itself is already below `minWidthPx`. The 4th, optional `minWidthPx`
+ * parameter closes the gap: a caller that supplies the SAME live floor
+ * the render just used (`SideColumnLiveLayoutResult.treeFloorPx`) gets an
+ * origin that is, by construction, never below the floor it will be
+ * clamped against.
+ */
+describe('computeTreePanelWidthPx — optional minWidthPx (tree-floor-drag-jump repair, row 2578)', () => {
+  it('defaults to TREE_PANEL_MIN_WIDTH_PX when omitted — byte-identical to every pre-repair call site', () => {
+    expect(computeTreePanelWidthPx(500, -100000, MAX_TREE)).toBe(TREE_PANEL_MIN_WIDTH_PX);
+    expect(computeTreePanelWidthPx(500, -100000, MAX_TREE, TREE_PANEL_MIN_WIDTH_PX)).toBe(TREE_PANEL_MIN_WIDTH_PX);
+  });
+
+  it('a trailing default parameter does not widen the function\'s own arity — the existing "pure function of its own three arguments" pin is unaffected', () => {
+    expect(computeTreePanelWidthPx.length).toBe(3);
+  });
+
+  it('reproduces the "instant snap" bug when the caller ignores the live floor and the origin sits below the static one (77px origin, 140px static floor, a mere 1px movement)', () => {
+    const jumped = computeTreePanelWidthPx(77, 1, MAX_TREE); // no minWidthPx supplied — the pre-repair call shape
+    expect(jumped).toBe(TREE_PANEL_MIN_WIDTH_PX); // 140 — a 63px discontinuity from a 1px gesture
+  });
+
+  it('closes the bug when the SAME live floor the render used (77px) is threaded through: the identical 77-origin, 1px-movement drag now tracks linearly, no jump', () => {
+    const linear = computeTreePanelWidthPx(77, 1, MAX_TREE, 77);
+    expect(linear).toBe(78); // origin + delta, exactly — continuous, not clamped
+  });
+
+  it('grab-and-hold (zero movement), with the live floor supplied, returns the origin verbatim — the "no drag-start clobber" invariant composes with the new parameter. Against the OLD static floor, even a zero-delta call would still jump to 140 (this pure function has no "was this the first move" state); production never observes that, because onMouseMoveInner only runs on an actual mousemove, never at mousedown itself, so a real zero-movement grab writes nothing at all', () => {
+    expect(computeTreePanelWidthPx(77, 0, MAX_TREE, 77)).toBe(77);
+  });
+
+  it('a floor ABOVE the origin (a caller-supplied value inconsistent with what actually rendered) still clamps — this parameter changes WHICH floor binds, not whether one does', () => {
+    expect(computeTreePanelWidthPx(50, 1, MAX_TREE, 77)).toBe(77);
+  });
+});
+
 // ── OUTER bar: the tree+control wrapper (session.ui.treeControlRegionWidthPx) ──
 const MAX_REGION = 3348; // a plausible ceiling: rowWidth 3672 - MIN_BOARD_PX 300 - resizer 4 (roughly)
 

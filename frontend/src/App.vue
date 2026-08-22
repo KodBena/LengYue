@@ -1781,7 +1781,19 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
                Exclusive node); this explicit screen-class gate restores
                that absence on purpose, the same way the OUTER bar already
                states its own landscape-only scope explicitly rather than
-               relying on an incidental side effect. -->
+               relying on an incidental side effect.
+
+               Tree-floor-drag-jump repair (ledger row 2578, `.claude/
+               dispatch-reports/tree-floor-jump-build.md`):
+               `sideColumnLayout.value.treeFloorPx` is threaded into
+               `startResizeInner` here — the SAME live floor
+               `resolveSideColumnLiveLayout` (`state/feasible-layout.ts`)
+               just rendered `tree`'s own candidate against — so the
+               INNER bar's drag-time floor is the IDENTICAL region-owned
+               bound the render just used, not the independent static
+               `TREE_PANEL_MIN_WIDTH_PX` constant `computeTreePanelWidthPx`
+               used to hardcode unconditionally. Mirrors the OUTER bar's
+               own `rootSplitCeiling` threading immediately above. -->
           <template #exclusive-divider-controlPanel>
             <div
               v-if="activeScreenClassId === 'landscape'"
@@ -1790,7 +1802,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
               role="separator"
               aria-orientation="vertical"
               :aria-label="$t('app.chrome.resizerInnerLabel')"
-              @mousedown="startResizeInner"
+              @mousedown="(e: MouseEvent) => startResizeInner(e, sideColumnLayout.treeFloorPx)"
             ></div>
           </template>
 

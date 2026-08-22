@@ -304,13 +304,36 @@ export function computePaneWidthPx(
  * INNER bar's math. `sign = +1`: the tree panel sits to
  * `#resizer-inner`'s LEFT (`#vue-tree-panel`, then the bar, then
  * `#control-panel`), so dragging right GROWS it.
+ *
+ * `minWidthPx` (tree-floor-drag-jump repair, ledger row 2578, `.claude/
+ * dispatch-reports/tree-floor-jump-build.md`) defaults to
+ * `TREE_PANEL_MIN_WIDTH_PX` — a TRAILING default parameter, so this
+ * function's own arity stays 3 for every existing caller
+ * (`useResizablePanel.test.ts`'s own `computeTreePanelWidthPx.length ===
+ * 3` pin is unaffected: a parameter with a default initializer does not
+ * count toward `Function.prototype.length`). A caller that CAN supply the
+ * region's own live, honest floor (`SideColumnLiveLayoutResult.treeFloorPx`,
+ * `state/feasible-layout.ts`) — `startResizeInner` below — does so,
+ * closing the divergence between that live floor and this static
+ * constant: the tree panel's own NATURAL render width can sit below
+ * `TREE_PANEL_MIN_WIDTH_PX` (the compiled LYT program's own `elastic`
+ * track floor is 110px, and a content-dependent live reading can undercut
+ * even that — see `resolveEffectiveDemand`, `state/feasible-layout.ts`),
+ * and a drag started from that already-below-floor origin used to snap
+ * straight to the static floor on its very first `mousemove` regardless
+ * of how small the movement was — `computePaneWidthPx`'s own
+ * `Math.max(minWidthPx, ...)` fires immediately whenever the origin
+ * itself is below `minWidthPx`. Passing the SAME floor the render
+ * actually enforced means the drag's own origin is, by construction,
+ * never below the floor it's about to be clamped against.
  */
 export function computeTreePanelWidthPx(
   dragOriginPx: number,
   totalDeltaPx: number,
   maxTreePanelWidthPx: number,
+  minWidthPx: number = TREE_PANEL_MIN_WIDTH_PX,
 ): number {
-  return computePaneWidthPx(dragOriginPx, totalDeltaPx, TREE_PANEL_MIN_WIDTH_PX, maxTreePanelWidthPx, 1);
+  return computePaneWidthPx(dragOriginPx, totalDeltaPx, minWidthPx, maxTreePanelWidthPx, 1);
 }
 
 /**
@@ -411,12 +434,36 @@ export function useResizablePanel() {
   // ── INNER bar: tree panel (inside #tree-control-wrapper) ─────────
   let treeDragOriginPx = 0;
   let treeMaxWidthPx = TREE_PANEL_MIN_WIDTH_PX;
+  // Tree-floor-drag-jump repair (ledger row 2578): the floor THIS drag
+  // enforces, captured at mousedown — see `startResizeInner`'s own
+  // `treeFloorPx` parameter doc below and `computeTreePanelWidthPx`'s own
+  // header for the full account.
+  let treeMinWidthPx = TREE_PANEL_MIN_WIDTH_PX;
   let treeLastMouseX = 0;
 
-  function startResizeInner(e: MouseEvent) {
+  /**
+   * `treeFloorPx` (tree-floor-drag-jump repair, ledger row 2578): the
+   * region-owned live floor `resolveSideColumnLiveLayout` just rendered
+   * `tree` against (`SideColumnLiveLayoutResult.treeFloorPx`,
+   * `state/feasible-layout.ts`) — App.vue's own template call site threads
+   * its live `sideColumnLayout.value.treeFloorPx` through (the same fact
+   * the render just used), mirroring exactly how `startResizeOuter`'s own
+   * `rootSplitCeiling` parameter threads the OUTER bar's region-owned
+   * ceiling through (divider-mechanics repair item 3, this file's header).
+   * Optional (defaults to `TREE_PANEL_MIN_WIDTH_PX`) ONLY so a caller with
+   * no live `SideColumnLiveLayoutResult` to read (a direct composable-level
+   * test exercising drag mechanics unrelated to this floor, e.g.
+   * `sync-session-version.test.ts`'s save-coverage probes) still compiles
+   * and drags correctly against the pre-repair static floor — never a
+   * silent reintroduction of the divergence for a caller that CAN supply
+   * the live fact.
+   */
+  function startResizeInner(e: MouseEvent, treeFloorPx?: number) {
     e.preventDefault();
     isAnyPanelResizing.value = true;
     treeLastMouseX = e.clientX;
+    treeMinWidthPx =
+      treeFloorPx !== undefined && Number.isFinite(treeFloorPx) ? Math.max(0, Math.round(treeFloorPx)) : TREE_PANEL_MIN_WIDTH_PX;
 
     const tree = document.getElementById('vue-tree-panel');
     const wrapper = document.getElementById('tree-control-wrapper');
@@ -456,6 +503,7 @@ export function useResizablePanel() {
       treeDragOriginPx,
       totalDelta,
       treeMaxWidthPx,
+      treeMinWidthPx,
     );
     // treePanelWidthPx is persisted session UI state; bump the session
     // counter so SyncService schedules a (debounced) save. Per-move

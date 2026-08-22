@@ -741,6 +741,34 @@ export interface SideColumnRegionOutcome {
 
 export interface SideColumnLiveLayoutResult {
   readonly treePx: number;
+  /**
+   * Tree-floor-drag-jump repair (ledger row 2578, `.claude/dispatch-
+   * reports/tree-floor-jump-build.md`): the SAME floor `treePx`'s own
+   * non-sovereign candidate was just clamped against (`effectiveTreeMinPx`
+   * below) — i.e. the honest, live "how narrow can `tree` actually render
+   * right now" fact, NOT the static `TREE_PANEL_MIN_WIDTH_PX` readability
+   * constant (`state/layout-model.ts`) the INNER bar's drag math used to
+   * hardcode independently. Those two floors disagree whenever a
+   * content-dependent live reading (or a merely-narrow compiled `elastic`
+   * track, 110px in the shipped LYT program vs. the constant's 140px)
+   * undercuts the constant: `treePx` can then render BELOW 140, and a
+   * drag started from that already-below-floor origin used to snap
+   * straight to 140 on its first `mousemove` (any origin below the
+   * enforced floor makes `computePaneWidthPx`'s own `Math.max(floor, ...)`
+   * fire immediately, independent of how small the delta is) — the
+   * "instant snap on dragging" defect. Threading THIS field into
+   * `useResizablePanel.ts`'s `startResizeInner` closes the gap the same
+   * way `computeRootSplitSideColumnCeilingPx` already closed the
+   * analogous ceiling divergence for the OUTER bar (this module's own
+   * header, divider-mechanics repair item 3): one region-owned bound, not
+   * two independently-approximated ones. Always `<= ` the compiled
+   * `elastic` track's own `minPx` (`resolveEffectiveDemand`'s own
+   * contract) — this can only ever LOWER the enforced floor relative to
+   * the static constant, never raise it past what the constant already
+   * guaranteed, so a caller that ignores this field (the composable-level
+   * unit tests, which have no live geometry to supply) is unaffected.
+   */
+  readonly treeFloorPx: number;
   readonly others: readonly SideColumnRegionOutcome[];
   /** Non-empty only when `tree` is sovereign (dragged this session) AND
    *  the resulting candidate starves another region — §1.6's own
@@ -1052,6 +1080,11 @@ export function resolveSideColumnLiveLayout(input: SideColumnLiveLayoutInput): S
     const treePx = input.treeSovereignPx !== undefined ? Math.max(0, Math.round(input.treeSovereignPx)) : input.treeDefaultPx;
     return {
       treePx,
+      // Refusal fallback: no live content-demand overlay was consulted
+      // (the throw happened before/during that reasoning) — the compiled
+      // track's own `minPx` is the same conservative default the
+      // "not yet measured" branch below also uses for this field.
+      treeFloorPx: treeTrack.minPx,
       // `o.track?.kind === 'fixed' ? o.track.px : 0` — NOT `fixedTrackPx`
       // (which throws on a non-'fixed' track), and NOT the unguarded
       // `o.track.kind` this fallback originally used (the review's own
@@ -1503,6 +1536,10 @@ function resolveSideColumnLiveLayoutUnguarded(
     const treePx = input.treeSovereignPx ?? input.treeDefaultPx;
     return {
       treePx,
+      // Not yet measured: no live content-demand overlay to consult
+      // either — the compiled track's own `minPx`, same convention as
+      // every other "not yet measured" default in this module.
+      treeFloorPx: treeTrack.minPx,
       others: input.others.map((o) => ({
         widgetId: o.widgetId,
         present: o.desiredVisible,
@@ -1664,5 +1701,12 @@ function resolveSideColumnLiveLayoutUnguarded(
     diagnostics = mergeSideColumnCapacityDiagnostic(diagnostics, capacityStarved);
   }
 
-  return { treePx: pass2.treePx, others: outcomes, diagnostics };
+  // Tree-floor-drag-jump repair (ledger row 2578): the SAME honest floor
+  // the non-sovereign branch of `allot()` already clamps `treePx` against
+  // (see `effectiveTreeMinPx`, computed once above regardless of
+  // `sovereign` — the sovereign branch does not clamp `treePx` against it,
+  // but a FRESH drag always starts from the non-sovereign-rendered
+  // width, so this is the correct floor to hand a caller preparing to
+  // grab the INNER bar either way).
+  return { treePx: pass2.treePx, treeFloorPx: effectiveTreeMinPx, others: outcomes, diagnostics };
 }
