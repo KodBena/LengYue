@@ -1,0 +1,80 @@
+# .github/workflows/research-lyt-ci.yml
+#
+# THE NET (work item lyt-genfile-two-writers, ledger rows 2592/2637;
+# ADR-0011): a CI-runnable byte-identity gate over the LYT compiler
+# prototype's two compiled outputs, `frontend/src/state/lyt-layout.gen.ts`
+# and `lyt-layout-portrait.gen.ts`. Those files have exactly ONE writer —
+# `research/lyt/emit_layout_tree.py`, run against `research/lyt/encodings/
+# lengyue_landscape.lyt` / `lengyue_portrait.lyt` — per the fold-back this
+# work item lands (see that module's own "library-cards-promotion" section,
+# and `research/lyt/tests/test_emit_layout_tree.py`'s own
+# `test_render_ts_roundtrip_matches_committed_file` /
+# `test_portrait_render_ts_roundtrip_matches_committed_file`, the two tests
+# THIS workflow makes load-bearing). A future hand-patch of either `.gen.ts`
+# file — the exact failure mode row 2592 diagnosed (a hand-edit a fresh
+# regen silently reverts) — now fails this gate instead of silently
+# reverting on the next regeneration.
+#
+# The gate is a plain `pytest research/lyt/tests/` run: the roundtrip tests
+# above build the program in-process (`emit_layout_tree.build_program_for`)
+# and assert the result equals the COMMITTED file's own text byte-for-byte
+# — no separate "regenerate into scratch and diff" step is needed, since
+# that IS what those two tests already do. The rest of `research/lyt`'s own
+# suite (443 tests as of this writing) rides along in the same job — cheap,
+# since the venv is already paid for, and it guards every other prototype
+# invariant (well-formedness laws, the CP-SAT solves, the presence/
+# orientation derivations) the same way, not just the two genfiles this
+# work item's own mandate named.
+#
+# Solver dependency: `research/lyt/compiler.py` needs Google OR-Tools
+# (`ortools`), not part of the umbrella's own Python environment (see
+# `research/lyt/README.md`'s own "Solver environment" section) — this job
+# builds a throwaway venv the same way that section's own one-liner does,
+# rather than committing a requirements.txt (deliberately absent, per that
+# section's own rationale).
+#
+# Scope: research/lyt/** (the encodings, the generator, every module the
+# emitter/loader/compiler import) and the two committed `.gen.ts` files
+# themselves — either side of the two-writer boundary retriggers this gate,
+# so a bare hand-edit of a `.gen.ts` with no `research/lyt` change still
+# gets caught.
+#
+# License: Public Domain (The Unlicense)
+name: research-lyt-ci
+
+on:
+  pull_request:
+    paths:
+      - 'research/lyt/**'
+      - 'frontend/src/state/lyt-layout.gen.ts'
+      - 'frontend/src/state/lyt-layout-portrait.gen.ts'
+      - '.github/workflows/research-lyt-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'research/lyt/**'
+      - 'frontend/src/state/lyt-layout.gen.ts'
+      - 'frontend/src/state/lyt-layout-portrait.gen.ts'
+      - '.github/workflows/research-lyt-ci.yml'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: research/lyt
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install (ortools + pytest, throwaway venv — README's "Solver environment")
+        run: |
+          python3 -m venv /tmp/lyt-venv
+          /tmp/lyt-venv/bin/pip install ortools pytest
+      - name: Byte-identity gate + full research/lyt suite
+        run: /tmp/lyt-venv/bin/pytest tests/ -q

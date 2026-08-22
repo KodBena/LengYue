@@ -149,6 +149,40 @@ UNCHANGED and stays collapsed -- the reason above (a genuinely dynamic,
 user-configurable tab set the static encoding only models the default
 configuration of) is untouched by this work item and remains valid.
 
+LIBRARY-CARDS-PROMOTION, FOLDED BACK INTO THE GENERATOR (work item
+lyt-genfile-two-writers, ledger rows 2511/2592): under commissioner ruling
+2511 ("GUI shape gets fixed FAST without iterating on the LYT DSL itself"),
+LIBRARY and CARDS (indices 0/1) were relocated OUT of the control-panel
+Exclusive entirely -- App.vue's `#exclusive-controlPanel` slot mounts them
+directly as a toolbar-launched overlay (`rightPanelMode`, App.vue's own
+`library-cards-promotion` comments), sharing the SAME grid track the
+Exclusive occupies rather than being one of its `LytExclusiveChild`
+entries. The DSL has no vocabulary for "a toolbar-launched surface sharing
+a Split's grid track" (a genuine concept gap, not a defect), so the first
+cut of this fix hand-patched `lyt-layout.gen.ts`/`lyt-layout-portrait.gen.ts`
+directly rather than the source `.lyt` encodings, which reverted on every
+regen (row 2592's "two writers" finding). This is folded back here, in the
+GENERATOR, rather than in the `.lyt` source: the `.lyt` encodings keep
+declaring `CP-library`/`CP-cards` as ordinary Exclusive children (matching
+what the CP-SAT solver / mockup generator / every OTHER consumer of the
+encoding still needs to see, per `research/lyt/README.md`'s well-formedness
+scope), and this ONE consumer -- the runtime-program emitter -- prunes them
+at build time, the same "encoding says one thing, one disclosed consumer
+narrows it further" shape `control_panel_collapse_indices` above already
+established for the settings/analysis narrowing. `Registration.
+control_panel_promoted_indices` (new field, below) names the indices
+(0/1, library/cards) that are DROPPED from the emitted Exclusive's
+`children` array entirely (not collapsed to a blackbox placeholder --
+removed, matching what the hand-edit did) -- `_build_node`'s Exclusive
+branch skips a promoted index outright, keeping every other child's
+original encoding-order index in its own `path` (so `settings`/`analysis`/
+`other` still emit as `2.3.1.2`/`2.3.1.3`/`2.3.1.4`, byte-identical to the
+pre-fold-back hand-edit). `defaultTabId` is derived as the first
+NON-promoted tab id in encoding order (`settings`), rather than
+unconditionally `control_panel_tab_ids[0]` -- also matching the hand-edit.
+Regenerating now reproduces the previously-hand-patched output byte-for-
+byte; the `.gen.ts` files are single-writer again.
+
 REPAIR (2026-08-11, `.claude/dispatch-reports/lyt-optionc-review.md`
 Finding 2, corrected in `.claude/dispatch-reports/lyt-optionc-repair.md`):
 the paragraph above's own "UNCHANGED... byte-identical" claim was FALSE for
@@ -580,6 +614,15 @@ class Registration:
     # synthetic `blackbox` leaf each, per this wave's own disclosed scope
     # narrowing (module docstring).
     control_panel_collapse_indices: frozenset = frozenset()
+    # library-cards-promotion (module docstring, same name; ledger rows
+    # 2511/2592): child INDICES (0-based, encoding order) that are DROPPED
+    # from the emitted Exclusive's `children` entirely -- neither opened
+    # nor collapsed to a blackbox, genuinely absent from the runtime
+    # program, because App.vue mounts them itself as a toolbar-launched
+    # overlay sharing the Exclusive's own grid track. Disjoint from
+    # `control_panel_collapse_indices` by construction (an index is either
+    # promoted, collapsed, or opened -- never two of the three).
+    control_panel_promoted_indices: frozenset = frozenset()
 
 
 REGISTRATIONS: Dict[str, Registration] = {
@@ -592,6 +635,11 @@ REGISTRATIONS: Dict[str, Registration] = {
         open_control_panel=True,
         control_panel_tab_ids=("library", "cards", "settings", "analysis", "other"),
         control_panel_collapse_indices=frozenset({3}),
+        # library-cards-promotion (module docstring; ledger rows
+        # 2511/2592): library (0) and cards (1) are relocated out of the
+        # control panel entirely, mounted by App.vue as a toolbar-launched
+        # overlay instead.
+        control_panel_promoted_indices=frozenset({0, 1}),
     ),
     "portrait": Registration(
         layout_file="lengyue_portrait.lyt",
@@ -602,6 +650,8 @@ REGISTRATIONS: Dict[str, Registration] = {
         open_control_panel=True,
         control_panel_tab_ids=("library", "cards", "settings", "analysis", "other"),
         control_panel_collapse_indices=frozenset({3}),
+        # library-cards-promotion: same disposition as landscape above.
+        control_panel_promoted_indices=frozenset({0, 1}),
     ),
 }
 
@@ -896,6 +946,7 @@ def _build_node(
     open_control_panel: bool = False,
     control_panel_tab_ids: Tuple[str, ...] = (),
     control_panel_collapse_indices: frozenset = frozenset(),
+    control_panel_promoted_indices: frozenset = frozenset(),
     tree_orientation: Optional[str] = None,
     _within_opened_tab: bool = False,
 ) -> dict:
@@ -1033,6 +1084,18 @@ def _build_node(
             )
         ex_children = []
         for i, child in enumerate(node.children):
+            # library-cards-promotion (module docstring, same name): a
+            # promoted index is dropped from the emitted Exclusive
+            # entirely -- App.vue mounts it itself, as a toolbar-launched
+            # overlay sharing this Exclusive's own grid track, not as one
+            # of its LytExclusiveChild entries. `cpath`/`i` are still the
+            # child's ORIGINAL encoding-order index (the loop variable is
+            # untouched), so every surviving sibling's `path` is unaffected
+            # by a promoted sibling's absence -- matching the pre-fold-back
+            # hand-edit byte-for-byte (settings/analysis/other still emit
+            # as their own original `2.3.1.2`/`.3`/`.4`, not renumbered).
+            if i in control_panel_promoted_indices:
+                continue
             cpath = path + (i,)
             tab_id = control_panel_tab_ids[i]
             if i in control_panel_collapse_indices:
@@ -1062,6 +1125,7 @@ def _build_node(
                     open_control_panel=False,
                     control_panel_tab_ids=(),
                     control_panel_collapse_indices=frozenset(),
+                    control_panel_promoted_indices=frozenset(),
                     tree_orientation=tree_orientation,
                     # M2 STAGE B2b: marks every descendant of an opened
                     # tab's own subtree as "inside", so a nested Exclusive
@@ -1087,11 +1151,26 @@ def _build_node(
                     "scrollAxes": sorted(child.scroll_axes),
                 }
             )
+        # library-cards-promotion: `defaultTabId` is the first NON-promoted
+        # tab id in encoding order, not unconditionally index 0 -- when
+        # index 0 (library) is itself promoted, the default falls through
+        # to the next surviving tab (settings), matching the pre-fold-back
+        # hand-edit's own comment ("`defaultTabId` moves to `settings`, the
+        # first of the ... REMAINING tabs"). `ex_children` is already
+        # pruned of promoted entries by construction (loop above), so its
+        # own first entry's `tabId` is exactly this value -- read from
+        # there rather than re-deriving, one fact, one source.
+        if not ex_children:
+            raise ValueError(
+                "control_panel_promoted_indices promoted every child of the "
+                "control-panel Exclusive -- no tab remains to be the default "
+                "(module docstring, 'library-cards-promotion')."
+            )
         return {
             "kind": "exclusive",
             "widget": "controlPanel",
             "tag": node.tag,
-            "defaultTabId": control_panel_tab_ids[0],
+            "defaultTabId": ex_children[0]["tabId"],
             "children": ex_children,
             "demote": _demote_field(slot),
         }
@@ -1146,6 +1225,7 @@ def _build_node(
                         open_control_panel=open_control_panel,
                         control_panel_tab_ids=control_panel_tab_ids,
                         control_panel_collapse_indices=control_panel_collapse_indices,
+                        control_panel_promoted_indices=control_panel_promoted_indices,
                         tree_orientation=tree_orientation,
                         _within_opened_tab=_within_opened_tab,
                     ),
@@ -1163,6 +1243,7 @@ def build_program(
     open_control_panel: bool = False,
     control_panel_tab_ids: Tuple[str, ...] = (),
     control_panel_collapse_indices: frozenset = frozenset(),
+    control_panel_promoted_indices: frozenset = frozenset(),
 ) -> dict:
     encoding_path = ENCODINGS_DIR / layout_file
     text = encoding_path.read_text()
@@ -1199,6 +1280,7 @@ def build_program(
         open_control_panel=open_control_panel,
         control_panel_tab_ids=control_panel_tab_ids,
         control_panel_collapse_indices=control_panel_collapse_indices,
+        control_panel_promoted_indices=control_panel_promoted_indices,
         tree_orientation=tree_orientation,
     )
     return {"classId": class_id, "root": root}
@@ -1206,7 +1288,7 @@ def build_program(
 
 def build_program_for(registration: Registration) -> dict:
     """Convenience wrapper -- `build_program` keyed off one of
-    `REGISTRATIONS`'s entries instead of four separate keyword args."""
+    `REGISTRATIONS`'s entries instead of five separate keyword args."""
     return build_program(
         layout_file=registration.layout_file,
         layout_name=registration.layout_name,
@@ -1214,6 +1296,7 @@ def build_program_for(registration: Registration) -> dict:
         open_control_panel=registration.open_control_panel,
         control_panel_tab_ids=registration.control_panel_tab_ids,
         control_panel_collapse_indices=registration.control_panel_collapse_indices,
+        control_panel_promoted_indices=registration.control_panel_promoted_indices,
     )
 
 

@@ -65,6 +65,36 @@ def _find_tagged_exclusive_slot(slot: ast.Slot, tag: str) -> ast.Slot:
     return None
 
 
+def _find_leaf_slot_by_widget(slot: ast.Slot, widget: str) -> ast.Slot:
+    """library-cards-promotion (ledger rows 2511/2592): walks the RAW
+    (unemitted) AST for a Leaf's own wrapping Slot, by widget id --
+    `CP-library`/`CP-cards` are genuinely DROPPED from the emitted
+    program's `controlPanel` Exclusive now (a promoted index is skipped
+    in `_build_node`'s Exclusive branch before it ever recurses into the
+    child), so a test asserting one of their own leaf-level fields (as
+    `_build_node`'s Leaf branch would compute them) can no longer walk the
+    EMITTED tree to find it the way `test_control_panel_exclusive_...`
+    walks `program["root"]` -- it has to reach the raw Slot directly, the
+    same 'no tautology' posture `_find_tagged_exclusive_slot` above
+    already established for the Exclusive `demote` tests."""
+    node = slot.node
+    if isinstance(node, ast.Leaf) and node.widget == widget:
+        return slot
+    if isinstance(node, ast.Split):
+        for c in node.children:
+            found = _find_leaf_slot_by_widget(c, widget)
+            if found is not None:
+                return found
+        return None
+    if isinstance(node, ast.Exclusive):
+        for c in node.children:
+            found = _find_leaf_slot_by_widget(c, widget)
+            if found is not None:
+                return found
+        return None
+    return None
+
+
 def test_build_program_deterministic():
     a = elt.build_program()
     b = elt.build_program()
@@ -226,7 +256,7 @@ def test_control_panel_blackbox_floor_is_wrapper_min_derived():
     assert control_panel["track"] == {"kind": "fixed", "px": 664.0}
 
 
-def test_control_panel_exclusive_opens_library_cards_settings_other_collapses_analysis():
+def test_control_panel_exclusive_opens_settings_other_promotes_library_cards_collapses_analysis():
     """REALIZATION WAVE (`.claude/dispatch-reports/lyt-realization-wave.md`,
     work item lyt-realization-exclusive-overflow) opened library/cards/other;
     analysis stayed collapsed (genuinely user-configurable at runtime — the
@@ -255,7 +285,19 @@ def test_control_panel_exclusive_opens_library_cards_settings_other_collapses_an
     tab's own inner T does -- represented by its FIRST leaf's widget id
     (`SP_session`, `emit_layout_tree.py`'s own fix this stage lands, see
     that module's own updated comment), not the retired `settingsPane`
-    name."""
+    name.
+
+    STALE-TEST-NAME/BODY UPDATE (library-cards-promotion, ledger rows
+    2511/2592, folded into the generator): library/cards (indices 0/1) no
+    longer OPEN as genuine Exclusive children -- they are PROMOTED, i.e.
+    dropped from the emitted `children` array entirely, App.vue mounting
+    them itself as a toolbar-launched overlay. This test's own name
+    changes again (`..._opens_library_cards_settings_other_..." asserted a
+    now-false fact) and its body drops the library/cards assertions; the
+    settings/analysis/other assertions are unaffected -- their own paths
+    (`2.3.1.2`/`.3`/`.4`) keep their original encoding-order indices, per
+    the emitter's own disclosed 'library-cards-promotion' fold-back
+    (module docstring)."""
     program = elt.build_program_for(elt.REGISTRATIONS["landscape"])
     root = program["root"]
     side = _find(root["children"], "2")["node"]["children"]
@@ -264,25 +306,19 @@ def test_control_panel_exclusive_opens_library_cards_settings_other_collapses_an
     assert control_panel["node"]["kind"] == "exclusive"
     assert control_panel["node"]["widget"] == "controlPanel"
     assert control_panel["node"]["tag"] == "BLACK BOX"
-    assert control_panel["node"]["defaultTabId"] == "library"
+    assert control_panel["node"]["defaultTabId"] == "settings"
     ex_children = control_panel["node"]["children"]
     tab_ids = [c["tabId"] for c in ex_children]
-    assert tab_ids == ["library", "cards", "settings", "analysis", "other"]
+    assert tab_ids == ["settings", "analysis", "other"]
     label_keys = [c["tabLabelKey"] for c in ex_children]
     assert label_keys == [
-        "app.tabs.library", "app.tabs.cards", "app.tabs.settings",
-        "app.tabs.analysis", "app.tabs.other",
+        "app.tabs.settings", "app.tabs.analysis", "app.tabs.other",
     ]
     kinds = {c["tabId"]: c["node"]["kind"] for c in ex_children}
     assert kinds == {
-        "library": "leaf", "cards": "leaf",
         "settings": "split", "analysis": "blackbox",
         "other": "split",
     }
-    library = _find(ex_children, "2.3.1.0")
-    assert library["node"]["widget"] == "CP-library"
-    assert library["node"]["scrollAxes"] == ["v"]
-    assert library["node"]["content"] == "unbounded"
     settings = _find(ex_children, "2.3.1.2")
     assert settings["node"]["kind"] == "split"
     assert settings["node"]["axis"] == "v"
@@ -504,19 +540,24 @@ def test_portrait_control_panel_blackbox_floor_is_wrapper_min_derived():
     (the new `A_setup` sibling, item 2); `settingsPane` opens ONE further
     level (item 3) and collapses to a `blackbox` keyed by its own first
     leaf, `SP_session` (same shape as `lengyue_landscape.lyt`'s own
-    updated test -- read that one's own note in full)."""
+    updated test -- read that one's own note in full).
+
+    STALE-ASSERTION UPDATE (library-cards-promotion, ledger rows
+    2511/2592, folded into the generator): library/cards no longer open
+    as genuine Exclusive children -- they are PROMOTED, dropped from the
+    emitted `children` array entirely (same disposition as landscape's own
+    updated test; see that test's own note in full for the rationale)."""
     program = _portrait_program()
     root = program["root"]
     row = _find(root["children"], "5")["node"]["children"]
     control_panel = _find(row, "5.1")
     assert control_panel["node"]["kind"] == "exclusive"
     assert control_panel["node"]["widget"] == "controlPanel"
-    assert control_panel["node"]["defaultTabId"] == "library"
+    assert control_panel["node"]["defaultTabId"] == "settings"
     tab_ids = [c["tabId"] for c in control_panel["node"]["children"]]
-    assert tab_ids == ["library", "cards", "settings", "analysis", "other"]
+    assert tab_ids == ["settings", "analysis", "other"]
     kinds = {c["tabId"]: c["node"]["kind"] for c in control_panel["node"]["children"]}
     assert kinds == {
-        "library": "leaf", "cards": "leaf",
         "settings": "split", "analysis": "blackbox",
         "other": "split",
     }
@@ -688,12 +729,23 @@ def test_f1_port_cp_library_elastic_floor_edge():
     [corrected 2026-08-12, measurement-grounded encoding pass, `.claude/
     dispatch-reports/lyt-measurement-wave.md` Measurement 1 -- a live,
     uniform 32px row pitch grounds `unit v 32px` for CP-library, superseding
-    the prior `edge v item` this test's own docstring named]."""
-    program = elt.build_program_for(elt.REGISTRATIONS["landscape"])
-    side = _find(program["root"]["children"], "2")["node"]["children"]
-    tree_row = _find(side, "2.3")["node"]["children"]
-    control_panel = _find(tree_row, "2.3.1")["node"]
-    library = _find(control_panel["children"], "2.3.1.0")["node"]
+    the prior `edge v item` this test's own docstring named].
+
+    library-cards-promotion (ledger rows 2511/2592): `CP-library` is no
+    longer a child of the EMITTED `controlPanel` Exclusive (App.vue mounts
+    it itself, as a toolbar-launched overlay) -- this test now reaches its
+    own leaf Slot directly off the raw, loaded encoding
+    (`_find_leaf_slot_by_widget`) and runs it through `_build_node` in
+    isolation, the same Leaf-branch code path the (still-genuine) encoding
+    declaration would produce wherever it is mounted from. The field
+    values under test are properties of the LEAF's own declaration, not of
+    where in the tree it happens to be reachable, so this is not a
+    weakening of the assertion."""
+    text = (elt.ENCODINGS_DIR / elt.LAYOUT_FILE).read_text()
+    raw_slot = _find_leaf_slot_by_widget(
+        loader_module.load_layouts(text)[elt.LAYOUT_NAME], "CP-library"
+    )
+    library = elt._build_node(raw_slot, path=(0,))
     assert library["widget"] == "CP-library"
     assert library["elasticAxes"] == ["h"]
     assert library["floorAxes"] == [{"axis": "v", "px": 160.0}]
@@ -983,11 +1035,16 @@ def test_p2d_non_residual_leaves_unaffected():
     """Non-residual leaves (module docstring's own "Non-residual leaves keep
     their authored/default orientation exactly as today" instruction) --
     `CP-library`, a plain leaf with no Split residual role at all, keeps
-    reading its own load-time default regardless of P2d."""
-    program = elt.build_program_for(elt.REGISTRATIONS["landscape"])
-    side = _find(program["root"]["children"], "2")["node"]["children"]
-    tree_row = _find(side, "2.3")["node"]["children"]
-    control_panel = _find(tree_row, "2.3.1")["node"]
-    library = _find(control_panel["children"], "2.3.1.0")["node"]
+    reading its own load-time default regardless of P2d.
+
+    library-cards-promotion (ledger rows 2511/2592): same retargeting as
+    `test_f1_port_cp_library_elastic_floor_edge` above -- `CP-library` is
+    reached via its own raw Slot, not via the emitted `controlPanel`
+    Exclusive's children, since it is no longer one of them."""
+    text = (elt.ENCODINGS_DIR / elt.LAYOUT_FILE).read_text()
+    raw_slot = _find_leaf_slot_by_widget(
+        loader_module.load_layouts(text)[elt.LAYOUT_NAME], "CP-library"
+    )
+    library = elt._build_node(raw_slot, path=(0,))
     assert library["widget"] == "CP-library"
     assert library["orientation"] == "v"
