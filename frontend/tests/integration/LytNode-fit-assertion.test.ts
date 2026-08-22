@@ -3,15 +3,24 @@
  *
  * Space-owner cure, dispatch L2b (`.claude/dispatch-reports/
  * lyt-space-owner-spec.md` §3 step 2's "Gate"; ledger rows
- * 2447/2450/2460): the REAL wiring of `useLytFitAssertion.ts` into
- * `LytNode.vue`'s own leaf-cell function ref (`onLeafCellRef`) — this
- * file proves the composable (already unit-tested in isolation,
- * `tests/unit/composables/chrome/useLytFitAssertion.test.ts`) is actually
- * reached from a mounted `LytNode` instance, gated correctly on the
- * compiled `content` field, and torn down on unmount. Same synthetic
- * two-level program shape `LytNode-dom-id-wiring.test.ts` already
- * established (a Split containing leaves), reused here rather than a
- * third fixture shape.
+ * 2447/2450/2460), plus the settle-aware assertion fix (row 2591 — see
+ * `.claude/dispatch-reports/settle-aware-fit-assertion-build.md`): the
+ * REAL wiring of `useLytFitAssertion.ts` into `LytNode.vue`'s own
+ * leaf-cell function ref (`onLeafCellRef`) — this file proves the
+ * composable (already unit-tested in isolation, including its settle
+ * debounce, in `tests/unit/composables/chrome/useLytFitAssertion.test.ts`)
+ * is actually reached from a mounted `LytNode` instance, gated correctly
+ * on the compiled `content` field, and torn down on unmount. Same
+ * synthetic two-level program shape `LytNode-dom-id-wiring.test.ts`
+ * already established (a Split containing leaves), reused here rather
+ * than a third fixture shape.
+ *
+ * `requestAnimationFrame`/`cancelAnimationFrame` are faked here the same
+ * way `ResizeObserver` already was — jsdom in this vitest environment
+ * DOES ship a real (timer-driven) `requestAnimationFrame`, so leaving it
+ * unfaked would make the settle-debounced push land on a real timer this
+ * test can't deterministically flush; the fake gives frame-by-frame
+ * control, matching the unit test's own idiom.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -43,12 +52,54 @@ class FakeResizeObserver {
   }
 }
 
+// See `tests/unit/composables/chrome/useLytFitAssertion.test.ts`'s own
+// `FakeRaf` for the full rationale — a controllable
+// `requestAnimationFrame`/`cancelAnimationFrame` queue, flushed one frame
+// at a time.
+class FakeRaf {
+  static queue: Array<{ id: number; cb: FrameRequestCallback }> = [];
+  static cancelled = new Set<number>();
+  static nextId = 1;
+  static reset(): void {
+    FakeRaf.queue = [];
+    FakeRaf.cancelled = new Set();
+    FakeRaf.nextId = 1;
+  }
+  static request(cb: FrameRequestCallback): number {
+    const id = FakeRaf.nextId++;
+    FakeRaf.queue.push({ id, cb });
+    return id;
+  }
+  static cancel(id: number): void {
+    FakeRaf.cancelled.add(id);
+  }
+  static flushFrame(): void {
+    const due = FakeRaf.queue;
+    FakeRaf.queue = [];
+    for (const { id, cb } of due) {
+      if (!FakeRaf.cancelled.has(id)) cb(0);
+    }
+  }
+}
+
+/** Flushes the settle-debounce's full quiet period (`SETTLE_QUIET_FRAMES`
+ *  = 2 in the production module). */
+function settleFrames(): void {
+  FakeRaf.flushFrame();
+  FakeRaf.flushFrame();
+}
+
 const originalResizeObserver = globalThis.ResizeObserver;
+const originalRaf = globalThis.requestAnimationFrame;
+const originalCancelRaf = globalThis.cancelAnimationFrame;
 let sinkPush: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   FakeResizeObserver.instances = [];
   (globalThis as any).ResizeObserver = FakeResizeObserver;
+  FakeRaf.reset();
+  (globalThis as any).requestAnimationFrame = FakeRaf.request;
+  (globalThis as any).cancelAnimationFrame = FakeRaf.cancel;
   sinkPush = vi.fn();
   const fakeSink: SystemMessageSink = { push: sinkPush };
   registerSystemMessageSink(fakeSink);
@@ -56,6 +107,8 @@ beforeEach(() => {
 
 afterEach(() => {
   (globalThis as any).ResizeObserver = originalResizeObserver;
+  (globalThis as any).requestAnimationFrame = originalRaf;
+  (globalThis as any).cancelAnimationFrame = originalCancelRaf;
 });
 
 // One Fit-class leaf (`content: 'bounded'`, `A_engine_health` — a REAL
@@ -102,15 +155,18 @@ describe('LytNode.vue — mount-time Fit assertion wiring (dispatch L2b)', () =>
     const cell = wrapper.element.querySelector('.lyt-leaf-cell') as HTMLElement;
     expect(cell).not.toBeNull();
     setBox(cell, { scrollWidth: 534, clientWidth: 139, scrollHeight: 20, clientHeight: 20 });
-    // The synchronous mount-time check already ran (during `mount()`,
-    // before this test overrode the box) with a fitting (0/0) box, so
-    // it produced no push yet — a genuine GEOMETRY TRANSITION is what
-    // this test drives, via the SAME `ResizeObserver` callback path a
-    // real browser would fire on a cell resize (`useLytFitAssertion.ts`'s
-    // own header: "on geometry transition ... a leaf cell resizing IS a
-    // geometry transition by construction").
+    // The settle-debounced mount-time check already ARMED (during
+    // `mount()`, before this test overrode the box) against a fitting
+    // (0/0) box, so it will produce no push once its own window elapses
+    // — a genuine GEOMETRY TRANSITION is what this test drives, via the
+    // SAME `ResizeObserver` callback path a real browser would fire on a
+    // cell resize (`useLytFitAssertion.ts`'s own header: "on geometry
+    // transition ... a leaf cell resizing IS a geometry transition by
+    // construction"). The transition re-arms the debounce; `settleFrames()`
+    // lets that re-armed window elapse before asserting.
     const observer = FakeResizeObserver.instances.at(-1)!;
     observer.fire(cell);
+    settleFrames();
 
     expect(sinkPush).toHaveBeenCalled();
     const [type, text] = sinkPush.mock.calls.at(-1)!;
@@ -139,6 +195,7 @@ describe('LytNode.vue — mount-time Fit assertion wiring (dispatch L2b)', () =>
     setBox(treeCell, { scrollWidth: 9000, clientWidth: 10, scrollHeight: 9000, clientHeight: 10 });
     const observer = FakeResizeObserver.instances.at(-1)!;
     observer.fire(treeCell);
+    settleFrames();
 
     expect(sinkPush.mock.calls.some((c) => String(c[1]).includes('tree'))).toBe(false);
 
@@ -158,6 +215,7 @@ describe('LytNode.vue — mount-time Fit assertion wiring (dispatch L2b)', () =>
     setBox(cell, { scrollWidth: 139, clientWidth: 139, scrollHeight: 20, clientHeight: 20 });
     const observer = FakeResizeObserver.instances.at(-1)!;
     observer.fire(cell);
+    settleFrames();
 
     expect(sinkPush).not.toHaveBeenCalled();
     wrapper.unmount();
