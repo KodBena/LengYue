@@ -17,9 +17,8 @@
  *     `open-library-game` with the fetched game.
  *   - Ctrl/Cmd-click and middle-click still emit the new-tab variant.
  *
- * Same service-boundary-fake convention as
- * `panel-content-two-col-reflow.test.ts` (`tests/CLAUDE.md`): mocks
- * `library-service.ts` so this test never touches the network.
+ * Same service-boundary-fake convention `tests/CLAUDE.md` describes:
+ * mocks `library-service.ts` so this test never touches the network.
  *
  * License: Public Domain (The Unlicense)
  */

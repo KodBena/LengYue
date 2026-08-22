@@ -7,30 +7,29 @@
  * a card node in Browse used to squeeze `.chart-wrapper` (the card-tree
  * canvas) down to a live-witnessed ~23px sliver — effectively hiding the
  * tree — because `ForestDirectory.vue`'s `.panel-content-two-col` class
- * was gated ONLY on `props.twoColumnReflow`, itself derived from the
+ * was gated on `props.twoColumnReflow`, itself derived from the
  * WHOLE-WORKSPACE viewport width class (App.vue's `panelContentPolicy`),
  * not from this panel's own rendered width. The Cards surface shares the
  * split layout's right column with the goban, so a wide/vast viewport
- * (`twoColumnReflow: true`) can still leave `.tree-panel` far narrower
+ * (`twoColumnReflow: true`) could still leave `.tree-panel` far narrower
  * than the two-column layout needs.
  *
- * The fix (`ForestDirectory.vue`'s `effectiveTwoColumnReflow` computed)
- * ANDs the ancestor's intent with a container-measured guard on
- * `.tree-panel` itself, via `useDeferredContainerBreakpoint` gated on
- * `FOREST_TREE_TWO_COL_THRESHOLD_PX` (state/layout-model.ts, pinned in
- * `tests/unit/state/layout-model.test.ts`). This file exercises the
- * component-level behavior a pure constant test cannot: that a NARROW
- * measured `.tree-panel`, even with `twoColumnReflow: true`, does NOT
- * apply `.panel-content-two-col` — the tree stays full-width instead of
- * being squeezed beside the metadata panel.
+ * two-col-class-closure-build (ADR-0000 Rule 2(a) closure, ledger rows
+ * 2564/2565): the first patch (this file's prior revision) ANDed the
+ * ancestor's `twoColumnReflow` intent with a container-measured guard —
+ * the commissioner ruled that insufficient, because the wrong-currency
+ * signal stayed representable at the seam (`getPanelContentPolicy`,
+ * since deleted from `src/state/layout-model.ts` — see that module's
+ * HISTORICAL note above `PANEL_CONTENT_READING_MEASURE_CH`'s
+ * declaration). `ForestDirectory.vue` no longer accepts a
+ * `twoColumnReflow` prop at all: `effectiveTwoColumnReflow` now reduces
+ * to the container-measured guard ALONE
+ * (`!treePanelTooNarrowForTwoCol.value`).
  *
- * `panel-content-two-col-reflow.test.ts` (read in full before authoring
- * this file) is the sibling suite this one extends: that file pins the
- * UNMEASURED-width case (a `NoopResizeObserver` stub, `committed` never
- * flips from its `false` default, so `effectiveTwoColumnReflow` reduces
- * to the bare prop — unaffected by this fix, still asserted true/false
- * per the prop alone). This file instead exercises the MEASURED case: a
- * `ResizeObserver` fake that actually delivers a narrow contentRect.
+ * The invariant this file now pins is single-input: `.panel-content-two-col`
+ * applies IFF `.tree-panel`'s own measured width is at/above
+ * `FOREST_TREE_TWO_COL_THRESHOLD_PX` (state/layout-model.ts) — no ancestor
+ * operand exists to narrow or widen that decision any more.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -40,16 +39,14 @@ import { i18n } from '../../src/i18n';
 import ForestDirectory from '../../src/components/tree/ForestDirectory.vue';
 import { FOREST_TREE_TWO_COL_THRESHOLD_PX } from '../../src/state/layout-model';
 
-// A ResizeObserver fake that ACTUALLY delivers a callback (unlike
-// panel-content-two-col-reflow.test.ts's NoopResizeObserver, which never
-// fires — this file specifically needs the measured-width path to run).
-// Every instance reports the SAME test-controlled width for whatever
-// element it observes: `ForestDirectory.vue` stands up three separate
-// ResizeObserver instances (forestCqWrapperEl / treePanelEl aspect /
-// treePanelEl two-col-width), and this test only needs to control the
-// two-col-width one's effective reading — feeding the same width to all
-// three is harmless (a genuinely narrow container legitimately narrow-
-// stacks too; that's an orthogonal, already-covered concern).
+// A ResizeObserver fake that ACTUALLY delivers a callback. Every instance
+// reports the SAME test-controlled width for whatever element it
+// observes: `ForestDirectory.vue` stands up three separate ResizeObserver
+// instances (forestCqWrapperEl / treePanelEl aspect / treePanelEl
+// two-col-width), and this test only needs to control the two-col-width
+// one's effective reading — feeding the same width to all three is
+// harmless (a genuinely narrow container legitimately narrow-stacks too;
+// that's an orthogonal, already-covered concern).
 let currentWidthPx = 1000;
 
 class FakeResizeObserver {
@@ -94,34 +91,22 @@ vi.mock('../../src/services/backend-service', () => ({
   },
 }));
 
-describe('ForestDirectory — two-col reflow is guarded by the panel\'s OWN measured width (defect e)', () => {
-  it('omits panel-content-two-col when the ancestor says wide (twoColumnReflow: true) but .tree-panel measures NARROWER than FOREST_TREE_TWO_COL_THRESHOLD_PX — the exact live-witnessed repro condition', async () => {
+describe('ForestDirectory — two-col reflow is driven ONLY by the panel\'s own measured width (defect e, closed in full)', () => {
+  it('omits panel-content-two-col when .tree-panel measures NARROWER than FOREST_TREE_TWO_COL_THRESHOLD_PX — the exact live-witnessed repro condition', async () => {
     currentWidthPx = FOREST_TREE_TWO_COL_THRESHOLD_PX - 50; // well inside the "too narrow" band
     const wrapper = mount(ForestDirectory, {
-      props: { twoColumnReflow: true },
       global: { plugins: [i18n] },
     });
     await flushPromises();
     expect(wrapper.find('.forest-container').classes()).not.toContain('panel-content-two-col');
   });
 
-  it('applies panel-content-two-col when the ancestor says wide AND .tree-panel measures at/above the threshold — the legitimate two-col case stays intact', async () => {
+  it('applies panel-content-two-col when .tree-panel measures at/above the threshold', async () => {
     currentWidthPx = FOREST_TREE_TWO_COL_THRESHOLD_PX + 200;
     const wrapper = mount(ForestDirectory, {
-      props: { twoColumnReflow: true },
       global: { plugins: [i18n] },
     });
     await flushPromises();
     expect(wrapper.find('.forest-container').classes()).toContain('panel-content-two-col');
-  });
-
-  it('never applies panel-content-two-col when the ancestor says narrow (twoColumnReflow: false), regardless of measured width — the guard only NARROWS the ancestor\'s intent, never widens it', async () => {
-    currentWidthPx = FOREST_TREE_TWO_COL_THRESHOLD_PX + 500; // plenty of room
-    const wrapper = mount(ForestDirectory, {
-      props: { twoColumnReflow: false },
-      global: { plugins: [i18n] },
-    });
-    await flushPromises();
-    expect(wrapper.find('.forest-container').classes()).not.toContain('panel-content-two-col');
   });
 });

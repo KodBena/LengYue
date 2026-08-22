@@ -36,13 +36,6 @@ import HyperparamPromptModal, { type HyperparamValues } from '../modals/Hyperpar
 
 const { t } = useI18n();
 
-// Phase 3 (resolution roadmap, audit finding R3) — same prop shape as
-// LibraryTab.vue's `twoColumnReflow`: App.vue derives it once from the
-// workspace's LayoutClass (`getPanelContentPolicy`) and hands it down.
-// Defaults to `false` (today's single-stacked-column behaviour) so a
-// standalone mount that doesn't pass the prop is unaffected.
-const props = defineProps<{ twoColumnReflow?: boolean }>();
-
 const emit = defineEmits<{
   (e: 'load-card', card: ReviewCard): void;
 }>();
@@ -117,27 +110,31 @@ const orientation = computed<'horizontal' | 'vertical'>(
 // hand-picked `ch` figures.
 const cardMetadataMaxWidthCss = computed(() => `${PANEL_CONTENT_READING_MEASURE_CH}ch`);
 
-// defect (e) repair (statusbar-cards-completion-build): `props.twoColumnReflow`
-// is derived from the WHOLE-WORKSPACE viewport width class (App.vue's
-// `panelContentPolicy`), not from this panel's own rendered width — the
-// Cards surface shares the split layout's right column with the goban,
-// so a wide/vast viewport can still leave `.tree-panel` too narrow for
-// a side-by-side chart+metadata split (live-witnessed: selecting a card
-// squeezed the chart to a ~23px sliver, reading as "the tree
-// disappeared"). Guard the ancestor's intent with a container-measured
-// breakpoint on `.tree-panel` itself, using the SAME
+// two-col-class-closure-build (ADR-0000 Rule 2(a) closure, ledger rows
+// 2564/2565): defect (e) (statusbar-cards-completion-build) found the
+// original `props.twoColumnReflow` gate wrong-currency — it was derived
+// from the WHOLE-WORKSPACE viewport width class (App.vue's
+// `panelContentPolicy`), not from this panel's own rendered width; the
+// Cards surface shares the split layout's right column with the goban, so
+// a wide/vast viewport could still leave `.tree-panel` too narrow for a
+// side-by-side chart+metadata split (live-witnessed: selecting a card
+// squeezed the chart to a ~23px sliver, reading as "the tree disappeared").
+// The first patch ANDed a container-measured guard onto that prop; ruled
+// insufficient because the wrong-currency signal stayed representable at
+// the seam (`getPanelContentPolicy`, since deleted — see
+// `state/layout-model.ts`'s HISTORICAL note above
+// `PANEL_CONTENT_READING_MEASURE_CH`). The prop is gone: this panel's
+// own-container-measured breakpoint is the ONLY input now, via the SAME
 // `useDeferredContainerBreakpoint` mid-drag-flip-avoidance mechanism
 // `forestNarrow` below already uses (see `FOREST_TREE_TWO_COL_THRESHOLD_PX`'s
-// own header, state/layout-model.ts, for the full derivation and the
+// own header, state/layout-model.ts, for the full derivation — the
 // "committed" naming below is "narrow", i.e. two-col does NOT fit).
 const {
   committed: treePanelTooNarrowForTwoCol,
   observe: observeTreePanelTwoColWidth,
   stop: stopTreePanelTwoColWidthObserver,
 } = useDeferredContainerBreakpoint(FOREST_TREE_TWO_COL_THRESHOLD_PX);
-const effectiveTwoColumnReflow = computed(
-  () => (props.twoColumnReflow ?? false) && !treePanelTooNarrowForTwoCol.value,
-);
+const effectiveTwoColumnReflow = computed(() => !treePanelTooNarrowForTwoCol.value);
 
 // "In-session" gating for the Decks panel: when a session is running
 // against the active board, the Decks left panel hosts the
@@ -778,14 +775,16 @@ onUnmounted(() => {
    the same declared measure LibraryTab.vue's split cap uses — no
    second hand-typed `ch` literal.
 
-   defect (e) repair (statusbar-cards-completion-build): this class is
-   gated on `effectiveTwoColumnReflow` (script), not the raw
-   `props.twoColumnReflow` — the prop alone is viewport-width-derived
-   and said "yes" even when THIS panel's own rendered width couldn't
-   actually fit both columns (the Cards surface shares the split
-   layout's right column with the goban), squeezing `.chart-wrapper`'s
-   `1fr` down to a live-witnessed ~23px sliver the instant a card was
-   selected — the tree effectively vanished. See
+   defect (e) repair (statusbar-cards-completion-build), closed in full
+   under ADR-0000 Rule 2(a) by two-col-class-closure-build (ledger rows
+   2564/2565): this class is gated on `effectiveTwoColumnReflow` (script),
+   which is now this panel's OWN container-measured breakpoint alone — the
+   original viewport-width-derived `props.twoColumnReflow` prop that said
+   "yes" even when THIS panel's own rendered width couldn't actually fit
+   both columns (the Cards surface shares the split layout's right column
+   with the goban, squeezing `.chart-wrapper`'s `1fr` down to a
+   live-witnessed ~23px sliver the instant a card was selected — the tree
+   effectively vanished) is DELETED, not merely AND-guarded. See
    `FOREST_TREE_TWO_COL_THRESHOLD_PX`'s header (state/layout-model.ts)
    for the container-measured guard. */
 .forest-container.panel-content-two-col .tree-panel {

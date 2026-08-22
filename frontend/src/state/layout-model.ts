@@ -471,40 +471,51 @@ export {
  */
 export const PANEL_CONTENT_READING_MEASURE_CH = 60;
 
-export interface PanelContentPolicy {
-  /** Max-width cap (in `ch`) applied to a single column of panel text content. */
-  readingMeasureCh: number;
-  /** Whether panels with a natural two-region layout (Library's
-   *  list+preview, Cards' tree+metadata) reflow those regions
-   *  side-by-side (true) vs. the narrower stacked/single-column
-   *  default (false). */
-  twoColumnReflow: boolean;
-}
-
-// assumption (not spec-given): the wide/vast cutover for two-column
-// reflow reuses the SAME LayoutWidthClass boundary already declared
-// above (WIDTH_CLASS_MAX_PX.standard, 1280px) rather than a new,
-// independent threshold — one width-classification scheme for the
-// whole module (ADR-0012 one-home-per-fact), not two.
-const SINGLE_COLUMN_PANEL_CONTENT_POLICY: PanelContentPolicy = {
-  readingMeasureCh: PANEL_CONTENT_READING_MEASURE_CH,
-  twoColumnReflow: false,
-};
-const TWO_COLUMN_PANEL_CONTENT_POLICY: PanelContentPolicy = {
-  readingMeasureCh: PANEL_CONTENT_READING_MEASURE_CH,
-  twoColumnReflow: true,
-};
-
-export const PANEL_CONTENT_POLICY_BY_WIDTH_CLASS: Record<LayoutWidthClass, PanelContentPolicy> = {
-  compact: SINGLE_COLUMN_PANEL_CONTENT_POLICY,
-  standard: SINGLE_COLUMN_PANEL_CONTENT_POLICY,
-  wide: TWO_COLUMN_PANEL_CONTENT_POLICY,
-  vast: TWO_COLUMN_PANEL_CONTENT_POLICY,
-};
-
-export function getPanelContentPolicy(layoutClass: LayoutClass): PanelContentPolicy {
-  return PANEL_CONTENT_POLICY_BY_WIDTH_CLASS[layoutClass.width];
-}
+// HISTORICAL (two-col-class-closure-build, ADR-0000 Rule 2(a) closure,
+// ledger rows 2564/2565): `PanelContentPolicy` used to carry a second
+// field, `twoColumnReflow: boolean`, looked up by `getPanelContentPolicy`
+// / `PANEL_CONTENT_POLICY_BY_WIDTH_CLASS` from the WORKSPACE's own
+// viewport-derived `LayoutWidthClass` (wide/vast -> true, compact/standard
+// -> false) and threaded by App.vue to LibraryTab.vue and ForestDirectory.vue
+// as a `twoColumnReflow` prop. defect (e) (statusbar-cards-completion-build)
+// found this currency wrong for ForestDirectory: the prop said "wide" while
+// `.tree-panel`'s OWN rendered width (it shares the split layout's right
+// column with the goban) measured 383px, and the resulting
+// `.panel-content-two-col` CSS grid squeezed the chart to a ~23px sliver.
+// The first patch ANDed a container-measured guard onto the viewport-sourced
+// prop (`effectiveTwoColumnReflow`); the commissioner ruled that patch
+// insufficient under ADR-0000 (`docs/adr/0000-...md`) Rule 2(a) — the seam
+// still EXPORTED a viewport-currency boolean any future consumer could wire
+// to a column-split decision and re-mint the exact bug.
+//
+// Closure: the viewport-currency signal is removed as an input to any
+// column-split decision, not merely guarded downstream.
+// `getPanelContentPolicy`/`PANEL_CONTENT_POLICY_BY_WIDTH_CLASS`/
+// `PanelContentPolicy`/`SINGLE_COLUMN_PANEL_CONTENT_POLICY`/
+// `TWO_COLUMN_PANEL_CONTENT_POLICY` are DELETED — App.vue's only reader of
+// the removed `twoColumnReflow` field was the prop-binding to the two
+// consumers below; `readingMeasureCh` (the OTHER field the interface used
+// to carry) was never read off the policy object by any consumer either —
+// both consumers import `PANEL_CONTENT_READING_MEASURE_CH` directly — so
+// nothing legitimately viewport-scoped survives that needs a replacement
+// export. Full quantification and per-consumer disposition:
+// `.claude/dispatch-reports/two-col-class-closure-build.md`.
+//
+// - `ForestDirectory.vue`'s `effectiveTwoColumnReflow` now reduces to the
+//   container-measured guard alone (`!treePanelTooNarrowForTwoCol.value`,
+//   `useDeferredContainerBreakpoint(FOREST_TREE_TWO_COL_THRESHOLD_PX)` below,
+//   unchanged) — the ancestor-intent operand is gone, not merely defaulted.
+// - `LibraryTab.vue`'s `twoColumnReflow` prop gated only a reading-measure
+//   MAX-WIDTH CAP on `.library-split` (a ceiling, never a forced split:
+//   `.library-split`'s `grid-template-columns: 3fr 2fr` is unconditional;
+//   the tab's actual narrow/wide reorg is its own pre-existing, already
+//   self-measuring `@container (max-width: 700px)` query on `.library-tab`,
+//   untouched here). A ceiling can never manufacture defect (e)'s squeeze —
+//   capping an already-narrower-than-the-cap split is a no-op — so there is
+//   no class of bug left to guard against, and mirroring ForestDirectory's
+//   container-measured guard here would be a guard with no defect to catch.
+//   The cap is now unconditional CSS on `.library-split` itself; no prop,
+//   no gating class, no width signal of any kind.
 
 // ── Wizard prose reading measure (Phase 4, audit finding R7) ──────────
 
@@ -738,34 +749,39 @@ export const FOREST_NARROW_THRESHOLD_PX = computeForestNarrowThresholdPx(
 //
 // statusbar-cards-completion-build (defect e): `ForestDirectory.vue`'s
 // `.tree-panel` reflows the card-tree chart and `CardMetadataPanel`
-// side-by-side (`.panel-content-two-col`) when the ANCESTOR
-// `props.twoColumnReflow` prop says so — and that prop is sourced from
-// `getPanelContentPolicy(layoutClass)`, the WHOLE-WORKSPACE viewport
-// width class (App.vue). At a wide/vast viewport this is unconditionally
-// `true` regardless of how narrow the Cards surface's OWN tree-panel
-// currently renders — the toolbar-launched Cards overlay shares the
-// split-layout's right column with the goban, so a wide viewport with a
-// dominant board can still leave `.tree-panel` at ~380px. Selecting a
-// card there forced the metadata panel's `PANEL_CONTENT_READING_MEASURE_CH`
-// column (`cardMetadataMaxWidthCss`) into a CSS grid `1fr auto` split
-// whose `1fr` (the chart) has `min-width: 0` — so the chart column
-// collapsed to a sliver (~23px, live-witnessed), reading as "the tree
-// disappeared" the instant a card was clicked. Root cause: the two-col
-// decision is driven by the wrong width source (viewport, not this
-// panel's own rendered width).
+// side-by-side (`.panel-content-two-col`) — originally gated on an
+// ANCESTOR `props.twoColumnReflow` prop sourced from the WHOLE-WORKSPACE
+// viewport width class (App.vue). At a wide/vast viewport this was
+// unconditionally `true` regardless of how narrow the Cards surface's OWN
+// tree-panel currently rendered — the toolbar-launched Cards overlay
+// shares the split-layout's right column with the goban, so a wide
+// viewport with a dominant board could still leave `.tree-panel` at
+// ~380px. Selecting a card there forced the metadata panel's
+// `PANEL_CONTENT_READING_MEASURE_CH` column (`cardMetadataMaxWidthCss`)
+// into a CSS grid `1fr auto` split whose `1fr` (the chart) has
+// `min-width: 0` — so the chart column collapsed to a sliver (~23px,
+// live-witnessed), reading as "the tree disappeared" the instant a card
+// was clicked. Root cause: the two-col decision was driven by the wrong
+// width source (viewport, not this panel's own rendered width).
 //
-// Fix: `ForestDirectory.vue` ANDs the ancestor's intent with a
-// container-measured guard on `.tree-panel` itself (the same element
-// `useContainerAspectOrientation` already observes for the tree's own
-// orientation), via `useDeferredContainerBreakpoint` — the SAME
-// mid-drag-flip-avoidance mechanism `forestNarrow` above already uses,
-// so this doesn't reintroduce the discrete-reorg-during-a-continuous-
-// drag defect the resizer-rearch amendment closed once. Below this
-// threshold, two-col simply doesn't apply and CSS's existing "chart
+// two-col-class-closure-build (ADR-0000 Rule 2(a) closure, ledger rows
+// 2564/2565): the first patch ANDed a container-measured guard onto the
+// viewport-sourced prop; ruled insufficient because the wrong-currency
+// signal stayed representable at the seam (`getPanelContentPolicy`, see
+// the HISTORICAL note above `PANEL_CONTENT_READING_MEASURE_CH`'s
+// declaration). The viewport-currency operand is now REMOVED, not
+// AND-guarded: `ForestDirectory.vue`'s `effectiveTwoColumnReflow` reduces
+// to the container-measured guard on `.tree-panel` itself alone (the same
+// element `useContainerAspectOrientation` already observes for the
+// tree's own orientation), via `useDeferredContainerBreakpoint` — the
+// SAME mid-drag-flip-avoidance mechanism `forestNarrow` above already
+// uses, so this doesn't reintroduce the discrete-reorg-during-a-
+// continuous-drag defect the resizer-rearch amendment closed once. Below
+// this threshold, two-col simply doesn't apply and CSS's existing "chart
 // stretches full width, metadata panel stacks below" default (the
-// `.panel-content-two-col`-less shape) takes over instead — the tree
-// is never removed from layout, only the metadata panel's placement
-// relative to it changes.
+// `.panel-content-two-col`-less shape) takes over instead — the tree is
+// never removed from layout, only the metadata panel's placement relative
+// to it changes.
 //
 // Threshold: each region (chart, metadata) needs at least
 // `FOREST_TREE_USABLE_FLOOR_PX` (declared above, the same "renders

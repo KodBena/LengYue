@@ -27,15 +27,6 @@ import { useLibraryQuery } from '../../composables/library/useLibraryQuery';
 import { PANEL_CONTENT_READING_MEASURE_CH } from '../../state/layout-model';
 import type { LibraryGame, LibraryGameListItem } from '../../types';
 
-// Phase 3 (resolution roadmap, audit finding R3): App.vue reads the
-// declared measure/reflow policy once (getPanelContentPolicy, keyed by
-// the workspace's own LayoutClass) and passes the single boolean this
-// tab needs down as a prop, rather than every tab re-deriving its own
-// LayoutClass. Defaults to `false` (today's single-stretched-column
-// behaviour) so a standalone mount (a test, Storybook-alike) that
-// doesn't pass the prop is unaffected.
-const props = defineProps<{ twoColumnReflow?: boolean }>();
-
 const emit = defineEmits<{
   (e: 'open-library-game', game: LibraryGame): void;
   // Middle-click or Ctrl/Cmd-click on a row: open in a new board
@@ -125,11 +116,28 @@ function onPlayerChipClick(name: string): void {
 // bounded total, unchanged. `v-bind` in the <style> block below keeps
 // this in sync with `PANEL_CONTENT_READING_MEASURE_CH` — no second,
 // hand-typed `ch` literal to drift against it.
+//
+// two-col-class-closure-build (ADR-0000 Rule 2(a) closure, ledger rows
+// 2564/2565): this used to be gated behind a `twoColumnReflow` prop
+// sourced from the WHOLE-WORKSPACE viewport width class (App.vue's
+// `panelContentPolicy`, since deleted — see `state/layout-model.ts`'s
+// HISTORICAL note above `PANEL_CONTENT_READING_MEASURE_CH`). Unlike
+// ForestDirectory.vue's analogous gate, this one governs a MAX-WIDTH
+// CEILING, never a forced split: `.library-split`'s
+// `grid-template-columns: 3fr 2fr` is unconditional, and the tab's actual
+// narrow/wide reorg is the separate, already self-measuring
+// `@container (max-width: 700px)` query below. A ceiling can never
+// reproduce defect (e)'s squeeze (capping an already-narrower-than-the-cap
+// split is a no-op), so there is no class of bug here to guard against —
+// mirroring ForestDirectory's container-measured guard would be a guard
+// with no defect to catch. The cap is applied UNCONDITIONALLY in the
+// `.library-split` CSS rule below instead — no prop, no gating class, no
+// width signal of any kind, viewport or container.
 const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING_MEASURE_CH}ch)`);
 </script>
 
 <template>
-  <div class="library-tab" :class="{ 'panel-content-two-col': props.twoColumnReflow }">
+  <div class="library-tab">
     <LibraryImportPanel :imp="importer" class="library-import-zone" />
 
     <div class="library-filters">
@@ -309,6 +317,18 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
   display: grid;
   grid-template-columns: 3fr 2fr;
   gap: var(--space-medium);
+  /* Phase 3 (audit finding R3), unconditional since two-col-class-closure-build
+     (ADR-0000 Rule 2(a) closure, ledger rows 2564/2565): cap the split's own
+     two columns (list + preview — genre's "two columns", not a single one
+     stretched arbitrarily wide) at two reading measures total, rather than
+     letting `flex: 1 1 0` claim the panel's full width. This used to apply
+     only at wide/vast LayoutWidthClass via a `panel-content-two-col` gating
+     class; the gate is deleted — a MAX-WIDTH ceiling never squeezes anything
+     (capping an already-narrower-than-the-cap split is a no-op), so it needs
+     no width signal, viewport or container, to be correct at every size.
+     `librarySplitMaxWidthCss` (script) keeps the `ch` figure sourced from
+     `PANEL_CONTENT_READING_MEASURE_CH`, not a second hand-typed literal. */
+  max-width: v-bind(librarySplitMaxWidthCss);
 }
 .library-split-list, .library-split-preview {
   min-height: 0;
@@ -347,14 +367,4 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
   }
 }
 
-/* Phase 3 (audit finding R3): at wide/vast LayoutWidthClass, cap the
-   split's own two columns (list + preview — genre's "two columns", not
-   a single one stretched to 1400px) at two reading measures total
-   rather than letting `flex: 1 1 0` claim the panel's full width. See
-   the `librarySplitMaxWidthCss` computed above — `v-bind` keeps the
-   `ch` figure sourced from `PANEL_CONTENT_READING_MEASURE_CH`, not a
-   second hand-typed literal. */
-.library-tab.panel-content-two-col .library-split {
-  max-width: v-bind(librarySplitMaxWidthCss);
-}
 </style>

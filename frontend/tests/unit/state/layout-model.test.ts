@@ -45,9 +45,6 @@ import {
   computeForestNarrowThresholdPx,
   FOREST_NARROW_THRESHOLD_PX,
   FOREST_TREE_TWO_COL_THRESHOLD_PX,
-  PANEL_CONTENT_READING_MEASURE_CH,
-  getPanelContentPolicy,
-  PANEL_CONTENT_POLICY_BY_WIDTH_CLASS,
   TREE_PANEL_DEFAULT_WIDTH_FRACTION,
   computeTreePanelDefaultWidthPx,
   computeTreePanelBoundWidth,
@@ -256,32 +253,15 @@ describe('FOREST_TREE_TWO_COL_THRESHOLD_PX — defect (e) repair (statusbar-card
   });
 });
 
-describe('getPanelContentPolicy / PANEL_CONTENT_POLICY_BY_WIDTH_CLASS — Phase 3, audit finding R3', () => {
-  it('every width class has its own policy entry (all four keys present)', () => {
-    expect(Object.keys(PANEL_CONTENT_POLICY_BY_WIDTH_CLASS).sort()).toEqual(
-      ['compact', 'standard', 'vast', 'wide'].sort(),
-    );
-  });
-
-  it('compact/standard stay single-column; wide/vast reflow to two columns', () => {
-    expect(getPanelContentPolicy({ axis: 'row', width: 'compact' }).twoColumnReflow).toBe(false);
-    expect(getPanelContentPolicy({ axis: 'row', width: 'standard' }).twoColumnReflow).toBe(false);
-    expect(getPanelContentPolicy({ axis: 'row', width: 'wide' }).twoColumnReflow).toBe(true);
-    expect(getPanelContentPolicy({ axis: 'row', width: 'vast' }).twoColumnReflow).toBe(true);
-  });
-
-  it('every width class carries the SAME declared reading measure — one figure, not four independently-tuned ones', () => {
-    for (const width of ['compact', 'standard', 'wide', 'vast'] as const) {
-      expect(getPanelContentPolicy({ axis: 'row', width }).readingMeasureCh).toBe(PANEL_CONTENT_READING_MEASURE_CH);
-    }
-  });
-
-  it('axis does not affect the result (looked up strictly by the width facet, mirrors getPanelGeometryPolicy)', () => {
-    const rowWide = getPanelContentPolicy({ axis: 'row', width: 'wide' });
-    const columnWide = getPanelContentPolicy({ axis: 'column', width: 'wide' });
-    expect(rowWide).toBe(columnWide);
-  });
-});
+// two-col-class-closure-build (ADR-0000 Rule 2(a) closure, ledger rows
+// 2564/2565): the `getPanelContentPolicy` / `PANEL_CONTENT_POLICY_BY_WIDTH_CLASS`
+// describe block that used to live here is DELETED along with the exports
+// it pinned — the workspace-viewport-currency `twoColumnReflow` field they
+// carried is exactly the seam ADR-0000 Rule 2(a) closed (see the
+// HISTORICAL note above `PANEL_CONTENT_READING_MEASURE_CH`'s declaration
+// in `src/state/layout-model.ts` for the full closure statement).
+// `PANEL_CONTENT_READING_MEASURE_CH` itself is untouched and still used
+// directly by both former consumers (LibraryTab.vue, ForestDirectory.vue).
 
 describe('computeTreePanelDefaultWidthPx — Phase 3, audit finding R5 ("stuck at 140px on any screen")', () => {
   it('given a workspace width where the fraction exceeds the floor, returns the declared fraction of it', () => {

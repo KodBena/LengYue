@@ -136,7 +136,6 @@ import { useUserIORegistry } from './composables/useUserIORegistry';
 import { useAuth }           from './composables/auth-app/useAuth';
 import { workspaceIdentityKey } from './composables/auth-app/workspace-identity-key';
 import {
-  getPanelContentPolicy,
   useDeferredLayoutClass,
   computeTreePanelDefaultWidthPx,
   TREE_CONTROL_WRAPPER_ROW_GAP_PX,
@@ -1019,12 +1018,15 @@ const lytTrackStyleOverrides = computed<Record<string, string>>(() => {
   return overrides;
 });
 
-// Phase 3 (resolution roadmap, audit finding R3), carried into W1
-// unchanged: the declared measure/reflow policy for the workspace's
-// width class, threaded to the two control-panel tabs whose content is
-// dense text/tables (Library, Cards). See `getPanelContentPolicy`'s doc
-// (`state/layout-model.ts`).
-const panelContentPolicy = computed(() => getPanelContentPolicy(layoutClass.value));
+// two-col-class-closure-build (ADR-0000 Rule 2(a) closure, ledger rows
+// 2564/2565): the Phase 3 `panelContentPolicy` computed (and the
+// `twoColumnReflow` field it threaded to LibraryTab.vue / ForestDirectory.vue
+// as a prop) is DELETED — see the HISTORICAL note above
+// `PANEL_CONTENT_READING_MEASURE_CH`'s declaration in `state/layout-model.ts`
+// for the full closure statement. Both consumers now derive their own
+// column-split-adjacent decisions from their own measured container width
+// (ForestDirectory) or an unconditional CSS ceiling that needs no width
+// signal at all (LibraryTab).
 
 // REALIZATION WAVE (`.claude/dispatch-reports/lyt-realization-wave.md`),
 // re-derived per LYT R1 PART 2: the control-panel Exclusive's own dotted
@@ -1762,13 +1764,11 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
             >
               <LibraryTab
                 v-if="rightPanelMode === 'library'"
-                :two-column-reflow="panelContentPolicy.twoColumnReflow"
                 @open-library-game="handleLoadLibraryGame"
                 @open-library-game-new-tab="handleLoadLibraryGameInNewBoard"
               />
               <ForestDirectory
                 v-else-if="rightPanelMode === 'cards'"
-                :two-column-reflow="panelContentPolicy.twoColumnReflow"
                 @load-card="handleLoadCard"
               />
             </div>
