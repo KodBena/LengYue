@@ -308,7 +308,22 @@ const menuId = 'engine-controls-menu';
    degradation / 24px pointer-target floor). */
 .engine-controls { display: flex; flex-wrap: wrap; gap: var(--space-tight); flex-shrink: 1; min-width: 0; min-height: 28px; align-items: center; position: relative; }
 .toolbar-cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-tight); flex-shrink: 1; min-width: 0; }
-.toolbar-btn { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-0); padding: 1px 5px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: var(--tracking-tight); min-height: 24px; display: inline-flex; align-items: center; justify-content: center; }
+.toolbar-btn {
+	background: var(--surface-0);
+	border: 1px solid var(--border-3);
+	color: var(--text-0);
+	padding: 1px var(--space-tight);
+	font-size: var(--text-tiny);
+	cursor: pointer;
+	border-radius: var(--radius-default);
+	font-family: var(--font-mono);
+	/* text-transform: uppercase; */
+	/* letter-spacing: var(--tracking-tight); */
+	min-height: 24px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
 .btn-connected { border-color: var(--state-success) !important; color: var(--state-success) !important; }
 .btn-stop-match { border-color: var(--state-attention) !important; color: var(--state-attention) !important; }
 /* library-cards-promotion: "the active state visible on the toolbar

@@ -1976,7 +1976,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
               role="alert"
             >
               <span class="save-banner-text">{{ $t('app.workspace.saveFailed') }}</span>
-              <button class="action-btn-large" style="width: auto; padding-left: var(--space-medium); padding-right: var(--space-medium);" @click="sync.retrySave()">
+              <button class="action-btn-large" style="width: auto; padding-left: var(--space-tight); padding-right: var(--space-tight);" @click="sync.retrySave()">
                 {{ $t('app.workspace.retry') }}
               </button>
             </div>
@@ -2156,7 +2156,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
   height: 100vh; width: 100vw;
   background-color: var(--surface-2); color: var(--text-0);
   overflow: hidden;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: var(--font-default);
 }
 
 #main-area { display: flex; flex-direction: row; height: 100%; width: 100%; overflow: hidden; }
@@ -2179,7 +2179,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
 #workspace-boot-state {
   flex: 1; min-width: 0; min-height: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: var(--space-default);
+  gap: var(--space-tight);
   color: var(--text-0); font-size: var(--text-emphasis);
 }
 
@@ -2192,7 +2192,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
    `<style>` block owns the `position: fixed`/stacking-offset mechanics
    this comment used to describe, including the mount/unmount
    no-layout-push guarantee `tests/integration/overlay-stack-no-push.
-   test.ts` pins. The hand-guessed `bottom: calc(var(--space-medium) +
+   test.ts` pins. The hand-guessed `bottom: calc(var(--space-tight) +
    40px)` this rule used to carry — the review's own witnessed "a
    conservative estimate... rather than a swept number" — is RETIRED:
    `CornerStack.layout()` computes every region's own offset from its
@@ -2208,7 +2208,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
      regardless of value) — the opaque fill alone reads as a distinct
      surface. */
   border-radius: var(--radius-default);
-  padding: var(--space-tight) var(--space-medium);
+  padding: var(--space-tight) var(--space-tight);
   background: var(--state-attention);
   color: var(--text-on-accent);
   font-weight: bold;
@@ -2217,8 +2217,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
 #workspace-save-banner {
   border-radius: var(--radius-default);
   display: flex; align-items: center; justify-content: space-between;
-  gap: var(--space-default);
-  padding: var(--space-tight) var(--space-medium);
+  gap: var(--space-tight);
+  padding: var(--space-tight) var(--space-tight);
   /* Opaque (--surface-0), per the standing "no scrim/translucency"
      ruling — the pre-overlay `color-mix(...transparent)` fill relied
      on the in-flow bar's own opaque page background showing through;
@@ -2241,15 +2241,15 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
 #workspace-suppressed-banner {
   flex-shrink: 0;
   display: flex; align-items: center; justify-content: space-between;
-  gap: var(--space-default);
-  padding: var(--space-tight) var(--space-medium);
+  gap: var(--space-tight);
+  padding: var(--space-tight) var(--space-tight);
   background: color-mix(in srgb, var(--state-error) 12%, transparent);
   border-bottom: 1px solid var(--state-error);
   color: var(--text-0);
 }
 .recovery-banner-reset-btn {
   background: var(--surface-0); border: 1px solid var(--state-error); color: var(--state-error);
-  padding: var(--space-tight) var(--space-medium);
+  padding: var(--space-tight) var(--space-tight);
   border-radius: var(--radius-default);
   font-weight: bold; cursor: pointer; white-space: nowrap;
 }
@@ -2291,8 +2291,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
    styles independently declare, rather than introducing a new look. */
 .control-panel-summon-wrap { position: relative; display: inline-flex; }
 .control-panel-summon-trigger {
-  width: 28px;
-  height: 28px;
+  width: 1px;
+  height: 1px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2386,6 +2386,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
   position: relative;
   border-left: 1px solid var(--border-1); background: var(--surface-2);
   height: 100%;
+  padding-left: 2px;
 }
 /* toolbar-space-0c21 (ledger row 2597, item 3): this header shares its
    OWN left edge with `#resizer-outer` BY DESIGN (this file's own
@@ -2393,7 +2394,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
    width with zero left offset," so a drag anywhere near the boundary
    grabs it) — the resizer paints on top via `position: absolute` +
    `z-index: 10`, so under normal width this header's own padding
-   (`--space-default`) already keeps its TEXT clear of the 4px grab
+   (`--space-tight`) already keeps its TEXT clear of the 4px grab
    zone. At a genuinely narrow `tree` leaf (the live-witnessed
    commissioner geometry), neither `overflow` nor `white-space` was
    constrained here, so "Game Tree" wrapped onto two short lines
@@ -2408,7 +2409,19 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
    this specific chrome text (a static one-line panel title, not the
    load-bearing per-node tree content `TreeWidget` itself renders) can
    afford to trade for. */
-#tree-panel-header { height: 20px; background: var(--surface-0); border-bottom: 1px solid var(--border-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: var(--text-tiny); letter-spacing: var(--tracking-wide); color: var(--text-0); text-transform: uppercase; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#tree-panel-header { height: 20px;
+	background: var(--surface-0);
+	border-bottom: 1px solid var(--border-1);
+	display: flex;
+	align-items: center;
+	padding: 0 var(--space-tight);
+	font-size: var(--text-tiny);
+	/* letter-spacing: var(--tracking-wide); text-transform: uppercase; */
+	color: var(--text-0);
+	flex-shrink: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis; }
 
 /* #control-panel (the collapsed T(CP-*) black-box leaf): TabWidget fills
    it edge-to-edge, matching pre-rework App.vue's own flex-column shape.
@@ -2557,7 +2570,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
    both moved inside `ToolbarAppCluster.vue` itself (self-contained, see
    that file's header), so this wrapper's own job shrinks to "size the
    cell, let the mounted cluster's own flex-wrap degrade within it." */
-.lyt-toolbar-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-default); height: 100%; width: 100%; min-width: 0; overflow-y: auto; }
+.lyt-toolbar-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-tight); height: 100%; width: 100%; min-width: 0; overflow-y: auto; }
 /* SGF load/save buttons — now rendered inside `ToolbarAppCluster.vue`
    (moved there, see that file's header), but this rule stays HERE: this
    `<style>` block is not `scoped`, so a plain class selector already
@@ -2568,7 +2581,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
    law); token-correct surface/border/text per the umbrella's category
    discipline. */
 .lyt-sgf-btn {
-  min-height: 24px; padding: 0 var(--space-default);
+  min-height: 24px; padding: 0 var(--space-tight);
   background: var(--surface-0); border: 1px solid var(--border-2);
   color: var(--text-0); border-radius: var(--radius-default);
   cursor: pointer; font-size: var(--text-body); flex-shrink: 0;
@@ -2602,5 +2615,5 @@ onUnmounted(() => window.removeEventListener('keydown', handleRightPanelSurfaceK
   width: auto;
 }
 
-.hue-slider-hint { font-size: var(--text-body); color: var(--text-0); margin: 0 0 var(--space-default) 0; }
+.hue-slider-hint { font-size: var(--text-body); color: var(--text-0); margin: 0 0 var(--space-tight) 0; }
 </style>

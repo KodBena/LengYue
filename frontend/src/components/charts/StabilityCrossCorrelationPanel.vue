@@ -224,9 +224,11 @@ function diagonalN(matrix: CorrelationMatrix, idx: number): number {
   font-size: var(--text-body);
   font-weight: bold;
   color: var(--text-0);
-  text-transform: uppercase;
   background: var(--surface-3);
+  /*
+  text-transform: uppercase;
   letter-spacing: var(--tracking-default);
+  */
 }
 .header:hover { color: var(--text-0); }
 .title { color: var(--text-0); }
@@ -252,8 +254,10 @@ function diagonalN(matrix: CorrelationMatrix, idx: number): number {
 .control-label {
   font-size: var(--text-tiny);
   color: var(--text-0);
+  /*
   text-transform: uppercase;
   letter-spacing: var(--tracking-default);
+  */
 }
 .select {
   background: var(--surface-0);
@@ -271,8 +275,10 @@ function diagonalN(matrix: CorrelationMatrix, idx: number): number {
   font-size: var(--text-tiny);
   color: var(--text-0);
   margin-bottom: 6px;
+  /*
   text-transform: uppercase;
   letter-spacing: var(--tracking-default);
+  */
 }
 .corr {
   border-collapse: collapse;
@@ -284,7 +290,7 @@ function diagonalN(matrix: CorrelationMatrix, idx: number): number {
   padding: 4px 6px;
   text-align: center;
   white-space: nowrap;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
 }
 .corr th {
   background: var(--surface-2);

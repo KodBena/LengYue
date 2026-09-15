@@ -131,7 +131,7 @@ const samples = computed(() => {
   align-items: center;
   font-size: var(--text-tiny);
   color: var(--text-0);
-  font-family: monospace;
+  font-family: var(--font-mono);
   padding-top: var(--space-tight);
   border-top: 1px solid var(--surface-2);
 }

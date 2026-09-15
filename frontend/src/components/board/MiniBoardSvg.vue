@@ -164,7 +164,7 @@ const pvStoneList = computed(() =>
         fill="#000"
         font-size="28"
         font-weight="bold"
-        font-family="monospace"
+        font-family="var(--font-mono)"
         text-anchor="middle"
         dominant-baseline="middle"
       >{{ lbl.label }}</text>
@@ -181,5 +181,5 @@ const pvStoneList = computed(() =>
 /* Item 2: PV stones are decorative overlay, not interactive content —
    mirrors `MoveSuggestions.vue`'s own `.pv-stone-group` rule. */
 .pv-stone-group { pointer-events: none; }
-.pv-stone-label { pointer-events: none; font-family: monospace; font-weight: bold; user-select: none; }
+.pv-stone-label { pointer-events: none; font-family: var(--font-mono); font-weight: bold; user-select: none; }
 </style>

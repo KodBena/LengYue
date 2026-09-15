@@ -443,8 +443,10 @@ function formatXTooltip(val: number): string {
   font-size: var(--text-body);
   font-weight: bold;
   color: var(--text-0);
+  /*
   text-transform: uppercase;
   letter-spacing: var(--tracking-default);
+  */
 }
 .mode-cycle-button {
   background: var(--surface-0);

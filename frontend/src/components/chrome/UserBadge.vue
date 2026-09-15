@@ -94,8 +94,8 @@ watch(
 
 <style scoped>
 .user-badge {
-  display: inline-flex; align-items: center; gap: var(--space-default);
-  padding: 0 var(--space-default) 0 var(--space-medium); margin-left: var(--space-tight); height: 100%;
+  display: inline-flex; align-items: center; gap: var(--space-tight);
+  padding: 0 var(--space-tight) 0 var(--space-tight); margin-left: var(--space-tight); height: 100%;
   font-size: var(--text-emphasis); color: var(--text-0); font-family: inherit;
   background: none; border: none; border-left: 1px solid var(--border-1);
   cursor: pointer; user-select: none; outline: none;
@@ -114,7 +114,7 @@ watch(
 .dot-err     { background: var(--state-attention); }
 .dot-idle    { background: var(--border-3); }
 
-.label { font-family: monospace; font-size: var(--text-body); }
+.label { font-family: var(--font-mono); font-size: var(--text-body); }
 
 .auth-authenticated  .label { color: var(--text-0); }
 .auth-authenticating .label { color: var(--state-warning); }

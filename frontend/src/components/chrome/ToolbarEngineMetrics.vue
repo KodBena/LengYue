@@ -444,7 +444,7 @@ const { style: healthPopoverStyle } = useFixedAnchoredPopover(healthOpen, health
 </template>
 
 <style scoped>
-.engine-metrics-bar { display: flex; gap: var(--space-medium); font-family: monospace; font-size: var(--text-emphasis); align-items: center; min-width: 0; }
+.engine-metrics-bar { display: flex; gap: var(--space-medium); font-family: var(--font-mono); font-size: var(--text-emphasis); align-items: center; min-width: 0; }
 /* Space-owner cure, dispatch L5 (HOVER-GRACE): the shared hover-root
    wrapping trigger + popover (this file's own template comment) — a
    plain flex passthrough so wrapping `.metric` in this extra element
@@ -491,7 +491,7 @@ const { style: healthPopoverStyle } = useFixedAnchoredPopover(healthOpen, health
   z-index: var(--z-popover-chrome);
   white-space: nowrap;
   min-width: 200px;
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-body);
   color: var(--text-0);
   display: flex;

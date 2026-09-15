@@ -255,12 +255,12 @@ watch(
 .card-tree-widget {
   display: flex;
   flex-direction: column;
-  gap: var(--space-default);
+  gap: var(--space-tight);
   width: 100%;
   height: 100%;
   min-height: 0;
   background: var(--surface-0);
-  padding: var(--space-default);
+  padding: var(--space-tight);
 }
 .tree-section {
   display: flex;
@@ -298,11 +298,11 @@ watch(
    wrapped row, `.counts { margin-left: auto }` keeps the trailing
    pair pushed to the right edge as before. */
 .tree-header {
-  padding: var(--space-default) var(--space-medium);
+  padding: var(--space-tight) var(--space-tight);
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-medium);
+  gap: var(--space-tight);
   row-gap: var(--space-tight);
   flex-shrink: 0;
   cursor: pointer;
@@ -320,7 +320,19 @@ watch(
    the expanded tree; renders flush to the right edge of the header
    beside `counts`. wC-contrast (F9): label text is --text-0, not
    accent-primary — 2.08:1 in the default cluster theme. */
-.collapse-all-btn { background: var(--surface-2); color: var(--text-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: 1px 6px; font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-tight); cursor: pointer; font-family: 'Courier New', monospace; flex-shrink: 0; }
+.collapse-all-btn {
+	background: var(--surface-2);
+	color: var(--text-0);
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-default);
+	padding: 1px 6px;
+	font-size: var(--text-tiny);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-tight);
+	cursor: pointer;
+	font-family: var(--font-mono);
+	flex-shrink: 0;
+}
 .tree-canvas { flex: 1; min-height: 0; width: 100%; cursor: crosshair; }
 .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--border-3); font-size: var(--text-emphasis); }
 </style>

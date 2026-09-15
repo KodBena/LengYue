@@ -135,7 +135,7 @@ async function onDelete(b: QeuboBookmark): Promise<void> {
 </template>
 
 <style scoped>
-.qeubo-bookmarks { font-family: 'Consolas', monospace; }
+.qeubo-bookmarks { font-family: var(--font-mono); }
 .bookmarks-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-medium); }
 .hint { font-size: var(--text-emphasis); color: var(--text-0); }
 /* Former theme-exception (muted-cyan literals #1a3a4a/#2a5a7a) retired
@@ -154,7 +154,7 @@ async function onDelete(b: QeuboBookmark): Promise<void> {
 .bookmark-meta { flex: 1; min-width: 0; }
 .bookmark-name { font-size: var(--text-emphasis); color: var(--text-0); font-weight: bold; margin-bottom: 2px; }
 .bookmark-date { font-size: var(--text-body); color: var(--text-0); margin-bottom: var(--space-tight); }
-.bookmark-params { font-size: var(--text-body); color: var(--text-0); font-family: monospace; overflow-wrap: anywhere; }
+.bookmark-params { font-size: var(--text-body); color: var(--text-0); font-family: var(--font-mono); overflow-wrap: anywhere; }
 
 .bookmark-actions { display: flex; gap: var(--space-tight); flex-shrink: 0; }
 .apply-btn, .rename-btn, .delete-btn { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-0); padding: var(--space-tight) var(--space-default); font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: var(--tracking-tight); }

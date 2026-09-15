@@ -93,7 +93,7 @@ function onBlur(): void {
   color: var(--text-0);
 }
 .filter-input {
-  padding: var(--space-tight) var(--space-default);
+  padding: var(--space-tight) var(--space-tight);
   font-size: var(--text-body);
   background: var(--surface-0);
   border: 1px solid var(--border-2);
@@ -120,7 +120,7 @@ function onBlur(): void {
   overflow-y: auto;
 }
 .filter-suggest-item {
-  padding: var(--space-tight) var(--space-default);
+  padding: var(--space-tight) var(--space-tight);
   font-size: var(--text-body);
   cursor: pointer;
 }

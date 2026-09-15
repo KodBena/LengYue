@@ -330,7 +330,15 @@ onUnmounted(() => {
    invisible-until-hover/focus hit box scrolled flush-topmost would
    otherwise get its keyboard-focusable region clipped even though nothing
    visibly changes until it's focused or hovered. */
-.thumb-container { --tab-width: 86px; display: flex; flex-direction: column; align-items: center; width: var(--tab-width); padding-top: 10px; counter-increment: boardtab; }
+.thumb-container {
+	--tab-width: 86px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	width: var(--tab-width);
+	/*padding-top: 10px;*/
+	counter-increment: boardtab;
+}
 
 /* `.tab-thumb-wrap` carries the box + active/review visual state that used
    to live directly on `.tab-thumb` (ADR-0019 audit S6 — see the template
@@ -353,9 +361,16 @@ onUnmounted(() => {
    global rule touching this box can't silently reintroduce the same
    clip). */
 .tab-thumb-wrap {
-  width: var(--tab-width); height: 32px; border: 2px solid var(--surface-3); background: var(--surface-0);
-  display: flex; align-items: center; justify-content: center;
-  position: relative; border-radius: var(--radius-default); overflow: visible;
+  /* width: var(--tab-width); */
+  /* height: 32px; */
+  border: 1px solid var(--surface-3);
+  background: var(--surface-0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  /* border-radius: var(--radius-default); */
+  overflow: visible;
 }
 
 /* The selection surface itself: a real <button> (ADR-0019 audit S6) so
@@ -366,7 +381,10 @@ onUnmounted(() => {
 .tab-thumb {
   width: 100%; height: 100%; border: none; background: transparent; padding: 0;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
-  border-radius: var(--radius-default); font: inherit; color: inherit;
+  border-radius: var(--radius-default);
+  font: inherit;
+  font-family: var(--font-mono);
+  color: inherit;
 }
 /* Visible keyboard-focus ring (ADR-0019 audit S6/C17 — the tab previously
    had no focusable element at all, so there was nothing to show a focus
@@ -440,8 +458,13 @@ onUnmounted(() => {
 }
 
 .indicator-row {
-  width: 100%; height: 12px; display: flex; align-items: center;
-  justify-content: space-between; margin-top: 2px; padding: 0 var(--space-tight);
+  width: 100%;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* margin-top: 2px; */
+  padding: 0 var(--space-tight);
 }
 
 /* magic-literal: .analysis-meter's `border-radius: 1px` is a hairline

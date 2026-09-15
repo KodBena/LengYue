@@ -218,7 +218,7 @@ function setSettingsTabsOrientation(orientation: 'horizontal' | 'vertical'): voi
              600 weight) — this is the same "labelled group heading"
              genre, just one level up (labelling the whole registry
              pane rather than a domain bucket within it). -->
-        <h4 class="registry-group-label" style="margin-top: var(--space-medium);">{{ $t('settings.label.sessionRegistry') }}</h4>
+        <h4 class="registry-group-label" style="margin-top: var(--space-tight);">{{ $t('settings.label.sessionRegistry') }}</h4>
         <div class="registry-container">
           <RegistryEditor :registry="store.session.ui" :defaults="DEFAULTS.session" @update="handleSessionUpdate"/>
         </div>
@@ -233,7 +233,7 @@ function setSettingsTabsOrientation(orientation: 'horizontal' | 'vertical'): voi
              retired by the CP-settings refactor, so the mount was re-grafted
              here — the panel body itself is the builder's, unmodified). -->
         <CacheReplaySettings />
-        <div style="margin-top: var(--space-medium);">
+        <div style="margin-top: var(--space-tight);">
           <PaletteEditor :env="store.profile.settings.engine.katago.analysis_env" @update="handleSettingsUpdate"/>
         </div>
       </div>
@@ -246,7 +246,7 @@ function setSettingsTabsOrientation(orientation: 'horizontal' | 'vertical'): voi
              Sets renders a richer table (many columns + per-row controls)
              and needs more vertical room before scrolling kicks in. 70vh
              proportional vs 60vh = card-sets gets ~17% more height share. -->
-        <div class="registry-container" style="max-height: clamp(500px, 70vh, 900px); padding-bottom: var(--space-medium);">
+        <div class="registry-container" style="max-height: clamp(500px, 70vh, 900px); padding-bottom: var(--space-tight);">
           <CardSetEditor
             :cardSets="store.profile.cardSets"
             :activeCardSetId="store.session.ui.activeCardSetId"
@@ -303,7 +303,7 @@ function setSettingsTabsOrientation(orientation: 'horizontal' | 'vertical'): voi
 .settings-fill-pane { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 
 /* Session (UI) theme selector row (row 748). surface-0 control per rows 681/742. */
-.theme-row { display: flex; align-items: center; gap: var(--space-default); margin-top: var(--space-medium); }
+.theme-row { display: flex; align-items: center; gap: var(--space-tight); margin-top: var(--space-tight); }
 .theme-row label { color: var(--text-0); font-size: var(--text-emphasis); }
 .theme-row select {
   background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2);
@@ -311,7 +311,7 @@ function setSettingsTabsOrientation(orientation: 'horizontal' | 'vertical'): voi
 }
 /* Settings tabs layout row (rows 1505/1509/1515/1516) — same row shape
    as .theme-row above, surface-0 control per rows 681/742. */
-.orientation-row { display: flex; align-items: center; gap: var(--space-default); margin-top: var(--space-medium); }
+.orientation-row { display: flex; align-items: center; gap: var(--space-tight); margin-top: var(--space-tight); }
 .orientation-row label { color: var(--text-0); font-size: var(--text-emphasis); }
 .orientation-row select {
   background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2);
@@ -323,7 +323,7 @@ function setSettingsTabsOrientation(orientation: 'horizontal' | 'vertical'): voi
    component's template, only its root element); this rule only
    positions that child's root within Session's layout, same family as
    .theme-row above. */
-.proxy-upstream-row { margin-top: var(--space-medium); max-width: 32rem; }
+.proxy-upstream-row { margin-top: var(--space-tight); max-width: 32rem; }
 
 /* wiki2-registry-group-label: same heading idiom as KnobRegistryEditor.vue's
    `.knob-registry-domain-label` (uppercase, --text-emphasis, 600 weight) —

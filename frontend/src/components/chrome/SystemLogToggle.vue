@@ -94,7 +94,7 @@ const { expanded, toggle } = useSystemLogToggle();
    centred in the 28px box at the ambient font-size, matching the
    single-glyph ☰/⚙ siblings' visual weight. */
 .log-glyph {
-  font-family: monospace;
+  font-family: var(--font-mono);
   letter-spacing: -0.05em;
 }
 /* Reflects the PERSISTED `systemLogExpanded` intent, not the transient

@@ -181,7 +181,7 @@ useModalKeyboard(modalContentRef, isOpen, cancel);
 .modal-content {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   width: 420px;
-  display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  display: flex; flex-direction: column; font-family: var(--font-sans);
 }
 .modal-header { padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); }
 .modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); text-transform: uppercase; }
@@ -193,7 +193,7 @@ useModalKeyboard(modalContentRef, isOpen, cancel);
 .dark-input {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
   padding: var(--space-default); border-radius: var(--radius-default);
-  font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
+  font-family: var(--font-mono); font-size: var(--text-emphasis); width: 100%; outline: none;
 }
 .dark-input:focus { border-color: var(--accent-primary); }
 .dark-input.invalid { border-color: var(--state-error); }

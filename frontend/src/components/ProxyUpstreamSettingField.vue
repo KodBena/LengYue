@@ -132,21 +132,21 @@ async function choosePicked(event: Event): Promise<void> {
 .proxy-upstream-field-label { color: var(--text-0); font-size: var(--text-emphasis); }
 .proxy-upstream-field input {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
-  padding: var(--space-default); font-size: var(--text-emphasis); font-family: monospace;
+  padding: var(--space-tight); font-size: var(--text-emphasis); font-family: var(--font-mono);
   border-radius: var(--radius-default); outline: none; width: 100%; box-sizing: border-box;
 }
 .proxy-upstream-field input:focus { border-color: var(--accent-primary); }
 .proxy-upstream-field-picker { display: flex; flex-direction: column; gap: var(--space-tight); }
 .dark-select {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
-  padding: var(--space-default); font-size: var(--text-emphasis); font-family: inherit;
+  padding: var(--space-tight); font-size: var(--text-emphasis); font-family: inherit;
   border-radius: var(--radius-default); outline: none; width: 100%; box-sizing: border-box;
 }
 .proxy-upstream-field-msg { color: var(--text-0); font-size: var(--text-emphasis); margin: 0; }
 .proxy-upstream-field-msg.proxy-upstream-field-error { color: var(--state-error); }
 .proxy-upstream-field-rescan {
   align-self: flex-start; background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
-  padding: var(--space-tight) var(--space-default); font-size: var(--text-emphasis);
+  padding: var(--space-tight) var(--space-tight); font-size: var(--text-emphasis);
   border-radius: var(--radius-default); cursor: pointer;
 }
 .proxy-upstream-field-rescan:hover:not(:disabled) { border-color: var(--accent-primary); }

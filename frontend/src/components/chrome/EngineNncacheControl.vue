@@ -105,7 +105,7 @@ function onContextCommit(): void {
   border: 1px solid var(--border-3);
   border-radius: var(--radius-default);
   padding: 0 var(--space-tight);
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-emphasis);
   width: 8em;
 }

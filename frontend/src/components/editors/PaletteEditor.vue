@@ -539,7 +539,7 @@ async function deleteItem() {
           </div>
 
           <div class="state-fns-section">
-            <div class="section-header" style="margin-top: var(--space-medium);">
+            <div class="section-header" style="margin-top: var(--space-tight);">
               <span>{{ $t('palette.field.charts') }}</span>
               <button class="add-btn" @click="addStateFnToPalette(selectedId)">{{ $t('palette.field.addChart') }}</button>
             </div>
@@ -568,7 +568,7 @@ async function deleteItem() {
   border: 1px solid var(--surface-3);
   border-radius: var(--radius-default);
   overflow: hidden;
-  font-family: 'Consolas', monospace;
+  font-family: var(--font-mono);
 }
 
 .sidebar {
@@ -587,16 +587,16 @@ async function deleteItem() {
 .section { border-bottom: 1px solid var(--surface-2); }
 .section-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-0); font-size: var(--text-body); text-transform: uppercase;
+  padding: var(--space-tight) var(--space-tight); background: var(--surface-2); color: var(--text-0); font-size: var(--text-body); text-transform: uppercase;
 }
 /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
 .add-btn { background: none; border: none; color: var(--text-0); cursor: pointer; font-weight: bold; font-size: var(--text-heading); }
 /* M24: label + "+" adjacent, not spread to the row's opposite ends. */
-.section-header-tight { justify-content: flex-start; gap: var(--space-default); }
+.section-header-tight { justify-content: flex-start; gap: var(--space-tight); }
 
 .item-list { list-style: none; padding: 0; margin: 0; }
 .item-list li {
-  padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); color: var(--text-0); cursor: pointer; border-left: 2px solid transparent;
+  padding: var(--space-tight) var(--space-tight); font-size: var(--text-emphasis); color: var(--text-0); cursor: pointer; border-left: 2px solid transparent;
 }
 .item-list li:hover { background: var(--surface-2); }
 /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border-left stays accent (ornament). */
@@ -606,7 +606,7 @@ async function deleteItem() {
    --accent-primary fill measures 2.08:1 in the default cluster theme.
    --text-on-accent is the token minted for text directly on an accent
    fill (theme.css, ledger rows 1018/1144). */
-.active-badge { font-size: var(--text-tiny); background: var(--accent-primary); color: var(--text-on-accent); padding: 1px 4px; border-radius: var(--radius-default); margin-left: var(--space-default); }
+.active-badge { font-size: var(--text-tiny); background: var(--accent-primary); color: var(--text-on-accent); padding: 1px 4px; border-radius: var(--radius-default); margin-left: var(--space-tight); }
 
 /* `min-width: 0` lets the flex item shrink below the intrinsic
    width of CodeMirror's content; without it, an unwrapped long line
@@ -617,7 +617,7 @@ async function deleteItem() {
 .detail-content { display: flex; flex-direction: column; height: 100%; }
 .detail-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-2);
+  padding: var(--space-tight) var(--space-tight); border-bottom: 1px solid var(--surface-2);
 }
 .detail-header h3 { margin: 0; font-size: var(--text-heading); color: var(--text-0); font-weight: normal; }
 /* theme-exception: .del-btn's border (#5a1a1a) and hover background
@@ -629,7 +629,7 @@ async function deleteItem() {
    saturated wire-color (#f04a4a); a muted-tint anchor (e.g.
    --state-error-muted) would retire these last two literals.
    Preserved until the substrate gains tinted-surface vocabulary. */
-.del-btn { background: var(--surface-0); color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: var(--radius-default); cursor: pointer; font-size: var(--text-body); }
+.del-btn { background: var(--surface-0); color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-tight); border-radius: var(--radius-default); cursor: pointer; font-size: var(--text-body); }
 
 /* M24: wraps the intro sentence + CodeMirror editor so the pane
    takes the same flex:1/min-height:0 slot .editor-wrap owned alone
@@ -642,7 +642,7 @@ async function deleteItem() {
 }
 .symbol-intro {
   margin: 0;
-  padding: var(--space-medium);
+  padding: var(--space-tight);
   border-bottom: 1px solid var(--surface-3);
   color: var(--text-0);
   font-size: var(--text-body);
@@ -651,8 +651,8 @@ async function deleteItem() {
 }
 .editor-wrap { flex: 1; overflow: auto; }
 
-.palette-form, .form-grid { padding: var(--space-medium); }
-.form-grid { display: grid; grid-template-columns: 120px 1fr; gap: var(--space-medium); align-items: center; }
+.palette-form, .form-grid { padding: var(--space-tight); }
+.form-grid { display: grid; grid-template-columns: 120px 1fr; gap: var(--space-tight); align-items: center; }
 .form-grid label { font-size: var(--text-emphasis); color: var(--text-0); }
 
 /* Top-level editor forms scroll when their content exceeds the
@@ -672,25 +672,40 @@ async function deleteItem() {
 }
 
 .dark-input {
-  background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
+	background: var(--surface-0);
+	border: 1px solid var(--border-2);
+	color: var(--text-0);
+	padding: var(--space-tight);
+	border-radius: var(--radius-default);
+	font-family: var(--font-mono);
+	font-size: var(--text-emphasis);
+	width: 100%;
+	outline: none;
 }
 .dark-select {
-  border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
+	border: 1px solid var(--border-2);
+	color: var(--text-0);
+	padding: var(--space-tight);
+	border-radius: var(--radius-default);
+	font-family: var(--font-mono);
+	font-size: var(--text-emphasis);
+	width: 100%;
+	outline: none;
 }
 .dark-input:focus, .dark-select:focus { border-color: var(--accent-primary); }
 
-.state-fn-row { display: flex; align-items: center; gap: var(--space-medium); margin-top: var(--space-default); padding: var(--space-default); background: var(--surface-0); border-radius: var(--radius-default); border: 1px solid var(--surface-3); }
+.state-fn-row { display: flex; align-items: center; gap: var(--space-tight); margin-top: var(--space-tight); padding: var(--space-tight); background: var(--surface-0); border-radius: var(--radius-default); border: 1px solid var(--surface-3); }
 .chart-name { font-size: var(--text-emphasis); color: var(--text-0); font-weight: bold; width: 120px; }
 .arrow { color: var(--border-3); }
 .flex-1 { flex: 1; }
 .del-btn-sm { background: none; border: none; color: var(--state-error); cursor: pointer; font-size: var(--text-heading); }
 
-.range-inputs { display: flex; align-items: center; gap: var(--space-default); }
+.range-inputs { display: flex; align-items: center; gap: var(--space-tight); }
 .range-half { flex: 1; min-width: 0; }
 .range-sep { color: var(--border-3); }
 .dark-input.invalid { border-color: var(--state-error); }
 .qeubo-control { display: flex; flex-direction: column; gap: var(--space-tight); }
-.checkbox-label { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-emphasis); color: var(--text-0); cursor: pointer; }
+.checkbox-label { display: flex; align-items: center; gap: var(--space-tight); font-size: var(--text-emphasis); color: var(--text-0); cursor: pointer; }
 .checkbox-label input[type=checkbox] { cursor: pointer; }
 .checkbox-label input[type=checkbox]:disabled { cursor: not-allowed; }
 .checkbox-label input[type=checkbox]:disabled + span { color: var(--border-3); }

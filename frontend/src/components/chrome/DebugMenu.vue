@@ -156,7 +156,7 @@ const { open, toggle: toggleMenu } = useDismissiblePopover({ outsideClick: false
   border: 1px solid var(--border-2);
   border-radius: 999px;
   color: var(--text-0);
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-tiny);
   text-transform: uppercase;
   letter-spacing: var(--tracking-tight);
@@ -184,7 +184,7 @@ const { open, toggle: toggleMenu } = useDismissiblePopover({ outsideClick: false
   border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
   color: var(--text-0);
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-tiny);
   text-transform: uppercase;
   letter-spacing: var(--tracking-tight);

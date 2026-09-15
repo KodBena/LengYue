@@ -385,7 +385,7 @@ const registryMeasureMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READ
 </template>
 
 <style scoped>
-.registry-editor { display: flex; flex-direction: column; font-family: 'Consolas', monospace; }
+.registry-editor { display: flex; flex-direction: column; font-family: var(--font-mono); }
 /* M6: measure cap applies at the ROOT editor only (`registry-root` —
    `:class="{ 'registry-root': !path }"`, already declared for this
    purpose, previously unstyled). RegistryEditor recurses into its own
@@ -399,8 +399,8 @@ const registryMeasureMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READ
 .registry-row { margin-bottom: 2px; }
 
 .branch-header, .leaf-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-tight); }
-.label-group { display: flex; align-items: center; gap: var(--space-default); }
-.action-group { display: flex; align-items: center; gap: var(--space-default); }
+.label-group { display: flex; align-items: center; gap: var(--space-tight); }
+.action-group { display: flex; align-items: center; gap: var(--space-tight); }
 
 /* theme-exception: .modified-dot uses #fbbf24 (Tailwind amber-400)
    as a "this leaf has been edited" indicator. A semantic anchor for
@@ -431,10 +431,10 @@ const registryMeasureMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READ
    border-left stay accent (ornament). */
 .branch-label {
   color: var(--text-0); text-transform: uppercase; font-size: var(--text-body); font-weight: bold;
-  padding: var(--space-tight) var(--space-default); background: color-mix(in srgb, var(--accent-primary) 5%, transparent); border-left: 2px solid var(--accent-primary);
+  padding: var(--space-tight) var(--space-tight); background: color-mix(in srgb, var(--accent-primary) 5%, transparent); border-left: 2px solid var(--accent-primary);
 }
 
-.branch-content { padding-left: var(--space-medium); border-left: 1px solid var(--surface-3); margin-left: var(--space-tight); }
+.branch-content { padding-left: var(--space-tight); border-left: 1px solid var(--surface-3); margin-left: var(--space-tight); }
 
 /* Expression inputs read in normal text tokens (commission row 748:
    the amber-400 text was unreadable against surface-0 on the cluster
@@ -442,11 +442,11 @@ const registryMeasureMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READ
    the asteval-expression distinctness now. Border was a
    surface-token-as-border inversion (rows 681/742). */
 .expression-input {
-  width: 100%; min-height: 50px; padding: var(--space-default); line-height: 1.4;
+  width: 100%; min-height: 50px; padding: var(--space-tight); line-height: 1.4;
   color: var(--text-0); background: var(--surface-0); border: 1px solid var(--border-2); resize: vertical;
 }
 
-.symbol-ref-box { display: flex; align-items: center; width: 100%; gap: var(--space-default); }
+.symbol-ref-box { display: flex; align-items: center; width: 100%; gap: var(--space-tight); }
 /* theme-exception: .ref-icon / .ref-input use #f472b6 (Tailwind
    pink-400) as a "symbolic reference" indicator — visually distinct
    from expressions (amber) and scalars (white-ish). No semantic anchor
@@ -455,7 +455,7 @@ const registryMeasureMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READ
 .ref-input { color: #f472b6; font-style: italic; flex: 1; }
 
 .registry-leaf { padding: 0; border-bottom: 1px solid var(--surface-2); }
-.registry-leaf.scalar, .registry-leaf.symbol-ref, .registry-leaf.enum { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-medium); }
+.registry-leaf.scalar, .registry-leaf.symbol-ref, .registry-leaf.enum { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-tight); }
 .leaf-label { color: var(--text-0); font-size: var(--text-emphasis); }
 
 /* G30 (WCAG 2.5.8): witnessed at 10x14 — under the 24x24 pointer-target
@@ -467,10 +467,10 @@ const registryMeasureMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READ
 .restore-btn { background: none; border: none; color: var(--text-disabled); cursor: pointer; font-size: var(--text-emphasis); min-width: 24px; min-height: 24px; display: inline-flex; align-items: center; justify-content: center; }
 .delete-btn { background: none; border: none; color: var(--border-3); cursor: pointer; font-size: var(--text-heading); }
 
-.add-key-row { display: flex; padding: var(--space-default); gap: var(--space-tight); background: rgba(0,0,0,0.2); }
+.add-key-row { display: flex; padding: var(--space-tight); gap: var(--space-tight); background: rgba(0,0,0,0.2); }
 .add-input { flex: 1; border-style: dashed; }
 /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
-.add-btn { background: var(--surface-3); border: 1px solid var(--border-2); color: var(--text-0); cursor: pointer; font-size: var(--text-body); padding: 0 var(--space-default); text-transform: uppercase; }
+.add-btn { background: var(--surface-3); border: 1px solid var(--border-2); color: var(--text-0); cursor: pointer; font-size: var(--text-body); padding: 0 var(--space-tight); text-transform: uppercase; }
 
 /* `.dark-input` deliberately omitted: this component's copy was
    byte-equivalent to the shared global (assets/css/shared-chrome.css:104)
@@ -482,5 +482,5 @@ const registryMeasureMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READ
    copies across the editors/modals are NOT byte-equivalent (they use
    `--text-0` and add monospace/padding/width/outline) and are left in place;
    see the worklog's consolidation table. */
-.scalar-input { height: 22px; padding: 0 var(--space-default); width: 140px; }
+.scalar-input { height: 22px; padding: 0 var(--space-tight); width: 140px; }
 </style>

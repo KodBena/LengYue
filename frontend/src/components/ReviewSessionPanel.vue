@@ -286,13 +286,13 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
 </template>
 
 <style scoped>
-.review-session-panel { padding: var(--space-default); display: flex; flex-direction: column; }
-.review-session-panel h3 { margin: 0 0 var(--space-default) 0; font-size: var(--text-emphasis); color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-default); }
-.card-counter { margin-bottom: var(--space-medium); }
-.nav-buttons-row { display: flex; gap: var(--space-default); margin-bottom: var(--space-medium); }
+.review-session-panel { padding: var(--space-tight); display: flex; flex-direction: column; }
+.review-session-panel h3 { margin: 0 0 var(--space-tight) 0; font-size: var(--text-emphasis); color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-default); }
+.card-counter { margin-bottom: var(--space-tight); }
+.nav-buttons-row { display: flex; gap: var(--space-tight); margin-bottom: var(--space-tight); }
 .nav-buttons-row button { flex: 1; }
-.retry-btn { margin-bottom: var(--space-medium); }
-.status-line { font-weight: bold; margin-bottom: var(--space-medium); }
+.retry-btn { margin-bottom: var(--space-tight); }
+.status-line { font-weight: bold; margin-bottom: var(--space-tight); }
 .intermission-chart {
   height: 180px;
   width: 100%;
@@ -301,17 +301,17 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
   border: 1px solid var(--surface-3);
   border-radius: var(--radius-default);
 }
-.moves-made { margin-bottom: var(--space-medium); }
-.visits-override-row { display: flex; align-items: center; gap: var(--space-default); margin-bottom: var(--space-medium); }
+.moves-made { margin-bottom: var(--space-tight); }
+.visits-override-row { display: flex; align-items: center; gap: var(--space-tight); margin-bottom: var(--space-tight); }
 .visits-override-row label { font-size: var(--text-body); color: var(--text-0); white-space: nowrap; }
 .visits-input { width: 100%; }
-.advance-btn { margin-bottom: var(--space-medium); margin-top: var(--space-medium); }
+.advance-btn { margin-bottom: var(--space-tight); margin-top: var(--space-tight); }
 /* End-session affordance — de-emphasised against Skip/Next so the
    user doesn't accidentally end mid-card. Inherits the
    `--state-error` rest tone so its destructive intent is honest;
    stays muted (transparent surface, thin border) until hover. */
 .end-session-btn {
-  margin-top: var(--space-default);
+  margin-top: var(--space-tight);
   color: var(--state-error);
   border-color: var(--state-error);
   background: transparent;

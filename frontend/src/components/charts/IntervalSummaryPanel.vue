@@ -188,9 +188,9 @@ onUnmounted(() => {
   font-size: var(--text-body);
   font-weight: bold;
   color: var(--text-0);
-  text-transform: uppercase;
   background: var(--surface-3);
-  letter-spacing: var(--tracking-default);
+  /* text-transform: uppercase; */
+  /* letter-spacing: var(--tracking-default); */
 }
 .content {
   border-top: 1px solid var(--surface-3);

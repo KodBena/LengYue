@@ -133,8 +133,8 @@ function onAnalyze(): void {
   font-size: var(--text-body);
   font-weight: bold;
   color: var(--text-0);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-default);
+  /* text-transform: uppercase; */
+  /* letter-spacing: var(--tracking-default); */
 }
 .timeline-info {
   font-size: var(--text-body);
@@ -155,9 +155,9 @@ function onAnalyze(): void {
   align-items: center;
   gap: var(--space-default);
   row-gap: var(--space-default);
-  padding: var(--space-default) var(--space-medium) var(--space-default);
+  /* padding: var(--space-default) var(--space-medium) var(--space-default); */
 }
-.visits-label { font-size: var(--text-emphasis); color: var(--text-0); flex-shrink: 0; }
+.visits-label { /* font-size: var(--text-emphasis); */ color: var(--text-0); flex-shrink: 0; }
 .visits-input {
   width: 72px;
   background: var(--surface-0);

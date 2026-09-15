@@ -193,7 +193,7 @@ const canSubmit = computed(() => {
 .modal-content {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   width: 420px; max-width: 90vw;
-  display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  display: flex; flex-direction: column; font-family: var(--font-sans);
 }
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -211,7 +211,7 @@ const canSubmit = computed(() => {
   font-size: var(--text-emphasis);
   color: var(--text-0);
   margin-bottom: var(--space-medium);
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 
 .form-grid {
@@ -228,12 +228,12 @@ const canSubmit = computed(() => {
 .dark-input {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
   padding: var(--space-default); border-radius: var(--radius-default);
-  font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
+  font-family: var(--font-mono); font-size: var(--text-emphasis); width: 100%; outline: none;
 }
 .dark-select {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
   padding: var(--space-default); border-radius: var(--radius-default);
-  font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
+  font-family: var(--font-mono); font-size: var(--text-emphasis); width: 100%; outline: none;
 }
 .dark-input:focus, .dark-select:focus { border-color: var(--accent-primary); }
 

@@ -260,18 +260,18 @@ function updateHyperparameters(decls: HyperparamDecl[]) {
 <style scoped>
 .deck-editor {
   display: flex; height: 400px; background: var(--surface-0); border: 1px solid var(--surface-3);
-  border-radius: var(--radius-default); overflow: hidden; font-family: 'Consolas', monospace;
+  border-radius: var(--radius-default); overflow: hidden; font-family: var(--font-mono);
 }
 
 .sidebar { width: 200px; background: var(--surface-0); border-right: 1px solid var(--surface-3); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
 .section { border-bottom: 1px solid var(--surface-2); }
-.section-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-0); font-size: var(--text-body); text-transform: uppercase; }
-.pipeline-header { margin-top: var(--space-medium); border-top: 1px solid #1a1a1a; }
+.section-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-tight) var(--space-tight); background: var(--surface-2); color: var(--text-0); font-size: var(--text-body); text-transform: uppercase; }
+.pipeline-header { margin-top: var(--space-tight); border-top: 1px solid #1a1a1a; }
 /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
 .add-btn { background: none; border: none; color: var(--text-0); cursor: pointer; font-weight: bold; font-size: var(--text-heading); }
 
 .item-list { list-style: none; padding: 0; margin: 0; }
-.item-list li { padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); color: var(--text-0); cursor: pointer; border-left: 2px solid transparent; display: flex; justify-content: space-between; align-items: center;}
+.item-list li { padding: var(--space-tight) var(--space-tight); font-size: var(--text-emphasis); color: var(--text-0); cursor: pointer; border-left: 2px solid transparent; display: flex; justify-content: space-between; align-items: center;}
 .item-list li:hover { background: var(--surface-2); }
 /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border-left stays accent (ornament). */
 .item-list li.active { background: var(--surface-0); border-left-color: var(--accent-primary); color: var(--text-0); }
@@ -285,7 +285,7 @@ function updateHyperparameters(decls: HyperparamDecl[]) {
 .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--border-3); font-size: var(--text-emphasis); }
 .detail-content { display: flex; flex-direction: column; height: 100%; overflow-y: auto; }
 
-.detail-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-2); }
+.detail-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-tight) var(--space-tight); border-bottom: 1px solid var(--surface-2); }
 .detail-header h3 { margin: 0; font-size: var(--text-heading); color: var(--text-0); font-weight: normal; }
 /* M25 (audit finding, ledger row 1251): the prior rule's hardcoded
    #5a1a1a border was a fixed dark-red literal that reads as barely-
@@ -294,12 +294,12 @@ function updateHyperparameters(decls: HyperparamDecl[]) {
    var(--state-error) is the same idiom ResetAllKeybindingsModal's
    .btn-destructive already ships (border + hover-fill in the error
    color, token-only, correct in every theme). */
-.del-btn { background: var(--surface-0); color: var(--state-error); border: 1px solid var(--state-error); padding: var(--space-tight) var(--space-default); border-radius: var(--radius-default); cursor: pointer; font-size: var(--text-body); font-weight: bold; }
+.del-btn { background: var(--surface-0); color: var(--state-error); border: 1px solid var(--state-error); padding: var(--space-tight) var(--space-tight); border-radius: var(--radius-default); cursor: pointer; font-size: var(--text-body); font-weight: bold; }
 .del-btn:hover { background: var(--state-error); color: var(--surface-1); }
 
-.form-grid { padding: var(--space-medium); display: grid; grid-template-columns: 100px 1fr; gap: var(--space-medium); align-items: center; }
+.form-grid { padding: var(--space-tight); display: grid; grid-template-columns: 100px 1fr; gap: var(--space-tight); align-items: center; }
 .form-grid label { font-size: var(--text-emphasis); color: var(--text-0); }
-.dark-input { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none; }
+.dark-input { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-tight); border-radius: var(--radius-default); font-family: var(--font-mono); font-size: var(--text-emphasis); width: 100%; outline: none; }
 .dark-input:focus { border-color: var(--accent-primary); }
 
 .editor-wrap { flex: 1; min-height: 150px; overflow: auto; border-top: 1px solid var(--surface-3); }

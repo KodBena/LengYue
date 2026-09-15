@@ -418,6 +418,11 @@
 }
 
 :root {
+  --font-mono: Roboto Mono Light;
+  /* --font-mono: 'Courier New', monospace; */
+  --font-sans: Geneva, Verdana, sans-serif;
+  --font-serif: Quattrocento;
+  --font-default: var(--font-serif);
   /* ── Chart-derived helpers (aliases; no new decisions) ────
    * `var()` resolves at use time against the active cascade,
    * so these aliases automatically pick up the active theme's

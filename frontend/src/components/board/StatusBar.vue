@@ -414,6 +414,7 @@ const moveNumber = computed((): number => {
      against a child's own descendant (`.player-names`) overflowing its
      shrunk parent's box; the two mechanisms compose, one is not a
      substitute for the other. */
+  padding-top: 1px;
   gap: var(--space-default);
   font-size: var(--text-emphasis);
   color: var(--text-0);
@@ -471,8 +472,8 @@ const moveNumber = computed((): number => {
   color: var(--text-on-accent);
   padding: 1px 6px;
   font-weight: bold;
-  border-radius: var(--radius-default);
-  font-family: monospace;
+  /* border-radius: var(--radius-default); */
+  font-family: var(--font-mono);
   font-size: var(--text-body);
   /* S4: the "MOVE" / "0" pair is two space-separated words, so under
      flexbox's default `min-width: auto` a squeezed `.status-left`
@@ -498,8 +499,8 @@ const moveNumber = computed((): number => {
   color: var(--text-on-accent);
   padding: 1px 6px;
   font-weight: bold;
-  border-radius: var(--radius-default);
-  font-family: monospace;
+  /* border-radius: var(--radius-default); */
+  font-family: var(--font-mono);
   font-size: var(--text-body);
   text-transform: uppercase;
   letter-spacing: var(--tracking-tight);
@@ -629,7 +630,7 @@ const moveNumber = computed((): number => {
   display: inline-flex;
   align-items: center;
   color: var(--text-0);
-  font-weight: 600;
+  /*font-weight: 600;*/
   flex: 1 1 auto;
   min-width: 0;
 }
@@ -753,11 +754,11 @@ const moveNumber = computed((): number => {
    independently-chosen numbers that happened to be close. */
 .komi-input {
   width: 42px;
-  min-height: var(--control-height-min);
+  /* min-height: var(--control-height-min); */
   box-sizing: border-box;
   background: transparent;
   border: 1px solid var(--border-3);
-  border-radius: var(--radius-default);
+  /*border-radius: var(--radius-default);*/
   color: var(--text-0);
   font-size: var(--text-body);
   font-family: inherit;
@@ -779,7 +780,7 @@ const moveNumber = computed((): number => {
    indicator. Visibility only: tabindex and tab order are unchanged. */
 .komi-input:focus-visible {
   outline: 2px solid var(--accent-primary);
-  outline-offset: 2px;
+  /* outline-offset: 2px; */
 }
 
 /* Hide number arrows for a cleaner look */
@@ -798,7 +799,7 @@ const moveNumber = computed((): number => {
    capture count (or a narrower viewport) can't wrap this block onto a
    second line and grow the bar's `min-height` (the original ledger
    row 811 reflow mechanism). */
-.caps { font-family: monospace; color: var(--text-0); font-size: var(--text-body); white-space: nowrap; }
+.caps { font-family: var(--font-mono); color: var(--text-0); font-size: var(--text-body); white-space: nowrap; }
 
 /* G12 narrow-mode collapse (see the `statusBarNarrow` doc in <script>):
    the lowest-priority segments are removed from flow entirely (not
@@ -945,7 +946,7 @@ const moveNumber = computed((): number => {
   cursor: pointer;
   padding: 1px 8px;
   line-height: 1.4;
-  min-height: var(--control-height-min);
+  /* min-height: var(--control-height-min); */
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -987,7 +988,7 @@ const moveNumber = computed((): number => {
   background: transparent;
   border: none;
   color: var(--text-disabled);
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-body);
   font-weight: bold;
   cursor: pointer;

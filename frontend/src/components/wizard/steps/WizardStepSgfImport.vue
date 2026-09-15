@@ -169,6 +169,6 @@ function onDragOver(ev: DragEvent): void {
 .staged-item {
   color: var(--text-0);
   font-size: var(--text-tiny);
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 </style>

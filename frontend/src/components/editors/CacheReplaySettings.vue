@@ -66,10 +66,10 @@ const cacheLookup = computed({
 </template>
 
 <style scoped>
-.analysis-config-box { margin-top: 0; margin-bottom: var(--space-medium); background: var(--surface-2); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); border: 1px solid var(--surface-3); }
-.cache-title { margin: 0 0 var(--space-default) 0; font-size: var(--text-body); font-weight: bold; color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-default); }
+.analysis-config-box { margin-top: 0; margin-bottom: var(--space-tight); background: var(--surface-2); padding: var(--space-tight) var(--space-tight); border-radius: var(--radius-default); border: 1px solid var(--surface-3); }
+.cache-title { margin: 0 0 var(--space-tight) 0; font-size: var(--text-body); font-weight: bold; color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-default); }
 .settings-row { display: flex; flex-direction: column; gap: var(--space-tight); }
-.checkbox-row { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-body); color: var(--text-0); cursor: pointer; }
+.checkbox-row { display: flex; align-items: center; gap: var(--space-tight); font-size: var(--text-body); color: var(--text-0); cursor: pointer; }
 .checkbox-row input[type="checkbox"] { accent-color: var(--accent-primary); cursor: pointer; }
 .info-icon { display: inline-block; width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--text-0); text-align: center; font-size: 9px; line-height: 11px; color: var(--text-0); cursor: help; }
 .hint { font-size: var(--text-body); color: var(--text-0); margin: var(--space-tight) 0 0 0; }

@@ -331,7 +331,7 @@ function setAggregation(next: KnownAggregation): void {
    fallback for whatever this can't absorb. */
 .palette-definition {
   display: flex; flex-direction: column; gap: 2px;
-  font-family: var(--font-mono, monospace); font-size: var(--text-tiny);
+  font-family: var(--font-mono); font-size: var(--text-tiny);
   color: var(--text-0); overflow-wrap: anywhere;
 }
 .definition-line { display: block; }

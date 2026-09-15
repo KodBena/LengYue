@@ -64,11 +64,11 @@ function handleInput(e: Event): void {
 </template>
 
 <style scoped>
-.per-query-overrides-config { font-family: 'Consolas', monospace; }
-.hint { font-size: var(--text-body); color: var(--text-0); line-height: 1.5; margin: 0 0 var(--space-medium) 0; }
-.expression-input { width: 100%; min-height: 4.5em; box-sizing: border-box; resize: vertical; font-family: 'Consolas', monospace; font-size: var(--text-body); }
+.per-query-overrides-config { font-family: var(--font-mono); }
+.hint { font-size: var(--text-body); color: var(--text-0); line-height: 1.5; margin: 0 0 var(--space-tight) 0; }
+.expression-input { width: 100%; min-height: 4.5em; box-sizing: border-box; resize: vertical; font-family: var(--font-mono); font-size: var(--text-body); }
 .error-line { color: var(--state-error); font-size: var(--text-body); margin: var(--space-tight) 0 0 0; }
-.actions { margin-top: var(--space-medium); }
-.action-btn.reset-btn { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-tight) var(--space-default); font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
+.actions { margin-top: var(--space-tight); }
+.action-btn.reset-btn { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-tight) var(--space-tight); font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 .action-btn.reset-btn:disabled { opacity: 0.5; cursor: default; }
 </style>

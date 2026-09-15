@@ -176,7 +176,7 @@ const wizardProseMaxWidthCss = computed(() => `${WIZARD_PROSE_MEASURE_CH}ch`);
 .uri-row { display: flex; gap: var(--space-default); align-items: stretch; }
 .text-input {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
-  padding: var(--space-default); font-size: var(--text-emphasis); font-family: monospace;
+  padding: var(--space-default); font-size: var(--text-emphasis); font-family: var(--font-mono);
   border-radius: var(--radius-default); outline: none; width: 100%; box-sizing: border-box;
   flex: 1; min-width: 0;
 }

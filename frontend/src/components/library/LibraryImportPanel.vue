@@ -87,8 +87,8 @@ function onDragOver(ev: DragEvent): void {
 .library-import-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-default);
-  padding: var(--space-medium);
+  gap: var(--space-tight);
+  padding: var(--space-tight);
   border: 2px dashed var(--border-1);
   border-radius: var(--radius-default);
   background: var(--surface-0);
@@ -107,10 +107,10 @@ function onDragOver(ev: DragEvent): void {
 }
 .import-buttons {
   display: flex;
-  gap: var(--space-default);
+  gap: var(--space-tight);
 }
 .import-btn {
-  padding: var(--space-tight) var(--space-default);
+  padding: var(--space-tight) var(--space-tight);
   font-size: var(--text-body);
   background: var(--surface-0);
   border: 1px solid var(--border-1);

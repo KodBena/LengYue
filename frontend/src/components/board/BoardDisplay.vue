@@ -290,7 +290,7 @@ const ghostStone = computed(() =>
          re-render). Pre-memo this re-created ~500 vnodes/nav for a ~2-stone
          delta. (`boardSize` is genuinely stable during nav — unlike
          TreeWidget's churning layout, so these memos actually skip.) -->
-    <g v-if="showLabels" v-memo="[boardSize]" :fill="LABEL_COLOR" :font-size="LABEL_FONT_SIZE" font-weight="bold" font-family="monospace" text-anchor="middle" dominant-baseline="middle">
+    <g v-if="showLabels" v-memo="[boardSize]" :fill="LABEL_COLOR" :font-size="LABEL_FONT_SIZE" font-weight="bold" font-family="var(--font-mono)" text-anchor="middle" dominant-baseline="middle">
       <text v-for="(label, i) in xLabels" :key="'lxt'+i" :x="LABEL_BAND + pad + i * cell" :y="labelOffset">{{ label }}</text>
       <text v-for="(label, i) in xLabels" :key="'lxb'+i" :x="LABEL_BAND + pad + i * cell" :y="TOTAL_PX - labelOffset">{{ label }}</text>
       <text v-for="i in boardSize"         :key="'lyl'+i" :x="labelOffset"                  :y="LABEL_BAND + pad + (boardSize - i) * cell">{{ i }}</text>
@@ -415,7 +415,7 @@ const ghostStone = computed(() =>
             :fill="stone.color === 'B' ? '#e8e8e8' : '#1a1a1a'"
             text-anchor="middle"
             dominant-baseline="middle"
-            font-family="monospace"
+            font-family="var(--font-mono)"
             font-weight="bold"
             pointer-events="none"
           >{{ moveNumbers[stone.key] }}</text>

@@ -82,10 +82,10 @@ const nav = useNavigation();
   font-size: var(--text-emphasis);
   cursor: pointer;
   border-radius: var(--radius-default);
-  font-family: 'Courier New', monospace;
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-tight);
-  min-height: var(--control-height-min);
+  font-family: var(--font-mono);
+  /* text-transform: uppercase; */
+  /* letter-spacing: var(--tracking-tight); */
+  /* min-height: var(--control-height-min); */
   display: inline-flex;
   align-items: center;
   justify-content: center;

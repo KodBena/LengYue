@@ -367,19 +367,21 @@ watch(expanded, async (now) => {
   border: 1px solid var(--surface-3);
   border-radius: var(--radius-default);
   overflow: hidden;
-  margin-bottom: var(--space-medium);
+  margin-bottom: var(--space-tight);
 }
 .header {
-  padding: var(--space-default) var(--space-medium);
+  padding: var(--space-tight) var(--space-tight);
   display: flex;
   justify-content: space-between;
   cursor: pointer;
   font-size: var(--text-body);
   font-weight: bold;
   color: var(--text-0);
-  text-transform: uppercase;
   background: var(--surface-3);
+  /*
+  text-transform: uppercase;
   letter-spacing: var(--tracking-default);
+  */
 }
 .header:hover { background: var(--surface-3); color: var(--text-0); }
 .content {

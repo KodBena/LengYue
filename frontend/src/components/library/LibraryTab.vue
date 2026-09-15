@@ -223,10 +223,10 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
      collapses to its padding. ForestDirectory's wrapper is the
      established pattern. */
   flex: 1;
-  gap: var(--space-medium);
+  gap: var(--space-tight);
   height: 100%;
   min-height: 0;
-  padding: var(--space-medium);
+  padding: var(--space-tight);
   /* Container queries are the responsive-arc convention — at
      narrow widths, the master-detail collapses to a stack. */
   container-type: inline-size;
@@ -235,7 +235,7 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
 .library-filters {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: var(--space-default);
+  gap: var(--space-tight);
   flex: 0 0 auto;
 }
 
@@ -247,7 +247,7 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
 }
 .library-players-summary {
   cursor: pointer;
-  padding: var(--space-tight) var(--space-default);
+  padding: var(--space-tight) var(--space-tight);
   font-size: var(--text-tiny);
   color: var(--text-0);
   list-style: none;
@@ -257,14 +257,14 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
 .library-players-summary::before {
   content: '▶';
   display: inline-block;
-  margin-right: var(--space-default);
+  margin-right: var(--space-tight);
   font-size: var(--text-tiny);
 }
 .library-players[open] .library-players-summary::before {
   content: '▼';
 }
 .library-players-list {
-  padding: var(--space-tight) var(--space-default) var(--space-default);
+  padding: var(--space-tight) var(--space-tight) var(--space-tight);
   display: flex;
   flex-direction: column;
   gap: var(--space-tight);
@@ -282,8 +282,8 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
   /* Name column grows; count column sized to content (right). */
   grid-template-columns: 1fr auto;
   align-items: baseline;
-  gap: var(--space-default);
-  padding: 2px var(--space-default);
+  gap: var(--space-tight);
+  padding: 2px var(--space-tight);
   font-size: var(--text-tiny);
   background: var(--surface-0);
   border: 1px solid var(--border-2);
@@ -316,7 +316,7 @@ const librarySplitMaxWidthCss = computed(() => `calc(2 * ${PANEL_CONTENT_READING
   min-height: 0;
   display: grid;
   grid-template-columns: 3fr 2fr;
-  gap: var(--space-medium);
+  gap: var(--space-tight);
   /* Phase 3 (audit finding R3), unconditional since two-col-class-closure-build
      (ADR-0000 Rule 2(a) closure, ledger rows 2564/2565): cap the split's own
      two columns (list + preview — genre's "two columns", not a single one

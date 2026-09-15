@@ -46,7 +46,7 @@ export function renderBoardToSvg(props: {
       labelSvg += `
         <rect x="${coords.x - 7}" y="${coords.y - 7}" width="14" height="14" fill="rgba(255,255,255,0)" rx="2" />
         <text x="${coords.x}" y="${coords.y + 1}" fill="#000" font-size="28" font-weight="bold" 
-              font-family="monospace" text-anchor="middle" dominant-baseline="middle">${label}</text>`;
+              font-family="var(--font-mono)" text-anchor="middle" dominant-baseline="middle">${label}</text>`;
     }
   }
 

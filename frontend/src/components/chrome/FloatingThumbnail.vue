@@ -51,7 +51,7 @@ const snapshot = computed<BoardSnapshot | null>(() =>
 // 2px border on each side (the `border: 2px solid` in the same
 // rule). If the .floating-thumb width/height/border changes, this
 // constant must track them — they have no shared substrate token.
-const THUMB_BOX = 154;
+const THUMB_BOX = 124;
 
 // magic-literal: 20px cursor-offset for thumbnail anchor. Composes
 // with the caller's own cursor offset so the thumbnail lands to the
@@ -155,11 +155,11 @@ onUnmounted(detachWatchers);
 .floating-thumb {
   position: fixed;
   z-index: var(--z-modal);
-  width: 150px;
-  height: 150px;
+  width: 120px;
+  height: 120px;
   background: var(--surface-2);
   border: 2px solid var(--accent-primary);
-  border-radius: var(--radius-default);
+  /*border-radius: var(--radius-default);*/
   pointer-events: none;
 }
 </style>

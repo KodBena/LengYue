@@ -409,7 +409,7 @@ const knobSliderMaxWidthCss = computed(() => `${PANEL_CONTENT_READING_MEASURE_CH
 }
 .knob-slider-value {
   grid-area: value;
-  font-family: monospace;
+  font-family: var(--font-mono);
   color: var(--text-0);
 }
 /* At-floor marker: dotted-underline + help cursor are the
@@ -447,7 +447,7 @@ const knobSliderMaxWidthCss = computed(() => `${PANEL_CONTENT_READING_MEASURE_CH
 }
 .knob-slider-endpoint {
   flex-shrink: 0;
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-tiny);
   color: var(--text-0);
 }

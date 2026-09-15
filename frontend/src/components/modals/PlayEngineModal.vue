@@ -234,7 +234,7 @@ function colorLabel(c: StoneColor): string {
 .modal-content {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   width: 420px; max-width: 90vw;
-  display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  display: flex; flex-direction: column; font-family: var(--font-sans);
 }
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -280,7 +280,7 @@ function colorLabel(c: StoneColor): string {
 }
 .active-game-label {
   color: var(--text-0);
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-emphasis);
 }
 .end-btn {
@@ -293,7 +293,7 @@ function colorLabel(c: StoneColor): string {
   letter-spacing: var(--tracking-tight);
   border-radius: var(--radius-default);
   cursor: pointer;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
 }
 .end-btn:hover { background: color-mix(in srgb, var(--state-attention) 15%, transparent); }
 
@@ -305,7 +305,7 @@ function colorLabel(c: StoneColor): string {
   font-size: var(--text-emphasis);
   color: var(--text-0);
   margin-bottom: var(--space-medium);
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 
 .form-grid {
@@ -322,7 +322,8 @@ function colorLabel(c: StoneColor): string {
 .dark-input, .dark-select {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
   padding: var(--space-default); border-radius: var(--radius-default);
-  font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-emphasis); width: 100%; outline: none;
 }
 .dark-input:focus, .dark-select:focus { border-color: var(--accent-primary); }
 

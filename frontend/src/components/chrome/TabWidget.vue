@@ -251,6 +251,7 @@ function selectTab(id: string) {
   height: 100%;
   background: var(--surface-0);
   min-height: 0;
+  padding-left: 2px;
 }
 
 .tab-header {
@@ -276,11 +277,11 @@ function selectTab(id: string) {
      every font-metric variance) bring it to spec without font
      blowup. display:flex + align-items:center recenters the label
      text now that padding is no longer symmetric text-hugging. */
-  padding: var(--space-default) var(--space-default);
+  padding: var(--space-tight) var(--space-tight);
   min-height: 24px;
   display: flex;
   align-items: center;
-  font-size: var(--text-emphasis);
+  /* font-size: var(--text-emphasis); */
   color: var(--text-0);
   cursor: pointer;
   border-right: 1px solid var(--border-1);

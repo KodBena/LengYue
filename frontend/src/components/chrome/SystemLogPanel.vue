@@ -194,13 +194,13 @@ function nextActionLabel(token: string): string {
 .msg-time {
   font-size: var(--text-tiny);
   color: var(--text-0);
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 
 .msg-text {
   font-size: var(--text-emphasis);
   color: var(--text-0);
-  font-family: monospace;
+  font-family: var(--font-mono);
   white-space: pre-wrap; /* Preserve stack traces if sent by Python */
   line-height: 1.4;
 }
@@ -214,7 +214,7 @@ function nextActionLabel(token: string): string {
 .msg-next-action {
   font-size: var(--text-body);
   color: var(--text-0);
-  font-family: monospace;
+  font-family: var(--font-mono);
   line-height: 1.4;
 }
 
@@ -233,7 +233,7 @@ function nextActionLabel(token: string): string {
   align-items: center;
   gap: var(--space-default);
   padding: var(--space-default) var(--space-medium);
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 .empty-dot { color: var(--border-2); font-size: var(--text-heading); line-height: 1; }
 .empty-text { color: var(--border-3); font-size: var(--text-emphasis); font-style: italic; }

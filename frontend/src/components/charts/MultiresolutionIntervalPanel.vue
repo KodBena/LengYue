@@ -143,14 +143,14 @@ watch(hoveredCell, () => {
 </template>
 
 <style scoped>
-.section { background: var(--surface-2); border: 1px solid var(--surface-3); border-radius: var(--radius-default); overflow: hidden; margin-bottom: var(--space-medium); }
-.header { padding: var(--space-default) var(--space-medium); display: flex; justify-content: space-between; cursor: pointer; font-size: var(--text-body); font-weight: bold; color: var(--text-0); text-transform: uppercase; background: var(--surface-3); letter-spacing: var(--tracking-default); }
+.section { background: var(--surface-2); border: 1px solid var(--surface-3); border-radius: var(--radius-default); overflow: hidden; margin-bottom: var(--space-tight); }
+.header { padding: var(--space-tight) var(--space-tight); display: flex; justify-content: space-between; cursor: pointer; font-size: var(--text-body); font-weight: bold; color: var(--text-0); text-transform: uppercase; background: var(--surface-3); letter-spacing: var(--tracking-default); }
 .header:hover { background: var(--surface-3); color: var(--text-0); }
 .content { border-top: 1px solid var(--surface-3); background: var(--surface-0); }
 
 /* Increased height and allowed flex-growth for full-screen mode */
 .heatmap-content {
-  height: 580px;
+  /* height: 580px; */
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -161,10 +161,10 @@ watch(hoveredCell, () => {
 .heatmap-preview {
   flex: 0 0 auto;
   border-top: 1px solid var(--surface-3);
-  padding: var(--space-default) var(--space-medium);
+  padding: var(--space-tight) var(--space-tight);
   display: flex;
   flex-direction: column;
-  gap: var(--space-default);
+  gap: var(--space-tight);
 }
 .preview-caption {
   font-size: var(--text-body);
@@ -175,7 +175,7 @@ watch(hoveredCell, () => {
 .preview-boards {
   display: flex;
   justify-content: center;
-  gap: var(--space-medium);
+  gap: var(--space-tight);
 }
 .preview-board {
   width: 120px;

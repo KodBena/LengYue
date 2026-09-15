@@ -227,7 +227,7 @@ const markers = computed(() => deriveVariationMarkers(props.state, {
           :font-size="stoneR * LETTER_FONT_SIZE_RATIO"
           dominant-baseline="middle"
           text-anchor="middle"
-          font-family="monospace"
+          font-family="var(--font-mono)"
           font-weight="bold"
           :fill="m.label.color"
           :opacity="m.label.opacity"

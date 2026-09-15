@@ -126,7 +126,7 @@ const knobRegistryMeasureMaxWidthCss = computed(() => `${PANEL_CONTENT_READING_M
 .knob-registry-editor {
   display: flex;
   flex-direction: column;
-  gap: var(--space-default);
+  gap: var(--space-tight);
   max-width: v-bind(knobRegistryMeasureMaxWidthCss);
 }
 .knob-registry-empty {

@@ -593,8 +593,8 @@ function rowTitle(idx: number): string {
      never lets the visible set exceed the measured width), but it's
      the honest floor per audit R1: a container that somehow still
      can't fit its content scrolls, it never clips silently. */
-  gap: var(--space-default);
-  padding: var(--space-tight) var(--space-default);
+  gap: var(--space-tight);
+  padding: var(--space-tight) var(--space-tight);
   overflow-x: auto;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border-1);
@@ -645,8 +645,8 @@ function rowTitle(idx: number): string {
   /* grid-template-columns bound in the template — see the header's
      own comment; header and row must always share the same template
      so columns line up. */
-  gap: var(--space-default);
-  padding: 0 var(--space-default);
+  gap: var(--space-tight);
+  padding: 0 var(--space-tight);
   font-size: var(--text-body);
   align-items: center;
   cursor: pointer;

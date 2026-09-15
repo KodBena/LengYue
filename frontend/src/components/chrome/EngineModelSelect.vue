@@ -125,5 +125,5 @@ function onSelectModel(event: Event) {
    font-family is set explicitly because <select> elements default to
    system-UI typography and wouldn't inherit the surrounding
    monospace; pointer cursor overrides .engine-id-val's `help`. */
-.engine-model-select { background: transparent; border: 1px solid var(--border-3); padding: 0 var(--space-tight); border-radius: var(--radius-default); cursor: pointer; font-family: monospace; font-size: var(--text-emphasis); }
+.engine-model-select { background: transparent; border: 1px solid var(--border-3); padding: 0 var(--space-tight); border-radius: var(--radius-default); cursor: pointer; font-family: var(--font-mono); font-size: var(--text-emphasis); }
 </style>

@@ -611,7 +611,7 @@ async function submit() {
         </div>
 
         <!-- Tag Autocomplete -->
-        <div class="form-group" style="margin-top: var(--space-medium);">
+        <div class="form-group" style="margin-top: var(--space-tight);">
           <div class="tag-label-row">
             <label class="tag-label">{{ $t('mint.field.tags') }}</label>
             <!-- Explicit dynamic-query affordance (M15, ledger row
@@ -679,21 +679,21 @@ async function submit() {
 .modal-content {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   width: 420px; max-width: 90vw;
-  display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  display: flex; flex-direction: column; font-family: var(--font-sans);
 }
 
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); background: var(--surface-2);
+  padding: var(--space-tight) var(--space-tight); border-bottom: 1px solid var(--surface-3); background: var(--surface-2);
 }
 .modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 .close-btn { background: none; border: none; color: var(--text-disabled); font-size: var(--text-heading); cursor: pointer; }
 
-.modal-body { padding: var(--space-medium); }
+.modal-body { padding: var(--space-tight); }
 
 .lineage-box {
-  display: flex; align-items: center; gap: var(--space-medium); padding: var(--space-medium);
-  border-radius: var(--radius-default); margin-bottom: var(--space-medium); border: 1px solid transparent;
+  display: flex; align-items: center; gap: var(--space-tight); padding: var(--space-tight);
+  border-radius: var(--radius-default); margin-bottom: var(--space-tight); border: 1px solid transparent;
 }
 .lineage-box.root { background: color-mix(in srgb, var(--state-success) 10%, transparent); border-color: color-mix(in srgb, var(--state-success) 30%, transparent); }
 .lineage-box.branch { background: color-mix(in srgb, var(--accent-primary) 10%, transparent); border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent); }
@@ -706,9 +706,9 @@ async function submit() {
    than color-only (C18) — the text itself names the condition, the
    color is a secondary reinforcement, not the sole signal. */
 .duplicate-notice {
-  padding: var(--space-default) var(--space-medium);
+  padding: var(--space-tight) var(--space-tight);
   border-radius: var(--radius-default);
-  margin-bottom: var(--space-medium);
+  margin-bottom: var(--space-tight);
   border: 1px solid transparent;
   font-size: var(--text-emphasis);
 }
@@ -723,15 +723,15 @@ async function submit() {
   border-color: color-mix(in srgb, var(--state-warning) 40%, transparent);
 }
 
-.form-grid { display: grid; grid-template-columns: 110px 1fr; gap: var(--space-medium); align-items: center; }
+.form-grid { display: grid; grid-template-columns: 110px 1fr; gap: var(--space-tight); align-items: center; }
 .form-grid label { font-size: var(--text-emphasis); color: var(--text-0); text-transform: uppercase; }
 .dark-input {
-  background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default);
-  border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
+  background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-tight);
+  border-radius: var(--radius-default); font-family: var(--font-mono); font-size: var(--text-emphasis); width: 100%; outline: none;
 }
 .dark-select {
-  border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default);
-  border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
+  border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-tight);
+  border-radius: var(--radius-default); font-family: var(--font-mono); font-size: var(--text-emphasis); width: 100%; outline: none;
 }
 .dark-input:focus, .dark-select:focus { border-color: var(--accent-primary); }
 .dark-input:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
@@ -739,7 +739,7 @@ async function submit() {
 /* Calibration checkbox cell — a non-uppercased inline label so the
    checkbox sits next to its explanatory hint without inheriting the
    form-grid label's letter-spacing / uppercase transform. */
-.checkbox-cell { display: flex; align-items: center; gap: var(--space-default); text-transform: none; }
+.checkbox-cell { display: flex; align-items: center; gap: var(--space-tight); text-transform: none; }
 /* G30 (WCAG 2.5.8): no `width`/`height` override here — the global
    `input[type="checkbox"]` rule (style.css) pins those to the 24x24
    effective pointer-target floor; a scoped `width: auto` here would
@@ -748,11 +748,11 @@ async function submit() {
    alone. */
 .calibrate-checkbox { accent-color: var(--accent-primary); cursor: pointer; }
 
-.tag-label-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-default); margin-bottom: var(--space-default); }
+.tag-label-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-tight); margin-bottom: var(--space-tight); }
 .tag-label { font-size: var(--text-emphasis); color: var(--text-0); text-transform: uppercase; display: block; margin-bottom: 0; }
 .tag-mode-toggle {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
-  color: var(--text-0); font-size: var(--text-emphasis); padding: 2px var(--space-default); cursor: pointer;
+  color: var(--text-0); font-size: var(--text-emphasis); padding: 2px var(--space-tight); cursor: pointer;
   text-transform: none;
 }
 .tag-mode-toggle:hover { border-color: var(--accent-primary); color: var(--text-0); }
@@ -768,13 +768,13 @@ async function submit() {
 .tag-badge {
   /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
   background: var(--border-1); color: var(--text-0); padding: 2px 6px; border-radius: var(--radius-default);
-  font-size: var(--text-emphasis); font-family: monospace; display: flex; align-items: center; gap: var(--space-tight);
+  font-size: var(--text-emphasis); font-family: var(--font-mono); display: flex; align-items: center; gap: var(--space-tight);
 }
 .tag-remove { background: none; border: none; color: var(--text-disabled); cursor: pointer; font-size: var(--text-emphasis); padding: 0; line-height: 1; }
 .tag-remove:hover { color: var(--state-attention); }
 
 .tag-input {
-  background: transparent; border: none; color: var(--text-0); font-family: monospace;
+  background: transparent; border: none; color: var(--text-0); font-family: var(--font-mono);
   font-size: var(--text-emphasis); outline: none; flex: 1; min-width: 120px; padding: 2px;
 }
 
@@ -783,21 +783,21 @@ async function submit() {
   border: 1px solid var(--border-2); border-top: none; border-radius: 0 0 var(--radius-default) var(--radius-default);
   list-style: none; padding: 0; margin: 0; max-height: 150px; overflow-y: auto; z-index: var(--z-popover);
 }
-.suggestions-list li { padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); font-family: monospace; color: var(--text-0); cursor: pointer; }
+.suggestions-list li { padding: var(--space-tight) var(--space-tight); font-size: var(--text-emphasis); font-family: var(--font-mono); color: var(--text-0); cursor: pointer; }
 /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
 .suggestions-list li:hover { background: var(--border-1); color: var(--text-0); }
 
 .hint { font-size: var(--text-body); color: var(--text-0); margin: var(--space-tight) 0 0 0; }
 
 .modal-footer {
-  display: flex; justify-content: flex-end; gap: var(--space-medium); padding: var(--space-medium) var(--space-medium);
+  display: flex; justify-content: flex-end; gap: var(--space-tight); padding: var(--space-tight) var(--space-tight);
   border-top: 1px solid var(--surface-3); background: var(--surface-2);
 }
-.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-0); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-0); padding: var(--space-tight) var(--space-tight); border-radius: var(--radius-default); cursor: pointer; }
 /* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-1 text on
    an --accent-primary fill measures ~1.84:1 in the default cluster
    theme. --text-on-accent is the token minted for text directly on
    an accent fill (theme.css, ledger rows 1018/1144). */
-.btn-submit { background: var(--accent-primary); border: none; color: var(--text-on-accent); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+.btn-submit { background: var(--accent-primary); border: none; color: var(--text-on-accent); font-weight: bold; padding: var(--space-tight) var(--space-tight); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 </style>

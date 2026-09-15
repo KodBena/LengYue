@@ -262,8 +262,8 @@ const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
    separate, out-of-scope surface (not named in the commission). */
 #sidebar-widget {
   display: flex; flex-direction: column; align-items: center;
-  padding: var(--space-medium) 0; background: var(--surface-0); height: 100%;
-  border-right: 1px solid var(--surface-1); width: 168px;
+  padding: var(--space-tight) 0; background: var(--surface-0); height: 100%;
+  border-right: 1px solid var(--surface-1); width: 122px;
 }
 
 /* Scroll container for the virtualized rail (block, not flex — the flex-column
@@ -294,7 +294,7 @@ const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
 
 .tab-add-btn {
   width: 20px; height: 20px; border-radius: 0%; border: none;
-  background: var(--surface-2); color: var(--text-0); font-size: var(--text-emphasis); cursor: pointer; margin-top: var(--space-medium);
+  background: var(--surface-2); color: var(--text-0); font-size: var(--text-emphasis); cursor: pointer; margin-top: var(--space-tight);
 }
 
 /* Dev-only "jank test" toggle — REMOVED, W4 item 5 (now DebugMenu.vue). */
@@ -306,12 +306,12 @@ const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
    a quiet placeholder, honouring the rail's understated chrome register. The
    MiniBoard fills the frame; box-sizing keeps the 1px border inside the 150px. */
 .board-preview {
-  width: 150px;
-  height: 150px;
+  width: 120px;
+  height: 120px;
   box-sizing: border-box;
-  margin-top: var(--space-medium);
+  margin-top: var(--space-tight);
   border: 1px solid var(--border-2);
-  border-radius: var(--radius-default);
+  /*border-radius: var(--radius-default);*/
   background: var(--surface-0);
   overflow: hidden;
   flex-shrink: 0;

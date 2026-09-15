@@ -285,7 +285,7 @@ onUnmounted(rowsThrottle.cancel);
      header text always fits without wrapping. */
   min-width: 240px;
   max-width: 480px;
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-body);
   color: var(--text-0);
 }
@@ -341,7 +341,7 @@ td {
   background: transparent;
   border: none;
   color: var(--text-0);
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-body);
   cursor: pointer;
   padding: 0 var(--space-tight);

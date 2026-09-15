@@ -385,7 +385,7 @@ async function resetPriorStandalone(): Promise<void> {
   background: var(--surface-0);
   font-size: var(--text-body);
   color: var(--text-0);
-  margin-top: var(--space-medium);
+  margin-top: var(--space-tight);
   max-height: clamp(200px, 40vh, 480px);
   overflow-y: auto;
 }
@@ -395,7 +395,7 @@ async function resetPriorStandalone(): Promise<void> {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--space-tight) var(--space-default);
+  padding: var(--space-tight) var(--space-tight);
   background: var(--surface-2);
   cursor: pointer;
   user-select: none;
@@ -411,7 +411,7 @@ async function resetPriorStandalone(): Promise<void> {
 .chevron { color: var(--text-disabled); font-size: var(--text-tiny); }
 
 .panel-body {
-  padding: var(--space-default);
+  padding: var(--space-tight);
   display: flex;
   flex-direction: column;
   gap: var(--space-tight);
@@ -421,7 +421,7 @@ async function resetPriorStandalone(): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-default);
+  gap: var(--space-tight);
 }
 .field label {
   color: var(--text-0);
@@ -520,7 +520,7 @@ async function resetPriorStandalone(): Promise<void> {
   overflow-y: auto;
 }
 .tag-suggestions li {
-  padding: var(--space-tight) var(--space-default);
+  padding: var(--space-tight) var(--space-tight);
   cursor: pointer;
   color: var(--text-0);
 }
@@ -531,7 +531,7 @@ async function resetPriorStandalone(): Promise<void> {
    reply committed to. */
 .reset-prompt {
   margin-top: calc(-1 * var(--space-tight));
-  margin-left: var(--space-default);
+  margin-left: var(--space-tight);
   padding: var(--space-tight);
   background: var(--surface-2);
   border-left: 2px solid var(--state-attention);
@@ -557,13 +557,13 @@ async function resetPriorStandalone(): Promise<void> {
 .actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: var(--space-default);
+  margin-top: var(--space-tight);
 }
 .action-btn {
   background: transparent;
   border: 1px solid var(--border-3);
   color: var(--text-0);
-  padding: var(--space-tight) var(--space-default);
+  padding: var(--space-tight) var(--space-tight);
   border-radius: var(--radius-default);
   cursor: pointer;
   font-family: inherit;

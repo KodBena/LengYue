@@ -7,7 +7,7 @@
   (`#lyt-corner-chrome` and `#lyt-overlay-stack`) with ONE owner that
   registers every bottom-right corner surface as a `CornerStackEntry`
   (`state/corner-stack.ts`) and lays them out via `CornerStack.layout()`
-  — the direct fix for the hand-guessed `bottom: calc(var(--space-medium)
+  — the direct fix for the hand-guessed `bottom: calc(var(--space-tight)
   + 40px)` literal (and its own disclosed "a conservative estimate...
   rather than a swept number" comment) that used to stand in for this
   computation.
@@ -124,7 +124,7 @@ const stack = computed(() => {
 const offsets = computed(() => stack.value.layout(GAP_PX));
 function bottomStyle(region: CornerRegion): string {
   const offsetPx = offsets.value.get(region) ?? px(0);
-  return `calc(var(--space-medium) + ${offsetPx}px)`;
+  return `calc(var(--space-tight) + ${offsetPx}px)`;
 }
 
 // Published for the trigger row's own popover-owning children (see this
@@ -173,7 +173,7 @@ defineExpose({ clearancePx });
 #corner-stack-banners,
 #corner-stack-log {
   position: fixed;
-  right: var(--space-medium);
+  right: var(--space-tight);
   z-index: var(--z-chrome-overlay);
   display: flex;
   flex-direction: column;
@@ -188,7 +188,7 @@ defineExpose({ clearancePx });
 
 #corner-stack-triggers {
   position: fixed;
-  right: var(--space-medium);
+  right: var(--space-tight);
   z-index: 900;
   display: flex;
   align-items: center;

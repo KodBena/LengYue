@@ -136,7 +136,7 @@ const badgeWidth = computed(() => (labelText.value?.length ?? 0) * 5.6 + 6);
   overflow: visible;
 }
 .delta-label {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-weight: bold;
   user-select: none;
 }

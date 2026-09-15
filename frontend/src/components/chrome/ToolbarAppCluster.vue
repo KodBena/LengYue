@@ -105,5 +105,20 @@ const { downloadActiveBoard } = useSgfDownload();
 /* magic-literal: .toolbar-btn padding `1px 5px` — verbatim carry-over
    from Toolbar.vue's own rule. G30 (WCAG 2.5.8): 24px min-height
    pointer-target floor. */
-.toolbar-btn { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-0); padding: 1px 5px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: var(--tracking-tight); min-height: 24px; display: inline-flex; align-items: center; justify-content: center; }
+.toolbar-btn {
+	background: var(--surface-0);
+	border: 1px solid var(--border-3);
+	color: var(--text-0);
+	padding: 0px var(--space-tight);
+	/* font-size: var(--text-emphasis); */
+	cursor: pointer;
+	border-radius: var(--radius-default);
+	font-family: var(--font-mono); 
+	/* text-transform: uppercase; */
+	/* letter-spacing: var(--tracking-tight); */
+	/* min-height: 24px; */
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
 </style>

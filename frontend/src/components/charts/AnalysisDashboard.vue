@@ -152,8 +152,9 @@ function onTabModelUpdate(id: string): void {
   min-height: 0;
   overflow: hidden;
   background: var(--surface-0);
-  gap: var(--space-default);
+  /* gap: var(--space-default); */
   padding: var(--space-medium);
+  padding-top: 0px;
 }
 /* M19: the strip's own visual idiom (bordered box, accent underline,
    hover state) now lives entirely in TabWidget.vue — no bespoke

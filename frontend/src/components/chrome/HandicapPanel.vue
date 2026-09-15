@@ -63,7 +63,7 @@ const { availableCounts, selectHandicap } = useHandicap();
   cursor: pointer;
   border-radius: var(--radius-default);
   font-size: var(--text-emphasis);
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
 }
 /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament). */
 .handicap-btn:hover { border-color: var(--accent-primary); color: var(--text-0); }

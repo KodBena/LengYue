@@ -66,7 +66,7 @@ function reload(): void {
   background: rgba(0, 0, 0, 0.85);
   display: flex; align-items: center; justify-content: center;
   z-index: var(--z-overlay);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: var(--font-sans);
 }
 .reb-panel {
   background: var(--surface-2); border: 1px solid var(--state-attention); border-radius: var(--radius-default);
@@ -81,7 +81,7 @@ function reload(): void {
 .reb-text { margin: 0 0 var(--space-medium); font-size: var(--text-emphasis); color: var(--text-0); line-height: 1.5; }
 .reb-message {
   background: var(--surface-0); border: 1px solid var(--border-1); border-radius: var(--radius-default);
-  padding: var(--space-medium) var(--space-medium); font-family: monospace; font-size: var(--text-emphasis);
+  padding: var(--space-medium) var(--space-medium); font-family: var(--font-mono); font-size: var(--text-emphasis);
   color: #ff8888; white-space: pre-wrap; word-break: break-word;
   max-height: 180px; overflow: auto; margin: 0 0 18px;
 }

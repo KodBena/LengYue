@@ -182,11 +182,11 @@ useModalKeyboard(modalContentRef, computed(() => true), handleCancel);
   background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   padding: var(--space-loose); width: 360px; max-width: 90vw;
   display: flex; flex-direction: column; gap: var(--space-medium);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .modal-title { color: var(--text-0); margin: 0; font-size: var(--text-heading); }
-.current-identity { color: var(--text-0); font-size: var(--text-emphasis); margin: 0 0 var(--space-tight) 0; font-family: monospace; }
+.current-identity { color: var(--text-0); font-size: var(--text-emphasis); margin: 0 0 var(--space-tight) 0; font-family: var(--font-mono); }
 
 .form-row { display: flex; flex-direction: column; gap: var(--space-tight); }
 .form-row label { color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase; }

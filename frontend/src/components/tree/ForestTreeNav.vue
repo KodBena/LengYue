@@ -159,30 +159,108 @@ function hiddenCount(game: ForestNavGameNode): number {
 </template>
 
 <style scoped>
-.forest-tree-nav { flex: 1; overflow-y: auto; padding: var(--space-tight); display: flex; flex-direction: column; gap: 2px; }
-.empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-0); font-size: var(--text-emphasis); }
-.game-block { display: flex; flex-direction: column; flex-shrink: 0; }
-.game-row { display: flex; align-items: flex-start; gap: var(--space-tight); padding: var(--space-tight) var(--space-default); background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-default); cursor: pointer; }
+.forest-tree-nav {
+	flex: 1;
+	overflow-y: auto;
+	padding: var(--space-tight);
+	display: flex;
+	flex-direction: column;
+	/* gap: 2px; */
+}
+.empty-state {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-0);
+	font-size: var(--text-emphasis);
+}
+.game-block {
+	display: flex;
+	flex-direction: column;
+	flex-shrink: 0;
+}
+.game-row {
+	display: flex;
+	align-items: flex-start;
+	/* gap: var(--space-tight); */
+	/* padding: var(--space-tight) var(--space-tight); */
+	background: var(--surface-2);
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-default);
+	cursor: pointer;
+}
 .game-row:hover { border-color: var(--border-3); }
-.game-row.selected { border-color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 5%, transparent); }
+.game-row.selected {
+	border-color: var(--accent-primary);
+	background: color-mix(in srgb, var(--accent-primary) 5%, transparent);
+}
 .chevron-btn { background: none; border: none; color: var(--text-disabled); cursor: pointer; font-size: var(--text-body); padding: 0 2px; line-height: 1; flex-shrink: 0; }
 .chevron-btn:hover { color: var(--text-0); }
 .game-meta { flex: 1; min-width: 0; }
-.game-title { display: flex; align-items: baseline; gap: var(--space-tight); font-size: var(--text-emphasis); font-weight: bold; color: var(--text-0); margin-bottom: 2px; min-width: 0; }
+.game-title {
+	display: flex;
+	align-items: baseline;
+	gap: var(--space-tight);
+	font-size: var(--text-tiny);
+	/* font-weight: bold; */
+	color: var(--text-0);
+	/* margin-bottom: 2px; */
+	min-width: 0;
+}
 .game-title-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 /* Inline id chips — small, monospace, muted; the title still reads
    first; the id sits as a quiet handle the user can grab when they
    need to reach for the macro operator. flex-shrink: 0 keeps the id
    visible even when the title is long enough to ellipsis. */
-.game-id, .root-id { font-size: var(--text-tiny); font-weight: normal; color: var(--text-0); font-family: var(--font-mono, monospace); flex-shrink: 0; }
-.game-aggregate { display: flex; flex-wrap: wrap; gap: var(--space-tight); font-size: var(--text-body); color: var(--text-0); }
-.root-list { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 var(--space-tight) var(--space-medium); padding-left: var(--space-tight); border-left: 1px solid var(--surface-3); }
-.root-row { background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: var(--space-tight) var(--space-default); cursor: pointer; flex-shrink: 0; }
+.game-id, .root-id {
+	font-size: var(--text-tiny);
+	font-weight: normal;
+	color: var(--text-0);
+	font-family: var(--font-mono);
+	flex-shrink: 0;
+	/*
+	overflow:hidden;
+	text-overflow:hidden;
+	*/
+}
+.game-aggregate { display: flex; flex-wrap: wrap; gap: var(--space-tight); font-size: var(--text-tiny); color: var(--text-0); }
+.root-list {
+	display: flex;
+	flex-direction: column;
+	/* gap: 2px; */
+	margin: 2px 0 var(--space-tight) var(--space-tight);
+	padding-left: var(--space-tight);
+	border-left: 1px solid var(--surface-3);
+}
+.root-row {
+	background: var(--surface-0);
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-default);
+	/* padding: var(--space-tight) var(--space-tight); */
+	cursor: pointer;
+	flex-shrink: 0;
+	overflow:hidden;
+	text-overflow:ellipsis;/* doesn't work */
+}
 .root-row:hover { border-color: var(--border-3); }
-.root-row.selected { border-color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 5%, transparent); }
-.root-title { display: flex; align-items: baseline; gap: var(--space-tight); font-size: var(--text-emphasis); font-weight: bold; color: var(--text-0); margin-bottom: 2px; min-width: 0; }
+.root-row.selected {
+	border-color: var(--accent-primary);
+	background: color-mix(in srgb, var(--accent-primary) 5%, transparent);
+}
+.root-title {
+	display: flex;
+	align-items: baseline;
+	gap: var(--space-tight);
+	font-size: var(--text-tiny);
+	/* font-size: var(--text-emphasis); */
+	/* font-weight: bold; */
+	color: var(--text-0);
+	/* margin-bottom: 2px; */
+	min-width: 0;
+}
 .root-title-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.root-meta { font-size: var(--text-body); color: var(--text-0); margin-bottom: 3px; }
-.root-stats { display: flex; justify-content: space-between; font-size: var(--text-body); color: var(--text-0); background: var(--surface-0); padding: 1px 3px; border-radius: var(--radius-default); }
-.more-affordance { font-size: var(--text-body); color: var(--text-0); padding: var(--space-tight) var(--space-default); font-style: italic; }
+.root-meta { font-size: var(--text-tiny); color: var(--text-0); margin-bottom: 3px; }
+.root-stats { display: flex; justify-content: space-between; font-size: var(--text-tiny); color: var(--text-0); background: var(--surface-0); padding: 1px 3px; border-radius: var(--radius-default); }
+.more-affordance { font-size: var(--text-body); color: var(--text-0); padding: var(--space-tight) var(--space-tight); font-style: italic; }
 </style>

@@ -157,7 +157,7 @@ onUnmounted(() => {
    FOR the heading (the whole header row is still clickable via the
    `@click` on `.header` above), so it reads correctly only sitting
    next to the text it discloses. */
-.header { padding: 0 var(--space-medium); display: flex; align-items: center; gap: var(--space-tight); cursor: pointer; font-size: var(--text-body); font-weight: bold; color: var(--text-0); text-transform: uppercase; background: var(--surface-3); letter-spacing: var(--tracking-default); }
+.header { padding: 0 var(--space-tight); display: flex; align-items: center; gap: var(--space-tight); cursor: pointer; font-size: var(--text-body); font-weight: bold; color: var(--text-0); background: var(--surface-3); /* text-transform: uppercase; letter-spacing: var(--tracking-default); */}
 .header:hover { background: var(--surface-3); color: var(--text-0); }
 .content { border-top: 1px solid var(--surface-3); background: var(--surface-0); }
 /* The preview-box hides when this row is too narrow for both the chart and the
@@ -186,7 +186,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: var(--space-medium);
+  padding: var(--space-tight);
   color: var(--text-0);
   font-size: var(--text-body);
   font-style: italic;

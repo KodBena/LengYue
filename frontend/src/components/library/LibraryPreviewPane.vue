@@ -162,8 +162,8 @@ const scrubKey = computed(() => props.preview.selectedGame.value?.id ?? undefine
 .library-preview {
   display: flex;
   flex-direction: column;
-  gap: var(--space-medium);
-  padding: var(--space-medium);
+  gap: var(--space-tight);
+  padding: var(--space-tight);
   height: 100%;
   min-height: 0;
   background: var(--surface-2);
@@ -177,7 +177,7 @@ const scrubKey = computed(() => props.preview.selectedGame.value?.id ?? undefine
 .preview-meta { display: flex; flex-direction: column; gap: var(--space-tight); }
 .meta-players {
   display: flex;
-  gap: var(--space-default);
+  gap: var(--space-tight);
   align-items: baseline;
   font-size: var(--text-body);
   font-weight: 600;
@@ -211,7 +211,7 @@ const scrubKey = computed(() => props.preview.selectedGame.value?.id ?? undefine
 }
 .preview-scrub {
   display: flex;
-  gap: var(--space-default);
+  gap: var(--space-tight);
   align-items: center;
 }
 .scrub-slider { flex: 1 1 0; }
@@ -224,10 +224,10 @@ const scrubKey = computed(() => props.preview.selectedGame.value?.id ?? undefine
 }
 .preview-actions {
   display: flex;
-  gap: var(--space-default);
+  gap: var(--space-tight);
 }
 .preview-btn {
-  padding: var(--space-tight) var(--space-default);
+  padding: var(--space-tight) var(--space-tight);
   font-size: var(--text-body);
   background: var(--surface-0);
   border: 1px solid var(--border-1);

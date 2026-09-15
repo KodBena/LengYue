@@ -248,7 +248,7 @@ async function purgeLedger() {
         </span>
       </div>
 
-      <div style="display: flex; flex-wrap: wrap; gap: var(--space-default); min-width: 0;">
+      <div style="display: flex; flex-wrap: wrap; gap: var(--space-tight); min-width: 0;">
         <div class="palette-selector">
           <!-- M27 (audit finding, ledger row 1251): the DOM probe
                found this <select> with no id, no aria-label, and no
@@ -404,7 +404,7 @@ async function purgeLedger() {
    alone is ~314px wide, so it was overflowing the row by ~143px
    and pushing PURGE entirely off-screen. `row-gap` keeps a
    little vertical breathing room when wrap engages. */
-.header-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: var(--space-default); row-gap: var(--space-default); }
+.header-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: var(--space-tight); row-gap: var(--space-tight); }
 /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
 h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--text-0); }
 /* M11: bordered status chip — same shape as this file's own
@@ -435,43 +435,43 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--text-0); }
 .engine-status-chip.is-offline   { color: var(--state-error); }
 .engine-status-icon { font-size: var(--text-emphasis); line-height: 1; }
 
-.palette-selector { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-body); color: var(--text-0); text-transform: uppercase; min-width: 0; }
+.palette-selector { display: flex; align-items: center; gap: var(--space-tight); font-size: var(--text-body); color: var(--text-0); /* text-transform: uppercase; */ min-width: 0; }
 /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
-.dark-select { border: 1px solid var(--border-2); color: var(--text-0); padding: 2px 6px; border-radius: var(--radius-default); font-size: var(--text-body); outline: none; cursor: pointer; text-transform: uppercase; max-width: 100%; min-width: 0; }
+.dark-select { border: 1px solid var(--border-2); color: var(--text-0); padding: 2px 6px; border-radius: var(--radius-default); font-size: var(--text-body); outline: none; cursor: pointer; /* text-transform: uppercase; */ max-width: 100%; min-width: 0; }
 
 /* theme-exception: .warning-btn uses muted-state-error variants
    (#5a1a1a border, #3a1a1a hover bg) — same pattern as
    PaletteEditor's .del-btn. */
 .warning-btn { color: var(--state-error) !important; border-color: #5a1a1a !important; }
 
-.toolbar-btn-sm { border: 1px solid var(--border-3); color: var(--text-0); padding: 2px 6px; font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); text-transform: uppercase; }
+.toolbar-btn-sm { border: 1px solid var(--border-3); color: var(--text-0); padding: 2px 6px; font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); /* text-transform: uppercase; */ }
 
 /* ... remaining styles ... */
-.analysis-config-box { margin-top: 0; background: var(--surface-2); padding: 0 var(--space-medium); border-radius: var(--radius-default); border: 1px solid var(--surface-3); }
-.move-filter-box { border-bottom: 2px solid var(--border-2); margin-bottom: var(--space-medium); }
-.persist-box { padding: var(--space-default) var(--space-medium); margin-bottom: var(--space-medium); border-bottom: 2px solid var(--border-2); }
-.adaptive-box { padding: var(--space-default) var(--space-medium); margin-bottom: var(--space-medium); border-bottom: 2px solid var(--border-2); }
-.checkbox-row { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-body); color: var(--text-0); cursor: pointer; }
+.analysis-config-box { margin-top: 0; background: var(--surface-2); padding: 0 var(--space-tight); border-radius: var(--radius-default); border: 1px solid var(--surface-3); }
+.move-filter-box { border-bottom: 2px solid var(--border-2); margin-bottom: var(--space-tight); }
+.persist-box { padding: 1px 0px; margin-bottom: 1px; border-bottom: 1px solid var(--border-2); }
+.adaptive-box { padding: 1px 0px;  margin-bottom: 1px; border-bottom: 1px solid var(--border-2); }
+.checkbox-row { display: flex; align-items: center; gap: var(--space-tight); font-size: var(--text-body); color: var(--text-0); cursor: pointer; }
 .checkbox-row input[type="checkbox"] { accent-color: var(--accent-primary); cursor: pointer; }
-.adaptive-fields { margin-top: var(--space-default); display: flex; flex-direction: column; gap: var(--space-default); }
+.adaptive-fields { margin-top: var(--space-tight); display: flex; flex-direction: column; gap: var(--space-tight); }
 .adaptive-field-row { padding-left: var(--space-loose); }
 /* magic-literal: 100px adaptive-input width — narrow numeric input
    for compact value entry (worst_quantile is sub-1, extra_visits is
    in hundreds). Same width chosen for both so the two rows align
    visually. */
 /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
-.adaptive-input { width: 100px; padding: 1px 4px; font-family: monospace; font-size: var(--text-body); background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); border-radius: var(--radius-default); outline: none; }
+.adaptive-input { width: 100px; padding: 1px 4px; font-family: var(--font-mono); font-size: var(--text-body); background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); border-radius: var(--radius-default); outline: none; }
 .adaptive-input:focus { border-color: var(--accent-primary); }
-.persist-btn-row { display: flex; gap: var(--space-default); margin-top: var(--space-default); }
+.persist-btn-row { display: flex; gap: var(--space-tight); margin-top: var(--space-tight); }
 .error-hint { color: var(--state-error); }
-.persist-title-row { display: inline-flex; align-items: center; gap: var(--space-default); }
-.experimental-tag { font-size: var(--text-tiny); padding: 0 var(--space-default); border: 1px solid var(--state-warning); color: var(--state-warning); border-radius: var(--radius-default); text-transform: uppercase; line-height: 1.4; }
+.persist-title-row { display: inline-flex; align-items: center; gap: var(--space-tight); }
+.experimental-tag { font-size: var(--text-tiny); padding: 0 var(--space-tight); border: 1px solid var(--state-warning); color: var(--state-warning); border-radius: var(--radius-default); text-transform: uppercase; line-height: 1.4; }
 /* AUTO badge mirrors the experimental-tag shape but uses the
    accent-primary palette to signal "active policy" rather than
    "danger / caution". Sits inline with the experimental-tag in
    the title row when analysisAutoSave is on. */
 /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. Border stays accent (ornament). */
-.auto-badge { font-size: var(--text-tiny); padding: 0 var(--space-default); border: 1px solid var(--accent-primary); color: var(--text-0); border-radius: var(--radius-default); text-transform: uppercase; line-height: 1.4; }
+.auto-badge { font-size: var(--text-tiny); padding: 0 var(--space-tight); border: 1px solid var(--accent-primary); color: var(--text-0); border-radius: var(--radius-default); text-transform: uppercase; line-height: 1.4; }
 /* rows 1478/1479/1481/1497: --text-1 retired with no direct
    successor (only --text-2's value was carried forward, as
    --text-disabled). This "?" glyph is an icon, not readable prose,
@@ -479,10 +479,10 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--text-0); }
    --text-0 rather than down to the disabled tone — safe (more
    contrast, not less) and consistent with the ruling's spirit. */
 .info-icon { display: inline-block; width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--text-0); text-align: center; font-size: 9px; line-height: 11px; color: var(--text-0); cursor: help; }
-.settings-row { display: flex; flex-direction: column; gap: 3px; }
+.settings-row { display: flex; flex-direction: column; /* gap: 3px; */ }
 .label-with-value { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-body); color: var(--text-0); }
 /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
-.value-badge { padding: 0 var(--space-default); border-radius: var(--radius-default); color: var(--text-0); font-family: monospace; }
+.value-badge { padding: 0 var(--space-tight); border-radius: var(--radius-default); color: var(--text-0); font-family: var(--font-mono); }
 .range-slider { width: 100%; accent-color: var(--accent-primary); cursor: pointer; }
 .hint { font-size: var(--text-body); color: var(--text-0); margin: 0; }
 /* Iter-2 audit Finding C: the 200px floor that lived here

@@ -249,7 +249,7 @@ const TOOLS: ReadonlyArray<{ id: SetupTool; labelKey: string; swatch: 'black' | 
   font-size: var(--text-emphasis);
   cursor: pointer;
   border-radius: var(--radius-default);
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: var(--tracking-tight);
 }

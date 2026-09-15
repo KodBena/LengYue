@@ -74,7 +74,7 @@ function onEscape(): void {
 
 <style scoped>
 .engine-uri { display: flex; align-items: center; gap: var(--space-tight); min-width: 0; }
-.uri-lbl { color: var(--border-3); font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-default); flex-shrink: 0; }
+.uri-lbl { color: var(--border-3); font-size: var(--text-tiny); /* text-transform: uppercase; letter-spacing: var(--tracking-default); */ flex-shrink: 0; }
 /* magic-literal: 220px max-width — compact address-bar sizing that
    comfortably fits `ws://127.0.0.1:1242`-shaped values while leaving
    room for the rest of the toolbar cluster; overflow ellipses rather
@@ -91,7 +91,7 @@ function onEscape(): void {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-0);
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-emphasis);
   cursor: pointer;
   border: 1px solid transparent;
@@ -119,7 +119,7 @@ function onEscape(): void {
   background: var(--surface-0);
   border: 1px solid var(--accent-primary);
   color: var(--text-0);
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-emphasis);
   padding: 0 var(--space-tight);
   height: 20px;

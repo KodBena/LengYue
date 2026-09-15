@@ -681,7 +681,13 @@ onUnmounted(() => {
    viewport. */
 .forest-cq-wrapper { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; }
 .forest-container { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; overflow: hidden; background: var(--surface-0); }
-.left-panel { width: 280px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--surface-3); flex-shrink: 0; }
+.left-panel { 
+	width: 220px;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	border-right: 1px solid var(--surface-3);
+	flex-shrink: 0; }
 
 /* FOREST_NARROW_THRESHOLD_PX (useDeferredContainerBreakpoint call
    site in the script, state/layout-model.ts) — derived, not
@@ -707,16 +713,27 @@ onUnmounted(() => {
 .forest-container.forest-narrow-stack .left-panel {
   width: 100%; max-height: 40%; border-right: none; border-bottom: 1px solid var(--surface-3); flex-shrink: 1;
 }
-.panel-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-tight) var(--space-default); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); font-size: var(--text-emphasis); text-transform: uppercase; color: var(--text-0); letter-spacing: var(--tracking-default); flex-shrink: 0; }
+.panel-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-tight) var(--space-default); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); font-size: var(--text-emphasis); /* text-transform: uppercase; letter-spacing: var(--tracking-default); */ color: var(--text-0); flex-shrink: 0; }
 .decks-view, .browse-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .deck-selector-box { padding: var(--space-default); border-bottom: 1px solid var(--surface-3); }
-.deck-selector-box label { font-size: var(--text-emphasis); color: var(--text-0); display: block; margin-bottom: 3px; text-transform: uppercase; }
+.deck-selector-box label { font-size: var(--text-emphasis); color: var(--text-0); display: block; margin-bottom: 3px; /* text-transform: uppercase; */ }
 .deck-dropdown { width: 100%; padding: 2px 4px; font-size: var(--text-emphasis); margin-bottom: var(--space-tight); background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); outline: none; }
 .deck-dropdown:focus { border-color: var(--accent-primary); }
 .hint { font-size: var(--text-body); color: var(--text-0); margin: 0 0 var(--space-tight) 0; }
 .macro-hint { font-size: var(--text-body); color: var(--text-0); margin: 2px 0 var(--space-tight) 0; font-style: italic; word-break: break-all; }
 /* wC-contrast (F9): readable text is --text-0, not accent-primary — 2.08:1 in the default cluster theme. */
-.action-btn-large { width: 100%; background: var(--surface-2); color: var(--text-0); border: 1px solid var(--border-2); padding: 2px 4px; border-radius: var(--radius-default); font-size: var(--text-emphasis); cursor: pointer; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
+.action-btn-large {
+	width: 100%;
+	background: var(--surface-2);
+	color: var(--text-0);
+	border: 1px solid var(--border-2);
+	padding: 0px 0px;
+	border-radius: var(--radius-default);
+	font-size: var(--text-emphasis);
+	cursor: pointer;
+	/* text-transform: uppercase; *
+	/* letter-spacing: var(--tracking-tight); */
+}
 .action-btn-large:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 /* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-1 text on an
    --accent-secondary fill measures ~2.03:1 in the default cluster

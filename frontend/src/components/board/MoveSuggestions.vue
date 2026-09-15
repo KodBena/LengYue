@@ -352,6 +352,6 @@ function toSvg(x: number, y: number): { x: number; y: number } {
 <style scoped>
 .suggestions-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .suggestion-group { pointer-events: all; cursor: pointer; }
-.suggestion-label, .pv-label { pointer-events: none; text-anchor: middle; font-family: monospace; font-weight: bold; user-select: none; }
+.suggestion-label, .pv-label { pointer-events: none; text-anchor: middle; font-family: var(--font-mono); font-weight: bold; user-select: none; }
 .pv-stone-group { pointer-events: none; }
 </style>

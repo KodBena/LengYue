@@ -218,37 +218,37 @@ useModalKeyboard(modalContentRef, isOpen, close);
 .modal-content {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   width: 420px; max-width: 90vw;
-  display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  display: flex; flex-direction: column; font-family: var(--font-sans);
 }
 
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); background: var(--surface-2);
+  padding: var(--space-tight) var(--space-tight); border-bottom: 1px solid var(--surface-3); background: var(--surface-2);
 }
 .modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 .close-btn { background: none; border: none; color: var(--text-disabled); font-size: var(--text-heading); cursor: pointer; }
 
-.modal-body { padding: var(--space-medium); }
-.hint { font-size: var(--text-body); color: var(--text-0); margin: 0 0 var(--space-medium) 0; }
+.modal-body { padding: var(--space-tight); }
+.hint { font-size: var(--text-body); color: var(--text-0); margin: 0 0 var(--space-tight) 0; }
 
-.form-grid { display: grid; grid-template-columns: 110px 1fr; gap: var(--space-medium); align-items: center; }
+.form-grid { display: grid; grid-template-columns: 110px 1fr; gap: var(--space-tight); align-items: center; }
 .form-grid label { font-size: var(--text-emphasis); color: var(--text-0); text-transform: uppercase; }
 .dark-input {
-  background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default);
-  border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
+  background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-tight);
+  border-radius: var(--radius-default); font-family: var(--font-mono); font-size: var(--text-emphasis); width: 100%; outline: none;
 }
 .dark-input:focus { border-color: var(--accent-primary); }
 .dark-input:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 
 .error-box {
-  margin-top: var(--space-medium); padding: var(--space-default);
+  margin-top: var(--space-tight); padding: var(--space-tight);
   background: color-mix(in srgb, var(--state-attention) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--state-attention) 30%, transparent);
   border-radius: var(--radius-default); color: var(--text-0); font-size: var(--text-body);
 }
 
 .result-box {
-  margin-top: var(--space-medium); padding: var(--space-default);
+  margin-top: var(--space-tight); padding: var(--space-tight);
   background: color-mix(in srgb, var(--state-success) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--state-success) 30%, transparent);
   border-radius: var(--radius-default);
@@ -258,14 +258,14 @@ useModalKeyboard(modalContentRef, isOpen, close);
 .result-line-attention { color: var(--state-attention); }
 
 .modal-footer {
-  display: flex; justify-content: flex-end; gap: var(--space-medium); padding: var(--space-medium) var(--space-medium);
+  display: flex; justify-content: flex-end; gap: var(--space-tight); padding: var(--space-tight) var(--space-tight);
   border-top: 1px solid var(--surface-3); background: var(--surface-2);
 }
-.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-0); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-0); padding: var(--space-tight) var(--space-tight); border-radius: var(--radius-default); cursor: pointer; }
 /* wC-contrast (F9 class, MOVE-95-chip pattern): --surface-1 text on
    an --accent-primary fill measures ~1.84:1 in the default cluster
    theme. --text-on-accent is the token minted for text directly on
    an accent fill (theme.css, ledger rows 1018/1144). */
-.btn-submit { background: var(--accent-primary); border: none; color: var(--text-on-accent); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+.btn-submit { background: var(--accent-primary); border: none; color: var(--text-on-accent); font-weight: bold; padding: var(--space-tight) var(--space-tight); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 </style>

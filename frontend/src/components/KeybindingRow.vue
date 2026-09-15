@@ -247,7 +247,7 @@ onUnmounted(() => {
 
 <style scoped>
 .keybinding-row td {
-  padding: var(--space-tight) var(--space-default);
+  padding: var(--space-tight) var(--space-tight);
   /* M5 (audit row 1251): the prior rule referenced --surface-1,
      which is near-invisible against the panel background in more
      than one theme. --border-1 is the Library table's own row-rule
@@ -311,7 +311,7 @@ onUnmounted(() => {
      column, not a per-row centering artifact. */
   text-align: left;
   color: var(--text-0);
-  font-family: monospace;
+  font-family: var(--font-mono);
   white-space: nowrap;
   /* Fixed, identical-across-sections column width — see
      .keybindings-table's table-layout: fixed comment. 100px fits
@@ -335,14 +335,14 @@ onUnmounted(() => {
      are not defined in theme.css; --text-body/--space-tight are the
      nearest real tokens. */
   font-size: var(--text-body);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: var(--font-sans);
   font-style: normal;
   margin-top: var(--space-tight);
 }
 
 .conflict-text {
   color: var(--state-attention);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .action-buttons {
@@ -358,10 +358,10 @@ onUnmounted(() => {
 /* M5: --space-small was never a defined token (see theme.css) — the
    custom property failed to resolve, so this margin computed to 0
    and Edit/Reset abutted with zero gap next to a destructive
-   action. --space-default is a real token and gives the genuine gap
+   action. --space-tight is a real token and gives the genuine gap
    the finding asked for. */
 .action-buttons .row-btn + .row-btn {
-  margin-left: var(--space-default);
+  margin-left: var(--space-tight);
 }
 
 .row-btn {
@@ -370,12 +370,12 @@ onUnmounted(() => {
   color: var(--text-0);
   /* M16 (>=24x24 pointer targets) + M5 (ghost-token fix): the prior
      padding referenced --space-tiny/--space-small, neither a
-     defined token (theme.css has --space-tight/--space-default/
-     --space-medium/--space-loose only), so the shorthand was invalid
+     defined token (theme.css has --space-tight/--space-tight/
+     --space-tight/--space-loose only), so the shorthand was invalid
      at computed-value time and padding collapsed to 0 — the audited
      ~22x11px buttons. Real tokens plus an explicit min-height floor
      bring both dimensions to >=24px regardless of font metrics. */
-  padding: var(--space-default) var(--space-medium);
+  padding: var(--space-tight) var(--space-tight);
   min-height: 24px;
   min-width: 24px;
   border-radius: var(--radius-default);

@@ -102,7 +102,7 @@ const pvMode = computed(() => store.session.ui.pvAnimation.mode);
 .summary-list { display: grid; grid-template-columns: auto 1fr; gap: var(--space-tight) var(--space-medium); margin: 0; }
 .summary-list dt { color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase; }
 .summary-list dd { color: var(--text-0); font-size: var(--text-emphasis); margin: 0; }
-.summary-list dd.mono { font-family: monospace; }
+.summary-list dd.mono { font-family: var(--font-mono); }
 .summary-list dt.is-default,
 .summary-list dd.is-default { color: var(--text-0); font-style: italic; }
 .default-badge {

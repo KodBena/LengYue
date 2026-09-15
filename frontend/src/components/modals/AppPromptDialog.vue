@@ -108,7 +108,7 @@ useModalKeyboard(modalContentRef, isOpen, cancel);
 .modal-content {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   width: 420px; max-width: 92vw;
-  display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  display: flex; flex-direction: column; font-family: var(--font-sans);
 }
 .modal-header { padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); }
 .modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); }

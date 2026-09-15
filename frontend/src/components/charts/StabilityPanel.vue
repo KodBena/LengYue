@@ -280,8 +280,10 @@ function tooltipFormatter(params: any[]): string {
   font-size: var(--text-body);
   font-weight: bold;
   color: var(--text-0);
+  /*
   text-transform: uppercase;
   letter-spacing: var(--tracking-default);
+  */
 }
 .select {
   flex: 1;

@@ -247,7 +247,7 @@ function optionsStr(decl: HyperparamDecl): string {
 <style scoped>
 .harness-panel {
   border-top: 1px solid var(--surface-3);
-  padding: var(--space-default) var(--space-medium);
+  padding: var(--space-tight) var(--space-tight);
   background: var(--surface-0);
   display: flex;
   flex-direction: column;
@@ -281,17 +281,17 @@ function optionsStr(decl: HyperparamDecl): string {
   color: var(--text-0);
   font-weight: normal;
   font-size: var(--text-tiny);
-  padding: var(--space-tight) var(--space-default);
+  padding: var(--space-tight) var(--space-tight);
 }
 .harness-table td {
-  padding: 2px var(--space-default) 2px 0;
+  padding: 2px var(--space-tight) 2px 0;
   vertical-align: top;
 }
 .harness-table td:first-child { padding-left: 0; }
 .dark-input {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
-  padding: var(--space-tight) var(--space-default); border-radius: var(--radius-default);
-  font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
+  padding: var(--space-tight) var(--space-tight); border-radius: var(--radius-default);
+  font-family: var(--font-mono); font-size: var(--text-emphasis); width: 100%; outline: none;
 }
 .dark-input:focus { border-color: var(--accent-primary); }
 .dark-input.dup { border-color: var(--state-error); }

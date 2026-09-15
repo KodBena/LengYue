@@ -30,9 +30,9 @@
  * License: Public Domain (The Unlicense)
  */
 
-.tab-padding { padding: var(--space-default); }
+.tab-padding { padding: var(--space-tight); }
 .section-divider { border-top: 1px solid var(--surface-3); margin-top: 0; padding-top: 0; }
-.sub-header { color: var(--text-0); font-size: var(--text-heading); margin-bottom: var(--space-medium); }
+.sub-header { color: var(--text-0); font-size: var(--text-heading); margin-bottom: var(--space-tight); }
 
 /* Native <details> subsections in the Settings tab. Override default
    marker, render a custom chevron that rotates on open. The h3
@@ -50,22 +50,31 @@
 .settings-section > summary::-webkit-details-marker { display: none; }
 .settings-section > summary::before {
   content: '▶';
-  margin-right: var(--space-default);
+  margin-right: var(--space-tight);
   font-size: var(--text-tiny);
   color: var(--text-disabled);
   flex-shrink: 0;
 }
 .settings-section[open] > summary::before { transform: rotate(90deg); }
 .settings-section > summary > h3 { margin: 0; flex: 1; }
-.settings-section > summary > .toolbar-btn-sm { margin-left: var(--space-default); }
+.settings-section > summary > .toolbar-btn-sm { margin-left: var(--space-tight); }
 .settings-section > summary:hover > h3 { color: var(--text-0); }
 
-.deck-selector-box { background: var(--surface-2); padding: var(--space-medium); border-radius: var(--radius-default); border: 1px solid var(--surface-3); margin-bottom: var(--space-loose); text-align: left; }
-.deck-selector-box label { font-size: var(--text-emphasis); color: var(--text-0); display: block; margin-bottom: var(--space-default); text-transform: uppercase; }
-.deck-dropdown { width: 100%; padding: var(--space-default); font-size: var(--text-emphasis); margin-bottom: var(--space-default); background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); outline: none; }
+.deck-selector-box { background: var(--surface-2); padding: var(--space-tight); border-radius: var(--radius-default); border: 1px solid var(--surface-3); margin-bottom: var(--space-loose); text-align: left; }
+.deck-selector-box label { font-size: var(--text-emphasis); color: var(--text-0); display: block; margin-bottom: var(--space-tight); text-transform: uppercase; }
+.deck-dropdown { width: 100%; padding: var(--space-tight); font-size: var(--text-emphasis); margin-bottom: var(--space-tight); background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); outline: none; }
 .deck-dropdown:focus { border-color: var(--accent-primary); }
 
-.action-btn-large { background: var(--accent-primary); color: var(--text-0); border: none; padding: var(--space-tight) var(--space-medium); cursor: pointer; border-radius: var(--radius-default); font-weight: bold; width: 100%; }
+.action-btn-large {
+	background: var(--accent-primary);
+	color: var(--text-0);
+	border: none;
+	padding: var(--space-tight) var(--space-tight);
+	cursor: pointer;
+	border-radius: var(--radius-default);
+	/*font-weight: bold;*/
+	width: 100%;
+}
 .toolbar-btn-sm { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-0); padding: 1px 4px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); }
 /* M3 (audit finding, ledger row 1290): the prior rule capped
    `.registry-container` at `clamp(400px, 60vh, 800px)` regardless of
@@ -97,12 +106,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-medium);
-  padding: var(--space-default) var(--space-medium);
+  gap: var(--space-tight);
+  padding: var(--space-tight) var(--space-tight);
   background: var(--surface-2);
   border: 1px solid var(--surface-3);
   border-radius: var(--radius-default);
-  margin-bottom: var(--space-medium);
+  margin-bottom: var(--space-tight);
   text-align: left;
 }
 .visits-override-row label {
@@ -118,8 +127,8 @@
 }
 .visits-input {
   width: 100px;
-  padding: var(--space-tight) var(--space-default);
-  font-family: monospace;
+  padding: var(--space-tight) var(--space-tight);
+  font-family: var(--font-mono);
   outline: none;
   border-radius: var(--radius-default);
 }

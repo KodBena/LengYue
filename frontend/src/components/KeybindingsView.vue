@@ -135,9 +135,9 @@ async function handleResetAll(): Promise<void> {
 .keybindings-footer {
   display: flex;
   flex-direction: column;
-  gap: var(--space-medium);
+  gap: var(--space-tight);
   margin-top: var(--space-loose);
-  padding-top: var(--space-medium);
+  padding-top: var(--space-tight);
   border-top: 1px solid var(--surface-1);
 }
 
@@ -146,7 +146,7 @@ async function handleResetAll(): Promise<void> {
   background: transparent;
   border: 1px solid var(--state-attention);
   color: var(--state-attention);
-  padding: var(--space-default) var(--space-medium);
+  padding: var(--space-tight) var(--space-tight);
   border-radius: var(--radius-default);
   cursor: pointer;
   font-size: var(--text-emphasis);

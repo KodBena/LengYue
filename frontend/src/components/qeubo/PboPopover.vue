@@ -295,7 +295,7 @@ async function onPin(): Promise<void> {
   color: var(--text-0);
 }
 .pbo-phase {
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 .pbo-phase-idle { color: var(--text-0); }
 /* Reuses the QeuboToolbar busy-dot pulse exactly — same
@@ -334,7 +334,7 @@ async function onPin(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: var(--space-default);
-  font-family: 'Courier New', monospace;
+  font-family:var(--font-mono);
   font-size: var(--text-emphasis);
   text-transform: uppercase;
   letter-spacing: var(--tracking-tight);

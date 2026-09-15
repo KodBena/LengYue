@@ -60,7 +60,7 @@ html, body {
   height: 100%;
   background:var(--default-bg);
   color: var(--text-0);
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-body);
   overflow: hidden;
 }
@@ -164,17 +164,19 @@ body {
 
 /* Tree-panel header (used by App.vue:519's #tree-panel-header) */
 #tree-panel-header {
-  height: 28px;
+  /* height: 28px; */
   background: var(--default-bg);
   border-bottom: 1px solid var(--border-1);
   display: flex;
   align-items: center;
   padding: 0 var(--space-medium);
   font-size: var(--text-tiny);
-  letter-spacing: var(--tracking-wide);
   color: var(--text-0);
-  text-transform: uppercase;
   flex-shrink: 0;
+  /*
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  */
 }
 
 /* ── Native range-input styling (theme-exception) ─────────────────────

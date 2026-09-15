@@ -145,8 +145,8 @@ function reassignPanel(panelId: AnalysisPanelId, toTabId: string): void {
 </template>
 
 <style scoped>
-.tabs-editor { display: flex; flex-direction: column; gap: var(--space-default); }
-.intro { font-size: var(--text-small); color: var(--text-0); margin: 0 0 var(--space-default); line-height: 1.4; }
+.tabs-editor { display: flex; flex-direction: column; gap: var(--space-tight); }
+.intro { font-size: var(--text-small); color: var(--text-0); margin: 0 0 var(--space-tight); line-height: 1.4; }
 .tab-block {
   border: 1px solid var(--surface-3);
   border-radius: var(--radius-default);
@@ -154,9 +154,9 @@ function reassignPanel(panelId: AnalysisPanelId, toTabId: string): void {
      --surface-1 is dark-grey and low-contrast under the black default
      text (see memory: --surface-1 is exception-only in this SPA). */
   background: var(--surface-0);
-  padding: var(--space-default);
+  padding: var(--space-tight);
 }
-.tab-head { display: flex; align-items: center; gap: 4px; margin-bottom: var(--space-default); }
+.tab-head { display: flex; align-items: center; gap: 4px; margin-bottom: var(--space-tight); }
 .tab-name {
   flex: 1;
   background: var(--surface-0);
@@ -171,7 +171,7 @@ function reassignPanel(panelId: AnalysisPanelId, toTabId: string): void {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 0 2px var(--space-medium);
+  padding: 2px 0 2px var(--space-tight);
 }
 .panel-name { flex: 1; font-size: var(--text-small); color: var(--text-0); }
 .panel-name.muted { color: var(--text-0); font-style: italic; }
@@ -222,8 +222,8 @@ function reassignPanel(panelId: AnalysisPanelId, toTabId: string): void {
   width: 80px;
   flex-shrink: 0;
 }
-.empty-hint { font-size: var(--text-tiny); color: var(--text-0); font-style: italic; padding-left: var(--space-medium); }
-.unassigned { border-top: 1px solid var(--surface-3); padding-top: var(--space-default); }
+.empty-hint { font-size: var(--text-tiny); color: var(--text-0); font-style: italic; padding-left: var(--space-tight); }
+.unassigned { border-top: 1px solid var(--surface-3); padding-top: var(--space-tight); }
 .unassigned-head {
   font-size: var(--text-tiny);
   color: var(--text-0);
