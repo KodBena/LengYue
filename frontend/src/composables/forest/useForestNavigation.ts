@@ -21,7 +21,7 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { computed, type ComputedRef, type Ref } from 'vue';
+import { computed, ref, type ComputedRef, type Ref } from 'vue';
 import type {
   BoardId,
   CardPublicId,
@@ -41,6 +41,13 @@ import { store, touchSession } from '../../store';
 // per-root stats display). The render-shape is recomputed from
 // `forestStats` on each ref change; the persistence-shape is mutated
 // only through the named mutators below.
+
+export type ForestNavSortKey =
+  | 'gameId'
+  | 'averageRecall'
+  | 'totalReviews'
+  | 'rootCount'
+  | 'totalCards';
 
 export interface ForestNavGameAggregate {
   readonly rootCount: number;
@@ -95,6 +102,10 @@ export interface ForestNavigation {
   // the right-pane Lineage Explorer when the SFC consumes it. `null` when
   // the board has no selection or no board is active.
   readonly selection: ComputedRef<NavSelection | null>;
+  // Current sort applied to the top-level games; `null` = the
+  // backend's insertion order (pre-sort behavior). A game's `roots`
+  // keep their own order regardless of this setting.
+  readonly sortKey: ComputedRef<ForestNavSortKey | null>;
 
   // Mutators — write through `store.session.ui.forestNav`. Each
   // mutation reassigns the field with a fresh array / object and calls
@@ -105,6 +116,7 @@ export interface ForestNavigation {
   expandAll: () => void;
   collapseAll: () => void;
   select: (selection: NavSelection | null) => void;
+  setSortKey: (key: ForestNavSortKey | null) => void;
 }
 
 // ── NodeId helpers ───────────────────────────────────────────────────────────
@@ -135,9 +147,14 @@ export function useForestNavigation(
   // selection reads as null and `select` is a no-op.
   boardIdRef: Ref<BoardId | null>,
 ): ForestNavigation {
+  const sortKeyState = ref<ForestNavSortKey | null>(null);
   const nodes = computed<readonly ForestNavGameNode[]>(() =>
-    groupByGameSource(forestStats.value),
+    sortGames(groupByGameSource(forestStats.value),sortKeyState.value),
   );
+  const sortKey = computed<ForestNavSortKey | null>(() => sortKeyState.value);
+  function setSortKey(key: ForestNavSortKey | null): void {
+    sortKeyState.value = key;
+  }
 
   const expanded = computed<ReadonlySet<NavNodeId>>(
     () => new Set(store.session.ui.forestNav.expanded),
@@ -182,11 +199,41 @@ export function useForestNavigation(
     touchSession();
   }
 
-  return { nodes, expanded, selection, toggle, expandAll, collapseAll, select };
+  return { nodes, expanded, selection, toggle, expandAll, collapseAll, select,setSortKey,sortKey };
 }
 
 // ── Pure tree-shaping ────────────────────────────────────────────────────────
 
+// ── Sorting ──────────────────────────────────────────────────────────────────
+//
+// Sorts only the top-level games; `gameId` ascending (natural id
+// order), every stat-based key descending (surfaces the busiest/
+// best/biggest games first — the more useful default for a "sort by
+// activity" control).
+
+function sortGames(
+  games: readonly ForestNavGameNode[],
+  key: ForestNavSortKey | null,
+): readonly ForestNavGameNode[] {
+  if (key === null) return games;
+  const sorted = [...games];
+  sorted.sort((a, b) =>
+    key === 'gameId'
+      ? sortValue(a, key) - sortValue(b, key)
+      : sortValue(b, key) - sortValue(a, key),
+  );
+  return sorted;
+}
+
+function sortValue(game: ForestNavGameNode, key: ForestNavSortKey): number {
+  switch (key) {
+    case 'gameId': return game.gameSourceId;
+    case 'averageRecall': return game.aggregate.averageRecall;
+    case 'totalReviews': return game.aggregate.totalReviews;
+    case 'rootCount': return game.aggregate.rootCount;
+    case 'totalCards': return game.aggregate.totalCards;
+  }
+}
 function groupByGameSource(
   stats: readonly ForestStat[],
 ): readonly ForestNavGameNode[] {

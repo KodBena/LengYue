@@ -20,7 +20,7 @@ import { useContainerAspectOrientation } from '../../composables/chrome/useConta
 import type { BoardId, CardId, CardMetadataPatch, ForestStat, ReviewCard } from '../../types';
 import { useCardTreeData } from '../../composables/cards/useCardTreeData';
 import { useCardMetadata } from '../../composables/cards/useCardMetadata';
-import { useForestNavigation } from '../../composables/forest/useForestNavigation';
+import { useForestNavigation, type ForestNavSortKey } from '../../composables/forest/useForestNavigation';
 import { useForestBrowsePolicy } from '../../composables/forest/useForestBrowsePolicy';
 import { useForestStats } from '../../composables/forest/useForestStats';
 import { useReviewSession } from '../../composables/review/useReviewSession';
@@ -35,6 +35,11 @@ import TabWidget from '../chrome/TabWidget.vue';
 import HyperparamPromptModal, { type HyperparamValues } from '../modals/HyperparamPromptModal.vue';
 
 const { t } = useI18n();
+
+function onBrowseSortChange(e: Event): void {
+  const value = (e.target as HTMLSelectElement).value;
+  nav.setSortKey(value === '' ? null : (value as ForestNavSortKey));
+}
 
 const emit = defineEmits<{
   (e: 'load-card', card: ReviewCard): void;
@@ -567,10 +572,25 @@ onUnmounted(() => {
         <!-- TAB 2: BROWSE — file-manager hierarchy (games → roots) -->
         <template #browse>
           <div class="browse-view">
-            <div class="tools-row">
-              <span style="font-size: var(--text-body); color: var(--text-0);">{{ $t('cards.browse.allGameSources') }}</span>
-              <button class="reload-btn" @click="reloadRoots">↻</button>
-            </div>
+	    <div class="tools-row">
+  <span style="font-size: var(--text-body); color: var(--text-0);">{{ $t('cards.browse.allGameSources') }}</span>
+  <div class="tools-row-actions">
+    <select
+      class="dark-select sort-select"
+      :value="nav.sortKey.value ?? ''"
+      @change="onBrowseSortChange"
+      :title="$t('cards.browse.sortTooltip')"
+    >
+      <option value="">{{ $t('cards.browse.sortDefault') }}</option>
+      <option value="averageRecall">{{ $t('cards.browse.sortAverageRecall') }}</option>
+      <option value="gameId">{{ $t('cards.browse.sortGameId') }}</option>
+      <option value="totalReviews">{{ $t('cards.browse.sortTotalReviews') }}</option>
+      <option value="rootCount">{{ $t('cards.browse.sortRootCount') }}</option>
+      <option value="totalCards">{{ $t('cards.browse.sortTotalCards') }}</option>
+    </select>
+    <button class="reload-btn" @click="reloadRoots">↻</button>
+  </div>
+</div>
 
             <div v-if="isLoadingRoots" class="empty-state">{{ $t('cards.browse.loading') }}</div>
             <div v-else-if="roots.length === 0" class="empty-state">{{ $t('cards.browse.empty') }}</div>
@@ -832,4 +852,7 @@ onUnmounted(() => {
   margin-top: 0;
   align-self: start;
 }
+.tools-row-actions { display: flex; align-items: center; gap: var(--space-tight); }
+.sort-select { font-size: var(--text-tiny); padding: 1px 4px; background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); outline: none; }
+.sort-select:focus { border-color: var(--accent-primary); }
 </style>
