@@ -377,6 +377,11 @@ const warnedUnknownMacroTokens = new Set<number>();
 function updateContextIds(val: string): void {
   // Preserve the user's literal typing in the local ref.
   contextIdInput.value = val;
+  const expanded = expandContextIdMacros(
+    val,
+    roots.value.map(s => s.gameSourceDisplayOrdinal as unknown as number),
+  );
+  /*
   const expanded = expandContextIdMacros(val, (gameSourceDisplayOrdinal) =>
     roots.value.some(
       // Brand-strip GameDisplayOrdinal -> raw number to compare against the
@@ -385,6 +390,7 @@ function updateContextIds(val: string): void {
       s => (s.gameSourceDisplayOrdinal as unknown as number) === gameSourceDisplayOrdinal,
     ),
   );
+  */
   // A token inside `${...}` that doesn't match any of the user's own
   // known game sources is still the ADR-0002 UI-input-validation
   // exception (silently drop from the request), but warned once per

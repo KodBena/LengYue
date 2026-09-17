@@ -1,12 +1,23 @@
 /**
  * src/utils/context-id-macros.ts
  *
- * Parse `${a, b, ...}` macros in the Cards-tab context-id text
- * input. Each token inside a macro is interpreted as a
- * `game_source.display_ordinal` — the per-user id the SPA can see
- * for a game source (post-browse-leak-fix, `ForestStat` no longer
- * carries a raw `game_source_id`/`root_card_id` PK). Tokens outside
- * macros pass through unchanged as literal card ids.
+ * Parse `${...}` macros in the Cards-tab context-id text input. Each
+ * macro body is a comma-separated list of tokens, where a token is
+ * one of:
+ *
+ *   - a plain integer      `5`      → that one `game_source.display_ordinal`
+ *   - an inclusive range    `1-5`   → every ordinal from 1 to 5 (order of
+ *                                     the bounds doesn't matter: `5-1`
+ *                                     behaves the same as `1-5`)
+ *   - the wildcard          `*`     → every ordinal the caller currently
+ *                                     knows about (`knownGameSourceOrdinals`)
+ *
+ * Any number of these can appear in one macro, or across several
+ * macros in the same input (`${1-3}, ${7}, ${*}`) — they all union
+ * into one `gameSourceOrdinals` set. Tokens outside `${...}` still
+ * pass through unchanged as literal card ids; ranges/wildcard are
+ * macro-only syntax since they're only meaningful for game_source
+ * ordinals, not arbitrary card ids.
  *
  * macro-public-id-tokens (restoring the macro after browse-leak-fix
  * broke it, ledger row 456): this module no longer *resolves* a
@@ -22,34 +33,43 @@
  * parsing, just no longer a lookup-and-substitute.
  *
  * Example:
- *   "1, ${5}, 99"   →   { cardIds: [1, 99], gameSourceOrdinals: [5] }
- *   (assuming game_source ordinal 5 is known to the caller; see
- *   `isKnownGameSourceOrdinal` below)
+ *   "1, ${5}, 99"        →  { cardIds: [1, 99], gameSourceOrdinals: [5] }
+ *   "${1-3, 7}"          →  { cardIds: [], gameSourceOrdinals: [1, 2, 3, 7] }
+ *   "${*}"               →  gameSourceOrdinals === knownGameSourceOrdinals
+ *   (assuming the relevant ordinals are present in the caller's
+ *   `knownGameSourceOrdinals` — see below)
  *
- * Unknown game_source ordinal tokens (typo'd, or a number that
- * doesn't correspond to any of the caller's own game sources) are
- * reported back in `unknownGameSourceOrdinalTokens` rather than
- * silently folded into `gameSourceOrdinals` — this is still the
- * ADR-0002 UI-input-validation exception (case 1): the caller
- * decides how loud to be about them (`ForestDirectory.vue` warns
- * once per distinct token), rather than this pure function reaching
- * into `console` itself. A bare typo'd id outside a macro behaves
- * the same way the existing parser already treats malformed input:
- * filtered out via `isNaN`.
+ * Unknown game_source ordinal tokens (typo'd, an out-of-range member
+ * of a range, or a number that doesn't correspond to any of the
+ * caller's own game sources) are reported back in
+ * `unknownGameSourceOrdinalTokens` rather than silently folded into
+ * `gameSourceOrdinals` — this is still the ADR-0002 UI-input-
+ * validation exception (case 1): the caller decides how loud to be
+ * about them (`ForestDirectory.vue` warns once per distinct token),
+ * rather than this pure function reaching into `console` itself. The
+ * wildcard can never produce an unknown token, by construction — it
+ * only ever expands to members of `knownGameSourceOrdinals`. A bare
+ * typo'd id outside a macro behaves the same way the existing parser
+ * already treats malformed input: filtered out via `isNaN`.
  *
  * Unclosed macros (`${` without a matching `}`) leave the unclosed
  * substring as-is — the regex requires a closing brace to match.
  * Mid-typing this looks like a no-op for the macro portion; the
  * surrounding text continues to parse normally.
  *
- * Pure function; no Vue / store coupling. The membership-check
- * callback is the seam where the caller injects the
- * `ForestStat`-keyed lookup.
+ * Pure function; no Vue / store coupling. `knownGameSourceOrdinals`
+ * is the seam where the caller injects the `ForestStat`-derived
+ * enumeration — note this is now a plain array rather than a
+ * membership-check callback: `*` needs to *enumerate* the known
+ * ordinals, not just test one, so a predicate can't express it.
  *
  * License: Public Domain (The Unlicense)
  */
 
 const MACRO_RE = /\$\{([^}]*)\}/g;
+
+/** Matches an inclusive range token like `1-5` or `5 - 1`. */
+const RANGE_RE = /^(\d+)\s*-\s*(\d+)$/;
 
 export interface ExpandedContextIds {
   /** Literal card ids typed outside any `${...}` macro. */
@@ -57,28 +77,57 @@ export interface ExpandedContextIds {
   /** Recognized `game_source.display_ordinal` tokens from inside macros. */
   readonly gameSourceOrdinals: readonly number[];
   /**
-   * Macro tokens that didn't match any of the caller's known
-   * game_source ordinals — surfaced so the caller can warn, rather
-   * than silently dropped and indistinguishable from "the user never
-   * typed that".
+   * Macro-derived ordinals that didn't match any of the caller's
+   * known game_source ordinals — surfaced so the caller can warn,
+   * rather than silently dropped and indistinguishable from "the
+   * user never typed that". Includes both mistyped bare tokens and
+   * out-of-range members of an explicit range.
    */
   readonly unknownGameSourceOrdinalTokens: readonly number[];
 }
 
+/**
+ * Expands one comma-split macro-body token into the ordinals it
+ * denotes. Malformed tokens (non-numeric, incomplete range, etc.)
+ * expand to nothing — same "silently drop" policy the single-int
+ * parse already used for NaN.
+ */
+function parseMacroToken(
+  token: string,
+  knownGameSourceOrdinals: readonly number[],
+): number[] {
+  const trimmed = token.trim();
+  if (trimmed === '') return [];
+  if (trimmed === '*') return [...knownGameSourceOrdinals];
+
+  const range = RANGE_RE.exec(trimmed);
+  if (range) {
+    const a = parseInt(range[1], 10);
+    const b = parseInt(range[2], 10);
+    const [lo, hi] = a <= b ? [a, b] : [b, a];
+    const out: number[] = [];
+    for (let n = lo; n <= hi; n++) out.push(n);
+    return out;
+  }
+
+  const n = parseInt(trimmed, 10);
+  return isNaN(n) ? [] : [n];
+}
+
 export function expandContextIdMacros(
   input: string,
-  isKnownGameSourceOrdinal: (ordinal: number) => boolean,
+  knownGameSourceOrdinals: readonly number[],
 ): ExpandedContextIds {
+  const known = new Set(knownGameSourceOrdinals);
   const gameSourceOrdinals = new Set<number>();
   const unknownGameSourceOrdinalTokens = new Set<number>();
 
   const withoutMacros = input.replace(MACRO_RE, (_match, body: string) => {
     const tokens = body
       .split(',')
-      .map((s: string) => parseInt(s.trim(), 10))
-      .filter((n: number) => !isNaN(n));
+      .flatMap((t: string) => parseMacroToken(t, knownGameSourceOrdinals));
     for (const token of tokens) {
-      if (isKnownGameSourceOrdinal(token)) {
+      if (known.has(token)) {
         gameSourceOrdinals.add(token);
       } else {
         unknownGameSourceOrdinalTokens.add(token);
