@@ -66,7 +66,7 @@
  * License: Public Domain (The Unlicense)
  */
 
-const MACRO_RE = /\$\{([^}]*)\}/g;
+const MACRO_RE = /(~?)\$\{([^}]*)\}/g;
 
 /** Matches an inclusive range token like `1-5` or `5 - 1`. */
 const RANGE_RE = /^(\d+)\s*-\s*(\d+)$/;
@@ -120,15 +120,21 @@ export function expandContextIdMacros(
 ): ExpandedContextIds {
   const known = new Set(knownGameSourceOrdinals);
   const gameSourceOrdinals = new Set<number>();
+  const excludedGameSourceOrdinals = new Set<number>();
   const unknownGameSourceOrdinalTokens = new Set<number>();
 
-  const withoutMacros = input.replace(MACRO_RE, (_match, body: string) => {
+  const withoutMacros = input.replace(MACRO_RE, (_match,tilde: string, body: string) => {
+    const isExcluded = tilde === '~';
     const tokens = body
       .split(',')
       .flatMap((t: string) => parseMacroToken(t, knownGameSourceOrdinals));
     for (const token of tokens) {
       if (known.has(token)) {
-        gameSourceOrdinals.add(token);
+	if (isExcluded) {
+	  excludedGameSourceOrdinals.add(token);
+	} else {
+          gameSourceOrdinals.add(token);
+	}
       } else {
         unknownGameSourceOrdinalTokens.add(token);
       }
@@ -138,6 +144,31 @@ export function expandContextIdMacros(
     return '';
   });
 
+  const parsedCards = withoutMacros
+    .split(',')
+    .map(s => {
+      const trimmed = s.trim();
+      const isExcluded = trimmed.startsWith('~');
+      const valStr = isExcluded ? trimmed.slice(1) : trimmed;
+      return { val: parseInt(valStr, 10), isExcluded };
+    })
+    .filter(({ val }) => !isNaN(val));
+
+  const excludedCards = new Set(parsedCards.filter(p => p.isExcluded).map(p => p.val));
+  const cardIds = parsedCards
+    .filter(p => !p.isExcluded && !excludedCards.has(p.val))
+    .map(p => p.val);
+
+  for (const excluded of excludedGameSourceOrdinals) {
+    gameSourceOrdinals.delete(excluded);
+  }
+  return {
+    cardIds,
+    gameSourceOrdinals: [...gameSourceOrdinals],
+    unknownGameSourceOrdinalTokens: [...unknownGameSourceOrdinalTokens],
+  };
+
+/*
   const cardIds = withoutMacros
     .split(',')
     .map(s => parseInt(s.trim(), 10))
@@ -148,4 +179,5 @@ export function expandContextIdMacros(
     gameSourceOrdinals: [...gameSourceOrdinals],
     unknownGameSourceOrdinalTokens: [...unknownGameSourceOrdinalTokens],
   };
+  */
 }
