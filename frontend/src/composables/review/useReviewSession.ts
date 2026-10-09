@@ -42,7 +42,12 @@ import { waitForAnalysis, AnalysisWaitError } from '../analysis/wait-for-analysi
 import { blindModePrefs } from './blind-mode-prefs';
 import { KATAGO_ANALYSIS_TIMEOUT_MS } from '../../lib/timing';
 import { lerpVisits, visitsLerpParams } from '../../state/visits-lerp';
-import { transition as transitionNncacheContext, endSession as endNncacheSession } from '../../services/nncache-session';
+import {
+  transition as transitionNncacheContext,
+  endSession as endNncacheSession,
+  cardCacheContext,
+  parentSourceOf,
+} from '../../services/nncache-session';
 
 // @ts-ignore
 import sgf from '@sabaki/sgf';
@@ -572,11 +577,14 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       // disabled it mid-way through the PREVIOUS card — a mid-card
       // disable holds only until the next card. `transition` handles
       // both legs itself (dump+detach the outgoing context if one was
-      // attached, then attach `card-<id>`); fire-and-forget from this
+      // attached, prewarm from the parent if any, then attach `card-<id>`); fire-and-forget from this
       // synchronous flow, same disposition as the blind-mode writes
       // above — a refusal surfaces its own system message from the
       // driver and this composable does not retry.
-      void transitionNncacheContext(`card-${card.id}`);
+      // A child card also names its parent: the driver prewarms the ordinary
+      // L1 from the parent's persisted cache before attaching the child
+      // (best-effort; the child remains the sole attribution context).
+      void transitionNncacheContext(cardCacheContext(card.id), parentSourceOf(card.parentId));
 
     } catch (err) {
       // Surface a corrupt card SGF to the user (ADR-0002 level 4): the

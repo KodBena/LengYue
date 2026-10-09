@@ -692,6 +692,10 @@ export interface KataActionResponse {
   readonly context?: string;
   /** cache_attach: positions now in the frozen level 0. */
   readonly entriesInLevelZero?: number;
+  /** cache_attach with `level1Fill`: persisted positions admitted into the ordinary (level 1) cache. */
+  readonly levelOneFilled?: number;
+  /** cache_attach with `level1Fill`: bytes those admitted positions occupy. */
+  readonly levelOneFilledBytes?: number;
   /** cache_detach: files released. */
   readonly sourcesDetached?: number;
   /** cache_detach: whether the memory was actually observed to be reclaimed. */
