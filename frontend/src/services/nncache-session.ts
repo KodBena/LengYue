@@ -357,34 +357,40 @@ async function dumpAndDetach(ctx: EngineCacheContext): Promise<boolean> {
 // attached, that cache is used to warm the engine's ordinary cache (level 1):
 //
 //   cache_attach(parent, level0:{maxEntries:0}, level1Fill:{maxBytes:B})
-//   cache_detach(parent)                       <- immediately, plain
+//   cache_detach(parent, discardUndumped:true) <- immediately
 //   cache_attach(child)                        <- the ONLY attribution context
 //
 // Two roles, kept apart (persisted SOURCE vs. attribution CONTEXT):
 //   - `maxEntries:0` selects nothing for frozen L0, so every persisted
 //     parent evaluation is left for `level1Fill` to admit into L1, up to B bytes
-//     (NOT "copy everything" — the engine admits the most-retrieved first).
+//     (bounded: the engine admits in its own load order and stops at the first
+//     entry that would exceed B).
 //   - Detach releases only the frozen L0 arena; the ordinary cache is NOT
 //     emptied (Analysis_Engine.md, `cache_detach`), so the L1 fill survives it.
 //   - Detaching BEFORE the child attaches means the parent is never attached
-//     alongside the child: two contexts attached at once is unrepresentable
-//     here, so no query can be mis-attributed to it and no stale source can
-//     outlive a card transition. (`query-routing.ts` stamps `cacheContext`
-//     from `activeAttachedContext`, which the parent never becomes.)
-//   - The parent detach is a PLAIN `cache_detach`: never a dump, never
-//     `discardUndumped`. The parent earned nothing this session (its L0 is
-//     empty, no query is attributed to it), so nothing is owed; if the engine
-//     refuses anyway, nothing has been thrown away to hide it.
+//     alongside the child. It does NOT make the window attribution-free: while
+//     the parent is the only attached context, `activeAttachedContext` is null,
+//     so `query-routing.ts` stamps no `cacheContext`, and the engine attributes
+//     an unstamped query to the SOLE attached context (Analysis_Engine.md,
+//     `cacheContext`) — the parent. Any query the SPA sends in that window
+//     (e.g. the new card's first analysis) is therefore earned by the parent.
+//   - Hence the parent detach sends `discardUndumped:true`, and never dumps:
+//     whatever the parent "earned" here is misattributed window work that
+//     must NOT be persisted into the parent's file. A plain detach would be
+//     refused ("holds N earned entries that are not on disk") and strand the
+//     parent attached. Discarding costs nothing real: before this feature the
+//     same window had no attached context at all, so those queries were
+//     unattributed and never persisted either. The entries stay resident in L1.
 //
 // Prewarming is an optimisation, never a prerequisite: every failure is
 // reported through the typed `PrewarmOutcome` and the child attaches anyway.
 
 /**
  * L1 byte budget for a parent prewarm (`level1Fill.maxBytes`). Deliberately
- * conservative: a bound is mandatory (the engine refuses a bare `true`), and
- * the feature is useful at a modest size. The one home of this number.
+ * conservative: a bound is mandatory (`level1Fill` is typed
+ * `false | { maxBytes }`), and the feature is useful at a modest size. The one home of this number.
  */
-export const PARENT_L1_PREWARM_MAX_BYTES = 256 * 1024 * 1024;
+export const PARENT_L1_PREWARM_MAX_BYTES = 64 * 1024 * 1024;
 
 /** A card id as it appears in a cache-context name. */
 type CardKey = string | number;
@@ -439,13 +445,14 @@ export type PrewarmOutcome =
  */
 let strayParent: EngineCacheContext | null = null;
 
-/** Plain detach of a temporary source — see the section comment for why never dump/discard. */
+/** Detach of a temporary source: discards, never dumps — see the section comment. */
 async function detachParentSource(ctx: EngineCacheContext): Promise<boolean> {
   const res = await sendCacheAction({
     id: actionId('detach-parent'),
     action: 'cache_detach',
     context: ctx,
     model: currentModel(),
+    discardUndumped: true,
   });
   if (!res.ok) {
     pushSystemMessage('warning', i18n.global.t('nncache.detachRefused', { detail: res.message }));
@@ -475,6 +482,8 @@ async function prewarmFromParent(parent: ParentSource): Promise<PrewarmOutcome> 
   });
   // Not surfaced as a system message: a parent that was reviewed without
   // nncache enabled has no persisted file, which is routine, not a fault.
+  // (Whether the engine reports an absent file as a refusal or as an empty
+  // attach with `levelOneFilled` 0 is unconfirmed; both are handled here.)
   if (!attach.ok) return { kind: 'failed', message: attach.message };
 
   const sourceDetached = await detachParentSource(translated.value);
