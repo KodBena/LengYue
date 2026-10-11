@@ -9,9 +9,9 @@
  *   enable(ctx)  -> quiesce -> cache_attach (bare: whole level 0, no level1Fill)
  *   transition() -> quiesce -> cache_dump {what:'both'} -> cache_detach (discardUndumped:true
  *                    IFF the dump succeeded — see `dumpAndDetach`'s doc comment)
+ *                    -> [parent prewarm: cache_attach(parent, L0 empty, bounded level1Fill)
+ *                        -> cache_detach(parent, discardUndumped:true)]
  *                    -> cache_attach(new)
- *                    -> [parent prewarm, only once `new` is attached and stamping:
- *                        cache_attach(parent, L0 empty, bounded level1Fill) -> cache_detach(parent)]
  *   disable()    -> cache_detach {discardUndumped: true}
  *
  * State is session-ephemeral module-scope reactive state (the
@@ -354,13 +354,12 @@ async function dumpAndDetach(ctx: EngineCacheContext): Promise<boolean> {
 
 // ── Parent → ordinary-L1 prewarm ─────────────────────────────────────────────
 //
-// A review card's PARENT may have a persisted cache. Once the child is attached
-// and is the active attribution context, that cache warms the engine's
-// ordinary cache (level 1):
+// A review card's PARENT may have a persisted cache. Before the child is
+// attached, that cache warms the engine's ordinary cache (level 1):
 //
-//   cache_attach(child)                        <- the active attribution context
 //   cache_attach(parent, level0:{maxEntries:0}, level1Fill:{maxBytes:B})
-//   cache_detach(parent)                       <- immediately, plain
+//   cache_detach(parent, discardUndumped:true)   <- immediately
+//   cache_attach(child)                          <- the active attribution context
 //
 // Two roles, kept apart (persisted SOURCE vs. attribution CONTEXT):
 //   - `maxEntries:0` selects nothing for frozen L0, so every persisted
@@ -369,36 +368,39 @@ async function dumpAndDetach(ctx: EngineCacheContext): Promise<boolean> {
 //     entry that would exceed B).
 //   - Detach releases only the frozen L0 arena; the ordinary cache is NOT
 //     emptied (Analysis_Engine.md, `cache_detach`), so the L1 fill survives it.
+//     (Observed on a live host: "L1 admitted N entries" survives the detach.)
+//   - The parent is detached before the child attaches, so it is never
+//     attached alongside the child (the commission's sketch keeps it attached
+//     through the child's attach; detaching at once is a shorter exposure).
 //
-// WHY THE CHILD IS ATTACHED FIRST (the invariant this ordering exists for):
-//   The engine attributes a query with no `cacheContext` to the SOLE attached
-//   context (Analysis_Engine.md, `cacheContext`), and `query-routing.ts` stamps
-//   `cacheContext` only while `activeAttachedContext` is non-null. A parent
-//   attached while NO attribution context is active would therefore be the sole
-//   attached context, and every query sent in that window — the new card's
-//   first analysis, a background analysis, calibration — would be earned by
-//   the PARENT. That is misattributed work the parent must never persist, and a
-//   plain detach is refused for it ("holds N earned entries that are not on
-//   disk"), stranding the parent attached.
-//   So the parent is attached only while a child is attached AND stamping:
-//   every SPA query then carries the child's `cacheContext`, so the parent
-//   earns nothing, and a refusal on the parent's detach is a genuine anomaly
-//   that should be loud, not an expected outcome to be discarded. The type
-//   enforces it: `prewarmFromParent` takes the active child context as a
-//   required argument, so there is no way to call it without one.
-//   (The commission's own sketch attaches the parent BEFORE the child, which
-//   has exactly the window described above; this ordering is the corrected
-//   form of it.)
-//   - The parent detach is a PLAIN `cache_detach`: never a dump, never
-//     `discardUndumped`.
+// WHY THE PARENT DETACH SENDS `discardUndumped:true` (verified in the engine's
+// `cacheDetachExecute`, and by a refusal seen on a live host):
+//   The engine keeps a per-context ledger of which entries each context earned
+//   and which of those are on disk, and that ledger SURVIVES detach
+//   (Analysis_Engine.md; `NNCacheAttributionRecorder`). A parent that was itself
+//   reviewed earlier in this engine process still owns the entries its own
+//   session earned that the admission policy refused to persist — exactly the
+//   ones `dumpAndDetach` reports as "discarded post-dump admission-refused
+//   entries". `discardUndumped` does not clear them either: it only takes and
+//   drops the context's observation counts. So re-attaching such a parent and
+//   detaching it plainly is refused ("holds N earned entries that are not on
+//   disk") EVERY time, and would strand it attached. That refusal is expected
+//   for a temporary source, not an anomaly.
+//   Discarding is also the right outcome on its merits: a temporary source
+//   owes nothing. Anything the parent holds here is not child work and must
+//   never be written to the parent's file, and this driver never dumps it.
+//   The count is reported in the console (ADR-0002: a discard stays visible).
 //
-// Deliberately NOT done: no `quiesce()` before the parent attach. The engine
-// refuses attach/detach while any request is open, so a request the new card
-// has already started makes the prewarm fail (typed `failed`, child unaffected).
-// Stopping the card's own analysis to warm a cache would be the wrong trade.
+// KNOWN WINDOW, accepted: while the parent is the sole attached context, a
+// query sent with no `cacheContext` (`activeAttachedContext` is null, so
+// `query-routing.ts` stamps nothing) is attributed by the engine to the parent
+// (Analysis_Engine.md, `cacheContext`). Such work is discarded with the rest
+// and stays resident in L1. Before this feature the same window had no
+// attached context, so those queries were unattributed and never persisted
+// either; the persistence loss is pre-existing and filed separately.
 //
 // Prewarming is an optimisation, never a prerequisite: every failure is
-// reported through the typed `PrewarmOutcome` and the child stays attached.
+// reported through the typed `PrewarmOutcome` and the child attaches anyway.
 
 /**
  * L1 byte budget for a parent prewarm (`level1Fill.maxBytes`). Deliberately
@@ -439,13 +441,7 @@ export function parentSourceOf(parentId: CardKey | undefined): ParentSource {
 export type PrewarmOutcome =
   | {
       readonly kind: 'skipped';
-      readonly reason:
-        | 'no-parent'
-        | 'invalid-context'
-        | 'parent-is-child'
-        | 'child-not-attached'
-        | 'stray-source-stuck'
-        | 'previous-context-not-released';
+      readonly reason: 'no-parent' | 'invalid-context' | 'stray-source-stuck' | 'previous-context-not-released';
     }
   | { readonly kind: 'failed'; readonly message: string }
   | {
@@ -466,22 +462,27 @@ export type PrewarmOutcome =
  */
 let strayParent: EngineCacheContext | null = null;
 
-/** Plain detach of a temporary source: never dumps, never discards — see the section comment. */
+/** Detach of a temporary source: discards, never dumps — see the section comment for why. */
 async function detachParentSource(ctx: EngineCacheContext): Promise<boolean> {
   const res = await sendCacheAction({
     id: actionId('detach-parent'),
     action: 'cache_detach',
     context: ctx,
     model: currentModel(),
+    discardUndumped: true,
   });
   if (!res.ok) {
     pushSystemMessage('warning', i18n.global.t('nncache.detachRefused', { detail: res.message }));
     return false;
   }
+  console.info(
+    '[nncache-session] temporary parent source detached; discarded undumped entries',
+    res.response.discardedUndumpedEntries, '(never persisted)',
+  );
   return true;
 }
 
-async function prewarmFromParent(parent: ParentSource, child: EngineCacheContext): Promise<PrewarmOutcome> {
+async function prewarmFromParent(parent: ParentSource): Promise<PrewarmOutcome> {
   if (strayParent !== null) {
     if (!(await detachParentSource(strayParent))) return { kind: 'skipped', reason: 'stray-source-stuck' };
     strayParent = null;
@@ -490,8 +491,8 @@ async function prewarmFromParent(parent: ParentSource, child: EngineCacheContext
 
   const translated = translateEngineCacheContext(parent.rawContext, currentUsername());
   if (translated.kind === 'error') return { kind: 'skipped', reason: 'invalid-context' };
-  if (translated.value === child) return { kind: 'skipped', reason: 'parent-is-child' };
 
+  quiesce();
   const attach = await sendCacheAction({
     id: actionId('attach-parent'),
     action: 'cache_attach',
@@ -517,7 +518,7 @@ function logPrewarm(outcome: PrewarmOutcome): void {
       console.info('[nncache-session] parent prewarm skipped:', outcome.reason);
       return;
     case 'failed':
-      console.warn('[nncache-session] parent prewarm failed (child stays attached):', outcome.message);
+      console.warn('[nncache-session] parent prewarm failed (child attaches normally):', outcome.message);
       return;
     case 'warmed':
       // Printed as reported (undefined if the engine omitted a field), not defaulted to 0:
@@ -536,24 +537,22 @@ function logPrewarm(outcome: PrewarmOutcome): void {
  * Dump {what:'both'} the currently attached context, detach it (per
  * `dumpAndDetach`'s doc comment: `discardUndumped:true` IFF the dump
  * succeeded, discarding only what the admission policy itself refused
- * to persist — never a blanket discard), attach `newRawContext`, and
- * only then — with the new context attached and stamping — prewarm the
- * ordinary L1 from `parent` (see "Parent → ordinary-L1 prewarm" above).
- * Used for a card advance / context edit while enabled, and for a
- * model/label switch while enabled (same context string, different
- * `model` leg; that path names no parent, so it is not prewarmed).
+ * to persist — never a blanket discard), optionally prewarm the ordinary
+ * L1 from `parent` (see "Parent → ordinary-L1 prewarm" above), then attach
+ * `newRawContext`. Used for a card advance / context edit while enabled,
+ * and for a model/label switch while enabled (same context string,
+ * different `model` leg; that path names no parent, so it is not prewarmed).
  *
  * On any dump/detach leg's refusal: surfaces the refusal and leaves local
  * state exactly as `dumpAndDetach` reverted it — `enabled` stays true,
  * `status` back to `'attached'`, `activeAttachedContext` still `ctx` — so
  * the SPA's belief matches the engine's (still attached to the OLD
  * context) rather than drifting into a silent untagged-but-attached gap.
- * Neither the new context nor the prewarm is attempted in that case. The
+ * Neither the prewarm nor the new context is attempted in that case. The
  * caller (review session / model-switch watcher) does not retry
  * automatically; the next card advance or model pick tries again.
  *
- * A failed attach of the new context skips the prewarm (`child-not-attached`).
- * A prewarm failure never affects the attached child; it is reported in the
+ * A prewarm failure never blocks the attach; it is reported in the
  * returned `PrewarmOutcome`.
  */
 export async function transition(
@@ -566,14 +565,9 @@ export async function transition(
       return { kind: 'skipped', reason: 'previous-context-not-released' };
     }
   }
-  await enable(newRawContext);
-  // The witness `prewarmFromParent` requires: an attached, stamping child.
-  const child = activeAttachedContext.value;
-  const outcome: PrewarmOutcome =
-    child === null
-      ? { kind: 'skipped', reason: 'child-not-attached' }
-      : await prewarmFromParent(parent, child);
+  const outcome = await prewarmFromParent(parent);
   logPrewarm(outcome);
+  await enable(newRawContext);
   return outcome;
 }
 
