@@ -161,44 +161,55 @@ describe('projectStencilCoverOutline', () => {
 });
 
 describe('KataGo row-major orientation boundary', () => {
-  it('maps every top-origin wire cell to the same bottom-origin point as decodeBoardArray', () => {
-    const size = 9;
-    const geometry = boardGeometry(size);
-    const half = geometry.cell / 2;
-    const format = (value: number): string => Number(value.toFixed(3)).toString();
+  it('maps every wire cell on standard boards to the same bottom-origin point as decodeBoardArray', () => {
+    const sizes = [9, 13, 19] as const;
+    let checkedCoordinates = 0;
 
-    // Quantify over the entire coordinate class; a central or symmetric
-    // fixture would not catch a vertical reflection.
-    for (let rowFromTop = 0; rowFromTop < size; rowFromTop++) {
-      for (let column = 0; column < size; column++) {
-        const flatIndex = rowFromTop * size + column;
-        const values = Array<number>(size * size).fill(0);
-        values[flatIndex] = 1;
-        const decoded = decodeBoardArray(values, size)
-          .find(({ value }) => value === 1);
-        expect(decoded, `decoded cell ${column},${rowFromTop}`).toBeDefined();
+    for (const size of sizes) {
+      const geometry = boardGeometry(size);
+      const half = geometry.cell / 2;
+      const format = (value: number): string => Number(value.toFixed(3)).toString();
 
-        const point = [column, rowFromTop] as const;
-        const value = annotation(region(
-          [{ stencil: '1x1', points: [point] }],
-          true,
-          [component([point])],
-        ));
-        const projected = projectStencilCoverComponents(value, size);
-        const outline = projectStencilCoverOutline(value, size);
-        expect(projected).toHaveLength(1);
-        expect(outline?.positive.path).toBeTruthy();
+      // Quantify over every cell on all standard board sizes; both extreme
+      // rows are included, so vertical reflection cannot hide in symmetry.
+      for (let rowFromTop = 0; rowFromTop < size; rowFromTop++) {
+        for (let column = 0; column < size; column++) {
+          checkedCoordinates++;
+          const flatIndex = rowFromTop * size + column;
+          const values = Array<number>(size * size).fill(0);
+          values[flatIndex] = 1;
+          const decoded = decodeBoardArray(values, size)
+            .find(({ value }) => value === 1);
+          expect(decoded, `decoded cell ${column},${rowFromTop} on ${size}x${size}`).toEqual({
+            x: column,
+            y: size - 1 - rowFromTop,
+            value: 1,
+          });
 
-        const expected = geometry.toSVG({ x: decoded!.x, y: decoded!.y });
-        const tintCell = projected![0].cells[0];
-        expect(tintCell.x + half).toBeCloseTo(expected.x, 6);
-        expect(tintCell.y + half).toBeCloseTo(expected.y, 6);
+          const point = [column, rowFromTop] as const;
+          const value = annotation(region(
+            [{ stencil: '1x1', points: [point] }],
+            true,
+            [component([point])],
+          ));
+          const projected = projectStencilCoverComponents(value, size);
+          const outline = projectStencilCoverOutline(value, size);
+          expect(projected).toHaveLength(1);
+          expect(outline?.positive.path).toBeTruthy();
 
-        const leftEdgeX = geometry.pad + (column - 0.5) * geometry.cell;
-        const expectedLeftEdge = `M${format(leftEdgeX)} ${format(expected.y - half)}L${format(leftEdgeX)} ${format(expected.y + half)}`;
-        expect(outline!.positive.path).toContain(expectedLeftEdge);
+          const expected = geometry.toSVG({ x: decoded!.x, y: decoded!.y });
+          const tintCell = projected![0].cells[0];
+          expect(tintCell.x + half).toBeCloseTo(expected.x, 6);
+          expect(tintCell.y + half).toBeCloseTo(expected.y, 6);
+
+          const leftEdgeX = geometry.pad + (column - 0.5) * geometry.cell;
+          const expectedLeftEdge = `M${format(leftEdgeX)} ${format(expected.y - half)}L${format(leftEdgeX)} ${format(expected.y + half)}`;
+          expect(outline!.positive.path).toContain(expectedLeftEdge);
+        }
       }
     }
+
+    expect(checkedCoordinates).toBe(sizes.reduce((total, size) => total + size * size, 0));
   });
 });
 
