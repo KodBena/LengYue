@@ -61,6 +61,12 @@ export const defaultSettings = {
       // ADR-0002 surfacing path when the toggle is on but the proxy
       // doesn't advertise the capability.
       useTransposition: true,
+      // Stencil-cover computation is opt-in. Deliberately independent
+      // of the session's stencilCover display toggle.
+      useStencilCover: false,
+      // Provisional normalized [0, 1] slider value; wire semantics and
+      // the definitive range are established with the proxy extension.
+      stencilTruncationThreshold: 0,
       // User-controlled opt-in for adaptive_reevaluate (proxy
       // v1.0.14+ capability). Default off: adaptive's deeper-
       // analysis follow-ups change the visit count of resulting
@@ -609,6 +615,14 @@ export const defaultSettings = {
       outputs: [{ path: 'profile.settings.engine.katago.firstReportDuringSearchAfter' }],
       priority: 80,
     },
+    'engine.stencil-truncation-threshold': {
+      id: 'engine.stencil-truncation-threshold',
+      label: 'Stencil truncation threshold',
+      domain: 'engine',
+      inputs: [{ range: [0, 1] as const }],
+      outputs: [{ path: 'profile.settings.engine.katago.stencilTruncationThreshold' }],
+      priority: 90,
+    },
   },
   // Keybindings overrides. Sparse map keyed by KeybindingActionId
   // — absence means "use the registry's default key", explicit
@@ -838,6 +852,7 @@ export const defaultSessionUI: UISession = {
       continuous: false,
       dots: false,
       liveness: false,
+      stencilCover: false,
     },
   },
   activeCardSetId: 'default',

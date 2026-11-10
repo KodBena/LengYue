@@ -59,6 +59,7 @@ export const PATH_LABELS: Readonly<Record<string, string>> = {
   'overlayLayers.ownership.continuous':   'registry.label.ownershipContinuous',
   'overlayLayers.ownership.dots':         'registry.label.ownershipDots',
   'overlayLayers.ownership.liveness':     'registry.label.ownershipLiveness',
+  'overlayLayers.ownership.stencilCover': 'registry.label.ownershipStencilCover',
   activeCardSetId:                        'registry.label.activeCardSetId',
   cardsContextIds:                        'registry.label.cardsContextIds',
   cardsContextGameSourceOrdinals:         'registry.label.cardsContextGameSourceOrdinals',

@@ -270,6 +270,14 @@ const EXPECTED_DEFAULTS_ONLY_PATHS: string[] = [
   'profile.settings.knobs.display.mistake-finder-threshold.label',
   'profile.settings.knobs.display.mistake-finder-threshold.outputs',
   'profile.settings.knobs.display.mistake-finder-threshold.priority',
+  // [no-backfill] The stencil-threshold KnobDecl is part of the default
+  // registry seed; its target setting leaf is backfilled by 78 → 79.
+  'profile.settings.knobs.engine.stencil-truncation-threshold.domain',
+  'profile.settings.knobs.engine.stencil-truncation-threshold.id',
+  'profile.settings.knobs.engine.stencil-truncation-threshold.inputs',
+  'profile.settings.knobs.engine.stencil-truncation-threshold.label',
+  'profile.settings.knobs.engine.stencil-truncation-threshold.outputs',
+  'profile.settings.knobs.engine.stencil-truncation-threshold.priority',
   // [no-backfill] The animation KnobDecl the 46 → 47 body deliberately
   // declined to inject (its inline comment defers to the defaults-side
   // seed for fresh profiles); persisted blobs see it only via the

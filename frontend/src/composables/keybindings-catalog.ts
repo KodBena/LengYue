@@ -70,6 +70,7 @@ export const ACTIONS = {
   displayToggleOwnershipContinuous: asActionId('display.toggleOwnershipContinuous'),
   displayToggleOwnershipDots:       asActionId('display.toggleOwnershipDots'),
   displayToggleOwnershipLiveness:   asActionId('display.toggleOwnershipLiveness'),
+  displayToggleOwnershipStencilCover: asActionId('display.toggleOwnershipStencilCover'),
   reviewNextCard:                   asActionId('review.nextCard'),
   reviewPrevCard:                   asActionId('review.prevCard'),
   cardMint:                         asActionId('card.mint'),
@@ -331,6 +332,19 @@ export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
     enabledWhen: activeBoardExists,
     handler: () => {
       store.session.ui.overlayLayers.ownership.liveness = !store.session.ui.overlayLayers.ownership.liveness;
+      touchSession();
+    },
+  },
+  {
+    id: ACTIONS.displayToggleOwnershipStencilCover,
+    labelKey: 'keybindings.action.displayToggleOwnershipStencilCover.label',
+    descriptionKey: 'keybindings.action.displayToggleOwnershipStencilCover.description',
+    defaultKey: 's',
+    dispatchMode: 'immediate',
+    enabledWhen: activeBoardExists,
+    handler: () => {
+      store.session.ui.overlayLayers.ownership.stencilCover =
+        !store.session.ui.overlayLayers.ownership.stencilCover;
       touchSession();
     },
   },

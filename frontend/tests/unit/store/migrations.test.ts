@@ -3866,3 +3866,48 @@ describe('77 → 78: backfill session.ui.cardTreeOrientationOverride (allocation
     expect(out.session.ui.cardTreeOrientationOverride).toBeNull();
   });
 });
+
+
+describe('78 → 79: independent stencil-cover settings', () => {
+  function blobWithStencilSettings(): any {
+    return {
+      profile: { settings: { engine: { katago: {} } } },
+      session: { ui: { overlayLayers: { ownership: {} } } },
+    };
+  }
+
+  it('backfills computation off, threshold zero, and display off', () => {
+    const out = step(78)(blobWithStencilSettings());
+    expect(out.profile.settings.engine.katago.useStencilCover).toBe(false);
+    expect(out.profile.settings.engine.katago.stencilTruncationThreshold).toBe(0);
+    expect(out.session.ui.overlayLayers.ownership.stencilCover).toBe(false);
+  });
+
+  it('preserves valid profile and session preferences', () => {
+    const blob = blobWithStencilSettings();
+    Object.assign(blob.profile.settings.engine.katago, {
+      useStencilCover: true,
+      stencilTruncationThreshold: 0.37,
+    });
+    blob.session.ui.overlayLayers.ownership.stencilCover = true;
+
+    const out = step(78)(blob);
+    expect(out.profile.settings.engine.katago.useStencilCover).toBe(true);
+    expect(out.profile.settings.engine.katago.stencilTruncationThreshold).toBe(0.37);
+    expect(out.session.ui.overlayLayers.ownership.stencilCover).toBe(true);
+  });
+
+  it('repairs wrong-typed or non-finite leaves to their defaults', () => {
+    const blob = blobWithStencilSettings();
+    Object.assign(blob.profile.settings.engine.katago, {
+      useStencilCover: 'yes',
+      stencilTruncationThreshold: Number.NaN,
+    });
+    blob.session.ui.overlayLayers.ownership.stencilCover = 'yes';
+
+    const out = step(78)(blob);
+    expect(out.profile.settings.engine.katago.useStencilCover).toBe(false);
+    expect(out.profile.settings.engine.katago.stencilTruncationThreshold).toBe(0);
+    expect(out.session.ui.overlayLayers.ownership.stencilCover).toBe(false);
+  });
+});

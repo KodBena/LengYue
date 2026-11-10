@@ -172,9 +172,9 @@ describe('enabledWhen predicates', () => {
 // ── KEYBINDINGS_REGISTRY ship-time smoke ───────────────────
 
 describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
-  it('contains the 19 actions ACTIONS catalog declares', () => {
+  it('contains the 20 actions ACTIONS catalog declares', () => {
     expect(KEYBINDINGS_REGISTRY.length).toBe(Object.keys(ACTIONS).length);
-    expect(KEYBINDINGS_REGISTRY.length).toBe(19);
+    expect(KEYBINDINGS_REGISTRY.length).toBe(20);
   });
 
   it('every action id is unique', () => {
@@ -204,6 +204,7 @@ describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
       'display.toggleOwnershipContinuous',
       'display.toggleOwnershipDots',
       'display.toggleOwnershipLiveness',
+      'display.toggleOwnershipStencilCover',
       'engine.cycleModel',
       'engine.ponderToggle',
       'engine.swapLastActiveModel',
@@ -301,5 +302,23 @@ describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
     const before = passRequestCount.value;
     action!.handler();
     expect(passRequestCount.value).toBe(before + 1);
+  });
+});
+
+
+describe('stencil-cover display keybinding', () => {
+  it('toggles only the session display preference', () => {
+    resetWorkspace();
+    const action = KEYBINDINGS_REGISTRY.find(
+      (entry) => entry.id === ACTIONS.displayToggleOwnershipStencilCover,
+    );
+    if (!action) throw new Error('Missing stencil-cover display keybinding.');
+
+    expect(store.session.ui.overlayLayers.ownership.stencilCover).toBe(false);
+    action.handler();
+    expect(store.session.ui.overlayLayers.ownership.stencilCover).toBe(true);
+    // This keybinding is presentation-only; it must not opt the proxy
+    // into cover computation as a side effect.
+    expect(store.profile.settings.engine.katago.useStencilCover).toBe(false);
   });
 });

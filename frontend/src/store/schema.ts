@@ -272,6 +272,16 @@ export interface AppSettings {
       // Schema-version 29 introduces this field; the migration
       // backfills `true` on existing blobs to preserve behaviour.
       useTransposition: boolean;
+      // Independent proxy-side computation gate for the ownership stencil
+      // cover. This is profile-persisted configuration, not the display
+      // preference below: the proxy may compute covers while the board
+      // overlay is hidden, and the overlay may be shown when no cover data
+      // has been requested.
+      useStencilCover: boolean;
+      // Proxy-side stencil truncation cutoff. The initial slider contract
+      // is a provisional normalized [0, 1] value (default 0); its exact
+      // units and bounds will be aligned with the proxy wire contract.
+      stencilTruncationThreshold: number;
       // User-controlled opt-in for the proxy's adaptive_reevaluate
       // middleware (proxy v1.0.14+ capability) plus the per-query
       // metadata schema overrides. Surfaced as a checkbox + two
@@ -804,6 +814,10 @@ export interface UISession {
       // with the predicted ownership at their position. Highlights
       // dead stones; conveys liveness without territory clutter.
       liveness: boolean;
+      // Draw the proxy-produced stencil-cover rectangles. Independent of
+      // engine.katago.useStencilCover, which controls whether the proxy
+      // computes cover data in the first place.
+      stencilCover: boolean;
     };
   };
   activeCardSetId: string;
