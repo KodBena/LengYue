@@ -411,42 +411,50 @@ The frontend workflow runs on pull requests and pushes to `main`; a direct push 
 
 ## Part 10 — Close the top-origin / bottom-origin stencil coordinate confusion class
 
-**SPA implementation commits on `LengYue:gne`:**
+**Final SPA implementation on `LengYue:gne`:**
 - [c8d8497 — Type and convert board coordinate spaces at the boundary](https://github.com/KodBena/LengYue/commit/c8d8497b2054df2a730d98921b2711f53d1af24a)
-- [f5a94d6 — Fix BoardPoint projection key after coordinate conversion](https://github.com/KodBena/LengYue/commit/f5a94d663be62aa42111f380469473e70d390ae4)
-- [d41efe0 — Update board renderers for typed BoardPoint geometry](https://github.com/KodBena/LengYue/commit/d41efe059124942ff1828fcddae765e81958e61f)
-- [97d5398 — Complete BoardPoint geometry call-site migration](https://github.com/KodBena/LengYue/commit/97d539800e209193b5fc914da47d5e295414e28f)
+- [f5a94d6 — Fix projection key after coordinate conversion](https://github.com/KodBena/LengYue/commit/f5a94d663be62aa42111f380469473e70d390ae4)
+- [d41efe0 — Update board renderers for typed geometry](https://github.com/KodBena/LengYue/commit/d41efe059124942ff1828fcddae765e81958e61f)
+- [97d5398 — Complete board geometry call-site migration](https://github.com/KodBena/LengYue/commit/97d539800e209193b5fc914da47d5e295414e28f)
+- [6fbe338 — Pass Point through BoardDisplay geometry wrapper](https://github.com/KodBena/LengYue/commit/6fbe338140fa5649df22e5faa6b965c02c3a7959)
+- [489c9de — Reuse the canonical Point value object](https://github.com/KodBena/LengYue/commit/489c9de264d5a5f8d83707cb28e384b299d9584b)
+- [7124451 — Use the existing Point value object for board coordinates](https://github.com/KodBena/LengYue/commit/71244515c1bcaec324ec731d14a1946d167dd42e)
+- [edb8b89 — Quantify and document coordinate-space closure](https://github.com/KodBena/LengYue/commit/edb8b89d0ae152c580ac3ecb616237595250d3e0)
+
+**Proxy wire-contract comments on `KataProxy:next`:**
+- [4ad8cfc — Document top-origin stencil annotation coordinates](https://github.com/KodBena/KataProxy/commit/4ad8cfccc4fbe7872c06a91b9135d5883719b6fd)
+- [de11a01 — Refer to the shared SPA Point coordinate value](https://github.com/KodBena/KataProxy/commit/de11a019bdecc3e9a04c6e1182789e5f87d858c8)
 
 ### ADR-0000 Rule 2(a): the type that forecloses the class
 
 The defect class is: **a KataGo row-major wire coordinate whose row zero is at the top being consumed as an SPA board coordinate whose y=0 is at the bottom without conversion**. It affects every coordinate pair in both `stencilCover.positive/negative.components[*].cells` and `placements[*].points`, not only the raw tint rectangles. The previous projector passed these tuples directly into bottom-origin SVG geometry, vertically reflecting the stencil annotation while the ownership-array decoder placed the same flat row-major cell correctly.
 
-I checked `frontend/IDENTIFIERS.md` before choosing the type. It catalogs identifiers, not value objects, and contains no board-coordinate port/type. The existing `KataCoord` is GTP move text (for example `Q16`), not a row/column value; `Move` is a game-event union, not a general point. There was therefore no existing type to reuse, and adding a coordinate identifier to that map would misclassify a value object.
+I checked `frontend/IDENTIFIERS.md` and the frontend value-object catalog. `IDENTIFIERS.md` is specifically the identifier namespace map, so it does not list coordinate values. The existing canonical value object is `Point` in `frontend/src/types/game.ts`, re-exported through `src/types.ts`; `Move` already extends it. The initial type pass briefly introduced a parallel `BoardPoint`, but the follow-up audit retired it. **The final implementation reuses `Point`; no duplicate point type remains.** The `Point` declaration now documents its internal convention: x increases rightward and y=0 is the bottom row. The existing `KataCoord` remains GTP move text (for example `Q16`), not a board-array coordinate.
 
-The class is now closed at the type and conversion boundary:
-- `KataGoArrayPoint` names the wire tuple as `[column, rowFromTop]` in `engine/katago/types.ts`. Both raw component cells and solved placement points use that type.
-- `BoardPoint` is the canonical SPA value object in `engine/board-geometry.ts`: bottom-origin, with x increasing rightward and y increasing upward from the board bottom.
-- `boardPointFromTopOrigin(column, rowFromTop, size)` is the single checked translation. It rejects non-integer/out-of-range coordinates and produces a `BoardPoint`.
-- `BoardGeometry.toSVG` now accepts a `BoardPoint`, not two ambiguous numbers. Both stencil component cells and placement points are translated before connectivity, occupancy, perimeter, and rendering calculations.
-- `decodeBoardArray` and `BoardDisplay.resolveBoardPoint` delegate to that same conversion. `board-renderer`, `MiniBoardSvg`, and `MiniBoardCanvas` now pass explicit internal point objects to the shared geometry API.
-- The proxy wire JSON shape and annotation version 2 are unchanged. The proxy continues emitting row-major `[column,rowFromTop]` coordinates.
+The class is closed at the wire/native type and conversion boundary:
+- `KataGoArrayPoint` names the proxy wire tuple as `[column, rowFromTop]` in `engine/katago/types.ts`. Both raw component cells and solved placement points use that wire type.
+- Existing `Point` is the sole SPA coordinate value object. Its internal origin is bottom-left: x increases rightward and y increases upward from the board bottom.
+- `boardPointFromTopOrigin(column, rowFromTop, size)` is the single checked translation. It rejects non-integer/out-of-range coordinates and produces the existing `Point`.
+- `BoardGeometry.toSVG` accepts `Point`, not two ambiguous numbers. Both stencil component cells and placement points are translated before connectivity, occupancy, perimeter, and rendering calculations.
+- `decodeBoardArray` and `BoardDisplay.resolveBoardPoint` delegate to that same conversion. `board-renderer`, `BoardDisplay`, `MiniBoardSvg`, and `MiniBoardCanvas` pass explicit internal `Point` values to the shared geometry API.
+- The proxy wire JSON shape and annotation version 2 are unchanged. The proxy documents that it emits row-major `[column,rowFromTop]` coordinates; it does not pre-flip y.
 
 ### Quantification / closure claim
 
-The closed class is the complete set of coordinate pairs in the two stencil annotation collections (raw components and solved placements), plus the existing KataGo array decoder and pointer hit-test conversion. Each crosses one named conversion into `BoardPoint`; `toSVG` accepts only that native value object. The TypeScript compiler now rejects a `KataGoArrayPoint` tuple passed directly to board geometry.
+The closed class is the complete set of coordinate pairs in the two stencil annotation collections (raw components and solved placements), plus the existing KataGo array decoder and board pointer hit-test conversion. Each crosses one named conversion into `Point`; `toSVG` accepts only that native value object. The TypeScript compiler rejects a `KataGoArrayPoint` tuple passed directly to board geometry.
 
 The regression test quantifies over **all 611 intersections** across standard 9×9, 13×13, and 19×19 boards. For each coordinate it compares the ownership-array decoder's result, the raw-component tint center, and the solved-placement perimeter. Both edge rows are included for every board size. This pins the whole standard-board coordinate domain rather than one convenient asymmetric example.
 
 ### Operational lapse (ADR-0000 Rule 2(b))
 
-The lapse was allowing the wire and board-geometry contracts to be represented as anonymous numeric tuples / two bare numeric parameters. The established ownership decoder performed a separate y-flip, while stencil projection duplicated neither that converter nor its contract. Synthetic geometry tests used the same implicit coordinate convention on both sides, so they could pass while the two projections disagreed.
+The lapse was that the wire/native coordinate distinction was not present in the rendering function's signature: `BoardGeometry.toSVG(bx, by)` accepted two bare numbers, while the ownership-array decoder separately flipped row-major array coordinates. Stencil projection duplicated neither that converter nor its contract. Synthetic geometry tests used the same implicit coordinate convention on both sides, so they passed while the actual wire-to-SVG path disagreed.
 
-The corrective mechanism is the compiler-enforced distinction between `KataGoArrayPoint` and `BoardPoint`, one shared checked converter, and the exhaustive differential regression test. The conversion is no longer left to each consumer to remember.
+The corrective mechanism is the compiler-enforced distinction between the top-origin `KataGoArrayPoint` tuple and the existing object-shaped bottom-origin `Point`, one shared checked conversion, and the exhaustive differential regression test. The conversion is no longer left to each consumer to remember.
 
 ### ADR-0012 composition
 
-- **P1:** one authoritative top-origin → bottom-origin conversion; no independently maintained stencil flip.
-- **P2:** the foreign coordinate representation crosses a named translation/validation boundary before entering native board geometry.
+- **P1:** reuse the existing `Point` SSOT and one authoritative top-origin → bottom-origin conversion; do not mint a parallel coordinate object.
+- **P2:** the foreign wire representation crosses a named translation/validation boundary before entering native board geometry.
 - **P8:** coordinate-space contracts are expressed in types and honored by signatures; `toSVG` no longer accepts an ambiguous pair of numbers.
 
 **Execution status: not run here.** Repository source and tests have been read back from GitHub, but this session has no local checkout/build runtime. The 611-coordinate regression, `npm run build`, and `npm run test:run` remain to be executed in the maintainer's working tree before empirical verification is claimed.

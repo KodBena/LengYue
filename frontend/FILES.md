@@ -352,8 +352,8 @@ frontend/src/
 │
 ├── engine/                                  Pure Go-engine code: rules, SGF, KataGo wire, board rendering.
 │   ├── analysis-config-curation.ts    [B3]  Bit-equivalent rewriter for KataGo `analysis_config` symbol bodies.
-│   ├── board-geometry.ts              [B3]  SSOT for board rendering geometry and bottom-origin BoardPoint; the checked top-origin → bottom-origin conversion is shared by KataGo array decoding, board pointer hit-testing, and stencil annotation projection.
-│   ├── stencil-cover-geometry.ts      [B3]  Converts top-origin KataGoArrayPoint wire coordinates to BoardPoint before projecting validated raw components and signed stencil-placement boundaries.
+│   ├── board-geometry.ts              [B3]  SSOT for board rendering geometry and the existing bottom-origin Point value object; one checked top-origin → bottom-origin conversion is shared by KataGo array decoding, board pointer hit-testing, and stencil annotation projection.
+│   ├── stencil-cover-geometry.ts      [B3]  Converts top-origin KataGoArrayPoint wire coordinates to the existing bottom-origin Point before projecting validated raw components and signed stencil-placement boundaries.
 │   ├── board-renderer.ts              [B3]  Pure SVG Go board rendering → string (v-html / ECharts-innerHTML sinks); geometry from board-geometry.
 │   ├── constants.ts                   [B3]  Board geometry, stone-radius ratio, label-band width, etc.
 │   ├── handicap.ts                    [B3]  Handicap-stone placement tables (19×19 N=2-9, 13×13 N=2-5, 9×9 N=2-4; GNU-Go-convention hoshi progression) + applyHandicap — places root AB stones via logic.ts's applySetup, sets turn/PL[W]/HA[n]/default KM. Refuses (HandicapOnStartedGameError) once the root has children.
