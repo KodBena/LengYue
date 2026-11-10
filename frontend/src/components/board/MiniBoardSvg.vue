@@ -53,7 +53,7 @@ const stoneList = computed(() =>
 const labelList = computed(() =>
   Object.entries(props.snapshot.markerLabels ?? {}).map(([key, label]) => {
     const [bx, by] = key.split(',').map(Number);
-    const { x, y } = geo.value.toSVG(bx, by);
+    const { x, y } = geo.value.toSVG({ x: bx, y: by });
     return { key, x, y, label };
   }),
 );

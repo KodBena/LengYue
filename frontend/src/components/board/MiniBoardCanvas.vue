@@ -165,7 +165,7 @@ function draw(): void {
     ctx.textBaseline = 'middle';
     for (const [key, label] of Object.entries(labels)) {
       const [bx, by] = key.split(',').map(Number);
-      const { x, y } = geo.toSVG(bx, by);
+      const { x, y } = geo.toSVG({ x: bx, y: by });
       ctx.fillText(label, x, y);
     }
   }
