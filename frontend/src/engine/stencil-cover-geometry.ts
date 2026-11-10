@@ -361,6 +361,7 @@ export function projectStencilCoverComponents(
     id: entry.id,
     colorIndex: colors[index],
     cells: entry.points.map(point => {
+      const { x, y } = point;
       const center = geometry.toSVG(point);
       return {
         key: entry.id + ':' + x + ',' + y,
