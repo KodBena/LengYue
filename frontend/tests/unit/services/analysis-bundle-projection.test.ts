@@ -68,17 +68,29 @@ describe('projectPacket', () => {
 
   it('preserves the proxy stencil-cover annotation unchanged', () => {
     const stencilCover = {
-      version: 1,
+      version: 2,
       threshold: 0.6,
       width: 19,
       height: 19,
       positive: {
+        components: [{
+          cells: [[0, 0], [1, 0]],
+          tileCount: 1,
+          optimal: true,
+          status: 'optimal',
+        }],
         placements: [{ stencil: '1x2', points: [[0, 0], [1, 0]] }],
         tileCount: 1,
         optimal: true,
         status: 'optimal',
       },
-      negative: { placements: [], tileCount: 0, optimal: true, status: 'empty' },
+      negative: {
+        components: [],
+        placements: [],
+        tileCount: 0,
+        optimal: true,
+        status: 'empty',
+      },
       optimal: true,
     } as const;
     const packet = _packet({ ownership: [0.8], policy: [0.2], stencilCover });

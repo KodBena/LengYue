@@ -603,16 +603,44 @@ export interface StencilCoverPlacement {
   readonly points: readonly (readonly [number, number])[];
 }
 
-export interface StencilCoverRegion {
+/** Outcome recorded for each connected raw component handed to the solver. */
+export type StencilCoverComponentStatus = 'fallback' | 'optimal' | 'feasible';
+
+export interface StencilCoverComponent {
+  /** Exact board cells in the connected component after legal-mask + threshold. */
+  readonly cells: readonly (readonly [number, number])[];
+  /** Number of selected placements used to cover this component. */
+  readonly tileCount: number;
+  readonly optimal: boolean;
+  readonly status: StencilCoverComponentStatus;
+}
+
+export interface StencilCoverRegionBase {
   readonly placements: readonly StencilCoverPlacement[];
   readonly tileCount: number;
   readonly optimal: boolean;
   readonly status: 'empty' | 'fallback' | 'optimal' | 'feasible';
 }
 
-/** Proxy-computed signed exact covers, preserving positive/negative ownership. */
-export interface StencilCoverAnnotation {
+/** Version-2 region: the raw solver inputs plus the resulting exact cover. */
+export interface StencilCoverRegion extends StencilCoverRegionBase {
+  readonly components: readonly StencilCoverComponent[];
+}
+
+/** Legacy v1 annotations remain readable from analysis bundles. */
+export interface StencilCoverAnnotationV1 {
   readonly version: 1;
+  readonly threshold: number;
+  readonly width: number;
+  readonly height: number;
+  readonly positive: StencilCoverRegionBase;
+  readonly negative: StencilCoverRegionBase;
+  readonly optimal: boolean;
+}
+
+/** Proxy-computed signed exact covers and the exact connected masks solved. */
+export interface StencilCoverAnnotationV2 {
+  readonly version: 2;
   readonly threshold: number;
   readonly width: number;
   readonly height: number;
@@ -620,6 +648,8 @@ export interface StencilCoverAnnotation {
   readonly negative: StencilCoverRegion;
   readonly optimal: boolean;
 }
+
+export type StencilCoverAnnotation = StencilCoverAnnotationV1 | StencilCoverAnnotationV2;
 
 /**
  * Provenance-stratified raw half of an analysis packet: the engine/network

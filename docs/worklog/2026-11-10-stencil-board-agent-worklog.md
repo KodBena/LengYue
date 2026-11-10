@@ -356,6 +356,39 @@ Potential follow-up after visual inspection: tune line widths/colours against th
 
 **Execution status: not run.** The current container does not have `highspy` installed, and the commit has no GitHub workflow run attached. Repository readback confirms the import, family-load, server-advertisement, and test changes are present; that readback is not a test pass.
 
+
+## Part 8 — Expose raw thresholded components and solve status
+
+**Proxy implementation commit:** [a724927 — Expose raw thresholded stencil components](https://github.com/KodBena/KataProxy/commit/a724927bb42a34873756535bea643a6201ef450e) on `KataProxy:next`.
+
+**Frontend implementation:** The SPA changes and this worklog append are included in the same commit on `LengYue:gne`.
+
+### Proxy annotation contract
+
+- Bumped `stencilCover.version` to 2. Each signed region now includes `components`: the exact 4-connected cell sets produced after the existing legal-policy mask and ownership threshold, captured from the same component sequence passed to the component cache/solver.
+- Each raw component carries its board cells, the number of selected placements, and its own `optimal` / `feasible` / `fallback` outcome. The region-level status and placement aggregate remain intact. A region with no surviving cells returns an explicit empty component list and the existing `empty` status.
+- No threshold comparison, policy-mask rule, connectedness rule, family candidate, cache key, solver limit, or fallback policy was changed. The new data makes those existing stages observable; it does not claim to diagnose which stage caused an uncovered group.
+
+### SPA observability
+
+- Added versioned annotation types. Version-1 saved annotations remain readable for their existing placement outlines; the SPA does not fabricate raw components for them.
+- The existing leaf-local raw-ledger subscription now projects raw components independently from the solved-placement paths. Thus an incomplete or malformed placement outline cannot suppress otherwise valid raw cells.
+- Raw cells receive translucent fills from the existing `--cluster-8-0` … `--cluster-8-7` palette in `assets/css/palettes.css`. Components are treated as vertices in their 4-neighbour contact graph and colored using a deterministic degeneracy ordering, so directly neighboring regions cannot share a color while non-neighbors may reuse one.
+- Component borders encode the solver result (solid optimal, dashed feasible/unproven, dotted singleton fallback); the SVG's accessible summary reports component counts and each component's status, cell count, and tile count. A valid annotation with no surviving cells is represented explicitly in that summary.
+- Both raw tints and solved-cover outlines remain under the existing `session.ui.overlayLayers.ownership.stencilCover` display toggle and its existing keybinding. No new preference, keybinding, or analysis restart path was introduced.
+
+### Focused tests
+
+- Proxy tests assert that the cells entering each component solve are returned verbatim, that each component retains its individual solver status, and that an empty region has no raw components.
+- Frontend geometry tests cover uncovered raw cells, 4-neighbour palette conflicts, status preservation, empty regions, invalid connectivity/overlap, and v1 compatibility.
+- Updated sign-framing and analysis-bundle projection fixtures to pin the component payload's sign swap and persistence.
+
+**Execution status: not run.** I did not have a local checkout/runtime for either repository in this session, so I did not run pytest, Vitest, or the Vue/TypeScript build. GitHub readback verifies committed source and test content only; it is not a passing test result.
+
+### Scope boundary
+
+This part is observability only. The cause of the original mismatch remains to be isolated from the now-visible inputs and outcomes: threshold semantics, legal-policy masking, connectedness, family coverage, or solver behavior. The MEC/dead-stone input policy remains unchanged.
+
 ## License
 
 Public Domain (The Unlicense).

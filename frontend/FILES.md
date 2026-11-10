@@ -73,7 +73,7 @@ frontend/src/
 │   │
 │   ├── board/                                Go-board surface. Renderers + overlays.
 │   │   ├── BoardDeltaAnnotation.vue   [B3]  Wiki Wanted #7/#7.1: single-label overlay for the just-played move's ledger delta + child visit count (or per-player-framed score delta); self-sources via useMoveDeltaAnnotation, renders nothing when the ledger has no delta for the node.
-│   │   ├── BoardStencilCoverOverlay.vue [B3] Proxy-computed positive/negative exact-cover tilings; draws one closed SVG boundary path per ownership sign and self-sources from the raw ledger.
+│   │   ├── BoardStencilCoverOverlay.vue [B3] Leaf-sourced raw thresholded component tint (cluster-8 contact coloring + per-component solve status) beneath independent proxy-computed signed stencil-cover outlines.
 │   │   ├── BoardDisplay.vue           [B3]  Stateless SVG Go board with stone gradients, hoshi, last-move ring, move-number text, and setup-toolkit triangle marks (`triangles` prop, current node only).
 │   │   ├── BoardHeatmapOverlay.vue    [B3]  Stateless per-intersection heatmap (ownership / liveness / dots).
 │   │   ├── BoardTab.vue               [B3]  Tab row in the board-list rail (label, close, canvas analysis-depth rugplot drawn imperatively off the render path).
@@ -353,7 +353,7 @@ frontend/src/
 ├── engine/                                  Pure Go-engine code: rules, SGF, KataGo wire, board rendering.
 │   ├── analysis-config-curation.ts    [B3]  Bit-equivalent rewriter for KataGo `analysis_config` symbol bodies.
 │   ├── board-geometry.ts              [B3]  SSOT for board rendering geometry (pad/cell/stoneR/toSVG, gridLines) + the BoardSnapshot position primitive; shared by renderBoardToSvg (string) and the Vue board components so projections can't drift.
-│   ├── stencil-cover-geometry.ts      [B3]  Pure signed-stencil placement to one SVG boundary path per ownership sign; deduplicates shared tile edges and validates placement coordinates.
+│   ├── stencil-cover-geometry.ts      [B3]  Pure projection of validated raw thresholded components (8-color conflict-free tints/status per component) and independent signed stencil-placement boundary paths.
 │   ├── board-renderer.ts              [B3]  Pure SVG Go board rendering → string (v-html / ECharts-innerHTML sinks); geometry from board-geometry.
 │   ├── constants.ts                   [B3]  Board geometry, stone-radius ratio, label-band width, etc.
 │   ├── handicap.ts                    [B3]  Handicap-stone placement tables (19×19 N=2-9, 13×13 N=2-5, 9×9 N=2-4; GNU-Go-convention hoshi progression) + applyHandicap — places root AB stones via logic.ts's applySetup, sets turn/PL[W]/HA[n]/default KM. Refuses (HandicapOnStartedGameError) once the root has children.

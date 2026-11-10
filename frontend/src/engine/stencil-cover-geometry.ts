@@ -1,21 +1,23 @@
 /**
  * src/engine/stencil-cover-geometry.ts
  *
- * Projects the proxy's signed stencil placements into board-aligned SVG
- * boundary paths. Each colour gets one path, regardless of tile count; shared
- * edges between adjacent tiles are emitted once so internal tiling seams are
- * preserved without double-width strokes.
+ * Pure board projection for the proxy's stencil-cover annotation:
+ * - solved stencil placements become per-sign boundary paths;
+ * - version-2 raw thresholded components become translucent palette fills
+ *   with per-component status outlines.
  *
- * Rendering projection only. It does not recompute regions, solve covers, or
- * reinterpret dead-stone / policy masks.
+ * Raw components and solved placements are intentionally projected
+ * independently. A coverage discrepancy must remain visible rather than
+ * causing the raw cells to disappear with an invalid or incomplete cover.
  *
  * License: Public Domain (The Unlicense)
  */
 import { boardGeometry } from './board-geometry';
 import type {
   StencilCoverAnnotation,
-  StencilCoverPlacement,
-  StencilCoverRegion,
+  StencilCoverComponent,
+  StencilCoverComponentStatus,
+  StencilCoverRegionBase,
 } from './katago/types';
 
 export interface StencilCoverRegionOutline {
@@ -28,9 +30,28 @@ export interface StencilCoverOutline {
   readonly negative: StencilCoverRegionOutline;
 }
 
+export interface StencilCoverTintCell {
+  readonly key: string;
+  readonly x: number;
+  readonly y: number;
+  readonly size: number;
+}
+
+export interface StencilCoverComponentProjection {
+  readonly id: string;
+  readonly colorIndex: number;
+  readonly cells: readonly StencilCoverTintCell[];
+  readonly path: string;
+  readonly tileCount: number;
+  readonly optimal: boolean;
+  readonly status: StencilCoverComponentStatus;
+}
+
 type BoundaryEdge =
   | { readonly orientation: 'vertical'; readonly line: number; readonly segment: number }
   | { readonly orientation: 'horizontal'; readonly line: number; readonly segment: number };
+
+const CLUSTER_PALETTE_SIZE = 8;
 
 function format(value: number): string {
   return Number(value.toFixed(3)).toString();
@@ -50,66 +71,7 @@ function validPoint(point: unknown, size: number): point is readonly [number, nu
     && y >= 0 && y < size;
 }
 
-/**
- * Build one boundary path for a signed region. Returns null for malformed,
- * overlapping, or out-of-board placement data rather than drawing a
- * plausible-looking partial cover. The shared occupancy set also ensures
- * positive and negative covers cannot claim the same board point.
- */
-function regionBoundaryPath(
-  region: StencilCoverRegion,
-  size: number,
-  occupiedAcrossSigns: Set<string>,
-): string | null {
-  if (
-    !region
-    || !Array.isArray(region.placements)
-    || !Number.isInteger(region.tileCount)
-    || region.tileCount !== region.placements.length
-    || typeof region.optimal !== 'boolean'
-    || !['empty', 'fallback', 'optimal', 'feasible'].includes(region.status)
-  ) return null;
-
-  const edges = new Map<string, BoundaryEdge>();
-
-  for (const placement of region.placements as readonly StencilCoverPlacement[]) {
-    if (
-      !placement
-      || typeof placement.stencil !== 'string'
-      || placement.stencil.length === 0
-      || !Array.isArray(placement.points)
-      || placement.points.length === 0
-    ) return null;
-
-    const local = new Set<string>();
-    for (const point of placement.points as readonly unknown[]) {
-      if (!validPoint(point, size)) return null;
-      const [x, y] = point;
-      const key = x + ',' + y;
-      if (local.has(key) || occupiedAcrossSigns.has(key)) return null;
-      local.add(key);
-      occupiedAcrossSigns.add(key);
-    }
-
-    for (const point of placement.points) {
-      const [x, y] = point;
-      // Board y increases upward. Edge identifiers are integer grid-line
-      // indices, shared by the two cells on either side of each edge.
-      if (!local.has((x - 1) + ',' + y)) {
-        addEdge(edges, { orientation: 'vertical', line: x, segment: y });
-      }
-      if (!local.has((x + 1) + ',' + y)) {
-        addEdge(edges, { orientation: 'vertical', line: x + 1, segment: y });
-      }
-      if (!local.has(x + ',' + (y - 1))) {
-        addEdge(edges, { orientation: 'horizontal', line: y, segment: x });
-      }
-      if (!local.has(x + ',' + (y + 1))) {
-        addEdge(edges, { orientation: 'horizontal', line: y + 1, segment: x });
-      }
-    }
-  }
-
+function edgesToPath(edges: Map<string, BoundaryEdge>, size: number): string {
   const geometry = boardGeometry(size);
   const half = geometry.cell / 2;
   const commands: string[] = [];
@@ -131,14 +93,286 @@ function regionBoundaryPath(
       );
     }
   }
-
   return commands.join('');
 }
 
 /**
- * Return signed cover boundary paths for one square board. Annotation shape,
- * board dimensions, placement coordinates, and exact-cover non-overlap are
- * checked before any path is emitted.
+ * Build one boundary path for a signed region. Returns null for malformed,
+ * overlapping, or out-of-board placement data rather than drawing a
+ * plausible-looking partial cover. The shared occupancy set also ensures
+ * positive and negative covers cannot claim the same board point.
+ */
+function regionBoundaryPath(
+  region: StencilCoverRegionBase,
+  size: number,
+  occupiedAcrossSigns: Set<string>,
+): string | null {
+  if (
+    !region
+    || !Array.isArray(region.placements)
+    || !Number.isInteger(region.tileCount)
+    || region.tileCount !== region.placements.length
+    || typeof region.optimal !== 'boolean'
+    || !['empty', 'fallback', 'optimal', 'feasible'].includes(region.status)
+  ) return null;
+
+  const edges = new Map<string, BoundaryEdge>();
+
+  for (const placement of region.placements) {
+    if (
+      !placement
+      || typeof placement.stencil !== 'string'
+      || placement.stencil.length === 0
+      || !Array.isArray(placement.points)
+      || placement.points.length === 0
+    ) return null;
+
+    const local = new Set<string>();
+    for (const point of placement.points as readonly unknown[]) {
+      if (!validPoint(point, size)) return null;
+      const [x, y] = point;
+      const key = x + ',' + y;
+      if (local.has(key) || occupiedAcrossSigns.has(key)) return null;
+      local.add(key);
+      occupiedAcrossSigns.add(key);
+    }
+
+    for (const point of placement.points) {
+      const [x, y] = point;
+      if (!local.has((x - 1) + ',' + y)) {
+        addEdge(edges, { orientation: 'vertical', line: x, segment: y });
+      }
+      if (!local.has((x + 1) + ',' + y)) {
+        addEdge(edges, { orientation: 'vertical', line: x + 1, segment: y });
+      }
+      if (!local.has(x + ',' + (y - 1))) {
+        addEdge(edges, { orientation: 'horizontal', line: y, segment: x });
+      }
+      if (!local.has(x + ',' + (y + 1))) {
+        addEdge(edges, { orientation: 'horizontal', line: y + 1, segment: x });
+      }
+    }
+  }
+
+  return edgesToPath(edges, size);
+}
+
+/** True only when every cell belongs to one 4-connected component. */
+function isFourConnected(indices: ReadonlySet<number>, size: number): boolean {
+  if (indices.size === 0) return false;
+  const first = indices.values().next().value;
+  if (typeof first !== 'number') return false;
+  const reached = new Set<number>();
+  const pending = [first];
+  while (pending.length > 0) {
+    const point = pending.pop();
+    if (point === undefined || reached.has(point)) continue;
+    reached.add(point);
+    const x = point % size;
+    const neighbours = [
+      ...(x > 0 ? [point - 1] : []),
+      ...(x + 1 < size ? [point + 1] : []),
+      ...(point >= size ? [point - size] : []),
+      ...(point + size < size * size ? [point + size] : []),
+    ];
+    for (const neighbour of neighbours) {
+      if (indices.has(neighbour) && !reached.has(neighbour)) pending.push(neighbour);
+    }
+  }
+  return reached.size === indices.size;
+}
+
+/** External perimeter of one raw component; internal cell edges are omitted. */
+function componentBoundaryPath(
+  cells: readonly (readonly [number, number])[],
+  size: number,
+): string {
+  const occupied = new Set(cells.map(([x, y]) => y * size + x));
+  const edges = new Map<string, BoundaryEdge>();
+  for (const [x, y] of cells) {
+    const point = y * size + x;
+    if (x === 0 || !occupied.has(point - 1)) {
+      addEdge(edges, { orientation: 'vertical', line: x, segment: y });
+    }
+    if (x + 1 === size || !occupied.has(point + 1)) {
+      addEdge(edges, { orientation: 'vertical', line: x + 1, segment: y });
+    }
+    if (y === 0 || !occupied.has(point - size)) {
+      addEdge(edges, { orientation: 'horizontal', line: y, segment: x });
+    }
+    if (y + 1 === size || !occupied.has(point + size)) {
+      addEdge(edges, { orientation: 'horizontal', line: y + 1, segment: x });
+    }
+  }
+  return edgesToPath(edges, size);
+}
+
+/**
+ * Color the component contact graph using a deterministic degeneracy ordering.
+ * The graph is a minor of the 4-neighbour board grid (each validated connected
+ * component is contracted to one vertex), hence planar and 5-degenerate.
+ * Reverse removal order therefore needs at most six colors; the requested
+ * eight-entry cluster palette leaves additional headroom.
+ */
+function assignClusterColors(adjacency: readonly ReadonlySet<number>[]): readonly number[] | null {
+  const remaining = new Set(adjacency.map((_neighbors, index) => index));
+  const removalOrder: number[] = [];
+
+  while (remaining.size > 0) {
+    let selected = -1;
+    let selectedDegree = Number.POSITIVE_INFINITY;
+    for (const candidate of remaining) {
+      let degree = 0;
+      for (const neighbor of adjacency[candidate]) {
+        if (remaining.has(neighbor)) degree++;
+      }
+      if (degree < selectedDegree || (degree === selectedDegree && candidate < selected)) {
+        selected = candidate;
+        selectedDegree = degree;
+      }
+    }
+    if (selected < 0) return null;
+    removalOrder.push(selected);
+    remaining.delete(selected);
+  }
+
+  const colors = adjacency.map(() => -1);
+  for (let index = removalOrder.length - 1; index >= 0; index--) {
+    const component = removalOrder[index];
+    const used = new Set<number>();
+    for (const neighbor of adjacency[component]) {
+      if (colors[neighbor] >= 0) used.add(colors[neighbor]);
+    }
+    let color = -1;
+    for (let candidate = 0; candidate < CLUSTER_PALETTE_SIZE; candidate++) {
+      if (!used.has(candidate)) {
+        color = candidate;
+        break;
+      }
+    }
+    if (color < 0) return null;
+    colors[component] = color;
+  }
+  return colors;
+}
+
+/**
+ * Project version-2 raw components independently of the solver's placements.
+ * Returns null for legacy v1 or malformed component data; returns [] when a
+ * valid annotation says no cells survived thresholding and policy masking.
+ */
+export function projectStencilCoverComponents(
+  annotation: StencilCoverAnnotation | null | undefined,
+  size: number,
+): readonly StencilCoverComponentProjection[] | null {
+  if (
+    !annotation
+    || annotation.version !== 2
+    || annotation.width !== size
+    || annotation.height !== size
+    || !Number.isInteger(size)
+    || size < 2
+    || !Array.isArray(annotation.positive.components)
+    || !Array.isArray(annotation.negative.components)
+  ) return null;
+
+  const entries: {
+    readonly id: string;
+    readonly component: StencilCoverComponent;
+    readonly points: readonly (readonly [number, number])[];
+    readonly indices: ReadonlySet<number>;
+  }[] = [];
+  const ownerByCell = new Map<number, number>();
+
+  const addRegion = (
+    sign: 'positive' | 'negative',
+    components: readonly StencilCoverComponent[],
+  ): boolean => {
+    for (let componentIndex = 0; componentIndex < components.length; componentIndex++) {
+      const component = components[componentIndex];
+      if (
+        !component
+        || !Array.isArray(component.cells)
+        || component.cells.length === 0
+        || !Number.isInteger(component.tileCount)
+        || component.tileCount < 1
+        || typeof component.optimal !== 'boolean'
+        || !['fallback', 'optimal', 'feasible'].includes(component.status)
+        || component.optimal !== (component.status === 'optimal')
+      ) return false;
+
+      const indices = new Set<number>();
+      for (const point of component.cells as readonly unknown[]) {
+        if (!validPoint(point, size)) return false;
+        const [x, y] = point;
+        const index = y * size + x;
+        if (indices.has(index) || ownerByCell.has(index)) return false;
+        indices.add(index);
+      }
+      if (!isFourConnected(indices, size)) return false;
+
+      const entryIndex = entries.length;
+      for (const index of indices) ownerByCell.set(index, entryIndex);
+      entries.push({
+        id: sign + '-' + componentIndex,
+        component,
+        points: component.cells,
+        indices,
+      });
+    }
+    return true;
+  };
+
+  if (!addRegion('positive', annotation.positive.components)) return null;
+  if (!addRegion('negative', annotation.negative.components)) return null;
+
+  const adjacency = entries.map(() => new Set<number>());
+  for (let index = 0; index < entries.length; index++) {
+    for (const cell of entries[index].indices) {
+      const x = cell % size;
+      const neighbours = [
+        ...(x > 0 ? [cell - 1] : []),
+        ...(x + 1 < size ? [cell + 1] : []),
+        ...(cell >= size ? [cell - size] : []),
+        ...(cell + size < size * size ? [cell + size] : []),
+      ];
+      for (const neighbour of neighbours) {
+        const other = ownerByCell.get(neighbour);
+        if (other !== undefined && other !== index) {
+          adjacency[index].add(other);
+          adjacency[other].add(index);
+        }
+      }
+    }
+  }
+
+  const colors = assignClusterColors(adjacency);
+  if (!colors) return null;
+
+  const geometry = boardGeometry(size);
+  const half = geometry.cell / 2;
+  return entries.map((entry, index) => ({
+    id: entry.id,
+    colorIndex: colors[index],
+    cells: entry.points.map(([x, y]) => {
+      const center = geometry.toSVG(x, y);
+      return {
+        key: entry.id + ':' + x + ',' + y,
+        x: center.x - half,
+        y: center.y - half,
+        size: geometry.cell,
+      };
+    }),
+    path: componentBoundaryPath(entry.points, size),
+    tileCount: entry.component.tileCount,
+    optimal: entry.component.optimal,
+    status: entry.component.status,
+  }));
+}
+
+/**
+ * Return signed cover boundary paths for one square board. Legacy v1
+ * annotations retain their old outline behaviour; v2 adds raw components.
  */
 export function projectStencilCoverOutline(
   annotation: StencilCoverAnnotation | null | undefined,
@@ -146,7 +380,7 @@ export function projectStencilCoverOutline(
 ): StencilCoverOutline | null {
   if (
     !annotation
-    || annotation.version !== 1
+    || (annotation.version !== 1 && annotation.version !== 2)
     || annotation.width !== size
     || annotation.height !== size
     || !Number.isInteger(size)

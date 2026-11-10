@@ -144,12 +144,24 @@ describe('normalizePacketToWhiteFraming — BLACK', () => {
 
   it('swaps signed stencil-cover regions when normalising ownership framing', () => {
     const positive = {
+      components: [{
+        cells: [[0, 0]] as const,
+        tileCount: 1,
+        optimal: true,
+        status: 'optimal',
+      }],
       placements: [{ stencil: 'white-shape', points: [[0, 0]] as const }],
       tileCount: 1,
       optimal: true,
       status: 'optimal',
     } as const;
     const negative = {
+      components: [{
+        cells: [[1, 0]] as const,
+        tileCount: 1,
+        optimal: false,
+        status: 'feasible',
+      }],
       placements: [{ stencil: 'black-shape', points: [[1, 0]] as const }],
       tileCount: 1,
       optimal: false,
@@ -159,7 +171,7 @@ describe('normalizePacketToWhiteFraming — BLACK', () => {
       currentPlayer: 'B',
       ownership: [0.8, -0.8],
       stencilCover: {
-        version: 1,
+        version: 2,
         threshold: 0.6,
         width: 2,
         height: 1,

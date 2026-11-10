@@ -1,21 +1,50 @@
 /**
  * tests/unit/engine/stencil-cover-geometry.test.ts
  *
- * Pure tests for projection of proxy stencil placements into board SVG
- * boundaries. No DOM, Vue, or solver dependency.
+ * Pure tests for projecting raw thresholded components and solved stencil
+ * placements into board SVG geometry. No DOM, Vue, or solver dependency.
  *
  * License: Public Domain (The Unlicense)
  */
 import { describe, expect, it } from 'vitest';
-import { projectStencilCoverOutline } from '../../../src/engine/stencil-cover-geometry';
-import type { StencilCoverAnnotation, StencilCoverRegion } from '../../../src/engine/katago/types';
+import {
+  projectStencilCoverComponents,
+  projectStencilCoverOutline,
+} from '../../../src/engine/stencil-cover-geometry';
+import type {
+  StencilCoverAnnotation,
+  StencilCoverComponent,
+  StencilCoverRegion,
+} from '../../../src/engine/katago/types';
+
+function component(
+  cells: readonly (readonly [number, number])[],
+  status: StencilCoverComponent['status'] = 'optimal',
+  tileCount = 1,
+): StencilCoverComponent {
+  return {
+    cells,
+    tileCount,
+    optimal: status === 'optimal',
+    status,
+  };
+}
 
 function region(
   placements: StencilCoverRegion['placements'],
   optimal = true,
+  components?: readonly StencilCoverComponent[],
 ): StencilCoverRegion {
+  const cells = new Map<string, readonly [number, number]>();
+  for (const placement of placements) {
+    for (const point of placement.points) cells.set(point.join(','), point);
+  }
+  const derived = cells.size === 0
+    ? []
+    : [component([...cells.values()], optimal ? 'optimal' : 'feasible', placements.length)];
   return {
     placements,
+    components: components ?? derived,
     tileCount: placements.length,
     optimal,
     status: placements.length === 0 ? 'empty' : (optimal ? 'optimal' : 'feasible'),
@@ -27,7 +56,7 @@ function annotation(
   negative: StencilCoverRegion = region([]),
 ): StencilCoverAnnotation {
   return {
-    version: 1,
+    version: 2,
     threshold: 0.6,
     width: 9,
     height: 9,
@@ -49,7 +78,6 @@ describe('projectStencilCoverOutline', () => {
     );
     expect(result?.positive.path).toBeTruthy();
     expect(segmentCount(result!.positive.path)).toBe(4);
-    // A closed perimeter, not a contour clipped to neighbouring owned points.
   });
 
   it('keeps each stencil perimeter closed when adjacent stencils meet', () => {
@@ -60,7 +88,6 @@ describe('projectStencilCoverOutline', () => {
       ])),
       9,
     );
-    // Four edges per singleton, with the common edge emitted only once.
     expect(segmentCount(result!.positive.path)).toBe(7);
   });
 
@@ -69,7 +96,6 @@ describe('projectStencilCoverOutline', () => {
       annotation(region([{ stencil: '1x2', points: [[3, 4], [4, 4]] }])),
       9,
     );
-    // A 1x2 tile is one six-segment rectangle, not two outlined cells.
     expect(segmentCount(result!.positive.path)).toBe(6);
   });
 
@@ -85,7 +111,7 @@ describe('projectStencilCoverOutline', () => {
     expect(segmentCount(result!.negative.path)).toBe(4);
   });
 
-  it('carries the non-optimal status to the overlay styling contract', () => {
+  it('carries non-optimal status to the outline styling contract', () => {
     const result = projectStencilCoverOutline(
       annotation(region([{ stencil: '1x1', points: [[4, 4]] }], false)),
       9,
@@ -124,8 +150,100 @@ describe('projectStencilCoverOutline', () => {
   });
 
   it('rejects out-of-board coordinates and mismatched board dimensions', () => {
-    const badPoint = annotation(region([{ stencil: '1x1', points: [[9, 4]] }]));
-    expect(projectStencilCoverOutline(badPoint, 9)).toBeNull();
+    expect(projectStencilCoverOutline(
+      annotation(region([{ stencil: '1x1', points: [[9, 4]] }])),
+      9,
+    )).toBeNull();
     expect(projectStencilCoverOutline(annotation(region([])), 13)).toBeNull();
+  });
+});
+
+describe('projectStencilCoverComponents', () => {
+  it('tints raw thresholded cells even when the placement cover leaves one uncovered', () => {
+    const raw = component([[2, 2], [3, 2]], 'fallback', 1);
+    const value = annotation(region(
+      [{ stencil: '1x1', points: [[2, 2]] }],
+      false,
+      [raw],
+    ));
+    const projected = projectStencilCoverComponents(value, 9);
+    const outline = projectStencilCoverOutline(value, 9);
+
+    expect(projected).toHaveLength(1);
+    expect(projected?.[0].cells).toHaveLength(2);
+    expect(projected?.[0].status).toBe('fallback');
+    expect(projected?.[0].colorIndex).toBeGreaterThanOrEqual(0);
+    expect(outline?.positive.path).toBeTruthy();
+    expect(segmentCount(outline!.positive.path)).toBe(4);
+  });
+
+  it('assigns different cluster-8 colors to every pair of neighboring regions', () => {
+    const value = annotation(
+      region([], true, [component([[1, 1]])]),
+      region([], true, [
+        component([[2, 1]]),
+        component([[7, 7]]),
+      ]),
+    );
+    const projected = projectStencilCoverComponents(value, 9);
+    expect(projected).toHaveLength(3);
+
+    const byId = new Map(projected!.map(entry => [entry.id, entry]));
+    expect(byId.get('positive-0')!.colorIndex)
+      .not.toBe(byId.get('negative-0')!.colorIndex);
+    expect(byId.get('positive-0')!.colorIndex)
+      .toBe(byId.get('negative-1')!.colorIndex);
+  });
+
+  it('keeps per-component solver outcomes available to the renderer', () => {
+    const value = annotation(
+      region([], true, [
+        component([[1, 1]], 'optimal'),
+        component([[4, 4]], 'feasible'),
+      ]),
+    );
+    const projected = projectStencilCoverComponents(value, 9);
+    expect(projected?.map(entry => entry.status)).toEqual(['optimal', 'feasible']);
+    expect(projected?.map(entry => entry.tileCount)).toEqual([1, 1]);
+  });
+
+  it('returns an empty list when a valid v2 annotation has no thresholded cells', () => {
+    expect(projectStencilCoverComponents(annotation(region([])), 9)).toEqual([]);
+  });
+
+  it('rejects disconnected or overlapping raw component cells', () => {
+    const disconnected = annotation(
+      region([], true, [component([[1, 1], [3, 1]])]),
+    );
+    expect(projectStencilCoverComponents(disconnected, 9)).toBeNull();
+
+    const overlapping = annotation(
+      region([], true, [component([[1, 1]])]),
+      region([], true, [component([[1, 1]])]),
+    );
+    expect(projectStencilCoverComponents(overlapping, 9)).toBeNull();
+  });
+
+  it('does not invent raw cells for a legacy v1 annotation', () => {
+    const legacy = {
+      version: 1 as const,
+      threshold: 0.6,
+      width: 9,
+      height: 9,
+      positive: {
+        placements: [],
+        tileCount: 0,
+        optimal: true,
+        status: 'empty' as const,
+      },
+      negative: {
+        placements: [],
+        tileCount: 0,
+        optimal: true,
+        status: 'empty' as const,
+      },
+      optimal: true,
+    };
+    expect(projectStencilCoverComponents(legacy, 9)).toBeNull();
   });
 });
