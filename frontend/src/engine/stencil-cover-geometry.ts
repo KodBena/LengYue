@@ -13,7 +13,7 @@
  * License: Public Domain (The Unlicense)
  */
 import { boardGeometry, boardPointFromTopOrigin } from './board-geometry';
-import type { BoardPoint } from './board-geometry';
+import type { Point } from '../types';
 import type {
   StencilCoverAnnotation,
   StencilCoverComponent,
@@ -188,7 +188,7 @@ function isFourConnected(indices: ReadonlySet<number>, size: number): boolean {
 
 /** External perimeter of one raw component; internal cell edges are omitted. */
 function componentBoundaryPath(
-  cells: readonly BoardPoint[],
+  cells: readonly Point[],
   size: number,
 ): string {
   const occupied = new Set(cells.map(({ x, y }) => y * size + x));

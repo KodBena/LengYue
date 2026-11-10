@@ -13,7 +13,7 @@
  * License: Public Domain (The Unlicense)
  */
 import { BOARD_PX, STONE_RADIUS_RATIO } from './constants';
-import type { StoneColor, Move } from '../types';
+import type { StoneColor, Move, Point } from '../types';
 
 /**
  * A single move in a principal-variation sequence, ready for rendering —
@@ -62,15 +62,6 @@ export interface BoardSnapshot {
 }
 
 /**
- * Canonical internal board coordinate. The origin is bottom-left:
- * x increases rightward and y increases upward from the board bottom.
- */
-export interface BoardPoint {
-  readonly x: number;
-  readonly y: number;
-}
-
-/**
  * Translate a top-origin row/column coordinate (KataGo board arrays and
  * stencil-cover wire annotations) into the SPA's bottom-origin BoardPoint.
  * This is the single orientation boundary shared by all such consumers.
@@ -79,7 +70,7 @@ export function boardPointFromTopOrigin(
   column: number,
   rowFromTop: number,
   size: number,
-): BoardPoint {
+): Point {
   if (
     !Number.isInteger(size) || size < 1
     || !Number.isInteger(column) || column < 0 || column >= size
@@ -105,7 +96,7 @@ export interface BoardGeometry {
   cell: number;
   stoneR: number;
   /** Internal bottom-origin point to inner-board SVG coordinates (SVG y increases downward). */
-  toSVG(point: BoardPoint): { x: number; y: number };
+  toSVG(point: Point): { x: number; y: number };
 }
 
 export function boardGeometry(size: number): BoardGeometry {

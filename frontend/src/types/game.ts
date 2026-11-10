@@ -110,6 +110,11 @@ export type StoneColor = 'B' | 'W';
 
 // ── Value Objects (readonly preserved) ────────────────────────────────────────
 
+/**
+ * Internal Go-board point. x=0 is the left edge and y=0 is the bottom
+ * edge (y increases upward); wire coordinate spaces must be translated
+ * before constructing/consuming this value.
+ */
 export interface Point {
   readonly x: number;
   readonly y: number;

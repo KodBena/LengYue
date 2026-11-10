@@ -12,9 +12,9 @@ import {
   ALL_X_LABELS,
 } from '../../engine/constants';
 import { boardGeometry, boardPointFromTopOrigin, gridLines } from '../../engine/board-geometry';
-import type { BoardPoint } from '../../engine/board-geometry';
+
 import { computeGhostStone } from '../../composables/board/ghost-stone';
-import type { StoneColor, Move } from '../../types';
+import type { StoneColor, Move, Point } from '../../types';
 import type { HeatmapCell, HeatmapStyle } from './BoardHeatmapOverlay.vue';
 
 const props = withDefaults(defineProps<{
@@ -167,7 +167,7 @@ function trianglePoints(cx: number, cy: number): string {
  * the bottom, matching `applyGoMove`), or `null` when the pointer is
  * outside the grid (over the label band / margins).
  */
-function resolveBoardPoint(e: MouseEvent, svg: SVGSVGElement): BoardPoint | null {
+function resolveBoardPoint(e: MouseEvent, svg: SVGSVGElement): Point | null {
   const pt = svg.createSVGPoint();
   pt.x = e.clientX;
   pt.y = e.clientY;
