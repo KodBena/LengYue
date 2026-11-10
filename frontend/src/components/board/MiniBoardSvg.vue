@@ -45,7 +45,7 @@ const lines = computed(() => gridLines(size.value));
 const stoneList = computed(() =>
   Object.entries(props.snapshot.stones).map(([key, color]) => {
     const [bx, by] = key.split(',').map(Number);
-    const { x, y } = geo.value.toSVG(bx, by);
+    const { x, y } = geo.value.toSVG({ x: bx, y: by });
     return { key, x, y, color };
   }),
 );
@@ -63,7 +63,7 @@ const labelList = computed(() =>
 const markerRing = computed(() => {
   const lm = props.snapshot.lastMove;
   if (!props.showMarker || !lm || lm.type !== 'place') return null;
-  const { x, y } = geo.value.toSVG(lm.x, lm.y);
+  const { x, y } = geo.value.toSVG({ x: lm.x, y: lm.y });
   const onBlack = props.snapshot.stones[`${lm.x},${lm.y}`] === 'B';
   return { x, y, r: geo.value.stoneR * MARKER_INNER_RATIO, stroke: onBlack ? 'white' : 'black' };
 });
@@ -80,7 +80,7 @@ const markerRing = computed(() => {
 const PV_OPACITY = 0.55;
 const pvStoneList = computed(() =>
   (props.snapshot.pv ?? []).map((mv) => {
-    const { x, y } = geo.value.toSVG(mv.x, mv.y);
+    const { x, y } = geo.value.toSVG({ x: mv.x, y: mv.y });
     return { key: `pv-${mv.moveNumber}`, x, y, color: mv.color, moveNumber: mv.moveNumber };
   }),
 );

@@ -118,14 +118,14 @@ function draw(): void {
   const rpx = Math.max(2, Math.round(geo.stoneR * sc * dpr));
   for (const [key, color] of Object.entries(snap.stones)) {
     const [bx, by] = key.split(',').map(Number);
-    const { x, y } = geo.toSVG(bx, by);
+    const { x, y } = geo.toSVG({ x: bx, y: by });
     ctx.drawImage(stoneSprite(color, rpx), x - geo.stoneR, y - geo.stoneR, geo.stoneR * 2, geo.stoneR * 2);
   }
 
   // Last-move ring (white ring on a black stone, vice versa).
   const lm = snap.lastMove;
   if (props.showMarker && lm && lm.type === 'place') {
-    const { x, y } = geo.toSVG(lm.x, lm.y);
+    const { x, y } = geo.toSVG({ x: lm.x, y: lm.y });
     const onBlack = snap.stones[`${lm.x},${lm.y}`] === 'B';
     ctx.save();
     ctx.globalAlpha = 0.8;
@@ -147,7 +147,7 @@ function draw(): void {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (const mv of snap.pv) {
-      const { x, y } = geo.toSVG(mv.x, mv.y);
+      const { x, y } = geo.toSVG({ x: mv.x, y: mv.y });
       ctx.drawImage(stoneSprite(mv.color, rpx), x - geo.stoneR, y - geo.stoneR, geo.stoneR * 2, geo.stoneR * 2);
       ctx.fillStyle = mv.color === 'B' ? '#e8e8e8' : '#1a1a1a';
       ctx.font = `bold ${Math.round(geo.stoneR * 0.82)}px monospace`;
