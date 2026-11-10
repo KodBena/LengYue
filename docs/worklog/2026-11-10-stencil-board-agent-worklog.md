@@ -389,6 +389,25 @@ Potential follow-up after visual inspection: tune line widths/colours against th
 
 This part is observability only. The cause of the original mismatch remains to be isolated from the now-visible inputs and outcomes: threshold semantics, legal-policy masking, connectedness, family coverage, or solver behavior. The MEC/dead-stone input policy remains unchanged.
 
+
+## Part 9 — Preserve stencil annotation version during sign normalization
+
+**Implementation commit:** [e1459de — Preserve stencil annotation version when flipping signs](https://github.com/KodBena/LengYue/commit/e1459de1f41313b8e71accf521a40739ae8f74e7) on `LengYue:gne`.
+
+### Defect and type-level correction
+
+The first v2 annotation type made `StencilCoverAnnotation` a discriminated union. The existing inline sign swap spread that union and independently replaced `positive` / `negative`; TypeScript consequently widened both region properties to `StencilCoverRegionBase | StencilCoverRegion`, admitting cross-version combinations that the discriminant forbids. `normalizePacketToWhiteFraming` therefore failed `vue-tsc -b` at its return boundary.
+
+The correction is a dedicated `flipStencilCoverSigns` function that narrows on `annotation.version` before reconstructing the result. Version 1 swaps two base regions and remains version 1; version 2 swaps two component-bearing regions and remains version 2. The packet normalizer delegates to this typed boundary rather than rebuilding the union inline.
+
+The sign-framing test now asserts that v2's raw component arrays swap together with their signed regions, in addition to preserving the full component-bearing region values and input immutability.
+
+### Verification and operational note
+
+The maintainer ran `npm run build` against `0c805ffa` and supplied the resulting TS2322 diagnostic. The correction is committed at `e1459de`. **Post-fix execution status: not run here** — this session has no local checkout / Node build environment, so the corrected `npm run build` and test suite still require execution in the working tree after pulling.
+
+The frontend workflow runs on pull requests and pushes to `main`; a direct push to `gne` does not trigger that workflow. GitHub readback confirms the new commit and test source, but is not a build pass.
+
 ## License
 
 Public Domain (The Unlicense).
