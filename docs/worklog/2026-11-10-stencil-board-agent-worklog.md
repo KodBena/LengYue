@@ -237,6 +237,41 @@ This implementation stayed close to the requested boundary: one transformer modu
 The two things I would tighten before calling the full feature complete are the input-contract verification against an actual KataGo response and the solver lifecycle tests (especially no-incumbent/fallback and final-ID cleanup). I would not widen the implementation into the generic parser or cache to address either; both are local to the new transformer and its tests.
 
 
+## Part 4 — Connected-component decomposition and shape cache
+
+**Implementation commit:** [d1ae670 — Decompose and cache stencil-cover components](https://github.com/KodBena/KataProxy/commit/d1ae670bff3ff78edca32bdc1b39789c82d80b97) on KodBena/KataProxy, branch next.
+
+**Scope.** This part corrects an important algorithmic omission from Part 3: a signed ownership region must be decomposed into 4-connected components before the exact-cover solver sees it. A cache keyed by whole-board masks would not solve the combinatorial problem; repeated small component shapes are the useful unit of reuse.
+
+### Implementation
+
+- Added an iterative 4-neighbour connected-component splitter. Both positive and negative signed regions pass through _solve_region, which now splits them before calling the component solver. The HiGHS model therefore receives one connected component at a time, never a disconnected mask.
+- This decomposition is valid for the current family because the family parser already rejects stencils that are not 4-connected. A connected stencil placement cannot bridge two distinct 4-connected components.
+- Added @functools.lru_cache(maxsize=90_000) around the component solve. The key is a compact, translation-normalised component mask plus the active family and solver time budget. The family is part of the key so a changed family cannot reuse a stale result; the millisecond time budget is part of the key so a future configurable budget cannot reuse a result computed under a different limit.
+- Normalisation is by translation only. I deliberately did not add rotations/reflections: those are safe cache equivalences only when the active stencil family is invariant under the relevant symmetry, and that proof is not needed to obtain useful reuse.
+- Cached values are compact binary placement descriptions: stencil index, placement size, and local point indices. Candidate incidence matrices, NumPy arrays, fp32 ownership maps, and other dense solver intermediates are not retained in the cache. The cache result is translated back into board coordinates after lookup. The response continues to carry placements/coordinates rather than a dense board matrix.
+- The current per-component time limit remains 250 ms. The solver function now accepts the time limit explicitly, but no GUI setting was added in this part.
+
+**Memory note.** Python's functools.lru_cache(maxsize=...) limits the number of entries, not their total byte size. The 90,000-entry limit is an approximate 256-MB-scale design point given the packed 25×25 component key (at most 81 bytes) and the compact placement representation (at most about 2.5 KB for an all-singleton 25×25 cover), plus ordinary cache bookkeeping. It is not a strict byte ceiling; typical component entries are substantially smaller. Keeping the representation compact is part of the memory strategy, not an optional optimisation.
+
+### Tests and verification
+
+Four additional tests were added, bringing the focused module to 13 tests. They cover 4-connectivity (including diagonal non-connectivity), translation-normalised shape keys, decomposition before the cache/solver boundary, and the cache entry limit. The existing optional HiGHS domino test remains in place.
+
+**Execution status: not run.** I fetched the final proxy source and test file from the committed next branch and verified the decomposition, component-cache call, compact encoding helpers, cache size, and new tests are present. The local environment still cannot resolve github.com, and there is no test workflow result available for this commit. Repository readback is not a passing test run.
+
+### Backlog recorded from the maintainer's follow-up
+
+1. **GUI control of the solver time budget.** The 250-ms per-component limit is currently an implementation constant. A GUI user must eventually be able to control it. This part does not add the preference or UI; it only makes the budget an explicit solver argument and cache-key dimension so that later changes remain correct.
+2. **Revisit the MEC input mask and dead-stone semantics.** The present implementation uses the policy illegal-point sentinel as a mask, following the research implementation. The maintainer notes that human subitizing behaves differently: dead stones are ignored while estimating regions, then counted separately; when they form a blob, the blob is counted and its value doubled. A policy -1 mask cannot by itself express that distinction between dead stones, live occupied points, and other illegal points. The correct region/mask model is unresolved and deliberately deferred. Do not treat the current policy mask as a final product definition.
+
+### Process assessment
+
+The follow-up clarified that component decomposition was not merely a cache optimisation. It is a prerequisite for making the exact-cover work tractable on the natural disconnected masks produced by ownership regions. The solver and cache now share the right unit: a connected component shape. The new cache reuses a solved local shape across translations and repeated review positions without retaining the large numerical artefacts that generated it.
+
+The 90,000 lru_cache limit is entry-based, not a literal memory quota. The chosen binary representation keeps the likely footprint in the intended range, but actual resident memory should be observed under a real game corpus before treating the estimate as an operational guarantee. A future byte-accounted cache would be warranted only if measurement shows that the entry bound is insufficient.
+
+
 ## License
 
 Public Domain (The Unlicense).
