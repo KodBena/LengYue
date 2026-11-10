@@ -7,6 +7,8 @@
  * License: Public Domain (The Unlicense)
  */
 import { describe, expect, it } from 'vitest';
+import { boardGeometry } from '../../../src/engine/board-geometry';
+import { decodeBoardArray } from '../../../src/engine/util';
 import {
   projectStencilCoverComponents,
   projectStencilCoverOutline,
@@ -155,6 +157,48 @@ describe('projectStencilCoverOutline', () => {
       9,
     )).toBeNull();
     expect(projectStencilCoverOutline(annotation(region([])), 13)).toBeNull();
+  });
+});
+
+describe('KataGo row-major orientation boundary', () => {
+  it('maps every top-origin wire cell to the same bottom-origin point as decodeBoardArray', () => {
+    const size = 9;
+    const geometry = boardGeometry(size);
+    const half = geometry.cell / 2;
+    const format = (value: number): string => Number(value.toFixed(3)).toString();
+
+    // Quantify over the entire coordinate class; a central or symmetric
+    // fixture would not catch a vertical reflection.
+    for (let rowFromTop = 0; rowFromTop < size; rowFromTop++) {
+      for (let column = 0; column < size; column++) {
+        const flatIndex = rowFromTop * size + column;
+        const values = Array<number>(size * size).fill(0);
+        values[flatIndex] = 1;
+        const decoded = decodeBoardArray(values, size)
+          .find(({ value }) => value === 1);
+        expect(decoded, `decoded cell ${column},${rowFromTop}`).toBeDefined();
+
+        const point = [column, rowFromTop] as const;
+        const value = annotation(region(
+          [{ stencil: '1x1', points: [point] }],
+          true,
+          [component([point])],
+        ));
+        const projected = projectStencilCoverComponents(value, size);
+        const outline = projectStencilCoverOutline(value, size);
+        expect(projected).toHaveLength(1);
+        expect(outline?.positive.path).toBeTruthy();
+
+        const expected = geometry.toSVG({ x: decoded!.x, y: decoded!.y });
+        const tintCell = projected![0].cells[0];
+        expect(tintCell.x + half).toBeCloseTo(expected.x, 6);
+        expect(tintCell.y + half).toBeCloseTo(expected.y, 6);
+
+        const leftEdgeX = geometry.pad + (column - 0.5) * geometry.cell;
+        const expectedLeftEdge = `M${format(leftEdgeX)} ${format(expected.y - half)}L${format(leftEdgeX)} ${format(expected.y + half)}`;
+        expect(outline!.positive.path).toContain(expectedLeftEdge);
+      }
+    }
   });
 });
 

@@ -32,7 +32,7 @@ export function renderBoardToSvg(props: {
   let stonesSvg = '';
   for (const key in stones) {
     const [sx, sy] = key.split(',').map(Number);
-    const coords = toSVG(sx, sy);
+    const coords = toSVG({ x: sx, y: sy });
     stonesSvg += `<circle cx="${coords.x}" cy="${coords.y}" r="${stoneR}" 
       fill="${stones[key] === 'B' ? `url(#gb-${safeUid})` : `url(#gw-${safeUid})`}" 
       stroke="${stones[key] === 'B' ? '#000' : '#aaa'}" stroke-width="0.5" />`;
@@ -42,7 +42,7 @@ export function renderBoardToSvg(props: {
   if (markerLabels) {
     for (const [key, label] of Object.entries(markerLabels)) {
       const [lx, ly] = key.split(',').map(Number);
-      const coords = toSVG(lx, ly);
+      const coords = toSVG({ x: lx, y: ly });
       labelSvg += `
         <rect x="${coords.x - 7}" y="${coords.y - 7}" width="14" height="14" fill="rgba(255,255,255,0)" rx="2" />
         <text x="${coords.x}" y="${coords.y + 1}" fill="#000" font-size="28" font-weight="bold" 
@@ -52,7 +52,7 @@ export function renderBoardToSvg(props: {
 
   let markerSvg = '';
   if (showMarker && lastMove && lastMove.type === 'place') {
-    const coords = toSVG(lastMove.x, lastMove.y);
+    const coords = toSVG({ x: lastMove.x, y: lastMove.y });
     markerSvg += `<circle cx="${coords.x}" cy="${coords.y}" r="${stoneR * MARKER_INNER_RATIO}" fill="none"
       stroke="${stones[`${lastMove.x},${lastMove.y}`] === 'B' ? 'white' : 'black'}" stroke-width="2" opacity="0.8" />`;
   }

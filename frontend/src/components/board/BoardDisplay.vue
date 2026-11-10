@@ -11,7 +11,8 @@ import {
   MARKER_INNER_RATIO, TRIANGLE_MARK_RATIO,
   ALL_X_LABELS,
 } from '../../engine/constants';
-import { boardGeometry, gridLines } from '../../engine/board-geometry';
+import { boardGeometry, boardPointFromTopOrigin, gridLines } from '../../engine/board-geometry';
+import type { BoardPoint } from '../../engine/board-geometry';
 import { computeGhostStone } from '../../composables/board/ghost-stone';
 import type { StoneColor, Move } from '../../types';
 import type { HeatmapCell, HeatmapStyle } from './BoardHeatmapOverlay.vue';
@@ -166,7 +167,7 @@ function trianglePoints(cx: number, cy: number): string {
  * the bottom, matching `applyGoMove`), or `null` when the pointer is
  * outside the grid (over the label band / margins).
  */
-function resolveBoardPoint(e: MouseEvent, svg: SVGSVGElement): { x: number; y: number } | null {
+function resolveBoardPoint(e: MouseEvent, svg: SVGSVGElement): BoardPoint | null {
   const pt = svg.createSVGPoint();
   pt.x = e.clientX;
   pt.y = e.clientY;
@@ -179,7 +180,7 @@ function resolveBoardPoint(e: MouseEvent, svg: SVGSVGElement): { x: number; y: n
   const s = boardSize.value;
 
   if (col < 0 || col >= s || row < 0 || row >= s) return null;
-  return { x: col, y: s - 1 - row };
+  return boardPointFromTopOrigin(col, row, s);
 }
 
 function onBoardClick(e: MouseEvent) {

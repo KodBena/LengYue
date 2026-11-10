@@ -597,10 +597,17 @@ export interface KataExtra {
 
 // ── Response Types ─────────────────────────────────────────────────────────────
 
-/** One selected proxy-owned stencil placement, with points in board coordinates. */
+/**
+ * KataGo row-major board coordinate on the proxy wire: [column, rowFromTop].
+ * Row zero is the TOP row. This tuple is not an internal BoardPoint; convert
+ * it with boardPointFromTopOrigin before using SPA board geometry.
+ */
+export type KataGoArrayPoint = readonly [column: number, rowFromTop: number];
+
+/** One selected proxy-owned stencil placement, with KataGo array coordinates. */
 export interface StencilCoverPlacement {
   readonly stencil: string;
-  readonly points: readonly (readonly [number, number])[];
+  readonly points: readonly KataGoArrayPoint[];
 }
 
 /** Outcome recorded for each connected raw component handed to the solver. */
@@ -608,7 +615,7 @@ export type StencilCoverComponentStatus = 'fallback' | 'optimal' | 'feasible';
 
 export interface StencilCoverComponent {
   /** Exact board cells in the connected component after legal-mask + threshold. */
-  readonly cells: readonly (readonly [number, number])[];
+  readonly cells: readonly KataGoArrayPoint[];
   /** Number of selected placements used to cover this component. */
   readonly tileCount: number;
   readonly optimal: boolean;

@@ -12,12 +12,14 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { boardGeometry } from './board-geometry';
+import { boardGeometry, boardPointFromTopOrigin } from './board-geometry';
+import type { BoardPoint } from './board-geometry';
 import type {
   StencilCoverAnnotation,
   StencilCoverComponent,
   StencilCoverComponentStatus,
   StencilCoverRegionBase,
+  KataGoArrayPoint,
 } from './katago/types';
 
 export interface StencilCoverRegionOutline {
@@ -62,7 +64,7 @@ function addEdge(edges: Map<string, BoundaryEdge>, edge: BoundaryEdge): void {
   if (!edges.has(key)) edges.set(key, edge);
 }
 
-function validPoint(point: unknown, size: number): point is readonly [number, number] {
+function validPoint(point: unknown, size: number): point is KataGoArrayPoint {
   if (!Array.isArray(point) || point.length !== 2) return false;
   const [x, y] = point;
   return typeof x === 'number' && Number.isInteger(x)
@@ -79,7 +81,7 @@ function edgesToPath(edges: Map<string, BoundaryEdge>, size: number): string {
   for (const edge of edges.values()) {
     if (edge.orientation === 'vertical') {
       const x = geometry.pad + (edge.line - 0.5) * geometry.cell;
-      const centerY = geometry.toSVG(0, edge.segment).y;
+      const centerY = geometry.toSVG({ x: 0, y: edge.segment }).y;
       commands.push(
         'M' + format(x) + ' ' + format(centerY - half)
         + 'L' + format(x) + ' ' + format(centerY + half),
@@ -128,17 +130,19 @@ function regionBoundaryPath(
     ) return null;
 
     const local = new Set<string>();
-    for (const point of placement.points as readonly unknown[]) {
-      if (!validPoint(point, size)) return null;
-      const [x, y] = point;
-      const key = x + ',' + y;
+    const boardPoints: BoardPoint[] = [];
+    for (const wirePoint of placement.points as readonly unknown[]) {
+      if (!validPoint(wirePoint, size)) return null;
+      const point = boardPointFromTopOrigin(wirePoint[0], wirePoint[1], size);
+      const key = point.x + ',' + point.y;
       if (local.has(key) || occupiedAcrossSigns.has(key)) return null;
       local.add(key);
       occupiedAcrossSigns.add(key);
+      boardPoints.push(point);
     }
 
-    for (const point of placement.points) {
-      const [x, y] = point;
+    for (const point of boardPoints) {
+      const { x, y } = point;
       if (!local.has((x - 1) + ',' + y)) {
         addEdge(edges, { orientation: 'vertical', line: x, segment: y });
       }
@@ -184,12 +188,12 @@ function isFourConnected(indices: ReadonlySet<number>, size: number): boolean {
 
 /** External perimeter of one raw component; internal cell edges are omitted. */
 function componentBoundaryPath(
-  cells: readonly (readonly [number, number])[],
+  cells: readonly BoardPoint[],
   size: number,
 ): string {
-  const occupied = new Set(cells.map(([x, y]) => y * size + x));
+  const occupied = new Set(cells.map(({ x, y }) => y * size + x));
   const edges = new Map<string, BoundaryEdge>();
-  for (const [x, y] of cells) {
+  for (const { x, y } of cells) {
     const point = y * size + x;
     if (x === 0 || !occupied.has(point - 1)) {
       addEdge(edges, { orientation: 'vertical', line: x, segment: y });
@@ -279,7 +283,7 @@ export function projectStencilCoverComponents(
   const entries: {
     readonly id: string;
     readonly component: StencilCoverComponent;
-    readonly points: readonly (readonly [number, number])[];
+    readonly points: readonly BoardPoint[];
     readonly indices: ReadonlySet<number>;
   }[] = [];
   const ownerByCell = new Map<number, number>();
@@ -302,12 +306,14 @@ export function projectStencilCoverComponents(
       ) return false;
 
       const indices = new Set<number>();
-      for (const point of component.cells as readonly unknown[]) {
-        if (!validPoint(point, size)) return false;
-        const [x, y] = point;
-        const index = y * size + x;
+      const boardPoints: BoardPoint[] = [];
+      for (const wirePoint of component.cells as readonly unknown[]) {
+        if (!validPoint(wirePoint, size)) return false;
+        const point = boardPointFromTopOrigin(wirePoint[0], wirePoint[1], size);
+        const index = point.y * size + point.x;
         if (indices.has(index) || ownerByCell.has(index)) return false;
         indices.add(index);
+        boardPoints.push(point);
       }
       if (!isFourConnected(indices, size)) return false;
 
@@ -316,7 +322,7 @@ export function projectStencilCoverComponents(
       entries.push({
         id: sign + '-' + componentIndex,
         component,
-        points: component.cells,
+        points: boardPoints,
         indices,
       });
     }
@@ -354,8 +360,8 @@ export function projectStencilCoverComponents(
   return entries.map((entry, index) => ({
     id: entry.id,
     colorIndex: colors[index],
-    cells: entry.points.map(([x, y]) => {
-      const center = geometry.toSVG(x, y);
+    cells: entry.points.map(point => {
+      const center = geometry.toSVG(point);
       return {
         key: entry.id + ':' + x + ',' + y,
         x: center.x - half,

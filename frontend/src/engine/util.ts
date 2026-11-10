@@ -8,6 +8,7 @@
  */
 import type { Move, StoneColor, BoardState, NodeId, GameNode, RootToLeafPath } from '../types';
 import { normalizeRuleset, type RulesetResolution } from './rulesets';
+import { boardPointFromTopOrigin } from './board-geometry';
 
 /**
  * Thrown when an inbound SGF coordinate is malformed — a character
@@ -405,10 +406,10 @@ export function decodeBoardArray(
   }
   const out: { x: number; y: number; value: number }[] = [];
   for (let i = 0; i < values.length; i++) {
-    const x = i % size;
-    const row = Math.floor(i / size);
-    const y = size - 1 - row;
-    out.push({ x, y, value: values[i] });
+    const column = i % size;
+    const rowFromTop = Math.floor(i / size);
+    const point = boardPointFromTopOrigin(column, rowFromTop, size);
+    out.push({ ...point, value: values[i] });
   }
   return out;
 }
