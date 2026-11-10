@@ -73,6 +73,7 @@ frontend/src/
 │   │
 │   ├── board/                                Go-board surface. Renderers + overlays.
 │   │   ├── BoardDeltaAnnotation.vue   [B3]  Wiki Wanted #7/#7.1: single-label overlay for the just-played move's ledger delta + child visit count (or per-player-framed score delta); self-sources via useMoveDeltaAnnotation, renders nothing when the ledger has no delta for the node.
+│   │   ├── BoardStencilCoverOverlay.vue [B3] Proxy-computed positive/negative exact-cover tilings; draws one closed SVG boundary path per ownership sign and self-sources from the raw ledger.
 │   │   ├── BoardDisplay.vue           [B3]  Stateless SVG Go board with stone gradients, hoshi, last-move ring, move-number text, and setup-toolkit triangle marks (`triangles` prop, current node only).
 │   │   ├── BoardHeatmapOverlay.vue    [B3]  Stateless per-intersection heatmap (ownership / liveness / dots).
 │   │   ├── BoardTab.vue               [B3]  Tab row in the board-list rail (label, close, canvas analysis-depth rugplot drawn imperatively off the render path).
@@ -260,6 +261,7 @@ frontend/src/
 │   │   ├── useEngineResponder.ts      [B3]  "Play vs engine" trigger: `fireAndAdvanceHead(boardId, gameStartNodeId)` queries the engine at the board's current position and advances the game's single green-ring head; invoked from useBoardMoveRouting when the user plays from a head.
 │   │   ├── useFollowMePonder.ts       [B3]  "Follow Me" ponder watcher: re-issues the active board's ponder query on same-board navigation (board switches excluded). App.vue's former direct analysis-service watcher, relocated to the composable layer 2026-06-11.
 │   │   ├── useMoveDeltaAnnotation.ts  [B3]  Wiki Wanted #7/#7.1: per-node delta+visits derivation for the board overlay, reused unmodified from the same `useEnrichedData`/`enriched-accumulator` authority MergedDeltaPanel charts against — no separate delta formula. Returns null (absence) when the ledger lacks the node's delta.
+│   │   ├── useStencilCoverAnnotation.ts [B3] Leaf-local raw-ledger subscription for the current node's proxy-computed signed stencil cover.
 │   │   ├── use-move-suggestions.ts    [B3]  Refined intensity-mapping for KataGo move suggestions.
 │   │   ├── usePassSignal.ts           [B1]  Module-scoped "play a pass" request counter (`requestPass()` / `passRequestCount`), same shape as useMintDialogSignal.ts. Closes the same module-scope-has-no-component-instance gap: the `board.pass` keybinding bumps the counter; App.vue watches it and calls its own `handlePass()` (from useBoardMoveRouting).
 │   │   ├── usePlayFromPosition.ts     [B3]  "Engine plays from here" — looped applyGoMove (or applyPass, for an engine-recommended pass; ledger item engine-pass-throw) against a KataGo URL.
@@ -351,6 +353,7 @@ frontend/src/
 ├── engine/                                  Pure Go-engine code: rules, SGF, KataGo wire, board rendering.
 │   ├── analysis-config-curation.ts    [B3]  Bit-equivalent rewriter for KataGo `analysis_config` symbol bodies.
 │   ├── board-geometry.ts              [B3]  SSOT for board rendering geometry (pad/cell/stoneR/toSVG, gridLines) + the BoardSnapshot position primitive; shared by renderBoardToSvg (string) and the Vue board components so projections can't drift.
+│   ├── stencil-cover-geometry.ts      [B3]  Pure signed-stencil placement to one SVG boundary path per ownership sign; deduplicates shared tile edges and validates placement coordinates.
 │   ├── board-renderer.ts              [B3]  Pure SVG Go board rendering → string (v-html / ECharts-innerHTML sinks); geometry from board-geometry.
 │   ├── constants.ts                   [B3]  Board geometry, stone-radius ratio, label-band width, etc.
 │   ├── handicap.ts                    [B3]  Handicap-stone placement tables (19×19 N=2-9, 13×13 N=2-5, 9×9 N=2-4; GNU-Go-convention hoshi progression) + applyHandicap — places root AB stones via logic.ts's applySetup, sets turn/PL[W]/HA[n]/default KM. Refuses (HandicapOnStartedGameError) once the root has children.

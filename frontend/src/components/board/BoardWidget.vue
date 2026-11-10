@@ -8,6 +8,7 @@ import BoardDisplay from './BoardDisplay.vue';
 import BoardHeatmapOverlay from './BoardHeatmapOverlay.vue';
 import BoardVariationsOverlay from './BoardVariationsOverlay.vue';
 import BoardDeltaAnnotation from './BoardDeltaAnnotation.vue';
+import BoardStencilCoverOverlay from './BoardStencilCoverOverlay.vue';
 import MoveSuggestions from './MoveSuggestions.vue';
 import type { BoardState, NodeId, GameNode } from '../../types';
 import { getBoardSize, decodeBoardArray } from '../../engine/util';
@@ -318,6 +319,15 @@ function onShiftClick(x: number, y: number) {
       :color-map="livenessColor"
       shape="disc"
       :scale="0.13"
+    />
+    <!-- Leaf-sourced raw-ledger annotation (ADR-0010): the parent passes
+         only nav-rate identity/geometry and the PV-preview suppression flag.
+         Packet-rate stencilCover reads stay inside the leaf. -->
+    <BoardStencilCoverOverlay
+      v-if="store.session.ui.overlayLayers.ownership.stencilCover"
+      :current-node-id="state.currentNodeId"
+      :size="boardSize"
+      :suppressed="pvHoverActive"
     />
     <!-- Bound to the new global toggle -->
     <MoveSuggestions

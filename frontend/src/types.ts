@@ -83,6 +83,9 @@ export type {
   RawAnalysis,
   Enrichment,
   CapabilityAdvertisement,
+  StencilCoverAnnotation,
+  StencilCoverRegion,
+  StencilCoverPlacement,
 } from './engine/katago/types';
 
 // ── Re-exports: PV animation settings shape ───────────────────────────────────

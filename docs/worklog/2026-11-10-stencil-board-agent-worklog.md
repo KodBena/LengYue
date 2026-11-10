@@ -310,6 +310,32 @@ This part does not implement the board overlay renderer or visual toggle behavio
 
 The previously recorded product backlog remains open: GUI control of the per-component solver time budget, and a better MEC input-mask/dead-stone model. The current policy illegal-point mask is still an interim proxy input rule, not a settled human-subitizing contract. Threshold endpoint semantics also remain provisional; this part forwards the persisted value faithfully and does not redefine its domain.
 
+## Part 6 — Board-local stencil-cover overlay
+
+**Implementation commit:** This worklog section is included in the same Git commit as the board overlay implementation; see the `gne` branch history for its SHA.
+
+### Rendering architecture
+
+- Added `engine/stencil-cover-geometry.ts`, a pure projection from the proxy's signed placement list to SVG path data. It uses the shared `boardGeometry()` source of truth, so board coordinates and label-band translation align with BoardDisplay.
+- Each sign is rendered as one SVG path, regardless of how many stencil placements it contains. The renderer emits the full perimeter of every stencil, including edges facing below-threshold/unowned points. It omits edges shared by cells inside the same stencil and deduplicates the common edge when two separate stencils touch.
+- Positive ownership (White) is rendered with a white core and dark halo; negative ownership (Black) with a dark core and light halo. A proven-optimal cover is solid; a valid but unproven incumbent/fallback is dashed. There is no fill and no dense board matrix.
+- The pure projector refuses malformed placement data, out-of-board coordinates, repeated points, placement overlap, and overlap between positive and negative regions rather than painting a plausible partial result.
+- Added `useStencilCoverAnnotation.ts` and `BoardStencilCoverOverlay.vue`. The leaf self-sources the active node's raw-ledger annotation. `BoardWidget` passes only the current node id, board size, and PV-hover suppression flag; it does not read packet-rate stencil-cover data itself (ADR-0010 read-locality).
+- The already-existing session display toggle gates mounting, and the existing `s` keybinding remains the control. No duplicate preference, keybinding, or analysis restart behaviour was added.
+- During PV hover, the overlay is suppressed. The component short-circuits before reading its annotation computed, so the real node's tiling is not shown over the hypothetical PV board and the hidden leaf does not continue packet-driven projection work.
+
+### Tests
+
+Added nine pure geometry tests for closed perimeters beside unowned points, adjacent-stencil shared edges, internal edges within a multi-cell stencil, signed separation, non-optimal styling metadata, empty covers, invalid intra-region overlap, invalid cross-sign overlap, and invalid/out-of-board geometry. Added one composable integration test showing that a raw-ledger write for the current node becomes visible reactively to the leaf source. The new type declarations are exported through the frontend's public types barrel, and `frontend/FILES.md` has been updated.
+
+**Execution status: not run.** The container still cannot reach GitHub to obtain a local checkout, so neither the Vitest tests nor the TypeScript/Vue build were run. The committed source and tests were checked by GitHub repository readback. That is not evidence of a passing type-check or test run.
+
+### Scope and remaining work
+
+No change was made to BoardDisplay's SVG, the ownership continuous/dots/liveness modes, the analysis query path, or the solver. The MEC dead-stone input-mask question and the user-configurable solver time budget remain deferred as recorded in Part 4. The overlay consumes only the already-retained proxy annotation; it does not attempt to repair or reinterpret the proxy's current policy-mask semantics.
+
+Potential follow-up after visual inspection: tune line widths/colours against the actual wood texture and on-stone overlaps. The current two-tone outline and dashed non-optimal treatment are an initial visual contract, not a claim that the palette is final.
+
 
 ## License
 
