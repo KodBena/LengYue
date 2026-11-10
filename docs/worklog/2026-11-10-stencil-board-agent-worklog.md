@@ -171,6 +171,72 @@ The next implementation part should be deliberately small:
 The frontend's provisional threshold slider remains deliberately unresolved. Do not treat the research project's `taus` or validation interval as the GUI's allowable values.
 
 
+## Part 3 — Proxy stencil-cover enricher
+
+**Implementation commit:** [9a3a2fd — Add stencil-cover response enrichment](https://github.com/KodBena/KataProxy/commit/9a3a2fd241a3c5be3c2f705a55be1391c30f68ea) on KodBena/KataProxy, branch next.
+
+**Worklog placement.** This record lives in LengYue while the implementation lives in KataProxy. A Git commit cannot contain files from both repositories, so this append is necessarily a separate documentation commit on LengYue branch gne; it is paired with, and names, the proxy implementation commit above.
+
+### Dated correction to Part 2's highspy wording (2026-11-10)
+
+The Part 2 account says that I "incorrectly reported that I had not yet found the direct highspy route." That gives the wrong account of what happened. The direct highspy route had already been identified and reported; the later statement that it had not yet been found contradicted that earlier report. The error was in my own later account of the investigation, not in the availability of the source or in the maintainer having to supply a missing discovery. This clarification supersedes the relevant Part 2 wording.
+
+### Scope and files changed
+
+This part implemented the proxy-side enrichment using the narrow extension seam identified in Part 2:
+
+- transformers/stencil_cover_enricher.py — new Unlicense transformer.
+- transformers/stencil_family.txt — proxy-owned family file, using the existing name: plus ASCII-row format. It contains the rectangle family from 1×1 through 6×3.
+- proxy_server.py — imports the transformer, adds it to the existing capability-gated transformer chain, and advertises stencil_cover only when both highspy and the family file are available.
+- tests/test_stencil_cover_enricher.py — nine focused tests.
+
+No generic parser, serializer, capability-gate, cache, or protocol-transformer implementation was changed. No file in the MIT-derived goboard_transposition/ subtree was touched. The existing capability gate and capability advertiser are reused.
+
+### First implementation contract
+
+A query opts in explicitly through:
+
+capabilities.stencil_cover.truncation_threshold
+
+The transformer records the board dimensions and threshold by client ID. It deliberately ignores legacy queries that have no explicit stencil_cover capability entry, even though the shared capability wrapper auto-engages for legacy clients; that prevents this new, expensive computation from unexpectedly running for clients that did not ask for it.
+
+Only final AnalyzeResponse packets are enriched; during-search packets pass through. The result is added to response opaque data under stencilCover. Its first wire shape is:
+
+- version, threshold, width, and height;
+- independent positive and negative covers, each with placements, tileCount, optimal, and status;
+- each placement contains a stencil name and its board points as [x, y];
+- top-level optimal is true only when both signed regions have proven optimal covers.
+
+Positive and negative ownership are solved separately and remain separately identified in the response. The implementation does not reduce ownership to unsigned magnitude.
+
+The solver builds a binary exact-cover model directly with highspy: one variable per candidate placement, unit objective cost per selected placement, and exactly-one coverage for every point in the selected region. Single-point placements are always added as a feasibility fallback. A valid time-limited incumbent is returned with optimal: false; when no valid incumbent is available, the singleton cover is returned with status: fallback and optimal: false. Empty regions are represented explicitly and do not need a solver call.
+
+### Choices that remain provisional
+
+- **Solver dependency:** highspy is imported optionally. I did not add it to KataProxy's required dependency set, consistent with the narrow requested file boundary. The capability is not advertised unless the optional package and family file are both present. Consequently, a normal environment without highspy will not expose this feature until the optional package is installed.
+- **Threshold endpoints:** The transformer currently accepts finite values in [0, 1], based on the signed ownership value domain, not on the research study's experimental validation interval. At exactly zero, strictly positive and strictly negative points are separated and neutral zero-valued points belong to neither side. At exactly one, only values at +1 or -1 qualify. These endpoint semantics are explicit in this first implementation, but they are not yet a final product/UX decision and should be checked before frontend wiring. Part 1's slider range remains scaffolding, not a confirmed UI contract.
+- **Policy input:** The transformer accepts a policy array at top-level policy or rootInfo.policy, expects -1 to mark illegal points and probabilities in [0, 1] for legal points, and ignores an optional trailing pass entry. This follows the gomecsolver research representation. I did not validate that representation against a captured live KataGo JSON response in this part; the exact wire location and encoding still need a real-packet check. If policy data is absent or malformed, enrichment is skipped rather than silently covering occupied points.
+- **Solver budget:** The current hard-coded time limit is 0.25 seconds per signed region. This is a responsiveness guard, not a measured optimum or a user-configurable product setting. A result is marked unproven when the solver does not report optimality.
+
+### Tests and verification
+
+The new test module contains nine tests covering family parsing and connectivity, zero/one threshold semantics, candidate generation and singleton feasibility, explicit capability opt-in, final-response-only processing, preservation of positive/negative separation, missing-policy refusal, and (when highspy is installed) a small real HiGHS domino exact-cover case.
+
+**Execution status: not run.** I attempted to clone the branch for local execution, but the container could not resolve github.com (Could not resolve host: github.com). The commit's workflow-run lookup returned no associated workflow runs. I verified the final branch head and fetched the committed source, family, tests, and proxy_server.py again; I also verified that the server import, chain injection, and runtime advertisement are present. This is repository/readback verification, not a passing test result.
+
+The tests do not yet cover every case listed in Part 2's proposed test scope: in particular, there is no dedicated assertion for cleanup after the final link mapping disappears, nor a simulated time-limit/no-incumbent HiGHS response. Those are honest follow-up coverage gaps, not completed checks.
+
+### What the next frontend part must do
+
+The proxy does not modify the engine request to add analysis fields. A client using the capability must request the ownership map and policy map from KataGo, then send the explicit stencil_cover capability metadata. The frontend must consume the opaque stencilCover result while preserving the positive/negative distinction, and verify that analysis-bundle persistence keeps the enrichment. The computation preference and display preference remain separate: visibility changes should not cause analysis restarts.
+
+### Process assessment
+
+This implementation stayed close to the requested boundary: one transformer module, one proxy-owned family file, focused tests, and the proxy_server.py wiring. I did not need to alter generic proxy infrastructure. That validates the Part 2 conclusion that the transposition enricher was enough to reveal the extension pattern.
+
+The two things I would tighten before calling the full feature complete are the input-contract verification against an actual KataGo response and the solver lifecycle tests (especially no-incumbent/fallback and final-ID cleanup). I would not widen the implementation into the generic parser or cache to address either; both are local to the new transformer and its tests.
+
+
 ## License
 
 Public Domain (The Unlicense).
