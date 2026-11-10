@@ -144,7 +144,7 @@ function toSVG(bx: number, by: number): { x: number; y: number } {
   // (handled by the shared geometry). The playing-area group is translated
   // by (LABEL_BAND, LABEL_BAND) in the template, so these are inner-board
   // coordinates.
-  return geo.value.toSVG(bx, by);
+  return geo.value.toSVG({ x: bx, y: by });
 }
 
 // Triangle-mark polygon points, computed per stone-radius so the mark
