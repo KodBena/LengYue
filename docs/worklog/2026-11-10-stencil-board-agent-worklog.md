@@ -337,6 +337,25 @@ No change was made to BoardDisplay's SVG, the ownership continuous/dots/liveness
 Potential follow-up after visual inspection: tune line widths/colours against the actual wood texture and on-stone overlaps. The current two-tone outline and dashed non-optimal treatment are an initial visual contract, not a claim that the palette is final.
 
 
+## Part 7 — Require HiGHS at stencil-cover composition
+
+**Proxy implementation commit:** [983ccf7fc6f11aaa41109279c83f08e959708c33](https://github.com/KodBena/KataProxy/commit/983ccf7fc6f11aaa41109279c83f08e959708c33) on the `KataProxy/next` branch.
+
+### Dependency boundary
+
+- `transformers/stencil_cover_enricher.py` imports `highspy` unconditionally at module load. It reads and parses the proxy-owned stencil family during that same import, without an availability flag or fallback. A missing package raises the ordinary `ImportError`; a missing or malformed family raises its ordinary file/validation error.
+- No project-wide dependency declaration was added. The solver dependency is required by this transformer, not by unrelated proxy features.
+- Removed `HIGHS_AVAILABLE`, `STENCIL_COVER_AVAILABLE`, and the per-query solver-availability branch. The transformer is already composed unconditionally through `.then(stencil_cover_enricher)`; the server now imports only the factory and advertises the composed capability unconditionally when capability advertisement is enabled.
+- Replaced the tuple request-cache value with a frozen typed `RequestContext`. Removed callback catch-and-log fallbacks: invalid opt-in metadata and unusable final response data now propagate as errors rather than silently producing a missing annotation. The response callback retains `finally` solely for request-cache cleanup.
+
+### Focused tests and verification
+
+- Removed test setup that monkeypatched the old availability flag.
+- The HiGHS exact-cover test is no longer skipped when the optional package is absent; importing the test module itself now requires the actual solver dependency, matching the composition contract.
+- Changed the missing-policy-map test to assert the validation error propagates.
+
+**Execution status: not run.** The current container does not have `highspy` installed, and the commit has no GitHub workflow run attached. Repository readback confirms the import, family-load, server-advertisement, and test changes are present; that readback is not a test pass.
+
 ## License
 
 Public Domain (The Unlicense).
