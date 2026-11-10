@@ -271,6 +271,45 @@ The follow-up clarified that component decomposition was not merely a cache opti
 
 The 90,000 lru_cache limit is entry-based, not a literal memory quota. The chosen binary representation keeps the likely footprint in the intended range, but actual resident memory should be observed under a real game corpus before treating the estimate as an operational guarantee. A future byte-accounted cache would be warranted only if measurement shows that the entry bound is insufficient.
 
+## Part 5 — Frontend stencil-cover request and raw-data plumbing
+
+**Implementation commit:** This worklog section is included in the same Git commit as the frontend changes; see the branch history for the commit SHA.
+
+### Query construction and capability negotiation
+
+The analysis-service query builders now read the profile's useStencilCover and stencilTruncationThreshold settings in both analyzeRange and analyzeActiveNode.
+
+- The per-query capability builder emits stencil_cover with the persisted truncation_threshold only when the user has enabled computation AND the connected proxy advertises stencil_cover.
+- When that capability is available and enabled, both query paths request includeOwnership and includePolicy. includeOwnership remains requested for the existing ownership display modes as before.
+- This is intentionally independent of the session's stencil-cover visibility toggle. Two service-level tests leave that display toggle off and assert that the actual WebSocket queries still request both source maps and carry the configured threshold.
+- A missing advertisement is surfaced at engine probe time. This includes capabilities:null, for example when proxy capability advertisement is disabled: the transformer requires explicit opt-in and intentionally does not run through the proxy's legacy auto-engage path. In that state, the SPA does not request ownership/policy solely for stencil cover.
+
+No new request field type was needed for includePolicy; it was already present in KataGoAnalysisQuery. The response-side policy map was already part of RawAnalysis.
+
+### Response typing, colour framing, and bundle retention
+
+- Added typed frontend representations for the proxy's stencilCover annotation: version, threshold, dimensions, positive and negative regions, placement names/coordinates, tile counts, optimality, and status.
+- The raw analysis response type now includes optional stencilCover. The analysis-service receipt path normalises the packet and removes only extra before recording raw data, so the annotation is retained in the raw ledger alongside ownership and policy.
+- Added stencilCover to the analysis-bundle root projection allow-list. The bundle encoder's existing object-spread/quantisation path leaves this compact placement annotation intact; ownership and policy continue through their existing quantised source-map path. No dense matrices are introduced by this feature.
+- Important sign correction: KataGo ownership may arrive in BLACK or SIDETOMOVE framing, while the frontend normalises signed ownership to canonical WHITE framing. The stencil-cover annotation is derived by the proxy before that normalisation, so the normaliser now swaps its positive and negative region payloads whenever it flips ownership. This preserves their colour meaning without recomputing geometry or changing placements.
+
+### Tests and verification
+
+Added coverage in four places:
+
+1. Capability-builder unit tests for opt-in conditions, threshold forwarding, source-map request eligibility, and the warning when explicit negotiation is unavailable.
+2. Analysis-bundle projection test asserting that the proxy annotation survives unchanged.
+3. Winrate-framing unit test asserting that positive/negative cover regions swap together with ownership and that the input packet is not mutated.
+4. Two analysis-service integration tests asserting the actual range and active-node WebSocket queries both request ownership and policy when computation is enabled, even while presentation remains hidden.
+
+**Execution status: not run.** The repository checkout was not available in the container; the earlier attempt to reach github.com failed DNS resolution. I could not run the Vitest suite or the TypeScript type-checker locally. This commit has been read back from GitHub; repository readback is not a passing test result. The English locale JSON was parsed during pre-commit validation, and the source/test edits were checked for expected insertion points and call counts.
+
+### Boundaries and remaining work
+
+This part does not implement the board overlay renderer or visual toggle behaviour; the existing session display setting remains separate and unchanged. The next frontend part can consume the now-typed, retained, canonically colour-framed annotation.
+
+The previously recorded product backlog remains open: GUI control of the per-component solver time budget, and a better MEC input-mask/dead-stone model. The current policy illegal-point mask is still an interim proxy input rule, not a settled human-subitizing contract. Threshold endpoint semantics also remain provisional; this part forwards the persisted value faithfully and does not redefine its domain.
+
 
 ## License
 

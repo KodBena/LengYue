@@ -30,6 +30,8 @@ import {
 import {
   buildPerQueryCapabilities,
   shouldWarnTranspositionUnmet,
+  shouldRequestStencilCoverSources,
+  shouldWarnStencilCoverUnmet,
 } from '../engine/katago/capability-injection';
 import {
   type BoardId,
@@ -519,6 +521,16 @@ export class AnalysisService {
           i18n.global.t('analysis.proxyMissingTransposition'),
         );
       }
+
+      // The transformer requires explicit per-query opt-in, so it cannot
+      // fall back to legacy auto-engage when capabilities are unadvertised.
+      const useStencilCover = store.profile.settings.engine.katago.useStencilCover;
+      if (shouldWarnStencilCoverUnmet(versionResult.capabilities, useStencilCover)) {
+        pushSystemMessage(
+          'warning',
+          i18n.global.t('analysis.proxyMissingStencilCover'),
+        );
+      }
     } catch (err) {
       console.error('[AnalysisService] Failed to probe engine info:', err);
     }
@@ -826,7 +838,15 @@ export class AnalysisService {
     // workaround is needed. This is what the type-honest version of this
     // call site looks like.
     const ownershipModes = store.session.ui.overlayLayers.ownership;
-    const needsOwnership = ownershipModes.continuous || ownershipModes.dots || ownershipModes.liveness;
+    const useStencilCover = store.profile.settings.engine.katago.useStencilCover;
+    const stencilCoverAvailable = shouldRequestStencilCoverSources(
+      store.engine.info.capabilities,
+      useStencilCover,
+    );
+    // Computation is independent of overlay visibility: request source maps
+    // whenever the profile setting is enabled and this proxy advertises it.
+    const needsOwnership = ownershipModes.continuous || ownershipModes.dots || ownershipModes.liveness
+      || stencilCoverAvailable;
     // Replay-cache flags are user-controlled via the registry editor;
     // read fresh on each call so a registry-edit-then-restart picks up
     // the new value immediately. Schema-version 14 surfaced these.
@@ -856,6 +876,8 @@ export class AnalysisService {
       isRangeBased: true,
       forReview,
       useTransposition: store.profile.settings.engine.katago.useTransposition,
+      useStencilCover,
+      stencilTruncationThreshold: store.profile.settings.engine.katago.stencilTruncationThreshold,
       adaptiveReevaluate: store.profile.settings.engine.katago.adaptiveReevaluate,
     });
     const selectedModel = store.engine.selectedModel;
@@ -918,6 +940,7 @@ export class AnalysisService {
       } : {}),
       analyzeTurns,
       ...(needsOwnership ? { includeOwnership: true } : {}),
+      ...(stencilCoverAvailable ? { includePolicy: true } : {}),
       ...(hasOverrides ? { overrideSettings } : {}),
       ...(analysis_config ? { analysis_config } : {}),
       ...(capabilities ? { capabilities } : {}),
@@ -1080,7 +1103,15 @@ export class AnalysisService {
     });
 
     const ownershipModes = store.session.ui.overlayLayers.ownership;
-    const needsOwnership = ownershipModes.continuous || ownershipModes.dots || ownershipModes.liveness;
+    const useStencilCover = store.profile.settings.engine.katago.useStencilCover;
+    const stencilCoverAvailable = shouldRequestStencilCoverSources(
+      store.engine.info.capabilities,
+      useStencilCover,
+    );
+    // Computation is independent of overlay visibility: request source maps
+    // whenever the profile setting is enabled and this proxy advertises it.
+    const needsOwnership = ownershipModes.continuous || ownershipModes.dots || ownershipModes.liveness
+      || stencilCoverAvailable;
     const cacheFlags = {
       cache: store.profile.settings.engine.katago.cache,
       lookup_cache: store.profile.settings.engine.katago.lookup_cache,
@@ -1106,6 +1137,8 @@ export class AnalysisService {
       isRangeBased: false,
       forReview: false,
       useTransposition: store.profile.settings.engine.katago.useTransposition,
+      useStencilCover,
+      stencilTruncationThreshold: store.profile.settings.engine.katago.stencilTruncationThreshold,
       adaptiveReevaluate: store.profile.settings.engine.katago.adaptiveReevaluate,
     });
     const selectedModel = store.engine.selectedModel;
@@ -1154,6 +1187,7 @@ export class AnalysisService {
       // the cursor" by construction — no separate clamp needed.
       analyzeTurns: [moves.length],
       ...(needsOwnership ? { includeOwnership: true } : {}),
+      ...(stencilCoverAvailable ? { includePolicy: true } : {}),
       ...(hasOverrides ? { overrideSettings } : {}),
       ...(analysis_config ? { analysis_config } : {}),
       ...(capabilities ? { capabilities } : {}),

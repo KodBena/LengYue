@@ -91,6 +91,7 @@ export function resolveWinrateFraming(
  *   - moveInfos[].winrate  (1 - w, per element)
  *   - moveInfos[].scoreLead (-, per element)
  *   - ownership[]          (-, per element)
+ *   - stencilCover.positive / negative (swap the signed region labels)
  *
  * Sign-flipped fields (untyped — defensively flipped if KataGo
  * emitted them; absent → no-op):
@@ -128,6 +129,13 @@ export function normalizePacketToWhiteFraming(
     rootInfo: flipRootSignedFields(packet.rootInfo),
     moveInfos: packet.moveInfos.map(flipMoveSignedFields),
     ...(packet.ownership ? { ownership: packet.ownership.map(negateScalar) } : {}),
+    ...(packet.stencilCover ? {
+      stencilCover: {
+        ...packet.stencilCover,
+        positive: packet.stencilCover.negative,
+        negative: packet.stencilCover.positive,
+      },
+    } : {}),
   };
 }
 

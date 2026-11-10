@@ -70,6 +70,7 @@ export const ALLOWED_ROOT_KEYS = [
   'rootInfo',
   'ownership',
   'policy',
+  'stencilCover',
   'extra',
 ] as const satisfies readonly (keyof KataAnalysisResponse)[];
 

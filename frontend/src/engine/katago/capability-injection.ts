@@ -147,6 +147,10 @@ export interface CapabilityInjectionInput {
    * the user the toggle isn't being honoured).
    */
   readonly useTransposition: boolean;
+  /** Whether the user has enabled proxy-side stencil-cover computation. */
+  readonly useStencilCover: boolean;
+  /** Persisted cutoff sent as stencil_cover.truncation_threshold. */
+  readonly stencilTruncationThreshold: number;
   /**
    * The user's adaptive-reevaluate opt-in + metadata, sourced from
    * `engine.katago.adaptiveReevaluate` in the registry. When
@@ -169,10 +173,10 @@ export interface CapabilityInjectionInput {
  *
  * The returned dict is fresh per call (callers may freely include
  * it in the wire payload without aliasing concerns); empty
- * metadata `{}` per capability means "opt in with proxy defaults"
- * — adaptive_reevaluate is the only capability today that ships
- * with non-empty metadata (the user's worst_quantile / extra_visits
- * overrides), keyed snake_case to match the wire vocabulary.
+ * metadata `{}` per capability means "opt in with proxy defaults".
+ * adaptive_reevaluate carries the user's worst_quantile / extra_visits
+ * overrides, while stencil_cover carries truncation_threshold; both
+ * use the proxy's snake_case wire vocabulary.
  */
 export function buildPerQueryCapabilities(
   input: CapabilityInjectionInput,
@@ -181,6 +185,8 @@ export function buildPerQueryCapabilities(
 
   const engageTransposition =
     input.useTransposition && 'transposition' in input.advertised;
+  const engageStencilCover =
+    input.useStencilCover && 'stencil_cover' in input.advertised;
 
   const engageAdaptive = input.adaptiveReevaluate.enabled
     && input.isRangeBased
@@ -223,6 +229,9 @@ export function buildPerQueryCapabilities(
     delta_analysis: {},
     ...(engageTransposition ? { transposition: {} } : {}),
     ...(adaptiveCap !== undefined ? { adaptive_reevaluate: adaptiveCap } : {}),
+    ...(engageStencilCover
+      ? { stencil_cover: { truncation_threshold: input.stencilTruncationThreshold } }
+      : {}),
   };
 }
 
@@ -250,4 +259,29 @@ export function shouldWarnTranspositionUnmet(
   if (advertised === null) return false;
   if (!useTransposition) return false;
   return !('transposition' in advertised);
+}
+
+
+/** True only when a capable proxy is known to advertise stencil_cover. */
+export function shouldRequestStencilCoverSources(
+  advertised: CapabilityAdvertisement | null,
+  useStencilCover: boolean,
+): boolean {
+  return advertised !== null
+    && useStencilCover
+    && 'stencil_cover' in advertised;
+}
+
+/**
+ * Probe-time predicate for a requested stencil-cover capability that the
+ * connected proxy cannot explicitly negotiate. Unlike older transformers,
+ * stencil_cover deliberately does not auto-engage for legacy clients, so
+ * a missing advertisement (including disabled proxy advertisement) matters.
+ */
+export function shouldWarnStencilCoverUnmet(
+  advertised: CapabilityAdvertisement | null,
+  useStencilCover: boolean,
+): boolean {
+  if (!useStencilCover) return false;
+  return advertised === null || !('stencil_cover' in advertised);
 }

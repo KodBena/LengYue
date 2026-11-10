@@ -155,4 +155,48 @@ describe('AnalysisService — handicap board query construction', () => {
     expect(sent.moves.length).toBe(1);
     expect(sent.moves[0][0]).toBe('W'); // the played move is White's, per PL[W]
   });
+
+  it('analyzeRange requests stencil-cover sources independently of the display toggle', () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    store.profile.settings.engine.katago.useStencilCover = true;
+    store.profile.settings.engine.katago.stencilTruncationThreshold = 0.73;
+    store.engine.info.capabilities = {
+      delta_analysis: {},
+      stencil_cover: {},
+    };
+    expect(store.session.ui.overlayLayers.ownership.stencilCover).toBe(false);
+
+    const path = getActiveVariationPath(store.boards.find((b) => b.id === board.id)!);
+    const queryId = analysisService.analyzeRange(
+      board.id, path, 0, Math.max(0, path.length - 1), 100,
+    );
+    const sent = mockSocket().sent.find((m) => m.id === queryId);
+
+    expect(sent).toBeDefined();
+    expect(sent.includeOwnership).toBe(true);
+    expect(sent.includePolicy).toBe(true);
+    expect(sent.capabilities.stencil_cover).toEqual({ truncation_threshold: 0.73 });
+  });
+
+  it('analyzeActiveNode requests stencil-cover sources independently of the display toggle', () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    store.profile.settings.engine.katago.useStencilCover = true;
+    store.profile.settings.engine.katago.stencilTruncationThreshold = 0.42;
+    store.engine.info.capabilities = {
+      delta_analysis: {},
+      stencil_cover: {},
+    };
+    expect(store.session.ui.overlayLayers.ownership.stencilCover).toBe(false);
+
+    const queryId = analysisService.analyzeActiveNode(board.id, 'analyze', 100);
+    const sent = mockSocket().sent.find((m) => m.id === queryId);
+
+    expect(sent).toBeDefined();
+    expect(sent.includeOwnership).toBe(true);
+    expect(sent.includePolicy).toBe(true);
+    expect(sent.capabilities.stencil_cover).toEqual({ truncation_threshold: 0.42 });
+  });
+
 });

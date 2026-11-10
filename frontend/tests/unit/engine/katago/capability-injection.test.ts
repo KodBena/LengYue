@@ -3,9 +3,9 @@
  *
  * Tier-1 (pure-logic) tests for the per-query capability builder
  * in `src/engine/katago/capability-injection.ts`. The engagement
- * matrix has five binary axes (advertised yes/no, isRangeBased
+ * matrix has six binary axes (advertised yes/no, isRangeBased
  * yes/no, forReview yes/no, useTransposition yes/no,
- * adaptiveReevaluate.enabled yes/no) and a capability-presence
+ * useStencilCover yes/no, adaptiveReevaluate.enabled yes/no) and a capability-presence
  * dimension on the advertised side; each branch is a specification
  * of behaviour the analysis-service ACL relies on.
  *
@@ -25,6 +25,8 @@ import { describe, it, expect } from 'vitest';
 import {
   buildPerQueryCapabilities,
   shouldWarnTranspositionUnmet,
+  shouldRequestStencilCoverSources,
+  shouldWarnStencilCoverUnmet,
   type AdaptiveReevaluateInput,
 } from '../../../../src/engine/katago/capability-injection';
 
@@ -67,6 +69,8 @@ describe('buildPerQueryCapabilities', () => {
         advertised: null,
         isRangeBased: true,
         forReview: false,
+        useStencilCover: false,
+        stencilTruncationThreshold: 0,
         useTransposition: true,
         adaptiveReevaluate: ADAPTIVE_ON,
       }),
@@ -78,6 +82,8 @@ describe('buildPerQueryCapabilities', () => {
       advertised: { delta_analysis: {} },
       isRangeBased: false,
       forReview: false,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_OFF,
     });
@@ -85,11 +91,66 @@ describe('buildPerQueryCapabilities', () => {
     expect(caps).toHaveProperty('delta_analysis', {});
   });
 
+  it('engages stencil_cover only when enabled and advertised, forwarding its threshold', () => {
+    const enabled = buildPerQueryCapabilities({
+      advertised: { delta_analysis: {}, stencil_cover: {} },
+      isRangeBased: false,
+      forReview: false,
+      useTransposition: false,
+      useStencilCover: true,
+      stencilTruncationThreshold: 0.73,
+      adaptiveReevaluate: ADAPTIVE_OFF,
+    });
+    expect(enabled?.stencil_cover).toEqual({ truncation_threshold: 0.73 });
+
+    const disabled = buildPerQueryCapabilities({
+      advertised: { delta_analysis: {}, stencil_cover: {} },
+      isRangeBased: false,
+      forReview: false,
+      useTransposition: false,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0.73,
+      adaptiveReevaluate: ADAPTIVE_OFF,
+    });
+    expect(disabled).not.toHaveProperty('stencil_cover');
+
+    const unsupported = buildPerQueryCapabilities({
+      advertised: { delta_analysis: {} },
+      isRangeBased: false,
+      forReview: false,
+      useTransposition: false,
+      useStencilCover: true,
+      stencilTruncationThreshold: 0.73,
+      adaptiveReevaluate: ADAPTIVE_OFF,
+    });
+    expect(unsupported).not.toHaveProperty('stencil_cover');
+  });
+
+  it('requests ownership/policy sources only for opted-in, advertising proxies', () => {
+    expect(shouldRequestStencilCoverSources(
+      { delta_analysis: {}, stencil_cover: {} }, true,
+    )).toBe(true);
+    expect(shouldRequestStencilCoverSources(
+      { delta_analysis: {}, stencil_cover: {} }, false,
+    )).toBe(false);
+    expect(shouldRequestStencilCoverSources({ delta_analysis: {} }, true)).toBe(false);
+    expect(shouldRequestStencilCoverSources(null, true)).toBe(false);
+  });
+
+  it('warns when stencil cover is enabled but cannot be explicitly negotiated', () => {
+    expect(shouldWarnStencilCoverUnmet({ delta_analysis: {} }, true)).toBe(true);
+    expect(shouldWarnStencilCoverUnmet({ delta_analysis: {}, stencil_cover: {} }, true)).toBe(false);
+    expect(shouldWarnStencilCoverUnmet({ delta_analysis: {} }, false)).toBe(false);
+    expect(shouldWarnStencilCoverUnmet(null, true)).toBe(true);
+  });
+
   it('engages transposition when toggle is on AND advertised', () => {
     const caps = buildPerQueryCapabilities({
       advertised: { delta_analysis: {}, transposition: {} },
       isRangeBased: true,
       forReview: false,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0,
       useTransposition: true,
       adaptiveReevaluate: ADAPTIVE_OFF,
     });
@@ -101,6 +162,8 @@ describe('buildPerQueryCapabilities', () => {
       advertised: { delta_analysis: {} },
       isRangeBased: true,
       forReview: false,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0,
       useTransposition: true,
       adaptiveReevaluate: ADAPTIVE_OFF,
     });
@@ -112,6 +175,8 @@ describe('buildPerQueryCapabilities', () => {
       advertised: { delta_analysis: {}, adaptive_reevaluate: {} },
       isRangeBased: true,
       forReview: false,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_ON,
     });
@@ -128,6 +193,8 @@ describe('buildPerQueryCapabilities', () => {
       advertised: { delta_analysis: {}, adaptive_reevaluate: {} },
       isRangeBased: true,
       forReview: false,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_OFF,
     });
@@ -149,6 +216,8 @@ describe('buildPerQueryCapabilities', () => {
       advertised: { delta_analysis: {}, adaptive_reevaluate: {} },
       isRangeBased: true,
       forReview: true,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_ON,
     });
@@ -161,6 +230,8 @@ describe('buildPerQueryCapabilities', () => {
       advertised: { delta_analysis: {}, adaptive_reevaluate: {} },
       isRangeBased: false,
       forReview: false,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_ON,
     });
@@ -172,6 +243,8 @@ describe('buildPerQueryCapabilities', () => {
       advertised: { delta_analysis: {} },
       isRangeBased: true,
       forReview: false,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_ON,
     });
@@ -184,6 +257,8 @@ describe('buildPerQueryCapabilities', () => {
       advertised: { delta_analysis: {}, adaptive_reevaluate: {} },
       isRangeBased: true,
       forReview: false,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0,
       useTransposition: false,
       adaptiveReevaluate: { enabled: true, worstQuantile: 0.1, extraVisits: 1600, valueBinding: '' },
     });
@@ -202,6 +277,8 @@ describe('buildPerQueryCapabilities', () => {
       },
       isRangeBased: true,
       forReview: false,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0,
       useTransposition: true,
       adaptiveReevaluate: ADAPTIVE_ON,
     });
@@ -226,6 +303,8 @@ describe('buildPerQueryCapabilities', () => {
       },
       isRangeBased: true,
       forReview: true,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_ON,
     });
@@ -245,6 +324,8 @@ describe('buildPerQueryCapabilities', () => {
       },
       isRangeBased: true,
       forReview: false,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_ON_LEARNED,
     });
@@ -268,6 +349,8 @@ describe('buildPerQueryCapabilities', () => {
       advertised: { delta_analysis: {}, adaptive_reevaluate: {} },
       isRangeBased: true,
       forReview: false,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_ON_LEARNED,
     });
@@ -283,6 +366,8 @@ describe('buildPerQueryCapabilities', () => {
       },
       isRangeBased: true,
       forReview: false,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_ON_LEARNED,
     });
@@ -305,6 +390,8 @@ describe('buildPerQueryCapabilities', () => {
       },
       isRangeBased: true,
       forReview: false,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_ON,
     });
@@ -320,6 +407,8 @@ describe('buildPerQueryCapabilities', () => {
       },
       isRangeBased: true,
       forReview: false,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0,
       useTransposition: false,
       adaptiveReevaluate: { ...ADAPTIVE_ON, valueBinding: 'lcb_spread' },
     });
@@ -334,6 +423,8 @@ describe('buildPerQueryCapabilities', () => {
       advertised: { delta_analysis: {} },
       isRangeBased: false,
       forReview: false,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_OFF,
     });
@@ -341,6 +432,8 @@ describe('buildPerQueryCapabilities', () => {
       advertised: { delta_analysis: {} },
       isRangeBased: false,
       forReview: false,
+      useStencilCover: false,
+      stencilTruncationThreshold: 0,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_OFF,
     });

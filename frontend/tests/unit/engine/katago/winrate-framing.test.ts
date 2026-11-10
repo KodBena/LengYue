@@ -37,6 +37,7 @@ function makePacket(overrides: {
   ownership?: number[] | undefined;
   rootExtras?: Record<string, number>;
   moveExtras?: Record<string, number>;
+  stencilCover?: KataAnalysisResponse['stencilCover'];
 }): KataAnalysisResponse {
   const moveWinrates = overrides.moveWinrates ?? [0.6];
   const moveScoreLeads = overrides.moveScoreLeads ?? [3.5];
@@ -61,6 +62,7 @@ function makePacket(overrides: {
       ...(overrides.moveExtras ?? {}),
     })),
     ...(overrides.ownership ? { ownership: overrides.ownership } : {}),
+    ...(overrides.stencilCover ? { stencilCover: overrides.stencilCover } : {}),
   };
 }
 
@@ -138,6 +140,41 @@ describe('normalizePacketToWhiteFraming — BLACK', () => {
     });
     const out = normalizePacketToWhiteFraming(packet, 'BLACK');
     expect(out.ownership).toEqual([-0.8, 0.4, -0.0, -1.0, 1.0]);
+  });
+
+  it('swaps signed stencil-cover regions when normalising ownership framing', () => {
+    const positive = {
+      placements: [{ stencil: 'white-shape', points: [[0, 0]] as const }],
+      tileCount: 1,
+      optimal: true,
+      status: 'optimal',
+    } as const;
+    const negative = {
+      placements: [{ stencil: 'black-shape', points: [[1, 0]] as const }],
+      tileCount: 1,
+      optimal: false,
+      status: 'feasible',
+    } as const;
+    const packet = makePacket({
+      currentPlayer: 'B',
+      ownership: [0.8, -0.8],
+      stencilCover: {
+        version: 1,
+        threshold: 0.6,
+        width: 2,
+        height: 1,
+        positive,
+        negative,
+        optimal: false,
+      },
+    });
+    const out = normalizePacketToWhiteFraming(packet, 'BLACK');
+    expect(out.stencilCover?.positive).toEqual(negative);
+    expect(out.stencilCover?.negative).toEqual(positive);
+    expect(out.stencilCover?.optimal).toBe(false);
+    // Neither the proxy packet nor its annotation is mutated.
+    expect(packet.stencilCover?.positive).toEqual(positive);
+    expect(packet.stencilCover?.negative).toEqual(negative);
   });
 
   it('omits ownership when the input had none', () => {

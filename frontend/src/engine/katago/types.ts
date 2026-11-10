@@ -126,6 +126,7 @@ export interface AdaptiveReevaluateAdvertisedMetadata {
  */
 export interface CapabilityAdvertisement {
   readonly adaptive_reevaluate?: AdaptiveReevaluateAdvertisedMetadata;
+  readonly stencil_cover?: CapabilityMetadata;
   readonly [name: string]: CapabilityMetadata | undefined;
 }
 
@@ -160,10 +161,17 @@ export interface AdaptiveReevaluateQueryMetadata {
  * queries — built by `capability-injection.ts::buildPerQueryCapabilities`.
  * Empty `{}` per capability means "opt in with proxy defaults".
  */
+export interface StencilCoverQueryMetadata {
+  /** Ownership magnitude cutoff, interpreted symmetrically for both signs. */
+  readonly truncation_threshold: number;
+  readonly [key: string]: unknown;
+}
+
 export interface PerQueryCapabilities {
   readonly delta_analysis?: CapabilityMetadata;
   readonly transposition?: CapabilityMetadata;
   readonly adaptive_reevaluate?: AdaptiveReevaluateQueryMetadata;
+  readonly stencil_cover?: StencilCoverQueryMetadata;
   readonly [name: string]: CapabilityMetadata | undefined;
 }
 
@@ -359,6 +367,10 @@ export interface KataGoAnalysisQuery extends BaseQuery {
   //     live range-based analysis only; omitted on snapshot-replay
   //     and turn-locked review-session queries (whose timing
   //     assumptions break under follow-ups).
+  //   - `stencil_cover` — asks the proxy to compute signed exact
+  //     stencil covers from ownership plus the legal-point policy mask.
+  //     Gated by engine.katago.useStencilCover AND proxy advertisement;
+  //     metadata carries the persisted truncation_threshold.
   //
   // Default semantics when absent (legacy auto-engage per the
   // dispatch's Q1 sign-off): the proxy auto-engages every wired
@@ -368,7 +380,8 @@ export interface KataGoAnalysisQuery extends BaseQuery {
   //
   // The dict-not-list shape is deliberate: capabilities can carry
   // metadata schemas (e.g., `adaptive_reevaluate` accepts
-  // `worst_quantile` and `extra_visits`); a flat string list would
+  // `worst_quantile` / `extra_visits`, while `stencil_cover` accepts
+  // `truncation_threshold`); a flat string list would
   // foreclose on per-capability parameterisation. See the proxy-side
   // sign-off (Q4) for the schema-formalisation discipline. The
   // per-capability metadata schemas are the typed mirror interfaces
@@ -584,14 +597,36 @@ export interface KataExtra {
 
 // ── Response Types ─────────────────────────────────────────────────────────────
 
+/** One selected proxy-owned stencil placement, with points in board coordinates. */
+export interface StencilCoverPlacement {
+  readonly stencil: string;
+  readonly points: readonly (readonly [number, number])[];
+}
+
+export interface StencilCoverRegion {
+  readonly placements: readonly StencilCoverPlacement[];
+  readonly tileCount: number;
+  readonly optimal: boolean;
+  readonly status: 'empty' | 'fallback' | 'optimal' | 'feasible';
+}
+
+/** Proxy-computed signed exact covers, preserving positive/negative ownership. */
+export interface StencilCoverAnnotation {
+  readonly version: 1;
+  readonly threshold: number;
+  readonly width: number;
+  readonly height: number;
+  readonly positive: StencilCoverRegion;
+  readonly negative: StencilCoverRegion;
+  readonly optimal: boolean;
+}
+
 /**
- * Provenance-stratified raw half of an analysis packet: everything KataGo
- * produces that depends only on the network + engine `overrideSettings`,
- * never the palette. This is the value the analysis-ledger's raw store holds
- * (keyed by `RawKey`). The field list is spelled out (rather than
- * `Omit<KataAnalysisResponse, 'extra'>`) so it stays the exhaustive SSOT for
- * the raw half — a new raw field is a deliberate edit here, mirroring the
- * "exhaustive definitions" posture of this file.
+ * Provenance-stratified raw half of an analysis packet: the engine/network
+ * fields plus palette-independent proxy derivations such as stencilCover.
+ * The field list is spelled out (rather than `Omit<KataAnalysisResponse,
+ * 'extra'>`) so it stays the exhaustive SSOT for the raw ledger store keyed
+ * by `RawKey`. A new raw field is a deliberate edit here.
  *
  * See `state/analysis-ledger.ts` for the two-store keying and
  * `docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md`
@@ -605,6 +640,8 @@ export interface RawAnalysis {
   readonly rootInfo: KataRootInfo;
   readonly ownership?: readonly number[];
   readonly policy?: readonly number[];
+  /** Proxy enrichment; retained in raw packets and analysis bundles. */
+  readonly stencilCover?: StencilCoverAnnotation;
 }
 
 /**
