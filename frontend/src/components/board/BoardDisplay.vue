@@ -211,7 +211,7 @@ function onBoardClick(e: MouseEvent) {
 // store — no such global signal exists in this codebase to compose with,
 // and inventing one for this alone would be a bigger footprint than the CSS
 // rule.
-const hoverPoint = ref<{ x: number; y: number } | null>(null);
+const hoverPoint = ref<Point | null>(null);
 
 function onBoardPointerMove(e: PointerEvent) {
   // Toggle-off short-circuit (ghost-stone review, expansion finding 4):

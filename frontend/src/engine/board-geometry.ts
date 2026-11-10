@@ -63,7 +63,7 @@ export interface BoardSnapshot {
 
 /**
  * Translate a top-origin row/column coordinate (KataGo board arrays and
- * stencil-cover wire annotations) into the SPA's bottom-origin BoardPoint.
+ * stencil-cover wire annotations) into the SPA's bottom-origin Point.
  * This is the single orientation boundary shared by all such consumers.
  */
 export function boardPointFromTopOrigin(
@@ -103,7 +103,7 @@ export function boardGeometry(size: number): BoardGeometry {
   const pad = BOARD_PX / (size + 1);
   const cell = (BOARD_PX - 2 * pad) / (size - 1);
   const stoneR = cell * STONE_RADIUS_RATIO;
-  const toSVG = (point: BoardPoint) => ({
+  const toSVG = (point: Point) => ({
     x: pad + point.x * cell,
     y: pad + (size - 1 - point.y) * cell,
   });

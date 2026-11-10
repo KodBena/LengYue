@@ -599,7 +599,7 @@ export interface KataExtra {
 
 /**
  * KataGo row-major board coordinate on the proxy wire: [column, rowFromTop].
- * Row zero is the TOP row. This tuple is not an internal BoardPoint; convert
+ * Row zero is the TOP row. This tuple is not an internal Point; convert
  * it with boardPointFromTopOrigin before using SPA board geometry.
  */
 export type KataGoArrayPoint = readonly [column: number, rowFromTop: number];

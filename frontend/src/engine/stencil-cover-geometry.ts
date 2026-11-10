@@ -130,7 +130,7 @@ function regionBoundaryPath(
     ) return null;
 
     const local = new Set<string>();
-    const boardPoints: BoardPoint[] = [];
+    const boardPoints: Point[] = [];
     for (const wirePoint of placement.points as readonly unknown[]) {
       if (!validPoint(wirePoint, size)) return null;
       const point = boardPointFromTopOrigin(wirePoint[0], wirePoint[1], size);
@@ -283,7 +283,7 @@ export function projectStencilCoverComponents(
   const entries: {
     readonly id: string;
     readonly component: StencilCoverComponent;
-    readonly points: readonly BoardPoint[];
+    readonly points: readonly Point[];
     readonly indices: ReadonlySet<number>;
   }[] = [];
   const ownerByCell = new Map<number, number>();
@@ -306,7 +306,7 @@ export function projectStencilCoverComponents(
       ) return false;
 
       const indices = new Set<number>();
-      const boardPoints: BoardPoint[] = [];
+      const boardPoints: Point[] = [];
       for (const wirePoint of component.cells as readonly unknown[]) {
         if (!validPoint(wirePoint, size)) return false;
         const point = boardPointFromTopOrigin(wirePoint[0], wirePoint[1], size);
