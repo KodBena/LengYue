@@ -89,6 +89,88 @@ The main thing I would be stricter about in my own work is the provisional numer
 
 For the next independently committed part, append a new section here rather than starting another feature worklog. Record what was actually inspected and verified; do not upgrade a planned check into a completed one by implication.
 
+
+## Part 2 — Proxy-side stencil-cover investigation (no implementation)
+
+**Status:** Investigation only. No source code was changed and no proxy commit was made in this part.
+
+**Context.** The maintainer asked for a small proxy extension modelled on `transformers/transposition_enricher.py`: implement one new transformer layer and inject it alongside the existing transposition transformer (with `proxy_server.py` as the likely composition root). The stencil family should be owned by KataProxy, not exposed as a frontend editor. The maintainer also clarified that `gomecsolver` is Unlicense and subsequently added its Unlicense file.
+
+**Time accounting.** The maintainer observed that this investigation consumed more than 30 minutes. I cannot independently measure elapsed wall-clock time from the tool trace, but agree that the amount of reconnaissance was disproportionate to the requested change. This section records both the useful findings and the avoidable scope expansion.
+
+### What I did
+
+1. Located the current `KataProxy/next` tree and inspected its `NOTICE` before using the transposition extension as prior art. The notice distinguishes the Unlicense proxy code from the MIT-derived `goboard_transposition/` subtree.
+2. Read `transformers/transposition_enricher.py` and traced its request/response lifecycle: cache query context by client ID; enrich suitable responses; catch validation/native failures without breaking the analysis stream; remove per-query state once the `ProxyLink` mapping is complete.
+3. Examined the proxy's generic transformer and capability machinery, wire parser/serializer, configuration, tests, package metadata, and server composition. This was much broader than the task required. The direct transposition implementation plus its injection site should have been the principal template; at most, the generic transformer contract needed a quick check.
+4. Examined `gomecsolver` as a research reference: its family file, region and exact-cover representations, component decomposition, solver interfaces, HiGHS examples, and tests. I initially followed the SciPy/HiGHS reference path in `stencil_cover/cover.py` and `stencil_cover/solvers_builtin.py`, and incorrectly reported that I had not yet found the direct `highspy` route.
+5. After the maintainer pointed to `hard_region_hunt/highs_solver.py`, inspected that file. It uses the direct `highspy.Highs()` API, adds integer columns with unit objective costs, builds sparse constraint rows, applies a time limit and optional node limit, and returns model status, incumbent count, and dual-bound information. This is the relevant direct-binding reference that should have been found during the initial, narrower solver search.
+6. Proposed a provisional protocol vocabulary (`stencil_cover`) and sketched a response carrying separate positive/negative placements and solver status. That was only a proposal, not an agreed contract or an implementation. It should not be treated as frozen by this log.
+
+### Files and documents consulted
+
+The following inventory is intentionally grouped by repository and separates useful sources from the unnecessary breadth of the investigation.
+
+#### KataProxy
+
+| Source | Reason for consultation | Assessment |
+|---|---|---|
+| `NOTICE` | Check the boundary around the cited transposition implementation. | **Necessary and useful.** It identifies the Unlicense proxy area and the separate MIT-derived native subtree. |
+| `transformers/transposition_enricher.py` | Find the direct architectural predecessor. | **Essential.** This is the implementation template and should have been the centre of the investigation. |
+| `proxy_server.py` | Find where transformers are imported, composed, and capabilities advertised. | **Essential, but only the relevant wiring sections.** This is the expected second source area for the requested implementation. |
+| `AbstractProxy/protocol_transformer.py` | Understand the generic transformer composition contract. | **Useful once, but not a reason to inspect the wider proxy core.** |
+| `transformers/capability_gate.py`, `transformers/capabilities_advertiser.py` | Confirm that the existing opt-in gate and advertisement are generic. | **Useful background; no new gate or advertiser should be needed.** |
+| `katago/katago_proxy.py`, `transformers/katago.py` | Inspect the opaque wire representation and serializer/parser. | **Over-inspection for this task.** The transposition transformer already demonstrates how to use the existing response/query opaque payloads. Revisit only if the new transformer hits a concrete serialization constraint. |
+| `sproxy_config.py`, `.env.example`, `README.md`, `pyproject.toml` | Explore runtime configuration, documentation, and dependency setup. | **Mostly unnecessary.** A feature-specific family file and optional `highspy` import can be kept within the new transformer unless an actual packaging issue proves otherwise. |
+| `ARCHITECTURE.md` | Understand the proxy's overall layering. | **Useful orientation, but broader than needed after the transposition template was found.** |
+| `tests/test_capability_negotiation.py`, `tests/test_analysis_enricher_extra_status.py`, `tests/test_protocol_parser.py` | Inspect patterns for capability gates, response-status semantics, and wire round-trips. | **Some useful precedent, but excessive for a first pass.** The new transformer's focused tests should follow the existing transformer test style without requiring a tour of unrelated parser behavior. |
+
+#### gomecsolver
+
+| Source | Reason for consultation | Assessment |
+|---|---|---|
+| `README.md`, `stencil_cover/ARCHITECTURE.md` | Orient within the research project. | **Useful for understanding research boundaries and solver modules.** It is a research architecture, not the product contract for the proxy or frontend. |
+| `family.txt`, `stencil_cover/config.py` | Understand stencil family representation and parsing. | **Useful.** Supports keeping the family file and its interpretation proxy-owned, as the maintainer requested. |
+| `stencil_cover/region.py` | Understand signed ownership thresholding, legal-point masks, and connected components. | **Useful, but the study's exact experimental semantics are not product requirements.** In particular, the study's `taus` are experimental strata, not mandated GUI bounds or defaults. |
+| `stencil_cover/cover.py`, `stencil_cover/stencil_cover_ref.py` | Understand the exact-cover model and a HiGHS formulation. | **Useful solver reference.** The first file's HiGHS route uses SciPy's `milp` wrapper; it is not the direct `highspy` implementation the maintainer had in mind. |
+| `stencil_cover/solver_api.py`, `stencil_cover/solvers_builtin.py` | Understand the solver abstraction and HiGHS reference backend. | **Useful research context, but not a proxy integration requirement.** We do not need to port the research project's complete solver framework. |
+| `tests/test_cover.py`, `tests/test_stencil_cover_ref.py`, `tests/test_defaults.py`, `tests/test_stencil_validation.py` | Explore correctness expectations and solver verification. | **Useful selectively.** The proxy transformer needs focused tests for placement validity, partition correctness, and solver status; it does not need the research harness wholesale. |
+| `study.json`, `DEPENDENCY_FREEZE.md`, `hard_region_hunt/engine.py` | Investigate study defaults, research lifecycle, and solver orchestration. | **Mostly unnecessary for the proxy task.** Reading the orchestration engine was a detour. |
+| `hard_region_hunt/highs_solver.py` | Direct HiGHS API example. | **Essential solver reference; found only after the maintainer supplied the path.** This omission caused my earlier answer to mischaracterize the available HiGHS implementation. |
+
+### Corrections to the initial conclusions
+
+- **Threshold range/default:** I wrongly suggested correcting the frontend slider to exclude 0 and/or 1 based on the research project's `(0, 1]` validation and its example `taus`. That was an invalid inference. `gomecsolver` is a research project; its experimental validation and strata do not dictate the product's UI contract. The frontend must not invent a narrower domain or an arbitrary default. The value's meaning, endpoints, default, and whether an endpoint acts as a toggle must be decided from the intended product semantics and preserved faithfully through the protocol.
+- **Ownership directionality:** Ownership is signed and colour-coded. A threshold rule must treat the positive and negative ownership regions symmetrically while retaining their distinct colours/signs. It must not collapse the map to an unsigned magnitude and lose which colour a region belongs to. The precise truncation rule remains to be specified; it is not derived by copying the study's strata.
+- **Stencil configuration:** The family file belongs to KataProxy. The frontend should not grow a bespoke stencil-family editor for a configuration that almost never changes.
+- **Implementation boundary:** The requested proxy change should be one new transformer layer, with its injection/advertisement in `proxy_server.py`. Existing generic capability and transformer machinery should be reused. Do not modify parser, serializer, capability-gate, cache, or unrelated proxy subsystems absent a concrete demonstrated need.
+- **Protocol status:** `stencil_cover` was only a candidate capability identifier. The proposed response envelope/status/placement schema was not agreed or implemented. Any final wire shape should be the smallest opaque enrichment that meets the frontend consumer's needs and the maintainer's signed-colour requirement.
+- **Solver choice:** The direct `highspy` API reference is `hard_region_hunt/highs_solver.py`; the previous report overlooked it and should not be used as the basis for implementation decisions. The proxy implementation should use the shallow exact-cover formulation, not port the larger research solver framework or its benchmark apparatus.
+
+### Documentation and process assessment
+
+The available KataProxy source is a stronger extension guide than I initially credited: `transposition_enricher.py` is a concrete, working example of precisely the requested pattern, and `proxy_server.py` exposes the relevant injection seam. The repository-level architecture documentation helps orient a newcomer, but I did not find a concise "add one response enricher" recipe that explicitly says the normal change is (1) a new transformer module, (2) a focused transformer test module, and (3) import/composition/capability advertisement in `proxy_server.py`. That small recipe would have prevented much of my over-exploration. This is a narrow documentation improvement, not a claim that the broader architecture is undocumented.
+
+The process mistake was not merely spending a long time reading; it was failing to stop once the direct precedent had answered the architectural question. I expanded into serializer internals, capability tests, configuration machinery, and research orchestration instead of treating the transposition transformer as the executable contract. The better sequence is: read the transformer, inspect its injection point, identify only the data the new layer needs, then implement focused tests. Consult lower-level proxy internals only when that path exposes a real obstacle.
+
+### Gitee question
+
+I did not intentionally query Gitee. The tool calls visible in this task used the GitHub repository connector and `github.com` / `api.github.com` URLs for `KodBena/KataProxy`, `KodBena/gomecsolver`, and `KodBena/LengYue`. I have no recorded Gitee URL, Gitee search, or Gitee-derived source in the available call history, so I cannot attribute a Gitee result the maintainer may have seen. No implementation decision in this investigation relied on Gitee material.
+
+### Next-step scope
+
+The next implementation part should be deliberately small:
+
+1. Add one Unlicense transformer module to KataProxy, using `transposition_enricher.py` as the direct template.
+2. Use `highspy` directly following `hard_region_hunt/highs_solver.py`, but build only the shallow exact-cover model required by this feature.
+3. Keep the stencil family in a proxy-owned family file/configuration location.
+4. Inject the transformer and advertise its capability in `proxy_server.py`; reuse the existing capability gate.
+5. Add focused tests for signed positive/negative regions, exact placement validity, empty/disconnected regions, invalid thresholds/inputs, non-optimal solver status, and per-query cleanup.
+6. Do not change KataProxy's generic parser, serializer, capability gate, cache machinery, or MIT-derived native subtree unless a tested requirement forces it.
+
+The frontend's provisional threshold slider remains deliberately unresolved. Do not treat the research project's `taus` or validation interval as the GUI's allowable values.
+
+
 ## License
 
 Public Domain (The Unlicense).
