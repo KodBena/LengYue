@@ -183,6 +183,11 @@ describe('normalizePacketToWhiteFraming — BLACK', () => {
     const out = normalizePacketToWhiteFraming(packet, 'BLACK');
     expect(out.stencilCover?.positive).toEqual(negative);
     expect(out.stencilCover?.negative).toEqual(positive);
+    expect(out.stencilCover?.version).toBe(2);
+    if (out.stencilCover?.version === 2) {
+      expect(out.stencilCover.positive.components).toEqual(negative.components);
+      expect(out.stencilCover.negative.components).toEqual(positive.components);
+    }
     expect(out.stencilCover?.optimal).toBe(false);
     // Neither the proxy packet nor its annotation is mutated.
     expect(packet.stencilCover?.positive).toEqual(positive);

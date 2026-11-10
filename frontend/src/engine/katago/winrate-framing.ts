@@ -130,12 +130,28 @@ export function normalizePacketToWhiteFraming(
     moveInfos: packet.moveInfos.map(flipMoveSignedFields),
     ...(packet.ownership ? { ownership: packet.ownership.map(negateScalar) } : {}),
     ...(packet.stencilCover ? {
-      stencilCover: {
-        ...packet.stencilCover,
-        positive: packet.stencilCover.negative,
-        negative: packet.stencilCover.positive,
-      },
+      stencilCover: flipStencilCoverSigns(packet.stencilCover),
     } : {}),
+  };
+}
+
+function flipStencilCoverSigns(
+  annotation: NonNullable<KataAnalysisResponse['stencilCover']>,
+): NonNullable<KataAnalysisResponse['stencilCover']> {
+  // Narrow on the schema version before rebuilding the value. Swapping the
+  // two regions inline over the version union widens positive/negative
+  // independently and admits impossible cross-version combinations.
+  if (annotation.version === 1) {
+    return {
+      ...annotation,
+      positive: annotation.negative,
+      negative: annotation.positive,
+    };
+  }
+  return {
+    ...annotation,
+    positive: annotation.negative,
+    negative: annotation.positive,
   };
 }
 
