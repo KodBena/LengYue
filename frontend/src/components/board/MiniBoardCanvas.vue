@@ -33,7 +33,13 @@
 -->
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue';
-import { BOARD_PX, BOARD_COLOR, LINE_COLOR, MARKER_INNER_RATIO } from '../../engine/constants';
+import {
+  BOARD_PX,
+  BOARD_COLOR,
+  LINE_COLOR,
+  MARKER_INNER_RATIO,
+  MINI_BOARD_LABEL_FONT_FAMILY,
+} from '../../engine/constants';
 import { boardGeometry, gridLines, type BoardSnapshot } from '../../engine/board-geometry';
 import {
   addWoodWaiter,
@@ -150,7 +156,7 @@ function draw(): void {
       const { x, y } = geo.toSVG({ x: mv.x, y: mv.y });
       ctx.drawImage(stoneSprite(mv.color, rpx), x - geo.stoneR, y - geo.stoneR, geo.stoneR * 2, geo.stoneR * 2);
       ctx.fillStyle = mv.color === 'B' ? '#e8e8e8' : '#1a1a1a';
-      ctx.font = `bold ${Math.round(geo.stoneR * 0.82)}px monospace`;
+      ctx.font = `bold ${Math.round(geo.stoneR * 0.82)}px ${MINI_BOARD_LABEL_FONT_FAMILY}`;
       ctx.fillText(String(mv.moveNumber), x, y + 1);
     }
     ctx.restore();
@@ -160,7 +166,7 @@ function draw(): void {
   const labels = snap.markerLabels;
   if (labels) {
     ctx.fillStyle = '#000';
-    ctx.font = 'bold 28px monospace';
+    ctx.font = `bold 28px ${MINI_BOARD_LABEL_FONT_FAMILY}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (const [key, label] of Object.entries(labels)) {
