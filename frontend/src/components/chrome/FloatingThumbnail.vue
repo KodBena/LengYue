@@ -58,6 +58,8 @@ const THUMB_GEOMETRY: ThumbnailGeometry = {
   borderPx: 2,
 };
 const THUMB_BOX = THUMB_GEOMETRY.contentPx + 2 * THUMB_GEOMETRY.borderPx;
+const thumbContentSize = `${THUMB_GEOMETRY.contentPx}px`;
+const thumbBorderWidth = `${THUMB_GEOMETRY.borderPx}px`;
 
 // magic-literal: 20px cursor-offset for thumbnail anchor. Composes
 // with the caller's own cursor offset so the thumbnail lands to the
@@ -156,8 +158,6 @@ onUnmounted(detachWatchers);
     :style="{
       left: posX + 'px',
       top: posY + 'px',
-      '--thumb-content-size': `${THUMB_GEOMETRY.contentPx}px`,
-      '--thumb-border-width': `${THUMB_GEOMETRY.borderPx}px`,
     }"
   >
     <!-- Empty frame on a cache miss; the leaf-local reactive cache read
@@ -168,6 +168,8 @@ onUnmounted(detachWatchers);
 
 <style scoped>
 .floating-thumb {
+  --thumb-content-size: v-bind(thumbContentSize);
+  --thumb-border-width: v-bind(thumbBorderWidth);
   position: fixed;
   z-index: var(--z-modal);
   width: var(--thumb-content-size);
