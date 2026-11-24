@@ -54,8 +54,9 @@ jobs:
   # Classify impact from the actual merge-base...head changed-file set.
   # The classifier permits a reduced application-gate profile only for
   # dependency manifests/lockfiles whose non-dependency manifest fields are
-  # unchanged, or for this classifier/workflow pair alone. Unknown paths,
-  # malformed manifests, and mixed source+dependency changes fail closed.
+  # unchanged, including when those dependency files accompany CI
+  # control-plane changes. Unknown paths, malformed manifests, and any
+  # application/test/build source change fail closed to the full gates.
   classify:
     runs-on: ubuntu-latest
     outputs:
@@ -128,8 +129,9 @@ jobs:
             build-essential curl wget file \
             libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
             librsvg2-dev libxdo-dev libssl-dev
-      - name: Check Rust formatting
-        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+      # This job is triggered only by dependency manifest/lockfile changes.
+      # Formatting is a source-tree property, not a dependency-resolution check;
+      # keep it out of this dependency-only validation path.
       - name: Run Rust tests with locked dependencies
         run: cargo test --locked --all-targets --manifest-path src-tauri/Cargo.toml
 
