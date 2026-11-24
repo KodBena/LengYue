@@ -1,72 +1,23 @@
 # .github/workflows/doc-graph-ci.yml
 #
-# Doc-graph freshness gate (umbrella-level). The documentation-graph artifact
-# (docs/doc-graph.{json,svg,md} + docs/doc-graph-report.md) is committed and
-# must stay in sync with a fresh run of tools/doc-graph/generate.mjs — a
-# committed-but-stale doc-graph would be self-refuting (its own heatmap is meant
-# to flag staleness). This workflow regenerates the artifact and fails iff the
-# committed manifest's GRAPH STRUCTURE (node set, edges, resolution) drifts from
-# the fresh run. The check is scoped to structure, not raw bytes: the heatmap
-# fields (commit-distance, bucket) are HEAD-relative and shift uniformly as the
-# repo advances, so byte-equality would spuriously fail on every later commit.
-# The committed heatmap is a snapshot at last regeneration; structural drift is
-# the real "forgot to regenerate" failure the gate exists to catch.
+# Dormant doc-graph freshness workflow.
 #
-# Scope: it checks *freshness only*. It does NOT block merges on broken
-# references — the validator's broken-link report (docs/doc-graph-report.md) is
-# a report the maintainer reviews, not a gate, because existing doc drift would
-# make every PR red. The freshness check is clean (no existing-drift problem):
-# whatever the generator produces is, by definition, fresh.
+# The project is in maintenance mode and the maintainer no longer has access to
+# the specialized agent environment needed to maintain the documentation graph
+# at its former granularity. The graph is therefore not an acceptance criterion
+# for maintenance-mode changes.
 #
-# Rationale: single-maintainer project (no second reviewer); the gate is the
-# substitute that catches a forgotten regeneration before it lands. Mirrors the
-# posture of .github/workflows/frontend-ci.yml.
-#
-# `git log` history is required for the commit-distance heatmap, so the checkout
-# uses fetch-depth: 0. Graphviz `dot` is NOT installed: the freshness gate
-# (`--check`) compares the manifest skeleton + INDEX/REPORT existence and never
-# renders the SVG (see tools/doc-graph/generate.mjs `generate`/`main`), so this
-# job has no `dot` dependency. Rendering it here was previously dead work that
-# exposed CI to `dot`'s version-bound layout quirks (the
-# `routesplines: cannot find NORMAL edge` non-zero exit on the apt graphviz
-# 2.42.2); dropping both the render and the install removes that exposure. The
-# SVG is rendered locally (full, non-`--check` run), where the generator still
-# fails loudly (ADR-0002) if `dot` is absent. See
-# docs/worklog/2026-06-11-doc-graph-svg-spline-failure.md.
+# Preserve this workflow and tools/doc-graph/generate.mjs for a future
+# maintainer who can resume graph maintenance with the required discipline.
+# It is intentionally not triggered by pull requests or pushes. A maintainer
+# may invoke it manually with workflow_dispatch when intentionally validating
+# or refreshing the graph.
 #
 # License: Public Domain (The Unlicense)
 name: doc-graph-ci
 
 on:
-  pull_request:
-    paths:
-      - 'docs/**'
-      - 'README.md'
-      - 'CLAUDE.md'
-      - 'FEATURES.md'
-      - 'frontend/README.md'
-      - 'frontend/CLAUDE.md'
-      - 'frontend/FILES.md'
-      - 'frontend/IDENTIFIERS.md'
-      - 'backend/README.md'
-      - 'backend/CLAUDE.md'
-      - 'tools/doc-graph/**'
-      - '.github/workflows/doc-graph-ci.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'docs/**'
-      - 'README.md'
-      - 'CLAUDE.md'
-      - 'FEATURES.md'
-      - 'frontend/README.md'
-      - 'frontend/CLAUDE.md'
-      - 'frontend/FILES.md'
-      - 'frontend/IDENTIFIERS.md'
-      - 'backend/README.md'
-      - 'backend/CLAUDE.md'
-      - 'tools/doc-graph/**'
-      - '.github/workflows/doc-graph-ci.yml'
+  workflow_dispatch:
 
 # Least privilege: checkout + read-only freshness check only; no writes.
 permissions:
@@ -83,16 +34,13 @@ jobs:
           # Submodules excluded: proxy/ is out of scope for the doc-graph.
           submodules: false
       # Harness-envelope artifact gate: tool-generated docs can leak literal
-      # tool-call envelope lines (e.g. the `</content>`/`</invoke>` pair that sat
-      # at ADR-0010's tail from creation until 2026-06-10). Whole-line anchored so
-      # docs that legitimately QUOTE the strings inline (audit appendices) pass.
+      # tool-call envelope lines. Whole-line anchored so docs that legitimately
+      # quote the strings inline pass.
       - name: Harness-envelope artifact grep (docs/ carries no leaked tool-call envelope lines)
         run: "! grep -rnE '^[[:space:]]*</?(content|invoke|antml:invoke)>[[:space:]]*$' docs/"
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      # No Graphviz install: `--check` does not render the SVG (see the header
-      # comment), so the gate has no `dot` dependency. The full local render
-      # still requires `dot` and fails loudly (ADR-0002) when it is absent.
+      # No Graphviz install: --check does not render the SVG.
       - name: Check doc-graph artifact freshness
         run: node tools/doc-graph/generate.mjs --check
