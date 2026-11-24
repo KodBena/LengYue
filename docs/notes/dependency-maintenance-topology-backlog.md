@@ -86,6 +86,15 @@ That is maintenance work without a corresponding supported product.
 - What minimum CI checks are required for backend, frontend, and Rust/Tauri
   dependency updates?
 
+## Maintenance-mode CI decision
+
+On 2026-11-24, the automatic doc-graph freshness gate was made manual-only.
+The workflow `.github/workflows/doc-graph-ci.yml` and generator
+`tools/doc-graph/generate.mjs` are retained for a future maintainer, but the
+workflow now runs only through an explicit manual dispatch. Documentation
+graph freshness is not an acceptance criterion for maintenance-mode changes.
+This is a deliberate scope decision, not deletion of the capability.
+
 ## Current maintenance observation
 
 The Dependabot batch reviewed on 2026-11-24 contained 12 open PRs, all targeting
