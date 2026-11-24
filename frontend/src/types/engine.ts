@@ -15,7 +15,7 @@
  */
 
 import type { BoardId } from './ids';
-import type { SystemMessage } from './app';
+import type { SystemMessageLog } from './app';
 // Imported so `EngineInfo.capabilities` can reference the typed
 // capability-advertisement mirror.
 import type { CapabilityAdvertisement } from '../engine/katago/types';
@@ -52,7 +52,7 @@ export interface EngineState {
   // EngineMetrics value object inside is itself immutable. Mutable
   // container, immutable value.
   metrics: EngineMetrics;
-  messages: SystemMessage[];
+  messages: SystemMessageLog;
   // Engine identity captured from the upstream KataGo backend on
   // every fresh WebSocket open: `query_version` returns the engine
   // version string; `query_models` returns the loaded neural-net
