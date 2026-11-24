@@ -193,10 +193,6 @@ def main() -> int:
             paths,
             lambda path: manifest_changes_are_dependency_only(path, base_ref, head_ref),
         )
-        if event_name != "pull_request":
-            result["dependency_only"] = False
-            result["application_gates_required"] = True
-            result["reason"] = "push event; full application gates remain enabled"
 
     print(json.dumps(result, indent=2))
     output_path = os.environ.get("GITHUB_OUTPUT")
