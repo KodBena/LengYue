@@ -1,6 +1,6 @@
 # Branch and dependency-maintenance backlog
 
-**Status:** proposed; design and implementation not yet complete  
+**Status:** frontend dependency CI implemented on `main`; propagation to `gne` is held pending a passing baseline test suite  
 **Scope:** repository maintenance / GitHub automation  
 **Context:** branch review and Dependabot review, 2026-11-24
 
@@ -103,6 +103,63 @@ The ten frontend/Tauri PRs had failed `frontend-ci` runs. The failures include
 repository ratchet/audit gates and a lint failure; they must be diagnosed at
 the defect-class level rather than bypassed or waived just to merge dependency
 updates. See the individual PRs in the repository for the exact run details.
+
+
+## Frontend dependency CI profile — implementation
+
+On 2026-11-24, PR #484 implemented the dependency-aware frontend CI profile on
+`main` (`.github/scripts/classify_frontend_change.py` and
+`.github/workflows/frontend-ci.yml`).
+
+The change-impact classifier is fail-closed:
+
+- Only the known frontend dependency manifest/lockfile paths can qualify for
+  dependency-only validation.
+- For `package.json` and `Cargo.toml`, it parses the manifest and confirms
+  that non-dependency fields are unchanged. Unknown paths, malformed manifests,
+  mixed application/test/build changes, and changed non-dependency manifest
+  fields require the full application gates.
+- CI control-plane changes may accompany validated dependency-only changes.
+  This is needed for a normal merge-forward when `main` carries both the CI
+  policy and dependency changes.
+- Dependency updates still run `npm ci`, typecheck/build, and the full
+  unit/integration test suite. Tauri dependency updates also run
+  `cargo test --locked --all-targets`.
+- The Rust test job supplies a test-only Tauri config overlay to omit the
+  separately packaged PyInstaller sidecars. It does not skip Rust compilation
+  or tests. Source formatting was intentionally not added to the lockfile-only
+  validation path because the pre-existing Rust tree does not pass
+  `cargo fmt --check`.
+- Application-source gates (ESLint, band-conformance, cycle, layout, and
+  style-token audits) remain enabled for application/test/build or
+  unclassified changes. No baselines or source checks were weakened.
+
+The classifier self-tests and the mandatory npm install/build/test sequence
+passed on the CI-policy PR. The dependency updates merged to `main` after
+their current-head checks passed include the earlier Brotli, PyJWT, Vite,
+source-map-js, Vitest, js-yaml, postcss-selector-parser, undici, and rustls
+updates. The rustls update additionally passed the locked Cargo test job.
+
+## gne propagation status
+
+PR #485 is the ordinary merge-forward of the CI policy from `main` to
+`gne`. Its classifier succeeds and its locked Rust tests, npm install, and
+typecheck/build pass. Its full frontend test suite fails with 18 assertions in
+unchanged `gne` source/test areas, including MiniBoard SVG parity, StatusBar
+control sizing, pointer-target CSS, stencil geometry, system-message sink
+counts, and context-ID macro calls.
+
+These failures are outside PR #485's changed source paths. The same mandatory
+frontend suite passed on the corresponding dependency-only `main` PRs. This
+does not prove the unmodified `gne` head is independently clean; it establishes
+that propagation is currently blocked by test failures on the merged `gne`
+tree. Do not merge #485 by skipping or weakening the test job. Diagnose the
+failure classes against the `gne` source/test contracts before retrying the
+forward integration.
+
+The open dependency PRs remaining after this batch should be refreshed against
+the latest `main` and revalidated after each shared-lockfile merge. Old green
+runs on earlier heads are not sufficient evidence for the final lockfile tree.
 
 ## Work-tracking note
 
