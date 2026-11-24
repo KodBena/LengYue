@@ -754,7 +754,7 @@ const moveNumber = computed((): number => {
    independently-chosen numbers that happened to be close. */
 .komi-input {
   width: 42px;
-  /* min-height: var(--control-height-min); */
+  min-height: var(--control-height-min);
   box-sizing: border-box;
   background: transparent;
   border: 1px solid var(--border-3);
@@ -946,7 +946,7 @@ const moveNumber = computed((): number => {
   cursor: pointer;
   padding: 1px 8px;
   line-height: 1.4;
-  /* min-height: var(--control-height-min); */
+  min-height: var(--control-height-min);
   display: inline-flex;
   align-items: center;
   justify-content: center;
