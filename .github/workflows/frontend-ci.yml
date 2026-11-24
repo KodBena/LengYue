@@ -33,13 +33,15 @@ name: frontend-ci
 
 on:
   pull_request:
-    paths: ['frontend/**', '.github/workflows/frontend-ci.yml']
+    paths: ['frontend/**', '.github/workflows/frontend-ci.yml', '.github/scripts/classify_frontend_change.py']
   push:
     branches: [main]
     paths: ['frontend/**', '.github/workflows/frontend-ci.yml']
 
-# Least privilege: build/lint/test + band-conformance only — both jobs are
-# read-only (no push, comment, or GitHub API writes).
+# Least privilege: all jobs are read-only (no push, comment, or GitHub API writes).
+# Dependency-only changes still run npm install, typecheck/build, and tests.
+# Application-source gates run whenever the changed-file classifier finds any
+# application, test, build, or unclassified path. The classifier fails closed.
 permissions:
   contents: read
 
@@ -48,7 +50,49 @@ defaults:
     working-directory: frontend
 
 jobs:
+  # Classify impact from the actual merge-base...head changed-file set.
+  # The classifier permits a reduced application-gate profile only for
+  # dependency manifests/lockfiles whose non-dependency manifest fields are
+  # unchanged, or for this classifier/workflow pair alone. Unknown paths,
+  # malformed manifests, and mixed source+dependency changes fail closed.
+  classify:
+    runs-on: ubuntu-latest
+    outputs:
+      dependency_only: ${{ steps.classify.outputs.dependency_only }}
+      application_gates_required: ${{ steps.classify.outputs.application_gates_required }}
+      rust_validation_required: ${{ steps.classify.outputs.rust_validation_required }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Classifier contract self-test
+        working-directory: .
+        run: python3 .github/scripts/classify_frontend_change.py --self-test
+      - name: Classify changed-file impact (fail-closed)
+        id: classify
+        working-directory: .
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 .github/scripts/classify_frontend_change.py
+      - name: Record classification
+        env:
+          DEPENDENCY_ONLY: ${{ steps.classify.outputs.dependency_only }}
+          APPLICATION_GATES_REQUIRED: ${{ steps.classify.outputs.application_gates_required }}
+          RUST_VALIDATION_REQUIRED: ${{ steps.classify.outputs.rust_validation_required }}
+          REASON: ${{ steps.classify.outputs.reason }}
+        run: |
+          {
+            echo "### Frontend CI change-impact classification"
+            echo "- Dependency-only: `$DEPENDENCY_ONLY`"
+            echo "- Full application-source gates required: `$APPLICATION_GATES_REQUIRED`"
+            echo "- Cargo validation required: `$RUST_VALIDATION_REQUIRED`"
+            echo "- Reason: $REASON"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   check:
+    needs: classify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -61,10 +105,32 @@ jobs:
         run: npm ci
       - name: Typecheck + build (vue-tsc -b && vite build)
         run: npm run build
-      - name: Lint (import boundaries + type-checked rules)
-        run: npx eslint .
       - name: Test (unit + integration + render-count guards)
         run: npm run test:run
+      - name: Lint (import boundaries + type-checked rules; application-source changes)
+        if: needs.classify.outputs.application_gates_required == 'true'
+        run: npx eslint .
+
+  # Run the Rust validation whenever Tauri's manifest or lockfile changes.
+  # --locked makes the committed dependency resolution part of the contract.
+  rust-dependency-validation:
+    needs: classify
+    if: needs.classify.outputs.rust_validation_required == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Tauri Linux build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            build-essential curl wget file \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev libxdo-dev libssl-dev
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+      - name: Run Rust tests with locked dependencies
+        run: cargo test --locked --all-targets --manifest-path src-tauri/Cargo.toml
 
   # ── Band-conformance: ADR-0003 band-ordering audit (drift gate + ratchet) ──
   # Runs the umbrella-level checker (tools/band-conformance/check.mjs, zero-deps
@@ -77,6 +143,8 @@ jobs:
   # loud-failure path fires (the jquery-bridge ghost-row shape). No
   # `working-directory` override: the tool reads from the repo root.
   band-conformance:
+    needs: classify
+    if: needs.classify.outputs.application_gates_required == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -102,6 +170,8 @@ jobs:
   # deadlock (PR #444). The self-test proves SCC detection fires on a cycle and
   # stays clean on a DAG. No `working-directory` override: reads from repo root.
   cycle-check:
+    needs: classify
+    if: needs.classify.outputs.application_gates_required == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -139,6 +209,8 @@ jobs:
   # (layout-audit.mjs falls back to playwright-core's bundled browser
   # automatically when that path is absent).
   layout-audit:
+    needs: classify
+    if: needs.classify.outputs.application_gates_required == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -168,6 +240,8 @@ jobs:
   # see `tests/unit/style-tokens-audit-key-stability.test.ts`). No browser
   # needed: pure static analysis over `frontend/src`.
   style-tokens-audit:
+    needs: classify
+    if: needs.classify.outputs.application_gates_required == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
