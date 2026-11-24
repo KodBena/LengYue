@@ -69,7 +69,7 @@ import {
   purgeAllNodeHashes,
   cacheNodeHash,
 } from '../../src/state/node-position-hashes';
-import { store, closeBoard, addBoard } from '../../src/store';
+import { store, closeBoard, addBoard, clearSystemMessages } from '../../src/store';
 import { createInitialBoard, asNodeId, uuid } from '../../src/store/board-factory';
 import type { BoardState, ContentHash, NodeId } from '../../src/types';
 
@@ -108,7 +108,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   resetFakeBackendService();
   purgeAllNodeHashes();
-  store.engine.messages.length = 0;
+  clearSystemMessages();
 });
 
 afterEach(() => {
