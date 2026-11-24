@@ -4,5 +4,8 @@
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
     "types": ["vite/client", "node"]
   },
+  // Initial strict test-project slice for the context-macro API contract.
+  // Broad inclusion of tests/**/*.ts exposed existing unrelated type debt;
+  // expand this project as those test contracts are repaired.
   "include": ["tests/unit/utils/context-id-macros.test.ts"]
 }
