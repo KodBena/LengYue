@@ -46,12 +46,18 @@ const snapshot = computed<BoardSnapshot | null>(() =>
 // using window inner dimensions — corner case of window resize mid-hover is
 // ignored (thumbnail is hidden on mouseleave anyway).
 
-// magic-literal: 154 = thumbnail outer box. Sum of the inner 150px
-// (CSS `.floating-thumb { width: 150px; height: 150px }` below) +
-// 2px border on each side (the `border: 2px solid` in the same
-// rule). If the .floating-thumb width/height/border changes, this
-// constant must track them — they have no shared substrate token.
-const THUMB_BOX = 124;
+// One geometry value owns both the rendered box and its viewport clamp.
+// CSS receives these dimensions as custom properties from this same object,
+// so the clamp cannot silently diverge from the painted border box.
+interface ThumbnailGeometry {
+  readonly contentPx: number;
+  readonly borderPx: number;
+}
+const THUMB_GEOMETRY: ThumbnailGeometry = {
+  contentPx: 150,
+  borderPx: 2,
+};
+const THUMB_BOX = THUMB_GEOMETRY.contentPx + 2 * THUMB_GEOMETRY.borderPx;
 
 // magic-literal: 20px cursor-offset for thumbnail anchor. Composes
 // with the caller's own cursor offset so the thumbnail lands to the
@@ -144,7 +150,16 @@ onUnmounted(detachWatchers);
 </script>
 
 <template>
-  <div v-if="visible" class="floating-thumb" :style="{ left: posX + 'px', top: posY + 'px' }">
+  <div
+    v-if="visible"
+    class="floating-thumb"
+    :style="{
+      left: posX + 'px',
+      top: posY + 'px',
+      '--thumb-content-size': `${THUMB_GEOMETRY.contentPx}px`,
+      '--thumb-border-width': `${THUMB_GEOMETRY.borderPx}px`,
+    }"
+  >
     <!-- Empty frame on a cache miss; the leaf-local reactive cache read
          fills it when the host's fire-and-forget warm resolves. -->
     <MiniBoard v-if="snapshot" :snapshot="snapshot" />
@@ -155,10 +170,10 @@ onUnmounted(detachWatchers);
 .floating-thumb {
   position: fixed;
   z-index: var(--z-modal);
-  width: 120px;
-  height: 120px;
+  width: var(--thumb-content-size);
+  height: var(--thumb-content-size);
   background: var(--surface-2);
-  border: 2px solid var(--accent-primary);
+  border: var(--thumb-border-width) solid var(--accent-primary);
   /*border-radius: var(--radius-default);*/
   pointer-events: none;
 }
