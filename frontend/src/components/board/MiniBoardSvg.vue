@@ -20,7 +20,13 @@
 -->
 <script setup lang="ts">
 import { computed } from 'vue';
-import { BOARD_PX, BOARD_COLOR, LINE_COLOR, MARKER_INNER_RATIO } from '../../engine/constants';
+import {
+  BOARD_PX,
+  BOARD_COLOR,
+  LINE_COLOR,
+  MARKER_INNER_RATIO,
+  MINI_BOARD_LABEL_FONT_FAMILY,
+} from '../../engine/constants';
 import { boardGeometry, gridLines, type BoardSnapshot } from '../../engine/board-geometry';
 
 const props = withDefaults(
@@ -148,6 +154,7 @@ const pvStoneList = computed(() =>
         :y="stone.y + 1"
         class="pv-stone-label"
         :font-size="geo.stoneR * 0.82"
+        :font-family="MINI_BOARD_LABEL_FONT_FAMILY"
         text-anchor="middle"
         dominant-baseline="middle"
         :fill="stone.color === 'B' ? '#e8e8e8' : '#1a1a1a'"
@@ -164,7 +171,7 @@ const pvStoneList = computed(() =>
         fill="#000"
         font-size="28"
         font-weight="bold"
-        font-family="var(--font-mono)"
+        :font-family="MINI_BOARD_LABEL_FONT_FAMILY"
         text-anchor="middle"
         dominant-baseline="middle"
       >{{ lbl.label }}</text>
@@ -181,5 +188,5 @@ const pvStoneList = computed(() =>
 /* Item 2: PV stones are decorative overlay, not interactive content —
    mirrors `MoveSuggestions.vue`'s own `.pv-stone-group` rule. */
 .pv-stone-group { pointer-events: none; }
-.pv-stone-label { pointer-events: none; font-family: var(--font-mono); font-weight: bold; user-select: none; }
+.pv-stone-label { pointer-events: none; font-weight: bold; user-select: none; }
 </style>
