@@ -1,6 +1,6 @@
 # Branch and dependency-maintenance backlog
 
-**Status:** proposed; design and implementation not yet complete  
+**Status:** frontend dependency CI implemented on `main`; propagation to `gne` is held pending a passing baseline test suite  
 **Scope:** repository maintenance / GitHub automation  
 **Context:** branch review and Dependabot review, 2026-11-24
 
@@ -104,6 +104,99 @@ repository ratchet/audit gates and a lint failure; they must be diagnosed at
 the defect-class level rather than bypassed or waived just to merge dependency
 updates. See the individual PRs in the repository for the exact run details.
 
+
+## Frontend dependency CI profile — implementation
+
+On 2026-11-24, PR #484 implemented the dependency-aware frontend CI profile on
+`main` (`.github/scripts/classify_frontend_change.py` and
+`.github/workflows/frontend-ci.yml`).
+
+The change-impact classifier is fail-closed:
+
+- Only the known frontend dependency manifest/lockfile paths can qualify for
+  dependency-only validation.
+- For `package.json` and `Cargo.toml`, it parses the manifest and confirms
+  that non-dependency fields are unchanged. Unknown paths, malformed manifests,
+  mixed application/test/build changes, and changed non-dependency manifest
+  fields require the full application gates.
+- CI control-plane changes may accompany validated dependency-only changes.
+  This is needed for a normal merge-forward when `main` carries both the CI
+  policy and dependency changes.
+- Dependency updates still run `npm ci`, typecheck/build, and the full
+  unit/integration test suite. Tauri dependency updates also run
+  `cargo test --locked --all-targets`.
+- The Rust test job supplies a test-only Tauri config overlay to omit the
+  separately packaged PyInstaller sidecars. It does not skip Rust compilation
+  or tests. Source formatting was intentionally not added to the lockfile-only
+  validation path because the pre-existing Rust tree does not pass
+  `cargo fmt --check`.
+- Application-source gates (ESLint, band-conformance, cycle, layout, and
+  style-token audits) remain enabled for application/test/build or
+  unclassified changes. No baselines or source checks were weakened.
+
+The classifier self-tests and the mandatory npm install/build/test sequence
+passed on the CI-policy PR. The dependency updates merged to `main` after
+their current-head checks passed include the earlier Brotli, PyJWT, Vite,
+source-map-js, Vitest, js-yaml, postcss-selector-parser, undici, and rustls
+updates. The rustls update additionally passed the locked Cargo test job.
+
+## gne propagation status
+
+PR #485 is the ordinary merge-forward of the CI policy from `main` to
+`gne`. Its classifier succeeds and its locked Rust tests, npm install, and
+typecheck/build pass. Its full frontend test suite fails with 18 assertions in
+unchanged `gne` source/test areas, including MiniBoard SVG parity, StatusBar
+control sizing, pointer-target CSS, stencil geometry, system-message sink
+counts, and context-ID macro calls.
+
+These failures are outside PR #485's changed source paths. The same mandatory
+frontend suite passed on the corresponding dependency-only `main` PRs. This
+does not prove the unmodified `gne` head is independently clean; it establishes
+that propagation is currently blocked by test failures on the merged `gne`
+tree. Do not merge #485 by skipping or weakening the test job. Diagnose the
+failure classes against the `gne` source/test contracts before retrying the
+forward integration.
+
+The open dependency PRs remaining after this batch should be refreshed against
+the latest `main` and revalidated after each shared-lockfile merge. Old green
+runs on earlier heads are not sufficient evidence for the final lockfile tree.
+
+
+### First defect-class diagnosis from the gne test failures
+
+The `context-id-macros` failures have a confirmed contract mismatch:
+
+- The current `gne` implementation of `expandContextIdMacros` accepts
+  `readonly number[]` so wildcard expansion can enumerate known ordinals.
+- The production caller in `ForestDirectory.vue` now supplies that array.
+- The unit tests still pass the old `(ordinal: number) => boolean`
+  membership predicate. The test runtime therefore reaches
+  `new Set(knownGameSourceOrdinals)` with a function and throws
+  `TypeError: function is not iterable`.
+
+The general defect class is *typed API drift at a test boundary*: callers of a
+changed function contract remain syntactically executable because the test
+sources are not part of the TypeScript build. The typing discipline that
+would make this particular mismatch unrepresentable is a strict TypeScript
+project for test sources, referencing the same source contracts, with that
+project included in CI. The existing root `tsconfig.json` references only
+`tsconfig.app.json` (which includes `src/**`) and `tsconfig.node.json`
+(which includes `vite.config.ts`); there is no test tsconfig. Vitest's runtime
+transformation consequently executes these tests without first checking
+their argument types.
+
+The operational lapse was treating `vue-tsc -b` as comprehensive TypeScript
+validation while its project graph excludes `tests/**`. Before fixing
+individual tests, establish and run a strict test typecheck; then update the
+tests to the authoritative `readonly number[]` contract and re-run the suite.
+Do not restore the old callback or weaken the function signature.
+
+The other observed failure groups—SVG serialization, StatusBar sizing,
+pointer-target CSS, stencil geometry, and system-message sink counts—remain
+unclassified. Their assertions and production contracts need comparison
+before deciding whether implementation or tests are wrong. No baseline changes
+or expectation rewrites are authorized by this diagnosis alone.
+
 ## Work-tracking note
 
 The repository's `docs/TODO.md` says the canonical work-item status lives in
@@ -112,3 +205,47 @@ generated/human-maintained index. This note is therefore explanatory backlog
 documentation, not a claim that the corresponding database work item has
 already been created. When the work-status database is available, register
 this item there and link back to this document.
+
+
+## Dependency batch closure — 2026-11-24
+
+The reviewed Dependabot batch is now clear: the latest open-PR query returned
+no open Dependabot pull requests. The following dependency updates were merged
+to `main` after current-head validation:
+
+- Backend pins: PyJWT (#467) and Brotli (#473).
+- Frontend/Tauri: Vite (#472), source-map-js (#470), Vitest (#465),
+  js-yaml (#466), postcss-selector-parser (#471), undici (#474),
+  rustls (#475), vue-i18n (#483), and brace-expansion (#482).
+
+The nanoid PR (#479) was closed by Dependabot because it determined the
+dependency was already up to date. All merges used ordinary merge commits.
+The remaining frontend dependency PRs were refreshed after each shared
+lockfile merge and tested again on their final combined lockfile heads. The
+rustls update also passed `cargo test --locked --all-targets` using the
+test-only Tauri sidecar overlay described above.
+
+The latest `main` push validation, on commit
+`a11ce74017599823e3103afc81f1d6fddeebbd61`, completed successfully on
+2026-11-24. Its frontend job passed typecheck/build and the full suite:
+287 test files passed, 3 skipped; 3,529 tests passed, 8 skipped. The CodeQL
+aggregate check and all four language analyses (JavaScript/TypeScript, Python,
+Rust, Actions) also completed successfully.
+
+The exact maintenance-note path
+(`docs/notes/dependency-maintenance-topology-backlog.md`) is allowlisted only
+when it accompanies the known CI control-plane and validated dependency
+changes. The classifier self-test asserts that the note by itself still
+requires the full application gates. The updated classifier ran successfully
+on the latest main push; its observed changed-file set selected the intended
+control-plane/maintenance-note path.
+
+PR #485 remains open and unmerged. GitHub currently reports it as unmergeable
+(`dirty`). The latest available pull-request validation was created before
+the exact maintenance-note exception was added, so it is not evidence for the
+latest head. The main push check is green, but it does not validate the
+divergent `gne` merge result. The previously observed `gne` test failures
+remain unresolved; do not merge #485 until the current merge result receives
+a fresh successful full test run. No failed check has been waived, no ratchet
+baseline lowered, and no source/test expectation changed to obtain a green
+result.
