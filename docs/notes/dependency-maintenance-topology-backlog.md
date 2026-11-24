@@ -225,14 +225,27 @@ lockfile merge and tested again on their final combined lockfile heads. The
 rustls update also passed `cargo test --locked --all-targets` using the
 test-only Tauri sidecar overlay described above.
 
-The main-branch push validation for the latest dependency merge commit
-(`ec84b99`) was still running at the time of this note update; the preceding
-main push validation on `80c5201` completed successfully. Do not infer a
-failure on a main push from PR #485: that failing check is the pull-request
-validation for a merge-forward whose head is `main` and whose base is `gne`.
+The latest `main` push validation, on commit
+`a11ce74017599823e3103afc81f1d6fddeebbd61`, completed successfully on
+2026-11-24. Its frontend job passed typecheck/build and the full suite:
+287 test files passed, 3 skipped; 3,529 tests passed, 8 skipped. The CodeQL
+aggregate check and all four language analyses (JavaScript/TypeScript, Python,
+Rust, Actions) also completed successfully.
 
-PR #485 remains open and unmerged. The current `gne` merge-result frontend
-suite has the 18 test failures described above. It is not a dependency PR and
-is the only maintenance-related open PR. No failed check has been waived, no
-ratchet baseline lowered, and no source/test expectation changed to obtain a
-green result.
+The exact maintenance-note path
+(`docs/notes/dependency-maintenance-topology-backlog.md`) is allowlisted only
+when it accompanies the known CI control-plane and validated dependency
+changes. The classifier self-test asserts that the note by itself still
+requires the full application gates. The updated classifier ran successfully
+on the latest main push; its observed changed-file set selected the intended
+control-plane/maintenance-note path.
+
+PR #485 remains open and unmerged. GitHub currently reports it as unmergeable
+(`dirty`). The latest available pull-request validation was created before
+the exact maintenance-note exception was added, so it is not evidence for the
+latest head. The main push check is green, but it does not validate the
+divergent `gne` merge result. The previously observed `gne` test failures
+remain unresolved; do not merge #485 until the current merge result receives
+a fresh successful full test run. No failed check has been waived, no ratchet
+baseline lowered, and no source/test expectation changed to obtain a green
+result.
