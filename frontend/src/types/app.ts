@@ -175,10 +175,11 @@ export interface SystemMessage {
   /** Show-once dedup (system-message-sink's `push`): when a push arrives
    *  whose `type`/`text`/`remediation`/`nextAction` are byte-identical to
    *  the CURRENT newest entry (`store.engine.messages[0]`), the sink does
-   *  not unshift a second row — it bumps this count on the existing entry
-   *  instead, so an identical-consecutive flood (e.g. a diagnostic
-   *  recomputed on every reactive tick with no new information) collapses
-   *  to one visible row instead of spamming the log. `undefined`/`1` for
+   *  not unshift a second row — it replaces the head with a new immutable
+   *  value carrying the updated count and timestamp. The new value is
+   *  published in one replacement of the log snapshot, so a subscriber
+   *  observes one complete transition rather than partial field writes.
+   *  `undefined`/`1` for
    *  every message that has never been collapsed into (the common case);
    *  `SystemLogPanel.vue` renders "×N" only when `count > 1`. A push whose
    *  key differs from the current head — including one identical to an
@@ -187,3 +188,11 @@ export interface SystemMessage {
    *  occurrence" half of the contract. */
   readonly count?: number;
 }
+
+/**
+ * Immutable snapshot of the system-message log. The EngineState field that
+ * holds this value remains replaceable by its owner; the collection itself
+ * and every SystemMessage entry are immutable. A push/dismiss/clear publishes
+ * a complete next snapshot rather than mutating the live array or its entries.
+ */
+export type SystemMessageLog = readonly SystemMessage[];
