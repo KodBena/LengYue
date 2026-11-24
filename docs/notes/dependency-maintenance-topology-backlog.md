@@ -205,3 +205,34 @@ generated/human-maintained index. This note is therefore explanatory backlog
 documentation, not a claim that the corresponding database work item has
 already been created. When the work-status database is available, register
 this item there and link back to this document.
+
+
+## Dependency batch closure — 2026-11-24
+
+The reviewed Dependabot batch is now clear: the latest open-PR query returned
+no open Dependabot pull requests. The following dependency updates were merged
+to `main` after current-head validation:
+
+- Backend pins: PyJWT (#467) and Brotli (#473).
+- Frontend/Tauri: Vite (#472), source-map-js (#470), Vitest (#465),
+  js-yaml (#466), postcss-selector-parser (#471), undici (#474),
+  rustls (#475), vue-i18n (#483), and brace-expansion (#482).
+
+The nanoid PR (#479) was closed by Dependabot because it determined the
+dependency was already up to date. All merges used ordinary merge commits.
+The remaining frontend dependency PRs were refreshed after each shared
+lockfile merge and tested again on their final combined lockfile heads. The
+rustls update also passed `cargo test --locked --all-targets` using the
+test-only Tauri sidecar overlay described above.
+
+The main-branch push validation for the latest dependency merge commit
+(`ec84b99`) was still running at the time of this note update; the preceding
+main push validation on `80c5201` completed successfully. Do not infer a
+failure on a main push from PR #485: that failing check is the pull-request
+validation for a merge-forward whose head is `main` and whose base is `gne`.
+
+PR #485 remains open and unmerged. The current `gne` merge-result frontend
+suite has the 18 test failures described above. It is not a dependency PR and
+is the only maintenance-related open PR. No failed check has been waived, no
+ratchet baseline lowered, and no source/test expectation changed to obtain a
+green result.
