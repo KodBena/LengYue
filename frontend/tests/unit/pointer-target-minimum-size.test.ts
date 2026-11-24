@@ -30,6 +30,13 @@ function src(path: string): string {
   return readFileSync(resolve(process.cwd(), path), 'utf-8');
 }
 
+/** Remove comments before inspecting declarations so commented-out CSS
+ * cannot satisfy a load-bearing source assertion.
+ */
+function withoutCssComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
 describe('TabWidget.vue — .tab-header li clears 24x24 (M16)', () => {
   const rule = /\.tab-header li\s*\{[^}]*\}/.exec(src('src/components/chrome/TabWidget.vue'))![0];
   it('carries an explicit min-height >= 24px', () => {
@@ -226,18 +233,12 @@ describe('.toolbar-btn clears the 24px height floor at every scoped-CSS copy (G3
     'src/components/chrome/ToolbarMoveNav.vue',
   ]) {
     describe(file, () => {
-      const rule = /(?:^|\n)\.toolbar-btn\s*\{[^}]*\}/.exec(src(file))![0];
-      // status-bar-narrow-0c21: `ToolbarMoveNav.vue`'s copy now reads
-      // `var(--control-height-min)` (ADR-0012 P1 — the same anchor
-      // `StatusBar.vue`'s `.pass-btn`/`.komi-input`/`.move-numbers-btn`
-      // read) instead of an independent `24px` literal; the OTHER two
-      // files' copies are untouched (out of that fix's scope) and still
-      // carry the bare literal — both forms satisfy this suite's
-      // ">= 24px effective floor" check.
-      it('carries an explicit min-height >= 24px (a literal or the shared --control-height-min token)', () => {
-        const m = /min-height:\s*(?:(\d+)px|var\(--control-height-min\))/.exec(rule);
-        expect(m).not.toBeNull();
-        expect(m![1] === undefined ? 24 : Number(m![1])).toBeGreaterThanOrEqual(24);
+      const rule = /(?:^|\n)\.toolbar-btn\s*\{[^}]*\}/.exec(withoutCssComments(src(file)))![0];
+      // Every toolbar button consumes the one shared control-height
+      // token. Inspecting comment-free CSS makes a commented-out
+      // declaration fail rather than masquerade as an active rule.
+      it('uses the shared --control-height-min floor', () => {
+        expect(rule).toMatch(/min-height:\s*var\(--control-height-min\)/);
       });
       it('padding/font-size (the visual language) are untouched by this pass', () => {
         expect(rule).toMatch(/padding:\s*1px 5px/);
