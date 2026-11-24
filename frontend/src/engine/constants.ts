@@ -69,6 +69,12 @@ export const STONE_RADIUS_RATIO = 0.46;
 export const MARKER_INNER_RATIO = 0.4;
 
 /**
+ * Font family for MiniBoard annotation labels. SVG and canvas renderers share
+ * this one value so renderer selection cannot change annotation typography.
+ */
+export const MINI_BOARD_LABEL_FONT_FAMILY = 'monospace';
+
+/**
  * Triangle-mark (SGF `TR`) half-width as a fraction of stone radius —
  * the setup toolkit's markup renderer (BoardDisplay). Sized to read
  * clearly whether the marked point is empty or carries a stone
