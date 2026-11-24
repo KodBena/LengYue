@@ -303,11 +303,9 @@ describe('system-message-sink', () => {
           // and read the per-row fields it actually renders (`msg.text`,
           // `msg.count`, `msg.timestamp`) — the real subscriber-visible
           // dependency surface, not just an array-length read. This is
-          // what makes a dedup-hit's in-place `head.count++` /
-          // `head.timestamp = …` write (as opposed to a fresh `.unshift`)
-          // observable at all: a subscriber that only read `.length`
-          // would not react to an in-place field mutation on an existing
-          // element.
+          // what makes a dedup hit's replacement snapshot observable:
+          // the subscriber reads both the collection and its immutable entry
+          // fields, and must see one complete state transition per push.
           for (const msg of store.store.engine.messages) {
             void msg.text;
             void msg.count;
@@ -324,23 +322,19 @@ describe('system-message-sink', () => {
       expect(runs).toBe(2);
 
       // Two consecutive DEDUP-HIT pushes (identical type/text to the
-      // current head) — per the sink's own contract (see the `push()`
-      // header comment in `src/store/index.ts`), these widen the existing
-      // row in place (`head.count++`, `head.timestamp = …`) rather than
-      // unshifting a new one. That in-place write is still a genuine
-      // mutation of reactive state the subscriber legitimately depends on
-      // (it rendered `msg.count`/`msg.timestamp` off that exact object on
-      // the previous run) — so the CORRECT subscriber-visible behaviour,
-      // established here as the pin, is one notification per dedup-hit
-      // push too, not zero (the row's `count`/`timestamp` genuinely
-      // changed and a real panel must reflect that) and not more than one
-      // (that would mean the sink's own untracked bookkeeping read is
-      // somehow re-entering the subscriber's dependency set, the row-2562
-      // shape in reverse).
+      // current head) replace that immutable entry in a new log snapshot.
+      // The subscriber-visible contract is exactly one notification per
+      // logical push: neither a missed update nor multiple partial writes.
+      const previousLog = store.store.engine.messages;
+      const previousHead = previousLog[0];
       sink.pushSystemMessage('warning', 'overflow check');
       expect(runs).toBe(3);
       expect(store.store.engine.messages).toHaveLength(1);
       expect(store.store.engine.messages[0].count).toBe(2);
+      expect(store.store.engine.messages).not.toBe(previousLog);
+      expect(store.store.engine.messages[0]).not.toBe(previousHead);
+      // The previous value object remains untouched after publication.
+      expect(previousHead?.count).toBe(1);
 
       sink.pushSystemMessage('warning', 'overflow check');
       expect(runs).toBe(4);
@@ -351,6 +345,36 @@ describe('system-message-sink', () => {
       sink.pushSystemMessage('error', 'a different overflow');
       expect(runs).toBe(5);
       expect(store.store.engine.messages).toHaveLength(2);
+
+      stop();
+    });
+
+    it('publishes one snapshot and one notification when a new message evicts the 50th row', async () => {
+      const { watchEffect } = await import('vue');
+      const sink = await import('../../../src/services/system-message-sink');
+      const store = await import('../../../src/store');
+
+      store.clearSystemMessages();
+      for (let i = 0; i < 50; i++) sink.pushSystemMessage('info', `existing ${i}`);
+
+      let runs = 0;
+      const stop = watchEffect(
+        () => {
+          runs++;
+          for (const msg of store.store.engine.messages) void msg.text;
+        },
+        { flush: 'sync' },
+      );
+      expect(runs).toBe(1);
+
+      const previousLog = store.store.engine.messages;
+      sink.pushSystemMessage('warning', 'capacity boundary');
+      expect(runs).toBe(2);
+      expect(store.store.engine.messages).toHaveLength(50);
+      expect(store.store.engine.messages[0]?.text).toBe('capacity boundary');
+      expect(store.store.engine.messages).not.toBe(previousLog);
+      // The old snapshot stays intact; insertion and eviction were atomic.
+      expect(previousLog[0]?.text).toBe('existing 49');
 
       stop();
     });
