@@ -131,7 +131,7 @@ function regionBoundaryPath(
 
     const local = new Set<string>();
     const boardPoints: Point[] = [];
-    for (const wirePoint of placement.points as readonly unknown[]) {
+    for (const wirePoint of placement.points) {
       if (!validPoint(wirePoint, size)) return null;
       const point = boardPointFromTopOrigin(wirePoint[0], wirePoint[1], size);
       const key = point.x + ',' + point.y;
@@ -307,7 +307,7 @@ export function projectStencilCoverComponents(
 
       const indices = new Set<number>();
       const boardPoints: Point[] = [];
-      for (const wirePoint of component.cells as readonly unknown[]) {
+      for (const wirePoint of component.cells) {
         if (!validPoint(wirePoint, size)) return false;
         const point = boardPointFromTopOrigin(wirePoint[0], wirePoint[1], size);
         const index = point.y * size + point.x;
