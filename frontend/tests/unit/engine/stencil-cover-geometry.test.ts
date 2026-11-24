@@ -56,12 +56,13 @@ function region(
 function annotation(
   positive: StencilCoverRegion,
   negative: StencilCoverRegion = region([]),
+  boardSize = 9,
 ): StencilCoverAnnotation {
   return {
     version: 2,
     threshold: 0.6,
-    width: 9,
-    height: 9,
+    width: boardSize,
+    height: boardSize,
     positive,
     negative,
     optimal: positive.optimal && negative.optimal,
@@ -187,11 +188,15 @@ describe('KataGo row-major orientation boundary', () => {
           });
 
           const point = [column, rowFromTop] as const;
-          const value = annotation(region(
-            [{ stencil: '1x1', points: [point] }],
-            true,
-            [component([point])],
-          ));
+          const value = annotation(
+            region(
+              [{ stencil: '1x1', points: [point] }],
+              true,
+              [component([point])],
+            ),
+            region([]),
+            size,
+          );
           const projected = projectStencilCoverComponents(value, size);
           const outline = projectStencilCoverOutline(value, size);
           expect(projected).toHaveLength(1);
@@ -232,7 +237,7 @@ describe('projectStencilCoverComponents', () => {
     expect(segmentCount(outline!.positive.path)).toBe(4);
   });
 
-  it('assigns different cluster-8 colors to every pair of neighboring regions', () => {
+  it('assigns distinct cluster-8 colors to neighboring components without constraining non-neighbors', () => {
     const value = annotation(
       region([], true, [component([[1, 1]])]),
       region([], true, [
@@ -246,8 +251,12 @@ describe('projectStencilCoverComponents', () => {
     const byId = new Map(projected!.map(entry => [entry.id, entry]));
     expect(byId.get('positive-0')!.colorIndex)
       .not.toBe(byId.get('negative-0')!.colorIndex);
-    expect(byId.get('positive-0')!.colorIndex)
-      .toBe(byId.get('negative-1')!.colorIndex);
+    // negative-1 is deliberately remote. A valid graph coloring may
+    // assign it either color; only adjacency constrains color inequality.
+    for (const entry of projected!) {
+      expect(entry.colorIndex).toBeGreaterThanOrEqual(0);
+      expect(entry.colorIndex).toBeLessThan(8);
+    }
   });
 
   it('keeps per-component solver outcomes available to the renderer', () => {
