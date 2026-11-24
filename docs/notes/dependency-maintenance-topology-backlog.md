@@ -161,6 +161,42 @@ The open dependency PRs remaining after this batch should be refreshed against
 the latest `main` and revalidated after each shared-lockfile merge. Old green
 runs on earlier heads are not sufficient evidence for the final lockfile tree.
 
+
+### First defect-class diagnosis from the gne test failures
+
+The `context-id-macros` failures have a confirmed contract mismatch:
+
+- The current `gne` implementation of `expandContextIdMacros` accepts
+  `readonly number[]` so wildcard expansion can enumerate known ordinals.
+- The production caller in `ForestDirectory.vue` now supplies that array.
+- The unit tests still pass the old `(ordinal: number) => boolean`
+  membership predicate. The test runtime therefore reaches
+  `new Set(knownGameSourceOrdinals)` with a function and throws
+  `TypeError: function is not iterable`.
+
+The general defect class is *typed API drift at a test boundary*: callers of a
+changed function contract remain syntactically executable because the test
+sources are not part of the TypeScript build. The typing discipline that
+would make this particular mismatch unrepresentable is a strict TypeScript
+project for test sources, referencing the same source contracts, with that
+project included in CI. The existing root `tsconfig.json` references only
+`tsconfig.app.json` (which includes `src/**`) and `tsconfig.node.json`
+(which includes `vite.config.ts`); there is no test tsconfig. Vitest's runtime
+transformation consequently executes these tests without first checking
+their argument types.
+
+The operational lapse was treating `vue-tsc -b` as comprehensive TypeScript
+validation while its project graph excludes `tests/**`. Before fixing
+individual tests, establish and run a strict test typecheck; then update the
+tests to the authoritative `readonly number[]` contract and re-run the suite.
+Do not restore the old callback or weaken the function signature.
+
+The other observed failure groups—SVG serialization, StatusBar sizing,
+pointer-target CSS, stencil geometry, and system-message sink counts—remain
+unclassified. Their assertions and production contracts need comparison
+before deciding whether implementation or tests are wrong. No baseline changes
+or expectation rewrites are authorized by this diagnosis alone.
+
 ## Work-tracking note
 
 The repository's `docs/TODO.md` says the canonical work-item status lives in
