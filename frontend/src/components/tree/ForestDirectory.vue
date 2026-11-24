@@ -36,9 +36,23 @@ import HyperparamPromptModal, { type HyperparamValues } from '../modals/Hyperpar
 
 const { t } = useI18n();
 
+const FOREST_NAV_SORT_KEYS: ReadonlySet<string> = new Set([
+  'gameId',
+  'averageRecall',
+  'totalReviews',
+  'rootCount',
+  'totalCards',
+]);
+
+function isForestNavSortKey(value: string): value is ForestNavSortKey {
+  return FOREST_NAV_SORT_KEYS.has(value);
+}
+
 function onBrowseSortChange(e: Event): void {
-  const value = (e.target as HTMLSelectElement).value;
-  nav.setSortKey(value === '' ? null : (value as ForestNavSortKey));
+  const target = e.target;
+  if (!(target instanceof HTMLSelectElement)) return;
+  const value = target.value;
+  nav.setSortKey(value === '' ? null : isForestNavSortKey(value) ? value : null);
 }
 
 const emit = defineEmits<{
@@ -379,7 +393,7 @@ function updateContextIds(val: string): void {
   contextIdInput.value = val;
   const expanded = expandContextIdMacros(
     val,
-    roots.value.map(s => s.gameSourceDisplayOrdinal as unknown as number),
+    roots.value.map(s => s.gameSourceDisplayOrdinal),
   );
   /*
   const expanded = expandContextIdMacros(val, (gameSourceDisplayOrdinal) =>
