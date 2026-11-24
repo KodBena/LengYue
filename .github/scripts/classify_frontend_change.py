@@ -129,13 +129,21 @@ def classify_paths(
         dependency_only = False
         break
 
-    control_plane_only = bool(paths) and set(paths) == CONTROL_PLANE_FILES
-    application_gates_required = not (dependency_only or control_plane_only)
+    control_plane_change = any(path in CONTROL_PLANE_FILES for path in paths)
+    control_plane_and_dependencies_only = control_plane_change and all(
+        path in CONTROL_PLANE_FILES
+        or path in DEPENDENCY_LOCKFILES
+        or (path in DEPENDENCY_MANIFESTS and manifest_is_dependency_only(path))
+        for path in paths
+    )
+    application_gates_required = not (
+        dependency_only or control_plane_and_dependencies_only
+    )
 
     if dependency_only:
         reason = "dependency manifests/lockfiles only; non-dependency manifest fields unchanged"
-    elif control_plane_only:
-        reason = "CI classifier/workflow control-plane change only"
+    elif control_plane_and_dependencies_only:
+        reason = "CI control-plane plus dependency-only changes; non-dependency manifest fields unchanged"
     else:
         reason = "application, test, build, or unclassified files changed; full source gates required"
 
@@ -175,6 +183,18 @@ def self_test() -> None:
     control_plane = classify_paths(sorted(CONTROL_PLANE_FILES), safe_manifest)
     assert not control_plane["dependency_only"]
     assert not control_plane["application_gates_required"]
+    control_plane_plus_dependency = classify_paths(
+        sorted(CONTROL_PLANE_FILES | {"frontend/package-lock.json"}), safe_manifest
+    )
+    assert not control_plane_plus_dependency["dependency_only"]
+    assert not control_plane_plus_dependency["application_gates_required"]
+    control_plane_plus_non_dependency_change = classify_paths(
+        sorted(CONTROL_PLANE_FILES | {"frontend/package.json"}), unsafe_manifest
+    )
+    assert control_plane_plus_non_dependency_change["application_gates_required"]
+    assert classify_paths(
+        sorted(CONTROL_PLANE_FILES | {"frontend/src/components/App.vue"}), safe_manifest
+    )["application_gates_required"]
     assert classify_paths([], safe_manifest)["application_gates_required"]
     print("change-impact classifier self-test: passed")
 
