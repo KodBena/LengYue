@@ -1651,7 +1651,8 @@ function resolveSideColumnLiveLayoutUnguarded(
   }
 
   // ── Tree's own effective demand (row 2501, unchanged) ────────────────
-  const sovereign = input.treeSovereignPx !== undefined;
+  const treeSovereignPx = input.treeSovereignPx;
+  const sovereign = treeSovereignPx !== undefined;
   const effectiveTreeDemand = input.tree.maxUsefulPx !== null ? resolveEffectiveDemand(treeTrack.minPx, input.tree.maxUsefulPx) : null;
   const effectiveTreeMinPx = effectiveTreeDemand?.minPx ?? treeTrack.minPx;
   const effectiveTreeMaxUsefulPx = effectiveTreeDemand?.maxUsefulPx ?? null;
@@ -1694,7 +1695,7 @@ function resolveSideColumnLiveLayoutUnguarded(
         (sum, o) => (o.viabilityFloorPx !== null && (presentByWidgetId.get(o.widgetId) ?? false) ? sum + o.viabilityFloorPx + input.gapPx : sum),
         0,
       );
-      const rawTreePx = Math.max(0, Math.round(input.treeSovereignPx as number));
+      const rawTreePx = Math.max(0, Math.round(treeSovereignPx));
       // The reservation cap applies ONLY when there is something to
       // reserve for — `floorReservationPx === 0` (no desired, floor-
       // bearing sibling at all) leaves `tree` exactly as sovereignty
