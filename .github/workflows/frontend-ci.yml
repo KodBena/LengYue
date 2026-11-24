@@ -3,7 +3,8 @@
 # Frontend CI gate. The SPA's safety nets — the strict typecheck
 # (`vue-tsc -b`), the ESLint import-boundary + type-checked rules, and the
 # Vitest suite (incl. the ADR-0010 render-count regression guards) — run
-# only locally until now; this makes them load-bearing on every PR.
+# on application/test/build changes. Dependency-only PRs still run the
+# package install, typecheck/build, and complete unit/integration test suite.
 # Rationale: single-maintainer project (no second reviewer), so an
 # automated gate is the substitute that catches a boundary violation,
 # render-coupling regression, or type error before it lands.
@@ -36,7 +37,7 @@ on:
     paths: ['frontend/**', '.github/workflows/frontend-ci.yml', '.github/scripts/classify_frontend_change.py']
   push:
     branches: [main]
-    paths: ['frontend/**', '.github/workflows/frontend-ci.yml']
+    paths: ['frontend/**', '.github/workflows/frontend-ci.yml', '.github/scripts/classify_frontend_change.py']
 
 # Least privilege: all jobs are read-only (no push, comment, or GitHub API writes).
 # Dependency-only changes still run npm install, typecheck/build, and tests.
