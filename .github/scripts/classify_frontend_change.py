@@ -156,6 +156,18 @@ def self_test() -> None:
     assert classify_paths(["frontend/src-tauri/Cargo.lock"], safe_manifest)["rust_validation_required"]
     assert classify_paths(["frontend/package.json"], safe_manifest)["dependency_only"]
     assert not classify_paths(["frontend/package.json"], unsafe_manifest)["dependency_only"]
+    assert package_projection({"name": "app", "scripts": {"build": "vite build"}, "dependencies": {"vue": "^3"}}) == package_projection(
+        {"name": "app", "scripts": {"build": "vite build"}, "dependencies": {"vue": "^4"}}
+    )
+    assert package_projection({"name": "app", "scripts": {"build": "vite build"}}) != package_projection(
+        {"name": "app", "scripts": {"build": "vite test"}}
+    )
+    assert cargo_projection({"package": {"version": "1"}, "dependencies": {"serde": "1"}}) == cargo_projection(
+        {"package": {"version": "1"}, "dependencies": {"serde": "2"}}
+    )
+    assert cargo_projection({"package": {"version": "1"}}) != cargo_projection(
+        {"package": {"version": "2"}}
+    )
     assert classify_paths(["frontend/src-tauri/Cargo.toml"], safe_manifest)["dependency_only"]
     assert not classify_paths(
         ["frontend/package-lock.json", "frontend/src/components/App.vue"], safe_manifest
@@ -175,7 +187,6 @@ def main() -> int:
         print("usage: classify_frontend_change.py [--self-test]", file=sys.stderr)
         return 2
 
-    event_name = os.environ.get("GITHUB_EVENT_NAME", "")
     base_ref = os.environ.get("BASE_SHA", "")
     head_ref = os.environ.get("HEAD_SHA", "")
     if not base_ref or not head_ref or set(base_ref) == {"0"}:
