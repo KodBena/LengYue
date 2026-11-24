@@ -1,0 +1,33 @@
+name: system-message-sink-contract
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/system-message-sink-contract-ci.yml
+      - frontend/src/store/index.ts
+      - frontend/src/types/app.ts
+      - frontend/src/types/engine.ts
+      - frontend/tests/unit/services/system-message-sink.test.ts
+
+permissions:
+  contents: read
+
+jobs:
+  sink-contract:
+    name: Immutable log / subscriber contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install exact lockfile
+        run: npm ci
+      - name: Run system-message sink contract tests
+        run: npx vitest run tests/unit/services/system-message-sink.test.ts
