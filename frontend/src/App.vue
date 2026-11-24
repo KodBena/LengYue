@@ -1380,8 +1380,10 @@ const exclusiveHeaderOnlyByPath = computed<Record<string, boolean>>(() => ({
   [controlPanelLytPath.value]: rightPanelMode.value !== 'controlPanel',
 }));
 
+const CONTROL_PANEL_TAB_ID_SET: ReadonlySet<string> = new Set(CONTROL_PANEL_TAB_IDS);
+
 function isControlPanelTabId(v: string): v is ControlPanelTabId {
-  return (CONTROL_PANEL_TAB_IDS as readonly string[]).includes(v);
+  return CONTROL_PANEL_TAB_ID_SET.has(v);
 }
 
 // aff8 defect 2 repair ("enable-never-disable trap" — live-tested,
@@ -1398,7 +1400,7 @@ function isControlPanelTabId(v: string): v is ControlPanelTabId {
 // above) — read only when a surface closes, so closing restores
 // EXACTLY the tab that was showing before, not a fixed default.
 const priorControlPanelTab = vueRef<ControlPanelTabId>(
-  isControlPanelTabId(activeTab.value) ? (activeTab.value as ControlPanelTabId) : 'settings',
+  isControlPanelTabId(activeTab.value) ? activeTab.value : 'settings',
 );
 watch(activeTab, (v) => {
   if (isControlPanelTabId(v)) priorControlPanelTab.value = v;
