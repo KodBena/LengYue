@@ -1,29 +1,4 @@
 {
-  "name": "gogui",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vue-tsc -b && vite build",
-    "preview": "vite preview",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "lint": "eslint .",
-    "gen:api": "openapi-typescript ${GENAPI_BASE_URL:-http://127.0.0.1:8764}/openapi.json -o src/types/backend.ts",
-    "perf:capture": "node scripts/perf-capture.mjs",
-    "perf:trace": "node scripts/perf-trace-parse.mjs",
-    "perf:heap": "node scripts/perf-heap.mjs",
-    "sidecar:build": "bash src-tauri/scripts/build-sidecar.sh",
-    "proxy-sidecar:build": "bash src-tauri/scripts/build-proxy-sidecar.sh",
-    "layout-audit": "bash scripts/run-layout-audit.sh",
-    "layout-audit:report": "node scripts/layout-audit.mjs --build",
-    "style-tokens-audit": "node scripts/style-tokens-audit.mjs --check",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
-  },
   "dependencies": {
     "@codemirror/lang-python": "^6.2.1",
     "@codemirror/theme-one-dark": "^6.1.3",
@@ -56,7 +31,32 @@
     "vue-eslint-parser": "^10.4.0",
     "vue-tsc": "^3.2.5"
   },
+  "name": "gogui",
   "overrides": {
-    "js-yaml": "^4.2.0"
-  }
+    "js-yaml": "^4.3.2"
+  },
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint .",
+    "gen:api": "openapi-typescript ${GENAPI_BASE_URL:-http://127.0.0.1:8764}/openapi.json -o src/types/backend.ts",
+    "perf:capture": "node scripts/perf-capture.mjs",
+    "perf:trace": "node scripts/perf-trace-parse.mjs",
+    "perf:heap": "node scripts/perf-heap.mjs",
+    "sidecar:build": "bash src-tauri/scripts/build-sidecar.sh",
+    "proxy-sidecar:build": "bash src-tauri/scripts/build-proxy-sidecar.sh",
+    "layout-audit": "bash scripts/run-layout-audit.sh",
+    "layout-audit:report": "node scripts/layout-audit.mjs --build",
+    "style-tokens-audit": "node scripts/style-tokens-audit.mjs --check",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "type": "module",
+  "version": "0.0.0"
 }
