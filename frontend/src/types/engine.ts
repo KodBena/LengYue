@@ -15,7 +15,7 @@
  */
 
 import type { BoardId } from './ids';
-import type { SystemMessage, SystemMessageLog } from './app';
+import type { SystemMessageLog } from './app';
 // Imported so `EngineInfo.capabilities` can reference the typed
 // capability-advertisement mirror.
 import type { CapabilityAdvertisement } from '../engine/katago/types';
