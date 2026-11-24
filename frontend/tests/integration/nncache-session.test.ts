@@ -27,7 +27,7 @@ vi.mock('../../src/services/analysis-service', async () => {
 });
 
 import { fakeAnalysisService, resetFakeAnalysisService } from '../fakes/analysis-service';
-import { store } from '../../src/store';
+import { store, clearSystemMessages } from '../../src/store';
 import { activeAttachedContext, _resetAttachedContextForTesting } from '../../src/state/nncache-context';
 import {
   enable,
@@ -52,7 +52,7 @@ beforeEach(() => {
   _resetNncacheSessionForTesting();
   _resetAttachedContextForTesting();
   fakeUsername.value = 'alice';
-  store.engine.messages.length = 0;
+  clearSystemMessages();
 });
 
 describe('nncache-session: enable', () => {
