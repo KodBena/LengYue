@@ -54,8 +54,9 @@ jobs:
   # Classify impact from the actual merge-base...head changed-file set.
   # The classifier permits a reduced application-gate profile only for
   # dependency manifests/lockfiles whose non-dependency manifest fields are
-  # unchanged, or for this classifier/workflow pair alone. Unknown paths,
-  # malformed manifests, and mixed source+dependency changes fail closed.
+  # unchanged, including when those dependency files accompany CI
+  # control-plane changes. Unknown paths, malformed manifests, and any
+  # application/test/build source change fail closed to the full gates.
   classify:
     runs-on: ubuntu-latest
     outputs:
