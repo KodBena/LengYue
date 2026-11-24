@@ -28,6 +28,12 @@ CONTROL_PLANE_FILES = {
     ".github/workflows/frontend-ci.yml",
     ".github/scripts/classify_frontend_change.py",
 }
+# The one repository note that records this maintenance operation. It is
+# explicitly non-application documentation, but is only exempted when bundled
+# with the known CI control-plane change and validated dependency changes.
+MAINTENANCE_DOCUMENTATION_FILES = {
+    "docs/notes/dependency-maintenance-topology-backlog.md",
+}
 PACKAGE_DEPENDENCY_KEYS = {
     "dependencies",
     "devDependencies",
@@ -132,6 +138,7 @@ def classify_paths(
     control_plane_change = any(path in CONTROL_PLANE_FILES for path in paths)
     control_plane_and_dependencies_only = control_plane_change and all(
         path in CONTROL_PLANE_FILES
+        or path in MAINTENANCE_DOCUMENTATION_FILES
         or path in DEPENDENCY_LOCKFILES
         or (path in DEPENDENCY_MANIFESTS and manifest_is_dependency_only(path))
         for path in paths
@@ -143,7 +150,7 @@ def classify_paths(
     if dependency_only:
         reason = "dependency manifests/lockfiles only; non-dependency manifest fields unchanged"
     elif control_plane_and_dependencies_only:
-        reason = "CI control-plane plus dependency-only changes; non-dependency manifest fields unchanged"
+        reason = "CI control-plane plus validated dependency and maintenance-documentation changes; non-dependency manifest fields unchanged"
     else:
         reason = "application, test, build, or unclassified files changed; full source gates required"
 
@@ -188,6 +195,14 @@ def self_test() -> None:
     )
     assert not control_plane_plus_dependency["dependency_only"]
     assert not control_plane_plus_dependency["application_gates_required"]
+    maintenance_note = "docs/notes/dependency-maintenance-topology-backlog.md"
+    control_plane_plus_maintenance_note = classify_paths(
+        sorted(CONTROL_PLANE_FILES | {"frontend/package-lock.json", maintenance_note}),
+        safe_manifest,
+    )
+    assert not control_plane_plus_maintenance_note["dependency_only"]
+    assert not control_plane_plus_maintenance_note["application_gates_required"]
+    assert classify_paths([maintenance_note], safe_manifest)["application_gates_required"]
     control_plane_plus_non_dependency_change = classify_paths(
         sorted(CONTROL_PLANE_FILES | {"frontend/package.json"}), unsafe_manifest
     )
