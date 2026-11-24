@@ -85,7 +85,7 @@ const nav = useNavigation();
   font-family: var(--font-mono);
   /* text-transform: uppercase; */
   /* letter-spacing: var(--tracking-tight); */
-  /* min-height: var(--control-height-min); */
+  min-height: var(--control-height-min);
   display: inline-flex;
   align-items: center;
   justify-content: center;
