@@ -55,8 +55,9 @@ jobs:
   # The classifier permits a reduced application-gate profile only for
   # dependency manifests/lockfiles whose non-dependency manifest fields are
   # unchanged, including when those dependency files accompany CI
-  # control-plane changes. Unknown paths, malformed manifests, and any
-  # application/test/build source change fail closed to the full gates.
+  # control-plane changes and the single explicitly allowlisted maintenance
+  # note. Unknown paths, malformed manifests, and any application/test/build
+  # source change fail closed to the full gates.
   classify:
     runs-on: ubuntu-latest
     outputs:
