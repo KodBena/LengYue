@@ -109,14 +109,14 @@ const { downloadActiveBoard } = useSgfDownload();
 	background: var(--surface-0);
 	border: 1px solid var(--border-3);
 	color: var(--text-0);
-	padding: 0px var(--space-tight);
-	/* font-size: var(--text-emphasis); */
+	padding: 1px 5px;
+	font-size: var(--text-emphasis);
 	cursor: pointer;
 	border-radius: var(--radius-default);
 	font-family: var(--font-mono); 
 	/* text-transform: uppercase; */
 	/* letter-spacing: var(--tracking-tight); */
-	/* min-height: 24px; */
+	min-height: var(--control-height-min);
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
