@@ -31,3 +31,5 @@ jobs:
         run: npm ci
       - name: Run system-message sink contract tests
         run: npx vitest run tests/unit/services/system-message-sink.test.ts
+      - name: Run full frontend suite (diagnostic; keep all existing failures visible)
+        run: npx vitest run
