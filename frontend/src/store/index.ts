@@ -35,6 +35,7 @@ import type {
   SystemMessage,
   CardTreeExpandKey,
 } from '../types';
+import type { SystemMessageLog } from '../types/app';
 
 import { defaultProfile, defaultSessionUI, defaultKnownTags, NIL_UUID } from './defaults';
 import { createInitialBoard } from './board-factory';
@@ -241,13 +242,13 @@ registerSystemMessageSink({
   // this guard, be silently TRACKED as a dependency of whatever effect
   // happens to be active at the call site — a foreign, accidental
   // subscription this port never advertises and no caller can see. The
-  // very next line's write (`head.count++` / `.unshift`) then RE-TRIGGERS
-  // that same foreign effect (writes are never gated by `pauseTracking` —
-  // only the read-side `track()` is), which re-runs its body, calls
-  // `push()` again, re-establishes the same phantom dependency, and writes
-  // again: "a reactive effect that is mutating its own dependencies and
-  // thus recursively triggering itself" (Vue's own diagnostic, verbatim) —
-  // the `<LytNode>` recursive-update crash this closes.
+  // a subsequent mutation through the same live object would re-trigger
+  // that foreign effect (writes are never gated by `pauseTracking` — only
+  // the read-side `track()` is). The sink therefore derives a complete next
+  // immutable snapshot while tracking is paused, restores tracking, and
+  // replaces `store.engine.messages` exactly once. That single publication
+  // is the intentional notification to real subscribers; the sink's
+  // bookkeeping never becomes a dependency of the producer.
   //
   // The invariant, stated over the class: a message-sink push is a
   // side-channel effect, never a value the calling effect's own
@@ -266,40 +267,52 @@ registerSystemMessageSink({
   // real subscribers still update normally. `try/finally` guarantees the
   // tracking flag is restored even if a future edit here throws.
   push(type: SystemMessage['type'], text: string, details) {
-    pauseTracking();
-    try {
-      const head = store.engine.messages[0] as (SystemMessage & { count?: number }) | undefined;
-      const sameAsHead =
-        head !== undefined &&
-        head.type === type &&
-        head.text === text &&
-        head.remediation === details?.remediation &&
-        head.nextAction === details?.nextAction;
-      if (sameAsHead) {
-        // Widen the reactive entry in place: bump the show-once count and
-        // refresh the timestamp so the row reflects the latest occurrence
-        // time, without unshifting a second near-duplicate row.
-        head.count = (head.count ?? 1) + 1;
-        (head as { timestamp: number }).timestamp = Date.now();
-        return;
+    const nextMessages: SystemMessageLog = (() => {
+      pauseTracking();
+      try {
+        const currentMessages = store.engine.messages;
+        const head = currentMessages[0];
+        if (
+          head !== undefined &&
+          head.type === type &&
+          head.text === text &&
+          head.remediation === details?.remediation &&
+          head.nextAction === details?.nextAction
+        ) {
+          // SystemMessage is an immutable value object: replace the head
+          // instead of mutating count/timestamp as separate reactive writes.
+          const updatedHead: SystemMessage = {
+            ...head,
+            count: (head.count ?? 1) + 1,
+            timestamp: Date.now(),
+          };
+          return [updatedHead, ...currentMessages.slice(1)];
+        }
+
+        const msg: SystemMessage = {
+          id: Math.random().toString(36).substring(2, 9),
+          type,
+          text,
+          timestamp: Date.now(),
+          count: 1,
+          // Optional structured fields (dispatch L3 repair) — `undefined` for
+          // every existing two-argument caller, so `msg` stays byte-identical
+          // to before whenever a producer doesn't supply them.
+          ...(details?.remediation !== undefined ? { remediation: details.remediation } : {}),
+          ...(details?.nextAction !== undefined ? { nextAction: details.nextAction } : {}),
+        };
+        // Publish insertion and the 50-row cap as one state transition. The
+        // former unshift-then-pop sequence emitted two synchronous mutations
+        // when the log was already at capacity.
+        return [msg, ...currentMessages].slice(0, 50);
+      } finally {
+        resetTracking();
       }
-      const msg: SystemMessage = {
-        id: Math.random().toString(36).substring(2, 9),
-        type,
-        text,
-        timestamp: Date.now(),
-        count: 1,
-        // Optional structured fields (dispatch L3 repair) — `undefined` for
-        // every existing two-argument caller, so `msg` stays byte-identical
-        // to before whenever a producer doesn't supply them.
-        ...(details?.remediation !== undefined ? { remediation: details.remediation } : {}),
-        ...(details?.nextAction !== undefined ? { nextAction: details.nextAction } : {}),
-      };
-      store.engine.messages.unshift(msg);
-      if (store.engine.messages.length > 50) store.engine.messages.pop();
-    } finally {
-      resetTracking();
-    }
+    })();
+
+    // One logical push publishes one complete snapshot and causes one
+    // subscriber notification, for both a new row and a deduplication hit.
+    store.engine.messages = nextMessages;
   },
 });
 
