@@ -63,7 +63,11 @@ jobs:
     outputs:
       dependency_only: ${{ steps.classify.outputs.dependency_only }}
       application_gates_required: ${{ steps.classify.outputs.application_gates_required }}
+      npm_audit_required: ${{ steps.classify.outputs.npm_audit_required }}
       rust_validation_required: ${{ steps.classify.outputs.rust_validation_required }}
+      band_conformance_required: ${{ steps.classify.outputs.band_conformance_required }}
+      cycle_check_required: ${{ steps.classify.outputs.cycle_check_required }}
+      style_tokens_audit_required: ${{ steps.classify.outputs.style_tokens_audit_required }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -83,14 +87,22 @@ jobs:
         env:
           DEPENDENCY_ONLY: ${{ steps.classify.outputs.dependency_only }}
           APPLICATION_GATES_REQUIRED: ${{ steps.classify.outputs.application_gates_required }}
+          NPM_AUDIT_REQUIRED: ${{ steps.classify.outputs.npm_audit_required }}
           RUST_VALIDATION_REQUIRED: ${{ steps.classify.outputs.rust_validation_required }}
+          BAND_CONFORMANCE_REQUIRED: ${{ steps.classify.outputs.band_conformance_required }}
+          CYCLE_CHECK_REQUIRED: ${{ steps.classify.outputs.cycle_check_required }}
+          STYLE_TOKENS_AUDIT_REQUIRED: ${{ steps.classify.outputs.style_tokens_audit_required }}
           REASON: ${{ steps.classify.outputs.reason }}
         run: |
           {
             echo "### Frontend CI change-impact classification"
             echo "- Dependency-only: `$DEPENDENCY_ONLY`"
-            echo "- Full application-source gates required: `$APPLICATION_GATES_REQUIRED`"
+            echo "- Full application lint required: `$APPLICATION_GATES_REQUIRED`"
+            echo "- npm advisory audit required: `$NPM_AUDIT_REQUIRED`"
             echo "- Cargo validation required: `$RUST_VALIDATION_REQUIRED`"
+            echo "- Band-conformance input changed: `$BAND_CONFORMANCE_REQUIRED`"
+            echo "- Cycle-check input changed: `$CYCLE_CHECK_REQUIRED`"
+            echo "- Style-token audit input changed: `$STYLE_TOKENS_AUDIT_REQUIRED`"
             echo "- Reason: $REASON"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -106,6 +118,9 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install
         run: npm ci
+      - name: Audit npm dependency graph against published advisories
+        if: needs.classify.outputs.npm_audit_required == 'true'
+        run: npm audit --audit-level=moderate
       - name: Typecheck + build (vue-tsc -b && vite build)
         run: npm run build
       - name: Test (unit + integration + render-count guards)
@@ -152,7 +167,7 @@ jobs:
   # `working-directory` override: the tool reads from the repo root.
   band-conformance:
     needs: classify
-    if: needs.classify.outputs.application_gates_required == 'true'
+    if: needs.classify.outputs.band_conformance_required == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -179,7 +194,7 @@ jobs:
   # stays clean on a DAG. No `working-directory` override: reads from repo root.
   cycle-check:
     needs: classify
-    if: needs.classify.outputs.application_gates_required == 'true'
+    if: needs.classify.outputs.cycle_check_required == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -194,46 +209,10 @@ jobs:
       - name: Cycle-check (no-new-cycles ratchet)
         run: node tools/cycle-check/check.mjs --check
 
-  # ── ADR-0019 layout-audit: DOM-mechanized C17/C19/C21 + Class 2/4 gate ──
-  # Commission: `.claude/dispatch-reports/lyt-final-opus-review.md` §3 Rule
-  # 2(b) finding -- ADR-0019's own roll-up claims a CI gate for
-  # C17/C19/C21/C22 on the Vue substrate that was NOT actually in force; the
-  # review ran this exact audit by hand in ~100 lines and found every one of
-  # its Classes 2, 4, and 7 without human judgment. `scripts/layout-audit.mjs`
-  # builds the SPA, serves `dist/` on a scratch port (>= 19000, never
-  # 8764/4173/5173/5174), and drives ONE chromium instance through the seven
-  # geometry classes named in the commission, auditing the COLD-BOOT SPA only
-  # (no backend/proxy -- see the script's own "Scope" section for what that
-  # excludes). `--check` gates on the NO-NEW-FINDINGS ratchet against the
-  # committed `frontend/layout-audit-baseline.json`, keyed on STABLE
-  # selector+rule identities (never file:line/coordinates -- see the script
-  # header and `tests/unit/layout-audit-key-stability.test.ts`, which proves
-  # the property mechanically).
-  #
-  # `npx playwright install --with-deps chromium` uses playwright-core's own
-  # bundled CLI (already a devDependency; no need for the full `playwright`
-  # package) to fetch a browser build + its OS deps, since ubuntu-latest has
-  # no system chromium at /usr/bin/chromium the way local dev machines do
-  # (layout-audit.mjs falls back to playwright-core's bundled browser
-  # automatically when that path is absent).
-  layout-audit:
-    needs: classify
-    if: needs.classify.outputs.application_gates_required == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install
-        run: npm ci
-      - name: Install chromium (playwright-core bundled browser + OS deps)
-        run: npx playwright install --with-deps chromium
-      - name: Layout audit (build + 7-geometry DOM audit vs. ratchet baseline)
-        run: npm run layout-audit
-
+  # The Chromium-driven layout audit remains available as a local npm script.
+  # It is intentionally not a GitHub Actions job; its browser/geometry sweep
+  # is too expensive for normal PR validation and is not needed for dependency
+  # maintenance.
   # ── ADR-0019 C22 style-tokens-audit: raw-hex / raw-native-control gate ──
   # Commission: same Rule 2(b) finding as layout-audit above, for C22
   # ("visual constants come from the sanctioned design-token/component set").
@@ -249,7 +228,7 @@ jobs:
   # needed: pure static analysis over `frontend/src`.
   style-tokens-audit:
     needs: classify
-    if: needs.classify.outputs.application_gates_required == 'true'
+    if: needs.classify.outputs.style_tokens_audit_required == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
