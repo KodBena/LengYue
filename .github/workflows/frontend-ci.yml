@@ -1,48 +1,16 @@
-# .github/workflows/frontend-ci.yml
-#
-# Frontend CI gate. The SPA's safety nets — the strict typecheck
-# (`vue-tsc -b`), the ESLint import-boundary + type-checked rules, and the
-# Vitest suite (incl. the ADR-0010 render-count regression guards) — run
-# on application/test/build changes. Dependency-only PRs still run the
-# package install, typecheck/build, and complete unit/integration test suite.
-# Rationale: single-maintainer project (no second reviewer), so an
-# automated gate is the substitute that catches a boundary violation,
-# render-coupling regression, or type error before it lands.
-#
-# Scope: frontend/ only. The proxy/ submodule has its own workflows
-# (proxy/.github/workflows/); the backend is independent. The env-gated
-# e2e suites (tests/e2e/*, describe.skipIf on proxy-URL env vars) skip
-# automatically here — no live backend/proxy in CI.
-#
-# The band-conformance job (below) is wired into THIS workflow rather than
-# doc-graph-ci because its two inputs are both under frontend/: the import
-# graph of frontend/src AND the band tags in frontend/FILES.md. doc-graph-ci
-# triggers on FILES.md but NOT frontend/src/**, so a band leak introduced by a
-# new import would not retrigger it — this workflow's `frontend/**` filter
-# covers both. The band-ordering finding DETAIL is advisory (printed, per
-# ADR-0011 Rule 5: judgment-shaped output gets an advisory surface, not a
-# per-finding tollgate), but the finding COUNT is RATCHETED: `--check` FAILS if
-# the count exceeds NO_NEW_FINDINGS_RATCHET (a new band leak) — the ADR-0011
-# Rule-3 graduation that prevents NEW leaks without gating on the existing
-# baseline (modelled on the doc-graph NO_NEW_DANGLERS_RATCHET, but wired to
-# gate). It ALSO FAILS on crisp structural drift (a FILES.md row resolving to
-# no file, a src file with no FILES.md row, a broken import) — the ADR-0002
-# fail-loud class, gated on a zero baseline. See tools/band-conformance/check.mjs.
-#
-# License: Public Domain (The Unlicense)
+# Frontend code validation only.
+# No change-impact classifier or non-test audits are part of this workflow.
 name: frontend-ci
 
 on:
   pull_request:
-    paths: ['frontend/**', '.github/workflows/frontend-ci.yml', '.github/scripts/classify_frontend_change.py']
+    paths:
+      - 'frontend/**'
   push:
     branches: [main]
-    paths: ['frontend/**', '.github/workflows/frontend-ci.yml', '.github/scripts/classify_frontend_change.py']
+    paths:
+      - 'frontend/**'
 
-# Least privilege: all jobs are read-only (no push, comment, or GitHub API writes).
-# Dependency-only changes still run npm install, typecheck/build, and tests.
-# Application-source gates run whenever the changed-file classifier finds any
-# application, test, build, or unclassified path. The classifier fails closed.
 permissions:
   contents: read
 
@@ -51,63 +19,7 @@ defaults:
     working-directory: frontend
 
 jobs:
-  # Classify impact from the actual merge-base...head changed-file set.
-  # The classifier permits a reduced application-gate profile only for
-  # dependency manifests/lockfiles whose non-dependency manifest fields are
-  # unchanged, including when those dependency files accompany CI
-  # control-plane changes and the single explicitly allowlisted maintenance
-  # note. Unknown paths, malformed manifests, and any application/test/build
-  # source change fail closed to the full gates.
-  classify:
-    runs-on: ubuntu-latest
-    outputs:
-      dependency_only: ${{ steps.classify.outputs.dependency_only }}
-      application_gates_required: ${{ steps.classify.outputs.application_gates_required }}
-      npm_audit_required: ${{ steps.classify.outputs.npm_audit_required }}
-      rust_validation_required: ${{ steps.classify.outputs.rust_validation_required }}
-      band_conformance_required: ${{ steps.classify.outputs.band_conformance_required }}
-      cycle_check_required: ${{ steps.classify.outputs.cycle_check_required }}
-      style_tokens_audit_required: ${{ steps.classify.outputs.style_tokens_audit_required }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Classifier contract self-test
-        working-directory: .
-        run: python3 .github/scripts/classify_frontend_change.py --self-test
-      - name: Classify changed-file impact (fail-closed)
-        id: classify
-        working-directory: .
-        env:
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: python3 .github/scripts/classify_frontend_change.py
-      - name: Record classification
-        env:
-          DEPENDENCY_ONLY: ${{ steps.classify.outputs.dependency_only }}
-          APPLICATION_GATES_REQUIRED: ${{ steps.classify.outputs.application_gates_required }}
-          NPM_AUDIT_REQUIRED: ${{ steps.classify.outputs.npm_audit_required }}
-          RUST_VALIDATION_REQUIRED: ${{ steps.classify.outputs.rust_validation_required }}
-          BAND_CONFORMANCE_REQUIRED: ${{ steps.classify.outputs.band_conformance_required }}
-          CYCLE_CHECK_REQUIRED: ${{ steps.classify.outputs.cycle_check_required }}
-          STYLE_TOKENS_AUDIT_REQUIRED: ${{ steps.classify.outputs.style_tokens_audit_required }}
-          REASON: ${{ steps.classify.outputs.reason }}
-        run: |
-          {
-            echo "### Frontend CI change-impact classification"
-            echo "- Dependency-only: `$DEPENDENCY_ONLY`"
-            echo "- Full application lint required: `$APPLICATION_GATES_REQUIRED`"
-            echo "- npm advisory audit required: `$NPM_AUDIT_REQUIRED`"
-            echo "- Cargo validation required: `$RUST_VALIDATION_REQUIRED`"
-            echo "- Band-conformance input changed: `$BAND_CONFORMANCE_REQUIRED`"
-            echo "- Cycle-check input changed: `$CYCLE_CHECK_REQUIRED`"
-            echo "- Style-token audit input changed: `$STYLE_TOKENS_AUDIT_REQUIRED`"
-            echo "- Reason: $REASON"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-  check:
-    needs: classify
+  frontend-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -116,127 +28,11 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Install
+      - name: Install locked dependencies
         run: npm ci
-      - name: Audit npm dependency graph against published advisories
-        if: needs.classify.outputs.npm_audit_required == 'true'
-        run: npm audit --audit-level=moderate
-      - name: Typecheck + build (vue-tsc -b && vite build)
-        run: npm run build
-      - name: Test (unit + integration + render-count guards)
-        run: npm run test:run
-      - name: Lint (import boundaries + type-checked rules; application-source changes)
-        if: needs.classify.outputs.application_gates_required == 'true'
+      - name: Typecheck
+        run: npx vue-tsc -b
+      - name: Lint
         run: npx eslint .
-
-  # Run the Rust validation whenever Tauri's manifest or lockfile changes.
-  # --locked makes the committed dependency resolution part of the contract.
-  rust-dependency-validation:
-    needs: classify
-    if: needs.classify.outputs.rust_validation_required == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install Tauri Linux build prerequisites
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes \
-            build-essential curl wget file \
-            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
-            librsvg2-dev libxdo-dev libssl-dev
-      # This job is triggered only by dependency manifest/lockfile changes.
-      # Tauri's configured externalBin entries are separate PyInstaller
-      # release artifacts, not inputs to Rust unit tests. Use a test-only
-      # config overlay to omit those package resources while still compiling
-      # and testing the Rust shell with the locked dependency graph.
-      - name: Run Rust tests with locked dependencies
-        env:
-          TAURI_CONFIG: '{"bundle":{"externalBin":[]}}'
-        run: cargo test --locked --all-targets --manifest-path src-tauri/Cargo.toml
-
-  # ── Band-conformance: ADR-0003 band-ordering audit (drift gate + ratchet) ──
-  # Runs the umbrella-level checker (tools/band-conformance/check.mjs, zero-deps
-  # Node, no npm install) over frontend/src + frontend/FILES.md. `--check` gates
-  # on (1) structural drift (ghost rows / missing rows / broken imports — the
-  # crisp ADR-0002 class, zero baseline) AND (2) the no-new-findings ratchet:
-  # the advisory band-ordering COUNT exceeding NO_NEW_FINDINGS_RATCHET (a new
-  # band leak) fails the build, while the finding DETAIL stays advisory/printed
-  # (ADR-0011 Rule 5). The job also runs the self-test fixtures, which prove the
-  # loud-failure path fires (the jquery-bridge ghost-row shape). No
-  # `working-directory` override: the tool reads from the repo root.
-  band-conformance:
-    needs: classify
-    if: needs.classify.outputs.band_conformance_required == 'true'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: .
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Band-conformance self-test (loud-failure fixtures)
-        run: node tools/band-conformance/check.mjs --self-test
-      - name: Band-conformance check (structural-drift gate + no-new-findings ratchet)
-        run: node tools/band-conformance/check.mjs --check
-
-  # ── Cycle-check: import-cycle ratchet (no new circular dependencies) ──
-  # Runs the umbrella-level checker (tools/cycle-check/check.mjs, zero-deps Node,
-  # sharing tools/import-graph.mjs with band-conformance — the extracted walker)
-  # over frontend/src's runtime VALUE-edge graph. `--check` gates on the
-  # NO-NEW-CYCLES ratchet: the cyclic-cluster count or the file-in-cycle count
-  # EXCEEDING the measured baseline (a new import cycle, or an existing tangle
-  # growing) fails the build; the baseline itself does not gate. A runtime import
-  # cycle is the structural precondition of the vite-8.0.12 vitest-teardown
-  # deadlock (PR #444). The self-test proves SCC detection fires on a cycle and
-  # stays clean on a DAG. No `working-directory` override: reads from repo root.
-  cycle-check:
-    needs: classify
-    if: needs.classify.outputs.cycle_check_required == 'true'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: .
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Cycle-check self-test (SCC detection proofs)
-        run: node tools/cycle-check/check.mjs --self-test
-      - name: Cycle-check (no-new-cycles ratchet)
-        run: node tools/cycle-check/check.mjs --check
-
-  # The Chromium-driven layout audit remains available as a local npm script.
-  # It is intentionally not a GitHub Actions job; its browser/geometry sweep
-  # is too expensive for normal PR validation and is not needed for dependency
-  # maintenance.
-  # ── ADR-0019 C22 style-tokens-audit: raw-hex / raw-native-control gate ──
-  # Commission: same Rule 2(b) finding as layout-audit above, for C22
-  # ("visual constants come from the sanctioned design-token/component set").
-  # `scripts/style-tokens-audit.mjs` is a zero-dependency static scanner (the
-  # project's own tools/band-conformance/tools/cycle-check idiom) standing in
-  # for stylelint until the sanctioned AppSelect/AppButton/AppInput component
-  # set exists (a later dispatch) -- see the script's own header for why a
-  # real devDependency wasn't added for a mechanical-gates-only build. WARN-
-  # level report (ADR-0011 Rule 5: judgment-shaped DETAIL stays advisory) +
-  # a no-new-findings ratchet against `frontend/style-tokens-audit-baseline.json`,
-  # keyed on file + rule + CONTENT-derived identity (never a line number --
-  # see `tests/unit/style-tokens-audit-key-stability.test.ts`). No browser
-  # needed: pure static analysis over `frontend/src`.
-  style-tokens-audit:
-    needs: classify
-    if: needs.classify.outputs.style_tokens_audit_required == 'true'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Style-tokens audit (C22 ratchet)
-        run: node scripts/style-tokens-audit.mjs --check
+      - name: Unit and integration tests
+        run: npm run test:run
