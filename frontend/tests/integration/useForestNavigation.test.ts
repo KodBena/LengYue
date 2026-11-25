@@ -26,7 +26,7 @@ describe('parseForestNavSortKey', () => {
     const keys = ['gameId', 'averageRecall', 'totalReviews', 'rootCount', 'totalCards'] as const;
     for (const key of keys) expect(parseForestNavSortKey(key)).toBe(key);
     expect(parseForestNavSortKey('')).toBeNull();
-    expect(parseForestNavSortKey('unknown')).toBeNull();
+    expect(parseForestNavSortKey('unknown')).toBeUndefined();
   });
 });
 

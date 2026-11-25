@@ -52,9 +52,10 @@ const FOREST_NAV_SORT_KEYS = [
 
 export type ForestNavSortKey = (typeof FOREST_NAV_SORT_KEYS)[number];
 
-/** Decode an untrusted select value into the closed sort-key vocabulary. */
-export function parseForestNavSortKey(value: string): ForestNavSortKey | null {
-  return FOREST_NAV_SORT_KEYS.find((key) => key === value) ?? null;
+/** Decode an untrusted select value; null means clear, undefined means reject. */
+export function parseForestNavSortKey(value: string): ForestNavSortKey | null | undefined {
+  if (value === '') return null;
+  return FOREST_NAV_SORT_KEYS.find((key) => key === value);
 }
 
 export interface ForestNavGameAggregate {
