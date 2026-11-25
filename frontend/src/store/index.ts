@@ -241,7 +241,7 @@ registerSystemMessageSink({
   // this guard, be silently TRACKED as a dependency of whatever effect
   // happens to be active at the call site — a foreign, accidental
   // subscription this port never advertises and no caller can see. The
-  // very next line's write (`head.count++` / `.unshift`) then RE-TRIGGERS
+  // very next line's write (`messages[0] = updated` / `.unshift`) then RE-TRIGGERS
   // that same foreign effect (writes are never gated by `pauseTracking` —
   // only the read-side `track()` is), which re-runs its body, calls
   // `push()` again, re-establishes the same phantom dependency, and writes
