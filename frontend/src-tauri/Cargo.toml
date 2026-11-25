@@ -43,7 +43,7 @@ ureq = "2"
 # `eprintln!`/`println!`, forwarded to the desktop shell's own log
 # stream — see `lib.rs`'s module docs — so pulling in a second logging
 # convention for one crate would add a seam, not clarity).
-mdns-sd = { version = "0.20.3", default-features = false }
+mdns-sd = { version = "0.22.0", default-features = false }
 
 [features]
 # This feature is used for production builds where `devUrl` points to
