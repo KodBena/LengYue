@@ -58,3 +58,28 @@ Bugs or other rough edges
 * ~~The analysis done and displayed in the SR tab seems to be independent of that in the analysis tab. This is probably not ever desirable~~ Made irrelevant by the cards-tab-merge arc (PRs #140 / #141 / #142): the SR tab no longer exists; `ReviewSessionPanel` shares the active board with the analysis surface, so per-board analysis state composes naturally. Retired as "no longer applicable" rather than as a fix.
 * ~~The analysis range is not preserved when switching tabs or switching between boards, etc, which is highly annoying.~~ Closed in a prior PR (user-reported as already done during the 2026-05-06 backlog sweep; `BoardState.analysisRange` is per-board and persists via SyncService).
 
+## 2026-11-25 — Frontend baseline test and lint dispositions
+
+The following findings were reproduced on `main` and on the dependency-refresh branch using the same baseline comparison. They are **not dependency regressions**. This section records work still owed; it does not mark the suite or lint as clean.
+
+* **Baseline test failures — 17 failing tests in six files.** The apples-to-apples run recorded `main: 3,656 passed / 17 failed / 8 skipped` and the refreshed branch `3,655 passed / 18 failed / 8 skipped`. The 17 shared failures are in:
+  * `frontend/tests/integration/useAppDialogs.test.ts`
+  * `frontend/tests/unit/composables/keybindings-catalog.test.ts`
+  * `frontend/tests/unit/composables/useMintDialogSignal.test.ts`
+  * `frontend/tests/unit/logic-setup.test.ts`
+  * `frontend/tests/unit/logic.test.ts`
+  * `frontend/tests/unit/lyt-d2-system-log-toggle.test.ts`
+
+  **Disposition: triage and fix each failing case, not a blanket allowance.** The comparison record available for this filing has aggregate counts and file names but not the 17 individual test names, assertion output, or root causes; those are not fabricated here. Re-run a clean `npm ci` and `npm run test:run` on `main` under the CI Node/npm pair (Node `22.23.5`, npm `10.9.9`), capture the full reporter output, enumerate each failing test and assertion, identify the violated contract and cause, then fix or file each independent cause. Keep the six shared failures distinct from the dependency-branch-only `system-message-sink` notification failure.
+
+* **Baseline ESLint cast-hygiene failures — 10 errors.** The same `local/justification-adjacency` diagnostics were independently reproduced on `main` and the dependency-refresh branch. The current CI witness is [frontend-ci run 45634660243](https://github.com/KodBena/LengYue/actions/runs/45634660243). Exact sites:
+  * `frontend/src/App.vue`: 1384:11, 1401:43
+  * `frontend/src/components/tree/ForestDirectory.vue`: 40:18, 41:41, 382:26
+  * `frontend/src/engine/stencil-cover-geometry.ts`: 134:29, 310:31
+  * `frontend/src/state/feasible-layout.ts`: 1697:48
+  * `frontend/src/store/index.ts`: 271:20, 283:10
+
+  **Disposition: remove or structurally justify the assertions; do not weaken the rule or add blanket suppressions.** For each site, first identify the general invalid-state / unchecked-boundary class and the type or validation contract that would make it unrepresentable, then identify the operational lapse that admitted the assertion. Expected design direction: narrow `activeTab` through the existing predicate rather than re-asserting it; validate DOM event targets and persisted sort-key strings at their boundary; type wire points as validated readonly tuples instead of `unknown[]` casts; make the sovereign tree quantity numeric in the input contract; and model message-record updates as a typed aggregate rather than widening a readonly field with assertions. Verify the resulting code with the existing ESLint rule unchanged.
+
+* **Dependency-branch-only synchronous notification failure — tracked separately from the baseline above.** The refreshed branch reports one extra failing test in `frontend/tests/unit/services/system-message-sink.test.ts`: the synchronous subscriber assertion expected three watcher runs and observed four. The production dedup path separately writes `count` and `timestamp`; a `flush: 'sync'` observer can observe those as separate changes, while `Date.now()` can make the timestamp write appear unchanged. The test's written contract is one subscriber notification per logical push. The type-level correction to evaluate is a complete immutable `SystemMessage` snapshot replacement (one aggregate mutation) rather than multiple observable field assignments; the operational lapse is exposing an intermediate state and allowing wall-clock granularity to determine notification count. Implement and verify this in the dependency-remediation change, with deterministic clock/scheduler control and repeated execution; this backlog entry is tracking the baseline findings above, not substituting for that in-scope fix.
+
