@@ -39,7 +39,8 @@ const { t } = useI18n();
 function onBrowseSortChange(e: Event): void {
   const target = e.currentTarget;
   if (!(target instanceof HTMLSelectElement)) return;
-  nav.setSortKey(parseForestNavSortKey(target.value));
+  const sortKey = parseForestNavSortKey(target.value);
+  if (sortKey !== undefined) nav.setSortKey(sortKey);
 }
 
 const emit = defineEmits<{
