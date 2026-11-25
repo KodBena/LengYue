@@ -268,7 +268,7 @@ registerSystemMessageSink({
   push(type: SystemMessage['type'], text: string, details) {
     pauseTracking();
     try {
-      const head = store.engine.messages[0] as (SystemMessage & { count?: number }) | undefined;
+      const head: SystemMessage | undefined = store.engine.messages[0];
       const sameAsHead =
         head !== undefined &&
         head.type === type &&
@@ -276,11 +276,15 @@ registerSystemMessageSink({
         head.remediation === details?.remediation &&
         head.nextAction === details?.nextAction;
       if (sameAsHead) {
-        // Widen the reactive entry in place: bump the show-once count and
-        // refresh the timestamp so the row reflects the latest occurrence
-        // time, without unshifting a second near-duplicate row.
-        head.count = (head.count ?? 1) + 1;
-        (head as { timestamp: number }).timestamp = Date.now();
+        // SystemMessage is a readonly value object. Publish one complete
+        // replacement snapshot so a logical push produces one reactive
+        // notification, never separate count/timestamp intermediate states.
+        const updated: SystemMessage = {
+          ...head,
+          count: (head.count ?? 1) + 1,
+          timestamp: Date.now(),
+        };
+        store.engine.messages[0] = updated;
         return;
       }
       const msg: SystemMessage = {

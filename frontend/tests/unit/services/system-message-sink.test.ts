@@ -20,11 +20,15 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 describe('system-message-sink', () => {
   beforeEach(() => {
     vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('pushSystemMessage throws before a sink is registered (fail-loud)', async () => {
@@ -292,7 +296,11 @@ describe('system-message-sink', () => {
       const store = await import('../../../src/store');
 
       store.clearSystemMessages();
+      let clock = 1_000;
+      vi.spyOn(Date, 'now').mockImplementation(() => clock++);
       let runs = 0;
+      // A deterministic clock makes the former two-field implementation
+      // emit twice on each dedup hit; no wall-clock resolution or sleeps.
       // `flush: 'sync'` so each push's notification (or lack of one) is
       // observable immediately, without batching several pushes into one
       // microtask-queued flush and hiding an under- or over-notification.
@@ -303,9 +311,9 @@ describe('system-message-sink', () => {
           // and read the per-row fields it actually renders (`msg.text`,
           // `msg.count`, `msg.timestamp`) — the real subscriber-visible
           // dependency surface, not just an array-length read. This is
-          // what makes a dedup-hit's in-place `head.count++` /
-          // `head.timestamp = …` write (as opposed to a fresh `.unshift`)
-          // observable at all: a subscriber that only read `.length`
+          // what makes a dedup-hit's replacement of the immutable head
+          // snapshot (as opposed to a fresh `.unshift`) observable at all:
+          // a subscriber that only read `.length`
           // would not react to an in-place field mutation on an existing
           // element.
           for (const msg of store.store.engine.messages) {
@@ -337,20 +345,36 @@ describe('system-message-sink', () => {
       // (that would mean the sink's own untracked bookkeeping read is
       // somehow re-entering the subscriber's dependency set, the row-2562
       // shape in reverse).
+      const firstSnapshot = store.store.engine.messages[0];
+      expect(firstSnapshot.timestamp).toBe(1_000);
+
       sink.pushSystemMessage('warning', 'overflow check');
       expect(runs).toBe(3);
       expect(store.store.engine.messages).toHaveLength(1);
-      expect(store.store.engine.messages[0].count).toBe(2);
+      const secondSnapshot = store.store.engine.messages[0];
+      expect(secondSnapshot).not.toBe(firstSnapshot);
+      expect(secondSnapshot).toMatchObject({
+        id: firstSnapshot.id,
+        timestamp: 1_001,
+        count: 2,
+      });
 
       sink.pushSystemMessage('warning', 'overflow check');
       expect(runs).toBe(4);
-      expect(store.store.engine.messages[0].count).toBe(3);
+      const thirdSnapshot = store.store.engine.messages[0];
+      expect(thirdSnapshot).not.toBe(secondSnapshot);
+      expect(thirdSnapshot).toMatchObject({
+        id: firstSnapshot.id,
+        timestamp: 1_002,
+        count: 3,
+      });
 
       // A genuinely different message: a fresh `.unshift`, one more
       // notification.
       sink.pushSystemMessage('error', 'a different overflow');
       expect(runs).toBe(5);
       expect(store.store.engine.messages).toHaveLength(2);
+      expect(store.store.engine.messages[0].timestamp).toBe(1_003);
 
       stop();
     });
