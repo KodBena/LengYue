@@ -34,6 +34,32 @@ CONTROL_PLANE_FILES = {
 MAINTENANCE_DOCUMENTATION_FILES = {
     "docs/notes/dependency-maintenance-topology-backlog.md",
 }
+
+# Static checks are scoped to their actual inputs, rather than every frontend
+# edit. The slow Chromium layout sweep is intentionally local/manual, not CI.
+MODULE_SOURCE_SUFFIXES = (
+    ".ts", ".tsx", ".js", ".jsx", ".vue", ".mts", ".cts", ".mjs", ".cjs",
+)
+BAND_SOURCE_SUFFIXES = (".ts", ".vue")
+STYLE_SOURCE_SUFFIXES = (".vue", ".css")
+BAND_CONFORMANCE_TOOL_FILES = {
+    "frontend/FILES.md",
+    "tools/import-graph.mjs",
+    "tools/band-conformance/check.mjs",
+}
+CYCLE_CHECK_TOOL_FILES = {
+    "tools/import-graph.mjs",
+    "tools/cycle-check/check.mjs",
+}
+STYLE_TOKEN_AUDIT_FILES = {
+    "frontend/scripts/style-tokens-audit.mjs",
+    "frontend/style-tokens-audit-baseline.json",
+}
+NPM_AUDIT_FILES = {
+    "frontend/package.json",
+    "frontend/package-lock.json",
+    "frontend/.npmrc",
+}
 PACKAGE_DEPENDENCY_KEYS = {
     "dependencies",
     "devDependencies",
@@ -115,6 +141,10 @@ def manifest_changes_are_dependency_only(
     return False
 
 
+def path_has_source_suffix(path: str, suffixes: tuple[str, ...]) -> bool:
+    return path.startswith("frontend/src/") and path.endswith(suffixes)
+
+
 def classify_paths(
     paths: list[str],
     manifest_is_dependency_only: Callable[[str], bool],
@@ -126,6 +156,8 @@ def classify_paths(
         }
         for path in paths
     )
+    npm_audit_required = any(path in NPM_AUDIT_FILES for path in paths)
+
     dependency_only = bool(paths)
     for path in paths:
         if path in DEPENDENCY_LOCKFILES:
@@ -147,17 +179,37 @@ def classify_paths(
         dependency_only or control_plane_and_dependencies_only
     )
 
+    band_conformance_required = any(
+        path in BAND_CONFORMANCE_TOOL_FILES
+        or path_has_source_suffix(path, BAND_SOURCE_SUFFIXES)
+        for path in paths
+    )
+    cycle_check_required = any(
+        path in CYCLE_CHECK_TOOL_FILES
+        or path_has_source_suffix(path, MODULE_SOURCE_SUFFIXES)
+        for path in paths
+    )
+    style_tokens_audit_required = any(
+        path in STYLE_TOKEN_AUDIT_FILES
+        or path_has_source_suffix(path, STYLE_SOURCE_SUFFIXES)
+        for path in paths
+    )
+
     if dependency_only:
         reason = "dependency manifests/lockfiles only; non-dependency manifest fields unchanged"
     elif control_plane_and_dependencies_only:
         reason = "CI control-plane plus validated dependency and maintenance-documentation changes; non-dependency manifest fields unchanged"
     else:
-        reason = "application, test, build, or unclassified files changed; full source gates required"
+        reason = "application, test, build, or unclassified files changed; lint remains required and static audits are independently scoped to their inputs"
 
     return {
         "dependency_only": dependency_only,
         "application_gates_required": application_gates_required,
+        "npm_audit_required": npm_audit_required,
         "rust_validation_required": rust_validation,
+        "band_conformance_required": band_conformance_required,
+        "cycle_check_required": cycle_check_required,
+        "style_tokens_audit_required": style_tokens_audit_required,
         "reason": reason,
         "changed_paths": paths,
     }
@@ -211,6 +263,42 @@ def self_test() -> None:
         sorted(CONTROL_PLANE_FILES | {"frontend/src/components/App.vue"}), safe_manifest
     )["application_gates_required"]
     assert classify_paths([], safe_manifest)["application_gates_required"]
+
+    dependency_change = classify_paths(
+        ["frontend/package-lock.json"], safe_manifest
+    )
+    assert dependency_change["npm_audit_required"]
+    assert not dependency_change["band_conformance_required"]
+    assert not dependency_change["cycle_check_required"]
+    assert not dependency_change["style_tokens_audit_required"]
+
+    vue_change = classify_paths(
+        ["frontend/src/components/App.vue"], safe_manifest
+    )
+    assert vue_change["application_gates_required"]
+    assert vue_change["band_conformance_required"]
+    assert vue_change["cycle_check_required"]
+    assert vue_change["style_tokens_audit_required"]
+
+    ts_change = classify_paths(
+        ["frontend/src/state/layout-model.ts"], safe_manifest
+    )
+    assert ts_change["band_conformance_required"]
+    assert ts_change["cycle_check_required"]
+    assert not ts_change["style_tokens_audit_required"]
+
+    css_change = classify_paths(
+        ["frontend/src/assets/css/theme.css"], safe_manifest
+    )
+    assert not css_change["band_conformance_required"]
+    assert not css_change["cycle_check_required"]
+    assert css_change["style_tokens_audit_required"]
+
+    docs_change = classify_paths(["frontend/FILES.md"], safe_manifest)
+    assert docs_change["band_conformance_required"]
+    assert not docs_change["cycle_check_required"]
+    assert not docs_change["style_tokens_audit_required"]
+
     print("change-impact classifier self-test: passed")
 
 
@@ -228,7 +316,11 @@ def main() -> int:
         result = {
             "dependency_only": False,
             "application_gates_required": True,
+            "npm_audit_required": True,
             "rust_validation_required": True,
+            "band_conformance_required": True,
+            "cycle_check_required": True,
+            "style_tokens_audit_required": True,
             "reason": "base/head commit unavailable; fail closed to full validation",
             "changed_paths": [],
         }
@@ -244,14 +336,26 @@ def main() -> int:
     output_path = os.environ.get("GITHUB_OUTPUT")
     if output_path:
         with open(output_path, "a", encoding="utf-8") as output:
-            output.write(f"dependency_only={str(result['dependency_only']).lower()}\n")
+            output.write(f"dependency_only={str(result['dependency_only']).lower()}\\n")
             output.write(
-                f"application_gates_required={str(result['application_gates_required']).lower()}\n"
+                f"application_gates_required={str(result['application_gates_required']).lower()}\\n"
             )
             output.write(
-                f"rust_validation_required={str(result['rust_validation_required']).lower()}\n"
+                f"npm_audit_required={str(result['npm_audit_required']).lower()}\\n"
             )
-            output.write(f"reason={result['reason']}\n")
+            output.write(
+                f"rust_validation_required={str(result['rust_validation_required']).lower()}\\n"
+            )
+            output.write(
+                f"band_conformance_required={str(result['band_conformance_required']).lower()}\\n"
+            )
+            output.write(
+                f"cycle_check_required={str(result['cycle_check_required']).lower()}\\n"
+            )
+            output.write(
+                f"style_tokens_audit_required={str(result['style_tokens_audit_required']).lower()}\\n"
+            )
+            output.write(f"reason={result['reason']}\\n")
     return 0
 
 
