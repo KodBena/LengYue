@@ -20,11 +20,15 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 describe('system-message-sink', () => {
   beforeEach(() => {
     vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('pushSystemMessage throws before a sink is registered (fail-loud)', async () => {
@@ -185,7 +189,7 @@ describe('system-message-sink', () => {
   // effect is Vue's `activeEffect`). Before the fix, `push()`'s dedup read
   // of `store.engine.messages[0]` got silently TRACKED as a dependency of
   // whatever effect was active at the call site, and the very next line's
-  // write (`.unshift` / `head.count++`) RE-TRIGGERED that same effect —
+  // write (`.unshift` / `messages[0] = updated`) RE-TRIGGERED that same effect —
   // "a reactive effect that is mutating its own dependencies and thus
   // recursively triggering itself" (Vue's own diagnostic), which is
   // exactly the `<LytNode>` crash.
@@ -221,7 +225,7 @@ describe('system-message-sink', () => {
         runs++;
         // A genuinely NEW message every run (not a dedup hit) is the
         // stronger form of this guard: even a push that unshifts a
-        // fresh row (not just the in-place `count` bump) must not be
+        // fresh row (not just a dedup snapshot replacement) must not be
         // attributable back to this effect's own dependency set.
         sink.pushSystemMessage('error', `overflow check run ${runs}`);
       });
@@ -292,7 +296,11 @@ describe('system-message-sink', () => {
       const store = await import('../../../src/store');
 
       store.clearSystemMessages();
+      let clock = 1_000;
+      vi.spyOn(Date, 'now').mockImplementation(() => clock++);
       let runs = 0;
+      // A deterministic clock makes the former two-field implementation
+      // emit twice on each dedup hit; no wall-clock resolution or sleeps.
       // `flush: 'sync'` so each push's notification (or lack of one) is
       // observable immediately, without batching several pushes into one
       // microtask-queued flush and hiding an under- or over-notification.
@@ -303,11 +311,9 @@ describe('system-message-sink', () => {
           // and read the per-row fields it actually renders (`msg.text`,
           // `msg.count`, `msg.timestamp`) — the real subscriber-visible
           // dependency surface, not just an array-length read. This is
-          // what makes a dedup-hit's in-place `head.count++` /
-          // `head.timestamp = …` write (as opposed to a fresh `.unshift`)
-          // observable at all: a subscriber that only read `.length`
-          // would not react to an in-place field mutation on an existing
-          // element.
+          // what makes a dedup hit's immutable head-snapshot replacement
+          // (as opposed to a fresh `.unshift`) observable: a subscriber must
+          // observe the array slot and the replacement's rendered fields.
           for (const msg of store.store.engine.messages) {
             void msg.text;
             void msg.count;
@@ -325,10 +331,10 @@ describe('system-message-sink', () => {
 
       // Two consecutive DEDUP-HIT pushes (identical type/text to the
       // current head) — per the sink's own contract (see the `push()`
-      // header comment in `src/store/index.ts`), these widen the existing
-      // row in place (`head.count++`, `head.timestamp = …`) rather than
-      // unshifting a new one. That in-place write is still a genuine
-      // mutation of reactive state the subscriber legitimately depends on
+      // header comment in `src/store/index.ts`), these replace the immutable
+      // snapshot at index zero rather than unshifting a new row. The array-slot
+      // replacement is a genuine change to reactive state the subscriber
+      // legitimately depends on
       // (it rendered `msg.count`/`msg.timestamp` off that exact object on
       // the previous run) — so the CORRECT subscriber-visible behaviour,
       // established here as the pin, is one notification per dedup-hit
@@ -337,20 +343,36 @@ describe('system-message-sink', () => {
       // (that would mean the sink's own untracked bookkeeping read is
       // somehow re-entering the subscriber's dependency set, the row-2562
       // shape in reverse).
+      const firstSnapshot = store.store.engine.messages[0];
+      expect(firstSnapshot.timestamp).toBe(1_000);
+
       sink.pushSystemMessage('warning', 'overflow check');
       expect(runs).toBe(3);
       expect(store.store.engine.messages).toHaveLength(1);
-      expect(store.store.engine.messages[0].count).toBe(2);
+      const secondSnapshot = store.store.engine.messages[0];
+      expect(secondSnapshot).not.toBe(firstSnapshot);
+      expect(secondSnapshot).toMatchObject({
+        id: firstSnapshot.id,
+        timestamp: 1_001,
+        count: 2,
+      });
 
       sink.pushSystemMessage('warning', 'overflow check');
       expect(runs).toBe(4);
-      expect(store.store.engine.messages[0].count).toBe(3);
+      const thirdSnapshot = store.store.engine.messages[0];
+      expect(thirdSnapshot).not.toBe(secondSnapshot);
+      expect(thirdSnapshot).toMatchObject({
+        id: firstSnapshot.id,
+        timestamp: 1_002,
+        count: 3,
+      });
 
       // A genuinely different message: a fresh `.unshift`, one more
       // notification.
       sink.pushSystemMessage('error', 'a different overflow');
       expect(runs).toBe(5);
       expect(store.store.engine.messages).toHaveLength(2);
+      expect(store.store.engine.messages[0].timestamp).toBe(1_003);
 
       stop();
     });
@@ -364,8 +386,8 @@ describe('system-message-sink', () => {
       const start = performance.now();
       // Alternates a fresh row with an immediate dedup-hit repeat of it
       // (pairs: push, push-again), so the run is a realistic 50/50 mix of
-      // the two `push()` branches (`.unshift` vs the in-place `count`/
-      // `timestamp` bump) rather than exercising only one of them.
+      // the two `push()` branches (`.unshift` vs whole-snapshot replacement)
+      // rather than exercising only one of them.
       for (let i = 0; i < TOTAL; i++) {
         sink.pushSystemMessage('info', `batch ${Math.floor(i / 2)}`);
       }
