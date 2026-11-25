@@ -20,7 +20,7 @@ import { useContainerAspectOrientation } from '../../composables/chrome/useConta
 import type { BoardId, CardId, CardMetadataPatch, ForestStat, ReviewCard } from '../../types';
 import { useCardTreeData } from '../../composables/cards/useCardTreeData';
 import { useCardMetadata } from '../../composables/cards/useCardMetadata';
-import { useForestNavigation, type ForestNavSortKey } from '../../composables/forest/useForestNavigation';
+import { parseForestNavSortKey, useForestNavigation } from '../../composables/forest/useForestNavigation';
 import { useForestBrowsePolicy } from '../../composables/forest/useForestBrowsePolicy';
 import { useForestStats } from '../../composables/forest/useForestStats';
 import { useReviewSession } from '../../composables/review/useReviewSession';
@@ -37,8 +37,9 @@ import HyperparamPromptModal, { type HyperparamValues } from '../modals/Hyperpar
 const { t } = useI18n();
 
 function onBrowseSortChange(e: Event): void {
-  const value = (e.target as HTMLSelectElement).value;
-  nav.setSortKey(value === '' ? null : (value as ForestNavSortKey));
+  const target = e.currentTarget;
+  if (!(target instanceof HTMLSelectElement)) return;
+  nav.setSortKey(parseForestNavSortKey(target.value));
 }
 
 const emit = defineEmits<{
@@ -379,7 +380,7 @@ function updateContextIds(val: string): void {
   contextIdInput.value = val;
   const expanded = expandContextIdMacros(
     val,
-    roots.value.map(s => s.gameSourceDisplayOrdinal as unknown as number),
+    roots.value.map(s => s.gameSourceDisplayOrdinal),
   );
   /*
   const expanded = expandContextIdMacros(val, (gameSourceDisplayOrdinal) =>
