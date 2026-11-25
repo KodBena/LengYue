@@ -37,9 +37,8 @@ MAINTENANCE_DOCUMENTATION_FILES = {
 
 # Static checks are scoped to their actual inputs, rather than every frontend
 # edit. The slow Chromium layout sweep is intentionally local/manual, not CI.
-MODULE_SOURCE_SUFFIXES = (
-    ".ts", ".tsx", ".js", ".jsx", ".vue", ".mts", ".cts", ".mjs", ".cjs",
-)
+# tools/import-graph.mjs enumerates only hand-written src .ts/.vue files.
+MODULE_SOURCE_SUFFIXES = (".ts", ".vue")
 BAND_SOURCE_SUFFIXES = (".ts", ".vue")
 STYLE_SOURCE_SUFFIXES = (".vue", ".css")
 BAND_CONFORMANCE_TOOL_FILES = {
