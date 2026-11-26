@@ -23,6 +23,7 @@
  * License: Public Domain (The Unlicense)
  */
 import { describe, it, expect } from 'vitest';
+import { itLocalPresentation } from '../ci-policy';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
