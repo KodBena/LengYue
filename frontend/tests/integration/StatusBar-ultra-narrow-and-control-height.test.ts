@@ -42,7 +42,6 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { itLocalPresentation } from '../ci-policy';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { mount, type VueWrapper } from '@vue/test-utils';
@@ -171,7 +170,7 @@ describe('StatusBar — unified control-height token (status-bar-narrow-0c21)', 
     wrapper = null;
   });
 
-  itLocalPresentation('.pass-btn, .komi-input, .move-numbers-btn and .status-bar itself all read --control-height-min', () => {
+  it('.pass-btn, .komi-input, .move-numbers-btn and .status-bar itself all read --control-height-min', () => {
     // Witnessed defect: `.pass-btn` rendered 18px tall beside the
     // move-nav cluster's G30-floored 24px, and `.komi-input` carried
     // an independent 20px — three numbers that happened to be close,
@@ -212,7 +211,7 @@ describe('StatusBar — unified control-height token (status-bar-narrow-0c21)', 
     expect(cs.justifyContent).toBe('center');
   });
 
-  itLocalPresentation('ToolbarMoveNav\'s .toolbar-btn reads the SAME --control-height-min token, not an independent literal', () => {
+  it('ToolbarMoveNav\'s .toolbar-btn reads the SAME --control-height-min token, not an independent literal', () => {
     const wrapper2 = mount(ToolbarMoveNav, {
       global: { plugins: [i18n] },
     });
