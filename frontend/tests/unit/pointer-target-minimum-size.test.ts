@@ -245,7 +245,6 @@ describe('.toolbar-btn clears the 24px height floor at every scoped-CSS copy (G3
           expect(rule).toMatch(/padding:\s*1px 5px/);
           expect(rule).toMatch(/font-size:\s*var\(--text-emphasis\)/);
         });
-
       }
     });
   }
