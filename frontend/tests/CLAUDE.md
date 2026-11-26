@@ -295,7 +295,7 @@ or watchers.
 
 The local build (`npm run build`, `vue-tsc -b && vite build`)
 does not gate on the test suite locally. GitHub Actions
-(`.github/workflows/frontend-ci.yml`) runs dependency installation,
+(`.github/workflows/frontend-static-ci.yml`) runs dependency installation,
 `vue-tsc -b`, `eslint .`, and the production build on frontend
 PRs and pushes to `main`; it intentionally does **not** run the
 unit/integration suite. Run `npm run test:run` locally before
