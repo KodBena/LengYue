@@ -28,6 +28,7 @@
  */
 
 import { describe, it, expect, vi, onTestFinished } from 'vitest';
+import { itLocalPresentation } from '../ci-policy';
 import { mount } from '@vue/test-utils';
 import { nextTick, ref } from 'vue';
 import FloatingThumbnail from '../../src/components/chrome/FloatingThumbnail.vue';
