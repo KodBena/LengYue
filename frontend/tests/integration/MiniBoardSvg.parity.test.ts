@@ -13,7 +13,6 @@
  * License: Public Domain (The Unlicense)
  */
 import { describe, it, expect } from 'vitest';
-import { itLocalPresentation } from '../ci-policy';
 import { mount } from '@vue/test-utils';
 import MiniBoardSvg from '../../src/components/board/MiniBoardSvg.vue';
 import MiniBoardReference from './__refs__/MiniBoardSvgReference.vue';
@@ -45,9 +44,7 @@ const SNAPSHOTS: Record<string, BoardSnapshot> = {
 describe('MiniBoardSvg — exact carry-over of the pre-split SVG render', () => {
   for (const [name, snapshot] of Object.entries(SNAPSHOTS)) {
     for (const showMarker of [true, false]) {
-      // Variation-label font styling is kept as a local presentation diagnostic.
-      const defineParityTest = name === 'variation labels' ? itLocalPresentation : it;
-      defineParityTest(`${name} (showMarker=${showMarker}) matches the previous implementation`, () => {
+      it(`${name} (showMarker=${showMarker}) matches the previous implementation`, () => {
         const next = mount(MiniBoardSvg, { props: { snapshot, showMarker } });
         const prev = mount(MiniBoardReference, { props: { snapshot, showMarker } });
         expect(norm(next.html())).toBe(norm(prev.html()));
