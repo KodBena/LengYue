@@ -1,42 +1,16 @@
 /**
  * tests/integration/StatusBar-ultra-narrow-and-control-height.test.ts
  *
- * Regression coverage for the status-bar-narrow-0c21 mandate
- * (`.claude/dispatch-reports/statusbar-narrow-0c21-build.md`), the two
- * items `StatusBar-narrow-no-overflow.test.ts` doesn't already cover:
+ * Regression coverage for the status-bar-narrow-0c21 ultra-narrow tier.
+ * Below `STATUS_BAR_ULTRA_NARROW_THRESHOLD_PX`, the status-right
+ * controls move to their own flex line, preventing the active-turn chip
+ * from overlapping the Pass control at very narrow widths. The tests
+ * below pin the two-tier breakpoint relationship and the scoped
+ * flex-wrap/flex-basis behaviour.
  *
- * (1) The ULTRA-NARROW tier. Below `STATUS_BAR_ULTRA_NARROW_THRESHOLD_PX`
- *     (300px — a SECOND, independently-committed
- *     `useDeferredContainerBreakpoint`, mirroring how `narrow` itself is
- *     committed), even `.player-names` at its bare `min-width: 32px`
- *     floor no longer fits beside `.status-right` on the nav cluster's
- *     own line — and because `.status-left` is allowed to shrink
- *     narrower than its own children (`min-width: 0`), the overflow
- *     bled directly into `.status-right`, live-witnessed as the active-
- *     turn chip rendering INSIDE the `Pass` button
- *     (`~/ys/63a0_gaslighted.png`). The fix: `.status-bar--ultra-narrow
- *     .status-right` gets `flex-basis: 100%`, forcing it onto its own
- *     second flex line — two elements on different lines cannot
- *     overlap regardless of how tight either line's own content is.
- *     Per the commissioner's ruling on this item: the bar's height is
- *     not a fixed cap; it grows to fit this genuine, measured demand
- *     rather than starving `.player-names` further (there is no lower
- *     floor than "bare chips, no name text") or corrupting `Pass`.
- *
- * (2) The control-height unification. `.pass-btn` was witnessed
- *     rendering 18px tall beside `ToolbarMoveNav.vue`'s `.toolbar-btn`
- *     cluster at its G30-floored 24px, with `.komi-input` at a third,
- *     independent 20px — three numbers agreeing by coincidence, not
- *     construction. All four (plus `.status-bar`'s own `min-height`)
- *     now read the single `--control-height-min` token minted in
- *     `theme.css` (ADR-0012 P1) instead of an independently-chosen
- *     literal.
- *
- * jsdom has no real flex/text layout or ResizeObserver — this file
- * follows the SAME computed-style-pin idiom the sibling StatusBar test
- * files already establish (install the SFC's own `<style scoped>`
- * block as a real stylesheet, manually toggle the class a live
- * ResizeObserver would otherwise commit, then read `getComputedStyle`).
+ * The remaining control-height checks pin the shared token's single
+ * theme.css declaration and Pass-button content alignment. They do not
+ * assert incidental rendered dimensions or per-consumer CSS serialization.
  *
  * License: Public Domain (The Unlicense)
  */
