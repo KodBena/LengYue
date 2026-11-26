@@ -13,6 +13,7 @@
  * License: Public Domain (The Unlicense)
  */
 import { describe, it, expect } from 'vitest';
+import { itLocalPresentation } from '../ci-policy';
 import { mount } from '@vue/test-utils';
 import MiniBoardSvg from '../../src/components/board/MiniBoardSvg.vue';
 import MiniBoardReference from './__refs__/MiniBoardSvgReference.vue';
