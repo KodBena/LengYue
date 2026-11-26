@@ -42,12 +42,21 @@ import { store, touchSession } from '../../store';
 // `forestStats` on each ref change; the persistence-shape is mutated
 // only through the named mutators below.
 
-export type ForestNavSortKey =
-  | 'gameId'
-  | 'averageRecall'
-  | 'totalReviews'
-  | 'rootCount'
-  | 'totalCards';
+const FOREST_NAV_SORT_KEYS = [
+  'gameId',
+  'averageRecall',
+  'totalReviews',
+  'rootCount',
+  'totalCards',
+] as const;
+
+export type ForestNavSortKey = (typeof FOREST_NAV_SORT_KEYS)[number];
+
+/** Decode an untrusted select value; null means clear, undefined means reject. */
+export function parseForestNavSortKey(value: string): ForestNavSortKey | null | undefined {
+  if (value === '') return null;
+  return FOREST_NAV_SORT_KEYS.find((key) => key === value);
+}
 
 export interface ForestNavGameAggregate {
   readonly rootCount: number;

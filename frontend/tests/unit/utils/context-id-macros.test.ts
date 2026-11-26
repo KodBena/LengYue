@@ -31,11 +31,15 @@
 
 import { describe, it, expect } from 'vitest';
 import { expandContextIdMacros } from '../../../src/utils/context-id-macros';
+import type { GameDisplayOrdinal } from '../../../src/types/ids';
+
+// Unit fixtures represent display ordinals already branded by the library ACL.
+const knownOrdinals = (...values: number[]): GameDisplayOrdinal[] =>
+  values.map((value) => value as GameDisplayOrdinal);
 
 describe('expandContextIdMacros', () => {
   it('splits literal card ids (outside macros) from recognized game_source ordinal tokens (inside macros)', () => {
-    const isKnown = (ordinal: number) => ordinal === 5;
-    const result = expandContextIdMacros('1, ${5}, 99', isKnown);
+    const result = expandContextIdMacros('1, ${5}, 99', knownOrdinals(5));
     expect(result.cardIds).toEqual([1, 99]);
     expect(result.gameSourceOrdinals).toEqual([5]);
     expect(result.unknownGameSourceOrdinalTokens).toEqual([]);
@@ -48,36 +52,38 @@ describe('expandContextIdMacros', () => {
     // backendService.queryForest) with NO further client-side
     // transformation. Pinning the shape here is pinning the wire
     // contract's client-side half.
-    const isKnown = (ordinal: number) => [5, 7].includes(ordinal);
-    const result = expandContextIdMacros('${5, 7}', isKnown);
+    const result = expandContextIdMacros('${5, 7}', knownOrdinals(5, 7));
     expect(result.cardIds).toEqual([]);
     expect(result.gameSourceOrdinals.slice().sort()).toEqual([5, 7]);
   });
 
+  it('expands the wildcard to exactly the caller-provided trusted display ordinals', () => {
+    const known = knownOrdinals(5, 7, 9);
+    const result = expandContextIdMacros('${*}', known);
+    expect(result.gameSourceOrdinals).toEqual(known);
+    expect(result.unknownGameSourceOrdinalTokens).toEqual([]);
+  });
+
   it('reports unknown macro tokens separately rather than silently dropping them', () => {
-    const isKnown = () => false;
-    const result = expandContextIdMacros('${999}', isKnown);
+    const result = expandContextIdMacros('${999}', knownOrdinals(5));
     expect(result.gameSourceOrdinals).toEqual([]);
     expect(result.unknownGameSourceOrdinalTokens).toEqual([999]);
   });
 
   it('deduplicates repeated ordinal tokens across multiple macros', () => {
-    const isKnown = () => true;
-    const result = expandContextIdMacros('${5}, ${5}', isKnown);
+    const result = expandContextIdMacros('${5}, ${5}', knownOrdinals(5));
     expect(result.gameSourceOrdinals).toEqual([5]);
   });
 
   it('filters malformed (non-numeric) tokens the same way the existing literal-id parser does', () => {
-    const isKnown = () => true;
-    const result = expandContextIdMacros('1, abc, ${xyz}, 3', isKnown);
+    const result = expandContextIdMacros('1, abc, ${xyz}, 3', knownOrdinals(5));
     expect(result.cardIds).toEqual([1, 3]);
     expect(result.gameSourceOrdinals).toEqual([]);
     expect(result.unknownGameSourceOrdinalTokens).toEqual([]);
   });
 
   it('leaves an unclosed macro as-is (no matching closing brace)', () => {
-    const isKnown = () => true;
-    const result = expandContextIdMacros('1, ${5', isKnown);
+    const result = expandContextIdMacros('1, ${5', knownOrdinals(5));
     // No macro matched (regex requires a closing brace); the whole
     // string is parsed as literal ids, and "${5" contributes no
     // parseable integer once split on commas ("${5" -> NaN).
@@ -86,15 +92,13 @@ describe('expandContextIdMacros', () => {
   });
 
   it('an empty macro body contributes nothing', () => {
-    const isKnown = () => true;
-    const result = expandContextIdMacros('1, ${}, 2', isKnown);
+    const result = expandContextIdMacros('1, ${}, 2', knownOrdinals(5));
     expect(result.cardIds).toEqual([1, 2]);
     expect(result.gameSourceOrdinals).toEqual([]);
   });
 
   it('a plain literal-only input (no macro) is unaffected — the pre-existing non-macro path', () => {
-    const isKnown = () => false;
-    const result = expandContextIdMacros('1, 2, 3', isKnown);
+    const result = expandContextIdMacros('1, 2, 3', knownOrdinals(5));
     expect(result.cardIds).toEqual([1, 2, 3]);
     expect(result.gameSourceOrdinals).toEqual([]);
     expect(result.unknownGameSourceOrdinalTokens).toEqual([]);

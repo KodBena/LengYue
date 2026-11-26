@@ -15,11 +15,20 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ref } from 'vue';
 import { withSetup } from './with-setup';
-import { useForestNavigation } from '../../src/composables/forest/useForestNavigation';
+import { parseForestNavSortKey, useForestNavigation } from '../../src/composables/forest/useForestNavigation';
 import { resetWorkspace, store } from '../../src/store';
 import type { BoardId, CardId, ForestStat, GameSourceId, NavNodeId } from '../../src/types';
 
 beforeEach(() => resetWorkspace());
+
+describe('parseForestNavSortKey', () => {
+  it('accepts every declared sort key and rejects empty or unknown values', () => {
+    const keys = ['gameId', 'averageRecall', 'totalReviews', 'rootCount', 'totalCards'] as const;
+    for (const key of keys) expect(parseForestNavSortKey(key)).toBe(key);
+    expect(parseForestNavSortKey('')).toBeNull();
+    expect(parseForestNavSortKey('unknown')).toBeUndefined();
+  });
+});
 
 describe('useForestNavigation — per-board selection (P0)', () => {
   it('keys selection by board: selecting on A does not affect B', () => {

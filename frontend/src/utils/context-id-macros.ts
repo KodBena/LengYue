@@ -14,7 +14,7 @@
  *
  * Any number of these can appear in one macro, or across several
  * macros in the same input (`${1-3}, ${7}, ${*}`) — they all union
- * into one `gameSourceOrdinals` set. Tokens outside `${...}` still
+ * into one `gameSourceOrdinals` collection. Tokens outside `${...}` still
  * pass through unchanged as literal card ids; ranges/wildcard are
  * macro-only syntax since they're only meaningful for game_source
  * ordinals, not arbitrary card ids.
@@ -59,12 +59,15 @@
  *
  * Pure function; no Vue / store coupling. `knownGameSourceOrdinals`
  * is the seam where the caller injects the `ForestStat`-derived
- * enumeration — note this is now a plain array rather than a
- * membership-check callback: `*` needs to *enumerate* the known
- * ordinals, not just test one, so a predicate can't express it.
+ * enumeration as trusted `GameDisplayOrdinal` values. This array is the
+ * helper's source of validated members: macro text is parsed into plain
+ * numbers, then matched by value so accepted output retains the original
+ * branded member. `*` enumerates this same trusted list.
  *
  * License: Public Domain (The Unlicense)
  */
+
+import type { GameDisplayOrdinal } from '../types/ids';
 
 const MACRO_RE = /(~?)\$\{([^}]*)\}/g;
 
@@ -74,8 +77,8 @@ const RANGE_RE = /^(\d+)\s*-\s*(\d+)$/;
 export interface ExpandedContextIds {
   /** Literal card ids typed outside any `${...}` macro. */
   readonly cardIds: readonly number[];
-  /** Recognized `game_source.display_ordinal` tokens from inside macros. */
-  readonly gameSourceOrdinals: readonly number[];
+  /** Recognized display ordinals, retaining the brand of the matched trusted input member. */
+  readonly gameSourceOrdinals: readonly GameDisplayOrdinal[];
   /**
    * Macro-derived ordinals that didn't match any of the caller's
    * known game_source ordinals — surfaced so the caller can warn,
@@ -94,7 +97,7 @@ export interface ExpandedContextIds {
  */
 function parseMacroToken(
   token: string,
-  knownGameSourceOrdinals: readonly number[],
+  knownGameSourceOrdinals: readonly GameDisplayOrdinal[],
 ): number[] {
   const trimmed = token.trim();
   if (trimmed === '') return [];
@@ -114,12 +117,18 @@ function parseMacroToken(
   return isNaN(n) ? [] : [n];
 }
 
+/**
+ * Expand untrusted text tokens against the caller's trusted display ordinals.
+ * Only a value retrieved from `knownByValue` can enter the accepted output,
+ * so parsing a numeric token never manufactures a `GameDisplayOrdinal`.
+ */
 export function expandContextIdMacros(
   input: string,
-  knownGameSourceOrdinals: readonly number[],
+  knownGameSourceOrdinals: readonly GameDisplayOrdinal[],
 ): ExpandedContextIds {
-  const known = new Set(knownGameSourceOrdinals);
-  const gameSourceOrdinals = new Set<number>();
+  const knownByValue = new Map<number, GameDisplayOrdinal>();
+  for (const ordinal of knownGameSourceOrdinals) knownByValue.set(ordinal, ordinal);
+  const gameSourceOrdinals = new Map<number, GameDisplayOrdinal>();
   const excludedGameSourceOrdinals = new Set<number>();
   const unknownGameSourceOrdinalTokens = new Set<number>();
 
@@ -129,12 +138,13 @@ export function expandContextIdMacros(
       .split(',')
       .flatMap((t: string) => parseMacroToken(t, knownGameSourceOrdinals));
     for (const token of tokens) {
-      if (known.has(token)) {
-	if (isExcluded) {
-	  excludedGameSourceOrdinals.add(token);
-	} else {
-          gameSourceOrdinals.add(token);
-	}
+      const knownOrdinal = knownByValue.get(token);
+      if (knownOrdinal !== undefined) {
+        if (isExcluded) {
+          excludedGameSourceOrdinals.add(token);
+        } else {
+          gameSourceOrdinals.set(token, knownOrdinal);
+        }
       } else {
         unknownGameSourceOrdinalTokens.add(token);
       }
@@ -164,7 +174,7 @@ export function expandContextIdMacros(
   }
   return {
     cardIds,
-    gameSourceOrdinals: [...gameSourceOrdinals],
+    gameSourceOrdinals: [...gameSourceOrdinals.values()],
     unknownGameSourceOrdinalTokens: [...unknownGameSourceOrdinalTokens],
   };
 
