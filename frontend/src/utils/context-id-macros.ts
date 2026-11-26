@@ -14,7 +14,7 @@
  *
  * Any number of these can appear in one macro, or across several
  * macros in the same input (`${1-3}, ${7}, ${*}`) — they all union
- * into one `gameSourceOrdinals` set. Tokens outside `${...}` still
+ * into one `gameSourceOrdinals` collection. Tokens outside `${...}` still
  * pass through unchanged as literal card ids; ranges/wildcard are
  * macro-only syntax since they're only meaningful for game_source
  * ordinals, not arbitrary card ids.
@@ -59,9 +59,10 @@
  *
  * Pure function; no Vue / store coupling. `knownGameSourceOrdinals`
  * is the seam where the caller injects the `ForestStat`-derived
- * enumeration — note this is now a plain array rather than a
- * membership-check callback: `*` needs to *enumerate* the known
- * ordinals, not just test one, so a predicate can't express it.
+ * enumeration as trusted `GameDisplayOrdinal` values. This array is the
+ * helper's source of validated members: macro text is parsed into plain
+ * numbers, then matched by value so accepted output retains the original
+ * branded member. `*` enumerates this same trusted list.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -116,6 +117,11 @@ function parseMacroToken(
   return isNaN(n) ? [] : [n];
 }
 
+/**
+ * Expand untrusted text tokens against the caller's trusted display ordinals.
+ * Only a value retrieved from `knownByValue` can enter the accepted output,
+ * so parsing a numeric token never manufactures a `GameDisplayOrdinal`.
+ */
 export function expandContextIdMacros(
   input: string,
   knownGameSourceOrdinals: readonly GameDisplayOrdinal[],
