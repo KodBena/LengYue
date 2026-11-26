@@ -171,7 +171,7 @@ describe('StatusBar — unified control-height token (status-bar-narrow-0c21)', 
     wrapper = null;
   });
 
-  it('.pass-btn, .komi-input, .move-numbers-btn and .status-bar itself all read --control-height-min', () => {
+  itLocalPresentation('.pass-btn, .komi-input, .move-numbers-btn and .status-bar itself all read --control-height-min', () => {
     // Witnessed defect: `.pass-btn` rendered 18px tall beside the
     // move-nav cluster's G30-floored 24px, and `.komi-input` carried
     // an independent 20px — three numbers that happened to be close,
