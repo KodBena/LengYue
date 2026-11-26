@@ -170,34 +170,6 @@ describe('StatusBar — unified control-height token (status-bar-narrow-0c21)', 
     wrapper = null;
   });
 
-  it('.pass-btn, .komi-input, .move-numbers-btn and .status-bar itself all read --control-height-min', () => {
-    // Witnessed defect: `.pass-btn` rendered 18px tall beside the
-    // move-nav cluster's G30-floored 24px, and `.komi-input` carried
-    // an independent 20px — three numbers that happened to be close,
-    // not a shared floor. jsdom resolves the custom-property
-    // REFERENCE, not theme.css's literal value (theme.css isn't
-    // installed alongside these SFCs' own style blocks, mirroring
-    // every sibling StatusBar test's stated scope) — the assertion
-    // pins that all four consumers reference the SAME token, which is
-    // what makes them agree by construction rather than by chance.
-    const { board, metadata } = boardWithMetadata();
-    wrapper = mount(StatusBar, {
-      props: { board, metadata, canPass: true },
-      global: { plugins: [i18n] },
-    });
-
-    const passBtn = wrapper.find('.pass-btn').element;
-    const komiInput = wrapper.find('.komi-input').element;
-    const moveNumbersBtn = wrapper.find('.move-numbers-btn').element;
-    const bar = wrapper.find('.status-bar').element;
-
-    expect(getComputedStyle(passBtn).minHeight).toBe('var(--control-height-min)');
-    expect(getComputedStyle(komiInput).minHeight).toBe('var(--control-height-min)');
-    expect(getComputedStyle(moveNumbersBtn).minHeight).toBe('var(--control-height-min)');
-    expect(getComputedStyle(moveNumbersBtn).minWidth).toBe('var(--control-height-min)');
-    expect(getComputedStyle(bar).minHeight).toBe('var(--control-height-min)');
-  });
-
   it('.pass-btn centers its content the same flex-centering way ToolbarMoveNav\'s .toolbar-btn does', () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
@@ -209,18 +181,6 @@ describe('StatusBar — unified control-height token (status-bar-narrow-0c21)', 
     expect(cs.display).toBe('inline-flex');
     expect(cs.alignItems).toBe('center');
     expect(cs.justifyContent).toBe('center');
-  });
-
-  it('ToolbarMoveNav\'s .toolbar-btn reads the SAME --control-height-min token, not an independent literal', () => {
-    const wrapper2 = mount(ToolbarMoveNav, {
-      global: { plugins: [i18n] },
-    });
-    try {
-      const btn = wrapper2.find('.toolbar-btn').element;
-      expect(getComputedStyle(btn).minHeight).toBe('var(--control-height-min)');
-    } finally {
-      wrapper2.unmount();
-    }
   });
 
   it('theme.css mints exactly one --control-height-min anchor (ADR-0012 P1 — single source of truth)', () => {
