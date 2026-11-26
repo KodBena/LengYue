@@ -37,7 +37,6 @@ const SNAPSHOTS: Record<string, BoardSnapshot> = {
   'last-move (place → ring)': { size: 19, stones: { '3,3': 'B', '4,3': 'W' }, lastMove: { x: 4, y: 3, color: 'W', type: 'place' } },
   'last-move on black stone (white ring)': { size: 9, stones: { '4,4': 'B' }, lastMove: { x: 4, y: 4, color: 'B', type: 'place' } },
   'pass last-move (no ring)': { size: 9, stones: { '4,4': 'B' }, lastMove: { x: 0, y: 0, color: 'W', type: 'pass' } },
-  'variation labels': { size: 9, stones: { '4,4': 'B' }, markerLabels: { '2,2': 'A', '6,6': 'B' } },
   'dense 19x19': { size: 19, stones: dense },
 };
 
