@@ -212,7 +212,7 @@ describe('StatusBar — unified control-height token (status-bar-narrow-0c21)', 
     expect(cs.justifyContent).toBe('center');
   });
 
-  it('ToolbarMoveNav\'s .toolbar-btn reads the SAME --control-height-min token, not an independent literal', () => {
+  itLocalPresentation('ToolbarMoveNav\'s .toolbar-btn reads the SAME --control-height-min token, not an independent literal', () => {
     const wrapper2 = mount(ToolbarMoveNav, {
       global: { plugins: [i18n] },
     });
