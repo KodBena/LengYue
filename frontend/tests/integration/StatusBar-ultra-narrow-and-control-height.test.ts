@@ -21,12 +21,10 @@ import { join } from 'node:path';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { i18n } from '../../src/i18n';
 import StatusBar from '../../src/components/board/StatusBar.vue';
-import ToolbarMoveNav from '../../src/components/chrome/ToolbarMoveNav.vue';
 import { createInitialBoard } from '../../src/store/board-factory';
 import type { BoardState } from '../../src/types';
 
 const STATUS_BAR_SFC_PATH = join(__dirname, '..', '..', 'src', 'components', 'board', 'StatusBar.vue');
-const TOOLBAR_MOVE_NAV_SFC_PATH = join(__dirname, '..', '..', 'src', 'components', 'chrome', 'ToolbarMoveNav.vue');
 
 function readStyleBlock(path: string): string {
   const source = readFileSync(path, 'utf-8');
@@ -38,23 +36,17 @@ function readStyleBlock(path: string): string {
 }
 
 let statusBarStyleEl: HTMLStyleElement | null = null;
-let toolbarMoveNavStyleEl: HTMLStyleElement | null = null;
 
 beforeAll(() => {
   statusBarStyleEl = document.createElement('style');
   statusBarStyleEl.textContent = readStyleBlock(STATUS_BAR_SFC_PATH);
   document.head.appendChild(statusBarStyleEl);
 
-  toolbarMoveNavStyleEl = document.createElement('style');
-  toolbarMoveNavStyleEl.textContent = readStyleBlock(TOOLBAR_MOVE_NAV_SFC_PATH);
-  document.head.appendChild(toolbarMoveNavStyleEl);
 });
 
 afterAll(() => {
   statusBarStyleEl?.remove();
   statusBarStyleEl = null;
-  toolbarMoveNavStyleEl?.remove();
-  toolbarMoveNavStyleEl = null;
 });
 
 function boardWithMetadata(): { board: BoardState; metadata: { blackName: string; whiteName: string; komi: number; rules: string } } {
@@ -136,7 +128,7 @@ describe('StatusBar — ultra-narrow second-line tier (status-bar-narrow-0c21)',
   });
 });
 
-describe('StatusBar — unified control-height token (status-bar-narrow-0c21)', () => {
+
   let wrapper: VueWrapper | null = null;
 
   afterEach(() => {
