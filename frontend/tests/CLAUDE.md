@@ -293,26 +293,15 @@ or watchers.
 - `npm run test:coverage` — one-shot with v8 coverage report.
   Report lands in `coverage/`.
 
-## CI presentation-check policy
-
-`tests/ci-policy.ts` exports `itLocalPresentation` for explicitly
-selected presentation diagnostics. These tests run during ordinary
-local Vitest runs and are skipped when `CI=true`. Use the helper only
-for presentation assertions whose manually maintained visual values
-are not intended to gate CI; do not apply it to behavioural
-invariants, accessibility contracts, or engine geometry. In
-particular, `unit/engine/stencil-cover-geometry.test.ts` remains in
-the CI test set and its failures must be investigated independently.
-
-Only the specific presentation cases identified for this policy use
-the helper. Mixed test files remain in CI, as do their behavioural
-and domain-geometry assertions.
-
 The local build (`npm run build`, `vue-tsc -b && vite build`)
-does not gate on the test suite — tests are a strict-add safety
-net at Phase 0. **CI does, as of 2026-06-01**
-(`.github/workflows/frontend-ci.yml`): `npm run test:run` runs
-alongside build + `eslint .` on every frontend PR, so a failing
-test (or a render-count regression guard) blocks merge.
+does not gate on the test suite locally. GitHub Actions
+(`.github/workflows/frontend-ci.yml`) runs dependency installation,
+`vue-tsc -b`, `eslint .`, and the production build on frontend
+PRs and pushes to `main`; it intentionally does **not** run the
+unit/integration suite. Run `npm run test:run` locally before
+merging. This keeps the full behavioural suite available to
+contributors without spending hosted-runner minutes on thousands
+of tests. A red local test remains a real finding to investigate,
+not a reason to delete or silently skip that test.
 
 License: Public Domain (The Unlicense)
