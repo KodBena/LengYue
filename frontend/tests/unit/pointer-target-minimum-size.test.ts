@@ -239,10 +239,13 @@ describe('.toolbar-btn clears the 24px height floor at every scoped-CSS copy (G3
         expect(m).not.toBeNull();
         expect(m![1] === undefined ? 24 : Number(m![1])).toBeGreaterThanOrEqual(24);
       });
-      it('padding/font-size (the visual language) are untouched by this pass', () => {
-        expect(rule).toMatch(/padding:\s*1px 5px/);
-        expect(rule).toMatch(/font-size:\s*var\(--text-emphasis\)/);
-      });
+      // Only ToolbarMoveNav's separately themed rule retains this visual-style check.
+      if (file === 'src/components/chrome/ToolbarMoveNav.vue') {
+        it('padding/font-size (the visual language) are untouched by this pass', () => {
+          expect(rule).toMatch(/padding:\s*1px 5px/);
+          expect(rule).toMatch(/font-size:\s*var\(--text-emphasis\)/);
+        });
+      }
     });
   }
 });

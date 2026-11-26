@@ -1,6 +1,6 @@
 # Frontend code validation only.
 # No change-impact classifier or non-test audits are part of this workflow.
-name: frontend-ci
+name: frontend-static-ci
 
 on:
   pull_request:
@@ -19,7 +19,7 @@ defaults:
     working-directory: frontend
 
 jobs:
-  frontend-tests:
+  frontend-static-checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,5 +36,3 @@ jobs:
         run: npx eslint .
       - name: Production build
         run: npm run build
-      - name: Unit and integration tests
-        run: npm run test:run

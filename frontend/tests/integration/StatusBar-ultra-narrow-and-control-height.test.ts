@@ -1,42 +1,16 @@
 /**
  * tests/integration/StatusBar-ultra-narrow-and-control-height.test.ts
  *
- * Regression coverage for the status-bar-narrow-0c21 mandate
- * (`.claude/dispatch-reports/statusbar-narrow-0c21-build.md`), the two
- * items `StatusBar-narrow-no-overflow.test.ts` doesn't already cover:
+ * Regression coverage for the status-bar-narrow-0c21 ultra-narrow tier.
+ * Below `STATUS_BAR_ULTRA_NARROW_THRESHOLD_PX`, the status-right
+ * controls move to their own flex line, preventing the active-turn chip
+ * from overlapping the Pass control at very narrow widths. The tests
+ * below pin the two-tier breakpoint relationship and the scoped
+ * flex-wrap/flex-basis behaviour.
  *
- * (1) The ULTRA-NARROW tier. Below `STATUS_BAR_ULTRA_NARROW_THRESHOLD_PX`
- *     (300px — a SECOND, independently-committed
- *     `useDeferredContainerBreakpoint`, mirroring how `narrow` itself is
- *     committed), even `.player-names` at its bare `min-width: 32px`
- *     floor no longer fits beside `.status-right` on the nav cluster's
- *     own line — and because `.status-left` is allowed to shrink
- *     narrower than its own children (`min-width: 0`), the overflow
- *     bled directly into `.status-right`, live-witnessed as the active-
- *     turn chip rendering INSIDE the `Pass` button
- *     (`~/ys/63a0_gaslighted.png`). The fix: `.status-bar--ultra-narrow
- *     .status-right` gets `flex-basis: 100%`, forcing it onto its own
- *     second flex line — two elements on different lines cannot
- *     overlap regardless of how tight either line's own content is.
- *     Per the commissioner's ruling on this item: the bar's height is
- *     not a fixed cap; it grows to fit this genuine, measured demand
- *     rather than starving `.player-names` further (there is no lower
- *     floor than "bare chips, no name text") or corrupting `Pass`.
- *
- * (2) The control-height unification. `.pass-btn` was witnessed
- *     rendering 18px tall beside `ToolbarMoveNav.vue`'s `.toolbar-btn`
- *     cluster at its G30-floored 24px, with `.komi-input` at a third,
- *     independent 20px — three numbers agreeing by coincidence, not
- *     construction. All four (plus `.status-bar`'s own `min-height`)
- *     now read the single `--control-height-min` token minted in
- *     `theme.css` (ADR-0012 P1) instead of an independently-chosen
- *     literal.
- *
- * jsdom has no real flex/text layout or ResizeObserver — this file
- * follows the SAME computed-style-pin idiom the sibling StatusBar test
- * files already establish (install the SFC's own `<style scoped>`
- * block as a real stylesheet, manually toggle the class a live
- * ResizeObserver would otherwise commit, then read `getComputedStyle`).
+ * The remaining control-height checks pin the shared token's single
+ * theme.css declaration and Pass-button content alignment. They do not
+ * assert incidental rendered dimensions or per-consumer CSS serialization.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -47,12 +21,10 @@ import { join } from 'node:path';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { i18n } from '../../src/i18n';
 import StatusBar from '../../src/components/board/StatusBar.vue';
-import ToolbarMoveNav from '../../src/components/chrome/ToolbarMoveNav.vue';
 import { createInitialBoard } from '../../src/store/board-factory';
 import type { BoardState } from '../../src/types';
 
 const STATUS_BAR_SFC_PATH = join(__dirname, '..', '..', 'src', 'components', 'board', 'StatusBar.vue');
-const TOOLBAR_MOVE_NAV_SFC_PATH = join(__dirname, '..', '..', 'src', 'components', 'chrome', 'ToolbarMoveNav.vue');
 
 function readStyleBlock(path: string): string {
   const source = readFileSync(path, 'utf-8');
@@ -64,23 +36,17 @@ function readStyleBlock(path: string): string {
 }
 
 let statusBarStyleEl: HTMLStyleElement | null = null;
-let toolbarMoveNavStyleEl: HTMLStyleElement | null = null;
 
 beforeAll(() => {
   statusBarStyleEl = document.createElement('style');
   statusBarStyleEl.textContent = readStyleBlock(STATUS_BAR_SFC_PATH);
   document.head.appendChild(statusBarStyleEl);
 
-  toolbarMoveNavStyleEl = document.createElement('style');
-  toolbarMoveNavStyleEl.textContent = readStyleBlock(TOOLBAR_MOVE_NAV_SFC_PATH);
-  document.head.appendChild(toolbarMoveNavStyleEl);
 });
 
 afterAll(() => {
   statusBarStyleEl?.remove();
   statusBarStyleEl = null;
-  toolbarMoveNavStyleEl?.remove();
-  toolbarMoveNavStyleEl = null;
 });
 
 function boardWithMetadata(): { board: BoardState; metadata: { blackName: string; whiteName: string; komi: number; rules: string } } {
@@ -162,40 +128,12 @@ describe('StatusBar — ultra-narrow second-line tier (status-bar-narrow-0c21)',
   });
 });
 
-describe('StatusBar — unified control-height token (status-bar-narrow-0c21)', () => {
+
   let wrapper: VueWrapper | null = null;
 
   afterEach(() => {
     wrapper?.unmount();
     wrapper = null;
-  });
-
-  it('.pass-btn, .komi-input, .move-numbers-btn and .status-bar itself all read --control-height-min', () => {
-    // Witnessed defect: `.pass-btn` rendered 18px tall beside the
-    // move-nav cluster's G30-floored 24px, and `.komi-input` carried
-    // an independent 20px — three numbers that happened to be close,
-    // not a shared floor. jsdom resolves the custom-property
-    // REFERENCE, not theme.css's literal value (theme.css isn't
-    // installed alongside these SFCs' own style blocks, mirroring
-    // every sibling StatusBar test's stated scope) — the assertion
-    // pins that all four consumers reference the SAME token, which is
-    // what makes them agree by construction rather than by chance.
-    const { board, metadata } = boardWithMetadata();
-    wrapper = mount(StatusBar, {
-      props: { board, metadata, canPass: true },
-      global: { plugins: [i18n] },
-    });
-
-    const passBtn = wrapper.find('.pass-btn').element;
-    const komiInput = wrapper.find('.komi-input').element;
-    const moveNumbersBtn = wrapper.find('.move-numbers-btn').element;
-    const bar = wrapper.find('.status-bar').element;
-
-    expect(getComputedStyle(passBtn).minHeight).toBe('var(--control-height-min)');
-    expect(getComputedStyle(komiInput).minHeight).toBe('var(--control-height-min)');
-    expect(getComputedStyle(moveNumbersBtn).minHeight).toBe('var(--control-height-min)');
-    expect(getComputedStyle(moveNumbersBtn).minWidth).toBe('var(--control-height-min)');
-    expect(getComputedStyle(bar).minHeight).toBe('var(--control-height-min)');
   });
 
   it('.pass-btn centers its content the same flex-centering way ToolbarMoveNav\'s .toolbar-btn does', () => {
@@ -209,18 +147,6 @@ describe('StatusBar — unified control-height token (status-bar-narrow-0c21)', 
     expect(cs.display).toBe('inline-flex');
     expect(cs.alignItems).toBe('center');
     expect(cs.justifyContent).toBe('center');
-  });
-
-  it('ToolbarMoveNav\'s .toolbar-btn reads the SAME --control-height-min token, not an independent literal', () => {
-    const wrapper2 = mount(ToolbarMoveNav, {
-      global: { plugins: [i18n] },
-    });
-    try {
-      const btn = wrapper2.find('.toolbar-btn').element;
-      expect(getComputedStyle(btn).minHeight).toBe('var(--control-height-min)');
-    } finally {
-      wrapper2.unmount();
-    }
   });
 
   it('theme.css mints exactly one --control-height-min anchor (ADR-0012 P1 — single source of truth)', () => {

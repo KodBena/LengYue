@@ -564,12 +564,11 @@ class of bugs that surfaces only when control flow is observed
 end-to-end.
 
 Run modes: `npm test` (Vitest watch mode for development),
-`npm run test:run` (one-shot — the build-pipeline-suitable
-form), `npm run test:coverage` (one-shot with v8 coverage
-report). Build still gates on `npm run build` (`vue-tsc -b &&
-vite build`); the test suite is a strict-add safety net at
-this stage, not a local build prerequisite. **CI landed
-2026-06-01** (`.github/workflows/frontend-ci.yml`): build +
-`eslint .` + `npm run test:run` run on every frontend PR, so
-the suite, the import-boundary lint, and the render-count
-guards now gate merges.
+`npm run test:run` (one-shot), `npm run test:coverage`
+(one-shot with v8 coverage report). The frontend GitHub Actions
+workflow (`.github/workflows/frontend-static-ci.yml`) runs dependency
+installation, `vue-tsc -b`, `eslint .`, and `npm run build`
+on frontend PRs and pushes to `main`. The 3k+ unit/integration
+suite is intentionally run locally with `npm run test:run`,
+rather than on hosted runners; CI remains the gate for TypeScript
+contracts, lint, and production compilation.

@@ -288,16 +288,19 @@ or watchers.
 ## Run modes
 
 - `npm test` — Vitest watch mode. Use during local development.
-- `npm run test:run` — one-shot. The form suitable for the
-  build pipeline (and for a `--watch=false` CI invocation).
+- `npm run test:run` — one-shot local verification of the full
+  unit/integration suite.
 - `npm run test:coverage` — one-shot with v8 coverage report.
   Report lands in `coverage/`.
 
 The local build (`npm run build`, `vue-tsc -b && vite build`)
-does not gate on the test suite — tests are a strict-add safety
-net at Phase 0. **CI does, as of 2026-06-01**
-(`.github/workflows/frontend-ci.yml`): `npm run test:run` runs
-alongside build + `eslint .` on every frontend PR, so a failing
-test (or a render-count regression guard) blocks merge.
+does not gate on the test suite locally. GitHub Actions
+(`.github/workflows/frontend-static-ci.yml`) runs dependency installation,
+`vue-tsc -b`, `eslint .`, and the production build on frontend
+PRs and pushes to `main`; it intentionally does **not** run the
+unit/integration suite. Run `npm run test:run` locally before
+merging. Keep tests only where they pin a supported behavioural,
+accessibility, or domain contract; incidental CSS values and
+serialized presentation details are not useful regression oracles.
 
 License: Public Domain (The Unlicense)

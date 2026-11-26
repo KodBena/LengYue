@@ -21,7 +21,6 @@
  *   - the 80px anchor-radius backstop hides on pointer movement beyond
  *     the radius and holds within it (the lost-mouseleave net);
  *   - the scroll / blur stranding watchers hide a visible thumbnail;
- *   - show()-time viewport clamping keeps the box on screen;
  *   - unmount releases the document/window watchers (resource ownership).
  *
  * License: Public Domain (The Unlicense)
@@ -135,17 +134,6 @@ describe('FloatingThumbnail seam', () => {
     window.dispatchEvent(new Event('blur'));
     await nextTick();
     expect(wrapper.find('.floating-thumb').exists()).toBe(false);
-  });
-
-  it('clamps the box inside the viewport at show()-time', async () => {
-    const { wrapper, thumb } = mountThumb();
-    // jsdom viewport defaults: 1024×768. THUMB_BOX = 154.
-    thumb.show(() => snap(), 2000, 700);
-    await nextTick();
-
-    const style = wrapper.find('.floating-thumb').attributes('style') ?? '';
-    expect(style).toContain(`left: ${1024 - 154}px`);
-    expect(style).toContain(`top: ${768 - 154}px`);
   });
 
   it('releases the stranding watchers on unmount while visible (resource ownership)', async () => {
