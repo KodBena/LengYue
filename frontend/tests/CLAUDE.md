@@ -293,6 +293,21 @@ or watchers.
 - `npm run test:coverage` — one-shot with v8 coverage report.
   Report lands in `coverage/`.
 
+## CI presentation-check policy
+
+`tests/ci-policy.ts` exports `itLocalPresentation` for explicitly
+selected presentation diagnostics. These tests run during ordinary
+local Vitest runs and are skipped when `CI=true`. Use the helper only
+for presentation assertions whose manually maintained visual values
+are not intended to gate CI; do not apply it to behavioural
+invariants, accessibility contracts, or engine geometry. In
+particular, `unit/engine/stencil-cover-geometry.test.ts` remains in
+the CI test set and its failures must be investigated independently.
+
+Only the specific presentation cases identified for this policy use
+the helper. Mixed test files remain in CI, as do their behavioural
+and domain-geometry assertions.
+
 The local build (`npm run build`, `vue-tsc -b && vite build`)
 does not gate on the test suite — tests are a strict-add safety
 net at Phase 0. **CI does, as of 2026-06-01**
