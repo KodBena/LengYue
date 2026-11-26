@@ -1,0 +1,51 @@
+# Monthly security analysis; manual dispatch remains available for ad hoc scans.
+# Deliberately excludes push and pull_request triggers to avoid routine CI cost.
+name: CodeQL (monthly)
+
+on:
+  schedule:
+    # First day of each month at 05:17 UTC (06:17 Stockholm in winter,
+    # 07:17 during daylight-saving time). Avoiding minute 0 reduces
+    # contention with GitHub's top-of-hour scheduled-workflow load.
+    - cron: '17 5 1 * *'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: javascript-typescript
+            build-mode: none
+          - language: rust
+            build-mode: none
+          - language: actions
+            build-mode: none
+          - language: python
+            build-mode: none
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
