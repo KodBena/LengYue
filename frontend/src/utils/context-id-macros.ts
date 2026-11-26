@@ -66,6 +66,8 @@
  * License: Public Domain (The Unlicense)
  */
 
+import type { GameDisplayOrdinal } from '../types/ids';
+
 const MACRO_RE = /(~?)\$\{([^}]*)\}/g;
 
 /** Matches an inclusive range token like `1-5` or `5 - 1`. */
@@ -74,8 +76,8 @@ const RANGE_RE = /^(\d+)\s*-\s*(\d+)$/;
 export interface ExpandedContextIds {
   /** Literal card ids typed outside any `${...}` macro. */
   readonly cardIds: readonly number[];
-  /** Recognized `game_source.display_ordinal` tokens from inside macros. */
-  readonly gameSourceOrdinals: readonly number[];
+  /** Recognized display ordinals, retaining the brand of the matched trusted input member. */
+  readonly gameSourceOrdinals: readonly GameDisplayOrdinal[];
   /**
    * Macro-derived ordinals that didn't match any of the caller's
    * known game_source ordinals — surfaced so the caller can warn,
@@ -94,7 +96,7 @@ export interface ExpandedContextIds {
  */
 function parseMacroToken(
   token: string,
-  knownGameSourceOrdinals: readonly number[],
+  knownGameSourceOrdinals: readonly GameDisplayOrdinal[],
 ): number[] {
   const trimmed = token.trim();
   if (trimmed === '') return [];
@@ -116,10 +118,11 @@ function parseMacroToken(
 
 export function expandContextIdMacros(
   input: string,
-  knownGameSourceOrdinals: readonly number[],
+  knownGameSourceOrdinals: readonly GameDisplayOrdinal[],
 ): ExpandedContextIds {
-  const known = new Set(knownGameSourceOrdinals);
-  const gameSourceOrdinals = new Set<number>();
+  const knownByValue = new Map<number, GameDisplayOrdinal>();
+  for (const ordinal of knownGameSourceOrdinals) knownByValue.set(ordinal, ordinal);
+  const gameSourceOrdinals = new Map<number, GameDisplayOrdinal>();
   const excludedGameSourceOrdinals = new Set<number>();
   const unknownGameSourceOrdinalTokens = new Set<number>();
 
@@ -129,12 +132,13 @@ export function expandContextIdMacros(
       .split(',')
       .flatMap((t: string) => parseMacroToken(t, knownGameSourceOrdinals));
     for (const token of tokens) {
-      if (known.has(token)) {
-	if (isExcluded) {
-	  excludedGameSourceOrdinals.add(token);
-	} else {
-          gameSourceOrdinals.add(token);
-	}
+      const knownOrdinal = knownByValue.get(token);
+      if (knownOrdinal !== undefined) {
+        if (isExcluded) {
+          excludedGameSourceOrdinals.add(token);
+        } else {
+          gameSourceOrdinals.set(token, knownOrdinal);
+        }
       } else {
         unknownGameSourceOrdinalTokens.add(token);
       }
@@ -164,7 +168,7 @@ export function expandContextIdMacros(
   }
   return {
     cardIds,
-    gameSourceOrdinals: [...gameSourceOrdinals],
+    gameSourceOrdinals: [...gameSourceOrdinals.values()],
     unknownGameSourceOrdinalTokens: [...unknownGameSourceOrdinalTokens],
   };
 
