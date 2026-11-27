@@ -1,3 +1,48 @@
+/**
+ * tests/integration/StatusBar-player-names-ample-width.test.ts
+ *
+ * Regression coverage for defects (a) and (f)
+ * (statusbar-cards-completion-build), both re-witnessed live at 1920px
+ * against the reverted divider-mechanics base (90b67af3) — see that
+ * report for the live-witness screenshots. This file pins the DOM/CSS
+ * shape at the component-test tier (`StatusBar-narrow-no-overflow.test.ts`
+ * covers the narrow-mode collapse; this file covers the AMPLE-width
+ * case those defects live in).
+ *
+ * Defect (a) — REOPENED a second time: `.player-name`'s `flex: 1 1 0`
+ * pinned each name's flex-BASIS to the literal `0`, which — per the CSS
+ * Flexbox intrinsic-sizing algorithm — also zeroed `.player-names`' own
+ * max-content contribution up the tree, so `.status-left`/`.status-bar`
+ * never handed `.player-names` more than its bare `min-width: 32px`
+ * floor even at an enormous ample width, and both names ellipsized
+ * immediately. Fix: `flex: 1 1 auto` (basis = each name's own natural
+ * content width) restores that propagation.
+ *
+ * Defect (f) — the active-turn ring (`.stone-chip.active`'s `outline`,
+ * painted OUTSIDE the chip's border box) was clipped by `.player-name`'s
+ * own `overflow: hidden` (needed for the ellipsis affordance) on every
+ * edge except the one a prior left-padding band-aid opened. Fix: stop
+ * clipping the CHIP at all — `overflow: hidden` / `text-overflow:
+ * ellipsis` / `white-space: nowrap` move to a NEW inner
+ * `.player-name-text` span wrapping only the name text; `.player-name`
+ * itself carries no overflow clipping on any edge.
+ *
+ * License: Public Domain (The Unlicense)
+ */
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { join } from 'node:path';
+import { mount, type VueWrapper } from '@vue/test-utils';
+import { i18n } from '../../src/i18n';
+import StatusBar from '../../src/components/board/StatusBar.vue';
+import { createInitialBoard } from '../../src/store/board-factory';
+import type { BoardState } from '../../src/types';
+import { installScopedSfcStylesheet, specifiedDeclarationsForSelectorFragments } from './scoped-sfc-style';
+
+// vitest.config.ts sets `css: false`, so this test installs the component
+// stylesheet explicitly. The shared helper compiles the SFC's scoped CSS
+// with Vue's actual scope id before it enters the browser CSSOM.
+const STATUS_BAR_SFC_PATH = join(__dirname, '..', '..', 'src', 'components', 'board', 'StatusBar.vue');
+
 let statusBarStylesheet: ReturnType<typeof installScopedSfcStylesheet> | null = null;
 
 beforeAll(() => {
