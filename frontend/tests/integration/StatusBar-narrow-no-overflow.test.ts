@@ -120,7 +120,7 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c
     wrapper = null;
   });
 
-  describe('computed-style pin — the current narrow-mode declarations', () => {
+  describe('CSSOM declaration and computed-value pins — current narrow-mode rules', () => {
     beforeEach(() => {
       const { board, metadata } = worstCaseBoardWithMetadata();
       wrapper = mount(StatusBar, {
@@ -211,15 +211,10 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c
     });
 
     it('.status-bar itself tightens its horizontal padding in narrow mode', () => {
-      // getComputedStyle round-trips this declaration's `padding`
-      // shorthand (a literal `0` mixed with a `var()` reference) back
-      // as `0` on every longhand AND on the shorthand itself — a jsdom
-      // CSSOM quirk (the flex-shorthand footgun
-      // `status-bar-hint-no-reflow.test.ts`'s own header documents is
-      // the same family: jsdom's CSSOM doesn't expand this shape the
-      // way a real browser does). Reading the SFC's own source text
-      // (already loaded for the stylesheet installation above) is the
-      // reliable signal here, not getComputedStyle.
+      // The compiled CSSOM rule preserves the specified shorthand,
+      // so this assertion pins the narrow token itself. The computed
+      // left-padding assertion separately confirms that theme.css
+      // resolves that token to 4px; neither is a layout measurement.
       const specifiedPadding = specifiedDeclarationsForSelectorFragments(
         statusBarStylesheet!,
         ['.status-bar--narrow', '.status-bar'],

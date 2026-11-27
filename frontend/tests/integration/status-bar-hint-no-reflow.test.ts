@@ -41,14 +41,12 @@
  *     second defective mechanism recurring).
  *
  * jsdom performs no real layout (no box metrics), so this guard
- * cannot assert on pixels; it asserts on the computed-style
- * declarations that make the geometry argument sound. Vitest's jsdom
- * environment runs with `css: false` (`vite.config.ts`), so component
- * `<style>` blocks are not auto-injected into the test DOM; this test
- * reads `StatusBar.vue`'s own `<style scoped>` block off disk and
- * installs it as a real stylesheet before mounting, so
- * `getComputedStyle` reflects the project's actual, current CSS — not
- * a hand-copied duplicate that could drift from the source of truth.
+ * cannot assert on pixels; it asserts on the computed CSS declarations
+ * that make the geometry argument sound. Vitest runs with `css: false`,
+ * so the shared test helper parses the SFC and compiles its scoped style
+ * with the component's actual Vue scope id before installation. The DOM
+ * CSSOM therefore receives browser CSS, including Vue's `:deep()`
+ * transformation, rather than raw SFC authoring syntax.
  *
  * Verified red-without-fix / green-with-fix against a scratch revert
  * of the CSS (not `git stash`, which is banned) — see the dispatch
