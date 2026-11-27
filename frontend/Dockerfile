@@ -19,13 +19,13 @@
 # License: Public Domain (The Unlicense)
 
 # ---------- Stage 1: build ----------
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 
 WORKDIR /app
 
 # Dependencies layer cached separately from source so editing app code
 # doesn't invalidate `npm ci`.
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 RUN npm ci
 
 COPY . .

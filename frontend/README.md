@@ -24,7 +24,7 @@ before the bundle reaches your machine.
 
 ### Prerequisites
 
-- Node 20+ and npm.
+- Node.js 26.x and npm. `package.json` declares the supported runtime; `.npmrc` makes npm reject incompatible Node versions during installation.
 - A running instance of the spaced-repetition backend (see the backend repo). The
   frontend expects it at `http://127.0.0.1:8764` by default; override
   with `VITE_API_BASE_URL` in a local `.env` file if needed
