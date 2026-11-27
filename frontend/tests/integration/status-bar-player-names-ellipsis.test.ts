@@ -1,135 +1,12 @@
-/**
- * tests/integration/status-bar-player-names-ellipsis.test.ts
- *
- * Regression guard for the occluded-names defect, now covering BOTH
- * arcs of the fix (`.claude/dispatch-reports/preview-board-followup-
- * build.md` item 1 supersedes the prior item-4 fix's own test intent,
- * which is preserved and extended here rather than dropped):
- *
- * Arc 1 (commit 0705b900, S4 fix, ellipsis-vs-flex). `.status-left`/
- * `.player-names`/`.move-badge`/`.game-info` went nowrap+shrink to cure
- * a wrap-into-overlap defect (`.claude/dispatch-reports/
- * component-shoddiness-build.md` S4), but `.player-names` stayed a
- * `display: inline-flex` container with `text-overflow: ellipsis`
- * applied to it directly. `text-overflow: ellipsis` is only specified
- * (and only reliably rendered) against the overflow of a run of INLINE
- * content in a block/inline box; on a flex container with multiple
- * flex-item children, browsers hard-clip the last partially-visible
- * flex item with NO ellipsis glyph inserted — witnessed as "Black vs
- * Whi" with no "…" affordance at a narrow bar width.
- *
- * Arc 2 (mandate addendum item 1, REOPENED — commissioner-witnessed
- * live, `~/xs/_invisible_control_panel.png` /
- * `~/xs/8b66_occluded_names_visible_tree_horizontal_scrolbar.png`).
- * Arc 1's fix alone still failed the mandate's two-part contract:
- *
- *   (a) `.status-left` never carried its own `flex-grow`, so it never
- *       claimed a share of `.status-bar`'s spare width — only
- *       `.transient-hint` did. `.player-names`' `flex: 1 1 auto` was
- *       consequently inert: it could never render past its own bare
- *       content width no matter how much blank bar remained to its
- *       right ("starved despite available space").
- *   (b) the single `.player-names` blob applied ONE ellipsis to the
- *       whole "Black vs White" run, so under narrowing the ellipsis
- *       always ate the TAIL (White) while the HEAD (Black) stayed
- *       perpetually intact — first-takes-all tail elision, never a
- *       symmetric degradation.
- *
- * The fix (`StatusBar.vue`): `.status-left` gains `flex: 1 1 auto` so
- * it genuinely competes for the bar's surplus (closes (a)); the single
- * `.player-names` blob is split into two independently-ellipsizing
- * `.player-name` children (`--black` / `--white`), each `flex: 1 1 0`
- * so a constrained `.player-names` width is shared EVENLY between them
- * (closes (b)). Each `.player-name` stays a plain `display:
- * inline-block` (not flex) internally, for the same ellipsis-needs-
- * inline-flow reason Arc 1 established — just applied per-name now
- * instead of to the whole pairing. `:title` on the outer `.player-names`
- * still carries the untruncated "Black vs White" pairing.
- *
- * jsdom performs no real layout (no box metrics, per this test tree's
- * own established convention — see `status-bar-hint-no-reflow.test.ts`'s
- * header), so this guard cannot assert on rendered pixels or on whether
- * a literal "…" glyph paints, nor can it assert that names ACTUALLY grow
- * wider given free space (that needs a real layout engine — see the
- * live-rig witness in the build report). It asserts on the
- * computed-style declarations and DOM text content that make the CSS
- * shape sound: neither name's DOM text is truncated by JS (only CSS
- * ever elides, visually); both `.player-name` children carry identical,
- * symmetric ellipsis declarations (no name is structurally privileged
- * over the other); `.status-left` genuinely carries a non-zero
- * flex-grow (closing the "inert flex-grow" defect regardless of what a
- * particular renderer's max-content computation does); and the S4
- * anti-overlap/never-wrap invariants survive both arcs' worth of
- * change.
- *
- * Reads `StatusBar.vue`'s own `<style scoped>` block off disk (not a
- * hand-copied duplicate) so `getComputedStyle` reflects the real,
- * current CSS — same technique as `status-bar-hint-no-reflow.test.ts`.
- *
- * Addendum (statusbar-cards-completion-build, defects (a) and (f)
- * REOPENED a second/third time, both re-witnessed live at 1920px against
- * the reverted divider-mechanics base, 90b67af3): two more root causes
- * surfaced past Arc 2's fix above. (a) `flex: 1 1 0` on each
- * `.player-name` pinned its flex-BASIS to the literal `0`, which also
- * zeroed `.player-names`' own max-content contribution up the tree — both
- * names ellipsized immediately even at an enormous ample width; fixed by
- * `flex: 1 1 auto` (basis = each name's own natural content width). (f)
- * the active-turn ring (`.stone-chip.active`'s outline, painted OUTSIDE
- * the chip) was still clipped by `.player-name`'s `overflow: hidden`
- * needed for the ellipsis affordance — the prior left-padding band-aid
- * (below) only opened headroom on ONE edge and was live-refuted; the
- * root fix moves the ellipsis/clip declarations to a NEW inner
- * `.player-name-text` span, so `.player-name` itself never clips on any
- * edge. The tests below are updated in place to pin the CURRENT shape;
- * see `StatusBar-player-names-ample-width.test.ts` for the dedicated
- * ample-width companion suite.
- *
- * Addendum (status-bar-narrow-0c21): the narrow tier's own flat 90px
- * `.player-names` cap (introduced by `.claude/dispatch-reports/
- * lyt-n1-statusbar.md`, pinned by this file's last test above) is
- * REMOVED — live-witnessed re-occluding both names entirely at a
- * narrower bar width than the cap ever engaged at, while the bar's
- * ephemeral `.transient-hint` slot absorbed the freed space instead
- * (`.claude/dispatch-reports/statusbar-narrow-0c21-build.md`). See
- * `StatusBar.vue`'s own removal note on that former rule for the full
- * derivation. The last test in this file is updated in place to assert
- * the rule's ABSENCE rather than its value — the symmetric-degradation
- * property it protects is otherwise unchanged.
- *
- * License: Public Domain (The Unlicense)
- */
-
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { mount, type VueWrapper } from '@vue/test-utils';
-import StatusBar from '../../src/components/board/StatusBar.vue';
-import { createInitialBoard } from '../../src/store/board-factory';
-import { i18n } from '../../src/i18n';
-import type { BoardState } from '../../src/types';
-
-const STATUS_BAR_SFC_PATH = join(__dirname, '..', '..', 'src', 'components', 'board', 'StatusBar.vue');
-
-function readStatusBarStyleBlock(): string {
-  const source = readFileSync(STATUS_BAR_SFC_PATH, 'utf-8');
-  const match = source.match(/<style[^>]*>([\s\S]*?)<\/style>/);
-  if (!match) {
-    throw new Error('StatusBar.vue: no <style> block found — SFC structure changed unexpectedly');
-  }
-  return match[1];
-}
-
-let styleEl: HTMLStyleElement | null = null;
+let statusBarStylesheet: ReturnType<typeof installScopedSfcStylesheet> | null = null;
 
 beforeAll(() => {
-  styleEl = document.createElement('style');
-  styleEl.textContent = readStatusBarStyleBlock();
-  document.head.appendChild(styleEl);
+  statusBarStylesheet = installScopedSfcStylesheet(StatusBar, STATUS_BAR_SFC_PATH);
 });
 
 afterAll(() => {
-  styleEl?.remove();
-  styleEl = null;
+  statusBarStylesheet?.remove();
+  statusBarStylesheet = null;
 });
 
 function boardWithMetadata(blackName: string, whiteName: string): {
@@ -345,9 +222,12 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
     // its former proof (a shared literal ceiling) does not, because
     // there is no longer a ceiling to point at. Confirmed instead: no
     // narrow-mode `max-width` rule targets `.player-names` at all.
-    const styleText = readStatusBarStyleBlock();
-    const narrowRuleMatch = styleText.match(/\.status-bar--narrow \.player-names\s*{([^}]*)}/);
-    expect(narrowRuleMatch).toBeNull();
+    const narrowMaxWidthDeclarations = specifiedDeclarationsForSelectorFragments(
+      statusBarStylesheet!,
+      ['.status-bar--narrow', '.player-names'],
+      'max-width',
+    );
+    expect(narrowMaxWidthDeclarations).toHaveLength(0);
 
     // Because `.player-names` is `display: flex` with two `.player-name`
     // children (each `flex: 1 1 auto`, basis = the name's OWN natural

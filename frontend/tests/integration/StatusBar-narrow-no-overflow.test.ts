@@ -45,10 +45,10 @@
  * two-part convention `ToolbarEngineMetrics-overlap-fix.test.ts` and
  * `ToolbarEngineControls-state-invariance.test.ts` already use:
  *
- *   1. A computed-style pin (the `status-bar-hint-no-reflow.test.ts`
- *      idiom — install the SFC's own `<style scoped>` block as a real
- *      stylesheet, then read `getComputedStyle`) confirming the
- *      current declarations this fix depends on are actually present.
+ *   1. CSSOM declaration evidence plus computed-style evidence. Vue
+ *      compiles the scoped SFC block with the component's real scope id;
+ *      token identity is read from the compiled CSSOM rule, while the
+ *      resolved gap and padding are read with theme.css installed.
  *   2. An arithmetic no-overflow check using REAL widths measured via
  *      an isolated live-rig Playwright probe against the real theme
  *      font stack (`.claude/dispatch-reports/
@@ -61,36 +61,37 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { i18n } from '../../src/i18n';
 import StatusBar from '../../src/components/board/StatusBar.vue';
 import { createInitialBoard } from '../../src/store/board-factory';
 import type { BoardState } from '../../src/types';
+import {
+  computedCssValue,
+  installGlobalCssFile,
+  installScopedSfcStylesheet,
+  specifiedDeclarationsForElement,
+  specifiedDeclarationsForSelectorFragments,
+} from './scoped-sfc-style';
 
 const STATUS_BAR_SFC_PATH = join(__dirname, '..', '..', 'src', 'components', 'board', 'StatusBar.vue');
 
-function readStatusBarStyleBlock(): string {
-  const source = readFileSync(STATUS_BAR_SFC_PATH, 'utf-8');
-  const match = source.match(/<style[^>]*>([\s\S]*?)<\/style>/);
-  if (!match) {
-    throw new Error('StatusBar.vue: no <style> block found — SFC structure changed unexpectedly');
-  }
-  return match[1];
-}
+const THEME_CSS_PATH = join(__dirname, '..', '..', 'src', 'assets', 'css', 'theme.css');
 
-let styleEl: HTMLStyleElement | null = null;
+let statusBarStylesheet: ReturnType<typeof installScopedSfcStylesheet> | null = null;
+let themeStylesheet: ReturnType<typeof installGlobalCssFile> | null = null;
 
 beforeAll(() => {
-  styleEl = document.createElement('style');
-  styleEl.textContent = readStatusBarStyleBlock();
-  document.head.appendChild(styleEl);
+  themeStylesheet = installGlobalCssFile(THEME_CSS_PATH);
+  statusBarStylesheet = installScopedSfcStylesheet(StatusBar, STATUS_BAR_SFC_PATH);
 });
 
 afterAll(() => {
-  styleEl?.remove();
-  styleEl = null;
+  statusBarStylesheet?.remove();
+  statusBarStylesheet = null;
+  themeStylesheet?.remove();
+  themeStylesheet = null;
 });
 
 // Worst-case-shaped board state — a 245-move game with realistic-heavy
@@ -143,8 +144,12 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c
       // the correct pin: no rule should reintroduce a step-function
       // ceiling on this element in this tier.
       const el = wrapper!.find('.player-names').element;
-      const maxWidth = getComputedStyle(el).maxWidth;
-      expect(maxWidth === 'none' || maxWidth === '').toBe(true);
+      const narrowMaxWidthDeclarations = specifiedDeclarationsForSelectorFragments(
+        statusBarStylesheet!,
+        ['.status-bar--narrow', '.player-names'],
+        'max-width',
+      );
+      expect(narrowMaxWidthDeclarations).toHaveLength(0);
 
       // Item 1 (occluded-names REOPENED, mandate addendum) / defect (f)
       // repair (statusbar-cards-completion-build), unchanged by this
@@ -156,9 +161,12 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c
       const blackNameText = wrapper!.find('.player-name--black .player-name-text').element;
       const whiteNameText = wrapper!.find('.player-name--white .player-name-text').element;
       for (const nameEl of [blackNameText, whiteNameText]) {
-        expect(getComputedStyle(nameEl).whiteSpace).toBe('nowrap');
-        expect(getComputedStyle(nameEl).overflow).toBe('hidden');
-        expect(getComputedStyle(nameEl).textOverflow).toBe('ellipsis');
+        expect(specifiedDeclarationsForElement(statusBarStylesheet!, nameEl, 'white-space').map(d => d.value)).toContain('nowrap');
+        expect(computedCssValue(nameEl, 'white-space').value).toBe('nowrap');
+        expect(specifiedDeclarationsForElement(statusBarStylesheet!, nameEl, 'overflow').map(d => d.value)).toContain('hidden');
+        expect(computedCssValue(nameEl, 'overflow').value).toBe('hidden');
+        expect(specifiedDeclarationsForElement(statusBarStylesheet!, nameEl, 'text-overflow').map(d => d.value)).toContain('ellipsis');
+        expect(computedCssValue(nameEl, 'text-overflow').value).toBe('ellipsis');
       }
       const blackName = wrapper!.find('.player-name--black').element;
       const whiteName = wrapper!.find('.player-name--white').element;
@@ -173,7 +181,8 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c
       // 1`, almost always empty) no longer competes with `.player-names`
       // for the bar's surplus once the bar is genuinely narrow.
       const hint = wrapper!.find('.transient-hint').element;
-      expect(getComputedStyle(hint).flexGrow).toBe('0');
+      expect(specifiedDeclarationsForElement(statusBarStylesheet!, hint, 'flex-grow').map(d => d.value)).toContain('0');
+      expect(computedCssValue(hint, 'flex-grow').value).toBe('0');
     });
 
     it('.status-bar reserves a minimum gap between its three direct children', () => {
@@ -184,7 +193,8 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c
       // (below), this one lives on the OUTER `.status-bar` and applies
       // at every width tier, not just narrow.
       const bar = wrapper!.find('.status-bar').element;
-      expect(getComputedStyle(bar).gap).toBe('var(--space-default)');
+      expect(specifiedDeclarationsForElement(statusBarStylesheet!, bar, 'gap').map(d => d.value)).toContain('var(--space-default)');
+      expect(computedCssValue(bar, 'gap').value).toBe('8px');
     });
 
     it('.status-left / .status-right gaps tighten to --space-tight in narrow mode', () => {
@@ -196,8 +206,10 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c
       // (this file's header) confirms the resolved 4px in a real browser.
       const left = wrapper!.find('.status-left').element;
       const right = wrapper!.find('.status-right').element;
-      expect(getComputedStyle(left).gap).toBe('var(--space-tight)');
-      expect(getComputedStyle(right).gap).toBe('var(--space-tight)');
+      for (const el of [left, right]) {
+        expect(specifiedDeclarationsForElement(statusBarStylesheet!, el, 'gap').map(d => d.value)).toContain('var(--space-tight)');
+        expect(computedCssValue(el, 'gap').value).toBe('4px');
+      }
     });
 
     it('.status-bar itself tightens its horizontal padding in narrow mode', () => {
@@ -210,8 +222,13 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c
       // way a real browser does). Reading the SFC's own source text
       // (already loaded for the stylesheet installation above) is the
       // reliable signal here, not getComputedStyle.
-      const styleBlock = readStatusBarStyleBlock();
-      expect(styleBlock).toMatch(/\.status-bar--narrow\.status-bar\s*{\s*padding:\s*0\s+var\(--space-tight\);?\s*}/);
+      const specifiedPadding = specifiedDeclarationsForSelectorFragments(
+        statusBarStylesheet!,
+        ['.status-bar--narrow', '.status-bar'],
+        'padding',
+      );
+      expect(specifiedPadding.map(declaration => declaration.value)).toContain('0 var(--space-tight)');
+      expect(computedCssValue(bar, 'padding-left').value).toBe('4px');
     });
 
     it('.pass-btn, .move-badge and .caps are NEVER removed from flow by narrow mode', () => {
@@ -224,9 +241,12 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c
       expect(wrapper!.find('.caps').exists()).toBe(true);
     });
 
-    it('.game-info, .move-numbers-btn and UserBadge ARE removed from flow (existing G12 collapse, unchanged)', () => {
-      expect(getComputedStyle(wrapper!.find('.game-info').element).display).toBe('none');
-      expect(getComputedStyle(wrapper!.find('.move-numbers-btn').element).display).toBe('none');
+    it('.game-info and .move-numbers-btn are removed from flow (existing G12 collapse)', () => {
+      for (const selector of ['.game-info', '.move-numbers-btn']) {
+        const element = wrapper!.find(selector).element;
+        expect(specifiedDeclarationsForElement(statusBarStylesheet!, element, 'display').map(d => d.value)).toContain('none');
+        expect(computedCssValue(element, 'display').value).toBe('none');
+      }
     });
   });
 

@@ -59,7 +59,6 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { nextTick } from 'vue';
@@ -68,35 +67,19 @@ import { createInitialBoard } from '../../src/store/board-factory';
 import { useTransientHint } from '../../src/composables/useTransientHint';
 import { i18n } from '../../src/i18n';
 import type { BoardState } from '../../src/types';
+import { installScopedSfcStylesheet, specifiedDeclarationsForSelectorFragments } from './scoped-sfc-style';
 
 const STATUS_BAR_SFC_PATH = join(__dirname, '..', '..', 'src', 'components', 'board', 'StatusBar.vue');
 
-/**
- * Extracts the `<style scoped>...</style>` body from the SFC source and
- * returns it as plain CSS text. Deliberately reads the *current* file on
- * disk (not a copy pasted into this test) so the assertion tracks the
- * real component style, including any future edit to it.
- */
-function readStatusBarStyleBlock(): string {
-  const source = readFileSync(STATUS_BAR_SFC_PATH, 'utf-8');
-  const match = source.match(/<style[^>]*>([\s\S]*?)<\/style>/);
-  if (!match) {
-    throw new Error('StatusBar.vue: no <style> block found — SFC structure changed unexpectedly');
-  }
-  return match[1];
-}
-
-let styleEl: HTMLStyleElement | null = null;
+let statusBarStylesheet: ReturnType<typeof installScopedSfcStylesheet> | null = null;
 
 beforeAll(() => {
-  styleEl = document.createElement('style');
-  styleEl.textContent = readStatusBarStyleBlock();
-  document.head.appendChild(styleEl);
+  statusBarStylesheet = installScopedSfcStylesheet(StatusBar, STATUS_BAR_SFC_PATH);
 });
 
 afterAll(() => {
-  styleEl?.remove();
-  styleEl = null;
+  statusBarStylesheet?.remove();
+  statusBarStylesheet = null;
 });
 
 function boardWithMetadata(): { board: BoardState; metadata: { blackName: string; whiteName: string; komi: number; rules: string } } {

@@ -1,70 +1,12 @@
-/**
- * tests/integration/StatusBar-player-names-ample-width.test.ts
- *
- * Regression coverage for defects (a) and (f)
- * (statusbar-cards-completion-build), both re-witnessed live at 1920px
- * against the reverted divider-mechanics base (90b67af3) — see that
- * report for the live-witness screenshots. This file pins the DOM/CSS
- * shape at the component-test tier (`StatusBar-narrow-no-overflow.test.ts`
- * covers the narrow-mode collapse; this file covers the AMPLE-width
- * case those defects live in).
- *
- * Defect (a) — REOPENED a second time: `.player-name`'s `flex: 1 1 0`
- * pinned each name's flex-BASIS to the literal `0`, which — per the CSS
- * Flexbox intrinsic-sizing algorithm — also zeroed `.player-names`' own
- * max-content contribution up the tree, so `.status-left`/`.status-bar`
- * never handed `.player-names` more than its bare `min-width: 32px`
- * floor even at an enormous ample width, and both names ellipsized
- * immediately. Fix: `flex: 1 1 auto` (basis = each name's own natural
- * content width) restores that propagation.
- *
- * Defect (f) — the active-turn ring (`.stone-chip.active`'s `outline`,
- * painted OUTSIDE the chip's border box) was clipped by `.player-name`'s
- * own `overflow: hidden` (needed for the ellipsis affordance) on every
- * edge except the one a prior left-padding band-aid opened. Fix: stop
- * clipping the CHIP at all — `overflow: hidden` / `text-overflow:
- * ellipsis` / `white-space: nowrap` move to a NEW inner
- * `.player-name-text` span wrapping only the name text; `.player-name`
- * itself carries no overflow clipping on any edge.
- *
- * License: Public Domain (The Unlicense)
- */
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { mount, type VueWrapper } from '@vue/test-utils';
-import { i18n } from '../../src/i18n';
-import StatusBar from '../../src/components/board/StatusBar.vue';
-import { createInitialBoard } from '../../src/store/board-factory';
-import type { BoardState } from '../../src/types';
-
-// vitest.config.ts sets `css: false` — a mounted SFC's <style> block is
-// NEVER auto-injected in this test environment. Every assertion below
-// reads `getComputedStyle`, so the real, CURRENT stylesheet has to be
-// installed by hand first — same idiom `StatusBar-narrow-no-overflow.
-// test.ts` (read in full before authoring this file) already uses.
-const STATUS_BAR_SFC_PATH = join(__dirname, '..', '..', 'src', 'components', 'board', 'StatusBar.vue');
-
-function readStatusBarStyleBlock(): string {
-  const source = readFileSync(STATUS_BAR_SFC_PATH, 'utf-8');
-  const match = source.match(/<style[^>]*>([\s\S]*?)<\/style>/);
-  if (!match) {
-    throw new Error('StatusBar.vue: no <style> block found — SFC structure changed unexpectedly');
-  }
-  return match[1];
-}
-
-let styleEl: HTMLStyleElement | null = null;
+let statusBarStylesheet: ReturnType<typeof installScopedSfcStylesheet> | null = null;
 
 beforeAll(() => {
-  styleEl = document.createElement('style');
-  styleEl.textContent = readStatusBarStyleBlock();
-  document.head.appendChild(styleEl);
+  statusBarStylesheet = installScopedSfcStylesheet(StatusBar, STATUS_BAR_SFC_PATH);
 });
 
 afterAll(() => {
-  styleEl?.remove();
-  styleEl = null;
+  statusBarStylesheet?.remove();
+  statusBarStylesheet = null;
 });
 
 function boardWithMetadata(): { board: BoardState; metadata: { blackName: string; whiteName: string; komi: number; rules: string } } {
