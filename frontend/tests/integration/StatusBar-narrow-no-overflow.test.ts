@@ -143,7 +143,6 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c
       // of unused pixels. Asserting its ABSENCE (not a new value) is
       // the correct pin: no rule should reintroduce a step-function
       // ceiling on this element in this tier.
-      const el = wrapper!.find('.player-names').element;
       const narrowMaxWidthDeclarations = specifiedDeclarationsForSelectorFragments(
         statusBarStylesheet!,
         ['.status-bar--narrow', '.player-names'],
@@ -194,21 +193,20 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c
       // at every width tier, not just narrow.
       const bar = wrapper!.find('.status-bar').element;
       expect(specifiedDeclarationsForElement(statusBarStylesheet!, bar, 'gap').map(d => d.value)).toContain('var(--space-default)');
-      expect(computedCssValue(bar, 'gap').value).toBe('8px');
+      expect(computedCssValue(bar, 'row-gap').value).toBe('8px');
+      expect(computedCssValue(bar, 'column-gap').value).toBe('8px');
     });
 
     it('.status-left / .status-right gaps tighten to --space-tight in narrow mode', () => {
-      // jsdom resolves custom-property REFERENCES, not their theme.css
-      // values (theme.css isn't installed alongside this SFC's own
-      // style block, mirroring `status-bar-hint-no-reflow.test.ts`'s
-      // own scope) — the assertion pins the declaration (narrower
-      // token, not the wide-mode `--space-medium`), the live rig probe
-      // (this file's header) confirms the resolved 4px in a real browser.
+      // The CSSOM assertion pins the narrow token rather than the
+      // wide-mode token; with theme.css installed, the computed longhands
+      // independently confirm that the token resolves to 4px.
       const left = wrapper!.find('.status-left').element;
       const right = wrapper!.find('.status-right').element;
       for (const el of [left, right]) {
         expect(specifiedDeclarationsForElement(statusBarStylesheet!, el, 'gap').map(d => d.value)).toContain('var(--space-tight)');
-        expect(computedCssValue(el, 'gap').value).toBe('4px');
+        expect(computedCssValue(el, 'row-gap').value).toBe('4px');
+        expect(computedCssValue(el, 'column-gap').value).toBe('4px');
       }
     });
 

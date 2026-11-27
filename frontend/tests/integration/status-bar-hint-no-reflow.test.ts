@@ -67,7 +67,7 @@ import { createInitialBoard } from '../../src/store/board-factory';
 import { useTransientHint } from '../../src/composables/useTransientHint';
 import { i18n } from '../../src/i18n';
 import type { BoardState } from '../../src/types';
-import { installScopedSfcStylesheet, specifiedDeclarationsForSelectorFragments } from './scoped-sfc-style';
+import { installScopedSfcStylesheet } from './scoped-sfc-style';
 
 const STATUS_BAR_SFC_PATH = join(__dirname, '..', '..', 'src', 'components', 'board', 'StatusBar.vue');
 

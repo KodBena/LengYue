@@ -36,7 +36,7 @@ import { i18n } from '../../src/i18n';
 import StatusBar from '../../src/components/board/StatusBar.vue';
 import { createInitialBoard } from '../../src/store/board-factory';
 import type { BoardState } from '../../src/types';
-import { installScopedSfcStylesheet, specifiedDeclarationsForSelectorFragments } from './scoped-sfc-style';
+import { installScopedSfcStylesheet } from './scoped-sfc-style';
 
 // vitest.config.ts sets `css: false`, so this test installs the component
 // stylesheet explicitly. The shared helper compiles the SFC's scoped CSS
