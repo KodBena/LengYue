@@ -41,14 +41,12 @@
  *     second defective mechanism recurring).
  *
  * jsdom performs no real layout (no box metrics), so this guard
- * cannot assert on pixels; it asserts on the computed-style
- * declarations that make the geometry argument sound. Vitest's jsdom
- * environment runs with `css: false` (`vite.config.ts`), so component
- * `<style>` blocks are not auto-injected into the test DOM; this test
- * reads `StatusBar.vue`'s own `<style scoped>` block off disk and
- * installs it as a real stylesheet before mounting, so
- * `getComputedStyle` reflects the project's actual, current CSS — not
- * a hand-copied duplicate that could drift from the source of truth.
+ * cannot assert on pixels; it asserts on the computed CSS declarations
+ * that make the geometry argument sound. Vitest runs with `css: false`,
+ * so the shared test helper parses the SFC and compiles its scoped style
+ * with the component's actual Vue scope id before installation. The DOM
+ * CSSOM therefore receives browser CSS, including Vue's `:deep()`
+ * transformation, rather than raw SFC authoring syntax.
  *
  * Verified red-without-fix / green-with-fix against a scratch revert
  * of the CSS (not `git stash`, which is banned) — see the dispatch
@@ -59,7 +57,6 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { nextTick } from 'vue';
@@ -68,35 +65,19 @@ import { createInitialBoard } from '../../src/store/board-factory';
 import { useTransientHint } from '../../src/composables/useTransientHint';
 import { i18n } from '../../src/i18n';
 import type { BoardState } from '../../src/types';
+import { computedStyleForElement, documentTreeConnectedElement, installScopedSfcStylesheet } from './scoped-sfc-style';
 
 const STATUS_BAR_SFC_PATH = join(__dirname, '..', '..', 'src', 'components', 'board', 'StatusBar.vue');
 
-/**
- * Extracts the `<style scoped>...</style>` body from the SFC source and
- * returns it as plain CSS text. Deliberately reads the *current* file on
- * disk (not a copy pasted into this test) so the assertion tracks the
- * real component style, including any future edit to it.
- */
-function readStatusBarStyleBlock(): string {
-  const source = readFileSync(STATUS_BAR_SFC_PATH, 'utf-8');
-  const match = source.match(/<style[^>]*>([\s\S]*?)<\/style>/);
-  if (!match) {
-    throw new Error('StatusBar.vue: no <style> block found — SFC structure changed unexpectedly');
-  }
-  return match[1];
-}
-
-let styleEl: HTMLStyleElement | null = null;
+let statusBarStylesheet: ReturnType<typeof installScopedSfcStylesheet> | null = null;
 
 beforeAll(() => {
-  styleEl = document.createElement('style');
-  styleEl.textContent = readStatusBarStyleBlock();
-  document.head.appendChild(styleEl);
+  statusBarStylesheet = installScopedSfcStylesheet(StatusBar, STATUS_BAR_SFC_PATH);
 });
 
 afterAll(() => {
-  styleEl?.remove();
-  styleEl = null;
+  statusBarStylesheet?.remove();
+  statusBarStylesheet = null;
 });
 
 function boardWithMetadata(): { board: BoardState; metadata: { blackName: string; whiteName: string; komi: number; rules: string } } {
@@ -123,6 +104,7 @@ describe('StatusBar — PV-paste hint is a permanent in-flow slot (ledger row 81
   it('renders .transient-hint even when no hint is published — it is NOT v-if-inserted', () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
@@ -138,6 +120,7 @@ describe('StatusBar — PV-paste hint is a permanent in-flow slot (ledger row 81
   it('renders the same .transient-hint element (with text) once a hint is published', async () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
@@ -159,6 +142,7 @@ describe('StatusBar — PV-paste hint is a permanent in-flow slot (ledger row 81
   it('is an in-flow flexible slot: flex 1 1 0, min-width 0, ellipsis overflow, never absolutely positioned', async () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
@@ -167,7 +151,7 @@ describe('StatusBar — PV-paste hint is a permanent in-flow slot (ledger row 81
     await nextTick();
 
     const hintEl = wrapper.find('.transient-hint');
-    const computed = getComputedStyle(hintEl.element);
+    const computed = computedStyleForElement(documentTreeConnectedElement(hintEl.element));
 
     // In-flow, not the out-of-flow escape hatch the second defective
     // mechanism used (which is what let it float over the board).
@@ -186,12 +170,13 @@ describe('StatusBar — PV-paste hint is a permanent in-flow slot (ledger row 81
   it('.caps cannot wrap in either state (white-space: nowrap)', () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
 
     const caps = wrapper.find('.caps');
     expect(caps.exists()).toBe(true);
-    expect(getComputedStyle(caps.element).whiteSpace).toBe('nowrap');
+    expect(computedStyleForElement(documentTreeConnectedElement(caps.element)).whiteSpace).toBe('nowrap');
   });
 });

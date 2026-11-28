@@ -111,6 +111,7 @@ function fakeRow(i: number): LibraryGameListItem {
 
 async function mountWideTable() {
   const wrapper = mount(LibraryTable, {
+    attachTo: document.body,
     props: {
       totalCount: 1,
       rowAt: (i: number) => (i === 0 ? fakeRow(0) : null),
