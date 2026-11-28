@@ -28,6 +28,35 @@ export interface InstalledGlobalCssStylesheet {
   readonly remove: () => void;
 }
 
+export interface DocumentTreeConnectedElement {
+  readonly kind: 'document-tree-connected-element';
+  readonly element: Element;
+}
+
+/**
+ * Translate an arbitrary Element into a witness that it belongs to the
+ * connected document tree containing the installed stylesheet. Detached
+ * Vue Test Utils mounts are refused: their tree root has no document CSS.
+ */
+export function documentTreeConnectedElement(element: Element): DocumentTreeConnectedElement {
+  if (!element.isConnected || element.getRootNode() !== element.ownerDocument) {
+    throw new Error('Computed CSS evidence requires an element connected to its owner document');
+  }
+  return {
+    kind: 'document-tree-connected-element',
+    element,
+  };
+}
+
+/** Resolve styles only from a document-tree-connected element witness. */
+export function computedStyleForElement(target: DocumentTreeConnectedElement): CSSStyleDeclaration {
+  const view = target.element.ownerDocument.defaultView;
+  if (!view) {
+    throw new Error('Computed CSS evidence requires a live owner-document window');
+  }
+  return view.getComputedStyle(target.element);
+}
+
 export interface SpecifiedCssDeclaration {
   readonly kind: 'specified-css-declaration';
   readonly selectorText: string;
@@ -179,10 +208,13 @@ export function specifiedDeclarationsForSelectorFragments(
 }
 
 /** Read the cascade's computed CSS value; this does not measure box geometry. */
-export function computedCssValue(element: Element, propertyName: string): ComputedCssValue {
+export function computedCssValue(
+  target: DocumentTreeConnectedElement,
+  propertyName: string,
+): ComputedCssValue {
   return {
     kind: 'computed-css-value',
     propertyName,
-    value: window.getComputedStyle(element).getPropertyValue(propertyName),
+    value: computedStyleForElement(target).getPropertyValue(propertyName),
   };
 }

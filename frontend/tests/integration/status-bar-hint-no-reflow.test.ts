@@ -65,7 +65,7 @@ import { createInitialBoard } from '../../src/store/board-factory';
 import { useTransientHint } from '../../src/composables/useTransientHint';
 import { i18n } from '../../src/i18n';
 import type { BoardState } from '../../src/types';
-import { installScopedSfcStylesheet } from './scoped-sfc-style';
+import { computedStyleForElement, documentTreeConnectedElement, installScopedSfcStylesheet } from './scoped-sfc-style';
 
 const STATUS_BAR_SFC_PATH = join(__dirname, '..', '..', 'src', 'components', 'board', 'StatusBar.vue');
 
@@ -104,6 +104,7 @@ describe('StatusBar — PV-paste hint is a permanent in-flow slot (ledger row 81
   it('renders .transient-hint even when no hint is published — it is NOT v-if-inserted', () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
@@ -119,6 +120,7 @@ describe('StatusBar — PV-paste hint is a permanent in-flow slot (ledger row 81
   it('renders the same .transient-hint element (with text) once a hint is published', async () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
@@ -140,6 +142,7 @@ describe('StatusBar — PV-paste hint is a permanent in-flow slot (ledger row 81
   it('is an in-flow flexible slot: flex 1 1 0, min-width 0, ellipsis overflow, never absolutely positioned', async () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
@@ -148,7 +151,7 @@ describe('StatusBar — PV-paste hint is a permanent in-flow slot (ledger row 81
     await nextTick();
 
     const hintEl = wrapper.find('.transient-hint');
-    const computed = getComputedStyle(hintEl.element);
+    const computed = computedStyleForElement(documentTreeConnectedElement(hintEl.element));
 
     // In-flow, not the out-of-flow escape hatch the second defective
     // mechanism used (which is what let it float over the board).
@@ -167,12 +170,13 @@ describe('StatusBar — PV-paste hint is a permanent in-flow slot (ledger row 81
   it('.caps cannot wrap in either state (white-space: nowrap)', () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
 
     const caps = wrapper.find('.caps');
     expect(caps.exists()).toBe(true);
-    expect(getComputedStyle(caps.element).whiteSpace).toBe('nowrap');
+    expect(computedStyleForElement(documentTreeConnectedElement(caps.element)).whiteSpace).toBe('nowrap');
   });
 });

@@ -106,7 +106,12 @@ import StatusBar from '../../src/components/board/StatusBar.vue';
 import { createInitialBoard } from '../../src/store/board-factory';
 import { i18n } from '../../src/i18n';
 import type { BoardState } from '../../src/types';
-import { installScopedSfcStylesheet, specifiedDeclarationsForSelectorFragments } from './scoped-sfc-style';
+import {
+  computedStyleForElement,
+  documentTreeConnectedElement,
+  installScopedSfcStylesheet,
+  specifiedDeclarationsForSelectorFragments,
+} from './scoped-sfc-style';
 
 const STATUS_BAR_SFC_PATH = join(__dirname, '..', '..', 'src', 'components', 'board', 'StatusBar.vue');
 
@@ -142,6 +147,7 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
   it('wide width: both full names are present verbatim in the DOM (no JS-level truncation) — contract (a)', () => {
     const { board, metadata } = boardWithMetadata('AlphaGo', 'Lee Sedol');
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
@@ -157,6 +163,7 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
   it('.status-left genuinely competes for the bar\'s surplus width (closes the "inert flex-grow" defect)', () => {
     const { board, metadata } = boardWithMetadata('Black', 'White');
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
@@ -167,7 +174,7 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
     // any positive free space to redistribute. A non-zero flex-grow
     // here is the structural precondition for "both names render in
     // full whenever the bar's actual free width allows".
-    const statusLeft = getComputedStyle(wrapper.find('.status-left').element);
+    const statusLeft = computedStyleForElement(documentTreeConnectedElement(wrapper.find('.status-left').element));
     expect(statusLeft.flexGrow).not.toBe('0');
   });
 
@@ -184,11 +191,12 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
     // shape.
     const { board, metadata } = boardWithMetadata('AlphaGo', 'Lee Sedol');
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
 
-    const outer = getComputedStyle(wrapper.find('.player-names').element);
+    const outer = computedStyleForElement(documentTreeConnectedElement(wrapper.find('.player-names').element));
     expect(outer.display).toBe('flex');
 
     const blackName = wrapper.find('.player-name--black');
@@ -196,8 +204,8 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
     expect(blackName.exists()).toBe(true);
     expect(whiteName.exists()).toBe(true);
 
-    const blackComputed = getComputedStyle(blackName.element);
-    const whiteComputed = getComputedStyle(whiteName.element);
+    const blackComputed = computedStyleForElement(documentTreeConnectedElement(blackName.element));
+    const whiteComputed = computedStyleForElement(documentTreeConnectedElement(whiteName.element));
 
     // `.player-name` is `inline-flex` now (chip + `.player-name-text` as
     // two independent flex children) — it is deliberately NOT the
@@ -214,8 +222,8 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
     const whiteNameText = wrapper.find('.player-name--white .player-name-text');
     expect(blackNameText.exists()).toBe(true);
     expect(whiteNameText.exists()).toBe(true);
-    const blackTextComputed = getComputedStyle(blackNameText.element);
-    const whiteTextComputed = getComputedStyle(whiteNameText.element);
+    const blackTextComputed = computedStyleForElement(documentTreeConnectedElement(blackNameText.element));
+    const whiteTextComputed = computedStyleForElement(documentTreeConnectedElement(whiteNameText.element));
     expect(blackTextComputed.display).not.toBe('flex');
     expect(blackTextComputed.display).not.toBe('inline-flex');
     expect(whiteTextComputed.display).not.toBe('flex');
@@ -239,6 +247,7 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
   it('.player-names carries a title tooltip with the full, untruncated pairing', () => {
     const { board, metadata } = boardWithMetadata('AlphaGo', 'Lee Sedol');
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
@@ -253,6 +262,7 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
   it('title tooltip tracks the metadata prop, not a stale snapshot', () => {
     const { board, metadata } = boardWithMetadata('Black Player', 'White Player');
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
@@ -265,25 +275,26 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
   it('S4 anti-overlap/never-wrap invariants are preserved (the wrap-vs-clip trade cannot silently flip back)', () => {
     const { board, metadata } = boardWithMetadata('Black', 'White');
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
 
-    const statusLeft = getComputedStyle(wrapper.find('.status-left').element);
+    const statusLeft = computedStyleForElement(documentTreeConnectedElement(wrapper.find('.status-left').element));
     expect(statusLeft.minWidth).toBe('0px');
 
-    const statusRight = getComputedStyle(wrapper.find('.status-right').element);
+    const statusRight = computedStyleForElement(documentTreeConnectedElement(wrapper.find('.status-right').element));
     expect(statusRight.flexShrink).toBe('0');
 
-    const moveBadge = getComputedStyle(wrapper.find('.move-badge').element);
+    const moveBadge = computedStyleForElement(documentTreeConnectedElement(wrapper.find('.move-badge').element));
     expect(moveBadge.whiteSpace).toBe('nowrap');
     expect(moveBadge.flexShrink).toBe('0');
 
-    const gameInfo = getComputedStyle(wrapper.find('.game-info').element);
+    const gameInfo = computedStyleForElement(documentTreeConnectedElement(wrapper.find('.game-info').element));
     expect(gameInfo.whiteSpace).toBe('nowrap');
     expect(gameInfo.flexShrink).toBe('0');
 
-    const playerNames = getComputedStyle(wrapper.find('.player-names').element);
+    const playerNames = computedStyleForElement(documentTreeConnectedElement(wrapper.find('.player-names').element));
     expect(playerNames.flexGrow).not.toBe('0'); // "flex: 1 1 auto" — still the segment that absorbs the shrink
     expect(playerNames.minWidth).toBe('32px');
   });
@@ -302,12 +313,13 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
     // successor magic number.
     const { board, metadata } = boardWithMetadata('Black', 'White');
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
 
-    const blackComputed = getComputedStyle(wrapper.find('.player-name--black').element);
-    const whiteComputed = getComputedStyle(wrapper.find('.player-name--white').element);
+    const blackComputed = computedStyleForElement(documentTreeConnectedElement(wrapper.find('.player-name--black').element));
+    const whiteComputed = computedStyleForElement(documentTreeConnectedElement(wrapper.find('.player-name--white').element));
     expect(blackComputed.overflow).not.toBe('hidden');
     expect(whiteComputed.overflow).not.toBe('hidden');
     // The chip and the (now-clipping) `.player-name-text` are SIBLINGS
@@ -320,6 +332,7 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
   it('narrow mode: symmetric degradation — both names share `.player-names`\' width equally, not one first — contract (b)', () => {
     const { board, metadata } = boardWithMetadata('Black', 'White');
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
@@ -353,15 +366,15 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
     // lives on the inner `.player-name-text` span (defect f). Confirmed
     // against the LIVE computed style of both text spans (not just the
     // rule text), so this assertion tracks the actual cascade.
-    const blackTextComputed = getComputedStyle(wrapper!.find('.player-name--black .player-name-text').element);
-    const whiteTextComputed = getComputedStyle(wrapper!.find('.player-name--white .player-name-text').element);
+    const blackTextComputed = computedStyleForElement(documentTreeConnectedElement(wrapper!.find('.player-name--black .player-name-text').element));
+    const whiteTextComputed = computedStyleForElement(documentTreeConnectedElement(wrapper!.find('.player-name--white .player-name-text').element));
     expect(blackTextComputed.textOverflow).toBe('ellipsis');
     expect(whiteTextComputed.textOverflow).toBe('ellipsis');
     expect(blackTextComputed.flexGrow).toBe(whiteTextComputed.flexGrow);
     expect(blackTextComputed.flexBasis).toBe(whiteTextComputed.flexBasis);
 
-    const blackComputed = getComputedStyle(wrapper!.find('.player-name--black').element);
-    const whiteComputed = getComputedStyle(wrapper!.find('.player-name--white').element);
+    const blackComputed = computedStyleForElement(documentTreeConnectedElement(wrapper!.find('.player-name--black').element));
+    const whiteComputed = computedStyleForElement(documentTreeConnectedElement(wrapper!.find('.player-name--white').element));
     expect(blackComputed.flexBasis).toBe('auto');
     expect(blackComputed.flexBasis).toBe(whiteComputed.flexBasis);
   });

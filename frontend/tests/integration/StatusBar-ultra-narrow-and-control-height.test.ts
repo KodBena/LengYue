@@ -23,7 +23,7 @@ import { i18n } from '../../src/i18n';
 import StatusBar from '../../src/components/board/StatusBar.vue';
 import { createInitialBoard } from '../../src/store/board-factory';
 import type { BoardState } from '../../src/types';
-import { installScopedSfcStylesheet } from './scoped-sfc-style';
+import { computedStyleForElement, documentTreeConnectedElement, installScopedSfcStylesheet } from './scoped-sfc-style';
 
 const STATUS_BAR_SFC_PATH = join(__dirname, '..', '..', 'src', 'components', 'board', 'StatusBar.vue');
 
@@ -63,6 +63,7 @@ describe('StatusBar — ultra-narrow second-line tier (status-bar-narrow-0c21)',
   it('.status-bar--ultra-narrow forces .status-right onto its own flex line', () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
@@ -76,7 +77,7 @@ describe('StatusBar — ultra-narrow second-line tier (status-bar-narrow-0c21)',
     bar.classList.add('status-bar--narrow', 'status-bar--ultra-narrow');
 
     const statusRight = wrapper.find('.status-right').element;
-    const cs = getComputedStyle(statusRight);
+    const cs = computedStyleForElement(documentTreeConnectedElement(statusRight));
     expect(cs.flexBasis).toBe('100%');
 
     // The bar itself must allow wrapping for the 100%-basis line-break
@@ -87,12 +88,13 @@ describe('StatusBar — ultra-narrow second-line tier (status-bar-narrow-0c21)',
     // line-breaking pass uses each item's un-shrunk hypothetical size,
     // and `.status-left`'s is its full unclamped natural content width
     // now that `.player-names` is genuinely uncapped).
-    expect(getComputedStyle(bar).flexWrap).toBe('wrap');
+    expect(computedStyleForElement(documentTreeConnectedElement(bar)).flexWrap).toBe('wrap');
   });
 
   it('the ultra-narrow rule is absent when only the narrow (not ultra-narrow) class is applied — the two tiers are independently gated', () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
@@ -100,9 +102,9 @@ describe('StatusBar — ultra-narrow second-line tier (status-bar-narrow-0c21)',
     bar.classList.add('status-bar--narrow');
     // Deliberately NOT adding 'status-bar--ultra-narrow' here.
 
-    expect(getComputedStyle(bar).flexWrap).not.toBe('wrap');
+    expect(computedStyleForElement(documentTreeConnectedElement(bar)).flexWrap).not.toBe('wrap');
     const statusRight = wrapper.find('.status-right').element;
-    expect(getComputedStyle(statusRight).flexBasis).not.toBe('100%');
+    expect(computedStyleForElement(documentTreeConnectedElement(statusRight)).flexBasis).not.toBe('100%');
   });
 
   it('source pin: the ultra-narrow breakpoint constant is smaller than the narrow one — ultra-narrow is a stricter subset', () => {
@@ -128,11 +130,12 @@ describe('StatusBar — ultra-narrow second-line tier (status-bar-narrow-0c21)',
   it('.pass-btn centers its content the same flex-centering way ToolbarMoveNav\'s .toolbar-btn does', () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
     const passBtn = wrapper.find('.pass-btn').element;
-    const cs = getComputedStyle(passBtn);
+    const cs = computedStyleForElement(documentTreeConnectedElement(passBtn));
     expect(cs.display).toBe('inline-flex');
     expect(cs.alignItems).toBe('center');
     expect(cs.justifyContent).toBe('center');

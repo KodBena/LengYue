@@ -69,6 +69,8 @@ import { createInitialBoard } from '../../src/store/board-factory';
 import type { BoardState } from '../../src/types';
 import {
   computedCssValue,
+  computedStyleForElement,
+  documentTreeConnectedElement,
   installGlobalCssFile,
   installScopedSfcStylesheet,
   specifiedDeclarationsForElement,
@@ -124,6 +126,7 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c
     beforeEach(() => {
       const { board, metadata } = worstCaseBoardWithMetadata();
       wrapper = mount(StatusBar, {
+      attachTo: document.body,
         props: { board, metadata, canPass: true },
         global: { plugins: [i18n] },
       });
@@ -161,16 +164,16 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c
       const whiteNameText = wrapper!.find('.player-name--white .player-name-text').element;
       for (const nameEl of [blackNameText, whiteNameText]) {
         expect(specifiedDeclarationsForElement(statusBarStylesheet!, nameEl, 'white-space').map(d => d.value)).toContain('nowrap');
-        expect(computedCssValue(nameEl, 'white-space').value).toBe('nowrap');
+        expect(computedCssValue(documentTreeConnectedElement(nameEl), 'white-space').value).toBe('nowrap');
         expect(specifiedDeclarationsForElement(statusBarStylesheet!, nameEl, 'overflow').map(d => d.value)).toContain('hidden');
-        expect(computedCssValue(nameEl, 'overflow').value).toBe('hidden');
+        expect(computedCssValue(documentTreeConnectedElement(nameEl), 'overflow').value).toBe('hidden');
         expect(specifiedDeclarationsForElement(statusBarStylesheet!, nameEl, 'text-overflow').map(d => d.value)).toContain('ellipsis');
-        expect(computedCssValue(nameEl, 'text-overflow').value).toBe('ellipsis');
+        expect(computedCssValue(documentTreeConnectedElement(nameEl), 'text-overflow').value).toBe('ellipsis');
       }
       const blackName = wrapper!.find('.player-name--black').element;
       const whiteName = wrapper!.find('.player-name--white').element;
       for (const nameEl of [blackName, whiteName]) {
-        expect(getComputedStyle(nameEl).overflow).not.toBe('hidden');
+        expect(computedStyleForElement(documentTreeConnectedElement(nameEl)).overflow).not.toBe('hidden');
       }
     });
 
@@ -181,7 +184,7 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c
       // for the bar's surplus once the bar is genuinely narrow.
       const hint = wrapper!.find('.transient-hint').element;
       expect(specifiedDeclarationsForElement(statusBarStylesheet!, hint, 'flex-grow').map(d => d.value)).toContain('0');
-      expect(computedCssValue(hint, 'flex-grow').value).toBe('0');
+      expect(computedCssValue(documentTreeConnectedElement(hint), 'flex-grow').value).toBe('0');
     });
 
     it('.status-bar reserves a minimum gap between its three direct children', () => {
@@ -193,8 +196,8 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c
       // at every width tier, not just narrow.
       const bar = wrapper!.find('.status-bar').element;
       expect(specifiedDeclarationsForElement(statusBarStylesheet!, bar, 'gap').map(d => d.value)).toContain('var(--space-default)');
-      expect(computedCssValue(bar, 'row-gap').value).toBe('8px');
-      expect(computedCssValue(bar, 'column-gap').value).toBe('8px');
+      expect(computedCssValue(documentTreeConnectedElement(bar), 'row-gap').value).toBe('8px');
+      expect(computedCssValue(documentTreeConnectedElement(bar), 'column-gap').value).toBe('8px');
     });
 
     it('.status-left / .status-right gaps tighten to --space-tight in narrow mode', () => {
@@ -205,12 +208,13 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c
       const right = wrapper!.find('.status-right').element;
       for (const el of [left, right]) {
         expect(specifiedDeclarationsForElement(statusBarStylesheet!, el, 'gap').map(d => d.value)).toContain('var(--space-tight)');
-        expect(computedCssValue(el, 'row-gap').value).toBe('4px');
-        expect(computedCssValue(el, 'column-gap').value).toBe('4px');
+        expect(computedCssValue(documentTreeConnectedElement(el), 'row-gap').value).toBe('4px');
+        expect(computedCssValue(documentTreeConnectedElement(el), 'column-gap').value).toBe('4px');
       }
     });
 
     it('.status-bar itself tightens its horizontal padding in narrow mode', () => {
+      const bar = wrapper!.find('.status-bar').element;
       // The compiled CSSOM rule preserves the specified shorthand,
       // so this assertion pins the narrow token itself. The computed
       // left-padding assertion separately confirms that theme.css
@@ -221,15 +225,15 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c
         'padding',
       );
       expect(specifiedPadding.map(declaration => declaration.value)).toContain('0 var(--space-tight)');
-      expect(computedCssValue(bar, 'padding-left').value).toBe('4px');
+      expect(computedCssValue(documentTreeConnectedElement(bar), 'padding-left').value).toBe('4px');
     });
 
     it('.pass-btn, .move-badge and .caps are NEVER removed from flow by narrow mode', () => {
       // The structural guarantee this bar's own header comment names:
       // these three carry no `display: none` rule at any tier.
-      expect(getComputedStyle(wrapper!.find('.pass-btn').element).display).not.toBe('none');
-      expect(getComputedStyle(wrapper!.find('.move-badge').element).display).not.toBe('none');
-      expect(getComputedStyle(wrapper!.find('.caps').element).display).not.toBe('none');
+      expect(computedStyleForElement(documentTreeConnectedElement(wrapper!.find('.pass-btn').element)).display).not.toBe('none');
+      expect(computedStyleForElement(documentTreeConnectedElement(wrapper!.find('.move-badge').element)).display).not.toBe('none');
+      expect(computedStyleForElement(documentTreeConnectedElement(wrapper!.find('.caps').element)).display).not.toBe('none');
       expect(wrapper!.find('.pass-btn').exists()).toBe(true);
       expect(wrapper!.find('.caps').exists()).toBe(true);
     });
@@ -238,7 +242,7 @@ describe('StatusBar — narrow-mode no-overflow (N1/N4 fix, status-bar-narrow-0c
       for (const selector of ['.game-info', '.move-numbers-btn']) {
         const element = wrapper!.find(selector).element;
         expect(specifiedDeclarationsForElement(statusBarStylesheet!, element, 'display').map(d => d.value)).toContain('none');
-        expect(computedCssValue(element, 'display').value).toBe('none');
+        expect(computedCssValue(documentTreeConnectedElement(element), 'display').value).toBe('none');
       }
     });
   });

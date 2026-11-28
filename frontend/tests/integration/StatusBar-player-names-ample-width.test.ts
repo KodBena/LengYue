@@ -36,7 +36,7 @@ import { i18n } from '../../src/i18n';
 import StatusBar from '../../src/components/board/StatusBar.vue';
 import { createInitialBoard } from '../../src/store/board-factory';
 import type { BoardState } from '../../src/types';
-import { installScopedSfcStylesheet } from './scoped-sfc-style';
+import { computedStyleForElement, documentTreeConnectedElement, installScopedSfcStylesheet } from './scoped-sfc-style';
 
 // vitest.config.ts sets `css: false`, so this test installs the component
 // stylesheet explicitly. The shared helper compiles the SFC's scoped CSS
@@ -79,6 +79,7 @@ describe('StatusBar — player names at ample width (defect a) and active-turn r
   it('DOM structure: each .player-name wraps a stone-chip AND a nested .player-name-text span carrying the name text (not bare text)', () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
@@ -101,6 +102,7 @@ describe('StatusBar — player names at ample width (defect a) and active-turn r
   it('defect (a): .player-name\'s flex-basis is "auto", never the literal "0" that reopened item 1', () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
@@ -111,12 +113,13 @@ describe('StatusBar — player names at ample width (defect a) and active-turn r
     // severs a flex item's content size from its ancestors' intrinsic-size
     // calculations. Pinning `auto` here is pinning the fix, not a
     // rendered pixel.
-    expect(getComputedStyle(blackName).flexBasis).toBe('auto');
+    expect(computedStyleForElement(documentTreeConnectedElement(blackName)).flexBasis).toBe('auto');
   });
 
   it('defect (f): .player-name never carries overflow clipping on any edge — the chip\'s ring has nowhere to be clipped', () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
@@ -124,7 +127,7 @@ describe('StatusBar — player names at ample width (defect a) and active-turn r
     const blackName = wrapper.find('.player-name--black').element;
     const whiteName = wrapper.find('.player-name--white').element;
     for (const el of [blackName, whiteName]) {
-      const cs = getComputedStyle(el);
+      const cs = computedStyleForElement(documentTreeConnectedElement(el));
       expect(cs.overflow).not.toBe('hidden');
       expect(cs.display).toBe('inline-flex');
     }
@@ -133,12 +136,13 @@ describe('StatusBar — player names at ample width (defect a) and active-turn r
   it('defect (f): the ellipsis/clip declarations live on .player-name-text, not on .player-name — the clip boundary moved off the chip', () => {
     const { board, metadata } = boardWithMetadata();
     wrapper = mount(StatusBar, {
+      attachTo: document.body,
       props: { board, metadata, canPass: true },
       global: { plugins: [i18n] },
     });
 
     const nameText = wrapper.find('.player-name--black .player-name-text').element;
-    const cs = getComputedStyle(nameText);
+    const cs = computedStyleForElement(documentTreeConnectedElement(nameText));
     expect(cs.overflow).toBe('hidden');
     expect(cs.textOverflow).toBe('ellipsis');
     expect(cs.whiteSpace).toBe('nowrap');
