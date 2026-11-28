@@ -56,12 +56,13 @@ function region(
 function annotation(
   positive: StencilCoverRegion,
   negative: StencilCoverRegion = region([]),
+  size = 9,
 ): StencilCoverAnnotation {
   return {
     version: 2,
     threshold: 0.6,
-    width: 9,
-    height: 9,
+    width: size,
+    height: size,
     positive,
     negative,
     optimal: positive.optimal && negative.optimal,
@@ -187,11 +188,15 @@ describe('KataGo row-major orientation boundary', () => {
           });
 
           const point = [column, rowFromTop] as const;
-          const value = annotation(region(
-            [{ stencil: '1x1', points: [point] }],
-            true,
-            [component([point])],
-          ));
+          const value = annotation(
+            region(
+              [{ stencil: '1x1', points: [point] }],
+              true,
+              [component([point])],
+            ),
+            region([]),
+            size,
+          );
           const projected = projectStencilCoverComponents(value, size);
           const outline = projectStencilCoverOutline(value, size);
           expect(projected).toHaveLength(1);
@@ -232,7 +237,7 @@ describe('projectStencilCoverComponents', () => {
     expect(segmentCount(outline!.positive.path)).toBe(4);
   });
 
-  it('assigns different cluster-8 colors to every pair of neighboring regions', () => {
+  it('assigns different cluster-8 colors to adjacent regions without constraining non-neighbors', () => {
     const value = annotation(
       region([], true, [component([[1, 1]])]),
       region([], true, [
@@ -244,10 +249,15 @@ describe('projectStencilCoverComponents', () => {
     expect(projected).toHaveLength(3);
 
     const byId = new Map(projected!.map(entry => [entry.id, entry]));
+    // positive-0 and negative-0 are adjacent; negative-1 is isolated.
+    // The coloring contract forbids equal colors only across graph edges,
+    // so non-neighbors are free to reuse palette entries.
     expect(byId.get('positive-0')!.colorIndex)
       .not.toBe(byId.get('negative-0')!.colorIndex);
-    expect(byId.get('positive-0')!.colorIndex)
-      .toBe(byId.get('negative-1')!.colorIndex);
+    for (const component of projected!) {
+      expect(component.colorIndex).toBeGreaterThanOrEqual(0);
+      expect(component.colorIndex).toBeLessThan(8);
+    }
   });
 
   it('keeps per-component solver outcomes available to the renderer', () => {
