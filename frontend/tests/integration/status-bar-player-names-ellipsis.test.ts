@@ -110,6 +110,7 @@ import {
   computedStyleForElement,
   documentTreeConnectedElement,
   installScopedSfcStylesheet,
+  specifiedDeclarationsForElement,
   specifiedDeclarationsForSelectorFragments,
 } from './scoped-sfc-style';
 
@@ -207,11 +208,12 @@ describe('StatusBar — player names elide with affordance, never clip mid-word 
     const blackComputed = computedStyleForElement(documentTreeConnectedElement(blackName.element));
     const whiteComputed = computedStyleForElement(documentTreeConnectedElement(whiteName.element));
 
-    // `.player-name` is `inline-flex` now (chip + `.player-name-text` as
-    // two independent flex children) — it is deliberately NOT the
-    // ellipsizing box itself, so it carries no overflow clipping.
-    expect(blackComputed.display).toBe('inline-flex');
-    expect(whiteComputed.display).toBe('inline-flex');
+    // The SFC specifies `inline-flex`; as flex items of `.player-names`,
+    // their computed display is blockified to `flex` by CSS Flexbox.
+    expect(specifiedDeclarationsForElement(statusBarStylesheet!, blackName.element, 'display').map(declaration => declaration.value)).toContain('inline-flex');
+    expect(specifiedDeclarationsForElement(statusBarStylesheet!, whiteName.element, 'display').map(declaration => declaration.value)).toContain('inline-flex');
+    expect(blackComputed.display).toBe('flex');
+    expect(whiteComputed.display).toBe('flex');
     expect(blackComputed.overflow).not.toBe('hidden');
     expect(whiteComputed.overflow).not.toBe('hidden');
 

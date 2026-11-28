@@ -98,29 +98,39 @@ describe('SettingsPane.vue — the six sub-tab bodies', () => {
 
 describe('Active sub-tab is shared between the two separately-mounted instances', () => {
   it('clicking a tab in the strip changes which pane is visible in the sibling component', async () => {
-    const strip = mount(SettingsSubstrip, { global: { plugins: [i18n] } });
-    const pane = mount(SettingsPane, { global: { plugins: [i18n] } });
+    const strip = mount(SettingsSubstrip, {
+      attachTo: document.body,
+      global: { plugins: [i18n] },
+    });
+    const pane = mount(SettingsPane, {
+      attachTo: document.body,
+      global: { plugins: [i18n] },
+    });
 
-    // Default: session pane visible (keepMounted=true means both panes are
-    // in the DOM, v-show toggled — isVisible() is the right check, not
-    // exists()).
-    expect(pane.find('#session-theme-select').isVisible()).toBe(true);
+    try {
+      // isVisible() is a DOM visibility witness: both component roots must
+      // belong to the document tree for v-show's style state to be observed.
+      expect(pane.find('#session-theme-select').isVisible()).toBe(true);
 
-    // Click the "Analysis Environment" tab (second tab, index 1) in the
-    // STRIP instance.
-    const tabs = strip.findAll('[role="tab"]');
-    await tabs[1].trigger('click');
-    await pane.vm.$nextTick();
+      // Click the "Analysis Environment" tab (second tab, index 1) in the
+      // STRIP instance.
+      const tabs = strip.findAll('[role="tab"]');
+      await tabs[1].trigger('click');
+      await pane.vm.$nextTick();
 
-    // The PANE instance (a completely separate component tree) now shows
-    // the Analysis Environment content — proof the shared singleton, not
-    // any parent-child prop, carries the selection.
-    expect(pane.find('#session-theme-select').isVisible()).toBe(false);
-    const forcePersistenceButtons = pane
-      .findAll('button')
-      .filter((b) => b.text() === i18n.global.t('settings.button.forcePersistence'));
-    expect(forcePersistenceButtons.length).toBe(1);
-    expect(forcePersistenceButtons[0].isVisible()).toBe(true);
+      // The PANE instance (a completely separate component tree) now shows
+      // the Analysis Environment content — proof the shared singleton, not
+      // any parent-child prop, carries the selection.
+      expect(pane.find('#session-theme-select').isVisible()).toBe(false);
+      const forcePersistenceButtons = pane
+        .findAll('button')
+        .filter((b) => b.text() === i18n.global.t('settings.button.forcePersistence'));
+      expect(forcePersistenceButtons.length).toBe(1);
+      expect(forcePersistenceButtons[0].isVisible()).toBe(true);
+    } finally {
+      strip.unmount();
+      pane.unmount();
+    }
   });
 });
 

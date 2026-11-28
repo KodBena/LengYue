@@ -23,7 +23,7 @@ import { i18n } from '../../src/i18n';
 import StatusBar from '../../src/components/board/StatusBar.vue';
 import { createInitialBoard } from '../../src/store/board-factory';
 import type { BoardState } from '../../src/types';
-import { computedStyleForElement, documentTreeConnectedElement, installScopedSfcStylesheet } from './scoped-sfc-style';
+import { computedStyleForElement, documentTreeConnectedElement, installScopedSfcStylesheet, specifiedDeclarationsForElement } from './scoped-sfc-style';
 
 const STATUS_BAR_SFC_PATH = join(__dirname, '..', '..', 'src', 'components', 'board', 'StatusBar.vue');
 
@@ -119,7 +119,7 @@ describe('StatusBar — ultra-narrow second-line tier (status-bar-narrow-0c21)',
   });
 });
 
-
+describe('StatusBar — pass control alignment and shared control-height token', () => {
   let wrapper: VueWrapper | null = null;
 
   afterEach(() => {
@@ -135,8 +135,11 @@ describe('StatusBar — ultra-narrow second-line tier (status-bar-narrow-0c21)',
       global: { plugins: [i18n] },
     });
     const passBtn = wrapper.find('.pass-btn').element;
+    const specifiedDisplay = specifiedDeclarationsForElement(statusBarStylesheet!, passBtn, 'display').map(declaration => declaration.value);
+    expect(specifiedDisplay).toContain('inline-flex');
+    // As a flex item of .status-right, its computed display is blockified.
     const cs = computedStyleForElement(documentTreeConnectedElement(passBtn));
-    expect(cs.display).toBe('inline-flex');
+    expect(cs.display).toBe('flex');
     expect(cs.alignItems).toBe('center');
     expect(cs.justifyContent).toBe('center');
   });

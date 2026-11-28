@@ -36,7 +36,7 @@ import { i18n } from '../../src/i18n';
 import StatusBar from '../../src/components/board/StatusBar.vue';
 import { createInitialBoard } from '../../src/store/board-factory';
 import type { BoardState } from '../../src/types';
-import { computedStyleForElement, documentTreeConnectedElement, installScopedSfcStylesheet } from './scoped-sfc-style';
+import { computedStyleForElement, documentTreeConnectedElement, installScopedSfcStylesheet, specifiedDeclarationsForElement } from './scoped-sfc-style';
 
 // vitest.config.ts sets `css: false`, so this test installs the component
 // stylesheet explicitly. The shared helper compiles the SFC's scoped CSS
@@ -127,9 +127,12 @@ describe('StatusBar — player names at ample width (defect a) and active-turn r
     const blackName = wrapper.find('.player-name--black').element;
     const whiteName = wrapper.find('.player-name--white').element;
     for (const el of [blackName, whiteName]) {
+      const specifiedDisplay = specifiedDeclarationsForElement(statusBarStylesheet!, el, 'display').map(declaration => declaration.value);
+      expect(specifiedDisplay).toContain('inline-flex');
       const cs = computedStyleForElement(documentTreeConnectedElement(el));
       expect(cs.overflow).not.toBe('hidden');
-      expect(cs.display).toBe('inline-flex');
+      // Flex-item blockification changes the computed value to "flex".
+      expect(cs.display).toBe('flex');
     }
   });
 
